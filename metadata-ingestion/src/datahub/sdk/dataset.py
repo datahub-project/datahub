@@ -450,6 +450,50 @@ class Dataset(
     A dataset represents a collection of data, such as a table, view, or file.
     This class provides methods for managing dataset metadata including schema,
     lineage, and various aspects like ownership, tags, and terms.
+
+    **Automatic View Lineage Parsing**
+
+    When a `view_definition` SQL string is provided, the SDK can automatically
+    parse it to extract upstream table references using sqlglot. This behavior
+    is controlled by the `parse_view_lineage` parameter:
+
+    - None (default): Auto-parse in SDK mode, skip in ingestion framework
+      (where SqlParsingAggregator handles lineage more accurately)
+    - True: Force parsing (even within the ingestion framework)
+    - False: Never parse automatically
+
+    **Features:**
+
+    - Supports all major SQL dialects (Snowflake, BigQuery, Postgres, etc.)
+    - Filters out CTEs (Common Table Expressions) from upstream tables
+    - Gracefully handles parse errors without raising exceptions
+
+    **Limitations:**
+
+    - Table-level lineage only (no column-level lineage)
+    - No schema resolution: table names are taken as-is from the SQL.
+      For fully-qualified references, ensure your view definition includes
+      the database and schema (e.g., db.schema.table)
+    - Best-effort extraction; for production-grade lineage with schema resolution
+      and additional context (e.g., temporary tables), use SqlParsingAggregator
+
+    Example::
+
+        # Auto-parsing enabled by default
+        view = Dataset(
+            platform="snowflake",
+            name="analytics.reporting.sales_summary",
+            view_definition="SELECT * FROM analytics.raw.sales WHERE year = 2024",
+        )
+        # view.upstreams now contains analytics.raw.sales
+
+        # Disable auto-parsing
+        view = Dataset(
+            platform="snowflake",
+            name="analytics.reporting.sales_summary",
+            view_definition="SELECT * FROM analytics.raw.sales",
+            parse_view_lineage=False,  # Must set upstreams manually
+        )
     """
 
     __slots__ = ()

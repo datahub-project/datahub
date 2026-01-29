@@ -114,7 +114,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "SELECT * FROM my_other_table",
+            "viewLogic": "SELECT * FROM my_db.my_schema.my_other_table",
             "viewLanguage": "SQL"
         }
     }
@@ -132,7 +132,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_other_table,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_other_table,PROD)",
                     "type": "VIEW"
                 }
             ]

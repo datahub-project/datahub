@@ -32,10 +32,17 @@ def get_dialect_str(platform: str) -> str:
     elif platform_lower == "athena":
         return "trino"
     elif platform_lower == "salesforce":
-        # Temporary workaround: treat SOQL as databricks dialect
+        # TODO: define SalesForce SOQL dialect
+        # Temporary workaround is to treat SOQL as databricks dialect
+        # At least it allows to parse simple SQL queries and build lineage for them
         return "databricks"
     elif platform_lower in {"mysql", "mariadb"}:
-        # MySQL case sensitivity depends on OS; use lowercase normalization
+        # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
+        # default behavior on Linux. However, MySQL's default case sensitivity
+        # actually depends on the underlying OS.
+        # For us, it's simpler to just assume that it's case-insensitive, and
+        # let the fuzzy resolution logic handle it.
+        # MariaDB is a fork of MySQL, so we reuse the same dialect.
         return "mysql, normalization_strategy = lowercase"
     else:
         return platform_lower

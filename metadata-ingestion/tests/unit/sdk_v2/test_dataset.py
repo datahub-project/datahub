@@ -126,7 +126,7 @@ def _build_complex_dataset() -> Dataset:
             GlossaryTermUrn("AccountBalance"),
         ],
         domain=DomainUrn("Marketing"),
-        view_definition="SELECT * FROM my_other_table",
+        view_definition="SELECT * FROM my_db.my_schema.my_other_table",
     )
 
     assert d.platform is not None
@@ -152,7 +152,7 @@ def _build_complex_dataset() -> Dataset:
     assert d.last_modified == updated
     assert d.custom_properties == {"key1": "value1", "key2": "value2"}
     assert d.view_definition is not None
-    assert d.view_definition.viewLogic == "SELECT * FROM my_other_table"
+    assert d.view_definition.viewLogic == "SELECT * FROM my_db.my_schema.my_other_table"
 
     # Check standard aspects.
     assert d.subtype == "Table"
@@ -487,7 +487,37 @@ def test_view_definition_auto_parses_lineage() -> None:
     assert "source_table" in view.view_definition.viewLogic
     assert view.upstreams is not None
     assert len(view.upstreams.upstreams) == 1
-    assert "source_table" in view.upstreams.upstreams[0].dataset
+    # Check the full URN contains the fully-qualified table name
+    assert (
+        view.upstreams.upstreams[0].dataset
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.source_table,PROD)"
+    )
+
+
+def test_view_definition_auto_parses_lineage_cross_database() -> None:
+    """
+    When view_definition is set, lineage should handle cross-database references properly.
+    """
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        view_definition="SELECT id, name FROM another_db.another_schema.source_table WHERE active = true",
+        schema=[
+            ("id", "int64"),
+            ("name", "string"),
+        ],
+    )
+
+    # Auto-parsing should happen by default
+    assert view.view_definition is not None
+    assert "source_table" in view.view_definition.viewLogic
+    assert view.upstreams is not None
+    assert len(view.upstreams.upstreams) == 1
+    # Verify cross-database reference is preserved with full path
+    assert (
+        view.upstreams.upstreams[0].dataset
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,another_db.another_schema.source_table,PROD)"
+    )
 
 
 def test_view_definition_with_multiple_sources() -> None:
@@ -504,9 +534,16 @@ def test_view_definition_with_multiple_sources() -> None:
 
     assert view.upstreams is not None
     assert len(view.upstreams.upstreams) == 2
-    upstream_names = [u.dataset for u in view.upstreams.upstreams]
-    assert any("users" in name for name in upstream_names)
-    assert any("orders" in name for name in upstream_names)
+    upstream_urns = [u.dataset for u in view.upstreams.upstreams]
+    # Check full URNs
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.users,PROD)"
+        in upstream_urns
+    )
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.orders,PROD)"
+        in upstream_urns
+    )
 
 
 def test_view_definition_explicit_upstreams_not_overwritten() -> None:
@@ -658,7 +695,9 @@ def test_view_definition_cte_handling() -> None:
     )
 
 
-def test_view_definition_sqlglot_not_installed(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_view_definition_sqlglot_not_installed(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     """When sqlglot is not installed, a warning should be logged and no upstreams set."""
     import builtins
 
@@ -672,18 +711,23 @@ def test_view_definition_sqlglot_not_installed(monkeypatch: pytest.MonkeyPatch) 
     # Mock the import BEFORE creating the dataset
     monkeypatch.setattr(builtins, "__import__", mock_import)
 
-    view = Dataset(
-        platform="snowflake",
-        name="db.schema.my_view",
-        view_definition="SELECT * FROM source_table",
-    )
+    with caplog.at_level("WARNING"):
+        view = Dataset(
+            platform="snowflake",
+            name="db.schema.my_view",
+            view_definition="SELECT * FROM source_table",
+        )
 
     # Should gracefully handle missing sqlglot during auto-parsing
     assert view.view_definition is not None
     assert view.upstreams is None
+    # Verify warning was logged
+    assert "sqlglot is not installed" in caplog.text
 
 
-def test_view_definition_sqlglot_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_view_definition_sqlglot_error(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     """SqlglotError should be logged at warning level."""
     import sqlglot
     import sqlglot.errors
@@ -694,18 +738,24 @@ def test_view_definition_sqlglot_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(sqlglot.Dialect, "get_or_raise", mock_get_or_raise)
 
-    view = Dataset(
-        platform="snowflake",
-        name="db.schema.my_view",
-        view_definition="SELECT * FROM source_table",
-    )
+    with caplog.at_level("WARNING"):
+        view = Dataset(
+            platform="snowflake",
+            name="db.schema.my_view",
+            view_definition="SELECT * FROM source_table",
+        )
 
     # Should gracefully handle SqlglotError during auto-parsing
     assert view.view_definition is not None
     assert view.upstreams is None
+    # Verify warning was logged with exception info
+    assert "Unexpected sqlglot error" in caplog.text
+    assert "Mock sqlglot error" in caplog.text
 
 
-def test_view_definition_unexpected_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_view_definition_unexpected_error(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     """Unexpected exceptions should be logged at error level."""
     import sqlglot
 
@@ -715,23 +765,42 @@ def test_view_definition_unexpected_error(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setattr(sqlglot.Dialect, "get_or_raise", mock_get_or_raise)
 
-    view = Dataset(
-        platform="snowflake",
-        name="db.schema.my_view",
-        view_definition="SELECT * FROM source_table",
-    )
+    with caplog.at_level("ERROR"):
+        view = Dataset(
+            platform="snowflake",
+            name="db.schema.my_view",
+            view_definition="SELECT * FROM source_table",
+        )
 
     # Should gracefully handle unexpected error during auto-parsing
     assert view.view_definition is not None
     assert view.upstreams is None
+    # Verify error was logged with exception info and bug report suggestion
+    assert "Failed to parse view definition" in caplog.text
+    assert "Unexpected error" in caplog.text
+    assert "bug" in caplog.text.lower()
 
 
-def test_view_definition_skipped_in_ingestion_mode() -> None:
+def test_view_definition_skipped_in_ingestion_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Auto-parsing (parse=None) should be disabled in ingestion framework."""
+    from unittest.mock import MagicMock
+
     from datahub.sdk._attribution import (
         KnownAttribution,
         change_default_attribution,
     )
+
+    # Create a spy to track if _parse_and_set_view_lineage is called
+    parse_mock = MagicMock()
+    original_parse = Dataset._parse_and_set_view_lineage
+
+    def spy_parse(self: Dataset, sql: str) -> None:
+        parse_mock(sql)
+        return original_parse(self, sql)
+
+    monkeypatch.setattr(Dataset, "_parse_and_set_view_lineage", spy_parse)
 
     # Simulate ingestion framework context
     with change_default_attribution(KnownAttribution.INGESTION):
@@ -746,6 +815,9 @@ def test_view_definition_skipped_in_ingestion_mode() -> None:
         assert view.view_definition is not None
         assert view.view_definition.viewLogic == "SELECT * FROM db.schema.source_table"
         assert view.upstreams is None  # Not auto-parsed in ingestion mode
+
+        # Verify that _parse_and_set_view_lineage was NOT called
+        parse_mock.assert_not_called()
 
 
 def test_view_definition_force_parse_in_ingestion_mode() -> None:
