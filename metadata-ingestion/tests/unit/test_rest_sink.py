@@ -311,3 +311,59 @@ def test_datahub_rest_emitter(requests_mock, record, path, snapshot):
         emitter = DatahubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
         stack.enter_context(emitter)
         emitter.emit(record)
+
+
+class TestDataHubRestSinkBatchEmission:
+    """Tests for DatahubRestSink._emit_batch_wrapper behavior."""
+
+    def test_emit_batch_wrapper_logs_when_batches_split(self, caplog):
+        """Test that _emit_batch_wrapper logs info when emit_mcps returns multiple chunks."""
+        from unittest.mock import MagicMock, PropertyMock, patch
+
+        from datahub.emitter.response_helper import TraceData
+        from datahub.ingestion.sink.datahub_rest import (
+            DatahubRestSink,
+            DataHubRestSinkReport,
+        )
+
+        # Create mock emitter that returns multiple TraceData objects
+        mock_emitter = MagicMock()
+        mock_emitter.emit_mcps.return_value = [
+            TraceData(trace_id="trace-1", data={"urn:li:dataset:1": ["status"]}),
+            TraceData(trace_id="trace-2", data={"urn:li:dataset:2": ["status"]}),
+        ]
+
+        # Create sink with mocked emitter property
+        with (
+            patch.object(
+                DatahubRestSink, "__init__", lambda self, *args, **kwargs: None
+            ),
+            patch.object(
+                DatahubRestSink, "emitter", new_callable=PropertyMock
+            ) as mock_emitter_prop,
+        ):
+            mock_emitter_prop.return_value = mock_emitter
+            sink = DatahubRestSink.__new__(DatahubRestSink)
+            sink.report = DataHubRestSinkReport()
+
+            # Create test MCPs
+            mcps = [
+                (
+                    MetadataChangeProposalWrapper(
+                        entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:test,table{i},PROD)",
+                        aspect=models.StatusClass(removed=False),
+                    ),
+                )
+                for i in range(2)
+            ]
+
+            # Call _emit_batch_wrapper
+            with caplog.at_level("INFO"):
+                sink._emit_batch_wrapper(mcps)
+
+            # Verify report was updated
+            assert sink.report.async_batches_prepared == 1
+            assert sink.report.async_batches_split == 2
+
+            # Verify log message
+            assert "payload was split into 2 batches" in caplog.text

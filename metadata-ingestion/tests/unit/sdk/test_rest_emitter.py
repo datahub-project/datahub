@@ -2011,6 +2011,22 @@ class TestGetTraceStatus:
             assert result is None
             mock_warning.assert_called_once()
 
+    def test_get_trace_status_returns_none_when_server_config_is_none(self):
+        """Test that get_trace_status() returns None when server config is explicitly None."""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
+        emitter._server_config = None  # Explicitly set to None
+
+        with patch.object(logger, "warning") as mock_warning:
+            trace = TraceData(
+                trace_id="test-trace-id",
+                data={"urn:li:dataset:test": ["status"]},
+            )
+
+            result = emitter.get_trace_status(trace)
+
+            assert result is None
+            mock_warning.assert_called_once()
+
 
 class TestOpenApiModeSelection:
     def test_sdk_client_mode_no_env_var(self, mock_session, mock_response):
