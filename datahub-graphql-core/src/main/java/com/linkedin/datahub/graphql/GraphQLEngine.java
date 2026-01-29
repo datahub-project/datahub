@@ -23,6 +23,8 @@ import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.visibility.NoIntrospectionGraphqlFieldVisibility;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.instrumentation.graphql.v20_0.GraphQLTelemetry;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -91,6 +93,9 @@ public class GraphQLEngine {
           new GraphQLTimingInstrumentation(
               metricUtils.getRegistry(), graphQLConfiguration.getMetrics()));
     }
+
+    instrumentations.add(
+        GraphQLTelemetry.builder(GlobalOpenTelemetry.get()).build().createInstrumentation());
 
     ChainedInstrumentation chainedInstrumentation = new ChainedInstrumentation(instrumentations);
     _graphQL =
