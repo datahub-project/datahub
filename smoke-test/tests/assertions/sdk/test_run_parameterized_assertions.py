@@ -312,7 +312,6 @@ PARAM_SUBSTITUTION_SUCCESS_ERRORS = ["SOURCE_QUERY_FAILED", "UNKNOWN_ERROR"]
 # =============================================================================
 
 
-@pytest.mark.remote_executor
 def test_sql_assertion_with_parameters_substituted(
     test_data: Dict[str, str],
     graph_client: DataHubGraph,
@@ -353,7 +352,6 @@ def test_sql_assertion_with_parameters_substituted(
         )
 
 
-@pytest.mark.remote_executor
 def test_sql_assertion_missing_parameters(
     test_data: Dict[str, str],
     graph_client: DataHubGraph,
@@ -398,7 +396,6 @@ def test_sql_assertion_missing_parameters(
 # =============================================================================
 
 
-@pytest.mark.remote_executor
 def test_volume_assertion_with_parameters_substituted(
     test_data: Dict[str, str],
     graph_client: DataHubGraph,
@@ -442,7 +439,6 @@ def test_volume_assertion_with_parameters_substituted(
         )
 
 
-@pytest.mark.remote_executor
 def test_volume_assertion_missing_parameters(
     test_data: Dict[str, str],
     graph_client: DataHubGraph,
@@ -490,7 +486,6 @@ def test_volume_assertion_missing_parameters(
 # =============================================================================
 
 
-@pytest.mark.remote_executor
 def test_freshness_assertion_with_parameters_substituted(
     test_data: Dict[str, str],
     graph_client: DataHubGraph,
@@ -535,7 +530,6 @@ def test_freshness_assertion_with_parameters_substituted(
         )
 
 
-@pytest.mark.remote_executor
 def test_freshness_assertion_missing_parameters(
     test_data: Dict[str, str],
     graph_client: DataHubGraph,
@@ -584,7 +578,6 @@ def test_freshness_assertion_missing_parameters(
 # =============================================================================
 
 
-@pytest.mark.remote_executor
 def test_run_assertions_batch_with_parameters(
     test_data: Dict[str, str],
     graph_client: DataHubGraph,
@@ -652,7 +645,6 @@ def test_run_assertions_batch_with_parameters(
             )
 
 
-@pytest.mark.remote_executor
 def test_run_assertions_for_asset_with_parameters(
     test_data: Dict[str, str],
     graph_client: DataHubGraph,

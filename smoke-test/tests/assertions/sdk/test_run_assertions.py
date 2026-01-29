@@ -201,7 +201,6 @@ def datahub_client(graph_client: DataHubGraph) -> DataHubClient:
 # =============================================================================
 
 
-@pytest.mark.remote_executor
 def test_freshness_datahub_operation_success(
     test_data: Dict[str, Any],
     graph_client: DataHubGraph,
@@ -242,7 +241,6 @@ def test_freshness_datahub_operation_success(
 # =============================================================================
 
 
-@pytest.mark.remote_executor
 def test_volume_dataset_profile_success(
     test_data: Dict[str, Any],
     graph_client: DataHubGraph,
@@ -280,7 +278,6 @@ def test_volume_dataset_profile_success(
         )
 
 
-@pytest.mark.remote_executor
 def test_volume_dataset_profile_failure(
     test_data: Dict[str, Any],
     graph_client: DataHubGraph,
@@ -318,7 +315,6 @@ def test_volume_dataset_profile_failure(
         )
 
 
-@pytest.mark.remote_executor
 def test_volume_dataset_profile_within_range(
     test_data: Dict[str, Any],
     graph_client: DataHubGraph,
@@ -360,7 +356,6 @@ def test_volume_dataset_profile_within_range(
 # =============================================================================
 
 
-@pytest.mark.remote_executor
 def test_run_assertions_batch_e2e(
     test_data: Dict[str, Any],
     graph_client: DataHubGraph,
@@ -438,7 +433,6 @@ def test_run_assertions_batch_e2e(
         )
 
 
-@pytest.mark.remote_executor
 def test_run_assertions_for_asset_e2e(
     test_data: Dict[str, Any],
     graph_client: DataHubGraph,
