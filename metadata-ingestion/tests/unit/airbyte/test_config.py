@@ -105,6 +105,33 @@ class TestAirbyteClientConfig:
         except ValidationError as e:
             assert "oauth2_client_id" in str(e) or "oauth2_client_secret" in str(e)
 
+    def test_oss_config_with_oauth_client_credentials(self):
+        """Test OSS config with OAuth client credentials (Airbyte 1.0+)."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+            oauth2_client_id="oss-client-id",
+            oauth2_client_secret=SecretStr("oss-client-secret"),
+        )
+        assert config.deployment_type == AirbyteDeploymentType.OPEN_SOURCE
+        assert config.oauth2_grant_type == OAuth2GrantType.CLIENT_CREDENTIALS
+        assert config.oauth2_client_id == "oss-client-id"
+        assert config.oauth2_refresh_token is None
+
+    def test_oss_config_with_refresh_token_fails(self):
+        """Test that OSS deployment rejects refresh_token (not supported)."""
+        try:
+            AirbyteClientConfig(
+                deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+                host_port="http://localhost:8000",
+                oauth2_client_id="oss-client-id",
+                oauth2_client_secret=SecretStr("oss-client-secret"),
+                oauth2_refresh_token=SecretStr("refresh-token"),
+            )
+            raise AssertionError("Expected validation to fail")
+        except ValidationError as e:
+            assert "oauth2_refresh_token is not supported for OSS" in str(e)
+
 
 class TestAirbyteSourceConfig:
     def test_basic_config(self):

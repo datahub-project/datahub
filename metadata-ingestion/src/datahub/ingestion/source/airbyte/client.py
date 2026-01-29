@@ -777,23 +777,14 @@ class AirbyteOSSClient(AirbyteBaseClient):
         self._setup_authentication()
 
     def _setup_authentication(self) -> None:
-        """
-        Set up the appropriate authentication method based on configuration.
-        Prioritizes OAuth2 > API key > username/password.
-
-        OAuth 2.0 is supported in Airbyte OSS 1.0+.
-        Obtain credentials via UI (User > User settings > Applications) or CLI (abctl local credentials).
-        """
-        # OAuth2 authentication (Airbyte OSS 1.0+)
+        """Set up authentication. Prioritizes OAuth2 > API key > username/password."""
         if self.config.oauth2_client_id and self.config.oauth2_client_secret:
             logger.debug("Using OAuth2 client credentials authentication (OSS 1.0+)")
             self._setup_oauth_authentication()
-        # API key/token authentication
         elif self.config.api_key:
             token = self.config.api_key.get_secret_value()
             self.session.headers.update({"Authorization": f"Bearer {token}"})
             logger.debug("Using API key/token authentication")
-        # Basic authentication (username/password)
         elif self.config.username:
             password = (
                 self.config.password.get_secret_value() if self.config.password else ""
@@ -814,11 +805,9 @@ class AirbyteOSSClient(AirbyteBaseClient):
         self._acquire_oauth_token()
 
     def _acquire_oauth_token(self) -> None:
-        """Acquire OAuth2 access token using client credentials grant type."""
         self._request_oauth_token()
 
     def _request_oauth_token(self) -> None:
-        """Request OAuth2 access token for OSS deployment."""
         if not self.config.oauth2_client_secret:
             raise ValueError("OAuth2 client secret is required")
 
@@ -876,27 +865,13 @@ class AirbyteOSSClient(AirbyteBaseClient):
             self._acquire_oauth_token()
 
     def _check_auth_before_request(self) -> None:
-        """Check and refresh OAuth token if needed before making API request."""
+        """Check and refresh OAuth token if needed."""
         if self.config.oauth2_client_id and self.config.oauth2_client_secret:
             self._check_token_expiry()
 
     def _get_full_url(self, endpoint: str) -> str:
-        """
-        Get the full URL for the API endpoint
-
-        Args:
-            endpoint: API endpoint
-
-        Returns:
-            Full URL for the API endpoint
-        """
+        """Get the full URL for the API endpoint."""
         return f"{self.base_url}{endpoint}"
-
-    def _check_auth_before_request(self) -> None:
-        """
-        Check authentication before making a request - no-op for OSS client
-        """
-        pass
 
 
 class AirbyteCloudClient(AirbyteBaseClient):
@@ -941,7 +916,6 @@ class AirbyteCloudClient(AirbyteBaseClient):
         self._acquire_token()
 
     def _request_oauth_token(self, grant_type: OAuth2GrantType) -> None:
-        """Request OAuth2 access token and update session headers."""
         if not self.config.oauth2_client_secret:
             raise ValueError("OAuth2 client secret is required")
 
@@ -995,15 +969,12 @@ class AirbyteCloudClient(AirbyteBaseClient):
             raise AirbyteAuthenticationError(error_message) from e
 
     def _get_client_credentials_token(self) -> None:
-        """Get OAuth2 access token using client credentials grant type."""
         self._request_oauth_token(OAuth2GrantType.CLIENT_CREDENTIALS)
 
     def _refresh_oauth_token(self) -> None:
-        """Refresh OAuth2 access token using refresh token grant type."""
         self._request_oauth_token(OAuth2GrantType.REFRESH_TOKEN)
 
     def _acquire_token(self) -> None:
-        """Acquire or refresh OAuth2 token based on configured grant type."""
         self._request_oauth_token(self.config.oauth2_grant_type)
 
     def _make_request(self, endpoint: str, params: Optional[dict] = None) -> Any:
@@ -1071,21 +1042,9 @@ class AirbyteCloudClient(AirbyteBaseClient):
             self._acquire_token()
 
     def _get_full_url(self, endpoint: str) -> str:
-        """
-        Get the full URL for the API endpoint
-
-        Args:
-            endpoint: API endpoint
-
-        Returns:
-            Full URL for the API endpoint
-        """
         return urljoin(self.base_url, endpoint.lstrip("/"))
 
     def _check_auth_before_request(self) -> None:
-        """
-        Check and refresh authentication if needed before making a request
-        """
         self._check_token_expiry()
 
     def list_workspaces(
