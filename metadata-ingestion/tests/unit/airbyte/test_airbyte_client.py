@@ -962,6 +962,50 @@ class TestClientSSLAndAuth:
 
         assert "Using basic authentication" in caplog.text
 
+    @patch("datahub.ingestion.source.airbyte.client.requests.post")
+    def test_oss_client_with_oauth2(self, mock_post, caplog):
+        """Test OSS client configured with OAuth2 client credentials (Airbyte 1.0+)."""
+        # Mock the OAuth token response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "access_token": "test-access-token-12345",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+        }
+        mock_post.return_value = mock_response
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+            oauth2_client_id="test-client-id",
+            oauth2_client_secret=SecretStr("test-client-secret"),
+        )
+
+        with caplog.at_level("DEBUG"):
+            client = AirbyteOSSClient(config)
+
+        assert (
+            "Using OAuth2 client credentials authentication (OSS 1.0+)" in caplog.text
+        )
+        assert (
+            "OAuth2 token obtained successfully via client_credentials" in caplog.text
+        )
+
+        # Verify token was set in session headers
+        assert "Authorization" in client.session.headers
+        assert (
+            client.session.headers["Authorization"] == "Bearer test-access-token-12345"
+        )
+
+        # Verify OAuth request was made to correct endpoint
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
+        assert "applications/token" in call_args[0][0]
+        assert call_args[1]["data"]["grant_type"] == "client_credentials"
+        assert call_args[1]["data"]["client_id"] == "test-client-id"
+        assert call_args[1]["data"]["client_secret"] == "test-client-secret"
+
 
 class TestClientErrorHandling:
     """Tests for error handling in client methods."""

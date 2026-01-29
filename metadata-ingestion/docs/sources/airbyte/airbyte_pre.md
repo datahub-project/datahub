@@ -16,6 +16,9 @@ You'll need to have an Airbyte instance running with configured sources and dest
    - **For Open Source (OSS)**:
 
      - The URL of your Airbyte instance (host and port)
+     - **OAuth2 client credentials** (Airbyte 1.0+) - obtain via:
+       - UI: Navigate to **User > User settings > Applications** to create an application and copy credentials
+       - CLI: Run `abctl local credentials` (abctl v0.11.0+)
      - Username and password if basic authentication is enabled
      - API token if available
 

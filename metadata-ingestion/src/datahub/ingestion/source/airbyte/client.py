@@ -46,13 +46,18 @@ API Response Validation:
 - Source layer validates responses using Pydantic models via model_validate()
 - This keeps the client layer thin and the validation logic centralized
 
-OAuth 2.0 Authentication (Cloud only):
+OAuth 2.0 Authentication:
 
-The AirbyteCloudClient supports two OAuth 2.0 grant types:
+OSS Deployment (Airbyte 1.0+):
+- Supports client_credentials grant type
+- Obtain credentials via: abctl local credentials
+- Automatic token refresh with 10-minute buffer before expiry
+
+Cloud Deployment:
+- Supports both refresh_token and client_credentials grant types
 - refresh_token (default): Uses a refresh token to obtain access tokens
 - client_credentials: Uses client credentials directly for access tokens
-
-Both flows support automatic token refresh with a 10-minute buffer before expiry.
+- Automatic token refresh with 10-minute buffer before expiry
 """
 
 logger = logging.getLogger(__name__)
@@ -774,12 +779,21 @@ class AirbyteOSSClient(AirbyteBaseClient):
     def _setup_authentication(self) -> None:
         """
         Set up the appropriate authentication method based on configuration.
-        Prioritizes API key/token over username/password if both are provided.
+        Prioritizes OAuth2 > API key > username/password.
+
+        OAuth 2.0 is supported in Airbyte OSS 1.0+.
+        Obtain credentials via UI (User > User settings > Applications) or CLI (abctl local credentials).
         """
-        if self.config.api_key:
+        # OAuth2 authentication (Airbyte OSS 1.0+)
+        if self.config.oauth2_client_id and self.config.oauth2_client_secret:
+            logger.debug("Using OAuth2 client credentials authentication (OSS 1.0+)")
+            self._setup_oauth_authentication()
+        # API key/token authentication
+        elif self.config.api_key:
             token = self.config.api_key.get_secret_value()
             self.session.headers.update({"Authorization": f"Bearer {token}"})
             logger.debug("Using API key/token authentication")
+        # Basic authentication (username/password)
         elif self.config.username:
             password = (
                 self.config.password.get_secret_value() if self.config.password else ""
@@ -788,6 +802,83 @@ class AirbyteOSSClient(AirbyteBaseClient):
             logger.debug("Using basic authentication")
         else:
             logger.debug("No authentication credentials provided")
+
+    def _setup_oauth_authentication(self) -> None:
+        """Set up OAuth2 authentication for Airbyte OSS with client credentials grant."""
+        if not self.config.oauth2_client_id or not self.config.oauth2_client_secret:
+            raise ValueError(
+                "OAuth2 client ID and client secret are required for OAuth authentication"
+            )
+
+        # OSS only supports client_credentials grant type
+        self._acquire_oauth_token()
+
+    def _acquire_oauth_token(self) -> None:
+        """Acquire OAuth2 access token using client credentials grant type."""
+        self._request_oauth_token()
+
+    def _request_oauth_token(self) -> None:
+        """Request OAuth2 access token for OSS deployment."""
+        if not self.config.oauth2_client_secret:
+            raise ValueError("OAuth2 client secret is required")
+
+        # For OSS, the token endpoint is /api/public/v1/applications/token
+        # See: https://docs.airbyte.com/using-airbyte/configuring-api-access
+        token_url = f"{self.base_url}/applications/token"
+
+        token_data = {
+            "client_id": self.config.oauth2_client_id,
+            "client_secret": self.config.oauth2_client_secret.get_secret_value(),
+            "grant_type": "client_credentials",
+        }
+
+        try:
+            response = requests.post(
+                token_url,
+                data=token_data,
+                headers={"Content-Type": CONTENT_TYPE_FORM_URLENCODED},
+                timeout=self.config.request_timeout,
+                verify=self.session.verify,
+            )
+            response.raise_for_status()
+            token_response = response.json()
+            access_token = token_response.get("access_token")
+
+            if not access_token:
+                raise ValueError("No access_token in OAuth response")
+
+            self.session.headers.update({"Authorization": f"Bearer {access_token}"})
+
+            # Store token expiry for future refresh
+            expires_in = token_response.get("expires_in", DEFAULT_TOKEN_EXPIRY_SECONDS)
+            self.token_expiry = time.time() + expires_in
+
+            logger.debug("OAuth2 token obtained successfully via client_credentials")
+        except requests.HTTPError as e:
+            error_message = f"Failed to get OAuth2 token: HTTP {e.response.status_code}"
+            try:
+                error_details = e.response.json()
+                error_message += f" - {error_details.get('error_description', error_details.get('message', e.response.text))}"
+            except (ValueError, KeyError):
+                error_message += f" - {e.response.text}"
+            logger.error(error_message)
+            raise AirbyteAuthenticationError(error_message) from e
+        except Exception as e:
+            error_message = f"Failed to get OAuth2 token: {str(e)}"
+            logger.error(error_message)
+            raise AirbyteAuthenticationError(error_message) from e
+
+    def _check_token_expiry(self) -> None:
+        """Check token expiry with 10-minute buffer to avoid race conditions."""
+        if hasattr(self, "token_expiry") and time.time() >= (
+            self.token_expiry - TOKEN_REFRESH_BUFFER_SECONDS
+        ):
+            self._acquire_oauth_token()
+
+    def _check_auth_before_request(self) -> None:
+        """Check and refresh OAuth token if needed before making API request."""
+        if self.config.oauth2_client_id and self.config.oauth2_client_secret:
+            self._check_token_expiry()
 
     def _get_full_url(self, endpoint: str) -> str:
         """
