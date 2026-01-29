@@ -2,11 +2,9 @@ import dataclasses
 import json
 import logging
 import re
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
-import dateutil.parser
 import requests
 from packaging import version
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -36,8 +34,14 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    parse_dbt_timestamp,
 )
-from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
+from datahub.ingestion.source.dbt.dbt_tests import (
+    DBTFreshnessInfo,
+    DBTTest,
+    DBTTestResult,
+    parse_freshness_criteria,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +182,7 @@ def extract_dbt_entities(
     only_include_if_in_catalog: bool,
     include_database_name: bool,
     report: DBTSourceReport,
+    sources_invocation_id: Optional[str] = None,
 ) -> List[DBTNode]:
     sources_by_id = {x["unique_id"]: x for x in sources_results}
 
@@ -249,10 +254,32 @@ def extract_dbt_entities(
         tags = manifest_node.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
 
-        max_loaded_at_str = sources_by_id.get(key, {}).get("max_loaded_at")
+        source_result = sources_by_id.get(key, {})
+        max_loaded_at_str = source_result.get("max_loaded_at")
         max_loaded_at = None
         if max_loaded_at_str:
             max_loaded_at = parse_dbt_timestamp(max_loaded_at_str)
+
+        freshness_info = None
+        if source_result and source_result.get("status"):
+            snapshotted_at_str = source_result.get("snapshotted_at")
+            snapshotted_at = (
+                parse_dbt_timestamp(snapshotted_at_str) if snapshotted_at_str else None
+            )
+            criteria = source_result.get("criteria", {})
+
+            if max_loaded_at and snapshotted_at:
+                freshness_info = DBTFreshnessInfo(
+                    invocation_id=sources_invocation_id or "unknown",
+                    status=source_result.get("status", ""),
+                    max_loaded_at=max_loaded_at,
+                    snapshotted_at=snapshotted_at,
+                    max_loaded_at_time_ago_in_s=source_result.get(
+                        "max_loaded_at_time_ago_in_s", 0.0
+                    ),
+                    warn_after=parse_freshness_criteria(criteria.get("warn_after")),
+                    error_after=parse_freshness_criteria(criteria.get("error_after")),
+                )
 
         test_info = None
         if manifest_node.get("resource_type") == "test":
@@ -306,6 +333,7 @@ def extract_dbt_entities(
                 "compiled_code", manifest_node.get("compiled_sql")
             ),  # Backward compatibility dbt <=v1.2
             test_info=test_info,
+            freshness_info=freshness_info,
         )
 
         # Load columns from catalog, and override some properties from manifest.
@@ -327,10 +355,6 @@ def extract_dbt_entities(
         dbt_entities.append(dbtNode)
 
     return dbt_entities
-
-
-def parse_dbt_timestamp(timestamp: str) -> datetime:
-    return dateutil.parser.parse(timestamp)
 
 
 class DBTRunTiming(BaseModel):
@@ -552,11 +576,15 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 message="Some metadata, particularly schema information, will be missing.",
             )
 
+        sources_invocation_id = None
         if self.config.sources_path is not None:
             dbt_sources_json = self.load_file_as_json(
                 self.config.sources_path, self.config.aws_connection
             )
             sources_results = dbt_sources_json["results"]
+            sources_invocation_id = dbt_sources_json.get("metadata", {}).get(
+                "invocation_id"
+            )
         else:
             sources_results = {}
 
@@ -592,6 +620,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             only_include_if_in_catalog=self.config.only_include_if_in_catalog,
             include_database_name=self.config.include_database_name,
             report=self.report,
+            sources_invocation_id=sources_invocation_id,
         )
 
         return (
