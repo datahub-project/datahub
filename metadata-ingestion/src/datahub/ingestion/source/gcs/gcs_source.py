@@ -254,6 +254,10 @@ class GCSSource(StatefulIngestionSourceBase):
         # Load credentials from file (this method works correctly)
         try:
             credentials, project_id = load_credentials_from_file(wif_config_file)
+            # Impersonation (WIF → SA) requires scopes; otherwise IAM returns 400 "Scope required."
+            credentials = credentials.with_scopes(
+                ["https://www.googleapis.com/auth/cloud-platform"]
+            )
 
             # Try to refresh credentials to validate they work
             # If refresh fails, log a warning but continue - the GCS client libraries
@@ -272,6 +276,15 @@ class GCSSource(StatefulIngestionSourceBase):
 
             # Set environment variable for GCS client libraries
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = wif_config_file
+
+            # For boto3 to work with GCS, we need to provide credentials
+            # Since WIF provides OAuth2 credentials (not HMAC keys), we need to
+            # get an access token and configure boto3 to use it
+            # Store the credentials object so we can use it later if needed
+            # Note: boto3 doesn't natively support OAuth2 tokens, so this is a limitation
+            # The S3 source will need to be modified to handle WIF credentials properly
+            self._wif_credentials = credentials
+            self._wif_project_id = project_id
 
             logger.info("Successfully set up Workload Identity Federation credentials")
 
