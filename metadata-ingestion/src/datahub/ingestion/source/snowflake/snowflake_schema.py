@@ -177,6 +177,7 @@ class SnowflakeTable(BaseTable):
     is_dynamic: bool = False
     is_iceberg: bool = False
     is_hybrid: bool = False
+    retention_time: Optional[int] = None  # DATA_RETENTION_TIME_IN_DAYS
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.TABLE
@@ -590,6 +591,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     is_dynamic=is_dynamic,
                     is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
                     is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
+                    retention_time=table.get("RETENTION_TIME"),
                 )
             )
 
@@ -624,6 +626,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     is_dynamic=is_dynamic,
                     is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
                     is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
+                    retention_time=table.get("RETENTION_TIME"),
                 )
             )
 
