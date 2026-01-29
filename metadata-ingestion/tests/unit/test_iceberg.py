@@ -2000,3 +2000,28 @@ class TestGlueCatalogRoleAssumption:
             == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYZEXAMPLEKEY2"
         )
         assert updated_config["glue.session-token"] == "FwoGZXIvYXdzEBYaDH2..."
+
+
+def test_biglake_catalog_config():
+    biglake_config = {
+        "catalog": {
+            "biglake_catalog": {
+                "type": "rest",
+                "uri": "https://biglake.googleapis.com/v1/projects/test-project/locations/us-central1/catalogs/test_catalog",
+                "warehouse": "gs://test-bucket/iceberg/",
+                "auth": {"type": "google"},
+                "header.x-goog-user-project": "test-project",
+                "header.X-Iceberg-Access-Delegation": "",
+            }
+        }
+    }
+
+    config = IcebergSourceConfig.model_validate(biglake_config)
+
+    catalog_name, catalog_config = next(iter(config.catalog.items()))
+    assert catalog_name == "biglake_catalog"
+    assert catalog_config["type"] == "rest"
+    assert catalog_config["auth"]["type"] == "google"
+    assert catalog_config["header.x-goog-user-project"] == "test-project"
+    assert catalog_config["header.X-Iceberg-Access-Delegation"] == ""
+    assert catalog_config["warehouse"].startswith("gs://")
