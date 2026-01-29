@@ -53,6 +53,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
+- #15840 The Vertex AI source config `project_id` is deprecated in favor of `project_ids` (plural) to support multi-project ingestion. **Existing configs will continue to work** - the value is automatically converted and a warning is logged. No action required immediately, but we recommend updating your config. See the [Vertex AI source documentation](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/docs/sources/vertexai/vertexai_recipe.yml) for configuration examples and migration details.
+
 ### Other Notable Changes
 
 - (Ingestion) BigQuery source: Improved `dataset_pattern` filtering to apply earlier in the ingestion pipeline, reducing unnecessary API calls to BigQuery for datasets that will be filtered out.
