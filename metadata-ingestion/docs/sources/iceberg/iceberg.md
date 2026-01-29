@@ -277,7 +277,7 @@ source:
 - Implementing fine-grained access control through BigLake
 - Avoiding long-lived service account keys
 
-BigLake will generate short-lived STS tokens scoped to the specific tables being accessed.
+BigLake will generate short-lived service account token scoped to the specific tables being accessed.
 
 #### Troubleshooting
 
