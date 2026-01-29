@@ -52,7 +52,7 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser
+from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -262,12 +262,12 @@ class Mapper:
 
         for lineage in upstream_lineage:
             for upstream_dpt in lineage.upstreams:
-                if (
+                platform_name = (
                     upstream_dpt.data_platform_pair.powerbi_data_platform_name
-                    not in self.__config.dataset_type_mapping
-                ):
+                )
+                if not self.__config.is_platform_in_dataset_type_mapping(platform_name):
                     logger.debug(
-                        f"Skipping upstream table for {ds_urn}. The platform {upstream_dpt.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
+                        f"Skipping upstream table for {ds_urn}. The platform {platform_name} is not part of dataset_type_mapping",
                     )
                     continue
 
@@ -412,9 +412,15 @@ class Mapper:
             logger.debug(f"dataset_urn={ds_urn}")
             # Create datasetProperties mcp
             if table.expression:
+                # Convert PowerBI special characters (#(lf), (lf), #(tab)) to actual characters
+                # This is done after all parsing is complete to avoid interfering with M-Query parsing
+
+                converted_expression = native_sql_parser.remove_special_characters(
+                    table.expression
+                )
                 view_properties = ViewPropertiesClass(
                     materialized=False,
-                    viewLogic=table.expression,
+                    viewLogic=converted_expression,
                     viewLanguage="m_query",
                 )
                 view_prop_mcp = self.new_mcp(

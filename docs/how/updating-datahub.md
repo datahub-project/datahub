@@ -57,6 +57,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.
 - #14968: Added an ingestion source for IBM Db2 databases.
 - #7838: Added maintenance window banner feature. Administrators can now display a banner across the DataHub UI to communicate scheduled maintenance, service degradations, or important announcements. The banner supports three severity levels (INFO, WARNING, CRITICAL) with corresponding colors and optional links. Enable/disable via the OpenAPI endpoints at `/openapi/operations/maintenance` (requires MANAGE_SYSTEM_OPERATIONS privilege).
+- #15824: The Databricks ingestion source now additionally supports authentication via M2M OAuth or Databricks unified authentication. The Azure authentication method now supports profiling as well as ingesting lineage from system tables.
 
 ## 1.3.0
 

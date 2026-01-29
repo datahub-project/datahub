@@ -413,24 +413,6 @@ class UnityCatalogSourceConfig(
             )
         return workspace_url
 
-    @model_validator(mode="before")
-    def either_token_or_azure_auth_provided(cls, values: dict) -> dict:
-        token = values.get("token")
-        azure_auth = values.get("azure_auth")
-
-        # Check if exactly one of the authentication methods is provided
-        if not token and not azure_auth:
-            raise ValueError(
-                "Either 'azure_auth' or 'token' (personal access token) must be provided in the configuration."
-            )
-
-        if token and azure_auth:
-            raise ValueError(
-                "Cannot specify both 'token' and 'azure_auth'. Please provide only one authentication method."
-            )
-
-        return values
-
     @field_validator("include_metastore", mode="after")
     @classmethod
     def include_metastore_warning(cls, v: bool) -> bool:

@@ -1019,106 +1019,6 @@ public class UsageEventIndexUtilsTest {
         .performLowLevelRequest(Mockito.any(Request.class));
   }
 
-  @Test(expectedExceptions = ResponseException.class)
-  public void testCreateDataStream_OtherError() throws IOException {
-    // Arrange
-    String dataStreamName = "test_datastream";
-
-    // Mock GET request returning 404 (data stream doesn't exist)
-    // Create a separate ResponseException for the GET 404
-    ResponseException getException = Mockito.mock(ResponseException.class);
-    // FIX: Production code checks e.getMessage().contains("404")
-    Mockito.when(getException.getMessage()).thenReturn("404 Not Found");
-    org.opensearch.client.Response getResponse = Mockito.mock(org.opensearch.client.Response.class);
-    Mockito.when(getException.getResponse()).thenReturn(getResponse);
-    Mockito.when(getResponse.getStatusLine())
-        .thenReturn(
-            new org.apache.http.StatusLine() {
-              @Override
-              public int getStatusCode() {
-                return 404;
-              }
-
-              @Override
-              public String getReasonPhrase() {
-                return "Not Found";
-              }
-
-              @Override
-              public org.apache.http.ProtocolVersion getProtocolVersion() {
-                return null;
-              }
-            });
-
-    // Then mock PUT request throwing ResponseException with 500
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
-        .thenThrow(getException) // First call: GET returns 404
-        .thenThrow(responseException); // Second call: PUT returns 500
-
-    // Mock 500 for PUT (error)
-    Mockito.when(responseException.getResponse())
-        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
-    Mockito.when(responseException.getResponse().getStatusLine())
-        .thenReturn(
-            new org.apache.http.StatusLine() {
-              @Override
-              public int getStatusCode() {
-                return 500;
-              }
-
-              @Override
-              public String getReasonPhrase() {
-                return "Internal Server Error";
-              }
-
-              @Override
-              public org.apache.http.ProtocolVersion getProtocolVersion() {
-                return null;
-              }
-            });
-    Mockito.when(responseException.getMessage()).thenReturn("Some other error");
-
-    // Act
-    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
-  }
-
-  @Test(expectedExceptions = ResponseException.class)
-  public void testCreateDataStream_ExistenceCheckError() throws IOException {
-    // Arrange
-    String dataStreamName = "test_datastream";
-
-    // Mock GET request returning 500 (error checking existence)
-    // This should propagate the error and not attempt creation
-    // FIX: getMessage() must NOT contain "404" so the exception is re-thrown
-    Mockito.when(responseException.getMessage()).thenReturn("500 Internal Server Error");
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
-        .thenThrow(responseException);
-    Mockito.when(responseException.getResponse())
-        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
-    Mockito.when(responseException.getResponse().getStatusLine())
-        .thenReturn(
-            new org.apache.http.StatusLine() {
-              @Override
-              public int getStatusCode() {
-                return 500;
-              }
-
-              @Override
-              public String getReasonPhrase() {
-                return "Internal Server Error";
-              }
-
-              @Override
-              public org.apache.http.ProtocolVersion getProtocolVersion() {
-                return null;
-              }
-            });
-    Mockito.when(responseException.getMessage()).thenReturn("Error checking existence");
-
-    // Act
-    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
-  }
-
   @Test
   public void testCreateDataStream_GetReturnsUnexpectedStatus_ProceedsToCreate()
       throws IOException {
@@ -1240,6 +1140,106 @@ public class UsageEventIndexUtilsTest {
     // Assert - Should make 2 calls: GET (404) then PUT (202)
     Mockito.verify(searchClient, Mockito.times(2))
         .performLowLevelRequest(Mockito.any(Request.class));
+  }
+
+  @Test(expectedExceptions = ResponseException.class)
+  public void testCreateDataStream_OtherError() throws IOException {
+    // Arrange
+    String dataStreamName = "test_datastream";
+
+    // Mock GET request returning 404 (data stream doesn't exist)
+    // Create a separate ResponseException for the GET 404
+    ResponseException getException = Mockito.mock(ResponseException.class);
+    // FIX: Production code checks e.getMessage().contains("404")
+    Mockito.when(getException.getMessage()).thenReturn("404 Not Found");
+    org.opensearch.client.Response getResponse = Mockito.mock(org.opensearch.client.Response.class);
+    Mockito.when(getException.getResponse()).thenReturn(getResponse);
+    Mockito.when(getResponse.getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 404;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Not Found";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+
+    // Then mock PUT request throwing ResponseException with 500
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(getException) // First call: GET returns 404
+        .thenThrow(responseException); // Second call: PUT returns 500
+
+    // Mock 500 for PUT (error)
+    Mockito.when(responseException.getResponse())
+        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
+    Mockito.when(responseException.getResponse().getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 500;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Internal Server Error";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+    Mockito.when(responseException.getMessage()).thenReturn("Some other error");
+
+    // Act
+    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+  }
+
+  @Test(expectedExceptions = ResponseException.class)
+  public void testCreateDataStream_ExistenceCheckError() throws IOException {
+    // Arrange
+    String dataStreamName = "test_datastream";
+
+    // Mock GET request returning 500 (error checking existence)
+    // This should propagate the error and not attempt creation
+    // FIX: getMessage() must NOT contain "404" so the exception is re-thrown
+    Mockito.when(responseException.getMessage()).thenReturn("500 Internal Server Error");
+    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+        .thenThrow(responseException);
+    Mockito.when(responseException.getResponse())
+        .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
+    Mockito.when(responseException.getResponse().getStatusLine())
+        .thenReturn(
+            new org.apache.http.StatusLine() {
+              @Override
+              public int getStatusCode() {
+                return 500;
+              }
+
+              @Override
+              public String getReasonPhrase() {
+                return "Internal Server Error";
+              }
+
+              @Override
+              public org.apache.http.ProtocolVersion getProtocolVersion() {
+                return null;
+              }
+            });
+    Mockito.when(responseException.getMessage()).thenReturn("Error checking existence");
+
+    // Act
+    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
   }
 
   @Test

@@ -398,6 +398,8 @@ public class GraphQLEngineFactory {
     args.setS3Util(s3Util);
     args.setSampleDataService(sampleDataService);
     args.setRateLimitThrottle(rateLimitThrottle);
+    args.setSemanticSearchConfiguration(
+        configProvider.getElasticSearch().getEntityIndex().getSemanticSearch());
 
     // Saas Only
     try {

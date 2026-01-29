@@ -3292,3 +3292,82 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **1960378bb9** - fix(ui) Fix error page when switching to executors tab (#15910)
   *by Chris Collins <chriscollins3456@gmail.com> on 2026-01-16*
+
+## Upstream Merge Session - 2026-01-27 04:50:36
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 22
+- **Strategy**: stacked
+- **Started**: 2026-01-27 04:50:36
+
+### Commits Included in This Merge
+
+- **156318af0d** - fix(ui) Add ingestion source docs links (#15911)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-01-16*
+
+- **7940f3e7c0** - chore(bump): bump and document urllib3 limitation (#15890)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-01-16*
+
+- **462c93080e** - docs: update datahub logo (#15904)
+  *by Gray Ayer <grayayer@gmail.com> on 2026-01-18*
+
+- **303acb5118** - fix(ingestion): Use separate conditional for MCE processor (#15860)
+  *by Harsh Verma <redblackcoder@users.noreply.github.com> on 2026-01-19*
+
+- **6bf46157d5** - chore: add kardeepak-datahub to DataHub team members list (#15925)
+  *by kardeepak-datahub <kar.kumar@datahub.com> on 2026-01-20*
+
+- **e4252b71a0** - fix(ci): add auto-retry for additional workflows (#15928)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-20*
+
+- **71f0b207be** - fix(datahub-upgrade): Use proper data stream API for createDataStream() (#15942)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-01-21*
+
+- **8563397604** - perf(ingestion-qlik_sense): enforce scoped Qlik ingestion to eliminate full environment scans (#15837)
+  *by krupakar pontati <krupakar010@gmail.com> on 2026-01-22*
+
+- **7b5d1f1b95** - fix(structured-properties): allow updating properties that already have badge enabled (#15845)
+  *by Pedro Silva <pedro@acryl.io> on 2026-01-22*
+
+- **110596c649** - fix(CLI): add complex types to schemas in dataset upload (#15937)
+  *by Kevin Karch <kevin.karch@acryl.io> on 2026-01-22*
+
+- **8107ac744f** - docs(assertions): Add Query Attr to Sidebar (#15952)
+  *by Adrian Machado <adrian.machado@datahub.com> on 2026-01-22*
+
+- **9579015311** - docs(ui): Add MFE usage and build instructions (#15713)
+  *by philip-nikolov-jpmc <philip.nikolov@chase.com> on 2026-01-22*
+
+- **801c459e74** - feat(databricks): add support for OAuth and unified auth (#15824)
+  *by Michael Maltese <michael.maltese@datahub.com> on 2026-01-22*
+
+- **86a9275d18** - fix(frontend): prevent open redirect in redirectTrailingSlash (#15951)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-01-22*
+
+- **1653c345aa** - fix(ingestion/powerbi): Fix PowerBI ODBC upstream lineage mapping and SQL parsing issues (#15756)
+  *by Brock Griffey <52086127+brock-acryl@users.noreply.github.com> on 2026-01-22*
+
+- **c1af6b111c** - fix(validator): handle empty collections and system update source in … (#15960)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-01-22*
+
+- **f7527484f1** - fix(docs): remove use of tabs where deeplinking is needed (#15958)
+  *by Michael Maltese <michael.maltese@datahub.com> on 2026-01-22*
+
+- **b9f8949655** - chore(ingestion): validate connector deps (#15725)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-01-23*
+
+- **61f268abf4** - fix(ingestion): prevent platform instance duplication in browse paths (#15916)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-01-23*
+
+- **598b5c4b37** - chore(ingestion/dataplex): clean up gitignore and readme in connector code (#15967)
+  *by Jonny Dixon <45681293+acrylJonny@users.noreply.github.com> on 2026-01-23*
+
+- **7dfb38221b** - feat(graphql): add semantic search configuration API (#15959)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-01-23*
+
+- **c2b95f1bbf** - feat(ui): add Notion as ingestion source in UI (#8026) (#15970)
+  *by Anna Everhart <149417426+annadoesdesign@users.noreply.github.com> on 2026-01-23*
