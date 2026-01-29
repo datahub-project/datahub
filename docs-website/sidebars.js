@@ -51,6 +51,21 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          label: "Agent Context Kit",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/dev-guides/agent-context/agent-context",
+          },
+          items: [
+            {
+              label: "Langchain",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/langchain",
+            },
+          ],
+        },
+        {
           label: "Assertions (Data Quality)",
           type: "category",
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
