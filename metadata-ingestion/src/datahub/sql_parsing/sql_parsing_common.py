@@ -10,6 +10,44 @@ PLATFORMS_WITH_CASE_SENSITIVE_TABLES = {
     "db2",
 }
 
+
+def get_dialect_str(platform: str) -> str:
+    """Map DataHub platform names to sqlglot dialect names.
+
+    Most DataHub platform names map directly to sqlglot dialect names,
+    but some platforms require translation.
+
+    Args:
+        platform: The DataHub platform name (e.g., "snowflake", "mssql")
+
+    Returns:
+        The corresponding sqlglot dialect string
+    """
+    platform_lower = platform.lower()
+
+    if platform_lower == "presto-on-hive":
+        return "hive"
+    elif platform_lower == "mssql":
+        return "tsql"
+    elif platform_lower == "athena":
+        return "trino"
+    elif platform_lower == "salesforce":
+        # TODO: define SalesForce SOQL dialect
+        # Temporary workaround is to treat SOQL as databricks dialect
+        # At least it allows to parse simple SQL queries and build lineage for them
+        return "databricks"
+    elif platform_lower in {"mysql", "mariadb"}:
+        # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
+        # default behavior on Linux. However, MySQL's default case sensitivity
+        # actually depends on the underlying OS.
+        # For us, it's simpler to just assume that it's case-insensitive, and
+        # let the fuzzy resolution logic handle it.
+        # MariaDB is a fork of MySQL, so we reuse the same dialect.
+        return "mysql, normalization_strategy = lowercase"
+    else:
+        return platform_lower
+
+
 DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # Column identifiers are case-insensitive in BigQuery, so we need to
     # do a normalization step beforehand to make sure it's resolved correctly.
