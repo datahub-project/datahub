@@ -233,9 +233,32 @@ Ingestion can be used with tracing enabled however it does require using a `ASYN
 can be enabled by setting a couple environment variables shown below.
 
 ```shell
-  DATAHUB_REST_SINK_DEFAULT_ENDPOINT=OPENAPI \
-  DATAHUB_EMIT_MODE=ASYNC_WAIT \
-  datahub ingest ...
+DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT=OPENAPI \
+DATAHUB_EMIT_MODE=ASYNC_WAIT \
+datahub ingest ...
+```
+
+### Client-Side Trace Logging
+
+For debugging purposes, you can enable client-side trace ID logging in the Python REST emitter by setting the
+`DATAHUB_EMITTER_TRACE` environment variable. When enabled, the emitter will log trace IDs, timestamps, URNs, and
+aspect names for each MCP emission.
+
+```shell
+DATAHUB_EMITTER_TRACE=true \
+datahub ingest ...
+```
+
+Example log output:
+
+```text
+INFO - MCP trace_id=00062c53a468cbd8077e7dd079846870 timestamp=1737587612508 urn=urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD) aspect=status
+```
+
+For batch emissions, the log will show all URNs in the batch:
+
+```text
+INFO - MCP batch trace_id=00062c53a468cbd8077e7dd079846870 timestamp=1737587612508 urns=['urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_orders,PROD)']
 ```
 
 ## Trace Performance
