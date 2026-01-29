@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Union
 
 from google.auth import load_credentials_from_file
 from google.auth.transport.requests import Request
@@ -43,9 +43,79 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client, S3ServiceResource
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 GCS_ENDPOINT_URL = "https://storage.googleapis.com"
+
+# S3 API operations used by the S3 source when browsing/reading GCS
+_GCS_OAUTH_S3_OPERATIONS = (
+    "ListBuckets",
+    "ListObjectsV2",
+    "ListObjects",
+    "GetObject",
+    "HeadObject",
+    "GetObjectTagging",
+    "GetBucketTagging",
+)
+
+
+def _register_gcs_oauth_before_send(
+    client: Any,
+    credentials: Any,
+    project_id: Optional[str],
+) -> None:
+    """
+    Register a before-send handler on the boto3 S3 client to inject
+    Authorization: Bearer <token> for GCS (Workload Identity Federation).
+    boto3 uses SigV4 by default; GCS XML API accepts Bearer tokens instead.
+    """
+
+    def inject_bearer(request: Any, **kwargs: Any) -> None:
+        import time
+
+        need_refresh = not getattr(credentials, "token", None)
+        if not need_refresh and getattr(credentials, "expiry", None) is not None:
+            need_refresh = credentials.expiry.timestamp() < time.time()
+        if need_refresh:
+            credentials.refresh(Request())
+        request.headers["Authorization"] = f"Bearer {credentials.token}"
+        if project_id:
+            request.headers["x-goog-project-id"] = project_id
+
+    for op in _GCS_OAUTH_S3_OPERATIONS:
+        client.meta.events.register(f"before-send.s3.{op}", inject_bearer)
+
+
+class GCSOAuthAwsConnectionConfig(AwsConnectionConfig):
+    """
+    AwsConnectionConfig-compatible wrapper for GCS with Workload Identity Federation.
+    Uses dummy AWS-style keys so boto3 creates a session; before-send handlers
+    replace the Authorization header with Bearer <token> from WIF credentials.
+    Only used when auth_type is workload_identity_federation.
+    """
+
+    def get_s3_client(
+        self, verify_ssl: Optional[Union[bool, str]] = None
+    ) -> "S3Client":
+        client = super().get_s3_client(verify_ssl=verify_ssl)
+        creds = getattr(self, "_gcs_oauth_credentials", None)
+        project_id = getattr(self, "_gcs_oauth_project_id", None)
+        if creds is not None:
+            _register_gcs_oauth_before_send(client, creds, project_id)
+        return client
+
+    def get_s3_resource(
+        self, verify_ssl: Optional[Union[bool, str]] = None
+    ) -> "S3ServiceResource":
+        resource = super().get_s3_resource(verify_ssl=verify_ssl)
+        creds = getattr(self, "_gcs_oauth_credentials", None)
+        project_id = getattr(self, "_gcs_oauth_project_id", None)
+        if creds is not None:
+            _register_gcs_oauth_before_send(resource.meta.client, creds, project_id)
+        return resource
 
 
 class GCSAuthType(str, Enum):
@@ -325,17 +395,26 @@ class GCSSource(StatefulIngestionSourceBase):
                     "One of gcp_wif_configuration, gcp_wif_configuration_json, or gcp_wif_configuration_json_string is required when auth_type is 'workload_identity_federation'"
                 )
 
-            # For workload identity federation, we don't use HMAC credentials
-            # The authentication will be handled by the Google Cloud client libraries
-            # using the GOOGLE_APPLICATION_CREDENTIALS environment variable
+            # For workload identity federation, we don't use HMAC credentials.
+            # Use a GCS OAuth config that injects Bearer token into boto3 requests.
             self._setup_wif_credentials()
+
+            aws_config = GCSOAuthAwsConnectionConfig(
+                aws_endpoint_url=GCS_ENDPOINT_URL,
+                aws_region="auto",
+                aws_access_key_id="gcs-oauth",
+                aws_secret_access_key="not-used",
+            )
+            object.__setattr__(
+                aws_config, "_gcs_oauth_credentials", self._wif_credentials
+            )
+            object.__setattr__(
+                aws_config, "_gcs_oauth_project_id", self._wif_project_id
+            )
 
             s3_config = DataLakeSourceConfig(
                 path_specs=s3_path_specs,
-                aws_config=AwsConnectionConfig(
-                    aws_endpoint_url="https://storage.googleapis.com",
-                    aws_region="auto",
-                ),
+                aws_config=aws_config,
                 env=self.config.env,
                 max_rows=self.config.max_rows,
                 number_of_files_to_sample=self.config.number_of_files_to_sample,
