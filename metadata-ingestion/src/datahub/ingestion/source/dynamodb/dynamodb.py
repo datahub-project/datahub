@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
     Counter,
@@ -7,6 +8,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Set,
     Tuple,
     Type,
     Union,
@@ -60,6 +62,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
+    MetadataAttributionClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
@@ -201,6 +204,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
 
     def __init__(self, ctx: PipelineContext, config: DynamoDBConfig, platform: str):
         super().__init__(config, ctx)
+        self.ctx = ctx
         self.config = config
         self.report = DynamoDBSourceReport()
         self.platform = platform
@@ -624,16 +628,21 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         """Extract DynamoDB table AWS tags and add them as DataHub tags.
-        merge with existing tags (including manual UI tags) when a graph client is available.
+        Properly handles tag attribution to distinguish AWS-sourced tags from manual tags.
+        Only modifies tags that originated from DynamoDB ingestion.
         """
         try:
-            tags_kv = self._get_dynamodb_table_tags(
+            # Fetch current AWS tags from DynamoDB
+            aws_tags_kv = self._get_dynamodb_table_tags(
                 dynamodb_client=dynamodb_client,
                 table_arn=table_arn,
             )
-            tags_to_add: List[str] = []
 
-            for tag_dict in tags_kv:
+            aws_tag_urns: Set[str] = set()  # set of AWS tag URNs that should exist
+            # if table_arn == "arn:aws:dynamodb:us-west-2:064369473231:table/AseemTestTable1":
+            #     aws_tag_urns.add(make_tag_urn("avirajTag"))
+
+            for tag_dict in aws_tags_kv:
                 key = tag_dict.get("Key")
                 val = tag_dict.get("Value")
 
@@ -646,34 +655,54 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     continue
 
                 tag = f"{key}:{val}" if val else key
-                tags_to_add.append(make_tag_urn(tag))
+                aws_tag_urns.add(make_tag_urn(tag))
+            # Start with tags to write (AWS tags with attribution)
+            tags_to_write: List[TagAssociationClass] = []
 
-            # Merge in existing tags to avoid clobbering manually added tags when graph is available.
+            current_time_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+            for aws_tag_urn in aws_tag_urns:
+                tags_to_write.append(
+                    TagAssociationClass(
+                        tag=aws_tag_urn,
+                        attribution=MetadataAttributionClass(
+                            time=current_time_ms,
+                            source="urn:li:dataPlatform:dynamodb",  # TODO : confirm this is correct source urn
+                            actor="urn:li:corpuser:datahub",  # TODO: what actor to use here? or urn:li:corpuser:__datahub_system
+                        ),
+                    )
+                )
+
+            # Merge with existing tags from DataHub to preserve manual tags
             if self.ctx.graph:
                 try:
-                    current_tags = self.ctx.graph.get_aspect(
+                    current_tags_aspect = self.ctx.graph.get_aspect(
                         entity_urn=dataset_urn, aspect_type=GlobalTagsClass
                     )
-                    if current_tags and current_tags.tags:
-                        tags_to_add.extend(
-                            tag_assoc.tag for tag_assoc in current_tags.tags
-                        )
+
+                    if current_tags_aspect and current_tags_aspect.tags:
+                        for tag_assoc in current_tags_aspect.tags:
+                            #  If tag is not from DynamoDB ingestion, preserve it
+                            if (
+                                tag_assoc.attribution
+                                and tag_assoc.attribution.source
+                                == "urn:li:dataPlatform:dynamodb"
+                            ):
+                                continue
+                            tags_to_write.append(tag_assoc)
+
                 except Exception as merge_err:
                     self.report.report_warning(
                         title="DynamoDB Tags",
-                        message="Failed to merge existing tags; proceeding with AWS tags only, Manual tags may be lost.",
+                        message="Failed to merge existing tags; proceeding with AWS tags only. Manual tags may be lost.",
                         context=f"dataset_urn: {dataset_urn}; error={merge_err}",
                     )
 
-            tags_to_add = sorted(set(tags_to_add))
-            if tags_to_add:
-                yield MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    entityUrn=dataset_urn,
-                    aspect=GlobalTagsClass(
-                        tags=[TagAssociationClass(tag) for tag in tags_to_add]
-                    ),
-                ).as_workunit()
+            # Always emit the aspect (even if empty) to ensure removed tags are deleted
+            yield MetadataChangeProposalWrapper(
+                entityType="dataset",
+                entityUrn=dataset_urn,
+                aspect=GlobalTagsClass(tags=tags_to_write),
+            ).as_workunit()
 
         except Exception as e:
             self.report.report_warning(
