@@ -21,6 +21,7 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
@@ -58,6 +59,7 @@ from datahub.metadata.schema_classes import (
     BytesTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
@@ -66,6 +68,7 @@ from datahub.metadata.schema_classes import (
     SchemalessClass,
     SchemaMetadataClass,
     StringTypeClass,
+    TagAssociationClass,
     UnionTypeClass,
 )
 from datahub.utilities.lossy_collections import LossyList
@@ -83,6 +86,7 @@ if TYPE_CHECKING:
     from mypy_boto3_dynamodb.type_defs import (
         AttributeValueTypeDef,
         TableDescriptionTypeDef,
+        TagTypeDef,
     )
 
 
@@ -113,6 +117,12 @@ class DynamoDBConfig(
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion. The table name format is 'region.table'",
+    )
+    extract_table_tags: bool = Field(
+        default=False,
+        description=(
+            "When enabled, extracts AWS resource tags for DynamoDB tables and applies them as DataHub tags, AWS table tags may reappear if they are deleted and manual tags will be lost if DataHub API not available"
+        ),
     )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -171,6 +181,10 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
 @capability(
     SourceCapability.CLASSIFICATION,
     "Optionally enabled via `classification.enabled`",
+)
+@capability(
+    SourceCapability.TAGS,
+    "Optionally enabled via `extract_table_tags` to extract dynamoDB table tags as DataHub tags",
 )
 class DynamoDBSource(StatefulIngestionSourceBase):
     """
@@ -282,6 +296,16 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             entityUrn=dataset_urn,
             aspect=dataset_properties,
         ).as_workunit()
+
+        # Add AWS resource tags if enabled
+        if self.config.extract_table_tags:
+            table_arn = table_info.get("TableArn")
+            if table_arn:
+                yield from self._get_dynamodb_table_tags_wu(
+                    dynamodb_client=dynamodb_client,
+                    table_arn=table_arn,
+                    dataset_urn=dataset_urn,
+                )
 
         yield from self._get_domain_wu(
             dataset_name=table_name,
@@ -583,4 +607,77 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             yield from add_domain_to_entity_wu(
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
+            )
+
+    def _get_dynamodb_table_tags(
+        self,
+        dynamodb_client: "DynamoDBClient",
+        table_arn: str,
+    ) -> List["TagTypeDef"]:
+        resp = dynamodb_client.list_tags_of_resource(ResourceArn=table_arn)
+        return resp.get("Tags", [])
+
+    def _get_dynamodb_table_tags_wu(
+        self,
+        dynamodb_client: "DynamoDBClient",
+        table_arn: str,
+        dataset_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Extract DynamoDB table AWS tags and add them as DataHub tags.
+        merge with existing tags (including manual UI tags) when a graph client is available.
+        """
+        try:
+            tags_kv = self._get_dynamodb_table_tags(
+                dynamodb_client=dynamodb_client,
+                table_arn=table_arn,
+            )
+            tags_to_add: List[str] = []
+
+            for tag_dict in tags_kv:
+                key = tag_dict.get("Key")
+                val = tag_dict.get("Value")
+
+                if not key:
+                    self.report.report_warning(
+                        title="DynamoDB Tags",
+                        message="Skipping tag entry without 'Key' field.",
+                        context=f"dataset_urn: {dataset_urn}, tag_entry: {tag_dict}",
+                    )
+                    continue
+
+                tag = f"{key}:{val}" if val else key
+                tags_to_add.append(make_tag_urn(tag))
+
+            # Merge in existing tags to avoid clobbering manually added tags when graph is available.
+            if self.ctx.graph:
+                try:
+                    current_tags = self.ctx.graph.get_aspect(
+                        entity_urn=dataset_urn, aspect_type=GlobalTagsClass
+                    )
+                    if current_tags and current_tags.tags:
+                        tags_to_add.extend(
+                            tag_assoc.tag for tag_assoc in current_tags.tags
+                        )
+                except Exception as merge_err:
+                    self.report.report_warning(
+                        title="DynamoDB Tags",
+                        message="Failed to merge existing tags; proceeding with AWS tags only, Manual tags may be lost.",
+                        context=f"dataset_urn: {dataset_urn}; error={merge_err}",
+                    )
+
+            tags_to_add = sorted(set(tags_to_add))
+            if tags_to_add:
+                yield MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    entityUrn=dataset_urn,
+                    aspect=GlobalTagsClass(
+                        tags=[TagAssociationClass(tag) for tag in tags_to_add]
+                    ),
+                ).as_workunit()
+
+        except Exception as e:
+            self.report.report_warning(
+                title="DynamoDB Tags",
+                message="Failed to extract AWS tags",
+                context=f"dataset_urn: {dataset_urn}; error={e}",
             )
