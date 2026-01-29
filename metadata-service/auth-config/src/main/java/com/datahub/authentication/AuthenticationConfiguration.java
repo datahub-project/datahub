@@ -30,5 +30,8 @@ public class AuthenticationConfiguration {
   /** The lifespan of a UI session token. */
   private long sessionTokenDurationMs;
 
+  /** The lifespan of a password reset token in milliseconds. Defaults to 24 hours. */
+  private long passwordResetTokenExpirationMs;
+
   private TokenServiceConfiguration tokenService;
 }

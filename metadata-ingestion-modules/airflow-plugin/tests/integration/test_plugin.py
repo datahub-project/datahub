@@ -775,6 +775,9 @@ test_cases_airflow2 = [
         test_variant="_no_datajob_lineage",
     ),
     DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase(
+        "airflow_asset_iolets", v2_only=True, platform_instance=PLATFORM_INSTANCE
+    ),
     DagTestCase("dag_to_skip", v2_only=True, platform_instance=PLATFORM_INSTANCE),
     DagTestCase("snowflake_operator", success=False, v2_only=True),
     DagTestCase("sqlite_operator", v2_only=True, platform_instance=PLATFORM_INSTANCE),
@@ -802,6 +805,11 @@ test_cases_airflow3 = [
         test_variant="_no_datajob_lineage",
     ),
     DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("airflow_asset_iolets", platform_instance=PLATFORM_INSTANCE),
+    # @asset decorated DAGs - Airflow 3.0+ feature
+    DagTestCase("decorated_asset_producer", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("decorated_asset_with_file", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("consume_decorated_assets", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("dag_to_skip", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("snowflake_operator", success=False),
     DagTestCase("sqlite_operator", platform_instance=PLATFORM_INSTANCE),
@@ -902,20 +910,30 @@ def test_airflow_plugin(
 
     # Support provider-specific golden files for apache-airflow-providers-openlineage tests
     # When using the provider package (Airflow 2.10+), OpenLineage version differs from
-    # legacy openlineage-airflow package, causing cosmetic metadata formatting differences
+    # legacy openlineage-airflow package, causing cosmetic metadata formatting differences.
+    # Tests without provider-specific golden files are skipped in provider environments.
+    # Note: This only applies to Airflow 2.x - Airflow 3.x always uses the provider and
+    # has separate _airflow3.json golden files.
     golden_path = GOLDENS_FOLDER / f"{golden_filename}.json"
-    try:
-        from datahub_airflow_plugin.airflow2._openlineage_compat import (
-            USE_OPENLINEAGE_PROVIDER,
-        )
+    if not is_airflow3():
+        try:
+            from datahub_airflow_plugin.airflow2._openlineage_compat import (
+                USE_OPENLINEAGE_PROVIDER,
+            )
 
-        if USE_OPENLINEAGE_PROVIDER:
-            provider_golden_path = GOLDENS_FOLDER / f"{golden_filename}_provider.json"
-            if provider_golden_path.exists():
-                golden_path = provider_golden_path
-    except ImportError:
-        # Airflow 3.x or other scenarios where this import might fail
-        pass
+            if USE_OPENLINEAGE_PROVIDER:
+                provider_golden_path = (
+                    GOLDENS_FOLDER / f"{golden_filename}_provider.json"
+                )
+                if provider_golden_path.exists():
+                    golden_path = provider_golden_path
+                else:
+                    pytest.skip(
+                        f"Skipping test in provider environment: no {golden_filename}_provider.json golden file exists. "
+                        "This test only runs with the standalone openlineage-airflow package."
+                    )
+        except ImportError:
+            pass
 
     dag_id = test_case.dag_id
 
