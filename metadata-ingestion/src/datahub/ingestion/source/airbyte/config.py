@@ -240,6 +240,16 @@ class AirbyteClientConfig(ConfigModel):
                     "Both oauth2_client_id and oauth2_client_secret must be provided together"
                 )
 
+        # OSS does not support refresh_token grant type
+        if (
+            self.deployment_type == AirbyteDeploymentType.OPEN_SOURCE
+            and self.oauth2_refresh_token
+        ):
+            raise ValueError(
+                "oauth2_refresh_token is not supported for OSS deployments. "
+                "OSS only supports client_credentials grant type."
+            )
+
         # Cloud deployment requires OAuth
         if self.deployment_type == AirbyteDeploymentType.CLOUD:
             if not self.oauth2_client_id or not self.oauth2_client_secret:
