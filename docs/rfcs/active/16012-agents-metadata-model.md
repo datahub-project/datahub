@@ -19,35 +19,32 @@ query {
   agent(urn: "urn:li:agent:customer-support-assistant") {
     name
     description
-    status # ACTIVE, DORMANT, RESTRICTED, BETA
+    status
     goals
     owner {
       name
     }
-    usesTools {
+
+    skills {
       name
-      type # MCP, API, etc.
     }
-    usesModels {
+    tools {
       name
-      platform # bedrock, azure, openai
+      type
     }
-    consumesDatasets {
+    models {
       name
-      platform # could be snowflake, pinecone, chroma, etc.
     }
-    codeRepository {
-      url
+    datasets {
+      name
     }
+
     evaluationMetrics {
       goalAchievementRate
-      sentimentScore
       errorRate
-      timestamp
     }
     usageStats {
       conversationsPerWeek
-      lastActiveDate
     }
   }
 }
@@ -56,6 +53,7 @@ query {
 Example URN structure:
 
 - Agent: `urn:li:agent:customer-support-assistant`
+- Skill: `urn:li:agentSkill:customer-service-skill`
 - Tool: `urn:li:agentTool:order-lookup-mcp`
 - Vector Store Dataset: `urn:li:dataset:(urn:li:dataPlatform:pinecone,customer-kb,PROD)` (uses existing Dataset entity)
 
@@ -130,29 +128,40 @@ DataHub's extensible metadata model makes it the natural home for agentic assets
    - Auto-generated vs manually created
    - Tool registry reference (if applicable)
 
-3. **Relationships**:
+3. **Agent Skill Entity** (high-level capabilities):
 
-   - Agent → uses → Tool (many-to-many)
-   - Agent → uses → ML Model (reference existing MLModel entity)
-   - Agent → consumes → Dataset/Data Product (for RAG, context, tool data)
+   - Name, description, instructions (specialized prompts and context)
+   - Source repository (git URL)
+   - Domain category and when to use
+   - Which tools and models the skill requires
+   - Which agents have this skill
+
+4. **Relationships**:
+
+   - Agent → Skill (many-to-many)
+   - Agent → Tool (many-to-many)
+   - Agent → ML Model (many-to-many)
+   - Agent → Dataset/Data Product (for RAG, context, tool data)
      - Includes vector store datasets (Pinecone indexes, Chroma collections, etc.)
-   - Agent → backed by → Code Repository (potentially new entity or URL)
-   - Tool → registered by → Agent (for auto-generated tools)
+   - Agent → Code Repository (potentially new entity or URL)
+   - Skill → Tool (many-to-many)
+   - Skill → Model (many-to-one, optional)
+   - Tool → Agent (registered by, if auto-generated)
 
-4. **Observability & Trust Metrics**:
+5. **Observability & Trust Metrics**:
 
    - Usage patterns (conversations/invocations, active users)
    - Evaluation scores (goal achievement, accuracy, sentiment)
    - Error rates and reliability indicators
    - Integration with OpenTelemetry traces and evaluation platforms
 
-5. **Search & Discovery**:
+6. **Search & Discovery**:
 
    - Search across agent descriptions, goals, and capabilities
    - Filter by status, owner, evaluation scores, relationships
    - Agent profile pages showing dependencies, metrics, and lineage
 
-6. **Extensibility**:
+7. **Extensibility**:
    - Framework agnostic (LangGraph, LangChain, custom frameworks)
    - Support for vector column types and vector database platforms
    - Support for future asset types (knowledge graphs, prompts)
@@ -193,10 +202,13 @@ An Agent represents an AI system that can perceive, reason, and act to achieve s
 
 **Key Relationships**:
 
-- **Uses Tools**: Agent → AgentTool (which tools can this agent invoke?)
-- **Uses Models**: Agent → MLModel (which LLMs does this agent use?)
-- **Consumes Data**: Agent → Dataset (which data does this agent access for RAG, context, tools?)
-  - This includes vector store datasets (Pinecone, Chroma, Weaviate indexes)
+- **Skills**: Agent → AgentSkill (high-level capabilities)
+- **Tools**: Agent → AgentTool (low-level capabilities the agent invokes)
+- **Models**: Agent → MLModel (LLMs the agent uses)
+- **Datasets**: Agent → Dataset (data accessed for RAG, context, tools)
+  - Includes vector store datasets (Pinecone, Chroma, Weaviate indexes)
+
+Note: Agents can have both skills (high-level) and tools (low-level) directly.
 
 **Observability & Trust**:
 
@@ -225,7 +237,8 @@ An AgentTool represents a capability that agents can invoke (MCP tools, APIs, fu
 
 **Key Relationships**:
 
-- **Used By Agents**: AgentTool → Agent (which agents use this tool?)
+- **Agents**: AgentTool → Agent (agents using this tool)
+- **Skills**: AgentTool → AgentSkill (skills using this tool)
 - **Registered By**: AgentTool → Agent (if auto-generated)
 
 **Open Questions**:
@@ -234,7 +247,46 @@ An AgentTool represents a capability that agents can invoke (MCP tools, APIs, fu
 - How to handle tool schema evolution?
 - Should we catalog tool performance metrics separately?
 
-#### 3. Vector Store Support
+#### 3. AgentSkill Entity
+
+An AgentSkill represents a high-level, reusable capability that bundles tools, prompts, and domain expertise.
+
+**URN Format**: `urn:li:agentSkill:<skill_id>`
+
+**Core Properties**:
+
+- Name, description, instructions (what and when to use this skill)
+- Source repository (git URL where skill is defined)
+- License, compatibility, metadata (author, version, etc.)
+- Owner and documentation
+- Version managed via git + VersionSet for lineage
+
+**Key Relationships**:
+
+- **Agents**: AgentSkill → Agent (agents with this skill)
+- **Tools**: AgentSkill → AgentTool (tools required by this skill)
+- **Models**: AgentSkill → MLModel (optional specialized model)
+
+**Skills vs Tools**:
+
+- **Tools** are low-level functional capabilities (API calls, functions)
+- **Skills** are high-level expertise bundles (domain knowledge + tools + prompts)
+- Example: "database_admin" skill has DB expertise prompts + uses backup-tool, restore-tool, migrate-tool
+
+**Registry Approach**:
+
+Skills follow a **git as source of truth** pattern:
+
+- Skills are defined in git repositories (following [agentskills.io](https://agentskills.io) standard)
+- DataHub ingests and catalogs them for discovery, search, lineage, governance
+- Mirrors how DataHub works with data assets: source systems own the data, DataHub provides the catalog
+
+**Open Questions**:
+
+- How to handle skill composition and dependencies between skills?
+- Should DataHub validate skill definitions during ingestion?
+
+#### 4. Vector Store Support
 
 Vector stores (Pinecone, Chroma, Weaviate, Qdrant, etc.) are modeled as **DataPlatforms** in DataHub's existing architecture:
 
@@ -264,18 +316,26 @@ agents:
   - id: customer-support-assistant
     name: Customer Support Assistant
     type: CONVERSATIONAL
-    goals:
-      - "Resolve customer inquiries about orders"
-    tools: [order-lookup-mcp, shipping-tracker-api]
+    goals: ["Resolve customer inquiries"]
+    skills: [customer-service-skill]
+    tools: [order-lookup-mcp]
     models: [urn:li:mlModel:(...)]
-    datasets: [urn:li:dataset:(...)]
+
+skills:
+  - id: customer-service-skill
+    sourceRepository:
+      url: https://github.com/acme-corp/agent-skills
+      path: customer-service/SKILL.md
+    owner: urn:li:corpuser:support-team
+    requiredTools: [order-lookup-mcp]
 
 tools:
   - id: order-lookup-mcp
     name: Order Lookup MCP
     type: MCP
-    description: "Looks up order details by order ID"
 ```
+
+Skills are authored in git (SKILL.md files), ingested into DataHub for discovery, and loaded by agents at runtime.
 
 **Observability Integration**:
 
@@ -285,9 +345,8 @@ tools:
 
 **Open Questions**:
 
-- What's the preferred ingestion method (manifest files, API, auto-discovery)?
+- Preferred ingestion methods for agents and skills (git scanning, manifest files, API)?
 - How should evaluation metrics flow into DataHub?
-- Should we support code repository scanning for auto-discovery?
 
 ### Key Concepts
 
@@ -318,10 +377,10 @@ Agents will be entities in DataHub, just like Datasets, Dashboards, or ML Models
 
 **Terminology**:
 
-- **Agent**: An AI system that can perceive, reason, and act to achieve goals
-- **Agent Tool**: A capability that an agent can invoke (MCP, API, function)
-- **Agent Card**: The profile page displaying agent metadata
-- **Evaluation Metrics**: Measurements of agent performance (similar to data quality metrics)
+- **Agent**: AI system that perceives, reasons, and acts
+- **Agent Skill**: High-level capability (prompts + tools + expertise) - stored in git, cataloged in DataHub
+- **Agent Tool**: Low-level capability an agent invokes (MCP, API, function)
+- **Evaluation Metrics**: Agent performance measurements (similar to data quality)
 
 ## Drawbacks
 
@@ -352,8 +411,9 @@ Lightweight catalog, detailed metrics external. **Partially adopted** - store ag
 ### Prior Art
 
 - **MLflow Model Registry**: Model cards, lineage, versioning
-- **Backstage Service Catalog**: Unified catalog for services, APIs, docs with typed relationships
-- **IBM Agent Platform**: Agent cards showing dependencies, tool catalog, evaluation metrics
+- **Backstage Service Catalog**: Unified catalog with typed relationships
+- **IBM Agent Platform**: Agent cards with dependencies and metrics
+- **agentskills.io**: Open standard for agent skills with broad adoption
 
 ## Rollout / Adoption Strategy
 
@@ -370,23 +430,14 @@ Lightweight catalog, detailed metrics external. **Partially adopted** - store ag
 
 ## Future Work
 
-This section outlines potential extensions that build on the agent catalog foundation:
+Potential extensions beyond the initial agent catalog:
 
-1. **Multi-Agent Systems**: Model agent orchestration and workflows (AgentWorkflow DAG entity)
-2. **Prompt Template Registry**: Catalog reusable prompts and their usage
-3. **Agent Marketplace**: Public/private marketplace for sharing agents
-4. **Fine-tuned Model Tracking**: Deep integration with ML model lifecycle
-5. **Cost Tracking**: Token usage, compute costs, ROI metrics
-6. **Advanced Evaluation**: Custom criteria builder, A/B testing, benchmark datasets
-7. **Semantic Search**: Federated search across agent knowledge bases
-8. **Access Control**: Policy enforcement and access auditing
-9. **Performance Benchmarking**: Compare agents on standardized benchmarks
-10. **Conversational Context**: Catalog conversation histories
-11. **Agent Version Management**: Track versions, rollouts, and rollbacks
-12. **Health Monitoring**: Proactive alerts on score drops, error spikes
-13. **Knowledge Graph Entity**: Model knowledge graphs separately from vector stores
-14. **Agent-Generated Artifacts**: Catalog outputs created by agents
-15. **Federation**: Sync with external agent registries if they emerge
+- **Multi-agent systems**: Workflow orchestration and agent composition
+- **Skill ecosystem**: Marketplace integration, composition, performance tracking
+- **Advanced observability**: Cost tracking, benchmarking, health monitoring
+- **Richer metadata**: Prompt templates, conversation histories, agent-generated artifacts
+- **Knowledge graphs**: Catalog knowledge graphs as first-class entities
+- **Federation**: Sync with external registries
 
 ## Unresolved questions
 
