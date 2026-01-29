@@ -70,7 +70,7 @@ fragment DocumentFacetEntityInfo on Entity {
   }
 }
 
-query searchDocuments(
+query documentSearch(
   $query: String!
   $orFilters: [AndFilterInput!]
   $count: Int!
