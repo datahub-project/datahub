@@ -12,6 +12,7 @@ import { ReactionButtons } from '@app/chat/components/messages/ReactionButtons';
 import { MessageReferences } from '@app/chat/components/references/MessageReferences';
 import { useChatMessageReaction } from '@app/chat/hooks/useChatMessageReaction';
 import { ChatMessageAction, ChatVariant } from '@app/chat/types';
+import { convertUrnLinksToSpans } from '@app/chat/utils/markdownUtils';
 import { parseMessageContent } from '@app/chat/utils/parseMessageContent';
 import { extractTypeFromUrn } from '@app/entity/shared/utils';
 import { ExternalLinksWrapper } from '@app/sharedV2/ExternalLinksWrapper';
@@ -164,34 +165,64 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
         return parseMessageContent(message.content.text || '');
     }, [message.content.text]);
 
-    // Intercept encoded URN links and route via entityRegistry so in-app navigation is correct
-    // Format: /{entityType}/{urlEncodedUrn} (e.g., /dataset/urn%3Ali%3Adataset%3A...)
+    // Intercept URN links and route via entityRegistry so in-app navigation is correct
+    // Handles both <a> tags with URN hrefs and <span class="urn-link"> elements with data-urn attributes
+    // Opens in new tab to preserve chat context
     useEffect(() => {
         const handleLinkClick = (e: MouseEvent) => {
             const target = e.target as HTMLElement;
+
+            // Check for urn-link span (created by convertUrnLinksToSpans)
+            const urnSpan = target.closest('.urn-link');
+            if (urnSpan) {
+                const urn = urnSpan.getAttribute('data-urn');
+                if (urn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    try {
+                        const decodedUrn = decodeURIComponent(urn);
+                        const entityType = extractTypeFromUrn(decodedUrn);
+                        if (entityType) {
+                            const entityUrl = entityRegistry.getEntityUrl(entityType, decodedUrn);
+                            window.open(entityUrl, '_blank', 'noopener,noreferrer');
+                        }
+                    } catch {
+                        // Silently fail
+                    }
+                }
+                return;
+            }
+
+            // Also check for regular <a> tags with URN hrefs (for backwards compatibility)
             const link = target.closest('a');
-            if (!link?.href) {
+            if (!link) {
                 return;
             }
 
             const href = link.getAttribute('href');
-            const isUrnLink = href && (href.startsWith('urn%3Ali%3A') || href.startsWith('urn:li:'));
+            if (!href) {
+                return;
+            }
+
+            const isUrnLink = href.startsWith('urn%3Ali%3A') || href.startsWith('urn:li:');
             if (!isUrnLink) {
                 return;
             }
 
+            // Prevent default IMMEDIATELY for all URN links to avoid about:blank navigation
+            e.preventDefault();
+            e.stopPropagation();
+
             try {
-                const decodedUrn = decodeURIComponent(href!);
+                const decodedUrn = decodeURIComponent(href);
                 const entityType = extractTypeFromUrn(decodedUrn);
-                if (!entityType) {
-                    return;
+                if (entityType) {
+                    const entityUrl = entityRegistry.getEntityUrl(entityType, decodedUrn);
+                    window.open(entityUrl, '_blank', 'noopener,noreferrer');
                 }
-                e.preventDefault();
-                e.stopPropagation();
-                const entityUrl = entityRegistry.getEntityUrl(entityType, decodedUrn);
-                history.push(entityUrl);
             } catch {
-                // Let browser handle default navigation if parsing fails
+                // Silently fail
             }
         };
 
@@ -201,7 +232,7 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
         }
         container.addEventListener('click', handleLinkClick);
         return () => container.removeEventListener('click', handleLinkClick);
-    }, [entityRegistry, history]);
+    }, [entityRegistry]);
 
     const handleCopyCode = async (code: string, index: number) => {
         try {
@@ -237,7 +268,13 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
                                 />
                             );
                         }
-                        return <MDEditor.Markdown key={key} source={part.content} style={MARKDOWN_STYLE} />;
+                        return (
+                            <MDEditor.Markdown
+                                key={key}
+                                source={convertUrnLinksToSpans(part.content)}
+                                style={MARKDOWN_STYLE}
+                            />
+                        );
                     })}
                 </MarkdownContent>
             </ExternalLinksWrapper>

@@ -113,6 +113,17 @@ export const MarkdownContent = styled.div<{ isUser: boolean; $variant?: ChatVari
         }
     }
 
+    /* Style URN links (spans with data-urn attribute, used because MDEditor sanitizes urn: hrefs) */
+    & .urn-link,
+    & .wmde-markdown .urn-link {
+        color: ${colors.violet[600]} !important;
+        text-decoration: underline;
+        cursor: pointer;
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
     /* Ensure links inside headings are also violet */
     & h1 a,
     & h2 a,

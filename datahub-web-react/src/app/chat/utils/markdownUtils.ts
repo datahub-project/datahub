@@ -156,3 +156,75 @@ export function setCursorPosition(element: HTMLDivElement, position: number) {
         node = walker.nextNode();
     }
 }
+
+/**
+ * Pre-process markdown to convert URN links to clickable spans.
+ * MDEditor.Markdown sanitizes unknown URL schemes (like urn:) to javascript:void(0),
+ * so we convert [text](urn:li:...) to <span class="urn-link" data-urn="...">text</span>
+ * which MDEditor will preserve, and we handle clicks separately.
+ * @param markdown The markdown string to process
+ * @returns Markdown with URN links converted to spans
+ */
+export function convertUrnLinksToSpans(markdown: string): string {
+    // Match markdown links: [text](url) - handle nested parentheses in URNs
+    let result = '';
+    let pos = 0;
+
+    while (pos < markdown.length) {
+        const linkStart = markdown.indexOf('[', pos);
+        if (linkStart === -1) {
+            result += markdown.substring(pos);
+            break;
+        }
+
+        // Add text before the link
+        result += markdown.substring(pos, linkStart);
+
+        // Find the closing bracket
+        const textEnd = markdown.indexOf(']', linkStart);
+        if (textEnd === -1 || markdown[textEnd + 1] !== '(') {
+            // Not a valid link syntax, add the bracket and move on
+            result += markdown[linkStart];
+            pos = linkStart + 1;
+        } else {
+            const linkText = markdown.substring(linkStart + 1, textEnd);
+
+            // Find URL with balanced parentheses
+            const urlStart = textEnd + 2;
+            let parenCount = 0;
+            let urlEnd = urlStart;
+
+            while (urlEnd < markdown.length) {
+                const char = markdown[urlEnd];
+                if (char === '(') {
+                    parenCount++;
+                } else if (char === ')') {
+                    if (parenCount === 0) break;
+                    parenCount--;
+                }
+                urlEnd++;
+            }
+
+            if (urlEnd >= markdown.length) {
+                result += markdown.substring(linkStart);
+                break;
+            }
+
+            const url = markdown.substring(urlStart, urlEnd);
+
+            // Check if this is a URN link
+            if (url.startsWith('urn:li:') || url.startsWith('urn%3Ali%3A')) {
+                // Convert to a span with data attribute (MDEditor preserves HTML)
+                const escapedUrn = url.replace(/"/g, '&quot;');
+                result += `<span class="urn-link" data-urn="${escapedUrn}">${linkText}</span>`;
+            } else {
+                // Keep non-URN links as-is
+                result += `[${linkText}](${url})`;
+            }
+
+            pos = urlEnd + 1;
+        }
+    }
+
+    return result;
+}
