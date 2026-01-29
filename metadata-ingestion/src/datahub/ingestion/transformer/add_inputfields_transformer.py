@@ -12,8 +12,14 @@ from datahub.emitter.mce_builder import Aspect, make_schema_field_urn
 
     
 class AddInputFieldsConfig(ConfigModel):
+    """
+    Configuration to parse rawQuery in chart.
+    Example: 
+        platform: trino
+        platform_instance: hive
+    """
     platform: str
-    platform_instance: str
+    platform_instance: Optional[str]
 
 class AddInputFieldsTransformer(BaseTransformer, MultipleAspectTransformer):
     ctx: PipelineContext
