@@ -126,7 +126,7 @@ class DynamoDBConfig(
     extract_table_tags: bool = Field(
         default=False,
         description=(
-            "When enabled, extracts AWS resource tags for DynamoDB tables and applies them as DataHub tags, AWS table tags may reappear if they are deleted and manual tags will be lost if DataHub API not available"
+            "When enabled, extracts AWS resource tags for DynamoDB tables and applies them as DataHub tags, AWS table tags may reappear if they are deleted"
         ),
     )
     # Custom Stateful Ingestion settings
@@ -683,6 +683,6 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         except Exception as e:
             self.report.report_warning(
                 title="DynamoDB Tags",
-                message="Failed to extract AWS tags",
+                message="Failed to update tags for table.",
                 context=f"dataset_urn: {dataset_urn}; error={e}",
             )

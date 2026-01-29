@@ -259,7 +259,6 @@ def add_source_tags_to_entity_wu(
             current_tags_aspect = graph.get_aspect(
                 entity_urn=entity_urn, aspect_type=GlobalTagsClass
             )
-
             if current_tags_aspect and current_tags_aspect.tags:
                 tags_to_write.extend(
                     tag_assoc
@@ -271,11 +270,7 @@ def add_source_tags_to_entity_wu(
                 )
 
         except Exception as e:
-            logger.warning(
-                f"Failed to fetch existing tags for {entity_urn} during merge: {e}. "
-                "Proceeding with new tags only. Tags from other sources may be lost.",
-                exc_info=True,
-            )
+            raise RuntimeError("Failed to fetch existing tags for entity") from e
 
     # Always emit the aspect (even if empty) to ensure removed tags are deleted
     yield MetadataChangeProposalWrapper(

@@ -1,10 +1,14 @@
 from typing import Optional
 from unittest.mock import MagicMock
 
+import pytest
+
 import datahub.emitter.mcp_builder as builder
 from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
+    MetadataAttributionClass,
     StatusClass,
     TagAssociationClass,
     TelemetryClientIdClass,
@@ -167,9 +171,10 @@ def test_entity_supports_aspect():
     assert builder.entity_supports_aspect("telemetry", TelemetryClientIdClass)
 
 
-def _make_tag_association(tag_name: str, source_urn: Optional[str] = None):
+def _make_tag_association(
+    tag_name: str, source_urn: Optional[str] = None
+) -> TagAssociationClass:
     """Helper to create TagAssociationClass with optional attribution."""
-    from datahub.metadata.schema_classes import MetadataAttributionClass
 
     tag = TagAssociationClass(tag=make_tag_urn(tag_name))
     if source_urn:
@@ -195,7 +200,9 @@ def test_add_source_tags_no_graph():
         )
     )
 
-    assert len(workunits) == 1
+    assert len(workunits) == 1 and isinstance(
+        workunits[0].metadata, MetadataChangeProposalWrapper
+    )
     aspect = workunits[0].metadata.aspect
     assert isinstance(aspect, GlobalTagsClass)
     assert len(aspect.tags) == 1
@@ -226,7 +233,9 @@ def test_add_source_tags_merges_with_different_sources():
         )
     )
 
-    assert len(workunits) == 1
+    assert len(workunits) == 1 and isinstance(
+        workunits[0].metadata, MetadataChangeProposalWrapper
+    )
     aspect = workunits[0].metadata.aspect
     assert isinstance(aspect, GlobalTagsClass)
     assert len(aspect.tags) == 3
@@ -264,7 +273,9 @@ def test_add_source_tags_replaces_same_source():
         )
     )
 
-    assert len(workunits) == 1
+    assert len(workunits) == 1 and isinstance(
+        workunits[0].metadata, MetadataChangeProposalWrapper
+    )
     aspect = workunits[0].metadata.aspect
     assert isinstance(aspect, GlobalTagsClass)
     assert len(aspect.tags) == 3
@@ -277,33 +288,27 @@ def test_add_source_tags_replaces_same_source():
 
 
 def test_add_source_tags_handles_graph_errors():
-    """Test graceful handling when graph fetch fails."""
+    """Test that function raises RuntimeError when graph fetch fails to prevent data loss."""
     new_tags = [_make_tag_association("tag1", "urn:li:dataPlatform:source1")]
 
     mock_graph = MagicMock()
     mock_graph.get_aspect.side_effect = Exception("Connection failed")
 
-    workunits = list(
-        builder.add_source_tags_to_entity_wu(
-            entity_type="dataset",
-            entity_urn="urn:li:dataset:(urn:li:dataPlatform:test,foo,PROD)",
-            new_tags=new_tags,
-            source_urn="urn:li:dataPlatform:source1",
-            graph=mock_graph,
+    with pytest.raises(RuntimeError, match="Failed to fetch existing tags for entity"):
+        list(
+            builder.add_source_tags_to_entity_wu(
+                entity_type="dataset",
+                entity_urn="urn:li:dataset:(urn:li:dataPlatform:test,foo,PROD)",
+                new_tags=new_tags,
+                source_urn="urn:li:dataPlatform:source1",
+                graph=mock_graph,
+            )
         )
-    )
-
-    # Should still emit workunit with new tags only
-    assert len(workunits) == 1
-    aspect = workunits[0].metadata.aspect
-    assert isinstance(aspect, GlobalTagsClass)
-    assert len(aspect.tags) == 1
-    assert aspect.tags[0].tag == make_tag_urn("tag1")
 
 
 def test_add_source_tags_empty_new_tags():
     """Test that empty new_tags removes all tags from the source."""
-    new_tags = []
+    new_tags: list[TagAssociationClass] = []
 
     existing_tags = GlobalTagsClass(
         tags=[
@@ -325,7 +330,9 @@ def test_add_source_tags_empty_new_tags():
         )
     )
 
-    assert len(workunits) == 1
+    assert len(workunits) == 1 and isinstance(
+        workunits[0].metadata, MetadataChangeProposalWrapper
+    )
     aspect = workunits[0].metadata.aspect
     assert isinstance(aspect, GlobalTagsClass)
     assert len(aspect.tags) == 1

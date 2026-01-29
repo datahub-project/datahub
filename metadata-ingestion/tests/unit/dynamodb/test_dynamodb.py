@@ -162,8 +162,8 @@ class TestDynamoDBTagsIngestion:
     ):
         """Test that errors during tag merging are handled gracefully.
 
-        When the graph API fails, the function should still return workunits
-        with the new AWS tags (without merging with existing tags).
+        When the graph API fails, no workunits are emitted to prevent data loss,
+        and the error is logged as a warning.
         """
         mock_context.graph.get_aspect.side_effect = Exception("Graph API error")
 
@@ -182,9 +182,9 @@ class TestDynamoDBTagsIngestion:
                 )
             )
 
-        # Should still emit workunit with new tags only
+        # Should not emit any workunits when fetch fails to prevent data loss
         tag_urns = self.get_tag_urns_from_workunits(workunits)
-        assert tag_urns == {"urn:li:tag:env:prod"}
+        assert tag_urns == set()
 
     @pytest.mark.parametrize(
         "tags_input,expected_urns",
