@@ -206,6 +206,11 @@ SET SF_DATABASE = {database_value};
 -- Your Snowflake schema name (where UDFs, procedures, and agent will be created)
 SET SF_SCHEMA = {schema_value};
 
+-- Set the database, schema, and warehouse context
+USE DATABASE IDENTIFIER($SF_DATABASE);
+USE SCHEMA IDENTIFIER($SF_SCHEMA);
+USE WAREHOUSE IDENTIFIER($SF_WAREHOUSE);
+
 -- ============================================================================
 -- DATAHUB CONFIGURATION
 -- ============================================================================

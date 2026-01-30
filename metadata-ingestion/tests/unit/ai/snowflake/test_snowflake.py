@@ -105,6 +105,9 @@ class TestGenerateConfigurationSql:
         assert "SET AGENT_NAME = 'TEST_AGENT';" in result
         assert "SET AGENT_DISPLAY_NAME = 'Test Agent';" in result
         assert "SET AGENT_COLOR = 'blue';" in result
+        assert "USE DATABASE IDENTIFIER($SF_DATABASE);" in result
+        assert "USE SCHEMA IDENTIFIER($SF_SCHEMA);" in result
+        assert "USE WAREHOUSE IDENTIFIER($SF_WAREHOUSE);" in result
 
     def test_generate_configuration_secrets(self) -> None:
         """Test that secrets are created in configuration SQL."""
