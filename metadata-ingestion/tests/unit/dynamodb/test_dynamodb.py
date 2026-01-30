@@ -81,10 +81,7 @@ class TestDynamoDBTagsIngestion:
         aws_tags,
         dataset_info,
     ):
-        """Test that DynamoDB tags are extracted from AWS and emitted directly.
-
-        No merging happens in the source - transformers handle that in later stages.
-        """
+        """Test that DynamoDB tags are extracted from AWS and emitted directly."""
         source = self.create_dynamodb_source(mock_context, dynamodb_config)
 
         with patch.object(source, "_get_dynamodb_table_tags", return_value=aws_tags):
