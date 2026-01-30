@@ -899,11 +899,17 @@ class BigQuerySchemaGenerator:
 
             for item in group:
                 source_field = make_schema_field_urn(
-                    parent_urn=dataset_urn, field_path=item.field_path
+                    parent_urn=dataset_urn,
+                    field_path=item.field_path.lower()
+                    if self.config.convert_column_urns_to_lowercase
+                    else item.field_path,
                 )
                 assert item.referenced_column_name
                 referenced_field = make_schema_field_urn(
-                    parent_urn=foreign_dataset, field_path=item.referenced_column_name
+                    parent_urn=foreign_dataset,
+                    field_path=item.referenced_column_name.lower()
+                    if self.config.convert_column_urns_to_lowercase
+                    else item.referenced_column_name,
                 )
 
                 source_fields.append(source_field)
@@ -1243,7 +1249,9 @@ class BigQuerySchemaGenerator:
                     for policy_tag in col.policy_tags:
                         tags.append(TagAssociationClass(make_tag_urn(policy_tag)))
                 field = SchemaField(
-                    fieldPath=col.name,
+                    fieldPath=col.name.lower()
+                    if self.config.convert_column_urns_to_lowercase
+                    else col.name,
                     type=SchemaFieldDataType(
                         self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
