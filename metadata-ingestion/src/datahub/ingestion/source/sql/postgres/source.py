@@ -155,7 +155,7 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
         default=None,
         description="database (catalog). If set to Null, all databases will be considered for ingestion.",
     )
-    initial_database: Optional[str] = Field(
+    initial_database: str = Field(
         default="postgres",
         description=(
             "Initial database used to query for the list of databases, when ingesting multiple databases. "
@@ -191,7 +191,7 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
         ),
     )
 
-    min_query_calls: Optional[int] = Field(
+    min_query_calls: int = Field(
         default=1,
         description=(
             "Minimum number of executions required for a query to be included. "
