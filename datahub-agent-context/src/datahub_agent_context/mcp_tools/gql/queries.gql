@@ -1,0 +1,51 @@
+fragment platformFields on DataPlatform {
+  urn
+  name
+  __typename
+}
+
+fragment query on QueryEntity {
+  urn
+  properties {
+    name
+    description
+    source
+    statement {
+      value
+      language
+    }
+    # created {
+    #   time
+    #   actor
+    # }
+    lastModified {
+      # time
+      actor
+    }
+  }
+  platform {
+    ...platformFields
+  }
+  subjects {
+    dataset {
+      urn
+      name
+    }
+    schemaField {
+      urn
+      type
+      fieldPath
+    }
+  }
+}
+
+query listQueries($input: ListQueriesInput!) {
+  listQueries(input: $input) {
+    start
+    total
+    count
+    queries {
+      ...query
+    }
+  }
+}

@@ -46,6 +46,11 @@ class DatahubLineageConfig(ConfigModel):
     # referenced by inlets or outlets.
     materialize_iolets: bool
 
+    # If true (default), capture native Airflow Assets/Datasets as DataHub lineage.
+    # Airflow 2.4+ Dataset and Airflow 3.x Asset objects in inlets/outlets
+    # will be converted to DataHub dataset URNs.
+    capture_airflow_assets: bool
+
     capture_executions: bool
 
     datajob_url_link: DatajobUrl
@@ -135,6 +140,9 @@ def get_lineage_config() -> DatahubLineageConfig:
     )
     capture_executions = conf.get("datahub", "capture_executions", fallback=True)
     materialize_iolets = conf.get("datahub", "materialize_iolets", fallback=True)
+    capture_airflow_assets = conf.get(
+        "datahub", "capture_airflow_assets", fallback=True
+    )
     enable_extractors = conf.get("datahub", "enable_extractors", fallback=True)
 
     # OpenLineage extractor patching/override configuration
@@ -204,6 +212,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         capture_tags_info=capture_tags_info,
         capture_executions=capture_executions,
         materialize_iolets=materialize_iolets,
+        capture_airflow_assets=capture_airflow_assets,
         enable_extractors=enable_extractors,
         patch_sql_parser=patch_sql_parser,
         patch_snowflake_schema=patch_snowflake_schema,

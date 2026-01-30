@@ -747,6 +747,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     for quantile, value in zip(
                         res["observed_value"]["quantiles"],
                         res["observed_value"]["values"],
+                        strict=False,
                     )
                 ]
         except Exception as e:

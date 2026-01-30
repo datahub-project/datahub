@@ -26,6 +26,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.SystemAspectValidator;
+import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
@@ -52,6 +54,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -61,9 +64,16 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   private final CqlSession _cqlSession;
   private boolean canWrite = true;
   @Setter private boolean connectionValidated = false;
+  @Getter @Nonnull private final List<SystemAspectValidator> systemAspectValidators;
+  @Getter @Nullable private final AspectSizeValidationConfiguration validationConfig;
 
-  public CassandraAspectDao(@Nonnull final CqlSession cqlSession) {
+  public CassandraAspectDao(
+      @Nonnull final CqlSession cqlSession,
+      @Nonnull List<SystemAspectValidator> systemAspectValidators,
+      @Nullable AspectSizeValidationConfiguration validationConfig) {
     _cqlSession = cqlSession;
+    this.systemAspectValidators = systemAspectValidators;
+    this.validationConfig = validationConfig;
   }
 
   private boolean validateConnection() {
@@ -89,9 +99,18 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     validateConnection();
     return Optional.ofNullable(getAspect(urn, aspectName, ASPECT_LATEST_VERSION))
         .map(
-            a ->
-                EntityAspect.EntitySystemAspect.builder()
-                    .forUpdate(a, opContext.getEntityRegistry()))
+            a -> {
+              // Pre-patch validation if this is for update
+              if (forUpdate && systemAspectValidators != null) {
+                for (SystemAspectValidator validator : systemAspectValidators) {
+                  validator.validatePrePatch(
+                      a.getMetadata(), UrnUtils.getUrn(urn), aspectName, opContext);
+                }
+              }
+              return EntityAspect.EntitySystemAspect.builder()
+                  .systemAspectValidators(systemAspectValidators)
+                  .forUpdate(a, opContext.getEntityRegistry());
+            })
         .orElse(null);
   }
 

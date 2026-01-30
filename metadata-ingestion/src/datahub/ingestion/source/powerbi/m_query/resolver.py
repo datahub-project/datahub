@@ -105,7 +105,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         # convert tokens to dict
         iterator = iter(tokens)
 
-        return "".join(identifier), dict(zip(iterator, iterator))
+        return "".join(identifier), dict(zip(iterator, iterator, strict=False))
 
     @staticmethod
     def get_argument_list(invoke_expression: Tree) -> Optional[Tree]:

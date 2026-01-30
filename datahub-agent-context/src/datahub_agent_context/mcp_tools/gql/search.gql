@@ -1,0 +1,242 @@
+# Simplified platform info for search results
+fragment SimplePlatformFields on DataPlatform {
+  urn
+  type
+  name
+  properties {
+    displayName
+    logoUrl
+  }
+}
+
+fragment SearchEntityInfo on Entity {
+  urn
+
+  # For some entity types, the urns are not human-readable. For those,
+  # we pull the name as well.
+  ... on Dataset {
+    platform {
+      ...SimplePlatformFields
+    }
+    properties {
+      name
+      description
+    }
+  }
+  ... on Chart {
+    platform {
+      ...SimplePlatformFields
+    }
+    properties {
+      name
+      description
+    }
+  }
+  ... on Dashboard {
+    platform {
+      ...SimplePlatformFields
+    }
+    properties {
+      name
+      description
+    }
+  }
+  ... on Container {
+    platform {
+      ...SimplePlatformFields
+    }
+    properties {
+      name
+      description
+    }
+  }
+  ... on GlossaryTerm {
+    properties {
+      name
+      description
+    }
+  }
+  ... on GlossaryNode {
+    properties {
+      name
+      description
+    }
+  }
+  ... on Domain {
+    properties {
+      name
+      description
+    }
+  }
+  ... on DataProduct {
+    properties {
+      name
+      description
+    }
+  }
+  ... on DataJob {
+    properties {
+      name
+      description
+    }
+  }
+  ... on DataFlow {
+    platform {
+      ...SimplePlatformFields
+    }
+    properties {
+      name
+      description
+    }
+  }
+  ... on MLModel {
+    name
+    description
+    platform {
+      ...SimplePlatformFields
+    }
+  }
+  ... on MLModelGroup {
+    name
+    description
+    platform {
+      ...SimplePlatformFields
+    }
+  }
+  ... on MLFeature {
+    name
+    description
+  }
+  ... on MLFeatureTable {
+    name
+    description
+    platform {
+      ...SimplePlatformFields
+    }
+  }
+  ... on MLPrimaryKey {
+    name
+    description
+  }
+  ... on Tag {
+    name
+    description
+    properties {
+      name
+      description
+    }
+  }
+  ... on StructuredPropertyEntity {
+    definition {
+      displayName
+      qualifiedName
+      description
+    }
+  }
+  ... on CorpUser {
+    username
+    properties {
+      displayName
+      fullName
+      title
+      email
+    }
+  }
+  ... on CorpGroup {
+    name
+    info {
+      displayName
+      description
+      email
+    }
+  }
+}
+
+fragment FacetEntityInfo on Entity {
+  ... on Dataset {
+    name
+    properties {
+      name
+    }
+  }
+  ... on Container {
+    subTypes {
+      typeNames
+    }
+    properties {
+      name
+    }
+  }
+  ... on GlossaryTerm {
+    properties {
+      name
+    }
+  }
+  ... on Tag {
+    name
+    properties {
+      name
+    }
+  }
+  ... on CorpUser {
+    username
+    properties {
+      displayName
+      fullName
+      title
+      email
+    }
+  }
+  ... on CorpGroup {
+    name
+    info {
+      displayName
+      description
+      email
+    }
+  }
+}
+
+query search(
+  $types: [EntityType!]
+  $query: String!
+  $orFilters: [AndFilterInput!]
+  $count: Int!
+  $start: Int!
+  $viewUrn: String
+  $sortInput: SearchSortInput
+) {
+  searchAcrossEntities(
+    input: {
+      query: $query
+      count: $count
+      start: $start
+      types: $types
+      orFilters: $orFilters
+      viewUrn: $viewUrn
+      sortInput: $sortInput
+      searchFlags: { skipHighlighting: true, maxAggValues: 5 }
+    }
+  ) {
+    start
+    count
+    total
+    searchResults {
+      entity {
+        ...SearchEntityInfo
+      }
+    }
+    facets {
+      field
+      displayName
+      aggregations {
+        value
+        count
+        displayName
+        entity {
+          ...FacetEntityInfo
+        }
+      }
+    }
+  }
+}

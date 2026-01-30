@@ -1135,9 +1135,15 @@ def test_sanitize_identifier_error_handling_in_generate_partition_profiler_query
     assert result == (None, None), "Should return None, None when sanitization fails"
 
     # Verify that a warning log message was generated
-    assert len(caplog.records) == 1
-    log_record = caplog.records[0]
-    assert log_record.levelname == "WARNING"
+    # Filter for WARNING level logs from the athena source (ignore INFO logs from other modules)
+    warning_records = [
+        r for r in caplog.records if r.levelname == "WARNING" and "athena" in r.name
+    ]
+    assert len(warning_records) == 1, (
+        f"Expected 1 WARNING log from athena source, but got {len(warning_records)}. "
+        f"All records: {[(r.levelname, r.name, r.message) for r in caplog.records]}"
+    )
+    log_record = warning_records[0]
     assert (
         "Failed to generate partition profiler query for valid_schema.valid_table due to unsafe identifiers"
         in log_record.message
