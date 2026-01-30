@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.DomainAuthorizationHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.CorpuserUrn;
@@ -26,7 +27,6 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
-import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.types.BatchMutableType;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
@@ -39,6 +39,7 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -268,39 +269,54 @@ public class DatasetType
   public Dataset update(
       @Nonnull String urn, @Nonnull DatasetUpdateInput input, @Nonnull QueryContext context)
       throws Exception {
-    if (isAuthorized(urn, input, context)) {
-      final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
-      final Collection<MetadataChangeProposal> proposals =
-          DatasetUpdateInputMapper.map(context, input, actor);
-      proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
+    final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
+    final Collection<MetadataChangeProposal> proposals =
+        DatasetUpdateInputMapper.map(context, input, actor);
+    proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
-      try {
-        entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
-      } catch (RemoteInvocationException e) {
-        throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
+    // Authorization - handles both domain-based and privilege-based modes
+    if (!featureFlags.isDomainBasedAuthorizationEnabled()) {
+      // Domain-based authorization DISABLED: Use privilege-based authorization
+      if (!isAuthorized(urn, input, context)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
+    } else {
+      // Domain-based authorization ENABLED: Use domain-based authorization
+      Map<Urn, Set<Urn>> newDomainsByEntity =
+          DomainExtractionUtils.extractNewDomainsFromMCPs(proposals);
 
-      return load(urn, context).getData();
+      Map<MetadataChangeProposal, Boolean> authResults =
+          DomainAuthorizationHelper.authorizeWithDomains(
+              context.getOperationContext(),
+              context.getOperationContext().getEntityRegistry(),
+              new ArrayList<>(proposals),
+              newDomainsByEntity,
+              context.getOperationContext().getAspectRetriever());
+
+      // Check authorization results
+      boolean allAuthorized = authResults.values().stream().allMatch(authorized -> authorized);
+      if (!allAuthorized) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
     }
-    throw new AuthorizationException(
-        "Unauthorized to perform this action. Please contact your DataHub administrator.");
+
+    try {
+      entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
+    }
+
+    return load(urn, context).getData();
   }
 
   private boolean isAuthorized(
       @Nonnull String urn, @Nonnull DatasetUpdateInput update, @Nonnull QueryContext context) {
-    // Decide whether the current principal should be allowed to update the Dataset.
+    // Privilege-based authorization (used when domain-based authorization is disabled)
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
-    boolean authorized =
-        AuthorizationUtils.isAuthorized(
-            context, PoliciesConfig.DATASET_PRIVILEGES.getResourceType(), urn, orPrivilegeGroups);
-
-    if (authorized && featureFlags.isDomainBasedAuthorizationEnabled()) {
-      final Urn entityUrn = UrnUtils.getUrn(urn);
-      authorized =
-          DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, entityUrn, entityClient);
-    }
-
-    return authorized;
+    return AuthorizationUtils.isAuthorized(
+        context, PoliciesConfig.DATASET_PRIVILEGES.getResourceType(), urn, orPrivilegeGroups);
   }
 
   private DisjunctivePrivilegeGroup getAuthorizedPrivileges(final DatasetUpdateInput updateInput) {

@@ -1,12 +1,15 @@
 package com.linkedin.datahub.graphql.exception;
 
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import graphql.PublicApi;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
 import graphql.language.SourceLocation;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,9 +37,8 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       message = extractErrorMessage(graphQLException);
     }
 
-    com.linkedin.metadata.entity.validation.ValidationException entityServiceValidationException =
-        findFirstThrowableCauseOfClass(
-            exception, com.linkedin.metadata.entity.validation.ValidationException.class);
+    ValidationException entityServiceValidationException =
+        findFirstThrowableCauseOfClass(exception, ValidationException.class);
     if (entityServiceValidationException != null
         && entityServiceValidationException.getValidationExceptionCollection() != null
         && entityServiceValidationException
@@ -54,8 +56,9 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       message = extractErrorMessage(entityServiceValidationException);
     }
 
-    ValidationException validationException =
-        findFirstThrowableCauseOfClass(exception, ValidationException.class);
+    com.linkedin.datahub.graphql.exception.ValidationException validationException =
+        findFirstThrowableCauseOfClass(
+            exception, com.linkedin.datahub.graphql.exception.ValidationException.class);
     if (validationException != null && message.equals(DEFAULT_ERROR_MESSAGE)) {
       log.error("Failed to execute", validationException);
       errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
@@ -128,7 +131,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
 
     // Walk the exception chain to find root causes
     Throwable cause = exception.getCause();
-    java.util.List<String> causeMessages = new java.util.ArrayList<>();
+    List<String> causeMessages = new ArrayList<>();
 
     while (cause != null && cause != cause.getCause()) {
       String causeMessage = cause.getMessage();

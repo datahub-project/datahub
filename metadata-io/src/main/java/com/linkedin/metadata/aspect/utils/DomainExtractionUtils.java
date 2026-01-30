@@ -4,12 +4,12 @@ import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
 
 import com.datahub.util.RecordUtils;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.NewModelUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -209,48 +209,65 @@ public class DomainExtractionUtils {
     Set<Urn> domainUrns = new HashSet<>();
 
     try {
-      // Parse the patch document to extract domain URNs
+      // Deserialize to GenericJsonPatch for structured access
       ObjectMapper mapper = new ObjectMapper();
-      JsonNode patchNode = mapper.readTree(patchDocument);
+      GenericJsonPatch patch = mapper.readValue(patchDocument, GenericJsonPatch.class);
 
-      if (patchNode.has("patch") && patchNode.get("patch").isArray()) {
-        for (JsonNode operation : patchNode.get("patch")) {
-          String path = operation.has("path") ? operation.get("path").asText() : null;
-          JsonNode value = operation.has("value") ? operation.get("value") : null;
+      // Iterate through patch operations
+      for (GenericJsonPatch.PatchOp op : patch.getPatch()) {
+        String path = op.getPath();
+        Object value = op.getValue();
 
-          // Check if this operation is modifying domains
-          if (path != null && (path.startsWith("/domains") || path.equals("/domains"))) {
-            if (value != null) {
-              // Handle different value types (String for single domain, Array for multiple domains)
-              if (value.isTextual()) {
-                String urnStr = value.asText();
-                if (urnStr.startsWith("urn:li:domain:")) {
-                  try {
-                    domainUrns.add(Urn.createFromString(urnStr));
-                  } catch (Exception e) {
-                    log.warn("Invalid domain URN in patch: {}", urnStr);
-                  }
-                }
-              } else if (value.isArray()) {
-                for (JsonNode item : value) {
-                  if (item.isTextual()) {
-                    String urnStr = item.asText();
-                    if (urnStr.startsWith("urn:li:domain:")) {
-                      try {
-                        domainUrns.add(Urn.createFromString(urnStr));
-                      } catch (Exception e) {
-                        log.warn("Invalid domain URN in patch: {}", urnStr);
-                      }
-                    }
-                  }
-                }
-              }
-            }
+        // Check if this operation is modifying domains
+        if (path != null && (path.startsWith("/domains") || path.equals("/domains"))) {
+          if (value != null) {
+            domainUrns.addAll(extractDomainUrnsFromValue(value));
           }
         }
       }
     } catch (Exception e) {
       log.warn("Error extracting domain URNs from patch document: {}", e.getMessage());
+    }
+
+    return domainUrns;
+  }
+
+  /**
+   * Extract domain URNs from a patch operation value. Handles both single domain (String) and
+   * multiple domains (List).
+   *
+   * @param value The value from a patch operation
+   * @return Set of domain URNs found in the value
+   */
+  @Nonnull
+  private static Set<Urn> extractDomainUrnsFromValue(@Nonnull Object value) {
+    Set<Urn> domainUrns = new HashSet<>();
+
+    // Handle String (single domain)
+    if (value instanceof String) {
+      String urnStr = (String) value;
+      if (urnStr.startsWith("urn:li:domain:")) {
+        try {
+          domainUrns.add(Urn.createFromString(urnStr));
+        } catch (Exception e) {
+          log.warn("Invalid domain URN in patch: {}", urnStr);
+        }
+      }
+    }
+    // Handle List (multiple domains)
+    else if (value instanceof List) {
+      for (Object item : (List<?>) value) {
+        if (item instanceof String) {
+          String urnStr = (String) item;
+          if (urnStr.startsWith("urn:li:domain:")) {
+            try {
+              domainUrns.add(Urn.createFromString(urnStr));
+            } catch (Exception e) {
+              log.warn("Invalid domain URN in patch: {}", urnStr);
+            }
+          }
+        }
+      }
     }
 
     return domainUrns;

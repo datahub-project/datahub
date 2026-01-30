@@ -23,6 +23,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.domain.Domains;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -512,26 +513,8 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    // Extract domains for authorization when domain-based auth is enabled
     com.datahub.authorization.EntitySpec resourceSpec =
         new com.datahub.authorization.EntitySpec(urn.getEntityType(), urn.toString());
-    if (configurationProvider.getFeatureFlags() != null
-        && configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
-      Domains domainsAspect =
-          (Domains) entityService.getLatestAspect(opContext, urn, DOMAINS_ASPECT_NAME);
-      if (domainsAspect != null
-          && domainsAspect.hasDomains()
-          && !domainsAspect.getDomains().isEmpty()) {
-        // Enrich EntitySpec with domains aspect for domain-based authorization
-        Map<String, com.linkedin.data.template.RecordTemplate> aspectMap = new HashMap<>();
-        aspectMap.put(DOMAINS_ASPECT_NAME, domainsAspect);
-        resourceSpec =
-            new com.datahub.authorization.EntitySpec(
-                urn.getEntityType(), urn.toString(), aspectMap);
-      }
-    }
-
-    // Authorization check using enriched EntitySpec with domain-based policies
     com.datahub.authorization.DisjunctivePrivilegeGroup privilegeGroup =
         AuthUtil.buildDisjunctivePrivilegeGroup(ENTITY, DELETE, urn.getEntityType());
     if (!AuthUtil.isAuthorized(opContext, privilegeGroup, resourceSpec, Collections.emptyList())) {
@@ -659,26 +642,8 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    // Extract domains for authorization when domain-based auth is enabled
     com.datahub.authorization.EntitySpec resourceSpec =
         new com.datahub.authorization.EntitySpec(urn.getEntityType(), urn.toString());
-    if (configurationProvider.getFeatureFlags() != null
-        && configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
-      Domains domainsAspect =
-          (Domains) entityService.getLatestAspect(opContext, urn, DOMAINS_ASPECT_NAME);
-      if (domainsAspect != null
-          && domainsAspect.hasDomains()
-          && !domainsAspect.getDomains().isEmpty()) {
-        // Enrich EntitySpec with domains aspect for domain-based authorization
-        Map<String, com.linkedin.data.template.RecordTemplate> aspectMap = new HashMap<>();
-        aspectMap.put(DOMAINS_ASPECT_NAME, domainsAspect);
-        resourceSpec =
-            new com.datahub.authorization.EntitySpec(
-                urn.getEntityType(), urn.toString(), aspectMap);
-      }
-    }
-
-    // Authorization check using enriched EntitySpec with domain-based policies
     com.datahub.authorization.DisjunctivePrivilegeGroup privilegeGroup =
         AuthUtil.buildDisjunctivePrivilegeGroup(ENTITY, DELETE, urn.getEntityType());
     if (!AuthUtil.isAuthorized(opContext, privilegeGroup, resourceSpec, Collections.emptyList())) {
@@ -961,7 +926,7 @@ public abstract class GenericEntitiesController<
       throws UnauthorizedException {
 
     // Fetch the entity's current domain aspect
-    com.linkedin.entity.EntityResponse entityResponse;
+    EntityResponse entityResponse;
     try {
       entityResponse =
           entityService.getEntityV2(
