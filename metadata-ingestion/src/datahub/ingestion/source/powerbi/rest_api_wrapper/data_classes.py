@@ -93,14 +93,12 @@ class Workspace:
         self,
         platform_name: str,
         platform_instance: Optional[str] = None,
-        env: Optional[str] = None,
         workspace_id_as_urn_part: Optional[bool] = False,
     ) -> ContainerKey:
         return WorkspaceKey(
             workspace=self.get_urn_part(workspace_id_as_urn_part),
             platform=platform_name,
             instance=platform_instance,
-            env=env,
         )
 
     def format_name_for_logger(self) -> str:
@@ -236,17 +234,10 @@ class PowerBIDataset:
     def __hash__(self):
         return hash(self.__members())
 
-    def get_dataset_key(
-        self,
-        platform_name: str,
-        platform_instance: Optional[str] = None,
-        env: Optional[str] = None,
-    ) -> ContainerKey:
+    def get_dataset_key(self, platform_name: str) -> ContainerKey:
         return DatasetKey(
             dataset=self.id,
             platform=platform_name,
-            instance=platform_instance,
-            env=env,
         )
 
 
