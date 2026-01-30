@@ -828,7 +828,11 @@ class Mapper:
         if self.__config.extract_datasets_to_containers and isinstance(
             dataset, powerbi_data_classes.PowerBIDataset
         ):
-            container_key = dataset.get_dataset_key(self.__config.platform_name)
+            container_key = dataset.get_dataset_key(
+                self.__config.platform_name,
+                platform_instance=self.__config.platform_instance,
+                env=self.__config.env,
+            )
         elif self.__config.extract_workspaces_to_containers and self.workspace_key:
             container_key = self.workspace_key
         else:
@@ -849,6 +853,7 @@ class Mapper:
         self.workspace_key = workspace.get_workspace_key(
             platform_name=self.__config.platform_name,
             platform_instance=self.__config.platform_instance,
+            env=self.__config.env,
             workspace_id_as_urn_part=self.__config.workspace_id_as_urn_part,
         )
         container_work_units = gen_containers(
@@ -866,7 +871,11 @@ class Mapper:
     def generate_container_for_dataset(
         self, dataset: powerbi_data_classes.PowerBIDataset
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        dataset_key = dataset.get_dataset_key(self.__config.platform_name)
+        dataset_key = dataset.get_dataset_key(
+            self.__config.platform_name,
+            platform_instance=self.__config.platform_instance,
+            env=self.__config.env,
+        )
         container_work_units = gen_containers(
             container_key=dataset_key,
             name=dataset.name if dataset.name else dataset.id,
