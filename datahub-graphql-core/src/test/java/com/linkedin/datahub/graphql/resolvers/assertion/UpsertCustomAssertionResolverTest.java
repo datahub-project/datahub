@@ -12,6 +12,7 @@ import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.CustomAssertionInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -27,6 +28,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.service.AssertionService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Arrays;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -41,6 +43,9 @@ public class UpsertCustomAssertionResolverTest {
   private static final Urn TEST_FIELD_URN =
       UrnUtils.getUrn(
           "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field1)");
+  private static final Urn TEST_FIELD_URN_2 =
+      UrnUtils.getUrn(
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field2)");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
 
   private static final String TEST_INVALID_ASSERTION_URN = "test";
@@ -59,7 +64,8 @@ public class UpsertCustomAssertionResolverTest {
           TEST_DATASET_URN.toString(),
           customAssertionType,
           customAssertionDescription,
-          "field1",
+          null, // deprecated fieldPath
+          Arrays.asList("field1", "field2"), // new fieldPaths
           new PlatformInput(null, "DQplatform"),
           customAssertionUrl,
           customAssertionLogic);
@@ -69,7 +75,8 @@ public class UpsertCustomAssertionResolverTest {
           TEST_DATASET_URN.toString(),
           customAssertionType,
           customAssertionDescription,
-          "field1",
+          null,
+          Arrays.asList("field1"),
           new PlatformInput(null, null),
           customAssertionUrl,
           customAssertionLogic);
@@ -79,7 +86,8 @@ public class UpsertCustomAssertionResolverTest {
           TEST_INVALID_DATASET_URN,
           customAssertionType,
           customAssertionDescription,
-          "field1",
+          null,
+          Arrays.asList("field1"),
           new PlatformInput(null, "DQplatform"),
           customAssertionUrl,
           customAssertionLogic);
@@ -100,7 +108,7 @@ public class UpsertCustomAssertionResolverTest {
               new CustomAssertionInfo()
                   .setEntity(TEST_DATASET_URN)
                   .setType(customAssertionType)
-                  .setField(TEST_FIELD_URN)
+                  .setFields(new UrnArray(Arrays.asList(TEST_FIELD_URN, TEST_FIELD_URN_2)))
                   .setLogic(customAssertionLogic));
 
   private static final DataPlatformInstance TEST_DATA_PLATFORM_INSTANCE =
