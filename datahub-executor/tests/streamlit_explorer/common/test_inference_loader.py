@@ -182,7 +182,6 @@ class TestGraphqlToInferenceDetails:
         graphql_data = {
             "modelId": "test-model",
             "modelVersion": "1.0",
-            "confidence": 0.95,
             "generatedAt": 1234567890,
             "parameters": [
                 {"key": "preprocessing_config_json", "value": '{"test": true}'},
@@ -195,7 +194,8 @@ class TestGraphqlToInferenceDetails:
         assert result is not None
         assert result.modelId == "test-model"
         assert result.modelVersion == "1.0"
-        assert result.confidence == 0.95
+        # Training confidence is legacy; we no longer parse/surface it.
+        assert result.confidence is None
         assert result.generatedAt == 1234567890
         assert result.parameters is not None
         assert result.parameters.get("preprocessing_config_json") == '{"test": true}'
@@ -691,7 +691,6 @@ class TestInferenceDataRoundTrip:
             "inferenceDetails": {
                 "modelId": "forecast-model",
                 "modelVersion": "2.0",
-                "confidence": 0.88,
                 "generatedAt": 1700000000000,
                 "parameters": [
                     {

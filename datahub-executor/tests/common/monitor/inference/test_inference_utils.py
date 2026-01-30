@@ -49,7 +49,6 @@ def sample_model_config() -> ModelConfig:
         forecast_config_json='{"_schemaVersion": "1.0.0", "hyperparameters": {"changepoint_prior_scale": 0.05}}',
         forecast_evals_json='{"_schemaVersion": "1.0.0", "runs": [{"mae": 0.05, "rmse": 0.08, "mape": 3.5, "train_start_millis": 1704067200000, "train_end_millis": 1706745600000, "test_start_millis": 1706745600001, "test_end_millis": 1707350400000}]}',
         preprocessing_config_json='{"type": "volume", "convert_cumulative": true, "_schemaVersion": "1.0.0"}',
-        confidence=0.95,
         generated_at=1707350400000,
     )
 
@@ -66,8 +65,8 @@ def sample_anomaly_model_config() -> ModelConfig:
         anomaly_model_version="0.1.0",
         anomaly_config_json='{"_schemaVersion": "1.0.0", "hyperparameters": {"deviation_threshold": 1.8}}',
         anomaly_evals_json='{"_schemaVersion": "1.0.0", "runs": [{"precision": 0.85, "recall": 0.78, "f1_score": 0.81, "train_start_millis": 1704067200000, "train_end_millis": 1706745600000, "test_start_millis": 1706745600001, "test_end_millis": 1707350400000}]}',
+        anomaly_score=0.95,
         preprocessing_config_json='{"type": "volume", "convert_cumulative": true, "_schemaVersion": "1.0.0"}',
-        confidence=0.95,
         generated_at=1707350400000,
     )
 
@@ -180,7 +179,7 @@ class TestPydanticModelFeatures:
 
         assert data["forecast_model_name"] == "prophet"
         assert data["forecast_model_version"] == "0.1.0"
-        assert data["confidence"] == 0.95
+        assert data.get("confidence") is None
 
     def test_model_config_model_dump_json(
         self, sample_model_config: ModelConfig
@@ -236,7 +235,9 @@ class TestBuildInferenceDetails:
         assert isinstance(result, AssertionInferenceDetailsClass)
         assert result.modelId == "observe-models"
         assert result.modelVersion == OBSERVE_MODELS_VERSION
-        assert result.confidence == 0.95
+        # Backward-compatibility: confidence mirrors anomalyScore when present,
+        # otherwise forecastScore. This sample config has neither.
+        assert result.confidence is None
         assert result.generatedAt == 1707350400000
 
     def test_build_inference_details_uses_model_config_generated_at(

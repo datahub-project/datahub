@@ -9,7 +9,7 @@ This module handles model initialization with proper config coalescing:
 
 import dataclasses
 from dataclasses import dataclass
-from typing import Any, Optional, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
 from datahub_observe.algorithms.anomaly_detection.config import AnomalyModelConfig
 from datahub_observe.algorithms.anomaly_detection.forecast_anomaly_base import (
@@ -115,6 +115,7 @@ class ModelFactory:
         defaults: ObserveDefaultsBuilder,
         existing_model_config: Optional[ModelConfig] = None,
         force_retune: bool = False,
+        ground_truth: Optional[Any] = None,
     ):
         """
         Initialize the factory.
@@ -125,10 +126,13 @@ class ModelFactory:
             force_retune: If True, ignore existing hyperparameters and use defaults
                 only. This forces fresh tuning of the model. Preprocessing config
                 is still preserved since it describes the data shape.
+            ground_truth: Optional DataFrame with 'ds' and 'is_anomaly_gt' columns.
+                Used to configure preprocessing to exclude anomalies from training.
         """
         self._defaults = defaults
         self._existing_model_config = existing_model_config
         self._force_retune = force_retune
+        self._ground_truth = ground_truth
 
     def create_models(self) -> InitializedModels:
         """
@@ -154,6 +158,9 @@ class ModelFactory:
         # Build anomaly config with embedded forecast config
         anomaly_config = self._coalesce_anomaly_config()
 
+        # Get parallelization kwargs for consistent defaults across all models
+        parallelization_kwargs = self._defaults.parallelization_kwargs()
+
         # Use typed registry factory - handles forecast model creation automatically
         # Cast is safe: we always provide forecast_model_name, so it returns
         # BaseForecastAnomalyModel (not BaseAnomalyModel)
@@ -164,6 +171,7 @@ class ModelFactory:
                 preprocessing_config,
                 anomaly_config,
                 forecast_model_name=forecast_registry_key,
+                **parallelization_kwargs,
             ),
         )
 
@@ -207,11 +215,15 @@ class ModelFactory:
         # Build forecast config (coalesced with existing if available)
         forecast_config = self._coalesce_forecast_config(self._force_retune)
 
+        # Get parallelization kwargs for consistent defaults across all models
+        parallelization_kwargs = self._defaults.parallelization_kwargs()
+
         # Create the forecast model via registry
         forecast_model = registry.create_forecast_model(
             forecast_registry_key,
             preprocessing_config,
             forecast_config,
+            **parallelization_kwargs,
         )
 
         return InitializedModels(
@@ -225,7 +237,7 @@ class ModelFactory:
         self,
         forecast_model: DartsBaseForecastModel,
         anomaly_registry_key: Optional[str] = None,
-        param_grid: Optional[str] = None,
+        param_grid: Optional[Union[str, Dict[str, List[Any]], bool]] = None,
     ) -> InitializedModels:
         """
         Create an anomaly model using a pre-trained forecast model.
@@ -245,8 +257,10 @@ class ModelFactory:
                 model via composition.
             anomaly_registry_key: Optional override for the anomaly model registry
                 key. If not provided, uses the key from existing config or defaults.
-            param_grid: Optional parameter grid for hyperparameter tuning.
-                Use "auto" to enable automatic grid search.
+            param_grid: Controls anomaly-model hyperparameter tuning.
+                - "auto"/True/None: enable default grid search (model decides defaults)
+                - {} / False: disable grid search
+                - dict: explicit parameter grid
 
         Returns:
             InitializedModels with anomaly model wrapping the pre-trained forecast.
@@ -259,21 +273,45 @@ class ModelFactory:
         else:
             registry_key = self._get_anomaly_registry_key()
 
-        # Build anomaly config (coalesced with existing if available)
-        # Note: We don't embed forecast_model_config since we're using
-        # a pre-trained forecast model directly
+        # Build anomaly config (coalesced with existing if available).
+        # Note: We don't embed forecast_model_config since we're using a pre-trained
+        # forecast model directly.
         anomaly_config = self._coalesce_anomaly_config(embed_forecast_config=False)
+
+        # Apply grid-search override from caller (Streamlit explorer).
+        # In this API, param_grid=None historically meant "no grid search".
+        if param_grid is None or param_grid is False or param_grid == {}:
+            anomaly_config = dataclasses.replace(anomaly_config, param_grid={})
+        elif param_grid == "auto" or param_grid is True:
+            # Leave param_grid as None to use model defaults.
+            pass
+        elif isinstance(param_grid, dict):
+            anomaly_config = dataclasses.replace(anomaly_config, param_grid=param_grid)
 
         # Get the anomaly model class from registry and instantiate with
         # the pre-trained forecast model
         entry = registry.get(registry_key)
         model_class = entry.cls
 
-        # Create anomaly model with the pre-trained forecast model
-        anomaly_model = model_class(
-            forecast_model=forecast_model,
-            param_grid=param_grid,
-        )
+        # Get parallelization kwargs for consistent defaults across all models
+        parallelization_kwargs = self._defaults.parallelization_kwargs()
+
+        # Create anomaly model with the pre-trained forecast model.
+        # Prefer using observe-models' from_config() so sensitivity and other config
+        # fields are consistently applied.
+        if hasattr(model_class, "from_config"):
+            anomaly_model = model_class.from_config(  # type: ignore[attr-defined]
+                preprocessing_config=forecast_model.preprocessing_config,
+                model_config=anomaly_config,
+                forecast_model=forecast_model,
+                **parallelization_kwargs,
+            )
+        else:
+            anomaly_model = model_class(
+                forecast_model=forecast_model,
+                param_grid=param_grid,
+                **parallelization_kwargs,
+            )
 
         return InitializedModels(
             anomaly_model=anomaly_model,
@@ -281,22 +319,59 @@ class ModelFactory:
             anomaly_registry_key=registry_key,
         )
 
-    def _build_preprocessing_config(self) -> Any:
+    def _build_preprocessing_config(self) -> PreprocessingConfigType:
         """Build preprocessing config by coalescing existing with defaults.
 
         Returns existing config if available, otherwise uses defaults from
         ObserveDefaultsBuilder based on the input data context.
 
         Returns:
-            Preprocessing config (VolumePreprocessorConfig or AssertionPreprocessingConfig).
+            Concrete observe-models `PreprocessingConfig` (base + patches).
         """
         # Try existing config first (warm start)
         existing = self._get_existing_preprocessing_config()
         if existing is not None:
+            # Even with existing config, check if we need to add AnomalyDataFilterConfig
+            # when ground_truth has anomalies
+            if self._ground_truth is not None:
+                import pandas as pd
+                from datahub_observe.algorithms.preprocessing.transformers import (
+                    AnomalyDataFilterConfig,
+                )
+
+                # Check if ground_truth is a DataFrame and has anomalies
+                if isinstance(self._ground_truth, pd.DataFrame):
+                    if (
+                        not self._ground_truth.empty
+                        and "is_anomaly_gt" in self._ground_truth.columns
+                    ):
+                        # Use .eq(True) to handle boolean Series correctly
+                        anomalies = self._ground_truth[
+                            self._ground_truth["is_anomaly_gt"].eq(True)
+                        ]
+                        if not anomalies.empty:
+                            # Check if AnomalyDataFilterConfig already exists
+                            has_anomaly_filter = any(
+                                isinstance(t, AnomalyDataFilterConfig)
+                                for t in existing.pandas_transformers
+                            )
+                            if not has_anomaly_filter:
+                                # Add AnomalyDataFilterConfig to existing config
+                                anomaly_filter = AnomalyDataFilterConfig(
+                                    enabled=True, type_values=["ANOMALY"]
+                                )
+                                return dataclasses.replace(
+                                    existing,
+                                    pandas_transformers=[
+                                        anomaly_filter,
+                                        *existing.pandas_transformers,
+                                    ],
+                                )
             return existing
 
-        # Use defaults builder for context-aware defaults
-        return self._defaults.preprocessing_config()
+        # Use defaults builder for context-aware defaults, passing ground_truth
+        # to enable anomaly filtering when anomalies are present
+        return self._defaults.preprocessing_config(ground_truth=self._ground_truth)
 
     def _get_existing_forecast_config(self) -> Optional[ForecastModelConfig]:
         """Get full forecast config from existing model config.
@@ -374,7 +449,14 @@ class ModelFactory:
             self._existing_model_config
             and self._existing_model_config.forecast_model_name
         ):
-            return self._existing_model_config.forecast_model_name
+            name = self._existing_model_config.forecast_model_name
+            # If already version-qualified (e.g. from pairing evaluation), keep as-is.
+            if "@" in name:
+                return name
+            version = self._existing_model_config.forecast_model_version
+            if version:
+                return f"{name}@{version}"
+            return name
         return self._defaults.forecast_model_registry_key()
 
     def _get_anomaly_registry_key(self) -> str:
@@ -390,7 +472,13 @@ class ModelFactory:
             self._existing_model_config
             and self._existing_model_config.anomaly_model_name
         ):
-            return self._existing_model_config.anomaly_model_name
+            name = self._existing_model_config.anomaly_model_name
+            if "@" in name:
+                return name
+            version = self._existing_model_config.anomaly_model_version
+            if version:
+                return f"{name}@{version}"
+            return name
         return self._defaults.anomaly_model_registry_key()
 
     def _coalesce_forecast_config(self, force_retune: bool) -> ForecastModelConfig:

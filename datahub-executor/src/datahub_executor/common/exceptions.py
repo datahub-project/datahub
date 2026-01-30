@@ -156,3 +156,29 @@ class TrainingErrorException(Exception):
         self.error_type = error_type
         self.properties = properties or {}
         self.state = state
+
+
+class InsufficientSamplesException(TrainingErrorException):
+    """Raised when there is insufficient data to train an inference model."""
+
+    def __init__(
+        self,
+        *,
+        min_samples: int,
+        actual_samples: int,
+        step: str = "min_samples_check",
+        properties: Optional[dict[str, str]] = None,
+    ) -> None:
+        merged: dict[str, str] = {
+            "step": step,
+            "min_samples": str(min_samples),
+            "actual_samples": str(actual_samples),
+        }
+        if properties:
+            merged.update(properties)
+
+        super().__init__(
+            message=f"Insufficient samples: {actual_samples} < {min_samples}",
+            error_type=MonitorErrorTypeClass.INPUT_DATA_INSUFFICIENT,
+            properties=merged,
+        )

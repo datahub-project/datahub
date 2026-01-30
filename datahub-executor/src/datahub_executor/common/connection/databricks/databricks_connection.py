@@ -2,7 +2,7 @@ import logging
 import weakref
 from typing import Any, Optional
 
-from databricks import sql
+from databricks import sql  # type: ignore[attr-defined]
 from databricks.sql.client import Connection as DatabricksSqlConnection
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig

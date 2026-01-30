@@ -1262,6 +1262,134 @@ class EndpointCache:
 
             return fallback_results, total_count
 
+    def list_monitored_assertions_paginated(
+        self,
+        aspect_name: str = "dataHubMetricCubeEvent",
+        page: int = 0,
+        page_size: int = 100,
+        search_filter: Optional[str] = None,
+        status_filter: Optional[str] = None,
+        assertion_urns_filter: Optional[list[str]] = None,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """List monitored assertions (grouped by assertionUrn) with pagination.
+
+        Use this for Metric Cube Browser to load one page at a time without
+        loading all events into memory. Only applies to metric cube aspects.
+
+        Args:
+            aspect_name: Must be dataHubMetricCubeEvent (metric cube aspect).
+            page: Page number (0-indexed).
+            page_size: Number of assertions per page.
+            search_filter: Optional substring to filter assertionUrn (ILIKE).
+            status_filter: Optional monitor status ("ACTIVE" or "PAUSED").
+            assertion_urns_filter: Optional list of assertion URNs to restrict to
+                (e.g. assertions with saved preprocessing). Empty list returns no rows.
+
+        Returns:
+            Tuple of (list of assertion dicts for the page, total count).
+            Dict keys: entity_urn (assertionUrn), monitor_urn, metric_cube_urn,
+            point_count, first_event_ms, last_event_ms, value_min, value_max,
+            value_mean, monitor_status.
+        """
+        if aspect_name not in METRIC_CUBE_ASPECTS:
+            return [], 0
+
+        path = self.get_aspect_path(aspect_name)
+        if not path.exists():
+            return [], 0
+
+        try:
+            available_cols = self.get_schema_columns(aspect_name)
+            conn = self.duckdb_conn
+
+            conditions = []
+            if search_filter:
+                escaped = search_filter.replace("'", "''")
+                conditions.append(f"assertionUrn ILIKE '%{escaped}%'")
+            if status_filter and "monitor_status" in available_cols:
+                if status_filter == "ACTIVE":
+                    conditions.append(
+                        "(monitor_status IS NULL OR monitor_status = 'ACTIVE')"
+                    )
+                else:
+                    escaped = status_filter.replace("'", "''")
+                    conditions.append(f"monitor_status = '{escaped}'")
+            if assertion_urns_filter is not None:
+                if len(assertion_urns_filter) == 0:
+                    conditions.append("1=0")
+                else:
+                    escaped_urns = [u.replace("'", "''") for u in assertion_urns_filter]
+                    in_clause = ",".join(f"'{u}'" for u in escaped_urns)
+                    conditions.append(f"assertionUrn IN ({in_clause})")
+
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
+
+            select_parts = [
+                "assertionUrn as entity_urn",
+                "COUNT(*) as point_count",
+                "MIN(timestampMillis) as first_event_ms",
+                "MAX(timestampMillis) as last_event_ms",
+            ]
+            if "monitorUrn" in available_cols:
+                select_parts.append("ANY_VALUE(monitorUrn) as monitor_urn")
+            else:
+                select_parts.append("NULL as monitor_urn")
+            if "metricCubeUrn" in available_cols:
+                select_parts.append("ANY_VALUE(metricCubeUrn) as metric_cube_urn")
+            else:
+                select_parts.append("NULL as metric_cube_urn")
+            if "measure" in available_cols:
+                select_parts.extend(
+                    [
+                        "MIN(CASE WHEN measure IS NOT NULL THEN measure ELSE NULL END) as value_min",
+                        "MAX(CASE WHEN measure IS NOT NULL THEN measure ELSE NULL END) as value_max",
+                        "AVG(CASE WHEN measure IS NOT NULL THEN measure ELSE NULL END) as value_mean",
+                    ]
+                )
+            else:
+                select_parts.extend(
+                    ["NULL as value_min", "NULL as value_max", "NULL as value_mean"]
+                )
+            if "monitor_status" in available_cols:
+                select_parts.append("ANY_VALUE(monitor_status) as monitor_status")
+            else:
+                select_parts.append("NULL as monitor_status")
+
+            select_clause = ",\n                    ".join(select_parts)
+
+            agg_query = f"""
+                SELECT *
+                FROM (
+                    SELECT
+                        {select_clause},
+                        COUNT(*) OVER() as _total_groups
+                    FROM (
+                        SELECT *
+                        FROM read_parquet('{path}')
+                        WHERE {where_clause}
+                    ) filtered
+                    GROUP BY assertionUrn
+                ) aggregated
+                ORDER BY last_event_ms DESC NULLS LAST
+                LIMIT {page_size} OFFSET {page * page_size}
+            """
+
+            result_df = conn.execute(agg_query).fetchdf()
+
+            if len(result_df) == 0:
+                return [], 0
+
+            total_count = int(result_df["_total_groups"].iloc[0])
+            result_df = result_df.drop(columns=["_total_groups"])
+            results: list[dict[str, Any]] = [
+                {str(k): v for k, v in row.items()}
+                for row in result_df.to_dict("records")
+            ]
+            return results, total_count
+
+        except Exception:
+            return [], 0
+
     def load_aspect_events(
         self,
         aspect_name: str,
@@ -1721,6 +1849,18 @@ class EndpointCache:
         preprocessings.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
         return preprocessings
 
+    def get_assertion_urns_with_saved_preprocessing(self) -> set[str]:
+        """Return assertion URNs that have at least one saved preprocessing.
+
+        Uses existing list_saved_preprocessings metadata (no extra I/O).
+        """
+        urns: set[str] = set()
+        for item in self.list_saved_preprocessings():
+            urn = item.get("source_assertion_urn")
+            if urn:
+                urns.add(urn)
+        return urns
+
     def delete_preprocessing(self, preprocessing_id: str) -> bool:
         """Delete a saved preprocessing.
 
@@ -1779,6 +1919,8 @@ class EndpointCache:
         assertion_urn: Optional[str] = None,
         is_observe_model: bool = False,
         registry_key: Optional[str] = None,
+        score: Optional[float] = None,
+        sensitivity_level: Optional[int] = None,
     ) -> bool:
         """Save a training run to disk.
 
@@ -1827,6 +1969,8 @@ class EndpointCache:
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "train_rows": len(train_df),
                 "test_rows": len(test_df),
+                "score": score,
+                "sensitivity_level": sensitivity_level,
             }
             with open(run_dir / "metadata.json", "w") as f:
                 json.dump(metadata, f, indent=2)
@@ -1885,6 +2029,10 @@ class EndpointCache:
                 "is_observe_model": metadata.get("is_observe_model", False),
                 "registry_key": metadata.get("registry_key"),
                 "timestamp": datetime.fromisoformat(metadata["created_at"]),
+                "score": metadata.get("score"),  # May be None for older cached runs
+                "sensitivity_level": metadata.get(
+                    "sensitivity_level"
+                ),  # May be None for older cached runs
             }
 
         except Exception:
@@ -1968,6 +2116,396 @@ class EndpointCache:
         """
         run_dir = self.training_runs_dir / run_id
         return run_dir.exists() and (run_dir / "metadata.json").exists()
+
+    # =========================================================================
+    # Anomaly Detection Runs Persistence
+    # =========================================================================
+
+    @property
+    def anomaly_runs_dir(self) -> Path:
+        """Directory for storing anomaly detection runs."""
+        return self.endpoint_dir / "anomaly_runs"
+
+    def save_anomaly_run(
+        self,
+        run_id: str,
+        anomaly_model_key: str,
+        anomaly_model_name: str,
+        train_df: pd.DataFrame,
+        test_df: pd.DataFrame,
+        detection_results: pd.DataFrame,
+        forecast_run_id: Optional[str] = None,
+        forecast_model_name: Optional[str] = None,
+        preprocessing_id: Optional[str] = None,
+        sensitivity_level: Optional[int] = None,
+        assertion_urn: Optional[str] = None,
+    ) -> bool:
+        """Save an anomaly detection run to disk.
+
+        Note: The model object itself is NOT persisted. Only metadata and
+        DataFrames are saved. To use the model for predictions, re-train it.
+
+        Args:
+            run_id: Unique identifier for this run
+            anomaly_model_key: Key identifying the anomaly model type
+            anomaly_model_name: Display name of the anomaly model
+            train_df: Training DataFrame (for context)
+            test_df: Test DataFrame (where anomalies are detected)
+            detection_results: Detection results DataFrame with is_anomaly, scores, bands
+            forecast_run_id: Optional reference to forecasting model run ID
+            forecast_model_name: Optional name of forecast model
+            preprocessing_id: Optional preprocessing ID for standalone models
+            sensitivity_level: Optional sensitivity level (1-10) used for training
+            assertion_urn: Optional assertion URN
+
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        run_dir = self.anomaly_runs_dir / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            # Save DataFrames as parquet
+            train_df.to_parquet(run_dir / "train.parquet", index=False)
+            test_df.to_parquet(run_dir / "test.parquet", index=False)
+            detection_results.to_parquet(
+                run_dir / "detection_results.parquet", index=False
+            )
+
+            # Save metadata (model object is NOT persisted for security/compatibility)
+            metadata = {
+                "run_id": run_id,
+                "anomaly_model_key": anomaly_model_key,
+                "anomaly_model_name": anomaly_model_name,
+                "forecast_run_id": forecast_run_id,
+                "forecast_model_name": forecast_model_name,
+                "preprocessing_id": preprocessing_id,
+                "sensitivity_level": sensitivity_level,
+                "assertion_urn": assertion_urn,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "train_rows": len(train_df),
+                "test_rows": len(test_df),
+                "detection_rows": len(detection_results),
+            }
+            with open(run_dir / "metadata.json", "w") as f:
+                json.dump(metadata, f, indent=2)
+
+            return True
+
+        except Exception:
+            # Clean up on failure
+            if run_dir.exists():
+                shutil.rmtree(run_dir)
+            return False
+
+    def load_anomaly_run(self, run_id: str) -> Optional[dict]:
+        """Load a saved anomaly detection run by ID.
+
+        Note: The model object is NOT loaded (not persisted for security).
+        Only metadata and DataFrames are returned.
+
+        Args:
+            run_id: The anomaly run ID to load
+
+        Returns:
+            Dict with anomaly run data (model=None), or None if not found
+        """
+        run_dir = self.anomaly_runs_dir / run_id
+        if not run_dir.exists():
+            return None
+
+        try:
+            # Load metadata
+            meta_path = run_dir / "metadata.json"
+            if not meta_path.exists():
+                return None
+
+            with open(meta_path, "r") as f:
+                metadata = json.load(f)
+
+            # Load DataFrames
+            train_df = pd.read_parquet(run_dir / "train.parquet")
+            test_df = pd.read_parquet(run_dir / "test.parquet")
+            detection_results = pd.read_parquet(run_dir / "detection_results.parquet")
+
+            return {
+                "run_id": metadata["run_id"],
+                "anomaly_model_key": metadata["anomaly_model_key"],
+                "anomaly_model_name": metadata["anomaly_model_name"],
+                "train_df": train_df,
+                "test_df": test_df,
+                "detection_results": detection_results,
+                "model": None,  # Model is not persisted
+                "forecast_run_id": metadata.get("forecast_run_id"),
+                "forecast_model_name": metadata.get("forecast_model_name"),
+                "preprocessing_id": metadata.get("preprocessing_id"),
+                "sensitivity_level": metadata.get("sensitivity_level"),
+                "assertion_urn": metadata.get("assertion_urn"),
+                "timestamp": datetime.fromisoformat(metadata["created_at"]),
+            }
+
+        except Exception:
+            return None
+
+    def list_saved_anomaly_runs(
+        self, assertion_urn: Optional[str] = None
+    ) -> list[dict]:
+        """List all saved anomaly detection runs.
+
+        Args:
+            assertion_urn: Optional filter by assertion URN
+
+        Returns:
+            List of dicts with run metadata (without DataFrames)
+        """
+        runs: list[dict] = []
+
+        if not self.anomaly_runs_dir.exists():
+            return runs
+
+        for run_dir in self.anomaly_runs_dir.iterdir():
+            if not run_dir.is_dir():
+                continue
+
+            meta_path = run_dir / "metadata.json"
+            if meta_path.exists():
+                try:
+                    with open(meta_path, "r") as f:
+                        metadata = json.load(f)
+
+                    # Filter by assertion URN if specified
+                    if assertion_urn and metadata.get("assertion_urn") != assertion_urn:
+                        continue
+
+                    runs.append(
+                        {
+                            "run_id": metadata["run_id"],
+                            "anomaly_model_key": metadata["anomaly_model_key"],
+                            "anomaly_model_name": metadata["anomaly_model_name"],
+                            "forecast_run_id": metadata.get("forecast_run_id"),
+                            "forecast_model_name": metadata.get("forecast_model_name"),
+                            "preprocessing_id": metadata.get("preprocessing_id"),
+                            "sensitivity_level": metadata.get("sensitivity_level"),
+                            "assertion_urn": metadata.get("assertion_urn"),
+                            "created_at": metadata.get("created_at"),
+                            "train_rows": metadata.get("train_rows", 0),
+                            "test_rows": metadata.get("test_rows", 0),
+                            "detection_rows": metadata.get("detection_rows", 0),
+                        }
+                    )
+                except Exception:
+                    continue
+
+        # Sort by creation time (newest first)
+        runs.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        return runs
+
+    def delete_anomaly_run(self, run_id: str) -> bool:
+        """Delete a saved anomaly detection run.
+
+        Args:
+            run_id: The anomaly run ID to delete
+
+        Returns:
+            True if deleted, False if not found
+        """
+        run_dir = self.anomaly_runs_dir / run_id
+        if run_dir.exists():
+            shutil.rmtree(run_dir)
+            return True
+        return False
+
+    # =========================================================================
+    # Auto inference_v2 run storage (Streamlit)
+    # =========================================================================
+
+    @property
+    def auto_inference_v2_runs_dir(self) -> Path:
+        """Directory for storing full inference_v2 auto pipeline runs."""
+        return self.endpoint_dir / "auto_inference_v2_runs"
+
+    def save_auto_inference_v2_run(
+        self,
+        *,
+        run_id: str,
+        assertion_urn: Optional[str],
+        preprocessing_id: str,
+        train_df: pd.DataFrame,
+        prediction_df: Optional[pd.DataFrame],
+        model_config_dict: dict[str, Any],
+        pairings_used: list[str],
+        sensitivity_level: Optional[int],
+        interval_hours: int,
+        num_intervals: int,
+        warm_start_used: Optional[bool] = None,
+        warm_start_source: Optional[str] = None,
+        warm_start_generated_at: Optional[int] = None,
+        eval_train_df: Optional[pd.DataFrame] = None,
+        eval_df: Optional[pd.DataFrame] = None,
+        evaluation_detection_results: Optional[pd.DataFrame] = None,
+        combination_results: Optional[list[dict[str, Any]]] = None,
+        execution_timing: Optional[dict[str, Any]] = None,
+    ) -> bool:
+        """Save an inference_v2 auto run to disk.
+
+        This is distinct from Streamlit's per-forecast training runs: it stores the
+        full inference_v2 outputs (ModelConfig + prediction bands).
+
+        Args:
+            eval_train_df: Training split from train/test split (for visualization).
+            eval_df: Test split from train/test split (for visualization).
+            evaluation_detection_results: Detection results for the test split
+                (for visualization matching training runs).
+            execution_timing: Optional dict of timing metrics (e.g. total_seconds)
+                for the inference_v2 pipeline run, stored in metadata.
+        """
+        run_dir = self.auto_inference_v2_runs_dir / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            train_df.to_parquet(run_dir / "train.parquet", index=False)
+
+            if prediction_df is not None and len(prediction_df) > 0:
+                prediction_df.to_parquet(run_dir / "prediction.parquet", index=False)
+
+            # Save evaluation split data for train/test visualization
+            if eval_train_df is not None and len(eval_train_df) > 0:
+                eval_train_df.to_parquet(run_dir / "eval_train.parquet", index=False)
+            if eval_df is not None and len(eval_df) > 0:
+                eval_df.to_parquet(run_dir / "eval_test.parquet", index=False)
+            if (
+                evaluation_detection_results is not None
+                and len(evaluation_detection_results) > 0
+            ):
+                evaluation_detection_results.to_parquet(
+                    run_dir / "eval_detection.parquet", index=False
+                )
+
+            with open(run_dir / "model_config.json", "w") as f:
+                json.dump(model_config_dict, f, indent=2)
+
+            metadata: dict[str, Any] = {
+                "run_id": run_id,
+                "assertion_urn": assertion_urn,
+                "preprocessing_id": preprocessing_id,
+                "pairings_used": pairings_used,
+                "sensitivity_level": sensitivity_level,
+                "interval_hours": interval_hours,
+                "num_intervals": num_intervals,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "train_rows": int(len(train_df)),
+                "has_prediction_df": bool(
+                    prediction_df is not None and len(prediction_df) > 0
+                ),
+            }
+            if combination_results is not None:
+                metadata["combination_results"] = combination_results
+            if warm_start_used is not None:
+                metadata["warm_start_used"] = bool(warm_start_used)
+            if warm_start_source:
+                metadata["warm_start_source"] = str(warm_start_source)
+            if warm_start_generated_at is not None:
+                metadata["warm_start_generated_at"] = int(warm_start_generated_at)
+            if execution_timing is not None:
+                metadata["execution_timing"] = execution_timing
+            with open(run_dir / "metadata.json", "w") as f:
+                json.dump(metadata, f, indent=2)
+
+            return True
+        except Exception:
+            if run_dir.exists():
+                shutil.rmtree(run_dir)
+            return False
+
+    def load_auto_inference_v2_run(self, run_id: str) -> Optional[dict[str, Any]]:
+        """Load a saved inference_v2 auto run by ID."""
+        run_dir = self.auto_inference_v2_runs_dir / run_id
+        if not run_dir.exists():
+            return None
+
+        meta_path = run_dir / "metadata.json"
+        model_config_path = run_dir / "model_config.json"
+        train_path = run_dir / "train.parquet"
+        if not (
+            meta_path.exists() and model_config_path.exists() and train_path.exists()
+        ):
+            return None
+
+        try:
+            with open(meta_path, "r") as f:
+                metadata = json.load(f)
+            with open(model_config_path, "r") as f:
+                model_config_dict = json.load(f)
+
+            train_df = pd.read_parquet(train_path)
+
+            prediction_df = None
+            pred_path = run_dir / "prediction.parquet"
+            if pred_path.exists():
+                prediction_df = pd.read_parquet(pred_path)
+
+            # Load evaluation split data if available (for train/test visualization)
+            eval_train_df = None
+            eval_train_path = run_dir / "eval_train.parquet"
+            if eval_train_path.exists():
+                eval_train_df = pd.read_parquet(eval_train_path)
+
+            eval_df = None
+            eval_test_path = run_dir / "eval_test.parquet"
+            if eval_test_path.exists():
+                eval_df = pd.read_parquet(eval_test_path)
+
+            evaluation_detection_results = None
+            eval_detection_path = run_dir / "eval_detection.parquet"
+            if eval_detection_path.exists():
+                evaluation_detection_results = pd.read_parquet(eval_detection_path)
+
+            return {
+                "run_id": metadata.get("run_id"),
+                "metadata": metadata,
+                "model_config": model_config_dict,
+                "train_df": train_df,
+                "prediction_df": prediction_df,
+                "eval_train_df": eval_train_df,
+                "eval_df": eval_df,
+                "evaluation_detection_results": evaluation_detection_results,
+            }
+        except Exception:
+            return None
+
+    def list_saved_auto_inference_v2_runs(
+        self, assertion_urn: Optional[str] = None
+    ) -> list[dict[str, Any]]:
+        """List all saved inference_v2 auto runs (newest first)."""
+        runs: list[dict[str, Any]] = []
+        if not self.auto_inference_v2_runs_dir.exists():
+            return runs
+
+        for run_dir in self.auto_inference_v2_runs_dir.iterdir():
+            if not run_dir.is_dir():
+                continue
+            meta_path = run_dir / "metadata.json"
+            if not meta_path.exists():
+                continue
+            try:
+                with open(meta_path, "r") as f:
+                    meta = json.load(f)
+                if assertion_urn and meta.get("assertion_urn") != assertion_urn:
+                    continue
+                runs.append(meta)
+            except Exception:
+                continue
+
+        runs.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        return runs
+
+    def delete_auto_inference_v2_run(self, run_id: str) -> bool:
+        """Delete a saved inference_v2 auto run."""
+        run_dir = self.auto_inference_v2_runs_dir / run_id
+        if run_dir.exists():
+            shutil.rmtree(run_dir)
+            return True
+        return False
 
     # =========================================================================
     # Inference Data Storage Methods

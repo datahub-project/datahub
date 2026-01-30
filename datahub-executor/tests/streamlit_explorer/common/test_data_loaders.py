@@ -1110,3 +1110,75 @@ class TestMetricCubeLoading:
 
             assert len(result) == 1
             assert result[0].point_count == 3
+
+
+class TestAssertionTypeInfoEnrichment:
+    """Tests for assertion type info enrichment and caching behavior."""
+
+    def test_enrich_refetches_when_cached_volume_subtype_missing(self, monkeypatch):
+        """
+        If the cache contains assertionType=VOLUME but is missing volumeAssertionType,
+        we must refetch so inference_v2 semantics (cumulative vs delta) can be derived.
+        """
+        from scripts.streamlit_explorer.common.metric_cube_extractor import (
+            MonitoredAssertionMetadata,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hostname = "test.example.com"
+            loader = DataLoader(cache_dir=Path(tmpdir))
+
+            # Seed cache with partial info: VOLUME present, subtype missing.
+            endpoint_cache = loader.cache.get_endpoint_cache(hostname)
+            assertion_urn = "urn:li:assertion:test-volume"
+            endpoint_cache.save_assertion_type_info(
+                {assertion_urn: {"assertionType": "VOLUME"}}
+            )
+
+            assertions = [
+                MonitoredAssertionMetadata(
+                    assertion_urn=assertion_urn,
+                    monitor_urn="urn:li:monitor:test",
+                    metric_cube_urn=None,
+                    point_count=1,
+                    first_event=None,
+                    last_event=None,
+                    value_min=None,
+                    value_max=None,
+                    value_mean=None,
+                    anomaly_count=0,
+                )
+            ]
+
+            # Patch active config + GraphQL fetch.
+            class _Cfg:
+                server = "https://test.example.com"
+                token = "t"
+
+            monkeypatch.setattr(
+                "scripts.streamlit_explorer.common.shared.get_active_config",
+                lambda: _Cfg(),
+            )
+
+            called_urns: list[str] = []
+
+            def _fake_batch(_graphql_url, _headers, urns):
+                called_urns.extend(list(urns))
+                return {
+                    assertion_urn: {
+                        "assertionType": "VOLUME",
+                        "fieldMetricType": None,
+                        "volumeAssertionType": "ROW_COUNT_TOTAL",
+                    }
+                }
+
+            monkeypatch.setattr(
+                "scripts.streamlit_explorer.common.fetch._graphql_get_assertion_info_batch",
+                _fake_batch,
+            )
+
+            loader.enrich_assertions_with_type_info(hostname, assertions)
+
+            assert called_urns == [assertion_urn]
+            assert assertions[0].assertion_type == "VOLUME"
+            assert assertions[0].volume_assertion_type == "ROW_COUNT_TOTAL"

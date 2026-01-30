@@ -230,36 +230,12 @@ def _generate_future_predictions(
 
 
 def _prepare_predictions_for_save(df: pd.DataFrame) -> pd.DataFrame:
-    """Prepare predictions DataFrame for inference_utils compatibility.
+    """Prepare predictions DataFrame for inference_utils compatibility."""
+    from datahub_executor.common.monitor.inference_v2.inference_utils import (
+        prepare_predictions_df_for_persistence,
+    )
 
-    Renames columns and converts timestamps to match expected format:
-    - ds -> timestamp_ms (datetime to milliseconds)
-    - detection_lower -> detection_band_lower
-    - detection_upper -> detection_band_upper
-
-    Args:
-        df: Predictions DataFrame from anomaly model
-
-    Returns:
-        DataFrame with renamed columns and timestamp_ms
-    """
-    if df is None or df.empty:
-        return df
-
-    result = df.copy()
-
-    # Convert ds (datetime) to timestamp_ms (milliseconds since epoch)
-    if "ds" in result.columns:
-        result["timestamp_ms"] = pd.to_datetime(result["ds"]).astype("int64") // 10**6
-
-    # Rename detection columns to match inference_utils expectations
-    column_renames = {
-        "detection_lower": "detection_band_lower",
-        "detection_upper": "detection_band_upper",
-    }
-    result = result.rename(columns=column_renames)
-
-    return result
+    return prepare_predictions_df_for_persistence(df)
 
 
 # =============================================================================
@@ -273,21 +249,56 @@ def _parse_model_name_version(
     """Parse model name and version from registry key or model name.
 
     Args:
-        registry_key: Full registry key like "prophet (0.1.0)"
+        registry_key: Full registry key like "prophet@0.1.0" (preferred).
         model_name: Alternative model name
 
     Returns:
         Tuple of (name, version)
     """
-    if registry_key and "(" in registry_key and ")" in registry_key:
-        # Parse "prophet (0.1.0)" -> ("prophet", "0.1.0")
-        parts = registry_key.rsplit("(", 1)
-        name = parts[0].strip()
-        version = parts[1].rstrip(")").strip()
-        return name, version
-    elif model_name:
-        return model_name, None
+
+    def _parse_identifier(identifier: str) -> tuple[Optional[str], Optional[str]]:
+        ident = (identifier or "").strip()
+        if not ident:
+            return None, None
+
+        # Preferred: "prophet@0.1.0" -> ("prophet", "0.1.0")
+        if "@" in ident:
+            name, version = ident.split("@", 1)
+            name = name.strip()
+            version = version.strip()
+            return (name or None), (version or None)
+
+        # Also accept "model_name (version)" where version is in the rightmost parentheses.
+        # e.g. "model (a) (0.1.0)" -> ("model (a)", "0.1.0")
+        if ident.endswith(")") and "(" in ident:
+            start = ident.rfind("(")
+            name = ident[:start].rstrip()
+            version = ident[start + 1 : -1]  # may be empty string
+            return (name or None), version
+
+        return ident, None
+
+    # Prefer registry_key only when it actually carries a version.
+    # If it does not, fall back to model_name (used in several Streamlit paths).
+    if registry_key:
+        parsed_name, parsed_version = _parse_identifier(registry_key)
+        if parsed_version is not None:
+            return parsed_name, parsed_version
+
+    if model_name:
+        return _parse_identifier(model_name)
+
     return None, None
+
+
+def _format_model_identifier(name: Optional[str], version: Optional[str]) -> str:
+    if not name:
+        return ""
+    if "@" in name:
+        return name
+    if version:
+        return f"{name}@{version}"
+    return name
 
 
 def _build_forecast_evals(
@@ -643,8 +654,9 @@ def _get_run_score(run: AnomalyDetectionRun) -> float:
     Returns:
         Score value (higher is better), or -inf if no score
     """
-    if hasattr(run.model, "best_score") and run.model.best_score is not None:
-        return float(run.model.best_score)
+    best_model_score = getattr(run.model, "best_model_score", None)
+    if best_model_score is not None and hasattr(best_model_score, "value"):
+        return float(best_model_score.value)
     return float("-inf")
 
 
@@ -669,8 +681,17 @@ def _build_run_display_name(run: AnomalyDetectionRun) -> str:
         scores.append(f"{anomaly_count} anomalies")
 
     # Get grid search score if available
-    if hasattr(run.model, "best_score") and run.model.best_score is not None:
-        scores.append(f"score: {run.model.best_score:.3f}")
+    best_model_score = getattr(run.model, "best_model_score", None)
+    if best_model_score is not None and hasattr(best_model_score, "value"):
+        from datahub_executor.common.monitor.inference_v2.observe_adapter.evaluator.scoring import (
+            DEFAULT_ANOMALY_SCORE_THRESHOLD,
+        )
+
+        threshold = DEFAULT_ANOMALY_SCORE_THRESHOLD
+        score_value = best_model_score.value
+        meets_threshold = score_value >= threshold
+        threshold_indicator = "✓" if meets_threshold else "⚠"
+        scores.append(f"score: {score_value:.3f} {threshold_indicator} (≥{threshold})")
 
     if scores:
         return f"{base_name} [{', '.join(scores)}]"
@@ -787,22 +808,16 @@ def _render_config_preview(extracted: dict[str, Any]) -> None:
 
     with col1:
         st.markdown("**Anomaly Model**")
-        version_str = (
-            f" ({extracted['anomaly_model_version']})"
-            if extracted["anomaly_model_version"]
-            else ""
-        )
-        st.info(f"{extracted['anomaly_model_name'] or 'Unknown'}{version_str}")
+        anomaly_name = extracted["anomaly_model_name"] or "Unknown"
+        anomaly_version = extracted["anomaly_model_version"]
+        st.info(_format_model_identifier(str(anomaly_name), anomaly_version))
 
     with col2:
         st.markdown("**Forecast Model**")
         if extracted["forecast_model_name"]:
-            version_str = (
-                f" ({extracted['forecast_model_version']})"
-                if extracted["forecast_model_version"]
-                else ""
-            )
-            st.info(f"{extracted['forecast_model_name']}{version_str}")
+            forecast_name = extracted["forecast_model_name"]
+            forecast_version = extracted["forecast_model_version"]
+            st.info(_format_model_identifier(str(forecast_name), forecast_version))
         else:
             st.info("_Standalone (no forecast model)_")
 
@@ -936,10 +951,10 @@ def _render_predictions_preview(
         "yhat",
         "yhat_lower",
         "yhat_upper",
-        "detection_band_lower",  # New name for inference_utils
-        "detection_band_upper",  # New name for inference_utils
-        "detection_lower",  # Original observe-models name
-        "detection_upper",  # Original observe-models name
+        "detection_band_lower",  # Canonical (inference_v2)
+        "detection_band_upper",  # Canonical (inference_v2)
+        "detection_lower",  # Observe-models alias
+        "detection_upper",  # Observe-models alias
         "is_anomaly",
         "anomaly_score",
     ]

@@ -12,25 +12,31 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from datetime import timedelta
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 import pandas as pd
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import MonitorErrorTypeClass
 
-from datahub_executor.common.exceptions import TrainingErrorException
+from datahub_executor.common.exceptions import (
+    InsufficientSamplesException,
+    TrainingErrorException,
+)
 from datahub_executor.common.metric.client.client import MetricClient
 from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.adjustment_utils import (
     extract_lookback_days,
     get_metric_cube_urn,
+    get_sensitivity_level,
 )
 from datahub_executor.common.monitor.client.client import MonitorClient
 from datahub_executor.common.monitor.inference_v2.inference_utils import (
     AnomalyAssertions,
     ModelConfig,
     build_evaluation_context,
+    get_default_prediction_num_intervals,
     parse_inference_details,
+    timestamp_ms_to_ds,
 )
 from datahub_executor.common.monitor.inference_v2.observe_adapter import ObserveAdapter
 from datahub_executor.common.monitor.inference_v2.observe_adapter.defaults import (
@@ -206,6 +212,62 @@ class BaseTrainerV2(ABC):
         retune_interval_ms = self.get_retune_interval_seconds() * 1000
         return (now_ms - generated_at_ms) >= retune_interval_ms
 
+    def _run_with_training_error_handling(
+        self, *, assertion_urn: str, fn: Callable[[], None]
+    ) -> None:
+        """
+        Run a training step with standardized error handling.
+
+        Subclasses historically duplicated this error mapping logic; centralize it here
+        so V2 trainers behave consistently.
+        """
+        try:
+            fn()
+        except TrainingErrorException as e:
+            logger.exception(f"[V2] Training failed for assertion {assertion_urn}: {e}")
+            raise
+        except RuntimeError as e:
+            logger.exception(f"[V2] Training failed for assertion {assertion_urn}: {e}")
+            raise TrainingErrorException(
+                message=str(e),
+                error_type=MonitorErrorTypeClass.UNKNOWN,
+            ) from e
+        except Exception as e:
+            logger.exception(f"[V2] Training failed for assertion {assertion_urn}: {e}")
+            raise TrainingErrorException(
+                message=str(e),
+                error_type=MonitorErrorTypeClass.UNKNOWN,
+            ) from e
+
+    def _build_base_training_context(
+        self,
+        *,
+        assertion: Assertion,
+        adjustment_settings: Optional[AssertionAdjustmentSettings],
+        evaluation_spec: AssertionEvaluationSpec,
+        assertion_category: str,
+        default_sensitivity_level: int,
+        interval_hours: int = 1,
+    ) -> AssertionTrainingContext:
+        """
+        Build the common portion of AssertionTrainingContext for all v2 trainers.
+
+        Individual trainers should use this and then override/add their specific
+        fields (floor/ceiling/is_delta/etc).
+        """
+        return AssertionTrainingContext(
+            entity_urn=assertion.entity.urn,
+            interval_hours=int(interval_hours),
+            num_intervals=get_default_prediction_num_intervals(
+                interval_hours=int(interval_hours)
+            ),
+            sensitivity_level=get_sensitivity_level(
+                adjustment_settings, default_sensitivity_level
+            ),
+            assertion_category=assertion_category,
+            existing_model_config=self._extract_existing_model_config(evaluation_spec),
+        )
+
     def _run_training_pipeline(
         self,
         df: pd.DataFrame,
@@ -226,6 +288,17 @@ class BaseTrainerV2(ABC):
         Returns:
             TrainingResult with forecast and optional anomaly detection results
         """
+        min_samples = context.min_training_samples
+        if min_samples and len(df) < min_samples:
+            raise InsufficientSamplesException(
+                min_samples=min_samples,
+                actual_samples=len(df),
+                properties={
+                    "component": "trainer_v2",
+                    "assertion_category": context.assertion_category,
+                },
+            )
+
         # Determine if we should force retuning (hyperparameters are stale)
         force_retune = self._should_force_retune(context.existing_model_config)
 
@@ -246,7 +319,7 @@ class BaseTrainerV2(ABC):
         return adapter.run_training_pipeline(
             df=df,
             ground_truth=ground_truth,
-            context=input_context,
+            input_data_context=input_context,
             num_intervals=context.num_intervals,
             interval_hours=context.interval_hours,
             force_retune=force_retune,
@@ -335,14 +408,18 @@ class BaseTrainerV2(ABC):
             for metric in metrics:
                 training_records.append(
                     {
-                        "ds": pd.Timestamp(metric.timestamp_ms, unit="ms"),
+                        "timestamp_ms": metric.timestamp_ms,
                         "y": metric.value,
                     }
                 )
 
             training_df = pd.DataFrame(training_records)
             if not training_df.empty:
-                training_df = training_df.sort_values("ds").reset_index(drop=True)
+                training_df = (
+                    timestamp_ms_to_ds(training_df)
+                    .sort_values("ds")
+                    .reset_index(drop=True)
+                )
 
             # Build ground truth dataframe from anomalies
             # All anomalies here are non-rejected (filtered upstream)
@@ -350,15 +427,17 @@ class BaseTrainerV2(ABC):
             for anomaly in anomalies:
                 ground_truth_records.append(
                     {
-                        "ds": pd.Timestamp(anomaly.timestamp_ms, unit="ms"),
+                        "timestamp_ms": anomaly.timestamp_ms,
                         "is_anomaly_gt": anomaly.is_confirmed,
                     }
                 )
 
             ground_truth_df = pd.DataFrame(ground_truth_records)
             if not ground_truth_df.empty:
-                ground_truth_df = ground_truth_df.sort_values("ds").reset_index(
-                    drop=True
+                ground_truth_df = (
+                    timestamp_ms_to_ds(ground_truth_df)
+                    .sort_values("ds")
+                    .reset_index(drop=True)
                 )
 
             return training_df, ground_truth_df
@@ -380,30 +459,67 @@ class BaseTrainerV2(ABC):
         """
         Update the assertion with training results using persistence utilities.
         """
-        # Check if prediction succeeded
-        if training_result.prediction_df is None:
-            # TODO: report this to the monitor status.
-            logger.warning(
-                f"Cannot update assertion {assertion.urn}: prediction_df is None"
-            )
+        if training_result.prediction_df is None and getattr(
+            training_result, "scores_only_persist", False
+        ):
+            # Quality below threshold: persist inference_details (scores) only, no forecast.
+            try:
+                evaluation_context = build_evaluation_context(
+                    model_config=training_result.model_config,
+                    embedded_assertions=[],
+                    generated_at_millis=int(time.time() * 1000),
+                )
+                self.monitor_client.patch_volume_monitor_evaluation_context(
+                    monitor.urn, assertion.urn, evaluation_context, evaluation_spec
+                )
+            except Exception as e:
+                raise TrainingErrorException(
+                    message=f"Failed to persist scores-only outputs for {assertion.urn}: {e}",
+                    error_type=MonitorErrorTypeClass.PERSISTENCE_FAILED,
+                    properties={
+                        "step": "patch_volume_monitor_evaluation_context",
+                        "monitor_urn": monitor.urn,
+                        "assertion_urn": assertion.urn,
+                    },
+                ) from e
             return
 
+        if training_result.prediction_df is None:
+            prediction_error = None
+            if "prediction" in training_result.step_results:
+                prediction_error = training_result.step_results["prediction"].error
+            raise TrainingErrorException(
+                message="Prediction output missing (prediction_df is None)",
+                error_type=MonitorErrorTypeClass.MODEL_TRAINING_FAILED,
+                properties={
+                    "step": "prediction",
+                    "component": "trainer_v2",
+                    "prediction_error": str(prediction_error),
+                    "assertion_category": context.assertion_category,
+                    "forecast_model_key": _format_model_key(
+                        training_result.model_config.forecast_model_name,
+                        training_result.model_config.forecast_model_version,
+                    ),
+                    "anomaly_model_key": _format_model_key(
+                        training_result.model_config.anomaly_model_name,
+                        training_result.model_config.anomaly_model_version,
+                    ),
+                    "forecast_score": str(training_result.model_config.forecast_score),
+                    "anomaly_score": str(training_result.model_config.anomaly_score),
+                },
+            )
+
         try:
-            # Convert prediction_df with detection bands to embedded assertions
             embedded_assertions = AnomalyAssertions.from_df(
                 training_result.prediction_df,
                 entity_urn=context.entity_urn,
                 window_size_seconds=context.interval_hours * 3600,
             )
-
-            # Build evaluation context
             evaluation_context = build_evaluation_context(
                 model_config=training_result.model_config,
                 embedded_assertions=embedded_assertions,
                 generated_at_millis=int(time.time() * 1000),
             )
-
-            # Update the assertion context via monitor client
             self.monitor_client.patch_volume_monitor_evaluation_context(
                 monitor.urn, assertion.urn, evaluation_context, evaluation_spec
             )
@@ -417,3 +533,11 @@ class BaseTrainerV2(ABC):
                     "assertion_urn": assertion.urn,
                 },
             ) from e
+
+
+def _format_model_key(name: Optional[str], version: Optional[str]) -> str:
+    if not name:
+        return ""
+    if version:
+        return f"{name}@{version}"
+    return name

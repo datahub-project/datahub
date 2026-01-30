@@ -1746,6 +1746,7 @@ def _graphql_get_assertion_info(
                 type
                 volumeAssertion {
                     entityUrn
+                    type
                 }
                 freshnessAssertion {
                     entityUrn
@@ -1795,9 +1796,11 @@ def _graphql_get_assertion_info(
         # Extract entity URN and field-specific info based on assertion type
         entity_urn = None
         field_metric_type = None
+        volume_assertion_type = None
 
         if info.get("volumeAssertion"):
             entity_urn = info["volumeAssertion"].get("entityUrn")
+            volume_assertion_type = info["volumeAssertion"].get("type")
         elif info.get("freshnessAssertion"):
             entity_urn = info["freshnessAssertion"].get("entityUrn")
         elif info.get("fieldAssertion"):
@@ -1820,6 +1823,7 @@ def _graphql_get_assertion_info(
             "assertionType": assertion_type,
             "entityUrn": entity_urn,
             "fieldMetricType": field_metric_type,
+            "volumeAssertionType": volume_assertion_type,
         }
 
     except Exception:
@@ -1834,8 +1838,8 @@ def _graphql_get_assertion_info_batch(
 ) -> dict[str, dict]:
     """Get assertion info for multiple assertions in batch.
 
-    This fetches assertion type and field metric type info for each assertion.
-    Results are returned as a dictionary keyed by assertion URN.
+    This fetches assertion type and field metric type info for each assertion,
+    in parallel. Results are returned as a dictionary keyed by assertion URN.
 
     Args:
         graphql_url: The GraphQL endpoint URL
@@ -1846,21 +1850,45 @@ def _graphql_get_assertion_info_batch(
         Dictionary mapping assertion URN to info dict with:
         - assertionType: The assertion type (VOLUME, FIELD, SQL, FRESHNESS, etc.)
         - fieldMetricType: For FIELD assertions, the metric type (NULL_COUNT, etc.)
+        - volumeAssertionType: For VOLUME assertions, the subtype (ROW_COUNT_TOTAL, etc.)
     """
     results: dict[str, dict] = {}
 
     if not assertion_urns:
         return results
 
-    # Fetch each assertion (could be optimized with batched GraphQL in future)
-    for assertion_urn in assertion_urns:
-        info = _graphql_get_assertion_info(graphql_url, headers, assertion_urn)
-        if info:
-            results[assertion_urn] = {
-                "assertionType": info.get("assertionType"),
-                "fieldMetricType": info.get("fieldMetricType"),
-            }
+    total = len(assertion_urns)
+    logger.info("Fetching assertion type info for %d assertions...", total)
+    max_workers = min(10, total)
+    completed = 0
 
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_urn = {
+            executor.submit(_graphql_get_assertion_info, graphql_url, headers, urn): urn
+            for urn in assertion_urns
+        }
+        for future in as_completed(future_to_urn):
+            assertion_urn = future_to_urn[future]
+            completed += 1
+            if completed % 25 == 0 or completed == total:
+                logger.info("Fetched assertion types %d/%d", completed, total)
+            try:
+                info = future.result()
+            except Exception:
+                logger.debug("Assertion type fetch failed for %s", assertion_urn)
+                continue
+            if info:
+                results[assertion_urn] = {
+                    "assertionType": info.get("assertionType"),
+                    "fieldMetricType": info.get("fieldMetricType"),
+                    "volumeAssertionType": info.get("volumeAssertionType"),
+                }
+
+    logger.info(
+        "Fetched assertion type info for %d assertions (%d succeeded)",
+        total,
+        len(results),
+    )
     return results
 
 

@@ -197,7 +197,7 @@ def _render_preprocessings_cache_section(cache) -> None:
 
 
 def _render_training_runs_cache_section(cache) -> None:
-    """Render the saved training runs management section."""
+    """Render the saved manual runs management section."""
     from datetime import datetime
 
     from ..common.shared import _shorten_urn
@@ -209,7 +209,7 @@ def _render_training_runs_cache_section(cache) -> None:
         return
 
     with st.expander(
-        f"Saved Training Runs ({len(all_runs)})", expanded=len(all_runs) > 0
+        f"Saved Manual Runs ({len(all_runs)})", expanded=len(all_runs) > 0
     ):
         # Group by assertion URN
         by_assertion: dict[str, list[dict]] = {}
@@ -265,12 +265,11 @@ def _render_training_runs_cache_section(cache) -> None:
 
         # Summary by assertion
         st.caption(
-            f"**{len(all_runs)}** training runs across "
-            f"**{len(by_assertion)}** assertions"
+            f"**{len(all_runs)}** manual runs across **{len(by_assertion)}** assertions"
         )
 
         # Delete controls
-        st.markdown("**Delete Training Runs**")
+        st.markdown("**Delete Manual Runs**")
         col_select, col_delete, col_delete_all = st.columns([3, 1, 1])
 
         run_ids = [item["run_id"] for item in all_runs]
@@ -290,7 +289,7 @@ def _render_training_runs_cache_section(cache) -> None:
             ):
                 for rid in selected_to_delete:
                     cache.delete_training_run(rid)
-                st.success(f"Deleted {len(selected_to_delete)} training run(s)")
+                st.success(f"Deleted {len(selected_to_delete)} manual run(s)")
                 st.rerun()
         with col_delete_all:
             if st.button(
@@ -300,7 +299,7 @@ def _render_training_runs_cache_section(cache) -> None:
             ):
                 for item in all_runs:
                     cache.delete_training_run(item["run_id"])
-                st.success(f"Deleted all {len(all_runs)} training run(s)")
+                st.success(f"Deleted all {len(all_runs)} manual run(s)")
                 st.rerun()
 
         # Bulk delete by assertion
@@ -328,7 +327,7 @@ def _render_training_runs_cache_section(cache) -> None:
                     items = by_assertion.get(selected_assertion, [])
                     for item in items:
                         cache.delete_training_run(item["run_id"])
-                    st.success(f"Deleted {len(items)} training run(s)")
+                    st.success(f"Deleted {len(items)} manual run(s)")
                     st.rerun()
 
 
@@ -373,7 +372,7 @@ def _render_cache_manager_content(loader: DataLoader):
                     "Monitor Events": f"{monitor_events:,}",
                     "Metric Cube Events": f"{metric_cube_events:,}",
                     "Preprocessings": preprocessings_count,
-                    "Training Runs": training_runs_count,
+                    "Manual Runs": training_runs_count,
                     "Size (MB)": f"{cache.get_cache_size_mb():.1f}",
                     "Last Sync": index.last_sync[:16] if index.last_sync else "Never",
                 }
@@ -507,7 +506,7 @@ def _render_cache_manager_content(loader: DataLoader):
             # Saved Preprocessings section
             _render_preprocessings_cache_section(cache)
 
-            # Saved Training Runs section
+            # Saved Manual Runs section
             _render_training_runs_cache_section(cache)
 
     else:

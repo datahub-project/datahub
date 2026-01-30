@@ -33,6 +33,7 @@ from .cache_manager import (  # noqa: F401
     AnomalyEditTracker,
     get_cache_dir,
     hostname_to_dir,
+    url_to_hostname,
 )
 from .data_loaders import DataLoader
 from .env_config import DataHubEnvConfig  # noqa: F401
@@ -82,6 +83,47 @@ _SELECTED_MONITOR = "ts_explorer_monitor"
 # Thread-safe cancel flag (threading.Event is thread-safe)
 _cancel_event = threading.Event()
 
+# Filter options for assertion type and field metric (Metric Cube Browser, etc.)
+# Label -> API value; None means "All"
+ASSERTION_TYPE_FILTER_OPTIONS: dict[str, str | None] = {
+    "All Types": None,
+    "Volume": "VOLUME",
+    "Field": "FIELD",
+    "SQL": "SQL",
+    "Freshness": "FRESHNESS",
+}
+FIELD_METRIC_FILTER_OPTIONS: dict[str, str | None] = {
+    "All Metrics": None,
+    "Null Count": "NULL_COUNT",
+    "Null Percentage": "NULL_PERCENTAGE",
+    "Unique Count": "UNIQUE_COUNT",
+    "Unique Percentage": "UNIQUE_PERCENTAGE",
+    "Min": "MIN",
+    "Max": "MAX",
+    "Mean": "MEAN",
+    "Median": "MEDIAN",
+    "Std Dev": "STD_DEV",
+}
+
+
+def set_explorer_context(
+    hostname: str,
+    assertion_urn: str,
+    monitor_urn: str | None = None,
+) -> None:
+    """Set session state for downstream pages (Preprocessing, Model Training, etc.).
+
+    Call this when navigating from Metric Cube Browser or similar so that
+    model_explorer pages receive the same hostname and assertion. Uses both
+    the shared constants and legacy keys for backward compatibility.
+    """
+    st.session_state[_SELECTED_ENDPOINT] = hostname
+    st.session_state[_SELECTED_ASSERTION] = assertion_urn
+    if monitor_urn is not None:
+        st.session_state[_MONITOR_URN_FOR_ASSERTION] = monitor_urn
+    st.session_state["current_hostname"] = hostname
+    st.session_state["selected_assertion_urn"] = assertion_urn
+
 
 # =============================================================================
 # Configuration
@@ -116,6 +158,85 @@ class FetchConfig:
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
+
+def _normalize_hostname_for_comparison(host: str) -> str:
+    """Normalize hostname for endpoint vs connection comparison (lowercase, strip default ports)."""
+    if not host:
+        return ""
+    host = host.strip().lower()
+    for default_port in (":443", ":80"):
+        if host.endswith(default_port):
+            host = host[: -len(default_port)]
+            break
+    return host
+
+
+def connection_matches_endpoint(endpoint_hostname: str) -> tuple[bool, str | None]:
+    """Check whether the active DataHub connection matches the selected endpoint.
+
+    When they differ, API calls (e.g. assertion type enrichment) would hit the wrong
+    server and fail or return no data.
+
+    Returns:
+        (True, None) if the active connection matches the endpoint.
+        (False, message) if no config, or connection and endpoint differ; message is
+        suitable for st.warning().
+    """
+    config = get_active_config()
+    if not config:
+        return (
+            False,
+            "No DataHub connection configured. Assertion type info cannot be fetched. "
+            "Configure your connection (e.g. Data Source or ~/.datahubenv).",
+        )
+    config_host = url_to_hostname(config.server)
+    if _normalize_hostname_for_comparison(
+        config_host
+    ) != _normalize_hostname_for_comparison(endpoint_hostname):
+        return (
+            False,
+            f"The active DataHub connection ({config.server}) does not match the selected "
+            f"endpoint ({endpoint_hostname}). Assertion type info cannot be fetched. "
+            "Switch your connection to this endpoint or load data from it.",
+        )
+    return (True, None)
+
+
+def _extract_hash_from_run_id(run_id: str) -> str:
+    """Extract the hash portion from a run ID.
+
+    Supports formats used by inference_v2 and anomaly comparison:
+    - {model_key}__{base_id}__{hash}
+    - auto_v2_{hash}
+    - auto_v2_eval__auto_v2_{hash}
+    - auto_v2::{prefixed} (anomaly comparison prefixed key)
+
+    Returns:
+        Hash portion (up to 8 characters), or empty string if format doesn't match.
+    """
+    if not run_id:
+        return ""
+    # Anomaly comparison uses prefixed keys: auto_v2::auto_v2_{hash}
+    if run_id.startswith("auto_v2::"):
+        return _extract_hash_from_run_id(run_id[len("auto_v2::") :])
+
+    # Format: auto_v2_eval__auto_v2_{hash}
+    if run_id.startswith("auto_v2_eval__"):
+        remaining = run_id[len("auto_v2_eval__") :]
+        if remaining.startswith("auto_v2_"):
+            hash_part = remaining[len("auto_v2_") :]
+            return hash_part[:8] if len(hash_part) >= 8 else hash_part
+        return remaining[:8] if len(remaining) >= 8 else remaining
+
+    if run_id.startswith("auto_v2_"):
+        hash_part = run_id[len("auto_v2_") :]
+        return hash_part[:8] if len(hash_part) >= 8 else hash_part
+
+    parts = run_id.split("__")
+    if len(parts) >= 3:
+        return parts[-1]
+    return ""
 
 
 def _shorten_urn(urn: str, max_length: int = 60) -> str:
@@ -428,6 +549,10 @@ __all__ = [
     "_MONITOR_URN_FOR_ASSERTION",
     "_RAW_EVENTS_DF",
     "_SELECTED_MONITOR",
+    # Filter options (assertion type / field metric)
+    "ASSERTION_TYPE_FILTER_OPTIONS",
+    "FIELD_METRIC_FILTER_OPTIONS",
+    "set_explorer_context",
     # Cancel event
     "_cancel_event",
     # Config

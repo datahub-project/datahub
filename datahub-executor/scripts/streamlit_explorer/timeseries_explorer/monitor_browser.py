@@ -25,6 +25,17 @@ from ..common import (
 )
 
 
+def _format_model_identifier(name: Any, version: Any, *, default: str) -> str:
+    if not name:
+        return default
+    name_str = str(name)
+    if "@" in name_str:
+        return name_str
+    if version:
+        return f"{name_str}@{version}"
+    return name_str
+
+
 def _load_metric_cube_context_events(
     loader: DataLoader,
     hostname: str,
@@ -1599,10 +1610,21 @@ def _render_monitor_inference_data(loader: DataLoader, hostname: str):
     # Display as table
     display_data = []
     for entry in inference_entries:
+        forecast_name = _format_model_identifier(
+            entry.get("forecast_model_name"),
+            entry.get("forecast_model_version"),
+            default="—",
+        )
+        anomaly_name = _format_model_identifier(
+            entry.get("anomaly_model_name"),
+            entry.get("anomaly_model_version"),
+            default="—",
+        )
+
         row = {
             "Entity URN": entry.get("entity_urn", "")[-40:],
-            "Forecast Model": entry.get("forecast_model_name") or "—",
-            "Anomaly Model": entry.get("anomaly_model_name") or "—",
+            "Forecast Model": forecast_name,
+            "Anomaly Model": anomaly_name,
             "Has Preprocessing": "✓" if entry.get("has_preprocessing_config") else "—",
             "Has Forecast Evals": "✓" if entry.get("has_forecast_evals") else "—",
             "Has Anomaly Evals": "✓" if entry.get("has_anomaly_evals") else "—",
@@ -1663,24 +1685,44 @@ def _render_inference_details(
 
     with col1:
         st.markdown("**Forecast Model:**")
-        forecast_name = model_config.get("forecast_model_name") or "Not configured"
-        forecast_version = model_config.get("forecast_model_version") or ""
-        st.write(f"{forecast_name} {forecast_version}")
+        st.write(
+            _format_model_identifier(
+                model_config.get("forecast_model_name"),
+                model_config.get("forecast_model_version"),
+                default="Not configured",
+            )
+        )
 
     with col2:
         st.markdown("**Anomaly Model:**")
-        anomaly_name = model_config.get("anomaly_model_name") or "Not configured"
-        anomaly_version = model_config.get("anomaly_model_version") or ""
-        st.write(f"{anomaly_name} {anomaly_version}")
+        st.write(
+            _format_model_identifier(
+                model_config.get("anomaly_model_name"),
+                model_config.get("anomaly_model_version"),
+                default="Not configured",
+            )
+        )
 
-    # Confidence and generation info
-    confidence = model_config.get("confidence")
+    # Scores and generation info
+    # Note: training "confidence" is legacy; we only surface forecast/anomaly scores.
+    forecast_score = model_config.get("forecast_score")
+    anomaly_score = model_config.get("anomaly_score")
     generated_at = data.get("generated_at")
 
-    info_cols = st.columns(2)
+    info_cols = st.columns(3)
     with info_cols[0]:
-        st.metric("Confidence", f"{confidence:.2f}" if confidence else "—")
+        st.metric(
+            "Forecast score",
+            f"{forecast_score:.2f}"
+            if isinstance(forecast_score, (int, float))
+            else "—",
+        )
     with info_cols[1]:
+        st.metric(
+            "Anomaly score",
+            f"{anomaly_score:.2f}" if isinstance(anomaly_score, (int, float)) else "—",
+        )
+    with info_cols[2]:
         if generated_at:
             gen_dt = datetime.fromtimestamp(generated_at / 1000)
             st.metric("Generated At", gen_dt.strftime("%Y-%m-%d %H:%M"))

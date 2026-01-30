@@ -19,20 +19,58 @@ from ..common import (
     _RAW_EVENTS_DF,
     _SELECTED_ASSERTION,
     _SELECTED_ENDPOINT,
+    ASSERTION_TYPE_FILTER_OPTIONS,
+    FIELD_METRIC_FILTER_OPTIONS,
     AnomalyEdit,
     AnomalyEditTracker,
     DataLoader,
     _render_urn_with_link,
+    connection_matches_endpoint,
     get_active_config,
     get_cache_dir,
     hostname_to_dir,
     init_explorer_state,
     logger,
+    render_connection_status,
+    set_explorer_context,
 )
 from ..common.metric_cube_extractor import MonitoredAssertionMetadata
 
 # Constants
 MAX_DISPLAY_EVENTS = 8784  # Hours in a leap year (366 * 24)
+
+
+def _render_metric_cube_nav_buttons(
+    *, hostname: str, assertion_urn: str, monitor_urn: Optional[str], key_prefix: str
+) -> None:
+    """Render navigation buttons used across the Metric Cube Browser page."""
+    col_nav1, col_nav2, col_nav3 = st.columns(3)
+
+    with col_nav1:
+        if st.button("Monitor Browser →", key=f"{key_prefix}__go_to_monitor_browser"):
+            # Store monitor URN for the Monitor Browser to filter to
+            from ..common.shared import _SELECTED_MONITOR
+
+            if monitor_urn:
+                st.session_state[_SELECTED_MONITOR] = monitor_urn
+            set_explorer_context(hostname, assertion_urn, monitor_urn)
+            from . import monitor_browser_page
+
+            st.switch_page(monitor_browser_page)
+
+    with col_nav2:
+        if st.button("Preprocessing →", key=f"{key_prefix}__go_to_preprocessing"):
+            set_explorer_context(hostname, assertion_urn, monitor_urn)
+            from ..model_explorer import preprocessing_page
+
+            st.switch_page(preprocessing_page)
+
+    with col_nav3:
+        if st.button("Model Training →", key=f"{key_prefix}__go_to_model_training"):
+            set_explorer_context(hostname, assertion_urn, monitor_urn)
+            from ..model_explorer import model_training_page
+
+            st.switch_page(model_training_page)
 
 
 def _render_timeseries_viewer_section(
@@ -267,29 +305,13 @@ def _render_timeseries_viewer_section(
 
     st.plotly_chart(fig, use_container_width=True)
 
-    # Navigation buttons
-    col_nav1, col_nav2 = st.columns(2)
-
-    with col_nav1:
-        if st.button("Monitor Browser →", key="go_to_monitor_browser"):
-            # Store monitor URN for the Monitor Browser to filter to
-            from ..common.shared import _SELECTED_MONITOR
-
-            st.session_state[_SELECTED_MONITOR] = monitor_urn
-            # Import here to avoid circular import
-            from . import monitor_browser_page
-
-            st.switch_page(monitor_browser_page)
-
-    with col_nav2:
-        if st.button("Preprocessing →", type="primary", key="go_to_preprocessing"):
-            # Store current state for preprocessing page
-            st.session_state["current_hostname"] = hostname
-            st.session_state["selected_assertion_urn"] = assertion_urn
-            # Import here to avoid circular import
-            from ..model_explorer import preprocessing_page
-
-            st.switch_page(preprocessing_page)
+    # Navigation buttons (below visualization)
+    _render_metric_cube_nav_buttons(
+        hostname=hostname,
+        assertion_urn=assertion_urn,
+        monitor_urn=monitor_urn,
+        key_prefix="metric_cube_viewer_nav",
+    )
 
     st.markdown("---")
     _render_anomaly_marking_section_metric_cube(
@@ -691,6 +713,7 @@ def render_assertion_browser_page():
     are the primary data sources.
     """
     st.header("Metric Cube Browser")
+    render_connection_status()
 
     st.caption(
         "📈 Browsing metric cube timeseries data. "
@@ -749,51 +772,39 @@ def render_assertion_browser_page():
         )
         status_filter = status_options[selected_status_label]
 
-    # Advanced filters (assertion type and field metric)
+    # Advanced filters (assertion type, field metric, saved preprocessing)
     with st.expander("🔍 Advanced Filters", expanded=False):
-        filter_cols = st.columns(2)
+        filter_cols = st.columns(3)
 
         with filter_cols[0]:
-            assertion_type_options = {
-                "All Types": None,
-                "Volume": "VOLUME",
-                "Field": "FIELD",
-                "SQL": "SQL",
-                "Freshness": "FRESHNESS",
-            }
             selected_type_label = st.selectbox(
                 "Assertion Type",
-                options=list(assertion_type_options.keys()),
+                options=list(ASSERTION_TYPE_FILTER_OPTIONS.keys()),
                 index=0,
                 key="assertion_type_filter",
             )
-            assertion_type_filter = assertion_type_options[selected_type_label]
+            assertion_type_filter = ASSERTION_TYPE_FILTER_OPTIONS[selected_type_label]
 
         with filter_cols[1]:
-            # Field metric filter only shown when assertion type is FIELD
             field_metric_filter = None
             if assertion_type_filter == "FIELD":
-                field_metric_options = {
-                    "All Metrics": None,
-                    "Null Count": "NULL_COUNT",
-                    "Null Percentage": "NULL_PERCENTAGE",
-                    "Unique Count": "UNIQUE_COUNT",
-                    "Unique Percentage": "UNIQUE_PERCENTAGE",
-                    "Min": "MIN",
-                    "Max": "MAX",
-                    "Mean": "MEAN",
-                    "Median": "MEDIAN",
-                    "Std Dev": "STD_DEV",
-                }
                 selected_metric_label = st.selectbox(
                     "Field Metric",
-                    options=list(field_metric_options.keys()),
+                    options=list(FIELD_METRIC_FILTER_OPTIONS.keys()),
                     index=0,
                     key="field_metric_filter",
                 )
-                field_metric_filter = field_metric_options[selected_metric_label]
+                field_metric_filter = FIELD_METRIC_FILTER_OPTIONS[selected_metric_label]
             else:
                 st.caption("Select 'Field' type to filter by metric")
+
+        with filter_cols[2]:
+            has_saved_preprocessing = st.checkbox(
+                "With saved preprocessing",
+                value=False,
+                key="has_saved_preprocessing_filter",
+                help="Show only assertions/monitors that have at least one saved preprocessing",
+            )
 
     # Pagination state
     page_size = 100
@@ -803,7 +814,7 @@ def render_assertion_browser_page():
     filter_state_key = "assertion_browser_filter_state"
     current_filter_state = (
         f"{hostname}|{search_query}|{status_filter}|"
-        f"{assertion_type_filter}|{field_metric_filter}"
+        f"{assertion_type_filter}|{field_metric_filter}|{has_saved_preprocessing}"
     )
     if st.session_state.get(filter_state_key) != current_filter_state:
         st.session_state[page_key] = 0
@@ -811,62 +822,101 @@ def render_assertion_browser_page():
 
     page = st.session_state.get(page_key, 0)
 
-    # Load assertions with automatic type enrichment and apply filters
-    with st.spinner("Loading monitored assertions..."):
-        # Load all assertions (auto-enriched with type info)
-        all_assertions = loader.get_monitored_assertions(hostname)
+    # Warn when active connection does not match selected endpoint (enrichment would fail).
+    matches, connection_mismatch_msg = connection_matches_endpoint(hostname)
+    if not matches and connection_mismatch_msg:
+        st.warning(connection_mismatch_msg)
 
-        # Apply filters
-        filtered_assertions = all_assertions
+    # Load first page only from cache (DuckDB pagination). When type filter is
+    # applied we fetch type info for all matching pages and filter by type.
+    search_filter = search_query.strip() if search_query else None
+    type_filter_active = bool(assertion_type_filter or field_metric_filter)
 
-        # Apply search filter
-        if search_query:
-            filtered_assertions = [
-                a for a in filtered_assertions if search_query in a.assertion_urn
-            ]
+    # Avoid spinners here: Streamlit reruns from the top on every interaction
+    # (page change, nav button, filter). A spinner would show on every click and
+    # block the UI before the button handler runs. Use the type-loading caption
+    # below for feedback instead.
+    if type_filter_active:
+        # Type filter applied: load all pages matching search+status, enrich each
+        # page (only missing from cache), then filter by type and paginate.
+        all_with_type: list = []
+        enrich_total = 0
+        enrich_from_cache = 0
+        enrich_from_api = 0
+        p = 0
+        while True:
+            page_list, total, stats = loader.get_monitored_assertions_page(
+                hostname,
+                page=p,
+                page_size=page_size,
+                search_filter=search_filter,
+                status_filter=status_filter,
+                has_saved_preprocessing_filter=has_saved_preprocessing,
+                enrich=True,
+            )
+            if not page_list:
+                break
+            enrich_total += stats.get("total", 0)
+            enrich_from_cache += stats.get("from_cache", 0)
+            enrich_from_api += stats.get("from_api", 0)
+            all_with_type.extend(page_list)
+            if (p + 1) * page_size >= total:
+                break
+            p += 1
 
-        # Apply status filter (None means ACTIVE)
-        if status_filter:
-            if status_filter == "ACTIVE":
-                filtered_assertions = [
-                    a
-                    for a in filtered_assertions
-                    if a.monitor_status == "ACTIVE" or a.monitor_status is None
-                ]
-            else:
-                filtered_assertions = [
-                    a for a in filtered_assertions if a.monitor_status == status_filter
-                ]
-
-        # Apply assertion type filter
+        # Filter by type
+        filtered_by_type = all_with_type
         if assertion_type_filter:
-            filtered_assertions = [
-                a
-                for a in filtered_assertions
-                if a.assertion_type == assertion_type_filter
+            filtered_by_type = [
+                a for a in filtered_by_type if a.assertion_type == assertion_type_filter
             ]
-
-        # Apply field metric filter (only for FIELD assertions)
         if field_metric_filter:
-            filtered_assertions = [
+            filtered_by_type = [
                 a
-                for a in filtered_assertions
+                for a in filtered_by_type
                 if a.assertion_type == "FIELD"
                 and a.field_metric_type == field_metric_filter
             ]
-
-        total_count = len(filtered_assertions)
-
-        # Apply pagination
+        total_count = len(filtered_by_type)
         start_idx = page * page_size
         end_idx = start_idx + page_size
-        assertions = filtered_assertions[start_idx:end_idx]
+        assertions = filtered_by_type[start_idx:end_idx]
+        type_indicator = (
+            f"Type info: {enrich_total} loaded ({enrich_from_cache} from cache, "
+            f"{enrich_from_api} from API)"
+            if enrich_total
+            else ""
+        )
+    else:
+        # No type filter: load only the current page from cache, enrich that page.
+        page_assertions, total_count, stats = loader.get_monitored_assertions_page(
+            hostname,
+            page=page,
+            page_size=page_size,
+            search_filter=search_filter,
+            status_filter=status_filter,
+            has_saved_preprocessing_filter=has_saved_preprocessing,
+            enrich=True,
+        )
+        assertions = page_assertions
+        from_cache = stats.get("from_cache", 0)
+        from_api = stats.get("from_api", 0)
+        total_typed = stats.get("total", 0)
+        if total_typed:
+            type_indicator = (
+                f"Type info: {total_typed} on this page "
+                f"({from_cache} from cache, {from_api} from API)"
+            )
+        else:
+            type_indicator = ""
 
     # Calculate pagination info
     total_pages = max(1, (total_count + page_size - 1) // page_size)
 
-    # Pagination controls
+    # Pagination controls and type-loading indicator
     st.markdown(f"**Found {total_count:,} monitored assertions**")
+    if type_indicator:
+        st.caption(f"📋 {type_indicator}")
 
     if total_count == 0:
         st.info(
@@ -896,6 +946,15 @@ def render_assertion_browser_page():
                 st.rerun()
 
     if assertions:
+        urns_with_preprocessing: set[str] = set()
+        try:
+            endpoint_cache = loader.cache.get_endpoint_cache(hostname)
+            urns_with_preprocessing = (
+                endpoint_cache.get_assertion_urns_with_saved_preprocessing()
+            )
+        except Exception:
+            pass
+
         table_data = []
         for a in assertions:
             # Format status with emoji
@@ -915,12 +974,17 @@ def render_assertion_browser_page():
             if a.assertion_type == "FIELD" and a.field_metric_type:
                 metric_display = a.field_metric_type
 
+            preprocessing_display = (
+                "✓" if a.assertion_urn in urns_with_preprocessing else "—"
+            )
+
             table_data.append(
                 {
                     "Assertion URN": a.assertion_urn,
                     "Type": type_display,
                     "Metric": metric_display,
                     "Status": status_display,
+                    "Preprocessing": preprocessing_display,
                     "Points": a.point_count,
                     "Anomalies": a.anomaly_count,
                     "First": a.first_event.strftime("%Y-%m-%d")
@@ -948,6 +1012,9 @@ def render_assertion_browser_page():
                 "Type": st.column_config.TextColumn("Type", width="small"),
                 "Metric": st.column_config.TextColumn("Metric", width="small"),
                 "Status": st.column_config.TextColumn("Status", width="small"),
+                "Preprocessing": st.column_config.TextColumn(
+                    "Preprocessing", width="small"
+                ),
             },
             key="assertion_table",
         )
@@ -956,34 +1023,84 @@ def render_assertion_browser_page():
         selected_assertion: Optional[MonitoredAssertionMetadata] = None
 
         if selected_rows and selected_rows.get("selection", {}).get("rows"):
-            # User has actively selected a row
             selected_idx = selected_rows["selection"]["rows"][0]
             selected_assertion = assertions[selected_idx]
-            st.session_state[_SELECTED_ASSERTION] = selected_assertion.assertion_urn
-            st.session_state["selected_assertion_urn"] = (
-                selected_assertion.assertion_urn
+            set_explorer_context(
+                hostname,
+                selected_assertion.assertion_urn,
+                selected_assertion.monitor_urn,
             )
-            st.session_state["current_hostname"] = hostname
-            if selected_assertion.monitor_urn:
-                st.session_state[_MONITOR_URN_FOR_ASSERTION] = (
-                    selected_assertion.monitor_urn
-                )
         elif saved_assertion_urn:
-            # Restore from session state (e.g., after navigating back)
             for a in assertions:
                 if a.assertion_urn == saved_assertion_urn:
                     selected_assertion = a
-                    st.session_state["current_hostname"] = hostname
-                    if a.monitor_urn:
-                        st.session_state[_MONITOR_URN_FOR_ASSERTION] = a.monitor_urn
+                    set_explorer_context(hostname, a.assertion_urn, a.monitor_urn)
                     break
+
+        # Navigation buttons (below assertions table, after selection)
+        if selected_assertion:
+            _render_metric_cube_nav_buttons(
+                hostname=hostname,
+                assertion_urn=selected_assertion.assertion_urn,
+                monitor_urn=selected_assertion.monitor_urn,
+                key_prefix="metric_cube_table_nav",
+            )
 
         if selected_assertion:
             st.markdown("---")
             st.subheader("Selected Assertion")
 
+            # Store assertion context for other pages (preprocessing / model training).
+            # Keep these as raw model fields; mapping to preprocessing semantics is owned
+            # by inference_v2 code paths.
+            st.session_state["current_assertion_type"] = (
+                selected_assertion.assertion_type.lower()
+                if selected_assertion.assertion_type
+                else None
+            )
+            st.session_state["current_assertion_metric"] = (
+                selected_assertion.field_metric_type
+            )
+            st.session_state["current_volume_assertion_type"] = (
+                selected_assertion.volume_assertion_type
+            )
+
             col1, col2 = st.columns(2)
             with col1:
+                # Assertion type / subtype details (useful for preprocessing semantics).
+                raw_type = (
+                    str(selected_assertion.assertion_type).upper()
+                    if selected_assertion.assertion_type
+                    else None
+                )
+                st.markdown(f"**Assertion Type:** {raw_type or '-'}")
+
+                if raw_type == "VOLUME":
+                    st.markdown(
+                        f"**Volume Subtype:** {selected_assertion.volume_assertion_type or '-'}"
+                    )
+                    # Also surface cumulative/delta semantics when possible.
+                    try:
+                        from datahub_executor.common.monitor.inference_v2.volume_semantics import (
+                            resolve_volume_series_semantics,
+                        )
+
+                        is_cumulative, is_delta = resolve_volume_series_semantics(
+                            selected_assertion.volume_assertion_type
+                        )
+                        if is_delta is not None:
+                            st.markdown(
+                                f"**Semantics:** {'cumulative' if is_cumulative else 'delta'}"
+                            )
+                    except Exception:
+                        # Best-effort only; avoid breaking UI if deps not available.
+                        pass
+
+                if raw_type == "FIELD":
+                    st.markdown(
+                        f"**Field Metric Type:** {selected_assertion.field_metric_type or '-'}"
+                    )
+
                 # Assertion URN with link and copy button
                 _render_urn_with_link(
                     "Assertion URN",
@@ -1002,6 +1119,10 @@ def render_assertion_browser_page():
                     )
 
             with col2:
+                if selected_assertion.monitor_status:
+                    st.markdown(
+                        f"**Monitor Status:** {selected_assertion.monitor_status}"
+                    )
                 st.markdown(f"**Data Points:** {selected_assertion.point_count:,}")
                 st.markdown(f"**Anomalies:** {selected_assertion.anomaly_count}")
                 st.markdown(
@@ -1018,6 +1139,14 @@ def render_assertion_browser_page():
                 hostname,
                 selected_assertion.assertion_urn,
                 selected_assertion.monitor_urn,
+            )
+
+            # Navigation buttons (below selected assertion data management)
+            _render_metric_cube_nav_buttons(
+                hostname=hostname,
+                assertion_urn=selected_assertion.assertion_urn,
+                monitor_urn=selected_assertion.monitor_urn,
+                key_prefix="metric_cube_data_mgmt_nav",
             )
 
             # Render time series viewer section inline

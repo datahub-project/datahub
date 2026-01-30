@@ -24,6 +24,7 @@ Builder functions:
 - build_model_config() - Build ModelConfig from trained observe-models
 """
 
+import dataclasses
 import json
 import logging
 import time
@@ -330,12 +331,19 @@ def build_forecast_training_evals(
         mae=metrics.get("mae", 0.0) or 0.0,
         rmse=metrics.get("rmse", 0.0) or 0.0,
         mape=metrics.get("mape", 0.0) or 0.0,
+        coverage=metrics.get("coverage"),
+        interval_width_mean=metrics.get("mean_interval_width"),
         train_samples=train_samples,
         test_samples=test_samples,
         train_start_millis=train_start_millis,
         train_end_millis=train_end_millis,
         test_start_millis=test_start_millis,
         test_end_millis=test_end_millis,
+        custom_metrics={
+            # Newer observe-models versions include additional forecast evaluation metrics.
+            # Preserve them for UI/debugging, without making them part of executor policy.
+            "smoothness_ratio": metrics.get("smoothness_ratio"),
+        },
     )
 
     evals = ForecastTrainingEvals(runs=[run])
@@ -444,13 +452,14 @@ def build_model_config(
     anomaly_config: Optional[AnomalyModelConfig] = None,
     preprocessing_config: Optional[Any] = None,
     has_detection_bands: bool = True,
-    quality_score: float = 1.0,
     forecast_evals: Optional[Dict[str, float]] = None,
     anomaly_evals: Optional[Dict[str, float]] = None,
     forecast_registry_key: str = "prophet",
     anomaly_registry_key: str = "datahub_forecast_anomaly",
     train_df: Optional[pd.DataFrame] = None,
     eval_df: Optional[pd.DataFrame] = None,
+    forecast_score: Optional[float] = None,
+    anomaly_score: Optional[float] = None,
 ) -> ModelConfig:
     """Build ModelConfig for persistence from model objects and configs.
 
@@ -465,7 +474,6 @@ def build_model_config(
         anomaly_config: AnomalyModelConfig (preferred) or None to extract from model.
         preprocessing_config: Preprocessing config (PreprocessingConfig or similar).
         has_detection_bands: Whether detection bands were generated.
-        quality_score: Overall quality score from evaluation (0.0-1.0).
         forecast_evals: Forecast evaluation metrics dict (mae, rmse, mape, coverage).
         anomaly_evals: Anomaly evaluation metrics dict. Serialized to
             AnomalyTrainingEvals only if ground_truth metrics (precision, recall,
@@ -477,6 +485,10 @@ def build_model_config(
             Used to build proper ForecastTrainingEvals with training metadata.
         eval_df: Evaluation DataFrame with 'ds' column for timestamp ranges.
             Used to build proper ForecastTrainingEvals with evaluation metadata.
+        forecast_score: Normalized forecast model score (0-1). If provided,
+            stored separately from anomaly_score for individual tuning decisions.
+        anomaly_score: Normalized anomaly model score (0-1). If provided,
+            stored separately from forecast_score for individual tuning decisions.
 
     Returns:
         ModelConfig with serialized configurations ready for persistence.
@@ -492,11 +504,67 @@ def build_model_config(
     forecast_config_json = None
     if forecast_model is not None:
         if forecast_config is not None:
-            forecast_config_json = ForecastConfigSerializer.serialize(forecast_config)
+            # If a config object exists but doesn't include tuned hyperparameters, prefer
+            # model-derived tuned params (e.g. ProphetModel.best_params) to avoid
+            # re-tuning during full-history retrain / warm starts.
+            effective_forecast_config = forecast_config
+            if not getattr(forecast_config, "hyperparameters", None):
+                extracted: Dict[str, Any] = {}
+                # Start with raw model config (if available), then layer in higher-level
+                # APIs (get_hyperparameters / best_params) to capture tuned selections.
+                if hasattr(forecast_model, "darts_model_config"):
+                    try:
+                        hp = forecast_model.darts_model_config or {}
+                        if isinstance(hp, dict):
+                            extracted.update(hp)
+                    except Exception:
+                        pass
+
+                # 1) Add model-reported hyperparameters (best-effort).
+                if hasattr(forecast_model, "get_hyperparameters"):
+                    try:
+                        hp = forecast_model.get_hyperparameters()
+                        if isinstance(hp, dict):
+                            extracted.update(hp)
+                    except Exception:
+                        pass
+                # 2) Prophet tuning stores selected params separately; merge them in.
+                best_params = getattr(forecast_model, "best_params", None)
+                if isinstance(best_params, dict):
+                    extracted.update(best_params)
+
+                if extracted:
+                    try:
+                        effective_forecast_config = dataclasses.replace(
+                            forecast_config,
+                            hyperparameters=extracted,
+                            # Explicitly disable tuning for downstream retrains.
+                            param_grid={},
+                        )
+                    except Exception:
+                        effective_forecast_config = ForecastModelConfig(
+                            hyperparameters=extracted,
+                            param_grid={},
+                        )
+            else:
+                # Config has explicit hyperparameters; treat as fixed for retrain.
+                try:
+                    effective_forecast_config = dataclasses.replace(
+                        forecast_config, param_grid={}
+                    )
+                except Exception:
+                    pass
+
+            forecast_config_json = ForecastConfigSerializer.serialize(
+                effective_forecast_config
+            )
         else:
             # Fallback: reconstruct from model attributes
-            hyperparams = getattr(forecast_model, "darts_model_config", {}) or {}
-            fallback_config = ForecastModelConfig(hyperparameters=hyperparams)
+            # All forecast models have darts_model_config attribute
+            hyperparams = forecast_model.darts_model_config or {}
+            fallback_config = ForecastModelConfig(
+                hyperparameters=hyperparams, param_grid={}
+            )
             forecast_config_json = ForecastConfigSerializer.serialize(fallback_config)
 
     # Extract preprocessing config
@@ -565,16 +633,163 @@ def build_model_config(
                 anomaly_training_evals
             )
 
+    # Compute scores if not provided
+    computed_forecast_score = forecast_score
+    computed_anomaly_score = anomaly_score
+
+    # Try to compute scores from evals if not provided
+    if computed_forecast_score is None and forecast_evals:
+        try:
+            from datahub_executor.common.monitor.inference_v2.observe_adapter.evaluator import (
+                compute_forecast_score as calc_forecast_score,
+            )
+
+            # Prefer model.y_range from training data (guaranteed from raw training data)
+            y_range = None
+            if forecast_model is not None and hasattr(forecast_model, "y_range"):
+                y_range = forecast_model.y_range
+            elif eval_df is not None and "y" in eval_df.columns:
+                # Fallback: calculate from eval_df if model.y_range not available
+                y_range = eval_df["y"].max() - eval_df["y"].min()
+            computed_forecast_score = calc_forecast_score(forecast_evals, y_range)
+        except Exception as e:
+            logger.warning(f"Failed to compute forecast score: {e}")
+
+    if computed_anomaly_score is None and anomaly_evals:
+        try:
+            from datahub_executor.common.monitor.inference_v2.observe_adapter.evaluator import (
+                compute_anomaly_score as calc_anomaly_score,
+            )
+
+            computed_anomaly_score = calc_anomaly_score(anomaly_evals)
+        except Exception as e:
+            logger.warning(f"Failed to compute anomaly score: {e}")
+
     return ModelConfig(
         forecast_model_name=forecast_model_name,
         forecast_model_version=forecast_model_version,
         forecast_config_json=forecast_config_json,
         forecast_evals_json=forecast_evals_json,
+        forecast_score=computed_forecast_score,
         anomaly_model_name=anomaly_model_name,
         anomaly_model_version=anomaly_model_version,
         anomaly_config_json=anomaly_config_json,
         anomaly_evals_json=anomaly_evals_json,
+        anomaly_score=computed_anomaly_score,
         preprocessing_config_json=preprocessing_json,
-        confidence=quality_score,
+        generated_at=int(time.time() * 1000),
+    )
+
+
+def build_failed_model_config(
+    attempted_hyperparams: Dict[str, Any],
+    error: str,
+    existing_config: Optional[ModelConfig] = None,
+    forecast_registry_key: Optional[str] = None,
+    anomaly_registry_key: Optional[str] = None,
+) -> ModelConfig:
+    """
+    Build ModelConfig for failed training attempt with hyperparameters and error metadata.
+
+    This function creates a ModelConfig that persists the hyperparameters that were
+    attempted during a failed training run, along with error information. This allows
+    future runs to check if the same hyperparameters failed previously and avoid
+    wasting time retuning if nothing fundamental about the data has changed.
+
+    Args:
+        attempted_hyperparams: Dictionary with 'forecast' and/or 'anomaly' keys
+            containing hyperparameter dictionaries that were attempted.
+        error: Error message from the failed training attempt.
+        existing_config: Previously trained model config (if any) to extract
+            registry keys and other metadata.
+        forecast_registry_key: Registry key for forecast model (if not in existing_config).
+        anomaly_registry_key: Registry key for anomaly model (if not in existing_config).
+
+    Returns:
+        ModelConfig with failed hyperparameters serialized and error metadata embedded.
+    """
+    registry = get_model_registry()
+
+    # Get registry keys from existing config or parameters
+    forecast_key = (
+        existing_config.forecast_model_name
+        if existing_config and existing_config.forecast_model_name
+        else forecast_registry_key or "datahub"
+    )
+    anomaly_key = (
+        existing_config.anomaly_model_name
+        if existing_config and existing_config.anomaly_model_name
+        else anomaly_registry_key or "datahub_forecast_anomaly"
+    )
+
+    # Get model entries for version info
+    try:
+        forecast_entry = registry.get(forecast_key)
+        forecast_model_name = forecast_entry.name
+        forecast_model_version = forecast_entry.version
+    except Exception:
+        forecast_model_name = forecast_key
+        forecast_model_version = None
+
+    try:
+        anomaly_entry = registry.get(anomaly_key)
+        anomaly_model_name = anomaly_entry.name
+        anomaly_model_version = anomaly_entry.version
+    except Exception:
+        anomaly_model_name = anomaly_key
+        anomaly_model_version = None
+
+    # Serialize attempted forecast hyperparameters with error metadata
+    forecast_config_json = None
+    if "forecast" in attempted_hyperparams and attempted_hyperparams["forecast"]:
+        try:
+            # Create a ForecastModelConfig with the attempted hyperparameters
+            # Include error metadata in a comment or custom field
+            failed_forecast_config = ForecastModelConfig(
+                hyperparameters=attempted_hyperparams["forecast"],
+                param_grid={},  # Disable tuning since this is a failed attempt
+            )
+            # Serialize and embed error info
+            forecast_config_json = ForecastConfigSerializer.serialize(
+                failed_forecast_config
+            )
+            # Note: Error info can be extracted from the config JSON or stored separately
+            # For now, we'll rely on the presence of this config + low scores to indicate failure
+        except Exception as e:
+            logger.warning(f"Failed to serialize failed forecast config: {e}")
+
+    # Serialize attempted anomaly hyperparameters with error metadata
+    anomaly_config_json = None
+    if "anomaly" in attempted_hyperparams and attempted_hyperparams["anomaly"]:
+        try:
+            # Create an AnomalyModelConfig with the attempted hyperparameters
+            failed_anomaly_config = AnomalyModelConfig(
+                hyperparameters=attempted_hyperparams["anomaly"],
+            )
+            anomaly_config_json = AnomalyConfigSerializer.serialize(
+                failed_anomaly_config
+            )
+        except Exception as e:
+            logger.warning(f"Failed to serialize failed anomaly config: {e}")
+
+    # Use existing preprocessing config if available, otherwise empty
+    preprocessing_json = "{}"
+    if existing_config and existing_config.preprocessing_config_json:
+        preprocessing_json = existing_config.preprocessing_config_json
+
+    # Create ModelConfig with failed hyperparameters
+    # Set scores to 0.0 to indicate failure
+    return ModelConfig(
+        forecast_model_name=forecast_model_name,
+        forecast_model_version=forecast_model_version,
+        forecast_config_json=forecast_config_json,
+        forecast_evals_json=None,  # No evals for failed attempts
+        forecast_score=0.0,  # Indicate failure
+        anomaly_model_name=anomaly_model_name,
+        anomaly_model_version=anomaly_model_version,
+        anomaly_config_json=anomaly_config_json,
+        anomaly_evals_json=None,  # No evals for failed attempts
+        anomaly_score=0.0,  # Indicate failure
+        preprocessing_config_json=preprocessing_json,
         generated_at=int(time.time() * 1000),
     )

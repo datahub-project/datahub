@@ -187,7 +187,7 @@ class TestAssertionInferenceDetailsPersistence:
             forecast_config_json='{"_schemaVersion": "1.0.0", "hyperparameters": {"seasonality_mode": "additive"}}',
             forecast_evals_json=forecast_evals_json,
             preprocessing_config_json=DEFAULT_PREPROCESSING_JSON,
-            confidence=0.95,
+            anomaly_score=0.95,
             generated_at=generated_at,
         )
 
@@ -212,7 +212,7 @@ class TestAssertionInferenceDetailsPersistence:
         assert parsed_config is not None
         assert parsed_config.forecast_model_name == "prophet"
         assert parsed_config.forecast_model_version == "0.1.0"
-        assert parsed_config.confidence == 0.95
+        assert parsed_config.anomaly_score == 0.95
 
         logger.info("Create inference details test passed")
 
@@ -229,7 +229,7 @@ class TestAssertionInferenceDetailsPersistence:
             forecast_config_json='{"_schemaVersion": "1.0.0", "hyperparameters": {"seasonality_mode": "multiplicative"}}',
             forecast_evals_json='{"_schemaVersion": "1.0.0", "runs": [{"mae": 0.03, "rmse": 0.05, "mape": 0.01}]}',
             preprocessing_config_json='{"type": "volume", "freq": "1H", "_schemaVersion": "1.0.0"}',
-            confidence=0.98,  # Updated confidence
+            anomaly_score=0.98,  # Updated score
             generated_at=generated_at,
         )
 
@@ -249,7 +249,7 @@ class TestAssertionInferenceDetailsPersistence:
         parsed_config = parse_inference_details(read_details)
         assert parsed_config is not None
         assert parsed_config.forecast_model_version == "0.2.0"
-        assert parsed_config.confidence == 0.98
+        assert parsed_config.anomaly_score == 0.98
 
         logger.info("Update inference details test passed")
 

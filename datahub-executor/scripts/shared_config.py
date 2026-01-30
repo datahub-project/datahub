@@ -49,11 +49,25 @@ MONITOR_CLIENT_KEY = "shared_monitor_client"
 # Page reference for navigation (set by assertions_ui.py after page creation)
 _connection_settings_page = None
 
+# Session state key for "back" page when user navigated to Connection Settings from another page
+CONNECTION_SETTINGS_BACK_PAGE = "_connection_settings_back_page"
+
 
 def set_connection_settings_page(page):
     """Set the connection settings page reference for navigation."""
     global _connection_settings_page
     _connection_settings_page = page
+
+
+def set_connection_settings_back_page(page) -> None:
+    """Record the page to return to when user clicks Back on Connection Settings."""
+    if page is not None:
+        st.session_state[CONNECTION_SETTINGS_BACK_PAGE] = page
+
+
+def get_connection_settings_back_page():
+    """Return the page to switch to when user clicks Back on Connection Settings, or None."""
+    return st.session_state.get(CONNECTION_SETTINGS_BACK_PAGE)
 
 
 def _try_default_graph() -> Optional[DataHubGraph]:
@@ -161,17 +175,28 @@ def get_configured_graph(use_cache: bool = True) -> Optional[DataHubGraph]:
     return graph
 
 
-def render_connection_status(show_link: bool = True) -> bool:
+def render_connection_status(
+    show_link: bool = True,
+    back_page: Optional[st.Page] = None,
+) -> bool:
     """
     Render a compact connection status bar at the top of a page.
 
     Args:
         show_link: Whether to show a link/button to navigate to Connection Settings.
+        back_page: When the user clicks Settings, this page is recorded so the Back
+            button on Connection Settings returns here. Pass the current page so
+            Back always returns to the page the user came from.
 
     Returns:
         True if connected, False if not configured.
     """
     config = get_active_config()
+
+    def _go_to_settings():
+        if back_page is not None:
+            set_connection_settings_back_page(back_page)
+        st.switch_page(_connection_settings_page)
 
     if config:
         cols = st.columns([3, 1])
@@ -184,7 +209,7 @@ def render_connection_status(show_link: bool = True) -> bool:
         with cols[1]:
             if show_link and _connection_settings_page:
                 if st.button("⚙️ Settings", key="connection_status_settings_btn"):
-                    st.switch_page(_connection_settings_page)
+                    _go_to_settings()
         return True
     else:
         cols = st.columns([3, 1])
@@ -195,7 +220,7 @@ def render_connection_status(show_link: bool = True) -> bool:
                 if st.button(
                     "Configure →", key="connection_status_configure_btn", type="primary"
                 ):
-                    st.switch_page(_connection_settings_page)
+                    _go_to_settings()
         return False
 
 
@@ -216,6 +241,16 @@ def require_connection() -> Optional[DataHubGraph]:
 
 def render_connection_settings_page():
     """Render the full connection settings page."""
+    # Back button when user navigated from another page
+    back_page = get_connection_settings_back_page()
+    if back_page is not None:
+        if st.button("← Back", key="connection_settings_back_btn"):
+            if CONNECTION_SETTINGS_BACK_PAGE in st.session_state:
+                del st.session_state[CONNECTION_SETTINGS_BACK_PAGE]
+            st.switch_page(back_page)
+            return
+        st.markdown("---")
+
     st.header("Connection Settings")
     st.markdown(
         "Configure connection to the DataHub API. "
@@ -353,6 +388,7 @@ def render_connection_settings_page():
 # Re-export env_config types for convenience
 __all__ = [
     "ACTIVE_ENV_CONFIG",
+    "CONNECTION_SETTINGS_BACK_PAGE",
     "CUSTOM_ENV_PATH",
     "GRAPH_CLIENT_KEY",
     "METRICS_CLIENT_KEY",
@@ -360,7 +396,9 @@ __all__ = [
     "DataHubEnvConfig",
     "clear_cached_clients",
     "get_active_config",
+    "get_connection_settings_back_page",
     "set_active_config",
+    "set_connection_settings_back_page",
     "get_configured_graph",
     "render_connection_status",
     "require_connection",

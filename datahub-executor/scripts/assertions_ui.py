@@ -1,4 +1,15 @@
-# ruff: noqa: INP001
+# ruff: noqa: INP001, E402
+
+import logging
+import sys
+
+# Configure root logging so observe-models and executor INFO logs appear in the terminal
+# (e.g. "Prophet in-sample prediction (optimized path)" from observe-models).
+# basicConfig only takes effect if the root logger has no handlers yet.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 
 import json
 import math
@@ -6,7 +17,6 @@ import random
 
 # Import Streamlit pages and shared config
 # Handle both direct execution (streamlit run) and module import
-import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -74,7 +84,7 @@ _script_dir = Path(__file__).parent
 if str(_script_dir) not in sys.path:
     sys.path.insert(0, str(_script_dir))
 
-from shared_config import (  # noqa: E402
+from shared_config import (
     GRAPH_CLIENT_KEY,
     METRICS_CLIENT_KEY,
     MONITOR_CLIENT_KEY,
@@ -83,7 +93,7 @@ from shared_config import (  # noqa: E402
     render_connection_status,
     set_connection_settings_page,
 )
-from streamlit_explorer import EXPLORER_PAGES  # noqa: E402
+from streamlit_explorer import EXPLORER_PAGES
 
 _SELECTED_MONITOR_KEY = "selected_monitor"
 
@@ -802,12 +812,14 @@ def generate_volume_sample_data(
     return monitor_urn
 
 
-def render_create_assertion_page() -> None:
+def render_create_assertion_page(
+    back_page: Optional[st.Page] = None,
+) -> None:
     """Render the create assertion page."""
     st.header("Create New Volume Assertion")
 
     # Show connection status
-    if not render_connection_status():
+    if not render_connection_status(back_page=back_page):
         st.info("Please configure a DataHub connection to create assertions.")
         return
 
@@ -852,13 +864,15 @@ def _get_monitor(monitor_urn: str) -> Optional[Monitor]:
     return graphql_to_monitor(graphql_monitor)
 
 
-def render_monitor_detail_page() -> None:
+def render_monitor_detail_page(
+    back_page: Optional[st.Page] = None,
+) -> None:
     """Render details for a specific monitor."""
 
     st.header("Monitor Details")
 
     # Show connection status
-    if not render_connection_status():
+    if not render_connection_status(back_page=back_page):
         st.info("Please configure a DataHub connection to view monitor details.")
         return
 
@@ -1283,12 +1297,14 @@ def _list_monitors(paginate: bool = False) -> Optional[List[Monitor]]:
     return graphql_to_monitors(monitors)
 
 
-def render_monitor_list_page() -> None:
+def render_monitor_list_page(
+    back_page: Optional[st.Page] = None,
+) -> None:
     """Render the list of monitors."""
     st.header("Monitors")
 
     # Show connection status
-    if not render_connection_status():
+    if not render_connection_status(back_page=back_page):
         st.info("Please configure a DataHub connection to view monitors.")
         return
 
@@ -1349,12 +1365,14 @@ def render_monitor_list_page() -> None:
         st.switch_page(detail_page)
 
 
-def render_load_sample_data_page() -> None:
+def render_load_sample_data_page(
+    back_page: Optional[st.Page] = None,
+) -> None:
     """Render the load sample data page."""
     st.header("Load Sample Data")
 
     # Show connection status first
-    if not render_connection_status():
+    if not render_connection_status(back_page=back_page):
         st.info("Please configure a DataHub connection to load sample data.")
         return
 
@@ -1616,15 +1634,32 @@ connection_settings_page = st.Page(
 # Register the connection settings page for navigation from other pages
 set_connection_settings_page(connection_settings_page)
 
+
+def _create_page_callback():
+    render_create_assertion_page(back_page=create_page)
+
+
+def _view_page_callback():
+    render_monitor_list_page(back_page=view_page)
+
+
+def _sample_data_page_callback():
+    render_load_sample_data_page(back_page=sample_data_page)
+
+
+def _detail_page_callback():
+    render_monitor_detail_page(back_page=detail_page)
+
+
 create_page = st.Page(
-    lambda: render_create_assertion_page(),
+    _create_page_callback,
     title="Create Assertion",
     icon="➕",
     url_path="/create",
 )
 
 view_page = st.Page(
-    lambda: render_monitor_list_page(),
+    _view_page_callback,
     title="All Monitors",
     icon="📋",
     url_path="/view",
@@ -1632,14 +1667,14 @@ view_page = st.Page(
 )
 
 sample_data_page = st.Page(
-    lambda: render_load_sample_data_page(),
+    _sample_data_page_callback,
     title="Load Sample Row Counts",
     icon="💾",
     url_path="/sample_data",
 )
 
 detail_page = st.Page(
-    lambda: render_monitor_detail_page(),
+    _detail_page_callback,
     title="Monitor Details",
     icon="🔍",
     url_path="/detail",

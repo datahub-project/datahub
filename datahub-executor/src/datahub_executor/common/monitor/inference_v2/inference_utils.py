@@ -32,7 +32,7 @@ AssertionInferenceDetails:
 --------------------------
 ├── modelId                               ← "observe-models" (package name)
 ├── modelVersion                          ← observe-models package version
-├── confidence                            ← Training confidence score
+├── confidence                            ← Backward-compat only; mirrors anomalyScore (else forecastScore)
 ├── generatedAt                           ← When model was trained (millis)
 └── parameters: map[string, string]
     ├── "forecastModelName"               ← Registry name (e.g., "prophet")
@@ -77,6 +77,7 @@ EmbeddedAssertion (Anomaly Detection):
 """
 
 import logging
+import os
 from typing import (
     Any,
     Dict,
@@ -120,6 +121,142 @@ from datahub_executor.common.monitor.inference.utils import create_inference_sou
 
 logger = logging.getLogger(__name__)
 
+_INFERENCE_V2_DEFAULT_PREDICTION_HORIZON_DAYS = 7
+_ENV_INFERENCE_V2_PREDICTION_HORIZON_DAYS = (
+    "DATAHUB_EXECUTOR_INFERENCE_V2_PREDICTION_HORIZON_DAYS"
+)
+_ENV_INFERENCE_V2_EVAL_TRAIN_RATIO = "DATAHUB_EXECUTOR_INFERENCE_V2_EVAL_TRAIN_RATIO"
+_ENV_FORCE_RETUNE_ANOMALY_ONLY = "DATAHUB_EXECUTOR_FORCE_RETUNE_ANOMALY_ONLY"
+_ENV_MODEL_PAIRINGS = "DATAHUB_EXECUTOR_MODEL_PAIRINGS"
+_ENV_INFERENCE_V2_N_JOBS = "DATAHUB_EXECUTOR_INFERENCE_V2_N_JOBS"
+
+
+def get_inference_v2_prediction_horizon_days() -> int:
+    """Return default inference_v2 prediction horizon in days (ops-configurable)."""
+    raw = os.environ.get(_ENV_INFERENCE_V2_PREDICTION_HORIZON_DAYS)
+    if raw:
+        try:
+            v = int(raw)
+            if v >= 1:
+                return v
+        except (TypeError, ValueError):
+            pass
+    return _INFERENCE_V2_DEFAULT_PREDICTION_HORIZON_DAYS
+
+
+def get_inference_v2_eval_train_ratio() -> float:
+    """Return train ratio for strict holdout evaluation (ops-configurable)."""
+    raw = os.environ.get(_ENV_INFERENCE_V2_EVAL_TRAIN_RATIO)
+    if raw:
+        try:
+            v = float(raw)
+            # Keep a conservative safety range; avoids empty splits on small datasets.
+            if 0.1 <= v <= 0.95:
+                return v
+        except (TypeError, ValueError):
+            pass
+    return 0.7
+
+
+def get_default_prediction_num_intervals(*, interval_hours: int) -> int:
+    """Return the default number of future intervals to predict for inference_v2."""
+    hours = int(interval_hours)
+    if hours <= 0:
+        hours = 1
+    horizon_days = get_inference_v2_prediction_horizon_days()
+    # e.g. 7d @ 1h -> 168 intervals; @ 24h -> 7 intervals.
+    return max(1, int((horizon_days * 24) / hours))
+
+
+def get_force_retune_anomaly_only() -> bool:
+    """Return whether force_retune should only retune anomaly model."""
+    return os.environ.get(_ENV_FORCE_RETUNE_ANOMALY_ONLY, "false").lower() == "true"
+
+
+def get_inference_v2_n_jobs() -> Optional[int]:
+    """Return number of parallel jobs for model training (ops-configurable).
+
+    Returns:
+        Integer number of jobs if set and valid (>= 1), None otherwise.
+        When None, the caller should use a default (typically 80% of CPU cores).
+    """
+    raw = os.environ.get(_ENV_INFERENCE_V2_N_JOBS)
+    if raw:
+        try:
+            v = int(raw)
+            if v >= 1:
+                return v
+        except (TypeError, ValueError):
+            pass
+    return None
+
+
+def get_model_pairings_env() -> Optional[str]:
+    """Return raw env override for inference_v2 model pairings (if set)."""
+    raw = os.environ.get(_ENV_MODEL_PAIRINGS)
+    if raw is None:
+        return None
+    raw = raw.strip()
+    return raw or None
+
+
+def split_time_series_df(
+    df: pd.DataFrame, *, train_ratio: float
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split a time-series df into train/eval by time order (strict, no shuffling)."""
+    if df is None or df.empty:
+        raise ValueError("Cannot split empty dataframe")
+    if "ds" not in df.columns:
+        raise ValueError("DataFrame must contain 'ds' column")
+
+    ratio = float(train_ratio)
+    if not (0.0 < ratio < 1.0):
+        raise ValueError(f"train_ratio must be in (0, 1), got {ratio}")
+
+    df_sorted = df.sort_values("ds").reset_index(drop=True)
+    split_idx = int(len(df_sorted) * ratio)
+    train_df = df_sorted.iloc[:split_idx].copy()
+    eval_df = df_sorted.iloc[split_idx:].copy()
+    if len(train_df) == 0 or len(eval_df) == 0:
+        raise ValueError(
+            f"Train/eval split produced empty partition: train={len(train_df)}, eval={len(eval_df)}"
+        )
+    return train_df, eval_df
+
+
+def prepare_predictions_df_for_persistence(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize prediction df to inference_utils expectations (timestamp_ms + detection bands)."""
+    if df is None or df.empty:
+        return df
+
+    out = df.copy()
+
+    if "timestamp_ms" not in out.columns and "ds" in out.columns:
+        out["timestamp_ms"] = pd.to_datetime(out["ds"]).astype("int64") // 10**6
+
+    # Standardize detection-band column names.
+    out = out.rename(
+        columns={
+            "detection_lower": "detection_band_lower",
+            "detection_upper": "detection_band_upper",
+        }
+    )
+
+    return out
+
+
+def timestamp_ms_to_ds(
+    df: pd.DataFrame, *, timestamp_col: str = "timestamp_ms", ds_col: str = "ds"
+) -> pd.DataFrame:
+    """Normalize a timestamp-millis column into a pandas datetime `ds` column."""
+    if df is None or df.empty:
+        return df
+    if timestamp_col not in df.columns:
+        raise ValueError(f"DataFrame missing '{timestamp_col}' column")
+    out = df.copy()
+    out[ds_col] = pd.to_datetime(out[timestamp_col], unit="ms")
+    return out
+
 
 # =============================================================================
 # Pydantic Models for Model Configuration
@@ -142,12 +279,13 @@ class ModelConfig(BaseModel):
         forecast_model_version: Registry version for forecast model (e.g., "0.1.0")
         forecast_config_json: JSON string of ForecastModelConfig
         forecast_evals_json: JSON string of ForecastTrainingEvals
+        forecast_score: Normalized forecast model score (0-1)
         anomaly_model_name: Registry name for anomaly model
         anomaly_model_version: Registry version for anomaly model
         anomaly_config_json: JSON string of AnomalyModelConfig
         anomaly_evals_json: JSON string of AnomalyTrainingEvals
+        anomaly_score: Normalized anomaly model score (0-1)
         preprocessing_config_json: JSON string of preprocessing config
-        confidence: Training confidence score
         generated_at: Timestamp when the model was trained/generated
     """
 
@@ -156,16 +294,17 @@ class ModelConfig(BaseModel):
     forecast_model_version: Optional[str] = None
     forecast_config_json: Optional[str] = None
     forecast_evals_json: Optional[str] = None
+    forecast_score: Optional[float] = None  # Normalized score (0-1)
 
     # Anomaly model info (optional for forecast-only)
     anomaly_model_name: Optional[str] = None
     anomaly_model_version: Optional[str] = None
     anomaly_config_json: Optional[str] = None
     anomaly_evals_json: Optional[str] = None
+    anomaly_score: Optional[float] = None  # Normalized score (0-1)
 
     # Shared fields
     preprocessing_config_json: str
-    confidence: Optional[float] = None
     generated_at: Optional[int] = None
 
 
@@ -202,6 +341,8 @@ def build_inference_details(
         parameters["forecastConfigJson"] = model_config.forecast_config_json
     if model_config.forecast_evals_json:
         parameters["forecastEvalsJson"] = model_config.forecast_evals_json
+    if model_config.forecast_score is not None:
+        parameters["forecastScore"] = str(model_config.forecast_score)
 
     # Anomaly model info (optional)
     if model_config.anomaly_model_name:
@@ -212,13 +353,24 @@ def build_inference_details(
         parameters["anomalyConfigJson"] = model_config.anomaly_config_json
     if model_config.anomaly_evals_json:
         parameters["anomalyEvalsJson"] = model_config.anomaly_evals_json
+    if model_config.anomaly_score is not None:
+        parameters["anomalyScore"] = str(model_config.anomaly_score)
 
     effective_generated_at = generated_at_millis or model_config.generated_at
+
+    # Backward-compatibility: some downstream readers still rely on
+    # AssertionInferenceDetails.confidence. We set it to the anomaly score
+    # (preferred), falling back to forecast score when anomaly is absent.
+    legacy_confidence: Optional[float] = None
+    if model_config.anomaly_score is not None:
+        legacy_confidence = model_config.anomaly_score
+    elif model_config.forecast_score is not None:
+        legacy_confidence = model_config.forecast_score
 
     return AssertionInferenceDetailsClass(
         modelId="observe-models",
         modelVersion=OBSERVE_MODELS_VERSION,
-        confidence=model_config.confidence,
+        confidence=legacy_confidence,
         generatedAt=effective_generated_at,
         parameters=parameters,
     )
@@ -254,17 +406,40 @@ def parse_inference_details(
         )
         return None
 
+    # Parse scores
+    forecast_score = None
+    if params.get("forecastScore"):
+        try:
+            forecast_score = float(params["forecastScore"])
+        except (ValueError, TypeError):
+            pass
+
+    anomaly_score = None
+    if params.get("anomalyScore"):
+        try:
+            anomaly_score = float(params["anomalyScore"])
+        except (ValueError, TypeError):
+            pass
+    elif details.confidence is not None:
+        # Backward-compatibility: older stored details used only `confidence`.
+        # Treat it as the anomaly score when anomalyScore isn't present.
+        try:
+            anomaly_score = float(details.confidence)
+        except (ValueError, TypeError):
+            pass
+
     return ModelConfig(
         forecast_model_name=params.get("forecastModelName"),
         forecast_model_version=params.get("forecastModelVersion"),
         forecast_config_json=params.get("forecastConfigJson"),
         forecast_evals_json=params.get("forecastEvalsJson"),
+        forecast_score=forecast_score,
         anomaly_model_name=params.get("anomalyModelName"),
         anomaly_model_version=params.get("anomalyModelVersion"),
         anomaly_config_json=params.get("anomalyConfigJson"),
         anomaly_evals_json=params.get("anomalyEvalsJson"),
+        anomaly_score=anomaly_score,
         preprocessing_config_json=preprocessing_config_json,
-        confidence=details.confidence,
         generated_at=details.generatedAt,
     )
 

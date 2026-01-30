@@ -178,7 +178,8 @@ def list_monitors(
         # Count anomalies (for anomaly events)
         anomaly_count = None
         if "state" in monitor_df.columns and event_type == "anomaly":
-            anomaly_mask = monitor_df["state"].str.upper() == "ANOMALY"
+            state_series = monitor_df["state"].astype(str)
+            anomaly_mask = state_series.str.upper() == "ANOMALY"
             anomaly_count = int(anomaly_mask.sum())
 
         # Get unique state values

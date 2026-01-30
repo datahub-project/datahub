@@ -41,7 +41,6 @@ query GetAssertionEvaluationContext($urn: String!) {
             inferenceDetails {
                 modelId
                 modelVersion
-                confidence
                 generatedAt
                 parameters {
                     key
@@ -107,7 +106,6 @@ query GetMonitorEvaluationContext($urn: String!) {
                             inferenceDetails {
                                 modelId
                                 modelVersion
-                                confidence
                                 generatedAt
                                 parameters {
                                     key
@@ -133,6 +131,19 @@ query GetMonitorEvaluationContext($urn: String!) {
 # =============================================================================
 # Dataclasses for Parsed Results
 # =============================================================================
+
+
+def _parse_model_name_version(
+    name: Optional[str], version: Optional[str]
+) -> Optional[Dict[str, str]]:
+    """Parse model name and version, extracting version from name if it contains @."""
+    if not name:
+        return None
+    if "@" in name:
+        base, parsed_version = name.split("@", 1)
+        name = base.strip()
+        version = parsed_version.strip() or version
+    return {"name": name, "version": version or ""}
 
 
 class InferenceData:
@@ -187,24 +198,20 @@ class InferenceData:
         """Get forecast model name and version."""
         if self.model_config is None:
             return None
-        if self.model_config.forecast_model_name:
-            return {
-                "name": self.model_config.forecast_model_name,
-                "version": self.model_config.forecast_model_version or "unknown",
-            }
-        return None
+        return _parse_model_name_version(
+            self.model_config.forecast_model_name,
+            self.model_config.forecast_model_version,
+        )
 
     @property
     def anomaly_model_info(self) -> Optional[Dict[str, str]]:
         """Get anomaly model name and version."""
         if self.model_config is None:
             return None
-        if self.model_config.anomaly_model_name:
-            return {
-                "name": self.model_config.anomaly_model_name,
-                "version": self.model_config.anomaly_model_version or "unknown",
-            }
-        return None
+        return _parse_model_name_version(
+            self.model_config.anomaly_model_name,
+            self.model_config.anomaly_model_version,
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary for storage."""
@@ -430,7 +437,8 @@ def _graphql_to_inference_details(
     return AssertionInferenceDetailsClass(
         modelId=graphql_data.get("modelId"),
         modelVersion=graphql_data.get("modelVersion"),
-        confidence=graphql_data.get("confidence"),
+        # Training confidence is legacy; inference_v2 uses forecast/anomaly scores.
+        confidence=None,
         generatedAt=graphql_data.get("generatedAt"),
         parameters=params_dict,
     )

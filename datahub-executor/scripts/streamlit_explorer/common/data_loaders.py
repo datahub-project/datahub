@@ -8,7 +8,7 @@ multiple sources: local parquet files, S3, cached API data, or live API.
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import pandas as pd
 
@@ -876,6 +876,95 @@ class DataLoader:
 
         return cubes, total_count
 
+    def _monitored_assertion_from_cache_row(
+        self, row: dict[str, Any]
+    ) -> MonitoredAssertionMetadata:
+        """Convert a cache list_monitored_assertions_paginated row to MonitoredAssertionMetadata."""
+        first_event = None
+        if row.get("first_event_ms") is not None:
+            first_event = pd.to_datetime(
+                row["first_event_ms"], unit="ms"
+            ).to_pydatetime()
+        last_event = None
+        if row.get("last_event_ms") is not None:
+            last_event = pd.to_datetime(row["last_event_ms"], unit="ms").to_pydatetime()
+        return MonitoredAssertionMetadata(
+            assertion_urn=str(row.get("entity_urn", "")),
+            monitor_urn=row.get("monitor_urn"),
+            metric_cube_urn=row.get("metric_cube_urn"),
+            point_count=int(row.get("point_count", 0)),
+            first_event=first_event,
+            last_event=last_event,
+            value_min=row.get("value_min"),
+            value_max=row.get("value_max"),
+            value_mean=row.get("value_mean"),
+            anomaly_count=0,
+            monitor_status=row.get("monitor_status"),
+        )
+
+    def get_monitored_assertions_page(
+        self,
+        hostname: str,
+        page: int = 0,
+        page_size: int = 100,
+        search_filter: Optional[str] = None,
+        status_filter: Optional[str] = None,
+        has_saved_preprocessing_filter: bool = False,
+        enrich: bool = True,
+    ) -> tuple[
+        list[MonitoredAssertionMetadata],
+        int,
+        dict[str, int],
+    ]:
+        """Load one page of monitored assertions from cache (no full load).
+
+        Uses DuckDB pagination so only the requested page is read. Optionally
+        enriches only this page with type info from API (only missing from cache).
+
+        Args:
+            hostname: The endpoint hostname
+            page: Page number (0-indexed)
+            page_size: Number of assertions per page
+            search_filter: Optional URN search (ILIKE on assertionUrn)
+            status_filter: Optional status ("ACTIVE" or "PAUSED")
+            has_saved_preprocessing_filter: If True, only return assertions that
+                have at least one saved preprocessing (uses cached metadata).
+            enrich: If True, fetch type info for this page (only missing from cache)
+
+        Returns:
+            Tuple of (list for this page, total count, enrich_stats).
+            enrich_stats: {"total": N, "from_cache": X, "from_api": Y}
+        """
+        cache = self.cache.get_endpoint_cache(hostname)
+        assertion_urns_filter: Optional[list[str]] = None
+        if has_saved_preprocessing_filter:
+            assertion_urns_filter = list(
+                cache.get_assertion_urns_with_saved_preprocessing()
+            )
+        results, total_count = cache.list_monitored_assertions_paginated(
+            aspect_name="dataHubMetricCubeEvent",
+            page=page,
+            page_size=page_size,
+            search_filter=search_filter or None,
+            status_filter=status_filter,
+            assertion_urns_filter=assertion_urns_filter,
+        )
+
+        assertions = [self._monitored_assertion_from_cache_row(r) for r in results]
+
+        if not assertions:
+            return [], total_count, {"total": 0, "from_cache": 0, "from_api": 0}
+
+        if enrich:
+            _, stats = self.enrich_assertions_with_type_info(hostname, assertions)
+            return assertions, total_count, stats
+
+        return (
+            assertions,
+            total_count,
+            {"total": len(assertions), "from_cache": 0, "from_api": 0},
+        )
+
     def get_monitored_assertions(
         self,
         hostname: str,
@@ -1018,20 +1107,25 @@ class DataLoader:
         self,
         hostname: str,
         assertions: list[MonitoredAssertionMetadata],
-    ) -> list[MonitoredAssertionMetadata]:
+    ) -> tuple[list[MonitoredAssertionMetadata], dict[str, int]]:
         """Enrich assertion metadata with type information from the API.
 
         This method fetches assertion type and field metric type info from the
         API for assertions that don't already have this information. Results
         are cached to disk (parquet cache) to persist across app restarts.
+        Only assertions missing (or partial) in cache are requested from the API.
 
         Args:
             hostname: The endpoint hostname (used to get API config)
             assertions: List of assertions to enrich
 
         Returns:
-            The same list with type info populated where possible
+            Tuple of (same list with type info populated, stats).
+            stats: {"total": N, "from_cache": X, "from_api": Y}
         """
+        total = len(assertions)
+        stats: dict[str, int] = {"total": total, "from_cache": 0, "from_api": 0}
+
         # Load cached type info from disk
         endpoint_cache = self.cache.get_endpoint_cache(hostname)
         type_info_cache = endpoint_cache.load_assertion_type_info()
@@ -1042,27 +1136,75 @@ class DataLoader:
                 cached = type_info_cache[assertion.assertion_urn]
                 assertion.assertion_type = cached.get("assertionType")
                 assertion.field_metric_type = cached.get("fieldMetricType")
+                assertion.volume_assertion_type = cached.get("volumeAssertionType")
 
-        # Find assertions that still need enrichment (not in cache)
+        def _needs_type_enrichment(a: MonitoredAssertionMetadata) -> bool:
+            """
+            Determine whether we should refetch type info from the API.
+
+            Important: we must also refetch when we have *partial* cached info,
+            e.g. assertionType is present but volumeAssertionType is missing.
+            This can happen when caches were created before we started persisting
+            subtype fields, or when the GraphQL schema returned partial data.
+            """
+
+            cached = type_info_cache.get(a.assertion_urn, {})
+
+            # Missing assertion type altogether.
+            if a.assertion_type is None:
+                return "assertionType" not in cached
+
+            a_type = str(a.assertion_type).upper()
+
+            # Volume assertions require subtype for correct cumulative/delta semantics.
+            if a_type == "VOLUME" and a.volume_assertion_type is None:
+                return "volumeAssertionType" not in cached
+
+            # Field assertions often require metric subtype for proper preprocessing.
+            if a_type == "FIELD" and a.field_metric_type is None:
+                return "fieldMetricType" not in cached
+
+            return False
+
+        # Find assertions that still need enrichment (missing or partial info).
         urns_to_enrich = [
-            a.assertion_urn
-            for a in assertions
-            if a.assertion_type is None and a.assertion_urn not in type_info_cache
+            a.assertion_urn for a in assertions if _needs_type_enrichment(a)
         ]
 
+        stats["from_cache"] = total - len(urns_to_enrich)
+
         if not urns_to_enrich:
-            return assertions
+            return assertions, stats
+
+        import logging
+
+        _log = logging.getLogger(__name__)
+        _log.info(
+            "Enriching %d assertions with type info from API (endpoint %s)",
+            len(urns_to_enrich),
+            hostname,
+        )
 
         try:
-            from .shared import get_active_config
+            from .shared import connection_matches_endpoint, get_active_config
         except ImportError:
             from shared import (  # type: ignore[import-not-found]
-                get_active_config,
+                connection_matches_endpoint as _connection_matches_endpoint,
+                get_active_config as _get_active_config,
             )
+
+            connection_matches_endpoint = _connection_matches_endpoint
+            get_active_config = _get_active_config
 
         config = get_active_config()
         if not config:
-            return assertions
+            return assertions, stats
+
+        # Only fetch from API when active connection matches this endpoint.
+        # Otherwise we would hit the wrong server and get no/incorrect data.
+        matches, _ = connection_matches_endpoint(hostname)
+        if not matches:
+            return assertions, stats
 
         # Build GraphQL URL and headers
         base_url = config.server.rstrip("/")
@@ -1085,14 +1227,17 @@ class DataLoader:
         if type_info:
             endpoint_cache.save_assertion_type_info(type_info)
 
+        stats["from_api"] = len(type_info)
+
         # Apply fetched type info to assertions
         for assertion in assertions:
             if assertion.assertion_urn in type_info:
                 info = type_info[assertion.assertion_urn]
                 assertion.assertion_type = info.get("assertionType")
                 assertion.field_metric_type = info.get("fieldMetricType")
+                assertion.volume_assertion_type = info.get("volumeAssertionType")
 
-        return assertions
+        return assertions, stats
 
     def get_metric_cube_timeseries_with_anomalies(
         self,

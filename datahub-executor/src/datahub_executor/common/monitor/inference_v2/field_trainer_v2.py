@@ -2,13 +2,10 @@
 Field assertion trainer V2 using observe-models.
 """
 
+import dataclasses
 import logging
 from typing import Optional
 
-from datahub.metadata.schema_classes import MonitorErrorTypeClass
-
-from datahub_executor.common.exceptions import TrainingErrorException
-from datahub_executor.common.monitor.adjustment_utils import get_sensitivity_level
 from datahub_executor.common.monitor.inference_v2.base_trainer_v2 import BaseTrainerV2
 from datahub_executor.common.monitor.inference_v2.types import AssertionTrainingContext
 from datahub_executor.common.types import (
@@ -102,20 +99,6 @@ class FieldTrainerV2(BaseTrainerV2):
 
         # Fetch metric data
         metrics = self._fetch_metrics(monitor, adjustment_settings)
-        # TODO: Move this minimum samples check out of the trainer and let _run_training_pipeline
-        # throw an InsufficientSamplesException so we can handle it properly at the coordinator level.
-        if len(metrics) < FIELD_METRIC_MIN_TRAINING_SAMPLES:
-            raise TrainingErrorException(
-                message=(
-                    f"[V2] Insufficient samples ({len(metrics)}) for assertion {assertion.urn}"
-                ),
-                error_type=MonitorErrorTypeClass.TRAINING_DATA_INSUFFICIENT,
-                state="TRAINING",
-                properties={
-                    "sample_count": str(len(metrics)),
-                    "min_samples": str(FIELD_METRIC_MIN_TRAINING_SAMPLES),
-                },
-            )
 
         # Fetch anomalies and build training dataframe + ground truth
         anomalies = self._fetch_anomalies(monitor, adjustment_settings)
@@ -126,7 +109,8 @@ class FieldTrainerV2(BaseTrainerV2):
             assertion, adjustment_settings, evaluation_spec
         )
 
-        try:
+        def _do_train() -> None:
+            # TODO: if this throws an error because of not confident enough predictions, we should report that to the monitor status.
             training_result = self._run_training_pipeline(
                 df=df,
                 context=context,
@@ -147,21 +131,9 @@ class FieldTrainerV2(BaseTrainerV2):
                 f"with {num_predictions} predictions"
             )
 
-        except TrainingErrorException as e:
-            logger.exception(f"[V2] Training failed for assertion {assertion.urn}: {e}")
-            raise
-        except RuntimeError as e:
-            logger.exception(f"[V2] Training failed for assertion {assertion.urn}: {e}")
-            raise TrainingErrorException(
-                message=str(e),
-                error_type=MonitorErrorTypeClass.UNKNOWN,
-            ) from e
-        except Exception as e:
-            logger.exception(f"[V2] Training failed for assertion {assertion.urn}: {e}")
-            raise TrainingErrorException(
-                message=str(e),
-                error_type=MonitorErrorTypeClass.UNKNOWN,
-            ) from e
+        self._run_with_training_error_handling(
+            assertion_urn=assertion.urn, fn=_do_train
+        )
 
     def get_assertion_category(self) -> str:
         return "field"
@@ -194,19 +166,21 @@ class FieldTrainerV2(BaseTrainerV2):
         # Resolve the assertion category based on metric type
         assertion_category = self._get_category_for_metric_type(metric_type)
 
-        return AssertionTrainingContext(
-            entity_urn=assertion.entity.urn,
-            num_intervals=24,  # 24 hours of predictions
+        base = self._build_base_training_context(
+            assertion=assertion,
+            adjustment_settings=adjustment_settings,
+            evaluation_spec=evaluation_spec,
+            assertion_category=assertion_category,
+            default_sensitivity_level=FIELD_METRIC_DEFAULT_SENSITIVITY_LEVEL,
             interval_hours=1,
-            sensitivity_level=get_sensitivity_level(
-                adjustment_settings, FIELD_METRIC_DEFAULT_SENSITIVITY_LEVEL
-            ),
+        )
+        return dataclasses.replace(
+            base,
             floor_value=floor_value,
             ceiling_value=ceiling_value,
-            assertion_category=assertion_category,
             metric_type=metric_type,
-            existing_model_config=self._extract_existing_model_config(evaluation_spec),
             is_delta=is_delta,
+            min_training_samples=FIELD_METRIC_MIN_TRAINING_SAMPLES,
         )
 
     def _get_metric_type(self, assertion: Assertion) -> str:

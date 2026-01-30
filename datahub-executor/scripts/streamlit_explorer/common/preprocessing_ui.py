@@ -7,6 +7,8 @@ time series preprocessing pipelines, including support for predefined
 pipelines from the observe-models registry.
 """
 
+import dataclasses
+import inspect
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
@@ -142,7 +144,9 @@ def get_available_pandas_transformers() -> list:
 
     try:
         registry = get_preprocessing_registry()
-        return registry.list(preprocessor_type=PreprocessorType.PANDAS_TRANSFORMER)
+        # observe-models registry supports multi-version entries; for UI discovery
+        # we want one entry per name.
+        return registry.list_latest(entry_type=PreprocessorType.PANDAS_TRANSFORMER)  # type: ignore[attr-defined]
     except Exception:
         return []
 
@@ -159,7 +163,7 @@ def get_available_darts_transformers() -> list:
 
     try:
         registry = get_preprocessing_registry()
-        return registry.list(preprocessor_type=PreprocessorType.TRANSFORMER)
+        return registry.list_latest(entry_type=PreprocessorType.TRANSFORMER)  # type: ignore[attr-defined]
     except Exception:
         return []
 
@@ -195,7 +199,7 @@ def get_available_pipelines() -> list:
 
     try:
         registry = get_preprocessing_registry()
-        return registry.list(preprocessor_type=PreprocessorType.PIPELINE)
+        return registry.list_latest(entry_type=PreprocessorType.PIPELINE)  # type: ignore[attr-defined]
     except Exception:
         return []
 
@@ -207,7 +211,10 @@ def get_pipeline_options() -> list[tuple[str, str]]:
         List of (value, display_label) tuples. Always includes "custom" as first option.
         If an inference config is loaded, includes "from_inference" option.
     """
-    options = [("custom", "Custom Configuration")]
+    options = [
+        ("custom", "Custom Configuration"),
+        ("auto_inference_v2", "Auto (inference_v2 defaults)"),
+    ]
 
     # Check if inference config is loaded in session state
     loaded_config = st.session_state.get("_loaded_inference_preprocessing_config")
@@ -270,6 +277,39 @@ def instantiate_pipeline(
                 for k, v in config_overrides.items()
                 if k not in ("type", "preprocessing_config") and v is not None
             }
+
+            # Be defensive: drop unknown keys rather than erroring. This allows
+            # UI-level "auto" presets to carry logical fields across pipelines.
+            try:
+                allowed: Optional[set[str]] = None
+                if inspect.isclass(config_cls):
+                    if hasattr(config_cls, "model_fields"):  # pydantic v2
+                        allowed = set(config_cls.model_fields.keys())
+                    elif dataclasses.is_dataclass(config_cls):
+                        allowed = {f.name for f in dataclasses.fields(config_cls)}
+                    else:
+                        # Inspect the class call signature (avoids mypy complaints about __init__).
+                        sig = inspect.signature(config_cls)
+                        if any(
+                            p.kind == inspect.Parameter.VAR_KEYWORD
+                            for p in sig.parameters.values()
+                        ):
+                            allowed = None  # accepts **kwargs
+                        else:
+                            allowed = {
+                                p.name
+                                for p in sig.parameters.values()
+                                if p.name != "self"
+                            }
+
+                if allowed is not None:
+                    config_kwargs = {
+                        k: v for k, v in config_kwargs.items() if k in allowed
+                    }
+            except Exception:
+                # If introspection fails, fall back to passing through.
+                pass
+
             config = config_cls(**config_kwargs)
 
             # Use from_config if available
@@ -288,7 +328,7 @@ class PreprocessingState:
     """State for preprocessing configuration UI."""
 
     # Pipeline mode: "custom" or any pipeline name from registry (e.g., "volume", "field")
-    pipeline_mode: str = "custom"
+    pipeline_mode: str = "auto_inference_v2"
 
     # Type-aware processing (new architecture)
     # When enabled, the 'type' column (INIT, SUCCESS, etc.) is passed through
@@ -349,6 +389,9 @@ def init_preprocessing_state() -> PreprocessingState:
     else:
         # Handle migration: add missing attributes from newer versions
         state = st.session_state.preprocessing_state
+
+        if not hasattr(state, "pipeline_mode"):
+            state.pipeline_mode = "auto_inference_v2"
 
         # Legacy field migrations
         if not hasattr(state, "exclude_init_results"):
@@ -470,6 +513,49 @@ def serialize_applied_config(
         return {"error": "Serialization not available"}
 
 
+def get_or_resolve_auto_inference_v2_preset(
+    *,
+    use_cached: bool = True,
+) -> Optional[dict[str, Any]]:
+    """Return the auto inference_v2 preset dict (pipeline_name, config_overrides, explanation).
+
+    If use_cached is True and session has a valid preset dict, return it. Otherwise
+    resolve from session context via suggest_preprocessing_preset, store in session,
+    and return the dict. Returns None on resolution failure.
+
+    Returns:
+        Dict with keys pipeline_name, config_overrides, explanation; or None.
+    """
+    if use_cached:
+        preset = st.session_state.get("_auto_inference_v2_preset")
+        if isinstance(preset, dict):
+            return preset
+    try:
+        from .auto_inference_v2 import (
+            build_input_data_context_from_session,
+            suggest_preprocessing_preset,
+        )
+
+        context = build_input_data_context_from_session()
+        resolved = suggest_preprocessing_preset(context)
+        preset = {
+            "pipeline_name": resolved.pipeline_name,
+            "config_overrides": resolved.config_overrides,
+            "explanation": resolved.explanation,
+        }
+        # Use executor's full config for display/apply so frequency="auto" etc. are correct
+        if getattr(resolved, "resolved_config", None) is not None:
+            from datahub_observe.algorithms.preprocessing.serialization import (
+                config_to_dict as _config_to_dict,
+            )
+
+            preset["resolved_config_dict"] = _config_to_dict(resolved.resolved_config)
+        st.session_state["_auto_inference_v2_preset"] = preset
+        return preset
+    except Exception:
+        return None
+
+
 def build_config_for_display(
     state: PreprocessingState,
     config_overrides: Optional[dict] = None,
@@ -511,6 +597,47 @@ def build_config_for_display(
         config = state_to_config(state)
         if config is not None:
             result = config_to_dict(config)
+    elif state.pipeline_mode == "auto_inference_v2":
+        # Auto (inference_v2) mode - resolve to a concrete registry pipeline
+        preset = get_or_resolve_auto_inference_v2_preset()
+        if preset is None:
+            result = {"error": "Could not resolve auto pipeline config"}
+        else:
+            pipeline_name = str(preset.get("pipeline_name") or "")
+            overrides = preset.get("config_overrides") or {}
+            explanation = str(preset.get("explanation") or "")
+
+            if pipeline_name and pipeline_name != "custom":
+                # Use executor's full config when present so frequency="auto" etc. match
+                resolved_config_dict = preset.get("resolved_config_dict")
+                if resolved_config_dict is not None:
+                    result = dict(resolved_config_dict)
+                    result["_pipeline"] = pipeline_name
+                    result["_source"] = "auto_inference_v2"
+                    if explanation:
+                        result["_explanation"] = explanation
+                else:
+                    try:
+                        preprocessor = instantiate_pipeline(pipeline_name, overrides)
+                        if (
+                            hasattr(preprocessor, "config")
+                            and preprocessor.config is not None
+                        ):
+                            result = config_to_dict(preprocessor.config)
+                            result["_pipeline"] = pipeline_name
+                            result["_source"] = "auto_inference_v2"
+                            if explanation:
+                                result["_explanation"] = explanation
+                    except Exception as e:
+                        result = {
+                            "error": f"Could not resolve auto pipeline config: {e}"
+                        }
+            else:
+                # Fall back to showing the custom config that would be used.
+                config = state_to_config(state)
+                if config is not None:
+                    result = config_to_dict(config)
+                    result["_source"] = "auto_inference_v2"
     elif state.pipeline_mode == "from_inference":
         # From inference mode - serialize the loaded inference config
         loaded_config = st.session_state.get("_loaded_inference_preprocessing_config")
@@ -547,6 +674,26 @@ def build_config_for_display(
         # Note if anomaly exclusion is enabled (handled via type column)
         if state.use_anomalies_as_exclusions:
             result["_anomaly_exclusion_enabled"] = True
+
+    # When preprocessing has run, show actual applied resampling (e.g. heuristic -> daily, max)
+    if isinstance(result, dict) and "darts_transformers" in result:
+        result_dict = st.session_state.get("_preprocessing_result_dict")
+        context = (result_dict or {}).get("context", {}) if result_dict else {}
+        resampling_applied = context.get("resampling_applied")
+        if isinstance(resampling_applied, dict):
+            new_darts = []
+            for t in result.get("darts_transformers", []):
+                if isinstance(t, dict) and t.get("type") == "resampling":
+                    t = dict(t)
+                    t["frequency"] = resampling_applied.get(
+                        "target_frequency", t.get("frequency")
+                    )
+                    t["aggregation_method"] = resampling_applied.get(
+                        "aggregation_method", t.get("aggregation_method")
+                    )
+                new_darts.append(t)
+            result = dict(result)
+            result["darts_transformers"] = new_darts
 
     return result if result else None
 
@@ -837,8 +984,8 @@ def _get_field_help(field_name: str, pipeline_name: str, metadata: dict) -> str:
             "Field metrics like NULL_COUNT are absolute values that need differencing for forecasting."
         ),
         "is_delta": (
-            "If True (default), data represents deltas and negative values are allowed. "
-            "If False, data is cumulative and negative values are filtered."
+            "Input semantics: True = data is already deltas; False = data is cumulative. "
+            "After preprocessing (e.g. convert_cumulative), the pipeline treats the series as delta downstream."
         ),
         "metric_type": (
             "The field metric type determines aggregation behavior. "
@@ -867,7 +1014,12 @@ def render_pipeline_selector(state: PreprocessingState) -> str:
     try:
         current_index = option_values.index(state.pipeline_mode)
     except ValueError:
-        current_index = 0  # Default to "custom" if saved mode not found
+        # Default to "auto_inference_v2" (or "custom" if somehow unavailable).
+        current_index = (
+            option_values.index("auto_inference_v2")
+            if "auto_inference_v2" in option_values
+            else 0
+        )
 
     selected = st.selectbox(
         "Preprocessing Mode",
@@ -1004,6 +1156,70 @@ def render_inference_config_info() -> None:
         st.rerun()
 
 
+def _render_anomaly_exclusion_ui(
+    state: PreprocessingState,
+    anomaly_count: int = 0,
+    *,
+    key_suffix: str = "",
+) -> None:
+    """Render anomaly exclusion checkbox, window/unreviewed settings, and count message.
+
+    Shared by render_filtering_config (Data Filtering expander) and
+    render_anomaly_exclusion_config (Anomaly Exclusions expander). Key suffix
+    differentiates Streamlit widget keys when both may be rendered in the same session.
+
+    Args:
+        state: The preprocessing state (updated in place).
+        anomaly_count: Number of confirmed anomalies available for exclusion.
+        key_suffix: Suffix for widget keys (e.g. "" or "_shared").
+    """
+    is_auto_mode = state.pipeline_mode == "auto_inference_v2"
+    if is_auto_mode:
+        st.checkbox(
+            "Exclude confirmed anomalies",
+            value=True,
+            key=f"use_anomalies_as_exclusions{key_suffix}",
+            disabled=True,
+            help="Anomaly exclusion is automatically handled by inference_v2 when ground truth is available",
+        )
+        st.info(
+            "Anomaly exclusion is automatically handled by inference_v2 when ground truth contains anomalies. "
+            "This setting is read-only in Auto mode."
+        )
+        state.use_anomalies_as_exclusions = True
+    else:
+        state.use_anomalies_as_exclusions = st.checkbox(
+            "Exclude confirmed anomalies",
+            value=state.use_anomalies_as_exclusions,
+            key=f"use_anomalies_as_exclusions{key_suffix}",
+            help="Automatically exclude time points marked as confirmed anomalies",
+        )
+
+    if state.use_anomalies_as_exclusions:
+        col1, col2 = st.columns(2)
+        with col1:
+            state.anomaly_window_minutes = st.number_input(
+                "Window around anomaly (minutes)",
+                min_value=0,
+                max_value=1440,
+                value=state.anomaly_window_minutes,
+                key=f"anomaly_window_minutes{key_suffix}",
+                help="Time window to exclude around each anomaly point. 0 = point only.",
+            )
+        with col2:
+            state.include_unreviewed_anomalies = st.checkbox(
+                "Include unreviewed anomalies",
+                value=state.include_unreviewed_anomalies,
+                key=f"include_unreviewed_anomalies{key_suffix}",
+                help="Also exclude anomalies that haven't been reviewed yet",
+            )
+
+        if anomaly_count > 0:
+            st.info(f"{anomaly_count} anomalies will be excluded")
+        else:
+            st.caption("No confirmed anomalies found in cache")
+
+
 def render_filtering_config(
     state: PreprocessingState,
     anomaly_count: int = 0,
@@ -1022,39 +1238,8 @@ def render_filtering_config(
         )
 
         if state.filtering_enabled:
-            # Anomaly-based exclusions section
             st.markdown("**Anomaly-Based Exclusions**")
-
-            state.use_anomalies_as_exclusions = st.checkbox(
-                "Exclude confirmed anomalies",
-                value=state.use_anomalies_as_exclusions,
-                key="use_anomalies_as_exclusions",
-                help="Automatically exclude time points marked as confirmed anomalies",
-            )
-
-            if state.use_anomalies_as_exclusions:
-                col1, col2 = st.columns(2)
-                with col1:
-                    state.anomaly_window_minutes = st.number_input(
-                        "Window around anomaly (minutes)",
-                        min_value=0,
-                        max_value=1440,  # Max 1 day
-                        value=state.anomaly_window_minutes,
-                        key="anomaly_window_minutes",
-                        help="Time window to exclude around each anomaly point. 0 = point only.",
-                    )
-                with col2:
-                    state.include_unreviewed_anomalies = st.checkbox(
-                        "Include unreviewed anomalies",
-                        value=state.include_unreviewed_anomalies,
-                        key="include_unreviewed_anomalies",
-                        help="Also exclude anomalies that haven't been reviewed yet",
-                    )
-
-                if anomaly_count > 0:
-                    st.info(f"{anomaly_count} anomalies will be excluded")
-                else:
-                    st.caption("No confirmed anomalies found in cache")
+            _render_anomaly_exclusion_ui(state, anomaly_count, key_suffix="")
 
             st.markdown("---")
             st.markdown(
@@ -1192,36 +1377,7 @@ def render_anomaly_exclusion_config(
         anomaly_count: Number of confirmed anomalies available for exclusion
     """
     with st.expander("Anomaly Exclusions", expanded=state.use_anomalies_as_exclusions):
-        state.use_anomalies_as_exclusions = st.checkbox(
-            "Exclude confirmed anomalies",
-            value=state.use_anomalies_as_exclusions,
-            key="use_anomalies_as_exclusions_shared",
-            help="Automatically exclude time points marked as confirmed anomalies",
-        )
-
-        if state.use_anomalies_as_exclusions:
-            col1, col2 = st.columns(2)
-            with col1:
-                state.anomaly_window_minutes = st.number_input(
-                    "Window around anomaly (minutes)",
-                    min_value=0,
-                    max_value=1440,  # Max 1 day
-                    value=state.anomaly_window_minutes,
-                    key="anomaly_window_minutes_shared",
-                    help="Time window to exclude around each anomaly point. 0 = point only.",
-                )
-            with col2:
-                state.include_unreviewed_anomalies = st.checkbox(
-                    "Include unreviewed anomalies",
-                    value=state.include_unreviewed_anomalies,
-                    key="include_unreviewed_anomalies_shared",
-                    help="Also exclude anomalies that haven't been reviewed yet",
-                )
-
-            if anomaly_count > 0:
-                st.info(f"{anomaly_count} anomalies will be excluded")
-            else:
-                st.caption("No confirmed anomalies found in cache")
+        _render_anomaly_exclusion_ui(state, anomaly_count, key_suffix="_shared")
 
 
 def render_result_type_filter_config(
@@ -1308,6 +1464,8 @@ def render_preprocessing_config_panel(
         render_resampling_config(state)
         render_differencing_config(state)
         render_missing_data_config(state)
+    elif selected == "auto_inference_v2":
+        render_auto_inference_v2_info()
     elif selected == "from_inference":
         # Show loaded inference config info (read-only)
         render_inference_config_info()
@@ -1470,8 +1628,30 @@ def apply_preprocessing(
     if state.pipeline_mode == "from_inference" and config is None:
         return _apply_inference_config(df, state)
 
-    # Check if using a predefined pipeline
-    if state.pipeline_mode != "custom" and config is None:
+    # Check if using inference_v2 auto preset
+    if state.pipeline_mode == "auto_inference_v2" and config is None:
+        preset = get_or_resolve_auto_inference_v2_preset(use_cached=False)
+        if preset is None:
+            st.error("Failed to resolve inference_v2 auto preset.")
+            return None
+        pipeline_name = str(preset.get("pipeline_name") or "")
+        config_overrides = preset.get("config_overrides") or {}
+        resolved_config_dict = preset.get("resolved_config_dict")
+        if pipeline_name == "custom":
+            # Fall back to the custom configuration path, but keep the resolved
+            # preset visible to the user for explainability.
+            config = state_to_config(state)
+        elif resolved_config_dict is not None:
+            # Use executor's full config (has frequency="auto" etc.) for apply
+            return _apply_resolved_config_dict(df, state, resolved_config_dict)
+        else:
+            return _apply_predefined_pipeline(
+                df, pipeline_name, state, config_overrides
+            )
+
+    # Check if using a predefined pipeline (exclude auto_inference_v2: that mode
+    # resolves to a preset and may fall back to custom with config=None)
+    if state.pipeline_mode not in ("custom", "auto_inference_v2") and config is None:
         # Get config overrides from state's pipeline_configs
         config_overrides = state.pipeline_configs.get(state.pipeline_mode, {})
         return _apply_predefined_pipeline(
@@ -1496,6 +1676,63 @@ def apply_preprocessing(
         result_df = result.timeseries.to_dataframe().reset_index()
         result_df.columns = ["ds", "y"]
 
+        return result_df
+    except Exception as e:
+        st.error(f"Preprocessing error: {e}")
+        return None
+
+
+def _apply_resolved_config_dict(
+    df: pd.DataFrame,
+    state: PreprocessingState,
+    config_dict: dict,
+) -> Optional[pd.DataFrame]:
+    """Apply preprocessing using a resolved PreprocessingConfig dict (e.g. from executor)."""
+    if not HAS_PREPROCESSING:
+        st.error("Preprocessing not available.")
+        return None
+    try:
+        from datahub_observe.algorithms.preprocessing.serialization import (
+            config_from_dict,
+        )
+        from datahub_observe.algorithms.preprocessing.transformers import (
+            DifferenceConfig,
+        )
+        from datahub_observe.algorithms.preprocessing.volume_preprocessor import (
+            VolumeTimeSeriesPreprocessor,
+        )
+
+        config = config_from_dict(config_dict, check_schema=False)
+        if isinstance(config, dict):
+            st.error("Could not deserialize resolved config.")
+            return None
+        filtered_df = df.copy()
+        if state.use_anomalies_as_exclusions and AnomalyDataFilterConfig is not None:
+            anomaly_filter = AnomalyDataFilterConfig(
+                enabled=True,
+                type_values=["ANOMALY"],
+            ).create_transformer()
+            filtered_df = anomaly_filter.transform(filtered_df, type_col=state.type_col)
+        # Use VolumeTimeSeriesPreprocessor when differencing is enabled so
+        # context.is_delta_series is set and oversampling heuristics run
+        convert_cumulative = any(
+            isinstance(t, DifferenceConfig) and getattr(t, "enabled", False)
+            for t in getattr(config, "darts_transformers", [])
+        )
+        preprocessor: TimeSeriesPreprocessor
+        if convert_cumulative:
+            preprocessor = VolumeTimeSeriesPreprocessor(
+                config=config,
+                convert_cumulative=True,
+                is_delta=False,
+                strict_validation=False,
+            )
+        else:
+            preprocessor = TimeSeriesPreprocessor(config)
+        result = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
+        st.session_state["_preprocessing_result_dict"] = result.to_dict()
+        result_df = result.timeseries.to_dataframe().reset_index()
+        result_df.columns = ["ds", "y"]
         return result_df
     except Exception as e:
         st.error(f"Preprocessing error: {e}")
@@ -1557,8 +1794,36 @@ def _apply_predefined_pipeline(
         st.error(f"Pipeline '{pipeline_name}' not found in registry")
         return None
     except Exception as e:
-        st.error(f"Preprocessing error with '{pipeline_name}' pipeline: {e}")
+        st.error(f"Preprocessing error: {e}")
         return None
+
+
+def render_auto_inference_v2_info() -> None:
+    """Display the resolved inference_v2 auto preprocessing preset (read-only)."""
+    preset = get_or_resolve_auto_inference_v2_preset()
+    if preset is None:
+        st.info(
+            "**Auto (inference_v2)** will resolve a pipeline based on the current "
+            "assertion context when you apply preprocessing."
+        )
+        return
+
+    pipeline_name = str(preset.get("pipeline_name") or "")
+    explanation = str(preset.get("explanation") or "")
+    config_overrides = preset.get("config_overrides") or {}
+
+    st.info(f"**Auto (inference_v2)** resolved pipeline: `{pipeline_name}`")
+    if explanation:
+        st.caption(explanation)
+
+    if isinstance(config_overrides, dict) and config_overrides:
+        st.caption(
+            "Overrides below describe **input** semantics (e.g. is_delta=False for cumulative). "
+            "After preprocessing (e.g. differencing), the pipeline treats the series as delta downstream."
+        )
+        render_config_expander(
+            config_overrides, title="Resolved Auto Overrides (Read-Only)"
+        )
 
 
 def _apply_inference_config(
@@ -1793,6 +2058,24 @@ def render_preprocessing_context() -> None:
         return
 
     with st.expander("🔍 Preprocessing Context (Analysis Results)", expanded=False):
+        # Heuristics context: inputs that affect resampling heuristics (e.g. is_delta_series)
+        is_delta_series = context.get("is_delta_series")
+        aggregation_hint = context.get("aggregation_hint")
+        if is_delta_series is not None or aggregation_hint is not None:
+            st.markdown("**Heuristics context**")
+            col_ctx1, col_ctx2 = st.columns(2)
+            with col_ctx1:
+                st.markdown(
+                    f"- **is_delta_series:** `{is_delta_series}` "
+                    "(True → oversampling rule can apply: hourly → daily, max)"
+                )
+            with col_ctx2:
+                st.markdown(
+                    f"- **aggregation_hint:** `{aggregation_hint or 'N/A'}` "
+                    "(used when heuristic does not override)"
+                )
+            st.markdown("---")
+
         # Frequency Analysis section
         freq_analysis = context.get("frequency_analysis", {})
         if freq_analysis:
@@ -1837,9 +2120,24 @@ def render_preprocessing_context() -> None:
                 if regime_start and freq_analysis.get("has_shift"):
                     st.markdown(f"- **Regime Start:** `{regime_start}`")
 
-        # Aggregation Hint section
+        # Resampling: actual applied + which heuristic(s) were used
+        resampling_applied = context.get("resampling_applied")
         aggregation_hint = context.get("aggregation_hint")
-        if aggregation_hint:
+        if resampling_applied:
+            st.markdown("---")
+            st.markdown("**Resampling (actually applied)**")
+            st.markdown(
+                f"- **Target frequency:** `{resampling_applied.get('target_frequency', 'N/A')}`"
+            )
+            st.markdown(
+                f"- **Aggregation method:** `{resampling_applied.get('aggregation_method', 'N/A')}`"
+            )
+            applied_heuristics = resampling_applied.get("applied_heuristics")
+            if isinstance(applied_heuristics, list) and applied_heuristics:
+                st.markdown(
+                    f"- **Heuristic(s) used:** `{', '.join(applied_heuristics)}`"
+                )
+        elif aggregation_hint:
             st.markdown("---")
             st.markdown("**Aggregation**")
             st.markdown(

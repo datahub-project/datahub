@@ -8,7 +8,6 @@ from datahub_executor.common.monitor.inference_v2.observe_adapter.defaults impor
 )
 from datahub_executor.common.monitor.inference_v2.observe_adapter.evaluator import (
     compute_evaluation_metrics,
-    extract_quality_score,
 )
 from datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory import (
     InitializedModels,
@@ -36,7 +35,6 @@ __all__ = [
     "ModelFactory",
     "InitializedModels",
     # Evaluator
-    "extract_quality_score",
     "compute_evaluation_metrics",
     # Serialization
     "PreprocessingConfigSerializer",

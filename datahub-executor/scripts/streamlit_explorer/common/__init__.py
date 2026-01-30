@@ -14,6 +14,27 @@ and model_explorer modules:
 """
 
 # Re-export from cache_manager
+# Re-export from auto_inference_v2
+from .auto_inference_v2 import (
+    AutoPreprocessingPreset,
+    AutoTrainingRunResult,
+    build_input_data_context_from_session,
+    get_all_pairing_identifiers,
+    get_default_pairing_identifiers,
+    parse_pairings_csv,
+    run_auto_training_pipeline,
+    suggest_preprocessing_preset,
+)
+
+# Re-export from auto_inference_v2_runs
+from .auto_inference_v2_runs import (
+    _AUTO_INFERENCE_V2_RUNS_KEY,
+    _AUTO_V2_RUN_DETAILS_KEY_PREFIX,
+    clear_all_auto_inference_v2_runs,
+    delete_auto_inference_v2_run_complete,
+    get_auto_inference_v2_runs,
+    load_auto_inference_v2_runs,
+)
 from .cache_manager import (
     ALL_ASPECTS,
     METRIC_CUBE_ASPECTS,
@@ -115,20 +136,25 @@ from .shared import (
     _SELECTED_ENDPOINT,
     _SELECTED_MONITOR,
     ACTIVE_ENV_CONFIG,
+    ASSERTION_TYPE_FILTER_OPTIONS,
+    FIELD_METRIC_FILTER_OPTIONS,
     FetchConfig,
     _cancel_event,
     _check_cancelled,
+    _extract_hash_from_run_id,
     _get_datahub_url,
     _hex_to_rgba,
     _make_urn_link,
     _render_urn_with_link,
     _set_cancelled,
     _shorten_urn,
+    connection_matches_endpoint,
     get_active_config,
     get_model_hyperparameters,
     init_explorer_state,
     logger,
     render_connection_status,
+    set_explorer_context,
 )
 
 # Note: EXPLORER_PAGES is assembled at the top-level streamlit/__init__.py
@@ -199,7 +225,9 @@ __all__ = [
     "FetchConfig",
     "_cancel_event",
     "_check_cancelled",
+    "connection_matches_endpoint",
     "_DATA_SOURCE",
+    "_extract_hash_from_run_id",
     "_FETCH_CANCELLED",
     "_FETCH_IN_PROGRESS",
     "_hex_to_rgba",
@@ -210,6 +238,9 @@ __all__ = [
     "_SELECTED_ENDPOINT",
     "_SELECTED_MONITOR",
     "_set_cancelled",
+    "ASSERTION_TYPE_FILTER_OPTIONS",
+    "FIELD_METRIC_FILTER_OPTIONS",
+    "set_explorer_context",
     "_shorten_urn",
     "_render_urn_with_link",
     "_get_datahub_url",
@@ -235,4 +266,20 @@ __all__ = [
     "_render_cached_source",
     "_rest_monitor_anomaly_events",
     "_try_graphql_monitor_anomalies",
+    # inference_v2 auto helpers
+    "AutoPreprocessingPreset",
+    "AutoTrainingRunResult",
+    "build_input_data_context_from_session",
+    "get_all_pairing_identifiers",
+    "get_default_pairing_identifiers",
+    "parse_pairings_csv",
+    "run_auto_training_pipeline",
+    "suggest_preprocessing_preset",
+    # auto inference_v2 runs management
+    "_AUTO_INFERENCE_V2_RUNS_KEY",
+    "_AUTO_V2_RUN_DETAILS_KEY_PREFIX",
+    "clear_all_auto_inference_v2_runs",
+    "delete_auto_inference_v2_run_complete",
+    "get_auto_inference_v2_runs",
+    "load_auto_inference_v2_runs",
 ]

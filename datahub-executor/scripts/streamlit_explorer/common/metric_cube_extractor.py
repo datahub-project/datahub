@@ -433,6 +433,9 @@ class MonitoredAssertionMetadata:
     # Assertion type info (populated from API enrichment)
     assertion_type: Optional[str] = None  # VOLUME, FIELD, SQL, FRESHNESS, etc.
     field_metric_type: Optional[str] = None  # For FIELD assertions: NULL_COUNT, etc.
+    volume_assertion_type: Optional[str] = (
+        None  # For VOLUME assertions: ROW_COUNT_TOTAL, etc.
+    )
 
 
 def list_monitored_assertions(

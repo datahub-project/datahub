@@ -6,6 +6,8 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+pytest.importorskip("streamlit")
+
 from scripts.streamlit_explorer.common.preprocessing_ui import (
     PreprocessingState,
     _apply_inference_config,
@@ -72,10 +74,10 @@ def mock_preprocessor():
 class TestPreprocessingState:
     """Tests for the PreprocessingState dataclass."""
 
-    def test_default_pipeline_mode_is_custom(self):
-        """Verify default pipeline_mode is 'custom'."""
+    def test_default_pipeline_mode_is_auto_inference_v2(self):
+        """Verify default pipeline_mode is 'auto_inference_v2'."""
         state = PreprocessingState()
-        assert state.pipeline_mode == "custom"
+        assert state.pipeline_mode == "auto_inference_v2"
 
     def test_pipeline_mode_can_be_set(self):
         """Verify pipeline_mode can be set to a pipeline name."""
@@ -162,7 +164,7 @@ class TestTransformerDiscovery:
         mock_entry = MagicMock()
         mock_entry.name = "init_data_filter"
         mock_registry = MagicMock()
-        mock_registry.list.return_value = [mock_entry]
+        mock_registry.list_latest.return_value = [mock_entry]
         mock_get_registry.return_value = mock_registry
 
         result = get_available_pandas_transformers()
@@ -207,7 +209,7 @@ class TestGetAvailablePipelines:
     ):
         """Verify pipelines are fetched from registry."""
         mock_registry = MagicMock()
-        mock_registry.list.return_value = [mock_registry_entry]
+        mock_registry.list_latest.return_value = [mock_registry_entry]
         mock_get_registry.return_value = mock_registry
 
         result = get_available_pipelines()
@@ -225,6 +227,14 @@ class TestGetPipelineOptions:
         assert options[0][0] == "custom"
         assert "Custom" in options[0][1]
 
+    def test_includes_auto_inference_v2_option(self):
+        """Verify 'auto_inference_v2' option is always present."""
+        options = get_pipeline_options()
+        option_values = [opt[0] for opt in options]
+        assert "auto_inference_v2" in option_values
+        # By convention it should appear right after custom
+        assert options[1][0] == "auto_inference_v2"
+
     @patch("scripts.streamlit_explorer.common.preprocessing_ui.get_available_pipelines")
     def test_includes_all_registry_pipelines(
         self, mock_get_pipelines, mock_registry_entry
@@ -234,9 +244,9 @@ class TestGetPipelineOptions:
 
         options = get_pipeline_options()
 
-        assert len(options) == 2  # custom + volume
-        assert options[1][0] == "volume"
-        assert "Volume" in options[1][1]
+        assert len(options) == 3  # custom + auto + volume
+        assert options[2][0] == "volume"
+        assert "Volume" in options[2][1]
 
     @patch("scripts.streamlit_explorer.common.preprocessing_ui.get_available_pipelines")
     def test_truncates_long_descriptions(self, mock_get_pipelines):
@@ -249,7 +259,7 @@ class TestGetPipelineOptions:
         options = get_pipeline_options()
 
         # Should be truncated with ellipsis
-        assert len(options[1][1]) < 100
+        assert len(options[2][1]) < 100
 
 
 class TestInstantiatePipeline:

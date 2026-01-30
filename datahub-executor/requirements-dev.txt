@@ -315,9 +315,10 @@ cloudpickle==3.1.2
     #   -r requirements.txt
     #   shap
     #   statsforecast
-cmdstanpy==1.2.5
+cmdstanpy==1.3.0
     # via
     #   -r requirements.txt
+    #   acryl-datahub-executor (pyproject.toml)
     #   observe-models
     #   prophet
 colorama==0.4.6
@@ -387,7 +388,7 @@ cython==3.2.4
     # via
     #   -r requirements.txt
     #   pmdarima
-darts==0.39.0
+darts==0.40.0
     # via
     #   -r requirements.txt
     #   observe-models
@@ -1067,6 +1068,7 @@ numpy==1.26.4
     #   triad
     #   utilsforecast
     #   xarray
+    #   xgboost
 numpy-typing-compat==20250818.1.25
     # via optype
 nvidia-cublas-cu12==12.8.4.1 ; platform_machine == 'x86_64' and sys_platform == 'linux'
@@ -1116,10 +1118,11 @@ nvidia-cusparselt-cu12==0.7.1 ; platform_machine == 'x86_64' and sys_platform ==
     # via
     #   -r requirements.txt
     #   torch
-nvidia-nccl-cu12==2.27.5 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+nvidia-nccl-cu12==2.27.5 ; sys_platform == 'linux'
     # via
     #   -r requirements.txt
     #   torch
+    #   xgboost
 nvidia-nvjitlink-cu12==12.8.93 ; platform_machine == 'x86_64' and sys_platform == 'linux'
     # via
     #   -r requirements.txt
@@ -1139,7 +1142,7 @@ oauthlib==3.3.1
     # via
     #   -r requirements.txt
     #   databricks-sql-connector
-observe-models==0.1.0.dev41
+observe-models==0.1.0+pr24.125
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
@@ -1177,6 +1180,7 @@ packaging==25.0
     #   marshmallow
     #   matplotlib
     #   nbconvert
+    #   observe-models
     #   plotly
     #   pmdarima
     #   pytest
@@ -1302,7 +1306,7 @@ propcache==0.4.1
     #   -r requirements.txt
     #   aiohttp
     #   yarl
-prophet==1.1.5
+prophet==1.3.0
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
@@ -1657,7 +1661,7 @@ schwifty==2025.9.0
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-classify
-scikit-learn==1.8.0
+scikit-learn==1.7.2
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
@@ -1680,6 +1684,7 @@ scipy==1.16.3
     #   shap
     #   statsforecast
     #   statsmodels
+    #   xgboost
 scipy-stubs==1.16.2.0
     # via acryl-datahub-executor (pyproject.toml)
 scramp==1.4.8
@@ -2183,6 +2188,8 @@ xarray==2025.6.1
     # via
     #   -r requirements.txt
     #   darts
+xgboost==3.1.3
+    # via -r requirements.txt
 xlrd==2.0.2
     # via
     #   -r requirements.txt

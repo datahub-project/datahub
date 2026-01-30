@@ -17,6 +17,10 @@ from ..common import (
     render_preprocessing_context,
     render_preprocessing_stats,
 )
+from ..common.preprocessing_keys import (
+    build_preprocessing_key,
+    display_preprocessing_id,
+)
 from ..common.preprocessing_ui import (
     build_config_for_display,
     mark_anomalies_in_type_column,
@@ -138,12 +142,16 @@ def _render_saved_preprocessings(
 
     # Build table data with match indicator
     table_data = []
+    id_to_meta: dict[str, dict] = {}
     for item in display_list:
-        preprocessing_id = item["preprocessing_id"]
+        preprocessing_key = item["preprocessing_id"]
         row_count = item.get("row_count", "?")
         created_at = item.get("created_at", "")
         source_urn = item.get("source_assertion_urn", "")
         is_matching = source_urn == current_assertion_urn
+        metadata = item.get("metadata") or {}
+        if isinstance(metadata, dict):
+            id_to_meta[preprocessing_key] = metadata
 
         # Format created_at for display
         if created_at:
@@ -158,6 +166,9 @@ def _render_saved_preprocessings(
         # Shorten the assertion URN for display
         short_urn = _shorten_urn(source_urn, max_length=40) if source_urn else "-"
 
+        # User-facing short ID (storage key may include encoded assertion URN)
+        short_id = display_preprocessing_id(preprocessing_key, metadata=metadata)
+
         # Add match indicator
         if is_matching:
             match_indicator = "✓"
@@ -167,7 +178,7 @@ def _render_saved_preprocessings(
         table_data.append(
             {
                 "Match": match_indicator,
-                "ID": preprocessing_id,
+                "ID": short_id,
                 "Assertion": short_urn,
                 "Rows": row_count,
                 "Created": created_str,
@@ -214,10 +225,11 @@ def _render_saved_preprocessings(
 
     with col_select:
         # Format options to show match status
-        def format_option(pid):
+        def format_option(pid: str) -> str:
+            short = display_preprocessing_id(pid, metadata=id_to_meta.get(pid))
             if id_to_matching.get(pid, False):
-                return pid
-            return f"{pid} (other assertion)"
+                return short
+            return f"{short} (other assertion)"
 
         selected_id = st.selectbox(
             "Select preprocessing",
@@ -266,10 +278,16 @@ def _render_saved_preprocessings(
                             )
                     # Track which saved preprocessing is loaded
                     st.session_state["loaded_saved_preprocessing_id"] = selected_id
-                    st.success(f"Loaded preprocessing '{selected_id}'")
+                    short = display_preprocessing_id(
+                        selected_id, metadata=id_to_meta.get(selected_id)
+                    )
+                    st.success(f"Loaded preprocessing '{short}'")
                     st.rerun()
                 else:
-                    st.error(f"Failed to load '{selected_id}'")
+                    short = display_preprocessing_id(
+                        selected_id, metadata=id_to_meta.get(selected_id)
+                    )
+                    st.error(f"Failed to load '{short}'")
 
     with col_del:
         # Delete is always enabled
@@ -286,7 +304,8 @@ def _render_saved_preprocessings(
     # Show which saved preprocessing is currently loaded
     loaded_id = st.session_state.get("loaded_saved_preprocessing_id")
     if loaded_id:
-        st.caption(f"Currently loaded: **{loaded_id}**")
+        short = display_preprocessing_id(loaded_id, metadata=id_to_meta.get(loaded_id))
+        st.caption(f"Currently loaded: **{short}**")
 
 
 def _try_auto_load_inference_config(
@@ -594,14 +613,19 @@ def render_preprocessing_page():
             if save_clicked and hostname and id_valid:
                 endpoint_cache = loader.cache.get_endpoint_cache(hostname)
 
+                assertion_urn = st.session_state.get("selected_assertion_urn")
+                preprocessing_key = build_preprocessing_key(
+                    preprocessing_id, assertion_urn
+                )
+
                 # Check if ID already exists
-                if endpoint_cache.preprocessing_exists(preprocessing_id):
+                if endpoint_cache.preprocessing_exists(preprocessing_key):
                     st.error(
-                        f"Preprocessing ID '{preprocessing_id}' already exists. Choose a different ID."
+                        f"Preprocessing ID '{preprocessing_id}' already exists for this assertion. "
+                        "Choose a different ID."
                     )
                 else:
                     # Build metadata including the preprocessing config and result
-                    assertion_urn = st.session_state.get("selected_assertion_urn")
                     applied_config = st.session_state.get(
                         "applied_preprocessing_config", {}
                     )
@@ -609,6 +633,7 @@ def render_preprocessing_page():
                         "_preprocessing_result_dict"
                     )
                     metadata = {
+                        "preprocessing_short_id": preprocessing_id,
                         "source_assertion_urn": assertion_urn,
                         "source_hostname": hostname,
                         "original_row_count": len(ts_df) if ts_df is not None else 0,
@@ -617,7 +642,7 @@ def render_preprocessing_page():
                     }
 
                     endpoint_cache.save_preprocessing(
-                        preprocessing_id, preprocessed_df_for_save, metadata
+                        preprocessing_key, preprocessed_df_for_save, metadata
                     )
                     st.success(f"Saved preprocessing '{preprocessing_id}'")
                     st.rerun()

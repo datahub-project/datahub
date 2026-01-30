@@ -93,18 +93,22 @@ def build_preprocessing_config(
         return None
 
 
-def _build_input_context_from_session() -> Any:
+def _build_input_context_from_session(sensitivity_level: Optional[int] = None) -> Any:
     """
     Build InputDataContext from Streamlit session state.
 
     Maps the assertion type from session state to an InputDataContext
     that can be used with ObserveDefaultsBuilder.
 
+    Args:
+        sensitivity_level: Optional sensitivity level (1-10) to include in context.
+
     Returns:
         InputDataContext instance, or None if imports fail.
     """
     try:
         from datahub_executor.common.monitor.inference_v2.observe_adapter.defaults import (
+            AdjustmentSettings,
             InputDataContext,
         )
 
@@ -117,22 +121,34 @@ def _build_input_context_from_session() -> Any:
         # Check session state for cumulative data flag (if set by preprocessing UI)
         is_cumulative = st.session_state.get("is_dataframe_cumulative", False)
 
+        # Build adjustment settings with sensitivity if provided
+        adjustment_settings = None
+        if sensitivity_level is not None:
+            adjustment_settings = AdjustmentSettings(
+                sensitivity_level=sensitivity_level
+            )
+
         return InputDataContext(
             assertion_category=assertion_category,
             is_dataframe_cumulative=is_cumulative,
             is_delta=None,  # Let defaults determine based on category
+            adjustment_settings=adjustment_settings,
         )
     except ImportError:
         return None
 
 
-def _get_model_factory(registry_key: Optional[str] = None) -> Any:
+def _get_model_factory(
+    registry_key: Optional[str] = None,
+    sensitivity_level: Optional[int] = None,
+) -> Any:
     """
     Create a ModelFactory with defaults from session state context.
 
     Args:
         registry_key: Optional registry key override (not used for factory creation,
             but could be used for future warm-start support).
+        sensitivity_level: Optional sensitivity level (1-10) to include in context.
 
     Returns:
         ModelFactory instance, or None if imports fail.
@@ -145,7 +161,7 @@ def _get_model_factory(registry_key: Optional[str] = None) -> Any:
             ModelFactory,
         )
 
-        context = _build_input_context_from_session()
+        context = _build_input_context_from_session(sensitivity_level=sensitivity_level)
         if context is None:
             return None
 
@@ -200,6 +216,13 @@ def _get_model_color(registry_key: str, index: int) -> str:
     return DYNAMIC_COLOR_PALETTE[index % len(DYNAMIC_COLOR_PALETTE)]
 
 
+def _format_model_identifier(name: str, version: Optional[str]) -> str:
+    """Format a canonical model identifier as `name@version` when possible."""
+    if version:
+        return f"{name}@{version}"
+    return name
+
+
 @dataclass
 class ObserveModelConfig:
     """Configuration for an observe-models forecaster."""
@@ -218,6 +241,7 @@ class ObserveModelConfig:
 
 def _create_train_fn(
     registry_key: str,
+    sensitivity_level: Optional[int] = None,
 ) -> Callable[[pd.DataFrame], object]:
     """
     Create a training function for an observe-models forecaster.
@@ -227,6 +251,7 @@ def _create_train_fn(
 
     Args:
         registry_key: Key in the observe-models registry
+        sensitivity_level: Optional sensitivity level (1-10) for model configuration
 
     Returns:
         A function that trains the model and returns it.
@@ -234,7 +259,7 @@ def _create_train_fn(
 
     def train_fn(train_df: pd.DataFrame) -> object:
         # Use ModelFactory for consistent instantiation
-        factory = _get_model_factory(registry_key)
+        factory = _get_model_factory(registry_key, sensitivity_level=sensitivity_level)
         if factory is None:
             raise RuntimeError(
                 f"ModelFactory not available for {registry_key}. "
@@ -272,12 +297,17 @@ def _create_predict_fn() -> Callable[[object, pd.DataFrame], pd.DataFrame]:
     return predict_fn
 
 
-def get_observe_model_configs() -> dict[str, ObserveModelConfig]:
+def get_observe_model_configs(
+    sensitivity_level: Optional[int] = None,
+) -> dict[str, ObserveModelConfig]:
     """
     Get model configurations for all available observe-models forecasters.
 
     Dynamically discovers all forecasting models from the registry
     without any hardcoded filtering.
+
+    Args:
+        sensitivity_level: Optional sensitivity level (1-10) to use when creating models.
 
     Returns:
         Dictionary mapping model keys to ObserveModelConfig instances.
@@ -290,18 +320,20 @@ def get_observe_model_configs() -> dict[str, ObserveModelConfig]:
         from datahub_observe.registry import ModelType, get_model_registry  # type: ignore[import-untyped]  # noqa: I001
 
         registry = get_model_registry()
-        forecasters = registry.list(model_type=ModelType.FORECAST)
+        # observe-models registry now supports multiple versions; use latest-per-name.
+        forecasters = registry.list_latest(entry_type=ModelType.FORECAST)  # type: ignore[attr-defined]
 
         configs: dict[str, ObserveModelConfig] = {}
 
         for idx, entry in enumerate(forecasters):
-            registry_key = entry.name
+            # Prefer storing the fully-qualified identifier for determinism.
+            registry_key = _format_model_identifier(entry.name, entry.version)
 
             # Create prefixed key to avoid collision with local models
-            model_key = f"obs_{registry_key}"
+            model_key = f"obs_{entry.name}"
 
-            # Use registry name and version for display: "prophet (0.1.0)"
-            display_name = f"{entry.name} ({entry.version})"
+            # Display canonical identifier `name@version` for consistency with executor.
+            display_name = registry_key
 
             configs[model_key] = ObserveModelConfig(
                 name=display_name,
@@ -310,7 +342,9 @@ def get_observe_model_configs() -> dict[str, ObserveModelConfig]:
                 color=_get_model_color(registry_key, idx),
                 dash="dot",  # Use dotted line to distinguish from local models
                 is_observe_model=True,
-                train_fn=_create_train_fn(registry_key),
+                train_fn=_create_train_fn(
+                    registry_key, sensitivity_level=sensitivity_level
+                ),
                 predict_fn=_create_predict_fn(),
             )
 
@@ -351,6 +385,7 @@ def _create_anomaly_train_fn(
     registry_key: str,
     requires_forecast: bool = True,
     enable_grid_search: bool = False,
+    sensitivity_level: Optional[int] = None,
 ) -> Callable[[pd.DataFrame, object, Optional[pd.DataFrame]], object]:
     """
     Create a training function for an observe-models anomaly detector.
@@ -368,6 +403,7 @@ def _create_anomaly_train_fn(
         registry_key: Key in the observe-models registry
         requires_forecast: Whether this model requires a forecast model
         enable_grid_search: Whether to enable hyperparameter grid search
+        sensitivity_level: Optional sensitivity level (1-10) for model configuration
 
     Returns:
         A function that trains the anomaly model and returns it
@@ -379,11 +415,13 @@ def _create_anomaly_train_fn(
         ground_truth: Optional[pd.DataFrame] = None,
     ) -> object:
         # Set param_grid for grid search
-        param_grid = "auto" if enable_grid_search else None
+        param_grid = "auto" if enable_grid_search else {}
 
         if requires_forecast:
             # Use ModelFactory.create_anomaly_model() for consistent instantiation
-            factory = _get_model_factory(registry_key)
+            factory = _get_model_factory(
+                registry_key, sensitivity_level=sensitivity_level
+            )
             if factory is None:
                 raise RuntimeError(
                     f"ModelFactory not available for {registry_key}. "
@@ -410,7 +448,9 @@ def _create_anomaly_train_fn(
                     get_defaults_for_context,
                 )
 
-                context = _build_input_context_from_session()
+                context = _build_input_context_from_session(
+                    sensitivity_level=sensitivity_level
+                )
                 if context is not None:
                     defaults = get_defaults_for_context(context)
                     preprocessing_config = defaults.preprocessing_config()
@@ -468,6 +508,7 @@ def _create_anomaly_detect_fn() -> Callable[[object, pd.DataFrame], pd.DataFrame
 
 def get_anomaly_model_configs(
     enable_grid_search: bool = False,
+    sensitivity_level: Optional[int] = None,
 ) -> dict[str, AnomalyModelConfig]:
     """
     Get model configurations for all available observe-models anomaly detectors.
@@ -477,6 +518,7 @@ def get_anomaly_model_configs(
 
     Args:
         enable_grid_search: Whether to enable hyperparameter grid search for models
+        sensitivity_level: Optional sensitivity level (1-10) to use when creating models.
 
     Returns:
         Dictionary mapping model keys to AnomalyModelConfig instances.
@@ -489,18 +531,19 @@ def get_anomaly_model_configs(
         from datahub_observe.registry import ModelType, get_model_registry  # type: ignore[import-untyped]  # noqa: I001
 
         registry = get_model_registry()
-        anomaly_detectors = registry.list(model_type=ModelType.ANOMALY)
+        # observe-models registry now supports multiple versions; use latest-per-name.
+        anomaly_detectors = registry.list_latest(entry_type=ModelType.ANOMALY)  # type: ignore[attr-defined]
 
         configs: dict[str, AnomalyModelConfig] = {}
 
         for entry in anomaly_detectors:
-            registry_key = entry.name
+            registry_key = _format_model_identifier(entry.name, entry.version)
 
             # Create prefixed key to avoid collision
-            model_key = f"anomaly_{registry_key}"
+            model_key = f"anomaly_{entry.name}"
 
             # Use registry name and version for display
-            display_name = f"{entry.name} ({entry.version})"
+            display_name = registry_key
 
             # Check metadata for whether this model requires a forecast model
             # Default to True since most anomaly models need a forecast
@@ -532,7 +575,10 @@ def get_anomaly_model_configs(
                 requires_global_forecast_model=requires_global,
                 is_observe_model=True,
                 train_fn=_create_anomaly_train_fn(
-                    registry_key, requires_forecast, enable_grid_search
+                    registry_key,
+                    requires_forecast=requires_forecast,
+                    enable_grid_search=enable_grid_search,
+                    sensitivity_level=sensitivity_level,
                 ),
                 detect_fn=_create_anomaly_detect_fn(),
             )
@@ -552,8 +598,8 @@ def is_global_forecasting_model(registry_key: Optional[str]) -> bool:
     models that require GlobalForecastingModels (e.g., IForest).
 
     Args:
-        registry_key: The registry key from TrainingRun.registry_key (e.g., "nbeats")
-                      Use TrainingRun.registry_key directly - no string parsing needed.
+        registry_key: The registry key from TrainingRun.registry_key (e.g., "nbeats"
+            or "nbeats@0.1.0").
 
     Returns:
         True if the model is a GlobalForecastingModel, False otherwise.
@@ -566,18 +612,12 @@ def is_global_forecasting_model(registry_key: Optional[str]) -> bool:
         return False
 
     try:
-        from datahub_observe.registry import ModelType, get_model_registry  # type: ignore[import-untyped]  # noqa: I001
+        from datahub_observe.registry import get_model_registry  # type: ignore[import-untyped]  # noqa: I001
 
         registry = get_model_registry()
-        forecasters = registry.list(model_type=ModelType.FORECAST)
-
-        for entry in forecasters:
-            if entry.name == registry_key:
-                # Check metadata for is_global_forecasting_model
-                if hasattr(entry, "metadata") and entry.metadata:
-                    return entry.metadata.get("is_global_forecasting_model", False)
-                return False
-
+        entry = registry.get(registry_key)
+        if hasattr(entry, "metadata") and entry.metadata:
+            return bool(entry.metadata.get("is_global_forecasting_model", False))
         return False
 
     except Exception:
