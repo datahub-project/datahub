@@ -12,6 +12,7 @@ from typing import Any, Dict
 from unittest import mock
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt.dbt_cloud import (
@@ -598,3 +599,276 @@ class TestAutoDiscoveryErrorHandling:
 
         # Should have no nodes
         assert len(nodes) == 0
+
+
+class TestExplicitModeWithJobIds:
+    """Tests for explicit mode using job_ids list."""
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    def test_explicit_mode_multiple_jobs_via_job_ids(
+        self,
+        mock_graphql: mock.Mock,
+        mock_graphql_response: Dict[str, Any],
+    ) -> None:
+        """Should ingest multiple jobs when job_ids list is provided."""
+        mock_graphql.return_value = mock_graphql_response
+
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            job_ids=[100, 200, 300],  # Multiple job IDs
+            target_platform="snowflake",
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        source = DBTCloudSource(config, ctx)
+
+        # Execute
+        nodes, _ = source.load_nodes()
+
+        # Should have called GraphQL for all 3 jobs (5 node types each = 15 calls)
+        assert mock_graphql.call_count == 15
+
+        # Verify all job IDs were queried
+        job_ids_queried = {
+            call[1]["variables"]["jobId"] for call in mock_graphql.call_args_list
+        }
+        assert job_ids_queried == {100, 200, 300}
+
+        # Should have 3 nodes (one model per job from mock response)
+        assert len(nodes) == 3
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    def test_explicit_mode_single_job_in_job_ids_list(
+        self,
+        mock_graphql: mock.Mock,
+        mock_graphql_response: Dict[str, Any],
+    ) -> None:
+        """Should work with a single job ID in job_ids list."""
+        mock_graphql.return_value = mock_graphql_response
+
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            job_ids=[100],  # Single job in list
+            target_platform="snowflake",
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        source = DBTCloudSource(config, ctx)
+
+        # Execute
+        nodes, _ = source.load_nodes()
+
+        # Should work identically to job_id=100
+        assert len(nodes) == 1
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    def test_explicit_mode_job_ids_with_run_id(
+        self,
+        mock_graphql: mock.Mock,
+        mock_graphql_response: Dict[str, Any],
+    ) -> None:
+        """Should use configured run_id when job_ids is provided."""
+        mock_graphql.return_value = mock_graphql_response
+
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            job_ids=[100, 200],
+            run_id=999,  # Explicit run_id
+            target_platform="snowflake",
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        source = DBTCloudSource(config, ctx)
+
+        # Execute
+        source.load_nodes()
+
+        # Verify run_id=999 was used for all jobs
+        for call in mock_graphql.call_args_list:
+            assert call[1]["variables"]["runId"] == 999
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    def test_explicit_mode_job_ids_partial_failure(
+        self,
+        mock_graphql: mock.Mock,
+        mock_graphql_response: Dict[str, Any],
+    ) -> None:
+        """Should continue with other jobs when one job in job_ids fails."""
+
+        def graphql_side_effect(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+            job_id = kwargs["variables"]["jobId"]
+            if job_id == 200:
+                raise ValueError("GraphQL error for job 200")
+            return mock_graphql_response
+
+        mock_graphql.side_effect = graphql_side_effect
+
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            job_ids=[100, 200, 300],
+            target_platform="snowflake",
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        source = DBTCloudSource(config, ctx)
+
+        # Execute
+        nodes, _ = source.load_nodes()
+
+        # Should have nodes from jobs 100 and 300 only
+        assert len(nodes) == 2
+
+
+class TestJobIdsConfigValidation:
+    """Tests for job_id/job_ids configuration validation."""
+
+    def test_both_job_id_and_job_ids_raises_error(self) -> None:
+        """Should raise error when both job_id and job_ids are configured."""
+        with pytest.raises(
+            ValidationError, match="Both job_id and job_ids cannot be configured"
+        ):
+            DBTCloudConfig(
+                access_url="https://test.getdbt.com",
+                token="dummy_token",
+                account_id=123456,
+                project_id=1234567,
+                job_id=100,
+                job_ids=[200, 300],  # Both configured - should fail
+                target_platform="snowflake",
+            )
+
+    def test_no_job_id_or_job_ids_in_explicit_mode_raises_error(self) -> None:
+        """Should raise error when neither job_id nor job_ids is provided in explicit mode."""
+        with pytest.raises(ValidationError, match="job_id or job_ids required"):
+            DBTCloudConfig(
+                access_url="https://test.getdbt.com",
+                token="dummy_token",
+                account_id=123456,
+                project_id=1234567,
+                # No job_id or job_ids provided
+                target_platform="snowflake",
+            )
+
+    def test_auto_discovery_allows_no_job_config(self) -> None:
+        """Auto-discovery mode should not require job_id or job_ids."""
+        # Should not raise
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            auto_discovery=AutoDiscoveryConfig(enabled=True),
+            target_platform="snowflake",
+        )
+        assert config.job_id is None
+        assert config.job_ids is None
+
+
+class TestConnectionWithJobIds:
+    """Tests for test_connection with job_ids."""
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    def test_connection_with_job_ids(self, mock_graphql: mock.Mock) -> None:
+        """Should test connection using first job_id from job_ids list."""
+        mock_graphql.return_value = {"job": {"tests": []}}
+
+        config_dict = {
+            "access_url": "https://test.getdbt.com",
+            "token": "dummy_token",
+            "account_id": 123456,
+            "project_id": 1234567,
+            "job_ids": [100, 200, 300],
+            "target_platform": "snowflake",
+        }
+
+        report = DBTCloudSource.test_connection(config_dict)
+
+        assert report.basic_connectivity.capable is True
+        # Should have tested with first job_id (100)
+        mock_graphql.assert_called_once()
+
+        # Fix: Access positional and keyword arguments correctly
+        call_args = mock_graphql.call_args
+        # call_args is a tuple: (args, kwargs)
+        # _send_graphql_query signature: (metadata_endpoint, token, query, variables)
+        variables = (
+            call_args[0][3] if len(call_args[0]) > 3 else call_args[1].get("variables")
+        )
+        assert variables["jobId"] == 100
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    def test_connection_with_single_job_id(self, mock_graphql: mock.Mock) -> None:
+        """Should test connection using job_id when provided."""
+        mock_graphql.return_value = {"job": {"tests": []}}
+
+        config_dict = {
+            "access_url": "https://test.getdbt.com",
+            "token": "dummy_token",
+            "account_id": 123456,
+            "project_id": 1234567,
+            "job_id": 100,
+            "target_platform": "snowflake",
+        }
+
+        report = DBTCloudSource.test_connection(config_dict)
+
+        assert report.basic_connectivity.capable is True
+        call_args = mock_graphql.call_args
+        variables = (
+            call_args[0][3] if len(call_args[0]) > 3 else call_args[1].get("variables")
+        )
+        assert variables["jobId"] == 100
+
+
+class TestJobIdEquivalence:
+    """Tests to ensure job_id and job_ids produce equivalent results."""
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    def test_single_job_id_vs_job_ids_list_equivalence(
+        self,
+        mock_graphql: mock.Mock,
+        mock_graphql_response: Dict[str, Any],
+    ) -> None:
+        """job_id=X should produce same results as job_ids=[X]."""
+        mock_graphql.return_value = mock_graphql_response
+
+        # Using job_id
+        config_single = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            job_id=100,
+            target_platform="snowflake",
+        )
+        ctx1 = PipelineContext(run_id="test-run-id", pipeline_name="test")
+        source_single = DBTCloudSource(config_single, ctx1)
+        nodes_single, metadata_single = source_single.load_nodes()
+
+        mock_graphql.reset_mock()
+
+        # Using job_ids with single item
+        config_list = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            job_ids=[100],
+            target_platform="snowflake",
+        )
+        ctx2 = PipelineContext(run_id="test-run-id", pipeline_name="test")
+        source_list = DBTCloudSource(config_list, ctx2)
+        nodes_list, metadata_list = source_list.load_nodes()
+
+        # Results should be identical
+        assert len(nodes_single) == len(nodes_list)
+        assert nodes_single[0].name == nodes_list[0].name
+        assert metadata_single == metadata_list

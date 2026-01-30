@@ -1697,3 +1697,105 @@ def test_semantic_view_cll_empty_results() -> None:
 
     # Should return empty set when no patterns match
     assert len(cll_info) == 0
+
+
+def test_dbt_cloud_config_job_id_and_job_ids_mutual_exclusivity():
+    """Test that both job_id and job_ids cannot be configured together."""
+    config_dict = {
+        "access_url": "https://test.getdbt.com",
+        "token": "dummy_token",
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_id": 100,  # Both configured
+        "job_ids": [200, 300],  # Both configured
+        "target_platform": "snowflake",
+    }
+
+    with pytest.raises(
+        ValidationError, match="Both job_id and job_ids cannot be configured"
+    ):
+        DBTCloudConfig.model_validate(config_dict)
+
+
+def test_dbt_cloud_config_requires_job_in_explicit_mode():
+    """Test that either job_id or job_ids is required when auto_discovery is disabled."""
+    config_dict = {
+        "access_url": "https://test.getdbt.com",
+        "token": "dummy_token",
+        "account_id": "123456",
+        "project_id": "1234567",
+        # No job_id or job_ids provided
+        # No auto_discovery configured
+        "target_platform": "snowflake",
+    }
+
+    with pytest.raises(ValidationError, match="job_id or job_ids required"):
+        DBTCloudConfig.model_validate(config_dict)
+
+
+def test_dbt_cloud_config_auto_discovery_allows_no_job():
+    """Test that auto_discovery mode doesn't require job_id or job_ids."""
+    config_dict = {
+        "access_url": "https://test.getdbt.com",
+        "token": "dummy_token",
+        "account_id": "123456",
+        "project_id": "1234567",
+        # No job_id or job_ids
+        "auto_discovery": {"enabled": True},
+        "target_platform": "snowflake",
+    }
+
+    # Should not raise
+    config = DBTCloudConfig.model_validate(config_dict)
+    assert config.job_id is None
+    assert config.job_ids is None
+    assert config.auto_discovery is not None
+    assert config.auto_discovery.enabled is True
+
+
+def test_dbt_cloud_config_with_single_job_id():
+    """Test valid configuration with single job_id."""
+    config_dict = {
+        "access_url": "https://test.getdbt.com",
+        "token": "dummy_token",
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_id": 100,
+        "target_platform": "snowflake",
+    }
+
+    config = DBTCloudConfig.model_validate(config_dict)
+    assert config.job_id == 100
+    assert config.job_ids is None
+
+
+def test_dbt_cloud_config_with_job_ids_list():
+    """Test valid configuration with job_ids list."""
+    config_dict = {
+        "access_url": "https://test.getdbt.com",
+        "token": "dummy_token",
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_ids": [100, 200, 300],
+        "target_platform": "snowflake",
+    }
+
+    config = DBTCloudConfig.model_validate(config_dict)
+    assert config.job_id is None
+    assert config.job_ids == [100, 200, 300]
+
+
+def test_dbt_cloud_config_with_single_job_in_job_ids_list():
+    """Test that a single job in job_ids list is valid."""
+    config_dict = {
+        "access_url": "https://test.getdbt.com",
+        "token": "dummy_token",
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_ids": [100],  # Single item in list
+        "target_platform": "snowflake",
+    }
+
+    config = DBTCloudConfig.model_validate(config_dict)
+    assert config.job_id is None
+    assert config.job_ids == [100]

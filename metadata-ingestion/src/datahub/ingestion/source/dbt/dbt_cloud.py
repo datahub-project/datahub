@@ -84,6 +84,12 @@ class DBTCloudConfig(DBTCommonConfig):
         None,
         description="The ID of the job to ingest metadata from. Required in explicit mode (when auto_discovery is disabled).",
     )
+
+    job_ids: Optional[List[int]] = Field(
+        None,
+        description="List of job IDs to ingest metadata from. Alternative to job_id for ingesting multiple jobs in explicit mode.",
+    )
+
     run_id: Optional[int] = Field(
         None,
         description="The ID of the run to ingest metadata from. If not specified, defaults to the latest run. In auto-discovery mode, always uses the latest run for each job.",
@@ -119,10 +125,17 @@ class DBTCloudConfig(DBTCommonConfig):
     @model_validator(mode="after")
     def validate_config(self) -> "DBTCloudConfig":
         is_auto_discovery = self.auto_discovery and self.auto_discovery.enabled
-        if not is_auto_discovery and self.job_id is None:
+        if self.job_id and self.job_ids:
             raise ValueError(
-                "job_id is required in explicit mode. "
-                "Either provide job_id or enable auto_discovery mode."
+                "Both job_id and job_ids cannot be configured."
+                "Please remove one of them from the recipe."
+            )
+
+        no_jobs_configured = self.job_id is None and self.job_ids is None
+        if not is_auto_discovery and no_jobs_configured:
+            raise ValueError(
+                "job_id or job_ids required in explicit mode. "
+                "Either provide one of these config options or enable auto_discovery mode."
             )
         return self
 
@@ -341,12 +354,17 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     source_config.project_id,
                 )
             else:
-                # Test explicit mode: verify we can query the job
+                # Test explicit mode: verify we can query at least one job
+                test_job_id = (
+                    source_config.job_id
+                    if source_config.job_id
+                    else source_config.job_ids[0]
+                )
                 DBTCloudSource._send_graphql_query(
                     source_config.metadata_endpoint,
                     source_config.token,
                     _DBT_GRAPHQL_QUERY.format(type="tests", fields="jobId"),
-                    {"jobId": source_config.job_id, "runId": source_config.run_id},
+                    {"jobId": test_job_id, "runId": source_config.run_id},
                 )
 
             test_report.basic_connectivity = CapabilityReport(capable=True)
@@ -622,9 +640,17 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 return [], {}
             run_id = None  # Always use latest run in auto-discovery
         else:
-            assert self.config.job_id is not None
-            logger.info(f"Explicit mode: ingesting single job {self.config.job_id}")
-            job_ids_to_ingest = [self.config.job_id]
+            if self.config.job_id:
+                logger.info(f"Explicit mode: ingesting single job {self.config.job_id}")
+                job_ids_to_ingest = [self.config.job_id]
+            elif self.config.job_ids:
+                logger.info(
+                    f"Explicit mode: ingesting multiple jobs {self.config.job_ids}"
+                )
+                job_ids_to_ingest = self.config.job_ids
+            else:
+                # Should never happen due to validation
+                raise ValueError("No job_id or job_ids configured in explicit mode")
 
         # Fetch nodes from all jobs
         raw_nodes = []
