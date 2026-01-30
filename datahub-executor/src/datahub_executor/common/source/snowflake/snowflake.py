@@ -8,6 +8,10 @@ from datahub_executor.common.exceptions import (
     InvalidParametersException,
     SourceQueryFailedException,
 )
+from datahub_executor.common.source.error_code_utils import (
+    extract_response_code,
+    extract_sqlstate,
+)
 from datahub_executor.common.source.snowflake.time_utils import (
     convert_millis_to_timestamp_type,
     convert_value_for_comparison,
@@ -62,8 +66,13 @@ class SnowflakeSource(Source):
             with self.connection.get_client().cursor() as cur:
                 cur.execute(query)
         except Exception as e:
+            response_code = extract_response_code(e)
+            sqlstate = extract_sqlstate(e)
             raise SourceQueryFailedException(
-                message=f"Source query (Snowflake) failed with error: {e}", query=query
+                message=f"Source query (Snowflake) failed with error: {e}",
+                query=query,
+                response_code=response_code,
+                sqlstate=sqlstate,
             )
 
     def _get_sql_dialect(self) -> Optional[str]:
@@ -105,8 +114,13 @@ class SnowflakeSource(Source):
                 cur.execute(query)
                 return cur.fetchall()
         except Exception as e:
+            response_code = extract_response_code(e)
+            sqlstate = extract_sqlstate(e)
             raise SourceQueryFailedException(
-                message=f"Source query (Snowflake) failed with error: {e}", query=query
+                message=f"Source query (Snowflake) failed with error: {e}",
+                query=query,
+                response_code=response_code,
+                sqlstate=sqlstate,
             )
 
     def _execute_fetchone_query(self, query: str) -> List[Any]:
@@ -132,9 +146,13 @@ class SnowflakeSource(Source):
                         query=tagged_query,
                     )
         except Exception as e:
+            response_code = extract_response_code(e)
+            sqlstate = extract_sqlstate(e)
             raise SourceQueryFailedException(
                 message=f"Source query (Snowflake) failed with error: {e}",
                 query=tagged_query,
+                response_code=response_code,
+                sqlstate=sqlstate,
             )
 
     def _build_audit_log_results(self, rows: List[Any]) -> List[EntityEvent]:

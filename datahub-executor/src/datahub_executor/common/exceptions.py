@@ -47,18 +47,35 @@ class InvalidSourceTypeException(AssertionResultException):
 class SourceConnectionErrorException(AssertionResultException):
     """Raised when a source connection is unreachable"""
 
-    def __init__(self, message: str, connection_urn: str):
+    def __init__(
+        self,
+        message: str,
+        connection_urn: str,
+        response_code: Optional[int] = None,
+        sqlstate: Optional[str] = None,
+    ):
         super().__init__(message)
         self.connection_urn = connection_urn
+        self.response_code = response_code
+        self.sqlstate = sqlstate
 
 
 class SourceQueryFailedException(AssertionResultException):
     """Raised when a source query fails"""
 
-    def __init__(self, message: str, query: str, filter: Optional[str] = None):
+    def __init__(
+        self,
+        message: str,
+        query: str,
+        filter: Optional[str] = None,
+        response_code: Optional[int] = None,
+        sqlstate: Optional[str] = None,
+    ):
         super().__init__(message)
         self.query = query
         self.filter = filter
+        self.response_code = response_code
+        self.sqlstate = sqlstate
 
 
 class UnsupportedPlatformException(AssertionResultException):

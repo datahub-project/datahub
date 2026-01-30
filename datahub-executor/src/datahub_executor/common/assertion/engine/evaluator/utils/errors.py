@@ -47,21 +47,31 @@ def extract_assertion_evaluation_result_error(
             properties={"message": error.message, "source_type": error.source_type},
         )
     elif isinstance(error, SourceConnectionErrorException):
+        properties = {
+            "message": error.message,
+            "connection_urn": error.connection_urn,
+        }
+        if error.response_code is not None:
+            properties["response_code"] = str(error.response_code)
+        if error.sqlstate is not None:
+            properties["sqlstate"] = error.sqlstate
         return AssertionEvaluationResultError(
             type=AssertionResultErrorType.SOURCE_CONNECTION_ERROR,
-            properties={
-                "message": error.message,
-                "connection_urn": error.connection_urn,
-            },
+            properties=properties,
         )
     elif isinstance(error, SourceQueryFailedException):
+        properties = {
+            "message": error.message,
+            "query": error.query,
+            "filter": error.filter if error.filter else "",
+        }
+        if error.response_code is not None:
+            properties["response_code"] = str(error.response_code)
+        if error.sqlstate is not None:
+            properties["sqlstate"] = error.sqlstate
         return AssertionEvaluationResultError(
             type=AssertionResultErrorType.SOURCE_QUERY_FAILED,
-            properties={
-                "message": error.message,
-                "query": error.query,
-                "filter": error.filter if error.filter else "",
-            },
+            properties=properties,
         )
     elif isinstance(error, UnsupportedPlatformException):
         return AssertionEvaluationResultError(

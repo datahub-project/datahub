@@ -204,9 +204,11 @@ class BigQuerySource(Source):
             InternalServerError,
             ServiceUnavailable,
         ) as e:
+            response_code = self._get_response_code_for_exception(e)
             raise SourceQueryFailedException(
                 message=f"Source query (BigQuery) failed with error: {e.message}",
                 query=query,
+                response_code=response_code,
             )
 
     def _get_length_of_query_job(self, query_job: QueryJob) -> int:
@@ -387,9 +389,11 @@ class BigQuerySource(Source):
             InternalServerError,
             ServiceUnavailable,
         ) as e:
+            response_code = self._get_response_code_for_exception(e)
             raise SourceQueryFailedException(
                 message=f"Source query (BigQuery) failed with error: {e.message}",
                 query=get_value_query,
+                response_code=response_code,
             )
 
         return current_field_value
@@ -435,9 +439,11 @@ class BigQuerySource(Source):
             InternalServerError,
             ServiceUnavailable,
         ) as e:
+            response_code = self._get_response_code_for_exception(e)
             raise SourceQueryFailedException(
                 message=f"Source query (BigQuery) failed with error: {e.message}",
                 query=get_count_query,
+                response_code=response_code,
             )
 
     def _get_num_rows_via_stats_table(
@@ -466,9 +472,11 @@ class BigQuerySource(Source):
             InternalServerError,
             ServiceUnavailable,
         ) as e:
+            response_code = self._get_response_code_for_exception(e)
             raise SourceQueryFailedException(
                 message=f"Source query (BigQuery) failed with error: {e.message}",
                 query=query,
+                response_code=response_code,
             )
 
     def _get_num_rows_via_count(
@@ -496,10 +504,24 @@ class BigQuerySource(Source):
             InternalServerError,
             ServiceUnavailable,
         ) as e:
+            response_code = self._get_response_code_for_exception(e)
             raise SourceQueryFailedException(
                 message=f"Source query (BigQuery) failed with error: {e.message}",
                 query=query,
+                response_code=response_code,
             )
+
+    @staticmethod
+    def _get_response_code_for_exception(error: Exception) -> int:
+        if isinstance(error, NotFound):
+            return 404
+        if isinstance(error, Forbidden):
+            return 403
+        if isinstance(error, BadRequest):
+            return 400
+        if isinstance(error, ServiceUnavailable):
+            return 503
+        return 500
 
     @retry(
         stop=stop_after_attempt(3),

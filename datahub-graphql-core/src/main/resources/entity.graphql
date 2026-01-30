@@ -8636,6 +8636,11 @@ type Assertion implements EntityWithRelationships & Entity {
   ): AssertionRunEventsResult
 
   """
+  The resolved health of this assertion, combining monitor and evaluation errors.
+  """
+  health: AssertionHealth
+
+  """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -8665,6 +8670,66 @@ type Assertion implements EntityWithRelationships & Entity {
   For fetching extra aspects that do not have custom UI code yet
   """
   aspects(input: AspectParams): [RawAspect!]
+}
+
+"""
+The resolved health status of an assertion.
+"""
+enum AssertionHealthStatus {
+  """
+  Training/inference and evaluation are proceeding as expected.
+  """
+  HEALTHY
+
+  """
+  Temporary or transient issues are impacting evaluation or training.
+  """
+  DEGRADED
+
+  """
+  Unrecoverable configuration or assertion errors require user action.
+  """
+  ERROR
+
+  """
+  Health cannot be determined (e.g., no monitor and no run events).
+  """
+  UNKNOWN
+}
+
+"""
+Unified health information for an assertion.
+"""
+type AssertionHealth {
+  """
+  The resolved health status.
+  """
+  status: AssertionHealthStatus!
+
+  """
+  Monitor error, if present.
+  """
+  monitorError: MonitorError
+
+  """
+  Latest evaluation error, if present.
+  """
+  evaluationError: AssertionResultError
+
+  """
+  Timestamp of the latest run event, if present.
+  """
+  lastRunAt: Long
+
+  """
+  User-friendly summary of the most severe error, if any.
+  """
+  displayMessage: String
+
+  """
+  Recommended action based on the most severe error, if any.
+  """
+  recommendedAction: String
 }
 
 """

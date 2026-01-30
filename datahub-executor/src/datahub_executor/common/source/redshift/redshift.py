@@ -11,6 +11,10 @@ from datahub_executor.common.exceptions import (
     InvalidParametersException,
     SourceQueryFailedException,
 )
+from datahub_executor.common.source.error_code_utils import (
+    extract_response_code,
+    extract_sqlstate,
+)
 from datahub_executor.common.source.redshift.time_utils import (
     convert_millis_to_timestamp_type,
     convert_value_for_comparison,
@@ -125,9 +129,13 @@ class RedshiftSource(Source):
                 except Exception:
                     # If rollback fails, the connection will be closed anyway
                     pass
+                response_code = extract_response_code(e)
+                sqlstate = extract_sqlstate(e)
                 raise SourceQueryFailedException(
                     message=f"Source query (Redshift) failed with error: {e}",
                     query=tagged_query,
+                    response_code=response_code,
+                    sqlstate=sqlstate,
                 )
 
     def _execute_fetchone_query(self, query: str) -> List[Any]:
@@ -146,9 +154,13 @@ class RedshiftSource(Source):
                 except Exception:
                     # If rollback fails, the connection will be closed anyway
                     pass
+                response_code = extract_response_code(e)
+                sqlstate = extract_sqlstate(e)
                 raise SourceQueryFailedException(
                     message=f"Source query (Redshift) failed with error: {e}",
                     query=tagged_query,
+                    response_code=response_code,
+                    sqlstate=sqlstate,
                 )
 
     def _build_audit_log_results(self, rows: List[Any]) -> List[EntityEvent]:

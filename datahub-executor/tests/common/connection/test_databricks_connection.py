@@ -210,7 +210,7 @@ class TestDatabricksConnection:
         # Should raise SourceConnectionErrorException
         with pytest.raises(
             SourceConnectionErrorException,
-            match="Unable to connect to databricks instance",
+            match="Unable to connect to Databricks",
         ):
             connection.get_client()
 

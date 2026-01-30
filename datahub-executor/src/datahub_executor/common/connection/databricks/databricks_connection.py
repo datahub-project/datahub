@@ -10,6 +10,10 @@ from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub_executor.common.connection.connection import Connection
 from datahub_executor.common.constants import DATABRICKS_PLATFORM_URN
 from datahub_executor.common.exceptions import SourceConnectionErrorException
+from datahub_executor.common.source.error_code_utils import (
+    extract_response_code,
+    extract_sqlstate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +71,13 @@ class DatabricksConnection(Connection):
             return self.connection
         except Exception as e:
             logger.error(f"Failed to create Databricks connection: {e}")
+            response_code = extract_response_code(e)
+            sqlstate = extract_sqlstate(e)
             raise SourceConnectionErrorException(
-                message="Unable to connect to databricks instance.",
-                connection_urn=DATABRICKS_PLATFORM_URN,
+                message=f"Unable to connect to Databricks: {e}",
+                connection_urn=self.urn,
+                response_code=response_code,
+                sqlstate=sqlstate,
             )
 
     def close(self) -> None:

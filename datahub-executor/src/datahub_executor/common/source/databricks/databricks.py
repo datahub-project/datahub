@@ -26,6 +26,10 @@ from datahub_executor.common.source.databricks.types import (
     SUPPORTED_HIGH_WATERMARK_COLUMN_TYPES,
     SUPPORTED_LAST_MODIFIED_COLUMN_TYPES,
 )
+from datahub_executor.common.source.error_code_utils import (
+    extract_response_code,
+    extract_sqlstate,
+)
 from datahub_executor.common.source.source import Source
 from datahub_executor.common.source.sql.field_metrics_sql_generator import (
     FieldMetricsSQLGenerator,
@@ -79,8 +83,13 @@ class DatabricksSource(Source):
             with client.cursor() as cursor:
                 return cursor.execute(query).fetchall()
         except Exception as e:
+            response_code = extract_response_code(e)
+            sqlstate = extract_sqlstate(e)
             raise SourceQueryFailedException(
-                message=f"Source query (Databricks) failed with error: {e}", query=query
+                message=f"Source query (Databricks) failed with error: {e}",
+                query=query,
+                response_code=response_code,
+                sqlstate=sqlstate,
             )
 
     def _execute_fetchone_query(self, query: str) -> List[Any]:
@@ -90,9 +99,13 @@ class DatabricksSource(Source):
                 tagged_query = self._apply_query_tag_comment(query)
                 return cursor.execute(tagged_query).fetchone()
         except Exception as e:
+            response_code = extract_response_code(e)
+            sqlstate = extract_sqlstate(e)
             raise SourceQueryFailedException(
                 message=f"Source query (Databricks) failed with error: {e}",
                 query=tagged_query,
+                response_code=response_code,
+                sqlstate=sqlstate,
             )
 
     def _get_database_string(

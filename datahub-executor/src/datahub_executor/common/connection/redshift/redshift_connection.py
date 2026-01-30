@@ -8,6 +8,11 @@ from datahub.ingestion.source.redshift.config import RedshiftConfig
 
 from datahub_executor.common.connection.connection import Connection
 from datahub_executor.common.constants import REDSHIFT_PLATFORM_URN
+from datahub_executor.common.exceptions import SourceConnectionErrorException
+from datahub_executor.common.source.error_code_utils import (
+    extract_response_code,
+    extract_sqlstate,
+)
 from datahub_executor.config import DATAHUB_APPNAME
 
 logger = logging.getLogger(__name__)
@@ -66,7 +71,14 @@ class RedshiftConnection(Connection):
             return self.connection
         except Exception as e:
             logger.error(f"Failed to create Redshift connection: {e}")
-            raise
+            response_code = extract_response_code(e)
+            sqlstate = extract_sqlstate(e)
+            raise SourceConnectionErrorException(
+                message=f"Unable to connect to Redshift: {e}",
+                connection_urn=self.urn,
+                response_code=response_code,
+                sqlstate=sqlstate,
+            )
 
     def close(self) -> None:
         """Explicitly close the connection"""

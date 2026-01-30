@@ -80,7 +80,10 @@ class TestErrorUtils:
         """Test extraction of SourceConnectionErrorException."""
         connection_urn = "urn:li:connection:123"
         exception = SourceConnectionErrorException(
-            message="Failed to connect", connection_urn=connection_urn
+            message="Failed to connect",
+            connection_urn=connection_urn,
+            response_code=403,
+            sqlstate="08006",
         )
 
         result = extract_assertion_evaluation_result_error(exception)
@@ -90,13 +93,19 @@ class TestErrorUtils:
         assert result.properties is not None
         assert result.properties["message"] == "Failed to connect"
         assert result.properties["connection_urn"] == connection_urn
+        assert result.properties["response_code"] == "403"
+        assert result.properties["sqlstate"] == "08006"
 
     def test_extract_source_query_failed_exception_with_filter(self) -> None:
         """Test extraction of SourceQueryFailedException with filter."""
         query = "SELECT * FROM table"
         filter_value = "WHERE id > 100"
         exception = SourceQueryFailedException(
-            message="Query execution failed", query=query, filter=filter_value
+            message="Query execution failed",
+            query=query,
+            filter=filter_value,
+            response_code=400,
+            sqlstate="42501",
         )
 
         result = extract_assertion_evaluation_result_error(exception)
@@ -107,12 +116,17 @@ class TestErrorUtils:
         assert result.properties["message"] == "Query execution failed"
         assert result.properties["query"] == query
         assert result.properties["filter"] == filter_value
+        assert result.properties["response_code"] == "400"
+        assert result.properties["sqlstate"] == "42501"
 
     def test_extract_source_query_failed_exception_without_filter(self) -> None:
         """Test extraction of SourceQueryFailedException without filter."""
         query = "SELECT * FROM table"
         exception = SourceQueryFailedException(
-            message="Query execution failed", query=query, filter=None
+            message="Query execution failed",
+            query=query,
+            filter=None,
+            response_code=503,
         )
 
         result = extract_assertion_evaluation_result_error(exception)
@@ -123,6 +137,7 @@ class TestErrorUtils:
         assert result.properties["message"] == "Query execution failed"
         assert result.properties["query"] == query
         assert result.properties["filter"] == ""
+        assert result.properties["response_code"] == "503"
 
     def test_extract_unsupported_platform_exception(self) -> None:
         """Test extraction of UnsupportedPlatformException."""

@@ -10,6 +10,11 @@ from snowflake.connector import SnowflakeConnection as NativeSnowflakeConnection
 
 from datahub_executor.common.connection.connection import Connection
 from datahub_executor.common.constants import SNOWFLAKE_PLATFORM_URN
+from datahub_executor.common.exceptions import SourceConnectionErrorException
+from datahub_executor.common.source.error_code_utils import (
+    extract_response_code,
+    extract_sqlstate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +61,14 @@ class SnowflakeConnection(Connection):
             return self.connection
         except Exception as e:
             logger.error(f"Failed to create Snowflake connection: {e}")
-            raise
+            response_code = extract_response_code(e)
+            sqlstate = extract_sqlstate(e)
+            raise SourceConnectionErrorException(
+                message=f"Unable to connect to Snowflake: {e}",
+                connection_urn=self.urn,
+                response_code=response_code,
+                sqlstate=sqlstate,
+            )
 
     def close(self) -> None:
         """Explicitly close the connection"""

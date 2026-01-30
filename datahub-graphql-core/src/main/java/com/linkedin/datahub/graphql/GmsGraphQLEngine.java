@@ -35,6 +35,7 @@ import com.linkedin.datahub.graphql.resolvers.application.BatchSetApplicationRes
 import com.linkedin.datahub.graphql.resolvers.application.BatchUnsetApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.application.CreateApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.application.DeleteApplicationResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.AssertionHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
@@ -3416,6 +3417,7 @@ public class GmsGraphQLEngine {
                         }))
                 .dataFetcher(
                     "runEvents", new AssertionRunEventResolver(entityClient, assertionService))
+                .dataFetcher("health", new AssertionHealthResolver(entityClient, assertionService))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
   }
