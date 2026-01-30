@@ -121,11 +121,9 @@ class DynamoDBConfig(
     extract_table_tags: bool = Field(
         default=False,
         description=(
-            "When enabled, tags associated with DynamoDB tables in AWS "
-            "will be emitted as DataHub tags. "
-            "Tags are applied using OVERWRITE mode, meaning any existing tags "
-            "including tags manually added or modified from the UI"
-            "will be replaced. Use with caution."
+            "When enabled, tags associated with DynamoDB tables in AWS will be emitted as DataHub tags. "
+            "Tags are applied using OVERWRITE mode, meaning any existing tags including tags manually "
+            "added or modified from the UI will be replaced. Use with caution."
         ),
     )
     # Custom Stateful Ingestion settings

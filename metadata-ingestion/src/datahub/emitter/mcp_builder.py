@@ -1,5 +1,4 @@
-import logging
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Type, TypeVar
+from typing import Dict, Iterable, List, Optional, Type, TypeVar
 
 from pydantic.fields import Field
 from pydantic.main import BaseModel
@@ -38,11 +37,6 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.metadata.urns import ContainerUrn, StructuredPropertyUrn
-
-if TYPE_CHECKING:
-    pass
-
-logger = logging.getLogger(__name__)
 
 # In https://github.com/datahub-project/datahub/pull/11214, we added a
 # new env field to container properties. However, populating this field
