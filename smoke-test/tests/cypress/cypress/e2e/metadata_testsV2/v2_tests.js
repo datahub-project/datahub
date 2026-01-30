@@ -27,11 +27,20 @@ describe("create, edit and remove metadata test", () => {
     });
   };
 
+  const waitForTestsPageLoaded = () => {
+    // Wait for rendering of the search bar from v2 theme
+    // FYI: Looks like for a moment it renders the old theme and swithing to v2 could close modals
+    cy.get("#v2-search-bar").should("be.visible");
+
+    // Wait for fetching of tests
+    cy.ensureTextNotPresent("Loading tests");
+  };
+
   it("create new test at governance > tests, edit a test to make if fail, remove test", () => {
     // create new test at governance > tests, test conditions and save the test
     setTestsConfigFlag(true);
     cy.visitWithLogin("/tests");
-    cy.wait(3000); // Page seems to refresh otherwise and close create modal
+    waitForTestsPageLoaded();
     cy.contains("Create").first().click({ force: true });
     cy.waitTextVisible("New Metadata Test");
     // select data assets
@@ -99,6 +108,8 @@ describe("create, edit and remove metadata test", () => {
     // edit the test to make it fail, verify the result, save test
     cy.wait(2000);
     cy.visit("/tests");
+    waitForTestsPageLoaded();
+    cy.getWithTestId("search-bar-input").clear().type(testName);
     cy.contains(testName).click();
     cy.waitTextVisible("Edit Metadata Test");
     cy.get('[data-testid="modal-next-button"]').click();
@@ -128,9 +139,13 @@ describe("create, edit and remove metadata test", () => {
     cy.waitTextVisible("No results found");
     // delete a test
     cy.visit("/tests");
+    waitForTestsPageLoaded();
     // Search for the test before trying to delete it
-    cy.get('[data-testid="search-bar-input"]').clear().type(testName);
-    cy.wait(500); // Wait for search results to update
+    cy.getWithTestId("search-bar-input").clear().type(testName);
+    // Wait for search results to update
+    cy.getWithTestId("tests-container").within(() => {
+      cy.waitTextVisible(testName);
+    });
     cy.get('[data-testid="test-more-button-0"]').click();
     cy.clickOptionWithText("Delete");
     cy.waitTextVisible("Confirm Test Removal");

@@ -30,7 +30,7 @@ export const Tests = ({ tests }: Props) => {
     const testSections = groupTestsByCategory(tests);
     const isShowNavBarRedesign = useShowNavBarRedesign();
     return (
-        <Container $isShowNavBarRedesign={isShowNavBarRedesign}>
+        <Container $isShowNavBarRedesign={isShowNavBarRedesign} data-testid="tests-container">
             {(hasTests &&
                 testSections.map((section) => {
                     return (

@@ -58,7 +58,7 @@ const addAndRemoveOwnerOnDataset = (owner, type, elementId) => {
 describe("add, remove ownership for dataset", () => {
   before(() => {
     cy.setIsThemeV2Enabled(true);
-    cy.loginWithCredentials();
+    cy.login();
     cy.wait(2000);
     cy.createUser(username, password, email, true);
     cy.createGroup(group_name, "Test group description", test_id);
