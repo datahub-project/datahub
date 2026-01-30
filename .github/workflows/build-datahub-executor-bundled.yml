@@ -15,6 +15,10 @@ on:
         description: "Build Alpine variant - NOT IMPLEMENTED (bundled venvs stage missing)"
         type: boolean
         default: false
+      build_distroless:
+        description: "Build Distroless variant (locked-distroless) - Debian 12 glibc, minimal attack surface"
+        type: boolean
+        default: true
       plugins:
         description: "Bundled plugins (comma-separated)"
         type: string
@@ -111,6 +115,7 @@ jobs:
           BUILD_WOLFI: ${{ inputs.build_wolfi }}
           BUILD_UBUNTU: ${{ inputs.build_ubuntu }}
           BUILD_ALPINE: ${{ inputs.build_alpine }}
+          BUILD_DISTROLESS: ${{ inputs.build_distroless }}
         run: |
           VARIANTS="[]"
 
@@ -124,6 +129,10 @@ jobs:
 
           if [ "$BUILD_ALPINE" = "true" ]; then
             VARIANTS=$(echo "$VARIANTS" | jq -c '. + [{"name": "alpine", "variant": "slim-alpine", "suffix": "-slim-alpine"}]')
+          fi
+
+          if [ "$BUILD_DISTROLESS" = "true" ]; then
+            VARIANTS=$(echo "$VARIANTS" | jq -c '. + [{"name": "distroless", "variant": "locked-distroless", "suffix": "-locked-distroless"}]')
           fi
 
           echo "matrix={\"include\":$VARIANTS}" >> "$GITHUB_OUTPUT"

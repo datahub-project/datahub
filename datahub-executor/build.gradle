@@ -34,10 +34,13 @@ ext {
     // Alpine variants are WIP - disabled by default until Remote Executor dependency refactor is complete
     // Alpine uses musl which doesn't support prophet (CmdStan) or spacy/blis dependencies
     include_alpine_variants = project.getProperties().getOrDefault("includeAlpineVariants", "false").toBoolean()
+    // Set to true to include Distroless variants in the build (e.g., -PincludeDistrolessVariants=true)
+    // Distroless is Debian 12 based (glibc) with minimal attack surface - no shell/package manager
+    include_distroless_variants = project.getProperties().getOrDefault("includeDistrolessVariants", "true").toBoolean()
     // Bundled venv plugins - override via -PbundledVenvPlugins="s3,bigquery,..."
     bundled_venv_plugins = project.getProperties().getOrDefault(
         "bundledVenvPlugins",
-        "s3,demo-data,looker,lookml,bigquery,gcs,postgres,mssql,mssql-odbc,dataplex"
+        "s3,demo-data,datahub"
     )
     // GitHub Run ID for provenance tracking - passed from CI via -PgithubRunId="..."
     github_run_id = project.getProperties().getOrDefault("githubRunId", "")
@@ -132,6 +135,7 @@ docker {
         include '.dockerignore'
         include "docker/datahub-executor/*"
         include "docker/snippets/*"
+        include "docker/snippets/ingestion/**"
         include "/docker/datahub-ingestion/pyspark_jars.sh"
         include "docker/datahub-ingestion/oracle_instantclient.sh"
         include "datahub-executor/src/**"
@@ -141,6 +145,7 @@ docker {
         include "datahub-executor/requirements*"
         include "metadata-ingestion-modules/acryl-cloud/**"
         include "metadata-ingestion/**"  // Required for bundled venvs build
+        include "datahub-integrations-service/**"  // Required for all executor variants
         include "python-build/**"
 
     }.exclude {
@@ -183,6 +188,14 @@ docker {
       "locked-alpine": [suffix: "-locked-alpine", args: [BASE_IMAGE: 'locked-alpine']]
     ]
 
+    // Distroless variants (Debian 12 glibc-based, minimal attack surface)
+    // No shell/package manager at runtime, uses busybox debug shell for startup scripts
+    // Only included when -PincludeDistrolessVariants=true (default: true)
+    def distrolessVariants = [
+      "distroless": [suffix: "-distroless", args: [BASE_IMAGE: 'distroless']],
+      "locked-distroless": [suffix: "-locked-distroless", args: [BASE_IMAGE: 'locked-distroless']]
+    ]
+
     // Combine variants based on flags
     def allVariants = baseVariants
     if (include_wolfi_variants) {
@@ -190,6 +203,9 @@ docker {
     }
     if (include_alpine_variants) {
       allVariants = allVariants + alpineVariants
+    }
+    if (include_distroless_variants) {
+      allVariants = allVariants + distrolessVariants
     }
     variants = allVariants
 

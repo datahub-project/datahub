@@ -54,6 +54,9 @@ env:
   # Alpine variants are WIP - disabled until Remote Executor dependency refactor is complete
   # Alpine uses musl which doesn't support prophet (CmdStan) or spacy/blis dependencies
   INCLUDE_ALPINE_VARIANTS: "false"
+  # Distroless variants are WIP - disabled by default until validation is complete
+  # Distroless is Debian 12 glibc-based with minimal attack surface (no shell/package manager)
+  INCLUDE_DISTROLESS_VARIANTS: "false"
   IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
@@ -517,7 +520,7 @@ jobs:
           fi
 
           # Build gradle args with optional custom PyPI index
-          GRADLE_ARGS="-Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PincludeWolfiVariants=${{ env.INCLUDE_WOLFI_VARIANTS }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}"
+          GRADLE_ARGS="-Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PincludeWolfiVariants=${{ env.INCLUDE_WOLFI_VARIANTS }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }} -PincludeDistrolessVariants=${{ env.INCLUDE_DISTROLESS_VARIANTS }}"
 
           # shellcheck disable=SC2086
           ./gradlew $BUILD_TASK $GRADLE_ARGS
@@ -540,7 +543,7 @@ jobs:
             ${{ needs.setup.outputs.pypi_index_url || '' }}
 
         run: |
-          GRADLE_ARGS="-PmatrixBuild=true -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }} -PincludeWolfiVariants=${{ env.INCLUDE_WOLFI_VARIANTS }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}"
+          GRADLE_ARGS="-PmatrixBuild=true -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }} -PincludeWolfiVariants=${{ env.INCLUDE_WOLFI_VARIANTS }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }} -PincludeDistrolessVariants=${{ env.INCLUDE_DISTROLESS_VARIANTS }}"
           # shellcheck disable=SC2086
           ./gradlew :docker:buildImagessaasImages $GRADLE_ARGS
 
@@ -1052,7 +1055,7 @@ jobs:
       - name: build images
         if: ${{ env.DEPOT_PROJECT_ID == '' }}
         run: |
-          GRADLE_ARGS="-Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PincludeWolfiVariants=${{ env.INCLUDE_WOLFI_VARIANTS }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}"
+          GRADLE_ARGS="-Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PincludeWolfiVariants=${{ env.INCLUDE_WOLFI_VARIANTS }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }} -PincludeDistrolessVariants=${{ env.INCLUDE_DISTROLESS_VARIANTS }}"
           # shellcheck disable=SC2086
           ./gradlew :docker:buildImagesQuickstartDebugConsumers $GRADLE_ARGS
           docker images

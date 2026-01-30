@@ -1073,6 +1073,329 @@ WORKDIR /datahub-executor
 
 
 # =============================================================================
+# GOOGLE DISTROLESS-BASED VARIANTS (glibc-based, minimal attack surface)
+# =============================================================================
+# Distroless images are Debian 12 based with glibc, enabling full dependency support.
+# They have no shell/package manager by default, reducing attack surface.
+# We use :debug-nonroot tag which provides busybox shell for startup scripts.
+# The build stages reuse Ubuntu (glibc) for building since both are Debian-based.
+
+# Distroless build stage - uses Ubuntu base for glibc compatibility during build
+# Then copies artifacts to distroless runtime
+FROM ingestion-base-slim AS distroless-build
+
+ARG PYTHON_VERSION=3.11
+ARG PIP_MIRROR_URL=https://pypi.python.org/simple
+ARG PIP_EXTRA_INDEX_URL=""
+
+USER root
+
+# Install additional build dependencies needed for native extensions and build info
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure pip/uv index URLs (inherited from ingestion-base-slim but re-set for clarity)
+ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+ENV UV_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
+ENV UV_INDEX_STRATEGY=unsafe-best-match
+ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
+ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
+
+USER datahub
+WORKDIR $HOME
+
+
+# =============================================================================
+# VENV BUILDER - DISTROLESS VARIANT
+# Builds venv in Ubuntu (glibc), then copied to distroless runtime
+# =============================================================================
+FROM distroless-build AS venv-builder-distroless
+
+USER root
+
+# Copy source code needed for building
+COPY --chown=datahub ./datahub-executor /datahub-executor
+COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
+COPY --chown=datahub ./datahub-integrations-service /datahub-integrations-service
+COPY --chown=datahub ./docker/snippets/ingestion/constraints.txt /tmp/constraints.txt
+
+WORKDIR /datahub-executor
+
+# Modify pyproject.toml for Distroless: use s3-slim to avoid PySpark
+# Since Distroless is glibc-based (Debian 12), we can keep snowflake/bigquery/redshift
+RUN echo "=== Modifying pyproject.toml for Distroless ===" && \
+  sed -i 's/\[base,snowflake,bigquery,redshift,s3,unity-catalog\]/[base,snowflake,bigquery,redshift,s3-slim]/g' /datahub-executor/pyproject.toml && \
+  echo "=== After modifications ===" && grep -E "acryl-datahub\[" /datahub-executor/pyproject.toml
+
+ARG DOCKER_VERSION
+ARG RELEASE_VERSION
+ARG GITHUB_RUN_ID=""
+ARG BUNDLED_VENV_PLUGINS=""
+
+RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /datahub-executor/ --version "$RELEASE_VERSION" --expected-update-count 2
+
+# Embed build info into the image (including provenance and bundled plugins)
+RUN jq -n \
+    --arg docker_version "$DOCKER_VERSION" \
+    --arg release_version "$RELEASE_VERSION" \
+    --arg github_run_id "$GITHUB_RUN_ID" \
+    --arg bundled_plugins "$BUNDLED_VENV_PLUGINS" \
+    '{docker_version: $docker_version, release_version: $release_version, github_run_id: $github_run_id, bundled_plugins: (if $bundled_plugins != "" then ($bundled_plugins | split(",")) else [] end)}' \
+    > /build_info.json
+
+# Install all dependencies with constraints to ensure version compatibility
+USER datahub
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor-distroless \
+  uv pip install --reinstall --constraint /tmp/constraints.txt -e /metadata-ingestion-modules/acryl-cloud -e .
+
+# Reinstall packages with extras to ensure entry points are created
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor-distroless \
+  uv pip install "watchdog[watchmedo]==3.0.0" "uvicorn[standard]>=0.23.2"
+
+# Verify critical binaries and no PySpark
+RUN echo "=== Installed packages ===" && \
+  uv pip list && \
+  echo "=== Verification ===" && \
+  python -c "import pyspark" 2>/dev/null && echo "FAIL: PySpark found" && exit 1 || echo "OK: No PySpark" && \
+  which watchmedo || (echo "FAIL: watchmedo not found" && exit 1) && \
+  which uvicorn || (echo "FAIL: uvicorn not found" && exit 1) && \
+  python -c "import fastapi" || (echo "FAIL: fastapi not importable" && exit 1) && \
+  echo "=== All checks passed ==="
+
+
+# =============================================================================
+# VENV BUILDER - LOCKED DISTROLESS VARIANT (network blocked in final stage)
+# =============================================================================
+FROM venv-builder-distroless AS venv-builder-locked-distroless
+USER datahub
+
+
+# =============================================================================
+# PRE-BUILD BUNDLED INGESTION VENVS - DISTROLESS VARIANT
+# Reuses Ubuntu build infrastructure since both are glibc-based
+# =============================================================================
+FROM distroless-build AS bundled-venvs-distroless
+USER root
+
+# Set up bundled venv configuration for DISTROLESS variant (without PySpark, like slim)
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_SLIM_MODE="true"
+ARG BUNDLED_CLI_VERSION
+ARG GITHUB_RUN_ID=""
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+ENV GITHUB_RUN_ID=${GITHUB_RUN_ID}
+
+# Create venv directory and ensure ownership
+RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
+    chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
+
+# Copy the self-contained venv build scripts into a stable location for reuse
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /usr/local/bin/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /usr/local/bin/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
+
+# Copy metadata-ingestion source (needed to build wheels)
+COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
+# Copy acryl-cloud source (needed for acryl-datahub-cloud package in bundled venvs)
+COPY --chown=datahub:datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
+
+# Make scripts executable
+RUN chmod +x /usr/local/bin/build_bundled_venvs_unified.sh && \
+    chmod +x /usr/local/bin/build_bundled_venvs_unified.py
+
+USER datahub
+
+# Build bundled venvs using our self-contained script (slim mode, no PySpark)
+WORKDIR /tmp
+RUN /usr/local/bin/build_bundled_venvs_unified.sh
+
+# Create metadata file for bundled venvs (provenance tracking)
+RUN jq -n \
+    --arg plugins "$BUNDLED_VENV_PLUGINS" \
+    --arg cli_version "$BUNDLED_CLI_VERSION" \
+    --arg slim_mode "$BUNDLED_VENV_SLIM_MODE" \
+    --arg github_run_id "$GITHUB_RUN_ID" \
+    '{bundled_plugins: ($plugins | split(",")), cli_version: $cli_version, slim_mode: ($slim_mode == "true"), github_run_id: $github_run_id}' \
+    > ${DATAHUB_BUNDLED_VENV_PATH}/metadata.json
+
+USER datahub
+
+
+# =============================================================================
+# SHARED LIBRARIES COLLECTOR - Extracts runtime libraries for distroless
+# Distroless has no package manager, so we must copy required shared libs
+# =============================================================================
+FROM venv-builder-distroless AS distroless-libs-collector
+
+USER root
+
+# Collect shared libraries needed by Python native extensions
+# These are libraries that exist in Ubuntu but not in distroless base
+RUN mkdir -p /collected-libs/lib /collected-libs/lib64 && \
+    # librdkafka for kafka support
+    cp -L /usr/lib/*/librdkafka*.so* /collected-libs/lib/ 2>/dev/null || true && \
+    # LDAP libraries
+    cp -L /usr/lib/*/libldap*.so* /collected-libs/lib/ 2>/dev/null || true && \
+    cp -L /usr/lib/*/liblber*.so* /collected-libs/lib/ 2>/dev/null || true && \
+    # SASL libraries
+    cp -L /usr/lib/*/libsasl2*.so* /collected-libs/lib/ 2>/dev/null || true && \
+    # Kerberos libraries
+    cp -L /usr/lib/*/libkrb5*.so* /collected-libs/lib/ 2>/dev/null || true && \
+    cp -L /usr/lib/*/libk5crypto*.so* /collected-libs/lib/ 2>/dev/null || true && \
+    cp -L /usr/lib/*/libgssapi*.so* /collected-libs/lib/ 2>/dev/null || true && \
+    cp -L /usr/lib/*/libcom_err*.so* /collected-libs/lib/ 2>/dev/null || true && \
+    # libaio for Oracle client
+    cp -L /usr/lib/*/libaio*.so* /collected-libs/lib/ 2>/dev/null || true && \
+    # ODBC libraries
+    cp -L /usr/lib/*/libodbc*.so* /collected-libs/lib/ 2>/dev/null || true && \
+    # OpenSSL/crypto (distroless has these but we include for compatibility)
+    cp -L /usr/lib/*/libssl*.so* /collected-libs/lib/ 2>/dev/null || true && \
+    cp -L /usr/lib/*/libcrypto*.so* /collected-libs/lib/ 2>/dev/null || true && \
+    # List collected libraries for verification
+    echo "=== Collected libraries ===" && \
+    ls -la /collected-libs/lib/ && \
+    echo "=== Done ==="
+
+
+# =============================================================================
+# FINAL STAGE - DISTROLESS (minimal runtime, maximum security)
+# Uses :debug-nonroot tag for busybox shell needed by startup scripts
+# =============================================================================
+FROM gcr.io/distroless/python3-debian12:debug-nonroot AS prod-install-distroless
+
+# Note: distroless images run as nonroot user (uid 65532) by default
+# We need to set up the datahub user directories
+
+USER root
+
+# Copy collected shared libraries from build stage
+COPY --from=distroless-libs-collector /collected-libs/lib/ /usr/lib/
+
+# Copy uv and dockerize binaries
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin/
+
+# Set up datahub home directory (distroless nonroot user is uid 65532)
+ENV HOME=/home/nonroot
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:/usr/local/bin:$PATH"
+
+# Copy the venv from the builder stage
+COPY --from=venv-builder-distroless --chown=nonroot:nonroot /home/datahub/.venv $HOME/.venv
+
+# Copy bundled venvs and build scripts
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+COPY --from=bundled-venvs-distroless --chown=nonroot:nonroot $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+COPY --from=bundled-venvs-distroless /usr/local/bin/build_bundled_venvs_unified.py /usr/local/bin/
+COPY --from=bundled-venvs-distroless /usr/local/bin/build_bundled_venvs_unified.sh /usr/local/bin/
+
+# Copy source code
+COPY --chown=nonroot:nonroot ./datahub-executor /datahub-executor
+COPY --chown=nonroot:nonroot ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
+COPY --chown=nonroot:nonroot ./datahub-integrations-service /datahub-integrations-service
+
+# Copy startup files and configs
+COPY --chown=nonroot:nonroot ./docker/datahub-executor/start.sh /start_datahub_executor.sh
+COPY --chown=nonroot:nonroot ./docker/datahub-executor/health_status.py /health_status
+COPY --chown=nonroot:nonroot ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+
+# Copy build info from builder
+COPY --from=venv-builder-distroless /build_info.json /build_info.json
+
+# Symlink acryl cloud package for backward compatibility
+# Note: Using /busybox/ln since distroless debug has busybox
+RUN ["/busybox/ln", "-sv", "/metadata-ingestion-modules/acryl-cloud", "/acryl-cloud"]
+
+# We always want to use the system CA bundle
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+
+# Set shell to busybox sh for variable expansion in CMD
+SHELL ["/busybox/sh", "-c"]
+
+USER nonroot
+WORKDIR /datahub-executor
+
+# Override healthcheck to use python (no curl in distroless)
+HEALTHCHECK --start-period=2m --retries=4 CMD ["/busybox/sh", "-c", "python /health_status || exit 1"]
+
+# Override CMD to use busybox shell for variable expansion
+CMD ["/busybox/sh", "-c", "exec /usr/local/bin/dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /busybox/sh /start_datahub_executor.sh"]
+
+
+# =============================================================================
+# FINAL STAGE - LOCKED DISTROLESS (minimal runtime, network blocked)
+# =============================================================================
+FROM gcr.io/distroless/python3-debian12:debug-nonroot AS prod-install-locked-distroless
+
+USER root
+
+# Copy collected shared libraries from build stage
+COPY --from=distroless-libs-collector /collected-libs/lib/ /usr/lib/
+
+# Copy uv and dockerize binaries
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin/
+
+# Set up datahub home directory (distroless nonroot user is uid 65532)
+ENV HOME=/home/nonroot
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:/usr/local/bin:$PATH"
+
+# Copy the venv from the builder stage
+COPY --from=venv-builder-locked-distroless --chown=nonroot:nonroot /home/datahub/.venv $HOME/.venv
+
+# Copy bundled venvs and build scripts
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+COPY --from=bundled-venvs-distroless --chown=nonroot:nonroot $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+COPY --from=bundled-venvs-distroless /usr/local/bin/build_bundled_venvs_unified.py /usr/local/bin/
+COPY --from=bundled-venvs-distroless /usr/local/bin/build_bundled_venvs_unified.sh /usr/local/bin/
+
+# Copy source code
+COPY --chown=nonroot:nonroot ./datahub-executor /datahub-executor
+COPY --chown=nonroot:nonroot ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
+COPY --chown=nonroot:nonroot ./datahub-integrations-service /datahub-integrations-service
+
+# Copy startup files and configs
+COPY --chown=nonroot:nonroot ./docker/datahub-executor/start.sh /start_datahub_executor.sh
+COPY --chown=nonroot:nonroot ./docker/datahub-executor/health_status.py /health_status
+COPY --chown=nonroot:nonroot ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+
+# Copy build info from builder
+COPY --from=venv-builder-locked-distroless /build_info.json /build_info.json
+
+# Symlink acryl cloud package for backward compatibility
+RUN ["/busybox/ln", "-sv", "/metadata-ingestion-modules/acryl-cloud", "/acryl-cloud"]
+
+# We always want to use the system CA bundle
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+
+# Block network access to PyPI - locked variant only uses bundled venvs
+ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
+
+# Set shell to busybox sh for variable expansion in CMD
+SHELL ["/busybox/sh", "-c"]
+
+USER nonroot
+WORKDIR /datahub-executor
+
+# Override healthcheck to use python (no curl in distroless)
+HEALTHCHECK --start-period=2m --retries=4 CMD ["/busybox/sh", "-c", "python /health_status || exit 1"]
+
+# Override CMD to use busybox shell for variable expansion
+CMD ["/busybox/sh", "-c", "exec /usr/local/bin/dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /busybox/sh /start_datahub_executor.sh"]
+
+
+# =============================================================================
 # FINAL STAGE SELECTOR - Uses APP_ENV and BASE_IMAGE to select the right variant
 # =============================================================================
 ARG APP_ENV=prod
