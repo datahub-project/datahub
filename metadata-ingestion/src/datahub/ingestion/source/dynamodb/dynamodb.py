@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
     Counter,
@@ -8,7 +7,6 @@ from typing import (
     Iterable,
     List,
     Optional,
-    Set,
     Tuple,
     Type,
     Union,
@@ -26,10 +24,7 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import (
-    add_domain_to_entity_wu,
-    add_source_tags_to_entity_wu,
-)
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -64,7 +59,7 @@ from datahub.metadata.schema_classes import (
     BytesTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
-    MetadataAttributionClass,
+    GlobalTagsClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
@@ -126,7 +121,11 @@ class DynamoDBConfig(
     extract_table_tags: bool = Field(
         default=False,
         description=(
-            "When enabled, extracts AWS resource tags for DynamoDB tables and applies them as DataHub tags, AWS table tags may reappear if they are deleted"
+            "When enabled, tags associated with DynamoDB tables in AWS "
+            "will be emitted as DataHub tags. "
+            "Tags are applied using OVERWRITE mode, meaning any existing tags "
+            "including tags manually added or modified from the UI"
+            "will be replaced. Use with caution."
         ),
     )
     # Custom Stateful Ingestion settings
@@ -629,19 +628,17 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         table_arn: str,
         dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
-        """Extract DynamoDB table AWS tags and add them as DataHub tags.
-        Properly handles tag attribution to distinguish AWS-sourced tags from manual tags.
-        Only modifies tags that originated from DynamoDB ingestion.
+        """
+        Extract DynamoDB table AWS tags and emit them as DataHub tags.
         """
         try:
-            # Fetch current AWS tags from DynamoDB
             aws_tags_kv = self._get_dynamodb_table_tags(
                 dynamodb_client=dynamodb_client,
                 table_arn=table_arn,
             )
 
-            aws_tag_urns: Set[str] = set()
-
+            # Build tag associations from AWS tags
+            tag_associations: List[TagAssociationClass] = []
             for tag_dict in aws_tags_kv:
                 key = tag_dict.get("Key")
                 if not key:
@@ -654,35 +651,18 @@ class DynamoDBSource(StatefulIngestionSourceBase):
 
                 val = tag_dict.get("Value")
                 tag = f"{key}:{val}" if val else key
-                aws_tag_urns.add(make_tag_urn(tag))
+                tag_associations.append(TagAssociationClass(tag=make_tag_urn(tag)))
 
-            # Build new tags from AWS with attribution
-            current_time_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-            new_tags: List[TagAssociationClass] = []
-            for aws_tag_urn in aws_tag_urns:
-                new_tags.append(
-                    TagAssociationClass(
-                        tag=aws_tag_urn,
-                        attribution=MetadataAttributionClass(
-                            time=current_time_ms,
-                            source="urn:li:dataPlatform:dynamodb",  # TODO : confirm this is correct source urn
-                            actor="urn:li:corpuser:datahub",  # TODO: what actor to use here? or urn:li:corpuser:__datahub_system
-                        ),
-                    )
-                )
-
-            # Add tags with source attribution, merging with existing tags
-            yield from add_source_tags_to_entity_wu(
-                entity_type="dataset",
-                entity_urn=dataset_urn,
-                new_tags=new_tags,
-                source_urn="urn:li:dataPlatform:dynamodb",
-                graph=self.ctx.graph,
-            )
+            # Emit tags as a work unit
+            if tag_associations:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=GlobalTagsClass(tags=tag_associations),
+                ).as_workunit()
 
         except Exception as e:
             self.report.report_warning(
                 title="DynamoDB Tags",
-                message="Failed to update tags for table.",
+                message="Failed to extract tags for table.",
                 context=f"dataset_urn: {dataset_urn}; error={e}",
             )

@@ -9,12 +9,11 @@ from datahub.ingestion.source.dynamodb.dynamodb import (
 )
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
-    TagAssociationClass,
 )
 
 
 class TestDynamoDBTagsIngestion:
-    """Test suite for DynamoDB tag extraction and merging."""
+    """Test suite for DynamoDB tag extraction"""
 
     # Fixtures
     @pytest.fixture
@@ -34,31 +33,12 @@ class TestDynamoDBTagsIngestion:
 
     @pytest.fixture
     def mock_context(self):
-        """Fixture for mock pipeline context with graph."""
-        mock_ctx = MagicMock(spec=PipelineContext)
-        mock_ctx.pipeline_name = "test_pipeline"
-        mock_ctx.run_id = "test_run"
-        mock_ctx.graph = MagicMock()
-        return mock_ctx
-
-    @pytest.fixture
-    def mock_context_without_graph(self):
-        """Fixture for mock pipeline context without graph."""
+        """Fixture for mock pipeline context."""
         mock_ctx = MagicMock(spec=PipelineContext)
         mock_ctx.pipeline_name = "test_pipeline"
         mock_ctx.run_id = "test_run"
         mock_ctx.graph = None
         return mock_ctx
-
-    @pytest.fixture
-    def existing_tags(self):
-        """Fixture for existing DataHub tags."""
-        return GlobalTagsClass(
-            tags=[
-                TagAssociationClass(tag="urn:li:tag:manual_tag"),
-                TagAssociationClass(tag="urn:li:tag:ui_added_tag"),
-            ]
-        )
 
     @pytest.fixture
     def aws_tags(self):
@@ -93,18 +73,18 @@ class TestDynamoDBTagsIngestion:
         assert isinstance(tags_aspect, GlobalTagsClass)
         return {tag.tag for tag in tags_aspect.tags}
 
-    def test_tags_merge_with_existing(
+    def test_tags_extraction_from_aws(
         self,
         mock_dynamodb_client,
         mock_context,
         dynamodb_config,
-        existing_tags,
         aws_tags,
         dataset_info,
     ):
-        """Test that DynamoDB tags are merged with existing DataHub tags when graph is available."""
-        mock_context.graph.get_aspect.return_value = existing_tags
+        """Test that DynamoDB tags are extracted from AWS and emitted directly.
 
+        No merging happens in the source - transformers handle that in later stages.
+        """
         source = self.create_dynamodb_source(mock_context, dynamodb_config)
 
         with patch.object(source, "_get_dynamodb_table_tags", return_value=aws_tags):
@@ -115,64 +95,28 @@ class TestDynamoDBTagsIngestion:
                     dataset_urn=dataset_info["dataset_urn"],
                 )
             )
-
-        mock_context.graph.get_aspect.assert_called_once_with(
-            entity_urn=dataset_info["dataset_urn"], aspect_type=GlobalTagsClass
-        )
 
         tag_urns = self.get_tag_urns_from_workunits(workunits)
         assert tag_urns == {
             "urn:li:tag:env:prod",
             "urn:li:tag:team:data",
-            "urn:li:tag:manual_tag",
-            "urn:li:tag:ui_added_tag",
         }
 
-    def test_tags_without_graph(
-        self,
-        mock_dynamodb_client,
-        mock_context_without_graph,
-        dynamodb_config,
-        aws_tags,
-        dataset_info,
-    ):
-        """Test that DynamoDB tags work when graph is not available (no merging)."""
-        source = self.create_dynamodb_source(
-            mock_context_without_graph, dynamodb_config
-        )
-
-        with patch.object(source, "_get_dynamodb_table_tags", return_value=aws_tags):
-            workunits = list(
-                source._get_dynamodb_table_tags_wu(
-                    dynamodb_client=mock_dynamodb_client,
-                    table_arn=dataset_info["table_arn"],
-                    dataset_urn=dataset_info["dataset_urn"],
-                )
-            )
-
-        tag_urns = self.get_tag_urns_from_workunits(workunits)
-        assert tag_urns == {"urn:li:tag:env:prod", "urn:li:tag:team:data"}
-
-    def test_tags_merge_error_handling(
+    def test_tags_extraction_error_handling(
         self,
         mock_dynamodb_client,
         mock_context,
         dynamodb_config,
         dataset_info,
     ):
-        """Test that errors during tag merging are handled gracefully.
+        """Test that errors during tag extraction are handled gracefully.
 
-        When the graph API fails, no workunits are emitted to prevent data loss,
-        and the error is logged as a warning.
+        When AWS tag fetching fails, no workunits are emitted and the error is logged as a warning.
         """
-        mock_context.graph.get_aspect.side_effect = Exception("Graph API error")
-
         source = self.create_dynamodb_source(mock_context, dynamodb_config)
 
-        error_case_tags = [{"Key": "env", "Value": "prod"}]
-
         with patch.object(
-            source, "_get_dynamodb_table_tags", return_value=error_case_tags
+            source, "_get_dynamodb_table_tags", side_effect=Exception("AWS API error")
         ):
             workunits = list(
                 source._get_dynamodb_table_tags_wu(
@@ -182,9 +126,14 @@ class TestDynamoDBTagsIngestion:
                 )
             )
 
-        # Should not emit any workunits when fetch fails to prevent data loss
-        tag_urns = self.get_tag_urns_from_workunits(workunits)
-        assert tag_urns == set()
+        # Should not emit any workunits when fetch fails
+        assert len(workunits) == 0
+
+        # Verify warning was logged
+        assert len(source.report.warnings) >= 1
+        assert any(
+            "Failed to extract tags for table" in str(w) for w in source.report.warnings
+        )
 
     @pytest.mark.parametrize(
         "tags_input,expected_urns",
@@ -212,16 +161,14 @@ class TestDynamoDBTagsIngestion:
     def test_tag_format_variations(
         self,
         mock_dynamodb_client,
-        mock_context_without_graph,
+        mock_context,
         dynamodb_config,
         dataset_info,
         tags_input,
         expected_urns,
     ):
         """Test tag extraction with various input formats: special chars, empty values, empty list."""
-        source = self.create_dynamodb_source(
-            mock_context_without_graph, dynamodb_config
-        )
+        source = self.create_dynamodb_source(mock_context, dynamodb_config)
 
         with patch.object(source, "_get_dynamodb_table_tags", return_value=tags_input):
             workunits = list(
@@ -239,14 +186,12 @@ class TestDynamoDBTagsIngestion:
     def test_tags_with_missing_key_field(
         self,
         mock_dynamodb_client,
-        mock_context_without_graph,
+        mock_context,
         dynamodb_config,
         dataset_info,
     ):
         """Test that tags missing the Key field are skipped with warning."""
-        source = self.create_dynamodb_source(
-            mock_context_without_graph, dynamodb_config
-        )
+        source = self.create_dynamodb_source(mock_context, dynamodb_config)
 
         malformed_tags = [
             {"Value": "orphaned-value"},  # Missing Key

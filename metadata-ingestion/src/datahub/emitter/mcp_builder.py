@@ -40,7 +40,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import ContainerUrn, StructuredPropertyUrn
 
 if TYPE_CHECKING:
-    from datahub.ingestion.graph.client import DataHubGraph
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -227,56 +227,6 @@ def add_tags_to_entity_wu(
         aspect=GlobalTagsClass(
             tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
         ),
-    ).as_workunit()
-
-
-def add_source_tags_to_entity_wu(
-    entity_type: str,
-    entity_urn: str,
-    new_tags: List[TagAssociationClass],
-    source_urn: str,
-    graph: Optional["DataHubGraph"] = None,
-) -> Iterable[MetadataWorkUnit]:
-    """Add tags from a source to an entity, merging with existing tags.
-
-    Tags are matched by attribution.source - tags with attribution.source matching source_urn
-    are replaced with new_tags, while all other tags are preserved.
-
-    Args:
-        entity_type: The type of entity (e.g., "dataset", "container")
-        entity_urn: The URN of the entity to add tags to
-        new_tags: List of new tag associations from the current source (with attribution set)
-        source_urn: The source URN to match against (e.g., "urn:li:dataPlatform:dynamodb")
-        graph: Optional DataHub graph client to fetch existing tags
-
-    Yields:
-        MetadataWorkUnit containing the merged tags aspect
-    """
-    tags_to_write: List[TagAssociationClass] = list(new_tags)
-
-    if graph:
-        try:
-            current_tags_aspect = graph.get_aspect(
-                entity_urn=entity_urn, aspect_type=GlobalTagsClass
-            )
-            if current_tags_aspect and current_tags_aspect.tags:
-                tags_to_write.extend(
-                    tag_assoc
-                    for tag_assoc in current_tags_aspect.tags
-                    if not (
-                        tag_assoc.attribution
-                        and tag_assoc.attribution.source == source_urn
-                    )
-                )
-
-        except Exception as e:
-            raise RuntimeError("Failed to fetch existing tags for entity") from e
-
-    # Always emit the aspect (even if empty) to ensure removed tags are deleted
-    yield MetadataChangeProposalWrapper(
-        entityType=entity_type,
-        entityUrn=entity_urn,
-        aspect=GlobalTagsClass(tags=tags_to_write),
     ).as_workunit()
 
 

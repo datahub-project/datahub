@@ -199,22 +199,10 @@
         "json": {
             "tags": [
                 {
-                    "tag": "urn:li:tag:env:testing",
-                    "attribution": {
-                        "time": 1693396800000,
-                        "actor": "urn:li:corpuser:datahub",
-                        "source": "urn:li:dataPlatform:dynamodb",
-                        "sourceDetail": {}
-                    }
+                    "tag": "urn:li:tag:env:testing"
                 },
                 {
-                    "tag": "urn:li:tag:team:datahub",
-                    "attribution": {
-                        "time": 1693396800000,
-                        "actor": "urn:li:corpuser:datahub",
-                        "source": "urn:li:dataPlatform:dynamodb",
-                        "sourceDetail": {}
-                    }
+                    "tag": "urn:li:tag:team:datahub"
                 }
             ]
         }
