@@ -12,7 +12,6 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     ResolvePlatformInstanceFromDatasetTypeMapping,
 )
-from datahub.ingestion.source.powerbi.fabric_urn_builder import make_onelake_urn
 from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FabricArtifact,
@@ -45,54 +44,6 @@ def mapper(config):
         reporter=reporter,
         dataplatform_instance_resolver=platform_instance_resolver,
     )
-
-
-class TestMakeOnelakeUrn:
-    """Tests for the make_onelake_urn helper function."""
-
-    def test_make_onelake_urn_with_schema(self):
-        """Test full URN generation with schema."""
-        result = make_onelake_urn(
-            workspace_id="ff23fbe3-7418-42f8-a675-9f10eb2b78cb",
-            item_id="2afa2dbd-555b-48c8-b082-35d94f4b7836",
-            table_name="green_tripdata_2017",
-            schema_name="dbo",
-            env="PROD",
-        )
-        assert (
-            result
-            == "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ff23fbe3-7418-42f8-a675-9f10eb2b78cb.2afa2dbd-555b-48c8-b082-35d94f4b7836.dbo.green_tripdata_2017,PROD)"
-        )
-
-    def test_make_onelake_urn_without_schema(self):
-        """Test URN generation without schema (defaults to 'dbo' for schemas-disabled lakehouses)."""
-        result = make_onelake_urn(
-            workspace_id="ff23fbe3-7418-42f8-a675-9f10eb2b78cb",
-            item_id="2afa2dbd-555b-48c8-b082-35d94f4b7836",
-            table_name="green_tripdata_2017",
-            schema_name=None,
-            env="PROD",
-        )
-        # When schema_name is None, it defaults to "dbo"
-        assert (
-            result
-            == "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ff23fbe3-7418-42f8-a675-9f10eb2b78cb.2afa2dbd-555b-48c8-b082-35d94f4b7836.dbo.green_tripdata_2017,PROD)"
-        )
-
-    def test_make_onelake_urn_with_platform_instance(self):
-        """Test URN generation with platform instance."""
-        result = make_onelake_urn(
-            workspace_id="ff23fbe3-7418-42f8-a675-9f10eb2b78cb",
-            item_id="2afa2dbd-555b-48c8-b082-35d94f4b7836",
-            table_name="green_tripdata_2017",
-            schema_name="dbo",
-            env="PROD",
-            platform_instance="my-instance",
-        )
-        assert (
-            result
-            == "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,my-instance.ff23fbe3-7418-42f8-a675-9f10eb2b78cb.2afa2dbd-555b-48c8-b082-35d94f4b7836.dbo.green_tripdata_2017,PROD)"
-        )
 
 
 class TestDirectLakeLineageExtraction:
