@@ -10,6 +10,7 @@ import pytest
 
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_lakehouse_name,
+    make_onelake_urn,
     make_schema_name,
     make_table_name,
     make_warehouse_name,
@@ -116,3 +117,56 @@ class TestURNGenerator:
         assert lakehouse.startswith(workspace + ".")
         assert schema.startswith(lakehouse + ".")
         assert table.startswith(schema + ".")
+
+    @pytest.mark.parametrize(
+        "workspace_id,item_id,table_name,schema_name,env,platform_instance,expected",
+        [
+            (
+                "ff23fbe3-7418-42f8-a675-9f10eb2b78cb",
+                "2afa2dbd-555b-48c8-b082-35d94f4b7836",
+                "green_tripdata_2017",
+                "dbo",
+                "PROD",
+                None,
+                "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ff23fbe3-7418-42f8-a675-9f10eb2b78cb.2afa2dbd-555b-48c8-b082-35d94f4b7836.dbo.green_tripdata_2017,PROD)",
+            ),
+            (
+                "ff23fbe3-7418-42f8-a675-9f10eb2b78cb",
+                "2afa2dbd-555b-48c8-b082-35d94f4b7836",
+                "green_tripdata_2017",
+                None,
+                "PROD",
+                None,
+                "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ff23fbe3-7418-42f8-a675-9f10eb2b78cb.2afa2dbd-555b-48c8-b082-35d94f4b7836.dbo.green_tripdata_2017,PROD)",
+            ),
+            (
+                "ff23fbe3-7418-42f8-a675-9f10eb2b78cb",
+                "2afa2dbd-555b-48c8-b082-35d94f4b7836",
+                "green_tripdata_2017",
+                "dbo",
+                "PROD",
+                "my-instance",
+                "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,my-instance.ff23fbe3-7418-42f8-a675-9f10eb2b78cb.2afa2dbd-555b-48c8-b082-35d94f4b7836.dbo.green_tripdata_2017,PROD)",
+            ),
+        ],
+    )
+    def test_make_onelake_urn(
+        self,
+        workspace_id: str,
+        item_id: str,
+        table_name: str,
+        schema_name: str | None,
+        env: str,
+        platform_instance: str | None,
+        expected: str,
+    ) -> None:
+        """Test make_onelake_urn with various args (schema, no schema, platform_instance)."""
+        result = make_onelake_urn(
+            workspace_id=workspace_id,
+            item_id=item_id,
+            table_name=table_name,
+            schema_name=schema_name,
+            env=env,
+            platform_instance=platform_instance,
+        )
+        assert result == expected
