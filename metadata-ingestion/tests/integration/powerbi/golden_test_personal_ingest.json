@@ -8,12 +8,14 @@
         "json": {
             "customProperties": {
                 "platform": "powerbi",
+                "env": "DEV",
                 "workspace": "Jane Smith Workspace",
                 "workspace_id": "90E9E256-3D6D-4D38-86C8-6CCCBD8C170C",
                 "workspace_name": "Jane Smith Workspace",
                 "workspace_type": "PersonalGroup"
             },
-            "name": "Jane Smith Workspace"
+            "name": "Jane Smith Workspace",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
