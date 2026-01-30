@@ -1,6 +1,7 @@
 import { Divider } from 'antd';
 import React from 'react';
 
+import { AssertionDetailsSection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionDetailsSection';
 import { AssertionSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionSummarySection';
 import { AssertionResultsTable } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/table/AssertionResultsTable';
 import { AssertionResultsTimeline } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionResultsTimeline';
@@ -27,6 +28,11 @@ export const AssertionSummaryContent = ({ assertion }: Props) => {
             <Divider />
             <AssertionSummarySection title="Schedule details">
                 <AssertionScheduleSummary assertion={assertion} lastEvaluatedAtMillis={lastEvaluatedAtMillis} />
+            </AssertionSummarySection>
+            {/* Collapsible section for Logic/SQL and Custom Properties */}
+            <Divider />
+            <AssertionSummarySection title="Details">
+                <AssertionDetailsSection assertion={assertion} />
             </AssertionSummarySection>
         </>
     );
