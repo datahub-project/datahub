@@ -7,6 +7,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.DomainAuthorizationHelper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -14,6 +15,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
@@ -33,11 +35,14 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -82,13 +87,181 @@ public class DomainUtils {
       @Nullable Urn domainUrn,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService<?> entityService)
+      EntityService<?> entityService,
+      boolean isDomainBasedAuthorizationEnabled)
       throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
       changes.add(buildSetDomainProposal(opContext, domainUrn, resource, actor, entityService));
     }
+
+    // Only perform domain-based authorization if enabled
+    // When disabled, authorization is handled by caller (e.g., BatchSetDomainResolver)
+    if (isDomainBasedAuthorizationEnabled) {
+      // Perform API-level domain-based authorization before ingestion
+      // For domain changes, we need to check authorization for BOTH existing and proposed domains
+      Map<Urn, DomainChange> domainChanges =
+          extractDomainChangesFromMCPs(changes, opContext, entityService);
+      Map<MetadataChangeProposal, Boolean> authResults =
+          authorizeMCPsWithDomainChanges(opContext, changes, domainChanges);
+
+      // Check authorization results and throw if any MCP is unauthorized
+      authResults.forEach(
+          (mcp, authorized) -> {
+            if (!authorized) {
+              throw new AuthorizationException(
+                  String.format(
+                      "Unauthorized to update domains for entity %s", mcp.getEntityUrn()));
+            }
+          });
+    }
+
     EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
+  }
+
+  /**
+   * Extract domain changes (existing → proposed) from MetadataChangeProposals.
+   *
+   * @param mcps List of MetadataChangeProposals to extract domain changes from
+   * @param opContext Operation context
+   * @param entityService Entity service for reading existing domains
+   * @return Map of entity URN to DomainChange (existing and proposed domains)
+   */
+  private static Map<Urn, DomainChange> extractDomainChangesFromMCPs(
+      @Nonnull List<MetadataChangeProposal> mcps,
+      @Nonnull OperationContext opContext,
+      @Nonnull EntityService<?> entityService) {
+    Map<Urn, DomainChange> changes = new HashMap<>();
+
+    for (MetadataChangeProposal mcp : mcps) {
+      if (DOMAINS_ASPECT_NAME.equals(mcp.getAspectName())) {
+        try {
+          Urn entityUrn = mcp.getEntityUrn();
+
+          // Extract proposed domains from MCP
+          Domains proposedDomains =
+              GenericRecordUtils.deserializeAspect(
+                  mcp.getAspect().getValue(), mcp.getAspect().getContentType(), Domains.class);
+          Set<Urn> proposedDomainUrns =
+              (proposedDomains != null && proposedDomains.getDomains() != null)
+                  ? new HashSet<>(proposedDomains.getDomains())
+                  : Collections.emptySet();
+
+          // Read existing domains from database
+          Set<Urn> existingDomainUrns = Collections.emptySet();
+          try {
+            Domains existingDomains =
+                (Domains)
+                    EntityUtils.getAspectFromEntity(
+                        opContext, entityUrn.toString(), DOMAINS_ASPECT_NAME, entityService, null);
+            if (existingDomains != null && existingDomains.getDomains() != null) {
+              existingDomainUrns = new HashSet<>(existingDomains.getDomains());
+            }
+          } catch (Exception e) {
+            log.debug(
+                "Failed to read existing domains for entity {}, assuming CREATE operation",
+                entityUrn);
+            // Entity doesn't exist - this is a CREATE operation, no existing domains
+          }
+
+          changes.put(entityUrn, new DomainChange(existingDomainUrns, proposedDomainUrns));
+        } catch (Exception e) {
+          log.warn("Failed to extract domain change from MCP for entity {}", mcp.getEntityUrn(), e);
+        }
+      }
+    }
+    return changes;
+  }
+
+  /**
+   * Authorize MCPs with domain changes, checking both existing and proposed domains.
+   *
+   * @param opContext Operation context
+   * @param mcps List of MCPs to authorize
+   * @param domainChanges Map of entity URN to domain changes
+   * @return Map of MCP to authorization result
+   */
+  private static Map<MetadataChangeProposal, Boolean> authorizeMCPsWithDomainChanges(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<MetadataChangeProposal> mcps,
+      @Nonnull Map<Urn, DomainChange> domainChanges) {
+
+    Map<MetadataChangeProposal, Boolean> results = new HashMap<>();
+
+    for (MetadataChangeProposal mcp : mcps) {
+      Urn entityUrn = mcp.getEntityUrn();
+      DomainChange domainChange = domainChanges.get(entityUrn);
+
+      if (domainChange == null) {
+        // No domain change for this MCP, use standard authorization
+        Map<Urn, Set<Urn>> noDomains = Collections.emptyMap();
+        Map<MetadataChangeProposal, Boolean> standardAuth =
+            DomainAuthorizationHelper.authorizeWithDomains(
+                opContext,
+                opContext.getEntityRegistry(),
+                Collections.singletonList(mcp),
+                noDomains,
+                opContext.getAspectRetriever());
+        results.put(mcp, standardAuth.get(mcp));
+        continue;
+      }
+
+      Set<Urn> existingDomains = domainChange.existingDomains;
+      Set<Urn> proposedDomains = domainChange.proposedDomains;
+
+      // If domains are changing, check authorization for BOTH existing and proposed
+      if (!existingDomains.isEmpty() && !existingDomains.equals(proposedDomains)) {
+        log.debug(
+            "Domain change detected for entity {}: {} -> {}",
+            entityUrn,
+            existingDomains,
+            proposedDomains);
+
+        // Check permission for existing domain (to remove entity from it)
+        Map<MetadataChangeProposal, Boolean> existingAuth =
+            DomainAuthorizationHelper.authorizeWithDomains(
+                opContext,
+                opContext.getEntityRegistry(),
+                Collections.singletonList(mcp),
+                Collections.singletonMap(entityUrn, existingDomains),
+                opContext.getAspectRetriever());
+
+        boolean canRemoveFromExisting = existingAuth.getOrDefault(mcp, false);
+
+        if (!canRemoveFromExisting) {
+          log.warn(
+              "User does not have permission to remove entity {} from existing domains {}",
+              entityUrn,
+              existingDomains);
+          results.put(mcp, false);
+          continue;
+        }
+      }
+
+      // Check permission for proposed domain (to add entity to it)
+      Map<MetadataChangeProposal, Boolean> proposedAuth =
+          DomainAuthorizationHelper.authorizeWithDomains(
+              opContext,
+              opContext.getEntityRegistry(),
+              Collections.singletonList(mcp),
+              Collections.singletonMap(entityUrn, proposedDomains),
+              opContext.getAspectRetriever());
+
+      results.put(mcp, proposedAuth.getOrDefault(mcp, false));
+    }
+
+    return results;
+  }
+
+  /** Helper class to track domain changes (existing → proposed) */
+  private static class DomainChange {
+    final Set<Urn> existingDomains;
+    final Set<Urn> proposedDomains;
+
+    DomainChange(Set<Urn> existingDomains, Set<Urn> proposedDomains) {
+      this.existingDomains = existingDomains != null ? existingDomains : Collections.emptySet();
+      this.proposedDomains = proposedDomains != null ? proposedDomains : Collections.emptySet();
+    }
   }
 
   private static MetadataChangeProposal buildSetDomainProposal(

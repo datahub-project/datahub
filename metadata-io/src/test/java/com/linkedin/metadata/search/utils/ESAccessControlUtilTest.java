@@ -619,8 +619,7 @@ public class ESAccessControlUtilTest {
           0,
           0,
           AuthorizationMode.DEFAULT,
-          0,
-          false);
+          0);
 
       DefaultEntitySpecResolver specResolver =
           new DefaultEntitySpecResolver(

@@ -352,18 +352,16 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
   @Test
   public void testCreateEntityWithDomain_Unauthorized() throws Exception {
     // Setup mocks for unauthorized scenario
-    when(configurationProvider.getAuthorization().isDomainBasedAuthorizationEnabled())
-        .thenReturn(true);
-
-    when(authorizerChain.authorize(any()))
+    // Domain-based auth is already enabled in @BeforeMethod setup
+    when(mockAuthorizerChain.authorize(any()))
         .thenReturn(
             new AuthorizationResult(
                 null, AuthorizationResult.Type.DENY, "Unauthorized - missing domain access"));
 
     String requestBody =
-        "[{\"value\":{\"com.linkedin.metadata.snapshot.DatasetSnapshot\":{"
-            + "\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)\","
-            + "\"aspects\":[{\"com.linkedin.common.Domains\":{\"domains\":[\"urn:li:domain:finance\"]}}]}}}]";
+        "[{\"urn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)\", "
+            + "\"status\": {\"value\": {\"removed\": false}}, "
+            + "\"domains\": {\"value\": {\"domains\": [\"urn:li:domain:finance\"]}}}]";
 
     // Should return 403 Unauthorized
     mockMvc
@@ -379,14 +377,11 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
 
   @Test
   public void testDeleteEntityWithDomain_Authorized() throws Exception {
-    when(configurationProvider.getAuthorization().isDomainBasedAuthorizationEnabled())
-        .thenReturn(true);
-
-    when(authorizerChain.authorize(any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
-    // Mock entity exists with domain
-    when(mockEntityService.exists(any(), any(), eq(true))).thenReturn(true);
+    // Domain-based auth is already enabled in @BeforeMethod setup
+    // Mock entity exists with domain - returns Set of existing URNs
+    Urn testUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)");
+    when(mockEntityService.exists(any(), anyCollection(), eq(true)))
+        .thenReturn(Collections.singleton(testUrn));
 
     mockMvc
         .perform(
@@ -399,15 +394,17 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
 
   @Test
   public void testDeleteEntityWithDomain_Unauthorized() throws Exception {
-    when(configurationProvider.getAuthorization().isDomainBasedAuthorizationEnabled())
-        .thenReturn(true);
-
-    when(authorizerChain.authorize(any()))
+    // Domain-based auth is already enabled in @BeforeMethod setup
+    // Override authorization to DENY
+    when(mockAuthorizerChain.authorize(any()))
         .thenReturn(
             new AuthorizationResult(
                 null, AuthorizationResult.Type.DENY, "Unauthorized - missing domain access"));
 
-    when(mockEntityService.exists(any(), any(), eq(true))).thenReturn(true);
+    // Mock entity exists with domain - returns Set of existing URNs
+    Urn testUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)");
+    when(mockEntityService.exists(any(), anyCollection(), eq(true)))
+        .thenReturn(Collections.singleton(testUrn));
 
     mockMvc
         .perform(
@@ -421,23 +418,21 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
 
   @Test
   public void testBatchCreateMixedAuthorization_PartialSuccess() throws Exception {
-    when(configurationProvider.getAuthorization().isDomainBasedAuthorizationEnabled())
-        .thenReturn(true);
-
+    // Domain-based auth is already enabled in @BeforeMethod setup
     // Mock authorization: first entity authorized, second denied
-    when(authorizerChain.authorize(any()))
+    when(mockAuthorizerChain.authorize(any()))
         .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""))
         .thenReturn(
             new AuthorizationResult(
                 null, AuthorizationResult.Type.DENY, "Unauthorized - missing domain access"));
 
     String requestBody =
-        "[{\"value\":{\"com.linkedin.metadata.snapshot.DatasetSnapshot\":{"
-            + "\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,dataset1,PROD)\","
-            + "\"aspects\":[{\"com.linkedin.common.Domains\":{\"domains\":[\"urn:li:domain:finance\"]}}]}}},"
-            + "{\"value\":{\"com.linkedin.metadata.snapshot.DatasetSnapshot\":{"
-            + "\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,dataset2,PROD)\","
-            + "\"aspects\":[{\"com.linkedin.common.Domains\":{\"domains\":[\"urn:li:domain:marketing\"]}}]}}}]";
+        "[{\"urn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,dataset1,PROD)\", "
+            + "\"status\": {\"value\": {\"removed\": false}}, "
+            + "\"domains\": {\"value\": {\"domains\": [\"urn:li:domain:finance\"]}}}, "
+            + "{\"urn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,dataset2,PROD)\", "
+            + "\"status\": {\"value\": {\"removed\": false}}, "
+            + "\"domains\": {\"value\": {\"domains\": [\"urn:li:domain:marketing\"]}}}]";
 
     // Should fail because one entity is unauthorized
     mockMvc
@@ -454,16 +449,33 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
   @Test
   public void testCreateEntityWithoutDomain_DomainAuthDisabled() throws Exception {
     // Domain auth is DISABLED - should use standard entity-type authorization
-    when(configurationProvider.getAuthorization().isDomainBasedAuthorizationEnabled())
-        .thenReturn(false);
+    // Override the feature flag to disable domain-based auth
+    featureFlags.setDomainBasedAuthorizationEnabled(false);
+    when(mockConfigurationProvider.getFeatureFlags()).thenReturn(featureFlags);
 
-    when(authorizerChain.authorize(any()))
+    when(mockAuthorizerChain.authorize(any()))
         .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
 
+    Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)");
+
+    // Mock successful ingest result
+    BatchItem mockBatchItem = mock(BatchItem.class);
+    when(mockBatchItem.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockBatchItem.getAspectName()).thenReturn("status");
+    when(mockBatchItem.getRecordTemplate()).thenReturn(new Status().setRemoved(false));
+
+    when(mockEntityService.ingestProposal(any(), any(), anyBoolean()))
+        .thenReturn(
+            Collections.singletonList(
+                IngestResult.builder()
+                    .urn(datasetUrn)
+                    .request(mockBatchItem)
+                    .sqlCommitted(true)
+                    .build()));
+
     String requestBody =
-        "[{\"value\":{\"com.linkedin.metadata.snapshot.DatasetSnapshot\":{"
-            + "\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)\","
-            + "\"aspects\":[]}}}]";
+        "[{\"urn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)\", "
+            + "\"status\": {\"value\": {\"removed\": false}}}]";
 
     mockMvc
         .perform(

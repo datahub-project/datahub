@@ -161,23 +161,17 @@ public class AuthorizerChain implements Authorizer {
   /**
    * Check if domain-based authorization is enabled in the authorizer chain.
    *
+   * <p>With the enriched EntitySpec approach, domain-based authorization is always available. It's
+   * activated when domains are passed to authorization methods.
+   *
    * @param authorizer the authorizer to check (can be null)
-   * @return true if domain-based authorization is enabled, false otherwise
+   * @return true if authorization is enabled (domain-based auth is always supported when
+   *     authorization is enabled)
    */
   public static boolean isDomainBasedAuthorizationEnabled(@Nullable Authorizer authorizer) {
-    // If authorizer is null (authorization disabled), domain-based auth is not enabled
-    if (authorizer == null) {
-      return false;
-    }
-
-    // Check if authorizer is an AuthorizerChain and get the default DataHubAuthorizer
-    if (authorizer instanceof AuthorizerChain) {
-      DataHubAuthorizer defaultAuthorizer = ((AuthorizerChain) authorizer).getDefaultAuthorizer();
-      return defaultAuthorizer != null && defaultAuthorizer.isDomainBasedAuthorizationEnabled();
-    }
-    // Fallback to direct instance check
-    return authorizer instanceof DataHubAuthorizer
-        && ((DataHubAuthorizer) authorizer).isDomainBasedAuthorizationEnabled();
+    // Domain-based authorization is now always supported when authorization is enabled
+    // It's transparently handled through enriched EntitySpec with proposed aspects
+    return authorizer != null;
   }
 
   @Override

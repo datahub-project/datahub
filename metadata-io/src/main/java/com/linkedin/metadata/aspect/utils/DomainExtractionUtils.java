@@ -7,21 +7,28 @@ import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.domain.Domains;
-import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.Entity;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.NewModelUtils;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -33,6 +40,86 @@ public class DomainExtractionUtils {
 
   private DomainExtractionUtils() {
     // Utility class - prevent instantiation
+  }
+
+  /**
+   * Result of extracting domains for authorization. Explicitly separates entities with new domains
+   * (from MCPs) vs existing domains (from database).
+   */
+  @Data
+  @Builder
+  @AllArgsConstructor
+  public static class EntityDomainsResult {
+    /**
+     * Entities with NEW domains being proposed (from MCPs). These entities are changing their
+     * domains aspect. Authorization must check both existing AND new domains for these entities.
+     */
+    @Nonnull private final Map<Urn, Set<Urn>> entitiesWithNewDomains;
+
+    /**
+     * Entities with EXISTING domains (from database). These entities are NOT changing their domains
+     * aspect. Authorization only needs to check existing domains for these entities.
+     */
+    @Nonnull private final Map<Urn, Set<Urn>> entitiesWithExistingDomains;
+
+    /**
+     * Get all domains for a given entity URN for authorization. Returns new domains if entity is
+     * changing domains, otherwise returns existing domains.
+     *
+     * @param entityUrn the entity URN
+     * @return Set of domain URNs for authorization, empty if none found
+     */
+    @Nonnull
+    public Set<Urn> getDomainsForEntity(@Nonnull Urn entityUrn) {
+      // Check new domains first (takes precedence if entity is changing domains)
+      Set<Urn> newDomains = entitiesWithNewDomains.get(entityUrn);
+      if (newDomains != null) {
+        return newDomains;
+      }
+
+      // Fall back to existing domains
+      Set<Urn> existingDomains = entitiesWithExistingDomains.get(entityUrn);
+      if (existingDomains != null) {
+        return existingDomains;
+      }
+
+      return Collections.emptySet();
+    }
+
+    /**
+     * Check if an entity is changing its domains.
+     *
+     * @param entityUrn the entity URN
+     * @return true if entity has new domains being proposed
+     */
+    public boolean isChangingDomains(@Nonnull Urn entityUrn) {
+      return entitiesWithNewDomains.containsKey(entityUrn);
+    }
+
+    /**
+     * Get all entity URNs that are changing domains.
+     *
+     * @return Set of entity URNs with domain changes
+     */
+    @Nonnull
+    public Set<Urn> getEntitiesChangingDomains() {
+      return entitiesWithNewDomains.keySet();
+    }
+
+    /**
+     * Convert to the legacy format (single map) for backward compatibility. Returns a map where
+     * values have mixed semantics (new or existing domains).
+     *
+     * @deprecated Use the structured fields instead for clarity
+     * @return Combined map of entity URN to domains
+     */
+    @Deprecated
+    @Nonnull
+    public Map<Urn, Set<Urn>> toLegacyFormat() {
+      Map<Urn, Set<Urn>> combined = new HashMap<>(entitiesWithExistingDomains);
+      combined.putAll(entitiesWithNewDomains); // New domains override existing
+      return combined;
+    }
   }
 
   /**
@@ -65,6 +152,47 @@ public class DomainExtractionUtils {
     } catch (Exception e) {
       log.warn(
           "Error parsing domains from MCP for entity {}: {}", mcp.getEntityUrn(), e.getMessage());
+    }
+    return Collections.emptySet();
+  }
+
+  /**
+   * Extract domains from a RestLI Entity object's snapshot. The Entity format is used by RestLI
+   * APIs and contains a snapshot with aspects.
+   *
+   * @param entity The Entity object containing the snapshot with aspects
+   * @return Set of domain URNs found in the entity, or empty set if none found
+   */
+  @Nonnull
+  public static Set<Urn> extractDomainsFromEntity(@Nonnull Entity entity) {
+    try {
+      // Get the snapshot from the entity
+      Snapshot snapshot = entity.getValue();
+      if (snapshot == null) {
+        return Collections.emptySet();
+      }
+
+      // Convert snapshot union to concrete snapshot record
+      RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshot);
+
+      // Extract all aspects from the snapshot using NewModelUtils
+      List<Pair<String, RecordTemplate>> aspects =
+          NewModelUtils.getAspectsFromSnapshot(snapshotRecord);
+
+      // Find Domains aspect
+      for (Pair<String, RecordTemplate> aspectPair : aspects) {
+        if (DOMAINS_ASPECT_NAME.equals(aspectPair.getFirst())) {
+          RecordTemplate aspectRecord = aspectPair.getSecond();
+          if (aspectRecord instanceof Domains) {
+            Domains domains = (Domains) aspectRecord;
+            if (domains.getDomains() != null && !domains.getDomains().isEmpty()) {
+              return new HashSet<>(domains.getDomains());
+            }
+          }
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Error extracting domains from Entity: {}", e.getMessage());
     }
     return Collections.emptySet();
   }
@@ -129,97 +257,81 @@ public class DomainExtractionUtils {
   }
 
   /**
-   * Get the domain URNs for an entity from its existing Domains aspect.
+   * Extract NEW domain URNs from MetadataChangeProposals that are changing the Domains aspect.
    *
-   * @param opContext Operation context
-   * @param entityService Entity service for domain lookups
-   * @param entityUrn The entity URN to get domains for
-   * @return Set of domain URNs for the entity, or empty set if none found
+   * <p>This method only returns domains for entities where the Domains aspect is being modified in
+   * the provided MCPs. It extracts the NEW/proposed domains from the MCP itself, not from the
+   * database.
+   *
+   * <p>Special entities like dataHubExecutionRequest are excluded from domain-based authorization.
+   *
+   * @param mcps MetadataChangeProposals to process
+   * @return Map of entity URN to set of NEW domain URNs being proposed. Only contains entries for
+   *     entities that are changing their domains aspect.
    */
   @Nonnull
-  public static Set<Urn> getEntityDomains(
-      @Nonnull OperationContext opContext,
-      @Nonnull EntityService<?> entityService,
-      @Nonnull Urn entityUrn) {
-    try {
-      if (!entityService.exists(opContext, entityUrn, true)) {
-        return Collections.emptySet();
+  public static Map<Urn, Set<Urn>> extractNewDomainsFromMCPs(
+      @Nonnull Collection<MetadataChangeProposal> mcps) {
+
+    Map<Urn, Set<Urn>> newDomainsByEntity = new HashMap<>();
+
+    // Find MCPs that are changing the Domains aspect
+    for (MetadataChangeProposal mcp : mcps) {
+      Urn entityUrn = mcp.getEntityUrn();
+
+      // Skip if no URN or system entity
+      if (entityUrn == null || EXECUTION_REQUEST_ENTITY_NAME.equals(entityUrn.getEntityType())) {
+        continue;
       }
 
-      EnvelopedAspect envelopedAspect =
-          entityService.getLatestEnvelopedAspect(
-              opContext, entityUrn.getEntityType(), entityUrn, DOMAINS_ASPECT_NAME);
-
-      if (envelopedAspect != null) {
-        Domains domains =
-            RecordUtils.toRecordTemplate(Domains.class, envelopedAspect.getValue().data());
-        if (domains.getDomains() != null && !domains.getDomains().isEmpty()) {
-          return new HashSet<>(domains.getDomains());
+      // Only process Domains aspect changes
+      if (DOMAINS_ASPECT_NAME.equals(mcp.getAspectName())) {
+        Set<Urn> newDomains = extractDomainsFromMCP(mcp);
+        if (!newDomains.isEmpty()) {
+          newDomainsByEntity.put(entityUrn, newDomains);
         }
       }
-    } catch (Exception e) {
-      log.warn("Error retrieving domains for entity {}: {}", entityUrn, e.getMessage());
     }
-    return Collections.emptySet();
+
+    return newDomainsByEntity;
   }
 
   /**
-   * Extract domain URNs from a collection of MetadataChangeProposals for authorization. This
-   * combines: 1. Existing domains from entities already in the system 2. New domains being set in
-   * the current MCPs (from Domains aspect)
+   * Extract NEW domain URNs from Entity objects (RestLI format) that contain Domains aspects.
    *
-   * <p>Special entities like dataHubExecutionRequest are excluded from domain-based authorization
-   * as they are system entities that should not be subject to domain restrictions.
+   * <p>This method extracts domains from the incoming Entity snapshots. It returns domains for ALL
+   * entities that have the Domains aspect in their snapshot, regardless of whether they're changing
+   * or not (since we can't tell from the Entity object alone).
    *
-   * <p>This is the central method for domain extraction used by REST resources when domain-based
-   * authorization is enabled.
+   * <p>Special entities like dataHubExecutionRequest are excluded from domain-based authorization.
    *
-   * @param opContext Operation context
-   * @param entityService Entity service for domain lookups
-   * @param mcps MetadataChangeProposals to process
-   * @return Map of entity URN to set of domain URNs (only entities with domains are included)
+   * @param entities List of Entity objects with their URNs
+   * @return Map of entity URN to set of domain URNs found in the entities. Only contains entries
+   *     for entities that have domains in their snapshot.
    */
   @Nonnull
-  public static Map<Urn, Set<Urn>> extractEntityDomainsForAuthorization(
-      @Nonnull OperationContext opContext,
-      @Nonnull EntityService<?> entityService,
-      @Nonnull Collection<MetadataChangeProposal> mcps) {
+  public static Map<Urn, Set<Urn>> extractNewDomainsFromEntities(
+      @Nonnull List<Pair<Urn, Entity>> entities) {
 
-    Map<Urn, Set<Urn>> entityDomains = new HashMap<>();
+    Map<Urn, Set<Urn>> newDomainsByEntity = new HashMap<>();
 
-    // Collect unique entity URNs from MCPs, excluding special system entities
-    // that should not be subject to domain-based authorization
-    Set<Urn> entityUrns =
-        mcps.stream()
-            .map(MetadataChangeProposal::getEntityUrn)
-            .filter(Objects::nonNull)
-            .filter(urn -> !EXECUTION_REQUEST_ENTITY_NAME.equals(urn.getEntityType()))
-            .collect(Collectors.toSet());
+    for (Pair<Urn, Entity> pair : entities) {
+      Urn entityUrn = pair.getFirst();
+      Entity entity = pair.getSecond();
 
-    // Get existing domains from entities already in the system
-    for (Urn entityUrn : entityUrns) {
-      Set<Urn> domains = getEntityDomains(opContext, entityService, entityUrn);
-      if (!domains.isEmpty()) {
-        entityDomains.put(entityUrn, new HashSet<>(domains));
+      // Skip system entities
+      if (EXECUTION_REQUEST_ENTITY_NAME.equals(entityUrn.getEntityType())) {
+        continue;
+      }
+
+      // Extract domains from incoming Entity
+      Set<Urn> proposedDomains = extractDomainsFromEntity(entity);
+      if (!proposedDomains.isEmpty()) {
+        newDomainsByEntity.put(entityUrn, proposedDomains);
       }
     }
 
-    // Extract domains from MCPs with Domains aspect (new domains being set)
-    for (MetadataChangeProposal mcp : mcps) {
-      if (mcp.getEntityUrn() != null
-          && DOMAINS_ASPECT_NAME.equals(mcp.getAspectName())
-          && mcp.getAspect() != null) {
-
-        Set<Urn> mcpDomains = extractDomainsFromMCP(mcp);
-        if (!mcpDomains.isEmpty()) {
-          entityDomains
-              .computeIfAbsent(mcp.getEntityUrn(), k -> new HashSet<>())
-              .addAll(mcpDomains);
-        }
-      }
-    }
-
-    return entityDomains;
+    return newDomainsByEntity;
   }
 
   /**

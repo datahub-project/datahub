@@ -1,6 +1,5 @@
 package io.datahubproject.openapi.controller;
 
-import static com.datahub.authorization.AuthUtil.isAPIAuthorizedMCPsWithDomains;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.TIMESTAMP_MILLIS;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
@@ -15,6 +14,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
+import com.datahub.authorization.DomainAuthorizationHelper;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -511,7 +511,30 @@ public abstract class GenericEntitiesController<
             authorizationChain,
             authentication,
             true);
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
+
+    // Extract domains for authorization when domain-based auth is enabled
+    com.datahub.authorization.EntitySpec resourceSpec =
+        new com.datahub.authorization.EntitySpec(urn.getEntityType(), urn.toString());
+    if (configurationProvider.getFeatureFlags() != null
+        && configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      Domains domainsAspect =
+          (Domains) entityService.getLatestAspect(opContext, urn, DOMAINS_ASPECT_NAME);
+      if (domainsAspect != null
+          && domainsAspect.hasDomains()
+          && !domainsAspect.getDomains().isEmpty()) {
+        // Enrich EntitySpec with domains aspect for domain-based authorization
+        Map<String, com.linkedin.data.template.RecordTemplate> aspectMap = new HashMap<>();
+        aspectMap.put(DOMAINS_ASPECT_NAME, domainsAspect);
+        resourceSpec =
+            new com.datahub.authorization.EntitySpec(
+                urn.getEntityType(), urn.toString(), aspectMap);
+      }
+    }
+
+    // Authorization check using enriched EntitySpec with domain-based policies
+    com.datahub.authorization.DisjunctivePrivilegeGroup privilegeGroup =
+        AuthUtil.buildDisjunctivePrivilegeGroup(ENTITY, DELETE, urn.getEntityType());
+    if (!AuthUtil.isAuthorized(opContext, privilegeGroup, resourceSpec, Collections.emptyList())) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
@@ -573,16 +596,16 @@ public abstract class GenericEntitiesController<
     // Perform authorization at API layer for all MCPs (both sync and async modes)
     // This is critical for async mode where transactions run under system account
     if (!mcps.isEmpty()) {
-      // Extract domains when domain-based authorization is enabled
-      Map<Urn, Set<Urn>> domainsByEntity =
+      // Extract NEW domains when domain-based authorization is enabled
+      Map<Urn, Set<Urn>> newDomainsByEntity =
           configurationProvider.getFeatureFlags() != null
                   && configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()
-              ? DomainExtractionUtils.extractEntityDomainsForAuthorization(
-                  opContext, entityService, mcps)
+              ? DomainExtractionUtils.extractNewDomainsFromMCPs(mcps)
               : null;
 
       Map<MetadataChangeProposal, Boolean> authResults =
-          isAPIAuthorizedMCPsWithDomains(opContext, ENTITY, entityRegistry, mcps, domainsByEntity);
+          DomainAuthorizationHelper.authorizeWithDomains(
+              opContext, entityRegistry, mcps, newDomainsByEntity, opContext.getAspectRetriever());
 
       // Check for authorization failures
       List<MetadataChangeProposal> failures =
@@ -636,9 +659,29 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    // Perform authorization at API layer BEFORE any deletions
-    // Standard auth will fetch entity domains during policy evaluation
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
+    // Extract domains for authorization when domain-based auth is enabled
+    com.datahub.authorization.EntitySpec resourceSpec =
+        new com.datahub.authorization.EntitySpec(urn.getEntityType(), urn.toString());
+    if (configurationProvider.getFeatureFlags() != null
+        && configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      Domains domainsAspect =
+          (Domains) entityService.getLatestAspect(opContext, urn, DOMAINS_ASPECT_NAME);
+      if (domainsAspect != null
+          && domainsAspect.hasDomains()
+          && !domainsAspect.getDomains().isEmpty()) {
+        // Enrich EntitySpec with domains aspect for domain-based authorization
+        Map<String, com.linkedin.data.template.RecordTemplate> aspectMap = new HashMap<>();
+        aspectMap.put(DOMAINS_ASPECT_NAME, domainsAspect);
+        resourceSpec =
+            new com.datahub.authorization.EntitySpec(
+                urn.getEntityType(), urn.toString(), aspectMap);
+      }
+    }
+
+    // Authorization check using enriched EntitySpec with domain-based policies
+    com.datahub.authorization.DisjunctivePrivilegeGroup privilegeGroup =
+        AuthUtil.buildDisjunctivePrivilegeGroup(ENTITY, DELETE, urn.getEntityType());
+    if (!AuthUtil.isAuthorized(opContext, privilegeGroup, resourceSpec, Collections.emptyList())) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }

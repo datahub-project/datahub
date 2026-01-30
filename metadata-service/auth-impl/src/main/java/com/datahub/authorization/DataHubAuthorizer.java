@@ -67,7 +67,6 @@ public class DataHubAuthorizer implements Authorizer {
   private EntitySpecResolver entitySpecResolver;
   private AuthorizationMode mode;
   @Getter private final OperationContext systemOpContext;
-  @Getter private final boolean domainBasedAuthorizationEnabled;
 
   public static final String ALL = "ALL";
 
@@ -77,13 +76,10 @@ public class DataHubAuthorizer implements Authorizer {
       final int delayIntervalSeconds,
       final int refreshIntervalSeconds,
       final AuthorizationMode mode,
-      final int policyFetchSize,
-      final boolean domainBasedAuthorizationEnabled) {
+      final int policyFetchSize) {
     this.systemOpContext = systemOpContext;
     this.mode = Objects.requireNonNull(mode);
-    this.domainBasedAuthorizationEnabled = domainBasedAuthorizationEnabled;
-    policyEngine =
-        new PolicyEngine(Objects.requireNonNull(entityClient), domainBasedAuthorizationEnabled);
+    policyEngine = new PolicyEngine(Objects.requireNonNull(entityClient));
     if (refreshIntervalSeconds > 0) {
       policyRefreshRunnable =
           new PolicyRefreshRunnable(

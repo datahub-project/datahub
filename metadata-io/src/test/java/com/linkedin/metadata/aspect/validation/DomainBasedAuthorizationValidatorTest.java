@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -145,6 +146,10 @@ public class DomainBasedAuthorizationValidatorTest {
     // No domains in DB
     when(mockAspectRetriever.getLatestAspectObject(eq(entityUrn), eq("domains"))).thenReturn(null);
 
+    // Mock authorization to return ALLOW for testing validator logic
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null));
+
     List<ChangeMCP> changeMCPs = Collections.singletonList(mockChangeMCP);
 
     // Execute - Note: This will call AuthUtil which may deny access
@@ -176,6 +181,10 @@ public class DomainBasedAuthorizationValidatorTest {
     urnArray.add(domainUrn);
     domainsAspect.setDomains(urnArray);
     when(mockChangeMCP.getAspect(Domains.class)).thenReturn(domainsAspect);
+
+    // Mock authorization to return ALLOW for testing validator logic
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null));
 
     List<ChangeMCP> changeMCPs = Collections.singletonList(mockChangeMCP);
 
@@ -214,6 +223,10 @@ public class DomainBasedAuthorizationValidatorTest {
     when(mockAspectRetriever.getLatestAspectObject(eq(entityUrn), eq("domains")))
         .thenReturn(dbAspect);
 
+    // Mock authorization to return ALLOW for testing validator logic
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null));
+
     List<ChangeMCP> changeMCPs = Collections.singletonList(mockChangeMCP);
 
     // Execute
@@ -242,6 +255,10 @@ public class DomainBasedAuthorizationValidatorTest {
     when(mcp2.getUrn()).thenReturn(entityUrn);
     when(mcp2.getChangeType()).thenReturn(ChangeType.UPSERT);
     when(mcp2.getAspectName()).thenReturn("datasetKey");
+
+    // Mock authorization to return ALLOW for testing validator logic
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null));
 
     List<ChangeMCP> changeMCPs = List.of(mcp1, mcp2);
 

@@ -2,9 +2,11 @@ package com.linkedin.metadata.resources.entity;
 
 import static com.datahub.authorization.AuthUtil.*;
 import static com.datahub.authorization.AuthorizerChain.isDomainBasedAuthorizationEnabled;
+import com.datahub.authorization.DomainAuthorizationHelper;
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.COUNTS;
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiGroup.LINEAGE;
 import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
@@ -23,6 +25,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -38,6 +41,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.util.Pair;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.datahub.util.RecordUtils;
@@ -80,6 +84,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -288,18 +293,34 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
             ACTION_INGEST, urn.getEntityType()), authorizer, authentication, true);
 
-    if (!isAPIAuthorizedEntityUrns(
-        opContext,
-        CREATE,
-        List.of(urn))) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to edit entity " + urn);
-    }
-
     try {
       validateTrimOrThrow(entity);
     } catch (ValidationException e) {
       throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e);
+    }
+
+    // Extract NEW domains from entity for authorization when domain-based auth is enabled
+    Map<Urn, Set<Urn>> newDomainsByEntity = null;
+    if (isDomainBasedAuthorizationEnabled(authorizer)) {
+      List<Pair<Urn, Entity>> entityList =
+          Collections.singletonList(new Pair<>(urn, entity));
+      newDomainsByEntity = DomainExtractionUtils.extractNewDomainsFromEntities(entityList);
+    }
+
+    // Authorize with domain-based authorization if enabled
+    // Create a temporary MCP for authorization purposes
+    MetadataChangeProposal tempMcp = new MetadataChangeProposal();
+    tempMcp.setEntityUrn(urn);
+    tempMcp.setEntityType(urn.getEntityType());
+    tempMcp.setChangeType(com.linkedin.events.metadata.ChangeType.UPSERT);
+
+    Map<MetadataChangeProposal, Boolean> authResults =
+        DomainAuthorizationHelper.authorizeWithDomains(
+            opContext, opContext.getEntityRegistry(), List.of(tempMcp), newDomainsByEntity, opContext.getAspectRetriever());
+
+    if (!authResults.getOrDefault(tempMcp, false)) {
+      throw new RestLiServiceException(
+          HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to edit entity " + urn);
     }
 
     SystemMetadata systemMetadata = generateSystemMetadataIfEmpty(providedSystemMetadata);
@@ -335,18 +356,44 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             getContext(), ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList())),
         authorizer, authentication, true);
 
-    if (!isAPIAuthorizedEntityUrns(
-        opContext,
-        CREATE, urns)) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr +  " is unauthorized to edit entities.");
-    }
-
     for (Entity entity : entities) {
       try {
         validateTrimOrThrow(entity);
       } catch (ValidationException e) {
         throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e);
+      }
+    }
+
+    // Extract NEW domains from all entities for authorization when domain-based auth is enabled
+    Map<Urn, Set<Urn>> newDomainsByEntity = null;
+    if (isDomainBasedAuthorizationEnabled(authorizer)) {
+      List<Pair<Urn, Entity>> entityList = new ArrayList<>();
+      for (int i = 0; i < entities.length; i++) {
+        entityList.add(new Pair<>(urns.get(i), entities[i]));
+      }
+      newDomainsByEntity = DomainExtractionUtils.extractNewDomainsFromEntities(entityList);
+    }
+
+    // Authorize with domain-based authorization if enabled
+    // Create temporary MCPs for authorization purposes
+    List<MetadataChangeProposal> tempMcps = new ArrayList<>();
+    for (Urn urn : urns) {
+      MetadataChangeProposal tempMcp = new MetadataChangeProposal();
+      tempMcp.setEntityUrn(urn);
+      tempMcp.setEntityType(urn.getEntityType());
+      tempMcp.setChangeType(com.linkedin.events.metadata.ChangeType.UPSERT);
+      tempMcps.add(tempMcp);
+    }
+
+    Map<MetadataChangeProposal, Boolean> authResults =
+        DomainAuthorizationHelper.authorizeWithDomains(
+            opContext, opContext.getEntityRegistry(), tempMcps, newDomainsByEntity, opContext.getAspectRetriever());
+
+    // Check for any unauthorized MCPs
+    for (MetadataChangeProposal mcp : tempMcps) {
+      if (!authResults.getOrDefault(mcp, false)) {
+        throw new RestLiServiceException(
+            HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to edit entity " + mcp.getEntityUrn());
       }
     }
 
@@ -873,12 +920,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                   "deleteAll", urns), authorizer, auth, true);
 
-          // Authorization check: DomainBasedAuthorizationValidator provides additional
-          // domain-based authorization inside the transaction when enabled
+          // Standard authorization - FieldResolver automatically fetches domains from database
           List<Urn> urnList = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
-          if (!isAPIAuthorizedEntityUrns(opContext, DELETE, urnList)) {
+          if (!isAPIAuthorizedEntityUrns(
+              opContext,
+              DELETE,
+              urnList)) {
             throw new RestLiServiceException(
-                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entities.");
+                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entities");
           }
 
           response.setEntitiesAffected(urns.size());
@@ -925,28 +974,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
             ACTION_DELETE, urn.getEntityType()), authorizer, auth, true);
 
-    // Extract domains for authorization when domain-based auth is enabled
-    Set<Urn> domainUrns = Collections.emptySet();
-    if (isDomainBasedAuthorizationEnabled(authorizer)) {
-      Domains domainsAspect = (Domains) entityService.getLatestAspect(opContext, urn, DOMAINS_ASPECT_NAME);
-      if (domainsAspect != null && domainsAspect.hasDomains() && !domainsAspect.getDomains().isEmpty()) {
-        domainUrns = new HashSet<>(domainsAspect.getDomains());
-      }
-    }
-
-    // Authorization check - use domain-aware auth when domains exist
-    boolean authorized;
-    if (!domainUrns.isEmpty()) {
-      authorized = isAPIAuthorizedEntityUrnsWithSubResources(opContext, DELETE, List.of(urn), domainUrns);
-    } else {
-      authorized = isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn));
-    }
-
-    if (!authorized) {
+    // Standard authorization - FieldResolver automatically fetches domains from database
+    if (!isAPIAuthorizedEntityUrns(
+        opContext,
+        DELETE,
+        List.of(urn))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity: " + urnStr);
     }
-    final Set<Urn> finalDomainUrns = domainUrns;
 
     return RestliUtils.toTask(systemOperationContext,
         () -> {
@@ -968,7 +1003,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           }
           Long numTimeseriesDocsDeleted =
               deleteTimeseriesAspects(
-                  urn, startTimeMills, endTimeMillis, timeseriesAspectsToDelete, finalDomainUrns);
+                  urn, startTimeMills, endTimeMillis, timeseriesAspectsToDelete);
           log.info("Total number of timeseries aspect docs deleted: {}", numTimeseriesDocsDeleted);
 
           response.setUrn(urnStr);
@@ -989,15 +1024,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
    * @param endTimeMillis The end time in milliseconds up to when the aspect values need to be
    *     deleted. If this is null, the deletion will go till the most recent value.
    * @param aspectsToDelete - The list of aspect names whose values need to be deleted.
-   * @param domainUrns - The domain URNs for authorization check (passed from caller to avoid race condition)
    * @return The total number of documents deleted.
    */
   private Long deleteTimeseriesAspects(
       @Nonnull Urn urn,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis,
-      @Nonnull List<String> aspectsToDelete,
-      @Nonnull Set<Urn> domainUrns) {
+      @Nonnull List<String> aspectsToDelete) {
     long totalNumberOfDocsDeleted = 0;
 
     final Authentication auth = AuthenticationContext.getAuthentication();
@@ -1054,12 +1087,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
             "deleteReferences", urn.getEntityType()), authorizer, auth, true);
 
+    // Standard authorization - FieldResolver automatically fetches domains from database
     if (!isAPIAuthorizedEntityUrns(
         opContext,
         DELETE,
         List.of(urn))) {
       throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urnStr);
+          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete references for entity: " + urnStr);
     }
 
     return RestliUtils.toTask(systemOperationContext,

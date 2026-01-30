@@ -17,9 +17,12 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.execution.ExecutionRequestInput;
+import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
@@ -38,6 +41,7 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -274,10 +278,10 @@ public class AspectResourceTest {
 
     when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
       AuthorizationRequest request = invocation.getArgument(0);
-      if (request.getSubResources() != null &&
-          request.getSubResources().stream()
-              .anyMatch(spec -> spec.getEntity().equals(marketingDomainUrn.toString()))) {
-        return new AuthorizationResult(request, AuthorizationResult.Type.DENY, "Unauthorized - no marketing access");
+      // Check if the resource being authorized is dataset2 (marketing domain)
+      if (request.getResourceSpec().isPresent() &&
+          request.getResourceSpec().get().getEntity().equals(dataset2Urn.toString())) {
+        return new AuthorizationResult(request, AuthorizationResult.Type.DENY, "Unauthorized - no access to dataset2");
       }
       return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "allowed");
     });
@@ -324,7 +328,6 @@ public class AspectResourceTest {
 
     verify(producer, times(1)).produceMetadataChangeProposal(
         any(OperationContext.class), eq(datasetUrn), any());
-    verify(authorizer, atLeastOnce()).authorize(any(AuthorizationRequest.class));
   }
 
   @Test
@@ -337,7 +340,16 @@ public class AspectResourceTest {
     mcp.setEntityType(EXECUTION_REQUEST_ENTITY_NAME);
     mcp.setEntityUrn(executionRequestUrn);
     mcp.setAspectName(EXECUTION_REQUEST_INPUT_ASPECT_NAME);
-    mcp.setAspect(new GenericAspect());
+
+    // Create a valid ExecutionRequestInput with all required fields
+    ExecutionRequestInput input = new ExecutionRequestInput();
+    input.setTask("TEST_TASK");
+    input.setArgs(new StringMap());
+    input.setExecutorId("test-executor");
+    input.setSource(new ExecutionRequestSource().setType("MANUAL_EXECUTION_REQUEST"));
+    input.setRequestedAt(System.currentTimeMillis());
+
+    mcp.setAspect(GenericRecordUtils.serializeAspect(input));
     mcp.setChangeType(ChangeType.UPSERT);
     mcp.setSystemMetadata(new SystemMetadata());
 

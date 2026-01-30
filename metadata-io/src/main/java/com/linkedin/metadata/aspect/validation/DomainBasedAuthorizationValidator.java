@@ -2,13 +2,16 @@ package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
-import com.datahub.util.RecordUtils;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.EntitySpec;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.domain.Domains;
-import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -17,9 +20,10 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.ApiOperation;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,14 +36,25 @@ import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Validator that performs domain-based authorization checks inside the transaction. This ensures
- * that domain reads from the database are consistent with the transaction state, preventing race
- * conditions where domains could change between authorization check and commit.
+ * Validator that performs domain-based authorization checks inside the transaction using simplified
+ * 3-step approach.
  *
- * <p>This validator: 1. Reads domains from incoming MCPs (lightweight parsing - outside
- * transaction) 2. Reads existing entity domains from database (inside transaction via
- * aspectRetriever) 3. Performs domain-based authorization check 4. Throws validation exception if
- * unauthorized
+ * <p>This validator:
+ *
+ * <ol>
+ *   <li>Extracts proposed domains from incoming MCPs
+ *   <li>Checks if entity exists
+ *   <li>Performs authorization (FieldResolver automatically fetches existing domains/aspects)
+ * </ol>
+ *
+ * <p>Authorization logic:
+ *
+ * <ul>
+ *   <li>Entities changing domains + existing: Check proposed domains AND existing entity
+ *   <li>Entities changing domains + new: Check proposed domains only
+ *   <li>Entities not changing domains: Standard authorization (FieldResolver fetches existing
+ *       domains)
+ * </ul>
  */
 @Setter
 @Getter
@@ -95,29 +110,32 @@ public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
                       .findFirst()
                       .orElse(ApiOperation.UPDATE);
 
-              // Extract domains from both MCPs and existing entity data
-              Set<Urn> allDomains = new HashSet<>();
-              Set<Urn> domainsFromMCPs = getDomainsFromMCPs(entityChanges);
-              Set<Urn> domainsFromDB = getEntityDomains(entityUrn, aspectRetriever);
-              allDomains.addAll(domainsFromMCPs);
-              allDomains.addAll(domainsFromDB);
+              // Extract proposed domains from MCPs (domains being set/changed)
+              Set<Urn> proposedDomains = getDomainsFromMCPs(entityChanges);
 
+              // Check if entity exists
+              boolean entityExists = false;
+              try {
+                Map<Urn, Boolean> existsMap = aspectRetriever.entityExists(Set.of(entityUrn));
+                entityExists = existsMap.getOrDefault(entityUrn, false);
+              } catch (Exception e) {
+                log.warn("Error checking existence for entity {}: {}", entityUrn, e.getMessage());
+              }
+
+              // Authorize using simplified 3-step approach
               boolean isAuthorized =
-                  AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                      session, operation, List.of(entityUrn), allDomains);
+                  isAuthorizedSimplified(
+                      session, operation, entityUrn, proposedDomains, entityExists);
 
               if (!isAuthorized) {
                 log.warn(
-                    "DomainBasedAuthorizationValidator: BLOCKED - Unauthorized to {} entity {} with domains {}",
+                    "DomainBasedAuthorizationValidator: BLOCKED - Unauthorized to {} entity {}",
                     operation,
-                    entityUrn,
-                    allDomains);
+                    entityUrn);
                 return Stream.of(
                     AspectValidationException.forAuth(
                         entityChanges.get(0),
-                        String.format(
-                            "Unauthorized to %s entity %s with domains %s",
-                            operation, entityUrn, allDomains)));
+                        String.format("Unauthorized to %s entity %s", operation, entityUrn)));
               }
 
               return Stream.empty();
@@ -146,18 +164,100 @@ public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
         .collect(Collectors.toSet());
   }
 
-  private Set<Urn> getEntityDomains(Urn entityUrn, AspectRetriever aspectRetriever) {
-    try {
-      Aspect domainsAspect = aspectRetriever.getLatestAspectObject(entityUrn, DOMAINS_ASPECT_NAME);
-      if (domainsAspect != null) {
-        Domains domains = RecordUtils.toRecordTemplate(Domains.class, domainsAspect.data());
-        if (domains.getDomains() != null) {
-          return new HashSet<>(domains.getDomains());
-        }
+  /**
+   * Simplified authorization using 3-step approach consistent with AuthUtil.
+   *
+   * <p>Authorization Logic:
+   *
+   * <ul>
+   *   <li>Entities with proposed domains + existing: Check proposed domains AND existing entity
+   *   <li>Entities with proposed domains + new: Check proposed domains only
+   *   <li>Existing entities without proposed domains: Standard authorization (FieldResolver fetches
+   *       existing domains)
+   *   <li>New entities without proposed domains: Standard authorization
+   * </ul>
+   *
+   * @param session Authorization session
+   * @param operation API operation (CREATE, UPDATE, DELETE)
+   * @param entityUrn Entity URN to authorize
+   * @param proposedDomains Proposed domain URNs from MCP (empty if not changing domains)
+   * @param entityExists Whether the entity already exists in the database
+   * @return true if authorized, false otherwise
+   */
+  private boolean isAuthorizedSimplified(
+      @Nonnull AuthorizationSession session,
+      @Nonnull ApiOperation operation,
+      @Nonnull Urn entityUrn,
+      @Nonnull Set<Urn> proposedDomains,
+      boolean entityExists) {
+
+    boolean hasProposedDomains = !proposedDomains.isEmpty();
+
+    // Case 1: Entity is changing domains AND exists - must pass BOTH checks
+    if (hasProposedDomains && entityExists) {
+      // Check 1: Authorize with proposed domains
+      boolean proposedAuth = authorizeWithDomains(session, operation, entityUrn, proposedDomains);
+      if (!proposedAuth) {
+        log.warn(
+            "User does not have permission to add entity {} to proposed domains {}",
+            entityUrn,
+            proposedDomains);
+        return false;
       }
-    } catch (Exception e) {
-      log.warn("Failed to retrieve domains for entity {}: {}", entityUrn, e.getMessage());
+
+      // Check 2: Authorize existing entity (FieldResolver fetches existing domains automatically)
+      boolean existingAuth =
+          AuthUtil.isAPIAuthorizedEntityUrns(session, operation, List.of(entityUrn));
+      if (!existingAuth) {
+        log.warn("User does not have permission to modify existing entity {}", entityUrn);
+        return false;
+      }
+
+      return true;
     }
-    return Collections.emptySet();
+
+    // Case 2: Entity is changing domains but is NEW - only check proposed domains
+    if (hasProposedDomains) {
+      return authorizeWithDomains(session, operation, entityUrn, proposedDomains);
+    }
+
+    // Case 3 & 4: Entity not changing domains - standard authorization
+    // FieldResolver automatically fetches existing domains for existing entities
+    return AuthUtil.isAPIAuthorizedEntityUrns(session, operation, List.of(entityUrn));
+  }
+
+  /**
+   * Authorize with specific domains by creating enriched EntitySpec with proposed domains.
+   * FieldResolver will fetch other aspects (ownership, tags, etc.) automatically.
+   *
+   * @param session Authorization session
+   * @param operation API operation
+   * @param entityUrn Entity URN
+   * @param domains Domain URNs to authorize
+   * @return true if authorized, false otherwise
+   */
+  private boolean authorizeWithDomains(
+      @Nonnull AuthorizationSession session,
+      @Nonnull ApiOperation operation,
+      @Nonnull Urn entityUrn,
+      @Nonnull Set<Urn> domains) {
+
+    // Build proposed Domains aspect
+    Domains domainsAspect = new Domains();
+    domainsAspect.setDomains(new UrnArray(new ArrayList<>(domains)));
+
+    // Create enriched EntitySpec with proposed domains only
+    // FieldResolver will fetch other aspects automatically during authorization
+    Map<String, RecordTemplate> proposedAspects = new HashMap<>();
+    proposedAspects.put(DOMAINS_ASPECT_NAME, domainsAspect);
+
+    EntitySpec enrichedSpec =
+        new EntitySpec(entityUrn.getEntityType(), entityUrn.toString(), proposedAspects);
+
+    // Authorize using enriched EntitySpec
+    DisjunctivePrivilegeGroup privilegeGroup =
+        AuthUtil.buildDisjunctivePrivilegeGroup(ENTITY, operation, entityUrn.getEntityType());
+
+    return AuthUtil.isAuthorized(session, privilegeGroup, enrichedSpec, Collections.emptyList());
   }
 }

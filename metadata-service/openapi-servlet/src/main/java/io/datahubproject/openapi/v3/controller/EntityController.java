@@ -3,7 +3,6 @@ package io.datahubproject.openapi.v3.controller;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.PATCH_FIELD;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
@@ -12,6 +11,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.DomainAuthorizationHelper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -444,18 +444,16 @@ public class EntityController
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
 
-    final Map<Urn, Set<Urn>> entityDomains;
+    final Map<Urn, Set<Urn>> newDomainsByEntity;
     if (configurationProvider.getFeatureFlags() != null
         && configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
       log.info(
-          "Domain-based authorization is ENABLED for PATCH. Collecting domain information for {} proposals.",
+          "Domain-based authorization is ENABLED for PATCH. Extracting NEW domains for {} proposals.",
           mcps.size());
-      entityDomains =
-          DomainExtractionUtils.extractEntityDomainsForAuthorization(
-              opContext, entityService, mcps);
+      newDomainsByEntity = DomainExtractionUtils.extractNewDomainsFromMCPs(mcps);
 
-      // Validate all domains exist
-      Set<Urn> allDomains = DomainExtractionUtils.collectAllDomains(entityDomains);
+      // Validate all NEW domains exist
+      Set<Urn> allDomains = DomainExtractionUtils.collectAllDomains(newDomainsByEntity);
       if (!DomainExtractionUtils.validateDomainsExist(opContext, entityService, allDomains)) {
         throw new UnauthorizedException(
             "One or more domains do not exist. Cannot update entity with non-existent domain.");
@@ -464,13 +462,13 @@ public class EntityController
       log.info(
           "Domain-based authorization is DISABLED for PATCH. Using standard authorization for all {} proposals.",
           mcps.size());
-      entityDomains = null;
+      newDomainsByEntity = null;
     }
 
     // Authorize all MCPs with unified method (handles both domain-based and standard auth)
     Map<MetadataChangeProposal, Boolean> authResults =
-        AuthUtil.isAPIAuthorizedMCPsWithDomains(
-            opContext, ENTITY, entityRegistry, mcps, entityDomains);
+        DomainAuthorizationHelper.authorizeWithDomains(
+            opContext, entityRegistry, mcps, newDomainsByEntity, opContext.getAspectRetriever());
 
     // Check for authorization failures
     List<MetadataChangeProposal> failures =
@@ -583,18 +581,16 @@ public class EntityController
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
 
-    final Map<Urn, Set<Urn>> entityDomains;
+    final Map<Urn, Set<Urn>> newDomainsByEntity;
     if (configurationProvider.getFeatureFlags() != null
         && configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
       log.info(
-          "Domain-based authorization is ENABLED. Collecting domain information for {} proposals.",
+          "Domain-based authorization is ENABLED. Extracting NEW domains for {} proposals.",
           mcps.size());
-      entityDomains =
-          DomainExtractionUtils.extractEntityDomainsForAuthorization(
-              opContext, entityService, mcps);
+      newDomainsByEntity = DomainExtractionUtils.extractNewDomainsFromMCPs(mcps);
 
-      // Validate all domains exist
-      Set<Urn> allDomains = DomainExtractionUtils.collectAllDomains(entityDomains);
+      // Validate all NEW domains exist
+      Set<Urn> allDomains = DomainExtractionUtils.collectAllDomains(newDomainsByEntity);
       if (!DomainExtractionUtils.validateDomainsExist(opContext, entityService, allDomains)) {
         throw new UnauthorizedException(
             "One or more domains do not exist. Cannot create entity with non-existent domain.");
@@ -603,13 +599,13 @@ public class EntityController
       log.info(
           "Domain-based authorization is DISABLED. Using standard authorization for all {} proposals.",
           mcps.size());
-      entityDomains = null;
+      newDomainsByEntity = null;
     }
 
     // Authorize all MCPs with unified method (handles both domain-based and standard auth)
     Map<MetadataChangeProposal, Boolean> authResults =
-        AuthUtil.isAPIAuthorizedMCPsWithDomains(
-            opContext, ENTITY, entityRegistry, mcps, entityDomains);
+        DomainAuthorizationHelper.authorizeWithDomains(
+            opContext, entityRegistry, mcps, newDomainsByEntity, opContext.getAspectRetriever());
 
     // Check for authorization failures
     List<MetadataChangeProposal> failures =

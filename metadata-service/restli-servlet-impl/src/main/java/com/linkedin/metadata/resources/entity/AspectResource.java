@@ -8,7 +8,6 @@ import java.util.Set;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
-import static com.datahub.authorization.AuthUtil.isAPIAuthorizedMCPsWithDomains;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
 import static com.datahub.authorization.AuthUtil.isAPIOperationsAuthorized;
 import static com.datahub.authorization.AuthorizerChain.isDomainBasedAuthorizationEnabled;
@@ -27,6 +26,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.validateAndConvert;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.DomainAuthorizationHelper;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.RecordUtils;
 import com.linkedin.entity.EnvelopedAspect;
@@ -333,22 +333,21 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                     // Perform API-layer authorization for all MCPs (critical for async mode)
                     // In async mode, the transaction runs under system account, so we must authorize here
                     if (!mcpsToAuthorize.isEmpty()) {
-                        // Extract domains when domain-based authorization is enabled
-                        final Map<Urn, Set<Urn>> domainsByEntity;
+                        // Extract NEW domains from MCPs when domain-based authorization is enabled
+                        final Map<Urn, Set<Urn>> newDomainsByEntity;
                         if (isDomainBasedAuthorizationEnabled(_authorizer)) {
-                            log.info("Domain-based authorization is ENABLED. Extracting domains for {} proposals.",
+                            log.info("Domain-based authorization is ENABLED. Extracting NEW domains for {} proposals.",
                                 mcpsToAuthorize.size());
-                            domainsByEntity = DomainExtractionUtils.extractEntityDomainsForAuthorization(
-                                opContext, _entityService, mcpsToAuthorize);
+                            newDomainsByEntity = DomainExtractionUtils.extractNewDomainsFromMCPs(mcpsToAuthorize);
                         } else {
                             log.info("Domain-based authorization is DISABLED. Using standard authorization for {} proposals.",
                                 mcpsToAuthorize.size());
-                            domainsByEntity = null;
+                            newDomainsByEntity = null;
                         }
 
                         // Authorize all MCPs with unified method (handles both domain-based and standard auth)
-                        Map<MetadataChangeProposal, Boolean> authResults = isAPIAuthorizedMCPsWithDomains(
-                            opContext, ENTITY, opContext.getEntityRegistry(), mcpsToAuthorize, domainsByEntity);
+                        Map<MetadataChangeProposal, Boolean> authResults = DomainAuthorizationHelper.authorizeWithDomains(
+                            opContext, opContext.getEntityRegistry(), mcpsToAuthorize, newDomainsByEntity, opContext.getAspectRetriever());
 
                         // Check for authorization failures
                         List<MetadataChangeProposal> failures = authResults.entrySet().stream()

@@ -542,8 +542,7 @@ public class DataHubAuthorizerTest {
             10,
             10,
             DataHubAuthorizer.AuthorizationMode.DEFAULT,
-            1, // force pagination logic
-            false // domainBasedAuthorizationEnabled
+            1 // force pagination logic
             );
     _dataHubAuthorizer.init(
         Collections.emptyMap(), createAuthorizerContext(systemOpContext, _entityClient));

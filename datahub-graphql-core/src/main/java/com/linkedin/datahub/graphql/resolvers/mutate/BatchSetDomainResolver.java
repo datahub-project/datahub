@@ -100,7 +100,8 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
           maybeDomainUrn == null ? null : UrnUtils.getUrn(maybeDomainUrn),
           resources,
           UrnUtils.getUrn(context.getActorUrn()),
-          _entityService);
+          _entityService,
+          _featureFlags.isDomainBasedAuthorizationEnabled());
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
