@@ -1645,3 +1645,37 @@ JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers".
         dialect="dremio",
         expected_file=RESOURCE_DIR / "test_dremio_quoted_identifiers.json",
     )
+
+
+def test_clickhouse_dictget_not_treated_as_table() -> None:
+    # Test that ClickHouse DICTGET function arguments are not treated as table references.
+    # DICTGET(dict_name, attr_name, key) takes a dictionary name as the first argument,
+    # which sqlglot parses as a Table node but should not appear in lineage.
+    assert_sql_result(
+        """\
+SELECT
+    subscription_id,
+    DICTGET(default.subscriptions, 'type', subscription_id) AS subscription_type,
+    DICTGET(default.subscriptions, 'domain', subscription_id) AS subscription_domain
+FROM analytics.events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget.json",
+    )
+
+
+def test_clickhouse_dictget_with_multiple_tables() -> None:
+    # Test DICTGET with actual table joins - dictionary refs should be excluded,
+    # but real table refs should be included.
+    assert_sql_result(
+        """\
+SELECT
+    e.event_id,
+    u.user_name,
+    DICTGETORDEFAULT(default.categories, 'name', e.category_id, 'Unknown') AS category_name
+FROM analytics.events e
+JOIN analytics.users u ON e.user_id = u.id
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget_with_joins.json",
+    )

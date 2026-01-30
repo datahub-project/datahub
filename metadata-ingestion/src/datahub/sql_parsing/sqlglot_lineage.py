@@ -384,6 +384,59 @@ def _extract_table_names(
     )
 
 
+# ClickHouse dictionary functions that take a dictionary name as first argument.
+# These are NOT table references and should be excluded from lineage.
+# See: https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions
+_CLICKHOUSE_DICTIONARY_FUNCTIONS = frozenset(
+    {
+        "dictget",
+        "dictgetordefault",
+        "dictgetornull",
+        "dicthas",
+        "dictgethierarchy",
+        "dictisin",
+        "dictgetchildren",
+        "dictgetdescendant",
+        "dictgetdescendants",
+        "dictgetall",
+    }
+)
+
+
+def _is_in_clickhouse_dict_function(table: sqlglot.exp.Table) -> bool:
+    """Check if a Table node is actually a dictionary reference in a ClickHouse dict function.
+
+    ClickHouse dictionary functions like DICTGET(dict_name, attr_name, key) take a
+    dictionary name (e.g., 'default.subscriptions') as the first argument. sqlglot
+    parses this as a Table node, but it's not a real table reference for lineage.
+
+    Returns True if the table should be excluded from lineage extraction.
+    """
+    # Walk up the parent chain to find if we're inside an Anonymous function
+    parent = table.parent
+    while parent is not None:
+        if isinstance(parent, sqlglot.exp.Anonymous):
+            func_name = parent.this
+            if (
+                isinstance(func_name, str)
+                and func_name.lower() in _CLICKHOUSE_DICTIONARY_FUNCTIONS
+            ):
+                # Check if this table is the first argument (the dictionary name)
+                if parent.expressions and len(parent.expressions) > 0:
+                    first_arg = parent.expressions[0]
+                    # The table could be the first arg directly or nested inside it
+                    if first_arg is table or (
+                        hasattr(first_arg, "find")
+                        and table in list(first_arg.find_all(sqlglot.exp.Table))
+                    ):
+                        return True
+            # Even if not a known dict function, Anonymous functions with table-like
+            # first args are suspicious - but we'll be conservative and only filter known ones
+            break
+        parent = parent.parent
+    return False
+
+
 def _build_tsql_update_alias_map(
     statement: sqlglot.Expression,
 ) -> Dict[str, sqlglot.exp.Table]:
@@ -551,6 +604,8 @@ def _table_level_lineage(
                 table
                 for table in statement.find_all(sqlglot.exp.Table)
                 if not isinstance(table.parent, sqlglot.exp.Drop)
+                # ClickHouse: Filter out dictionary references in DICTGET() and similar functions
+                and not _is_in_clickhouse_dict_function(table)
             ),
             dialect,
         )
