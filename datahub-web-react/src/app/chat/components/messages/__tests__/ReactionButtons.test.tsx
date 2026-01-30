@@ -86,22 +86,6 @@ describe('ReactionButtons', () => {
         expect(onReaction).toHaveBeenCalledWith('negative');
     });
 
-    it('should be visible when reaction is set', () => {
-        const { container } = render(<ReactionButtons {...defaultProps} reaction="positive" />);
-
-        const wrapper = container.firstChild as HTMLElement;
-        expect(wrapper).toHaveStyle('opacity: 1');
-        expect(wrapper).toHaveStyle('visibility: visible');
-    });
-
-    it('should be visible when alwaysVisible is true', () => {
-        const { container } = render(<ReactionButtons {...defaultProps} alwaysVisible />);
-
-        const wrapper = container.firstChild as HTMLElement;
-        expect(wrapper).toHaveStyle('opacity: 1');
-        expect(wrapper).toHaveStyle('visibility: visible');
-    });
-
     it('should disable both buttons when a reaction is set', () => {
         render(<ReactionButtons {...defaultProps} reaction="positive" />);
 

@@ -10,7 +10,7 @@ import { SuggestedQuestions } from '@app/chat/components/SuggestedQuestions';
 import { ChatInput } from '@app/chat/components/input/ChatInput';
 import { useChatMessages } from '@app/chat/hooks/useChatMessages';
 import { MessageContext } from '@app/chat/hooks/useChatStream';
-import { ChatFeatureFlags } from '@app/chat/types';
+import { ChatFeatureFlags, ChatMessageAction } from '@app/chat/types';
 import { useGetAuthenticatedUserUrn } from '@app/useGetAuthenticatedUser';
 
 import { useCreateDataHubAiConversationMutation } from '@graphql/aiChat.generated';
@@ -28,6 +28,7 @@ const MessagesContainer = styled.div`
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    scrollbar-gutter: stable;
     padding: 16px;
     display: flex;
     flex-direction: column;
@@ -186,6 +187,13 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({
                             messageGroups={messageGroups}
                             verboseMode={featureFlags.verboseMode}
                             isStreaming={isStreaming}
+                            conversationUrn={conversationUrn || undefined}
+                            messageActions={[
+                                ChatMessageAction.Copy,
+                                ChatMessageAction.ThumbsUp,
+                                ChatMessageAction.ThumbsDown,
+                            ]}
+                            chatLocation={chatLocation}
                         />
                         <div ref={messagesEndRef} />
                     </>

@@ -48,6 +48,7 @@ const MessagesContainer = styled.div<{ $variant?: ChatVariant }>`
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    scrollbar-gutter: stable;
     display: flex;
     flex-direction: column;
     padding: ${(props) => (props.$variant === ChatVariant.Compact ? '20px 12px 20px 20px' : '0')};

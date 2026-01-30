@@ -1,39 +1,58 @@
-import { Button, Loader } from '@components';
+import { Loader, colors } from '@components';
 import { CaretDown, CaretRight } from '@phosphor-icons/react';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { ReferenceCard } from '@app/chat/components/references/ReferenceCard';
+import { StackedEntityLogos } from '@app/chat/components/references/StackedEntityLogos';
 import { extractUrnsFromMarkdown } from '@app/chat/utils/extractUrnsFromMarkdown';
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
 
 import { Entity } from '@types';
 
-// Shared style object for References button (avoids recreating on every render)
-const REFERENCES_BUTTON_STYLE = {
-    minWidth: 'auto',
-    fontSize: '14px',
-    fontWeight: 500,
-    gap: '8px',
-    paddingLeft: 0,
-    paddingRight: 0,
-};
+const ReferencesLabel = styled.span`
+    font-size: 14px;
+    font-weight: 500;
+    color: ${colors.gray[1700]};
+`;
+
+const CaretIcon = styled.span`
+    display: flex;
+    align-items: center;
+    color: ${colors.gray[1800]};
+`;
 
 const Container = styled.div`
     width: 100%;
 `;
 
-const Header = styled.div`
+const HeaderRow = styled.div<{ $hasSources: boolean }>`
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: flex-start;
+    gap: 2px;
+    width: 100%;
+    min-height: 32px;
+`;
+
+const SourcesToggle = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
     cursor: pointer;
-    padding: 4px 0;
+    padding: 4px 8px;
+    border-radius: 4px;
     user-select: none;
 
     &:hover {
-        opacity: 0.8;
+        background-color: ${colors.gray[1500]};
     }
+`;
+
+const RightContent = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 2px;
 `;
 
 const ReferencesList = styled.div`
@@ -55,24 +74,27 @@ interface Props {
     messageText: string;
     selectedEntityUrn?: string;
     onEntitySelect: (entity: Entity | null) => void;
+    /** Optional content to render on the right side of the header (e.g., reaction buttons) */
+    rightContent?: React.ReactNode;
 }
 
-export const MessageReferences: React.FC<Props> = ({ messageText, selectedEntityUrn, onEntitySelect }) => {
+export const MessageReferences: React.FC<Props> = ({
+    messageText,
+    selectedEntityUrn,
+    onEntitySelect,
+    rightContent,
+}) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
     // Extract URNs from markdown links
-    const urns = useMemo(() => {
-        const extracted = extractUrnsFromMarkdown(messageText);
-        return extracted;
-    }, [messageText]);
+    const urns = useMemo(() => extractUrnsFromMarkdown(messageText), [messageText]);
 
     // Fetch entities
     const { entities, loading } = useGetEntities(urns);
 
-    // Don't render if no URNs found
-    if (urns.length === 0) {
-        return null;
-    }
+    // Show Sources when loading (URNs exist) or when entities are loaded
+    // Hide if loading finishes but no valid entities were found
+    const hasSources = urns.length > 0 && (loading || entities.length > 0);
 
     const handleToggle = () => {
         setIsExpanded(!isExpanded);
@@ -87,16 +109,35 @@ export const MessageReferences: React.FC<Props> = ({ messageText, selectedEntity
         }
     };
 
+    // If no sources and no right content, don't render anything
+    if (!hasSources && !rightContent) {
+        return null;
+    }
+
     return (
         <Container>
-            <Header onClick={handleToggle}>
-                <Button variant="text" color="gray" size="sm" style={REFERENCES_BUTTON_STYLE}>
-                    References ({entities.length})
-                    {isExpanded ? <CaretDown size={16} weight="bold" /> : <CaretRight size={16} weight="bold" />}
-                </Button>
-            </Header>
+            <HeaderRow $hasSources={hasSources}>
+                {rightContent && <RightContent>{rightContent}</RightContent>}
+                {hasSources && (
+                    <SourcesToggle onClick={handleToggle}>
+                        <ReferencesLabel>Sources</ReferencesLabel>
+                        {loading ? (
+                            <Loader size="xs" />
+                        ) : (
+                            entities.length > 0 && <StackedEntityLogos entities={entities} />
+                        )}
+                        <CaretIcon>
+                            {isExpanded ? (
+                                <CaretDown size={14} weight="bold" />
+                            ) : (
+                                <CaretRight size={14} weight="bold" />
+                            )}
+                        </CaretIcon>
+                    </SourcesToggle>
+                )}
+            </HeaderRow>
 
-            {isExpanded && (
+            {hasSources && isExpanded && (
                 <>
                     {loading && (
                         <LoadingContainer>

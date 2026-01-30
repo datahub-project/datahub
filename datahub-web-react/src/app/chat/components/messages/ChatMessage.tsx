@@ -38,23 +38,6 @@ const MessageContainer = styled.div<{ isUser: boolean }>`
     max-width: 100%;
 `;
 
-const CopyButtonWrapper = styled.div`
-    opacity: 0;
-    visibility: hidden;
-    transition:
-        opacity 0.2s ease,
-        visibility 0.2s ease;
-    margin-left: auto;
-`;
-
-const ReactionButtonsWrapper = styled.div<{ $hasReaction?: boolean }>`
-    opacity: ${(props) => (props.$hasReaction ? 1 : 0)};
-    visibility: ${(props) => (props.$hasReaction ? 'visible' : 'hidden')};
-    transition:
-        opacity 0.2s ease,
-        visibility 0.2s ease;
-`;
-
 const MessageContent = styled.div<{ isUser: boolean; $variant?: ChatVariant }>`
     max-width: ${(props) => {
         if (!props.isUser) return '100%';
@@ -66,11 +49,6 @@ const MessageContent = styled.div<{ isUser: boolean; $variant?: ChatVariant }>`
     width: ${(props) => (props.isUser ? 'auto' : '100%')};
     min-width: 0; /* Allow flex item to shrink below content size */
     box-sizing: border-box;
-
-    &:hover ${CopyButtonWrapper}, &:hover ${ReactionButtonsWrapper} {
-        opacity: 1;
-        visibility: visible;
-    }
 `;
 
 const MessageBubble = styled.div<{ isUser: boolean; $variant?: ChatVariant }>`
@@ -93,28 +71,22 @@ const ActionsContainer = styled.div`
     align-items: center;
     gap: 8px;
     width: 100%;
-    margin-top: 8px;
+    margin-top: 4px;
+    min-height: 32px;
 `;
 
-// Compact mode: wrapper with hover-to-show action buttons
+// Compact mode: wrapper for action buttons
 const CompactMessageWrapper = styled.div`
     width: 100%;
-
-    &:hover .compact-action-buttons {
-        opacity: 1;
-        visibility: visible;
-    }
 `;
 
 const CompactActionButtonsContainer = styled.div`
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    opacity: 0;
-    visibility: hidden;
-    transition:
-        opacity 0.2s ease,
-        visibility 0.2s ease;
+    justify-content: flex-start;
+    gap: 2px;
+    margin-top: 4px;
+    min-height: 32px;
 `;
 
 interface MessageRendererProps {
@@ -316,6 +288,48 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
         }
     };
 
+    // Reusable action button elements to avoid duplication
+    const reactionButtons = canShowReactions && (
+        <ReactionButtons
+            reaction={reaction}
+            showThumbsUp={canShowThumbsUp}
+            showThumbsDown={canShowThumbsDown}
+            onReaction={handleReaction}
+        />
+    );
+
+    const copyButton = canShowCopy && (
+        <Tooltip title={copied ? 'Copied!' : 'Copy'} placement="top">
+            <Button
+                variant="text"
+                size="md"
+                color="gray"
+                onClick={handleCopy}
+                aria-label={copied ? 'Copied' : 'Copy message'}
+                icon={{
+                    icon: copied ? 'Check' : 'Copy',
+                    source: 'phosphor',
+                    size: 'lg',
+                }}
+                style={{ padding: '4px', minWidth: 'auto' }}
+            />
+        </Tooltip>
+    );
+
+    const openInChatButton = canShowOpenInChat && (
+        <Tooltip title="Open in Chat" placement="top">
+            <Button
+                variant="text"
+                size="md"
+                color="gray"
+                onClick={handleOpenInChat}
+                aria-label="Open in chat"
+                icon={{ icon: 'ArrowUpRight', source: 'phosphor', size: 'lg' }}
+                style={{ padding: '4px', minWidth: 'auto' }}
+            />
+        </Tooltip>
+    );
+
     const shouldShowFullActions =
         variant === ChatVariant.Full && (canShowReferences || canShowCopy || canShowReactions);
     const shouldShowCompactActions =
@@ -329,41 +343,23 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
                 </MessageBubble>
                 {shouldShowFullActions && (
                     <ActionsContainer>
-                        {canShowReferences && (
+                        {canShowReferences ? (
                             <MessageReferences
                                 messageText={message.content.text}
                                 selectedEntityUrn={selectedEntityUrn}
                                 onEntitySelect={onEntitySelect}
+                                rightContent={
+                                    <>
+                                        {reactionButtons}
+                                        {copyButton}
+                                    </>
+                                }
                             />
-                        )}
-                        {canShowReactions && (
-                            <ReactionButtonsWrapper $hasReaction={reaction !== null}>
-                                <ReactionButtons
-                                    reaction={reaction}
-                                    showThumbsUp={canShowThumbsUp}
-                                    showThumbsDown={canShowThumbsDown}
-                                    onReaction={handleReaction}
-                                    alwaysVisible
-                                />
-                            </ReactionButtonsWrapper>
-                        )}
-                        {canShowCopy && (
-                            <CopyButtonWrapper>
-                                <Tooltip title={copied ? 'Copied!' : 'Copy'} placement="top">
-                                    <Button
-                                        variant="text"
-                                        size="md"
-                                        color="gray"
-                                        onClick={handleCopy}
-                                        icon={{
-                                            icon: copied ? 'Check' : 'Copy',
-                                            source: 'phosphor',
-                                            size: 'md',
-                                        }}
-                                        style={{ padding: '4px 8px', minWidth: 'auto' }}
-                                    />
-                                </Tooltip>
-                            </CopyButtonWrapper>
+                        ) : (
+                            <>
+                                {reactionButtons}
+                                {copyButton}
+                            </>
                         )}
                     </ActionsContainer>
                 )}
@@ -382,43 +378,9 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
                 <CompactMessageWrapper>
                     {messageElement}
                     <CompactActionButtonsContainer className="compact-action-buttons">
-                        {canShowReactions && (
-                            <ReactionButtons
-                                reaction={reaction}
-                                showThumbsUp={canShowThumbsUp}
-                                showThumbsDown={canShowThumbsDown}
-                                onReaction={handleReaction}
-                                alwaysVisible
-                            />
-                        )}
-                        {canShowCopy && (
-                            <Tooltip title={copied ? 'Copied!' : 'Copy'} placement="top">
-                                <Button
-                                    variant="text"
-                                    size="md"
-                                    color="gray"
-                                    onClick={handleCopy}
-                                    icon={{
-                                        icon: copied ? 'Check' : 'Copy',
-                                        source: 'phosphor',
-                                        size: 'md',
-                                    }}
-                                    style={{ padding: '4px 8px', minWidth: 'auto' }}
-                                />
-                            </Tooltip>
-                        )}
-                        {canShowOpenInChat && (
-                            <Tooltip title="Open in Chat" placement="top">
-                                <Button
-                                    variant="text"
-                                    size="md"
-                                    color="gray"
-                                    onClick={handleOpenInChat}
-                                    icon={{ icon: 'ArrowUpRight', source: 'phosphor', size: 'md' }}
-                                    style={{ padding: '4px 8px', minWidth: 'auto' }}
-                                />
-                            </Tooltip>
-                        )}
+                        {reactionButtons}
+                        {copyButton}
+                        {openInChatButton}
                     </CompactActionButtonsContainer>
                 </CompactMessageWrapper>
                 {showFeedbackModal && (

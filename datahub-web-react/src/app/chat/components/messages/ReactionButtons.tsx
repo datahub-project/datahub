@@ -1,23 +1,8 @@
 import { Button, colors } from '@components';
 import React from 'react';
-import styled from 'styled-components';
 
 import { ChatMessageReactionType } from '@app/analytics';
 import { useIsAiChatFeedbackEnabled } from '@app/useAppConfig';
-
-const Container = styled.div<{ $alwaysVisible?: boolean }>`
-    display: flex;
-    gap: 4px;
-    ${(props) =>
-        !props.$alwaysVisible &&
-        `
-        opacity: 0;
-        visibility: hidden;
-        transition:
-            opacity 0.2s ease,
-            visibility 0.2s ease;
-    `}
-`;
 
 export interface ReactionButtonsProps {
     /** Current reaction state */
@@ -28,28 +13,21 @@ export interface ReactionButtonsProps {
     showThumbsDown?: boolean;
     /** Callback when a reaction is selected */
     onReaction: (reaction: ChatMessageReactionType) => void;
-    /** Whether buttons should always be visible (vs hover-to-show) */
-    alwaysVisible?: boolean;
-    /** Additional className for styling */
-    className?: string;
 }
 
 /**
  * Reusable component for thumbs up/down reaction buttons.
  * Handles visual state (highlighting selected reaction) and callbacks.
+ * Returns buttons directly without a wrapper - parent container controls layout.
  */
 export const ReactionButtons: React.FC<ReactionButtonsProps> = ({
     reaction,
     showThumbsUp = true,
     showThumbsDown = true,
     onReaction,
-    alwaysVisible = false,
-    className,
 }) => {
     const isFeedbackEnabled = useIsAiChatFeedbackEnabled();
 
-    // If reaction is set, force visibility
-    const isVisible = alwaysVisible || reaction !== null;
     // Disable buttons after a reaction has been provided
     const isDisabled = reaction !== null;
 
@@ -62,11 +40,7 @@ export const ReactionButtons: React.FC<ReactionButtonsProps> = ({
     const isNegativeSelected = reaction === 'negative';
 
     return (
-        <Container
-            $alwaysVisible={isVisible}
-            className={className}
-            style={isVisible ? { opacity: 1, visibility: 'visible' } : undefined}
-        >
+        <>
             {showThumbsUp && (
                 <Button
                     variant="text"
@@ -74,14 +48,16 @@ export const ReactionButtons: React.FC<ReactionButtonsProps> = ({
                     color="gray"
                     onClick={() => onReaction('positive')}
                     disabled={isDisabled}
+                    aria-label="Helpful response"
+                    aria-pressed={isPositiveSelected}
                     icon={{
                         icon: 'ThumbsUp',
                         source: 'phosphor',
-                        size: 'md',
+                        size: 'lg',
                         weight: isPositiveSelected ? 'fill' : undefined,
                     }}
                     style={{
-                        padding: '4px 8px',
+                        padding: '4px',
                         minWidth: 'auto',
                         color: isPositiveSelected ? colors.primary[500] : undefined,
                     }}
@@ -95,20 +71,22 @@ export const ReactionButtons: React.FC<ReactionButtonsProps> = ({
                     color="gray"
                     onClick={() => onReaction('negative')}
                     disabled={isDisabled}
+                    aria-label="Unhelpful response"
+                    aria-pressed={isNegativeSelected}
                     icon={{
                         icon: 'ThumbsDown',
                         source: 'phosphor',
-                        size: 'md',
+                        size: 'lg',
                         weight: isNegativeSelected ? 'fill' : undefined,
                     }}
                     style={{
-                        padding: '4px 8px',
+                        padding: '4px',
                         minWidth: 'auto',
                         color: isNegativeSelected ? colors.primary[500] : undefined,
                     }}
                     data-testid="reaction-thumbs-down"
                 />
             )}
-        </Container>
+        </>
     );
 };
