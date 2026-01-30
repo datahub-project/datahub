@@ -21,10 +21,9 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
-    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_domain_to_entity_wu
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu, add_tags_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -59,7 +58,6 @@ from datahub.metadata.schema_classes import (
     BytesTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
-    GlobalTagsClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
@@ -68,7 +66,6 @@ from datahub.metadata.schema_classes import (
     SchemalessClass,
     SchemaMetadataClass,
     StringTypeClass,
-    TagAssociationClass,
     UnionTypeClass,
 )
 from datahub.utilities.lossy_collections import LossyList
@@ -635,28 +632,19 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 table_arn=table_arn,
             )
 
-            # Build tag associations from AWS tags
-            tag_associations: List[TagAssociationClass] = []
-            for tag_dict in aws_tags_kv:
-                key = tag_dict.get("Key")
-                if not key:
-                    self.report.report_warning(
-                        title="DynamoDB Tags",
-                        message="Skipping tag entry without 'Key' field.",
-                        context=f"dataset_urn: {dataset_urn}, tag_entry: {tag_dict}",
-                    )
-                    continue
+            tags = [
+                f"{tag_dict['Key']}:{tag_dict['Value']}"
+                if tag_dict.get("Value")
+                else f"{tag_dict['Key']}"
+                for tag_dict in aws_tags_kv
+            ]
 
-                val = tag_dict.get("Value")
-                tag = f"{key}:{val}" if val else key
-                tag_associations.append(TagAssociationClass(tag=make_tag_urn(tag)))
-
-            # Emit tags as a work unit
-            if tag_associations:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=GlobalTagsClass(tags=tag_associations),
-                ).as_workunit()
+            # Emit tags as a work unit (even if empty to remove existing tags)
+            yield from add_tags_to_entity_wu(
+                entity_type="dataset",
+                entity_urn=dataset_urn,
+                tags=tags,
+            )
 
         except Exception as e:
             self.report.report_warning(

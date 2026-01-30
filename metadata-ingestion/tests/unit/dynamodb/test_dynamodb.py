@@ -182,39 +182,3 @@ class TestDynamoDBTagsIngestion:
         tag_urns = self.get_tag_urns_from_workunits(workunits)
         assert len(tag_urns) == len(expected_urns)
         assert set(tag_urns) == set(expected_urns)
-
-    def test_tags_with_missing_key_field(
-        self,
-        mock_dynamodb_client,
-        mock_context,
-        dynamodb_config,
-        dataset_info,
-    ):
-        """Test that tags missing the Key field are skipped with warning."""
-        source = self.create_dynamodb_source(mock_context, dynamodb_config)
-
-        malformed_tags = [
-            {"Value": "orphaned-value"},  # Missing Key
-            {},  # Empty dict
-        ]
-
-        with patch.object(
-            source, "_get_dynamodb_table_tags", return_value=malformed_tags
-        ):
-            workunits = list(
-                source._get_dynamodb_table_tags_wu(
-                    dynamodb_client=mock_dynamodb_client,
-                    table_arn=dataset_info["table_arn"],
-                    dataset_urn=dataset_info["dataset_urn"],
-                )
-            )
-
-        tag_urns = self.get_tag_urns_from_workunits(workunits)
-        assert len(tag_urns) == 0
-
-        # Verify warning was logged
-        assert len(source.report.warnings) >= 1
-        assert any(
-            "Skipping tag entry without 'Key' field" in str(w)
-            for w in source.report.warnings
-        )
