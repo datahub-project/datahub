@@ -239,85 +239,6 @@ jobs:
 
           echo "Built multi-platform image"
 
-      # --- Security Scanning ---
-      - name: Pull image for scanning
-        if: ${{ inputs.push_ecr || inputs.push_cloudsmith }}
-        env:
-          PUSH_ECR: ${{ inputs.push_ecr }}
-          PUSH_CLOUDSMITH: ${{ inputs.push_cloudsmith }}
-        run: |
-          # Determine which registry to pull from for scanning (prefer Cloudsmith, fallback to ECR)
-          if [ "$PUSH_CLOUDSMITH" = "true" ]; then
-            SCAN_IMAGE="docker.cloudsmith.io/${CLOUDSMITH_ORG}/${CLOUDSMITH_REPO}/${IMAGE_NAME}:${TAG}${TAG_SUFFIX}"
-          elif [ "$PUSH_ECR" = "true" ]; then
-            SCAN_IMAGE="${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}${TAG_SUFFIX}"
-          fi
-          echo "SCAN_IMAGE=$SCAN_IMAGE" >> "$GITHUB_ENV"
-          echo "Pulling image for scanning: $SCAN_IMAGE"
-          docker pull "$SCAN_IMAGE"
-
-      - name: Run Grype vulnerability scanner
-        if: ${{ inputs.push_ecr || inputs.push_cloudsmith }}
-        uses: anchore/scan-action@v6
-        with:
-          image: ${{ env.SCAN_IMAGE }}
-          fail-build: false
-          output-format: json
-          output-file: grype-results-${{ matrix.name }}.json
-          severity-cutoff: high
-
-      - name: Generate vulnerability summary
-        if: ${{ inputs.push_ecr || inputs.push_cloudsmith }}
-        run: |
-          GRYPE_FILE="grype-results-${{ matrix.name }}.json"
-
-          # Count vulnerabilities by severity
-          echo "### Vulnerability Summary ($VARIANT_NAME)" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Severity | Count |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
-
-          for sev in Critical High Medium Low Negligible Unknown; do
-            COUNT=$(jq -r "[.matches[] | select(.vulnerability.severity == \"$sev\")] | length" "$GRYPE_FILE")
-            if [ "$COUNT" -gt 0 ]; then
-              echo "| **$sev** | $COUNT |" >> "$GITHUB_STEP_SUMMARY"
-            fi
-          done
-
-          TOTAL=$(jq -r '.matches | length' "$GRYPE_FILE")
-          echo "| **Total** | $TOTAL |" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-
-          # List all CVEs and GHSAs
-          echo "<details>" >> "$GITHUB_STEP_SUMMARY"
-          echo "<summary>📋 All Vulnerabilities (CVEs/GHSAs)</summary>" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| ID | Severity | Package | Fixed In |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|-----|----------|---------|----------|" >> "$GITHUB_STEP_SUMMARY"
-
-          jq -r '.matches[] | "| \(.vulnerability.id) | \(.vulnerability.severity) | \(.artifact.name)@\(.artifact.version) | \(.vulnerability.fix.versions[0] // "N/A") |"' "$GRYPE_FILE" \
-            | sort -t'|' -k3,3 \
-            >> "$GITHUB_STEP_SUMMARY"
-
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "</details>" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Generate SBOM with Syft (CycloneDX)
-        if: ${{ inputs.push_ecr || inputs.push_cloudsmith }}
-        uses: anchore/sbom-action@v0
-        with:
-          image: ${{ env.SCAN_IMAGE }}
-          format: cyclonedx-json
-          output-file: sbom-${{ matrix.name }}.cdx.json
-
-      - name: Upload SBOM artifact
-        if: ${{ inputs.push_ecr || inputs.push_cloudsmith }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom-${{ matrix.name }}
-          path: sbom-${{ matrix.name }}.cdx.json
-          retention-days: 90
-
       - name: Summary
         env:
           PUSH_ECR: ${{ inputs.push_ecr }}
@@ -356,23 +277,4 @@ jobs:
           fi
           if [ "$PUSH_ECR" != "true" ] && [ "$PUSH_CLOUDSMITH" != "true" ]; then
             echo "_No registries selected for push_" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          # Add SBOM download links
-          if [ "$PUSH_ECR" = "true" ] || [ "$PUSH_CLOUDSMITH" = "true" ]; then
-            ARTIFACT_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            cat >> "$GITHUB_STEP_SUMMARY" << EOF
-
-          ### Artifacts ($VARIANT_NAME)
-
-          📦 **[Download SBOM: sbom-$VARIANT_NAME.cdx.json]($ARTIFACT_URL#artifacts)**
-          EOF
-
-            if [ "$PUSH_CLOUDSMITH" = "true" ]; then
-              CLOUDSMITH_PKG_URL="https://cloudsmith.io/~${CLOUDSMITH_ORG}/repos/${CLOUDSMITH_REPO}/packages/detail/docker/${IMAGE_NAME}/${TAG}${TAG_SUFFIX}"
-              cat >> "$GITHUB_STEP_SUMMARY" << EOF
-
-          🔗 **Cloudsmith:** [Package Security](${CLOUDSMITH_PKG_URL}/#tab-security) | [Vulnerabilities](${CLOUDSMITH_PKG_URL}/#tab-vulnerabilities)
-          EOF
-            fi
           fi
