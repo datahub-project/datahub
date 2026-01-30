@@ -244,6 +244,95 @@ When using `auth.type: google` with explicit scopes:
 
 3. **Handles token refresh**: Automatic token refresh with no manual management needed
 
+#### Using Managed Ingestion with Secrets
+
+For production environments using Managed Ingestion (via the DataHub UI), you can securely store your GCP service account credentials as DataHub secrets instead of using environment variables.
+
+**Step 1: Create a Secret in DataHub**
+
+1. Navigate to **Settings** > **Secrets** in the DataHub UI
+2. Click **Create new secret**
+3. Enter a name (e.g., `BIGLAKE_SERVICE_ACCOUNT_JSON`)
+4. Paste the **entire contents** of your GCP service account JSON file as the value
+5. Optionally add a description
+6. Click **Create**
+
+**Step 2: Reference the Secret in Your Recipe**
+
+Use the `${SECRET_NAME}` syntax to reference your secret in the ingestion recipe:
+
+```yaml
+source:
+  type: iceberg
+  config:
+    env: prod
+    catalog:
+      my_biglake_catalog:
+        type: rest
+        uri: https://biglake.googleapis.com/iceberg/v1/restcatalog
+        warehouse: gs://my-bucket
+        auth:
+          type: google
+          google:
+            credentials_json: ${BIGLAKE_SERVICE_ACCOUNT_JSON}
+            scopes:
+              - https://www.googleapis.com/auth/cloud-platform
+        header.x-goog-user-project: my-project
+        header.X-Iceberg-Access-Delegation: ""
+
+sink:
+  type: datahub-rest
+  config:
+    server: ${DATAHUB_GMS_URL}
+    token: ${DATAHUB_GMS_TOKEN}
+```
+
+The secret will be automatically resolved at runtime when the ingestion executes.
+
+**Alternative: Using Structured Credentials**
+
+You can also use individual secrets for each credential component, which provides better validation:
+
+```yaml
+source:
+  type: iceberg
+  config:
+    catalog:
+      my_biglake_catalog:
+        type: rest
+        uri: https://biglake.googleapis.com/iceberg/v1/restcatalog
+        warehouse: gs://my-bucket
+        auth:
+          type: google
+          google:
+            credentials:
+              project_id: ${GCP_PROJECT_ID}
+              private_key_id: ${GCP_PRIVATE_KEY_ID}
+              private_key: ${GCP_PRIVATE_KEY}
+              client_email: ${GCP_CLIENT_EMAIL}
+              client_id: ${GCP_CLIENT_ID}
+            scopes:
+              - https://www.googleapis.com/auth/cloud-platform
+        header.x-goog-user-project: ${GCP_PROJECT_ID}
+        header.X-Iceberg-Access-Delegation: ""
+```
+
+Create these individual secrets in DataHub:
+
+- `GCP_PROJECT_ID`
+- `GCP_PRIVATE_KEY_ID`
+- `GCP_PRIVATE_KEY` (the private key value from your service account JSON)
+- `GCP_CLIENT_EMAIL`
+- `GCP_CLIENT_ID`
+
+**Step 3: Deploy via DataHub UI**
+
+1. Navigate to **Ingestion** > **Create new source**
+2. Select **Iceberg** as the source type
+3. Paste your recipe configuration with secret references
+4. Configure a schedule (optional)
+5. Click **Save and Run**
+
 #### Using Vended Credentials (Optional)
 
 **Important**: Vended credentials require your BigLake catalog to be configured with `CREDENTIAL_MODE_SERVICE_ACCOUNT`. Most BigLake catalogs use `CREDENTIAL_MODE_END_USER` by default, which **does not** support vended credentials.
