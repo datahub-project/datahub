@@ -366,6 +366,38 @@ def get_columns(self, connection, table_name, schema=None, **kw):
     ]
 
 
+@reflection.cache  # type: ignore
+def get_view_definition(self, connection, view_name, schema=None, **kw):
+    """Extract view definition from ClickHouse system tables.
+
+    ClickHouse stores the full CREATE statement in system.tables.create_table_query.
+    We return the full statement and let the SQL parser extract the SELECT portion.
+    """
+    if schema:
+        query = textwrap.dedent(
+            f"""\
+            SELECT create_table_query
+            FROM system.tables
+            WHERE database = '{schema}'
+              AND name = '{view_name}'
+              AND engine LIKE '%View'
+            """
+        )
+    else:
+        query = textwrap.dedent(
+            f"""\
+            SELECT create_table_query
+            FROM system.tables
+            WHERE name = '{view_name}'
+              AND engine LIKE '%View'
+            """
+        )
+    result = connection.execute(text(query)).fetchone()
+    if result and result[0]:
+        return result[0]
+    return ""
+
+
 # This monkey-patching enables us to batch fetch the table descriptions, rather than
 # fetching them one at a time.
 ClickHouseDialect._get_all_table_comments_and_properties = (
@@ -380,6 +412,7 @@ ClickHouseDialect._get_schema_column_info = _get_schema_column_info
 ClickHouseDialect._get_clickhouse_columns = _get_clickhouse_columns
 ClickHouseDialect._get_column_info = _get_column_info
 ClickHouseDialect.get_columns = get_columns
+ClickHouseDialect.get_view_definition = get_view_definition
 
 clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
@@ -398,6 +431,10 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
         SourceCapabilityModifier.VIEW,
         SourceCapabilityModifier.TABLE,
     ],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default via `include_view_column_lineage`",
 )
 class ClickHouseSource(TwoTierSQLAlchemySource):
     """
