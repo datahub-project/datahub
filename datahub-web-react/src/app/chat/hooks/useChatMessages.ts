@@ -4,9 +4,8 @@ import analytics, { ChatLocationType, EventType } from '@app/analytics';
 import { MessageContext, useChatStream } from '@app/chat/hooks/useChatStream';
 import { createUserMessage, emitMessageAnalytics } from '@app/chat/utils/chatMessageUtils';
 import { groupMessages } from '@app/chat/utils/messageGrouping';
-import { isUserOrAgentThinkingRecent } from '@app/chat/utils/thinkingState';
 
-import { DataHubAiConversationActorType, DataHubAiConversationMessage, DataHubAiConversationMessageType } from '@types';
+import { DataHubAiConversationActorType, DataHubAiConversationMessage } from '@types';
 
 export interface UseChatMessagesProps {
     conversationUrn: string;
@@ -71,31 +70,14 @@ export const useChatMessages = ({
         chatLocation,
     });
 
-    // Determine if we should show a "Thinking..." placeholder
-    // This handles the case where user navigates away and returns mid-stream:
-    // the stream is gone, but we show "Thinking..." until the response arrives or times out
-    const shouldShowThinkingPlaceholder = useMemo(
-        () => !isStreaming && isUserOrAgentThinkingRecent(messages),
-        [messages, isStreaming],
-    );
-
     // Group messages for rendering
     const messageGroups = useMemo(() => {
         const allMessages = [...messages];
         if (isStreaming && currentMessage) {
             allMessages.push(currentMessage);
-        } else if (shouldShowThinkingPlaceholder) {
-            // Show "Thinking..." placeholder when waiting for response
-            const thinkingMessage: DataHubAiConversationMessage = {
-                type: DataHubAiConversationMessageType.Thinking,
-                time: Date.now(),
-                actor: { type: DataHubAiConversationActorType.Agent },
-                content: { text: '' },
-            };
-            allMessages.push(thinkingMessage);
         }
         return groupMessages(allMessages);
-    }, [messages, currentMessage, isStreaming, shouldShowThinkingPlaceholder]);
+    }, [messages, currentMessage, isStreaming]);
 
     // Scroll to bottom when messages change or streaming
     // Handles both initial load (instant) and ongoing updates (smooth)

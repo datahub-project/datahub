@@ -12,7 +12,6 @@ import { useChatMessages } from '@app/chat/hooks/useChatMessages';
 import { useSyncChatMode } from '@app/chat/hooks/useSyncChatMode';
 import { ChatFeatureFlags, ChatMessageAction, ChatVariant } from '@app/chat/types';
 import { CHAT_MODE_OPTIONS, ChatMode, getAgentNameForChatMode } from '@app/chat/utils/chatModes';
-import { shouldPollForThinking } from '@app/chat/utils/thinkingState';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { useAppConfig, useIsAskDataHubModeSelectEnabled } from '@app/useAppConfig';
 
@@ -273,20 +272,6 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
         messages: conversation?.messages,
         onModeChange,
     });
-
-    // Poll for updates when waiting for a response (not streaming locally)
-    // This handles the case where user navigates away and returns mid-stream
-    useEffect(() => {
-        const shouldPoll = shouldPollForThinking({ messages, isStreaming });
-        if (shouldPoll) {
-            const pollInterval = setInterval(() => {
-                refetch();
-            }, 3000); // Poll every 3 seconds
-
-            return () => clearInterval(pollInterval);
-        }
-        return undefined;
-    }, [isStreaming, messages, refetch]);
 
     // Notify parent after fetch completes if conversation is missing
     useEffect(() => {
