@@ -53,16 +53,14 @@ class TestDBTCloudConfigValidation:
     """Tests for DBTCloudConfig validation logic."""
 
     def test_explicit_mode_requires_job_id(self) -> None:
-        """Explicit mode (auto_discovery disabled) must have job_id."""
-        with pytest.raises(
-            ValidationError, match="job_id is required in explicit mode"
-        ):
+        """Test that job_id is required when auto_discovery is disabled."""
+        with pytest.raises(ValidationError, match="job_id or job_ids required"):
             DBTCloudConfig(
                 access_url="https://test.getdbt.com",
                 token="dummy_token",
                 account_id=123456,
                 project_id=1234567,
-                # Missing job_id and auto_discovery is None/disabled
+                # No job_id, no job_ids, no auto_discovery
                 target_platform="snowflake",
             )
 
@@ -94,16 +92,15 @@ class TestDBTCloudConfigValidation:
         assert config.auto_discovery.enabled is True
 
     def test_auto_discovery_disabled_requires_job_id(self) -> None:
-        """Auto-discovery disabled still requires job_id."""
-        with pytest.raises(
-            ValidationError, match="job_id is required in explicit mode"
-        ):
+        """Test that job_id is required when auto_discovery is explicitly disabled."""
+        with pytest.raises(ValidationError, match="job_id or job_ids required"):
             DBTCloudConfig(
                 access_url="https://test.getdbt.com",
                 token="dummy_token",
                 account_id=123456,
                 project_id=1234567,
                 auto_discovery=AutoDiscoveryConfig(enabled=False),
+                # No job_id or job_ids provided
                 target_platform="snowflake",
             )
 
