@@ -3258,6 +3258,77 @@ details[open] .thinking-raw-summary::before {
   gap: 0.5rem;
 }
 
+/* Favorite button in conversation item */
+.favorite-btn {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: #ccc;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+
+.favorite-btn:hover:not(:disabled) {
+  color: #ffc107;
+  background: rgba(255, 193, 7, 0.1);
+}
+
+.favorite-btn.favorited {
+  color: #ffc107;
+}
+
+.favorite-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Favorites filter button */
+.favorites-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.favorites-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #666;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.favorites-filter-btn:hover:not(:disabled) {
+  background: #fff8e1;
+  border-color: #ffc107;
+  color: #f57f17;
+}
+
+.favorites-filter-btn.active {
+  background: #fff8e1;
+  border-color: #ffc107;
+  color: #f57f17;
+}
+
+.favorites-filter-btn.active svg {
+  color: #ffc107;
+}
+
+.favorites-filter-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .conversation-title {
   font-weight: 500;
   color: var(--color-text-primary);

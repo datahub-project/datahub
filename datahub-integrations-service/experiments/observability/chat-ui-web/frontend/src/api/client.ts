@@ -470,6 +470,32 @@ class ApiClient {
       body: JSON.stringify(request),
     });
   }
+
+  // Favorites operations
+  async getFavoriteUrns(): Promise<{ urns: string[]; count: number; profile_id: string }> {
+    return this.request('/favorites/urns');
+  }
+
+  async addFavorite(urn: string, notes?: string): Promise<{ profile_id: string; urn: string; created_at: string; notes?: string }> {
+    return this.request('/favorites', {
+      method: 'POST',
+      body: JSON.stringify({ urn, notes }),
+    });
+  }
+
+  async removeFavorite(urn: string): Promise<{ success: boolean; message: string }> {
+    const encodedUrn = encodeURIComponent(urn);
+    return this.request(`/favorites/${encodedUrn}`, { method: 'DELETE' });
+  }
+
+  async checkFavorite(urn: string): Promise<{ urn: string; is_favorite: boolean; profile_id: string }> {
+    const encodedUrn = encodeURIComponent(urn);
+    return this.request(`/favorites/check/${encodedUrn}`);
+  }
+
+  async listFavorites(): Promise<{ favorites: Array<{ profile_id: string; urn: string; created_at: string; notes?: string }>; count: number; profile_id: string }> {
+    return this.request('/favorites');
+  }
 }
 
 export const apiClient = new ApiClient();

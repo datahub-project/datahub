@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { ArchivedConversation, ConversationOriginType, ConversationSortBy } from '../api/types';
 import { HealthStatusBadge } from './HealthStatusBadge';
 import { OriginLogo } from './OriginLogo';
-import { Warning, Question, XCircle, CheckCircle } from 'phosphor-react';
+import { Warning, Question, XCircle, CheckCircle, Star } from 'phosphor-react';
+import { apiClient } from '../api/client';
 
 interface ArchivedConversationListProps {
   conversations: ArchivedConversation[];
@@ -74,6 +75,46 @@ export function ArchivedConversationList({
   loading,
 }: ArchivedConversationListProps) {
   const [healthFilters, setHealthFilters] = useState<Set<string>>(new Set(['all']));
+  const [favoriteUrns, setFavoriteUrns] = useState<Set<string>>(new Set());
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [favoritesLoading, setFavoritesLoading] = useState(false);
+
+  // Load favorites on mount and when conversations change
+  useEffect(() => {
+    loadFavorites();
+  }, []);
+
+  const loadFavorites = async () => {
+    try {
+      const result = await apiClient.getFavoriteUrns();
+      setFavoriteUrns(new Set(result.urns));
+    } catch (error) {
+      console.error('Failed to load favorites:', error);
+    }
+  };
+
+  const toggleFavorite = async (urn: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Don't trigger conversation selection
+    setFavoritesLoading(true);
+
+    try {
+      if (favoriteUrns.has(urn)) {
+        await apiClient.removeFavorite(urn);
+        setFavoriteUrns(prev => {
+          const next = new Set(prev);
+          next.delete(urn);
+          return next;
+        });
+      } else {
+        await apiClient.addFavorite(urn);
+        setFavoriteUrns(prev => new Set(prev).add(urn));
+      }
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+    } finally {
+      setFavoritesLoading(false);
+    }
+  };
 
   // Calculate min/max timestamps from conversations
   const dateRange = React.useMemo(() => {
@@ -123,8 +164,13 @@ export function ArchivedConversationList({
     }
   };
 
-  // Filter conversations by health status and date range
+  // Filter conversations by health status, favorites, and date range
   const filteredConversations = conversations.filter((conv) => {
+    // Favorites filter
+    if (showFavoritesOnly && !favoriteUrns.has(conv.urn)) {
+      return false;
+    }
+
     // Health status filter (OR logic - match ANY selected filter)
     if (!healthFilters.has('all')) {
       let matchesHealthFilter = false;
@@ -176,6 +222,19 @@ export function ArchivedConversationList({
       </div>
 
       <div className="filter-section">
+        <div className="filter-group favorites-filter-group">
+          <label>Favorites:</label>
+          <button
+            className={`favorites-filter-btn ${showFavoritesOnly ? 'active' : ''}`}
+            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+            title={showFavoritesOnly ? 'Show all conversations' : 'Show favorites only'}
+            disabled={favoritesLoading}
+          >
+            <Star size={18} weight={showFavoritesOnly ? 'fill' : 'regular'} />
+            <span>{favoriteUrns.size}</span>
+          </button>
+        </div>
+
         <div className="filter-group">
           <label>Filter by Source:</label>
           <select
@@ -349,6 +408,17 @@ export function ArchivedConversationList({
               onClick={() => onSelect(conversation.urn)}
             >
               <div className="archived-item-header">
+                <button
+                  className={`favorite-btn ${favoriteUrns.has(conversation.urn) ? 'favorited' : ''}`}
+                  onClick={(e) => toggleFavorite(conversation.urn, e)}
+                  title={favoriteUrns.has(conversation.urn) ? 'Remove from favorites' : 'Add to favorites'}
+                  disabled={favoritesLoading}
+                >
+                  <Star
+                    size={18}
+                    weight={favoriteUrns.has(conversation.urn) ? 'fill' : 'regular'}
+                  />
+                </button>
                 <div className="conversation-title">{conversation.title}</div>
                 <div className="header-badges">
                   <HealthStatusBadge healthStatus={conversation.health_status} compact={true} />

@@ -26,6 +26,7 @@ from api.routes import (
     auto_chat,
     chat,
     config,
+    favorites,
     health,
     kubectl,
     profiles,
@@ -70,6 +71,7 @@ app.include_router(kubectl.router)
 app.include_router(chat.router)
 app.include_router(auto_chat.router)
 app.include_router(archived_conversations.router)
+app.include_router(favorites.router)
 app.include_router(search.router)
 app.include_router(telemetry.router)
 
