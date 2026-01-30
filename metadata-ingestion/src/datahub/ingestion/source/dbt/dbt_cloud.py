@@ -354,12 +354,14 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     source_config.project_id,
                 )
             else:
-                # Test explicit mode: verify we can query at least one job
-                test_job_id = (
-                    source_config.job_id
-                    if source_config.job_id
-                    else source_config.job_ids[0]
-                )
+                if source_config.job_id:
+                    test_job_id = source_config.job_id
+                elif source_config.job_ids and len(source_config.job_ids) > 0:
+                    test_job_id = source_config.job_ids[0]
+                else:
+                    # Should never happen due to validation
+                    raise ValueError("No job_id or job_ids configured")
+
                 DBTCloudSource._send_graphql_query(
                     source_config.metadata_endpoint,
                     source_config.token,

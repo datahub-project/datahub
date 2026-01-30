@@ -771,10 +771,6 @@ class TestJobIdsConfigValidation:
         assert config.job_id is None
         assert config.job_ids is None
 
-
-class TestConnectionWithJobIds:
-    """Tests for test_connection with job_ids."""
-
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
     def test_connection_with_job_ids(self, mock_graphql: mock.Mock) -> None:
         """Should test connection using first job_id from job_ids list."""
@@ -791,14 +787,12 @@ class TestConnectionWithJobIds:
 
         report = DBTCloudSource.test_connection(config_dict)
 
+        assert report.basic_connectivity is not None
         assert report.basic_connectivity.capable is True
         # Should have tested with first job_id (100)
         mock_graphql.assert_called_once()
 
-        # Fix: Access positional and keyword arguments correctly
         call_args = mock_graphql.call_args
-        # call_args is a tuple: (args, kwargs)
-        # _send_graphql_query signature: (metadata_endpoint, token, query, variables)
         variables = (
             call_args[0][3] if len(call_args[0]) > 3 else call_args[1].get("variables")
         )
@@ -820,6 +814,7 @@ class TestConnectionWithJobIds:
 
         report = DBTCloudSource.test_connection(config_dict)
 
+        assert report.basic_connectivity is not None
         assert report.basic_connectivity.capable is True
         call_args = mock_graphql.call_args
         variables = (
