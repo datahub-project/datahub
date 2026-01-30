@@ -234,6 +234,11 @@ public class OperationContext implements AuthorizationSession {
   @Nonnull private final ValidationContext validationContext;
   @Nullable private final SystemTelemetryContext systemTelemetryContext;
 
+  // Mutable collection for pending aspect deletions during validation
+  // This is per-operation and not shared across threads, so ArrayList is safe
+  @Builder.Default @Nonnull
+  private final List<Object> pendingDeletions = new java.util.ArrayList<>();
+
   /** Override Lombok-generated getter to inject authorization session into RetrieverContext */
   public RetrieverContext getRetrieverContext() {
     // If the retrieverContext already has a session, return it as-is
@@ -575,6 +580,31 @@ public class OperationContext implements AuthorizationSession {
     return objectMapperContext.getYamlMapper();
   }
 
+  /**
+   * Add a pending aspect deletion request to be processed after the current transaction commits.
+   * Used by aspect size validation to collect oversized aspects that need remediation deletion.
+   */
+  public void addPendingDeletion(@Nonnull Object request) {
+    pendingDeletions.add(request);
+  }
+
+  /**
+   * Get all pending aspect deletion requests for this operation. Returns a copy to prevent external
+   * modification.
+   */
+  @Nonnull
+  public List<Object> getPendingDeletions() {
+    return new java.util.ArrayList<>(pendingDeletions);
+  }
+
+  /**
+   * Clear all pending aspect deletion requests for this operation. Should be called after deletions
+   * are processed.
+   */
+  public void clearPendingDeletions() {
+    pendingDeletions.clear();
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -649,7 +679,8 @@ public class OperationContext implements AuthorizationSession {
           this.retrieverContext,
           this.objectMapperContext != null ? this.objectMapperContext : ObjectMapperContext.DEFAULT,
           this.validationContext,
-          this.systemTelemetryContext);
+          this.systemTelemetryContext,
+          new java.util.ArrayList<>());
     }
 
     private OperationContext build() {
