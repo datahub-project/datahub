@@ -389,7 +389,7 @@ class PowerBiAPI:
             for artifact_data in workspace_metadata.get(api_key, []):
                 artifact_id = artifact_data.get(Constant.ID)
                 logger.info(f"Processing artifact: {artifact_id}")
-                if logger.effectiveLevel <= logging.DEBUG:
+                if logger.isEnabledFor(logging.DEBUG):
                     logger.debug(f"Processing artifact: {artifact_data}")
                 if artifact_id:
                     relation_dependent_ids: Optional[List[str]] = None

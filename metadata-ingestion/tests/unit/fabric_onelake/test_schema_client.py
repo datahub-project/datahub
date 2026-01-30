@@ -49,6 +49,7 @@ class TestSqlAnalyticsEndpointClient:
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
             report=mock_report,
+            item_display_name="TestLakehouse",
         )
         assert client.auth_helper == mock_auth_helper
         assert client.config == sql_endpoint_config
@@ -56,18 +57,19 @@ class TestSqlAnalyticsEndpointClient:
         assert client._engines == {}
 
     def test_get_connection_string_default(self, mock_auth_helper, sql_endpoint_config):
-        """Test default connection string generation."""
+        """Test default connection string generation (uses display name for Database=)."""
         client = SqlAnalyticsEndpointClient(
             auth_helper=mock_auth_helper,
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
         )
         connection_string = client._get_connection_string(
             workspace_id="ws-123",
             item_id="item-456",
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
         )
-        assert "item-456" in connection_string
+        assert "TestLakehouse" in connection_string
         assert "ODBC Driver 18 for SQL Server" in connection_string
         assert "test-endpoint.datawarehouse.fabric.microsoft.com" in connection_string
         assert "Encrypt=yes" in connection_string
@@ -84,13 +86,14 @@ class TestSqlAnalyticsEndpointClient:
             auth_helper=mock_auth_helper,
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
         )
         connection_string = client._get_connection_string(
             workspace_id="ws-123",
             item_id="item-456",
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
         )
-        assert "item-456" in connection_string
+        assert "TestLakehouse" in connection_string
         assert "Custom Driver" in connection_string
         assert "Encrypt=no" in connection_string
         assert "TrustServerCertificate=yes" in connection_string
@@ -107,6 +110,7 @@ class TestSqlAnalyticsEndpointClient:
             auth_helper=mock_auth_helper,
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
         )
 
         client._create_engine(
@@ -140,6 +144,7 @@ class TestSqlAnalyticsEndpointClient:
             auth_helper=mock_auth_helper,
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
         )
 
         engine1 = client._get_engine(
@@ -200,6 +205,7 @@ class TestSqlAnalyticsEndpointClient:
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
             report=mock_report,
+            item_display_name="TestLakehouse",
         )
 
         columns = client.get_table_columns(
@@ -241,6 +247,7 @@ class TestSqlAnalyticsEndpointClient:
             config=sql_endpoint_config,
             report=mock_report,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
         )
 
         columns = client.get_table_columns(
@@ -293,6 +300,7 @@ class TestSqlAnalyticsEndpointClient:
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
             report=mock_report,
+            item_display_name="TestLakehouse",
         )
 
         columns_by_table = client.get_all_table_columns(
@@ -315,6 +323,7 @@ class TestSqlAnalyticsEndpointClient:
             auth_helper=mock_auth_helper,
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
         )
 
         # Create mock engines

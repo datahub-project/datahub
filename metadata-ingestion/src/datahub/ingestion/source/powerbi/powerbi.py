@@ -306,29 +306,48 @@ class Mapper:
             )
         )
 
-        # Generate upstream URN for the OneLake table
-        upstream_urn = make_onelake_urn(
-            workspace_id=workspace.id,
-            item_id=artifact.id,
-            table_name=table.source_expression,
-            schema_name=table.source_schema,  # Can be None for schemas-disabled lakehouses
-            env=platform_detail.env or self.__config.env,
-            platform_instance=platform_detail.platform_instance,  # None if not mapped
-        )
+        # Resolve item ids for lineage URN. For SQLAnalyticsEndpoint we use physical_item_ids
+        # (from relations.dependentOnArtifactId) so lineage URNs match the OneLake connector;
+        # we do not model SQLAnalyticsEndpoint as an entity (if we do, align with OneLake connector).
+        # Lineage to an SQLAnalyticsEndpoint id is not emitted; we require at least one resolved physical id.
+        if artifact.artifact_type == "SQLAnalyticsEndpoint":
+            item_ids = artifact.physical_item_ids if artifact.physical_item_ids else []
+            if not item_ids:
+                logger.warning(
+                    "DirectLake lineage skipped: SQLAnalyticsEndpoint artifact %s has no "
+                    "resolvable relation to a Lakehouse/Warehouse (table: %s)",
+                    artifact.id,
+                    table.full_name,
+                )
+                return mcps
+        else:
+            item_ids = [artifact.id]
 
-        # Apply lowercase transformation if configured
-        upstream_urn = self.lineage_urn_to_lowercase(upstream_urn)
+        upstreams: List[UpstreamClass] = []
+        for item_id in item_ids:
+            upstream_urn = make_onelake_urn(
+                workspace_id=workspace.id,
+                item_id=item_id,
+                table_name=table.source_expression,
+                schema_name=table.source_schema,  # Can be None for schemas-disabled lakehouses
+                env=platform_detail.env or self.__config.env,
+                platform_instance=platform_detail.platform_instance,  # None if not mapped
+            )
+            upstream_urn = self.lineage_urn_to_lowercase(upstream_urn)
+            upstreams.append(
+                UpstreamClass(
+                    dataset=upstream_urn,
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                )
+            )
 
-        upstream = UpstreamClass(
-            dataset=upstream_urn,
-            type=DatasetLineageTypeClass.TRANSFORMED,
-        )
-
-        upstream_lineage = UpstreamLineageClass(upstreams=[upstream])
-
+        upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
         logger.info(
-            f"DirectLake lineage: {table.full_name} -> {upstream_urn} "
-            f"(artifact: {artifact.name}, type: {artifact.artifact_type})"
+            "DirectLake lineage: %s -> %s upstream(s) (artifact: %s, type: %s)",
+            table.full_name,
+            len(upstreams),
+            artifact.name,
+            artifact.artifact_type,
         )
 
         mcp = MetadataChangeProposalWrapper(
