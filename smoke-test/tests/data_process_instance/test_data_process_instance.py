@@ -4,6 +4,7 @@ import tempfile
 from random import randint
 
 import pytest
+import tenacity
 
 import datahub.metadata.schema_classes as models
 from conftest import _ingest_cleanup_data_impl
@@ -229,30 +230,53 @@ def test_search_dpi(auth_session, ingest_cleanup_data):
         "input": {"types": ["DATA_PROCESS_INSTANCE"], "query": dpi_id, "count": 10}
     }
 
-    res_data = execute_graphql(auth_session, query, variables)
-
-    # Basic response structure validation
-    logger.info("RESPONSE DATA:" + str(res_data))
-    assert "scrollAcrossEntities" in res_data["data"], (
-        "Response should contain 'scrollAcrossEntities' field"
+    # Retry search with exponential backoff for eventual consistency
+    # This handles the case where search returns results but not the expected entity
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(15),  # Increased attempts for stale index
+        wait=tenacity.wait_exponential(multiplier=1, min=2, max=20),
+        retry=tenacity.retry_if_exception_type(AssertionError),
+        reraise=True,
     )
+    def search_and_validate():
+        res_data = execute_graphql(auth_session, query, variables)
 
-    search_results = res_data["data"]["scrollAcrossEntities"]
-    assert "searchResults" in search_results, (
-        "Response should contain 'searchResults' field"
-    )
+        # Basic response structure validation
+        assert "scrollAcrossEntities" in res_data["data"], (
+            "Response should contain 'scrollAcrossEntities' field"
+        )
 
-    results = search_results["searchResults"]
-    assert len(results) > 0, "Should find at least one result"
+        search_results = res_data["data"]["scrollAcrossEntities"]
+        assert "searchResults" in search_results, (
+            "Response should contain 'searchResults' field"
+        )
 
-    # Find our test entity
-    test_entity = None
-    for result in results:
-        if result["entity"]["urn"] == dpi_urn:
-            test_entity = result["entity"]
-            break
+        results = search_results["searchResults"]
 
-    assert test_entity is not None, f"Should find test entity with URN {dpi_urn}"
+        # Extract all URNs in the search results for debugging
+        found_urns = [result["entity"]["urn"] for result in results] if results else []
+        logger.info(f"Search returned {len(results)} results. Expected URN: {dpi_urn}")
+        logger.info(f"Found URNs: {found_urns}")
+
+        # Find our specific test entity - this is critical for stale index scenarios
+        test_entity = None
+        for result in results:
+            if result["entity"]["urn"] == dpi_urn:
+                test_entity = result["entity"]
+                logger.info(f"Successfully found expected entity: {dpi_urn}")
+                break
+
+        # Fail with detailed message if entity not found
+        assert test_entity is not None, (
+            f"Expected entity not found in search results.\n"
+            f"Expected URN: {dpi_urn}\n"
+            f"Found {len(results)} results with URNs: {found_urns}\n"
+            f"This may indicate stale index data or slow indexing in CI."
+        )
+        return test_entity
+
+    # Execute search with retries
+    test_entity = search_and_validate()
 
     # Validate fields
     props = test_entity["properties"]
