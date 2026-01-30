@@ -156,7 +156,7 @@ class PostgresLineageExtractor:
         query, params = PostgresQuery.get_query_history(
             database=self.config.database,
             limit=self.config.max_queries_to_extract or 1000,
-            min_calls=self.config.min_query_calls or 1,
+            min_calls=self.config.min_query_calls,
             exclude_patterns=self.config.query_exclude_patterns,
         )
 

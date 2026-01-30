@@ -230,9 +230,9 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
 
     @field_validator("min_query_calls")
     @classmethod
-    def validate_min_query_calls(cls, value: Optional[int]) -> Optional[int]:
+    def validate_min_query_calls(cls, value: int) -> int:
         """Validate min_query_calls is non-negative."""
-        if value is not None and value < 0:
+        if value < 0:
             raise ValueError("min_query_calls must be non-negative")
         return value
 

@@ -120,8 +120,8 @@ def test_min_query_calls_validation():
     config = PostgresConfig.model_validate({**_base_config(), "min_query_calls": 10})
     assert config.min_query_calls == 10
 
-    config = PostgresConfig.model_validate({**_base_config(), "min_query_calls": None})
-    assert config.min_query_calls is None
+    config = PostgresConfig.model_validate(_base_config())
+    assert config.min_query_calls == 1
 
     with pytest.raises(ValidationError, match="min_query_calls must be non-negative"):
         PostgresConfig.model_validate({**_base_config(), "min_query_calls": -5})
