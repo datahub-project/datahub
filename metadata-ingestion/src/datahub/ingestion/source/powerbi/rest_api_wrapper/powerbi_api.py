@@ -353,6 +353,10 @@ class PowerBiAPI:
         """Parse Lakehouse, Warehouse, and SQLAnalyticsEndpoint artifacts from scan result.
 
         These artifacts are used for DirectLake lineage extraction.
+        SQLAnalyticsEndpoint is a TDS layer; we resolve to physical Lakehouse/Warehouse ids
+        via relations so lineage URNs match the OneLake connector. We do not model
+        SQLAnalyticsEndpoint as an entity for now; if we do later, it should be in sync with
+        the OneLake connector.
 
         Args:
             workspace_metadata: The workspace scan result from PowerBI Admin API
@@ -384,14 +388,39 @@ class PowerBiAPI:
         for api_key, artifact_type, log_name in artifact_configs:
             for artifact_data in workspace_metadata.get(api_key, []):
                 artifact_id = artifact_data.get(Constant.ID)
+                logger.info(f"Processing artifact: {artifact_id}")
+                if logger.effectiveLevel <= logging.DEBUG:
+                    logger.debug(f"Processing artifact: {artifact_data}")
                 if artifact_id:
+                    relation_dependent_ids: Optional[List[str]] = None
+                    for rel in artifact_data.get(Constant.RELATIONS, []):
+                        dep_id = rel.get(Constant.DEPENDENT_ON_ARTIFACT_ID)
+                        if dep_id:
+                            if relation_dependent_ids is None:
+                                relation_dependent_ids = []
+                            relation_dependent_ids.append(dep_id)
                     artifacts[artifact_id] = FabricArtifact(
                         id=artifact_id,
                         name=artifact_data.get(Constant.NAME, ""),
                         artifact_type=artifact_type,
                         workspace_id=workspace_id,
+                        relation_dependent_ids=relation_dependent_ids,
                     )
                     logger.debug(f"Parsed {log_name} artifact: {artifact_id}")
+
+        # Resolve physical_item_ids for SQLAnalyticsEndpoint: use relations.dependentOnArtifactId
+        # that point to a Lakehouse/Warehouse in this workspace (so lineage URNs match OneLake).
+        for artifact in artifacts.values():
+            if (
+                artifact.artifact_type == "SQLAnalyticsEndpoint"
+                and artifact.relation_dependent_ids
+            ):
+                artifact.physical_item_ids = [
+                    rid
+                    for rid in artifact.relation_dependent_ids
+                    if rid in artifacts
+                    and artifacts[rid].artifact_type in ("Lakehouse", "Warehouse")
+                ]
 
         if artifacts:
             logger.info(

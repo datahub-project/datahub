@@ -137,6 +137,11 @@ class FabricArtifact:
         "Lakehouse", "Warehouse", "SQLAnalyticsEndpoint"
     ]  # casing really matters here
     workspace_id: str
+    # Raw relation ids from API (relations[].dependentOnArtifactId); used to resolve physical_item_ids.
+    relation_dependent_ids: Optional[List[str]] = None
+    # For SQLAnalyticsEndpoint: Lakehouse/Warehouse ids to use in lineage URNs (so they match OneLake connector).
+    # None or empty for Lakehouse/Warehouse; lineage then uses id.
+    physical_item_ids: Optional[List[str]] = None
 
 
 @dataclass
