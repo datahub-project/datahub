@@ -1271,6 +1271,86 @@ class SqlParsingAggregator(Closeable):
             query_fingerprint
         )
 
+        # For ClickHouse MVs with TO clause, also register MV → TO table lineage
+        # with column-level mappings. This enables column lineage visibility
+        # from the MV to the TO table in the UI.
+        if is_clickhouse_mv_with_to and downstream_urn != view_urn:
+            mv_to_table_cll = self._create_mv_to_table_column_lineage(
+                view_urn, downstream_urn, parsed.column_lineage or []
+            )
+            if mv_to_table_cll:
+                mv_query_fingerprint = f"mv_to_table_{self._view_query_id(view_urn)}"
+                self._add_to_query_map(
+                    QueryMetadata(
+                        query_id=mv_query_fingerprint,
+                        formatted_query_string=formatted_view_definition,
+                        session_id=_MISSING_SESSION_ID,
+                        query_type=QueryType.CREATE_VIEW,
+                        lineage_type=models.DatasetLineageTypeClass.VIEW,
+                        latest_timestamp=None,
+                        actor=None,
+                        upstreams=[view_urn],
+                        column_lineage=mv_to_table_cll,
+                        column_usage={},
+                        confidence_score=parsed.debug_info.confidence,
+                    )
+                )
+                self._lineage_map.for_mutation(downstream_urn, OrderedSet()).add(
+                    mv_query_fingerprint
+                )
+                logger.debug(
+                    f"ClickHouse MV {view_urn}: registered MV→TO table CLL with "
+                    f"{len(mv_to_table_cll)} column mappings"
+                )
+
+    def _create_mv_to_table_column_lineage(
+        self,
+        mv_urn: UrnStr,
+        to_table_urn: UrnStr,
+        source_column_lineage: List[ColumnLineageInfo],
+    ) -> List[ColumnLineageInfo]:
+        """Create column lineage mappings from MV columns to TO table columns.
+
+        For ClickHouse MVs with TO clause, the MV and TO table have the same
+        column structure. This method creates 1:1 column mappings so that
+        column-level lineage is visible from the MV to the TO table in the UI.
+
+        Args:
+            mv_urn: The URN of the materialized view
+            to_table_urn: The URN of the TO table
+            source_column_lineage: The column lineage from source tables to TO table
+
+        Returns:
+            List of ColumnLineageInfo entries mapping MV columns to TO table columns
+        """
+        mv_to_table_cll: List[ColumnLineageInfo] = []
+
+        # Extract unique downstream column names from the source column lineage
+        downstream_columns: Set[str] = set()
+        for cll_info in source_column_lineage:
+            if cll_info.downstream.column:
+                downstream_columns.add(cll_info.downstream.column)
+
+        # Create 1:1 mappings from MV columns to TO table columns
+        for column_name in downstream_columns:
+            mv_to_table_cll.append(
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=to_table_urn,
+                        column=column_name,
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=mv_urn,
+                            column=column_name,
+                        )
+                    ],
+                    logic=None,
+                )
+            )
+
+        return mv_to_table_cll
+
     def _run_sql_parser(
         self,
         query: str,
