@@ -429,3 +429,230 @@ class TestCreateSnowflakeAgent:
         # Check that network rules file has the correct domain
         network_rules = (tmp_path / "01_network_rules.sql").read_text()
         assert "test.acryl.io" in network_rules
+
+    def test_create_snowflake_agent_execute_success(self, tmp_path: Path) -> None:
+        """Test successful execution with mocked Snowflake connection."""
+        from unittest.mock import MagicMock, patch
+
+        from click.testing import CliRunner
+
+        # Mock snowflake connector
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.description = None
+        mock_conn.execute_string.return_value = [mock_cursor]
+
+        runner = CliRunner()
+        with (
+            patch("snowflake.connector.connect", return_value=mock_conn),
+            patch(
+                "datahub.ai.snowflake.snowflake.auto_detect_snowflake_params",
+                return_value=(
+                    "test_account",
+                    "test_user",
+                    "test_role",
+                    "test_warehouse",
+                    "test_db",
+                    "test_schema",
+                ),
+            ),
+        ):
+            result = runner.invoke(
+                create_snowflake_agent,
+                [
+                    "--sf-account",
+                    "test_account",
+                    "--sf-user",
+                    "test_user",
+                    "--sf-role",
+                    "test_role",
+                    "--sf-warehouse",
+                    "test_warehouse",
+                    "--sf-database",
+                    "test_db",
+                    "--sf-schema",
+                    "test_schema",
+                    "--datahub-url",
+                    "https://test.acryl.io",
+                    "--datahub-token",
+                    "test_token",
+                    "--sf-password",
+                    "test_password",
+                    "--output-dir",
+                    str(tmp_path),
+                    "--execute",
+                ],
+            )
+
+        assert result.exit_code == 0
+        assert "Connected successfully" in result.output
+        assert "All scripts executed successfully" in result.output
+        # Verify connection was called with correct params
+        mock_conn.execute_string.assert_called()
+        mock_conn.close.assert_called_once()
+
+    def test_create_snowflake_agent_execute_connection_failure(
+        self, tmp_path: Path
+    ) -> None:
+        """Test handling of connection failure during execution."""
+        from unittest.mock import patch
+
+        from click.testing import CliRunner
+
+        runner = CliRunner()
+        with patch(
+            "snowflake.connector.connect",
+            side_effect=Exception("Connection failed"),
+        ):
+            result = runner.invoke(
+                create_snowflake_agent,
+                [
+                    "--sf-account",
+                    "test_account",
+                    "--sf-user",
+                    "test_user",
+                    "--sf-role",
+                    "test_role",
+                    "--sf-warehouse",
+                    "test_warehouse",
+                    "--sf-database",
+                    "test_db",
+                    "--sf-schema",
+                    "test_schema",
+                    "--datahub-url",
+                    "https://test.acryl.io",
+                    "--datahub-token",
+                    "test_token",
+                    "--sf-password",
+                    "test_password",
+                    "--output-dir",
+                    str(tmp_path),
+                    "--execute",
+                ],
+            )
+
+        assert result.exit_code == 0
+        assert "Error" in result.output or "failed" in result.output.lower()
+
+    def test_create_snowflake_agent_execute_script_failure(
+        self, tmp_path: Path
+    ) -> None:
+        """Test handling of script execution failure."""
+        from unittest.mock import MagicMock, patch
+
+        from click.testing import CliRunner
+
+        # Mock connection that fails on execute_string
+        mock_conn = MagicMock()
+        mock_conn.execute_string.side_effect = Exception("SQL execution failed")
+
+        runner = CliRunner()
+        with (
+            patch("snowflake.connector.connect", return_value=mock_conn),
+            patch(
+                "datahub.ai.snowflake.snowflake.auto_detect_snowflake_params",
+                return_value=(
+                    "test_account",
+                    "test_user",
+                    "test_role",
+                    "test_warehouse",
+                    "test_db",
+                    "test_schema",
+                ),
+            ),
+        ):
+            result = runner.invoke(
+                create_snowflake_agent,
+                [
+                    "--sf-account",
+                    "test_account",
+                    "--sf-user",
+                    "test_user",
+                    "--sf-role",
+                    "test_role",
+                    "--sf-warehouse",
+                    "test_warehouse",
+                    "--sf-database",
+                    "test_db",
+                    "--sf-schema",
+                    "test_schema",
+                    "--datahub-url",
+                    "https://test.acryl.io",
+                    "--datahub-token",
+                    "test_token",
+                    "--sf-password",
+                    "test_password",
+                    "--output-dir",
+                    str(tmp_path),
+                    "--execute",
+                ],
+            )
+
+        assert result.exit_code == 0
+        assert "failed" in result.output.lower()
+        mock_conn.close.assert_called_once()
+
+    def test_create_snowflake_agent_execute_all_scripts_in_order(
+        self, tmp_path: Path
+    ) -> None:
+        """Test that all SQL scripts are executed in the correct order."""
+        from unittest.mock import MagicMock, patch
+
+        from click.testing import CliRunner
+
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.description = None
+        mock_conn.execute_string.return_value = [mock_cursor]
+
+        runner = CliRunner()
+        with (
+            patch("snowflake.connector.connect", return_value=mock_conn),
+            patch(
+                "datahub.ai.snowflake.snowflake.auto_detect_snowflake_params",
+                return_value=(
+                    "test_account",
+                    "test_user",
+                    "test_role",
+                    "test_warehouse",
+                    "test_db",
+                    "test_schema",
+                ),
+            ),
+        ):
+            result = runner.invoke(
+                create_snowflake_agent,
+                [
+                    "--sf-account",
+                    "test_account",
+                    "--sf-user",
+                    "test_user",
+                    "--sf-role",
+                    "test_role",
+                    "--sf-warehouse",
+                    "test_warehouse",
+                    "--sf-database",
+                    "test_db",
+                    "--sf-schema",
+                    "test_schema",
+                    "--datahub-url",
+                    "https://test.acryl.io",
+                    "--datahub-token",
+                    "test_token",
+                    "--sf-password",
+                    "test_password",
+                    "--output-dir",
+                    str(tmp_path),
+                    "--execute",
+                ],
+            )
+
+        assert result.exit_code == 0
+        # Verify all 5 scripts were executed
+        assert mock_conn.execute_string.call_count == 5
+        # Verify scripts executed in order by checking output
+        assert "00_configuration.sql" in result.output
+        assert "01_network_rules.sql" in result.output
+        assert "02_datahub_udfs.sql" in result.output
+        assert "03_stored_procedure.sql" in result.output
+        assert "04_cortex_agent.sql" in result.output

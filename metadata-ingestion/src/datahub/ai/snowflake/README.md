@@ -172,6 +172,6 @@ If not using `--execute`, run the generated SQL files in order:
 
 ## Related Documentation
 
-- [DataHub Agent Context Documentation](../../../datahub-agent-context/README.md)
+- [DataHub Agent Context Documentation](../../../../../datahub-agent-context/README.md)
 - [Snowflake Python UDFs](https://docs.snowflake.com/en/developer-guide/udf/python/udf-python)
 - [Snowflake Cortex Intelligence](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-intelligence)
