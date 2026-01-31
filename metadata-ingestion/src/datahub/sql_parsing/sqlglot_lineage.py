@@ -885,8 +885,14 @@ def _select_statement_cll(
             (select_col.alias_or_name, select_col) for select_col in statement.selects
         ]
         logger.debug("output columns: %s", [col[0] for col in output_columns])
+        total_columns = len(output_columns)
+        logger.debug(
+            f"[CLL] Processing {total_columns} output columns for {output_table}"
+        )
 
-        for output_col, _original_col_expression in output_columns:
+        for col_idx, (output_col, _original_col_expression) in enumerate(
+            output_columns
+        ):
             if not output_col or output_col == "*":
                 # If schema information is available, the * will be expanded to the actual columns.
                 # Otherwise, we can't process it.
@@ -902,22 +908,42 @@ def _select_statement_cll(
                 # if they appear in the output.
                 continue
 
-            lineage_node = sqlglot.lineage.lineage(
-                output_col,
-                statement,
-                dialect=dialect,
-                scope=root_scope,
-                trim_selects=False,
-                # We don't need to pass the schema in here, since we've already qualified the columns.
-            )
+            # Log progress every 10 columns or for first/last column
+            if col_idx == 0 or col_idx == total_columns - 1 or col_idx % 10 == 0:
+                logger.debug(
+                    f"[CLL] Processing column {col_idx + 1}/{total_columns}: {output_col}"
+                )
+
+            try:
+                lineage_node = sqlglot.lineage.lineage(
+                    output_col,
+                    statement,
+                    dialect=dialect,
+                    scope=root_scope,
+                    trim_selects=False,
+                    # We don't need to pass the schema in here, since we've already qualified the columns.
+                )
+            except Exception as e:
+                logger.warning(
+                    f"[CLL] Failed to compute lineage for column '{output_col}' "
+                    f"({col_idx + 1}/{total_columns}): {e}"
+                )
+                continue
 
             # Generate SELECT lineage.
-            direct_raw_col_upstreams = _get_direct_raw_col_upstreams(
-                lineage_node,
-                dialect,
-                default_db,
-                default_schema,
-            )
+            try:
+                direct_raw_col_upstreams = _get_direct_raw_col_upstreams(
+                    lineage_node,
+                    dialect,
+                    default_db,
+                    default_schema,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"[CLL] Failed to get upstreams for column '{output_col}' "
+                    f"({col_idx + 1}/{total_columns}): {e}"
+                )
+                continue
 
             # Fuzzy resolve the output column.
             original_col_expression = lineage_node.expression
@@ -961,11 +987,22 @@ def _select_statement_cll(
                 )
             )
 
+        logger.debug(
+            f"[CLL] Finished processing all columns, generated {len(column_lineage)} lineage entries"
+        )
         # TODO: Also extract referenced columns (aka auxiliary / non-SELECT lineage)
     except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
+        logger.warning(
+            f"[CLL] sqlglot exception during CLL extraction for {output_table}: {e}"
+        )
         raise SqlUnderstandingError(
             f"sqlglot failed to compute some lineage: {e}"
         ) from e
+    except Exception as e:
+        logger.warning(
+            f"[CLL] Unexpected exception during CLL extraction for {output_table}: {e}"
+        )
+        raise
 
     return column_lineage
 
@@ -1039,17 +1076,20 @@ def _column_level_lineage(
 
     assert isinstance(select_statement, _SupportedColumnLineageTypesTuple)
     try:
+        logger.debug("[CLL] Building scope for statement")
         root_scope = sqlglot.optimizer.build_scope(select_statement)
         if root_scope is None:
             raise SqlUnderstandingError(
                 f"Failed to build scope for statement - scope was empty: {statement}"
             )
+        logger.debug("[CLL] Scope built successfully")
     except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
         raise SqlUnderstandingError(
             f"sqlglot failed to preprocess statement: {e}"
         ) from e
 
     # Generate column-level lineage.
+    logger.debug(f"[CLL] Starting _select_statement_cll for {downstream_table}")
     column_lineage = _select_statement_cll(
         select_statement,
         dialect=dialect,
@@ -1059,6 +1099,9 @@ def _column_level_lineage(
         table_name_schema_mapping=table_name_schema_mapping,
         default_db=default_db,
         default_schema=default_schema,
+    )
+    logger.debug(
+        f"[CLL] _select_statement_cll completed with {len(column_lineage)} entries"
     )
 
     joins: Optional[List[_JoinInfo]] = None
