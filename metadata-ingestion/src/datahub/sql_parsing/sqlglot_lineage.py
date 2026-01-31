@@ -1934,18 +1934,19 @@ def _sqlglot_lineage_inner(
                 f"Column-level lineage completed: {len(column_lineage or [])} entries, {table_context}"
             )
     except CooperativeTimeoutError as e:
-        logger.debug(
+        logger.warning(
             f"Timed out while generating column-level lineage ({table_context}): {e}"
         )
         debug_info.column_error = e
     except UnsupportedStatementTypeError as e:
         # For this known exception type, we assume the error is logged at the point of failure.
-        logger.debug(f"Unsupported statement type for column lineage ({table_context})")
+        logger.warning(
+            f"Unsupported statement type for column lineage ({table_context}): {e}"
+        )
         debug_info.column_error = e
     except Exception as e:
-        logger.debug(
-            f"Failed to generate column-level lineage ({table_context}): {e}",
-            exc_info=True,
+        logger.warning(
+            f"Failed to generate column-level lineage ({table_context}): {e}"
         )
         debug_info.column_error = e
 
