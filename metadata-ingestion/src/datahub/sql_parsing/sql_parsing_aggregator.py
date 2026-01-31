@@ -5,6 +5,7 @@ import functools
 import json
 import logging
 import pathlib
+import re
 import tempfile
 import uuid
 from collections import defaultdict
@@ -1180,7 +1181,27 @@ class SqlParsingAggregator(Closeable):
         elif parsed.debug_info.column_error:
             self.report.num_views_column_failed += 1
 
-        query_fingerprint = self._view_query_id(view_urn)
+        # Determine the actual downstream URN.
+        # For ClickHouse MVs with TO clause, the SQL parser identifies the TO table
+        # as the output, which differs from the view_urn. Use that instead.
+        # Only apply this for ClickHouse MVs to avoid impacting other databases.
+        downstream_urn = view_urn
+        view_def_upper = view_definition.view_definition.upper()
+        is_clickhouse_mv_with_to = (
+            "MATERIALIZED VIEW" in view_def_upper
+            and re.search(r"\bTO\s+\S+", view_def_upper) is not None
+        )
+        if (
+            is_clickhouse_mv_with_to
+            and parsed.out_tables
+            and len(parsed.out_tables) == 1
+        ):
+            parsed_downstream = parsed.out_tables[0]
+            if parsed_downstream != view_urn:
+                downstream_urn = parsed_downstream
+                logger.debug(f"ClickHouse MV {view_urn} has TO table: {downstream_urn}")
+
+        query_fingerprint = self._view_query_id(downstream_urn)
         formatted_view_definition = self._maybe_format_query(
             view_definition.view_definition
         )
@@ -1203,7 +1224,9 @@ class SqlParsingAggregator(Closeable):
         )
 
         # Register the query's lineage.
-        self._lineage_map.for_mutation(view_urn, OrderedSet()).add(query_fingerprint)
+        self._lineage_map.for_mutation(downstream_urn, OrderedSet()).add(
+            query_fingerprint
+        )
 
     def _run_sql_parser(
         self,
