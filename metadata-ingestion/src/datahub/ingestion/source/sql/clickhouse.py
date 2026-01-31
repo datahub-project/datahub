@@ -662,7 +662,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                      , substring(source, position(source, '.') + 1)    AS source_table
                      , database                                        AS target_schema
                      , name                                            AS target_table
-                     , extract(create_table_query, 'TO (.*?) \\(')     AS extract_to
+                     , extract(create_table_query, 'TO (\\S+)')     AS extract_to
                   FROM system.tables
                  ARRAY JOIN arrayIntersect(splitByRegexp('[\\s()'']+', create_table_query), tables) AS source
                  WHERE engine IN ('MaterializedView')
@@ -673,7 +673,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                      , name                                                    AS source_table
                      , substring(extract_to, 1, position(extract_to, '.') - 1) AS target_schema
                      , substring(extract_to, position(extract_to, '.') + 1)    AS target_table
-                     , extract(create_table_query, 'TO (.*?) \\(')             AS extract_to
+                     , extract(create_table_query, 'TO (\\S+)')             AS extract_to
                   FROM system.tables
                  WHERE engine IN ('MaterializedView')
                    AND extract_to <> '')
