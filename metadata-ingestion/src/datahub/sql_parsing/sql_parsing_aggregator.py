@@ -1478,14 +1478,33 @@ class SqlParsingAggregator(Closeable):
             downstream_urn, OrderedSet()
         )
 
+        # Log for debugging CLL issues
+        if "identification_metrics__5min" in downstream_urn:
+            logger.info(
+                f"[GEN-LINEAGE-START] {downstream_urn}: query_ids={list(query_ids)}"
+            )
+
         if not self.is_allowed_table(downstream_urn):
             self.report.num_lineage_skipped_due_to_filters += 1
+            if "identification_metrics__5min" in downstream_urn:
+                logger.warning(
+                    f"[GEN-LINEAGE] {downstream_urn}: SKIPPED due to filters"
+                )
             return
 
         queries: List[QueryMetadata] = [
             self._resolve_query_with_temp_tables(self._query_map[query_id])
             for query_id in query_ids
         ]
+
+        # Log query details for debugging CLL issues
+        if "identification_metrics__5min" in downstream_urn:
+            for q in queries:
+                logger.info(
+                    f"[GEN-LINEAGE-QUERY] {downstream_urn}: query_id={q.query_id}, "
+                    f"column_lineage_count={len(q.column_lineage)}, "
+                    f"upstreams={q.upstreams[:3]}..."
+                )
 
         # Sort the queries by highest precedence first, then by latest timestamp.
         # In case of ties, prefer queries with a known query type.
@@ -1617,6 +1636,15 @@ class SqlParsingAggregator(Closeable):
                 :MAX_FINEGRAINEDLINEAGE_COUNT
             ]
             self.report.num_column_lineage_trimmed_due_to_large_size += 1
+
+        # Log fineGrainedLineages for debugging CLL issues
+        if "identification_metrics__5min" in downstream_urn:
+            logger.info(
+                f"[GEN-LINEAGE] {downstream_urn}: "
+                f"upstreams={len(upstream_aspect.upstreams)}, "
+                f"fineGrainedLineages={len(upstream_aspect.fineGrainedLineages)}, "
+                f"cll_keys={list(cll.keys())[:5]}..."
+            )
 
         upstream_aspect.fineGrainedLineages = (
             upstream_aspect.fineGrainedLineages or None
