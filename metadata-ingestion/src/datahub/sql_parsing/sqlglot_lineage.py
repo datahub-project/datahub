@@ -2207,8 +2207,22 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
         ),
         r"::\1 \2",
     ),
-    # casewhen -> case when (only when followed by space or quote)
+    # ::TYPEis -> ::TYPE is (e.g., ::timestamptzis null -> ::timestamptz is null)
+    (
+        re.compile(
+            r"::(timestamp(?:tz)?|date|time(?:tz)?|int(?:eger)?|bigint|smallint|"
+            r"float|real|double|numeric|decimal|varchar|char|text|boolean|bool)"
+            r"(is)\b",
+            re.IGNORECASE,
+        ),
+        r"::\1 \2",
+    ),
+    # casewhen -> case when
     (re.compile(r"\bcasewhen\b", re.IGNORECASE), "case when"),
+    # distinctcase -> distinct case
+    (re.compile(r"\bdistinctcase\b", re.IGNORECASE), "distinct case"),
+    # elsenull -> else null
+    (re.compile(r"\belsenull\b", re.IGNORECASE), "else null"),
     # SQL keyword + aggregate without space: ormin(, andmax(, ormax(, andmin(, orsum(, andsum(, orcount(, andcount(
     (re.compile(r"\bor(min|max|sum|count|avg)\s*\(", re.IGNORECASE), r"or \1("),
     (re.compile(r"\band(min|max|sum|count|avg)\s*\(", re.IGNORECASE), r"and \1("),
@@ -2216,6 +2230,8 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     (re.compile(r"\bnotnull\b", re.IGNORECASE), "not null"),
     (re.compile(r"\bnulland\b", re.IGNORECASE), "null and"),
     (re.compile(r"\bnullor\b", re.IGNORECASE), "null or"),
+    # nullgroup -> null group (for "is null group by")
+    (re.compile(r"\bnullgroup\b", re.IGNORECASE), "null group"),
     # isnull followed by and/or without space: isnulland -> is null and
     (re.compile(r"\bis\s+nulland\b", re.IGNORECASE), "is null and"),
     (re.compile(r"\bis\s+nullor\b", re.IGNORECASE), "is null or"),
@@ -2230,11 +2246,15 @@ def _preprocess_query_for_sigma(query: str) -> str:
 
     Known Sigma malformations:
     - ::timestamptzcast_ -> ::timestamptz cast_
+    - ::timestamptzis -> ::timestamptz is
     - casewhen -> case when
+    - distinctcase -> distinct case
+    - elsenull -> else null
     - ormin( -> or min(
     - andmax( -> and max(
     - notnull -> not null
     - nulland -> null and
+    - nullgroup -> null group
     """
     result = query
     for pattern, replacement in _SIGMA_SQL_FIX_PATTERNS:
