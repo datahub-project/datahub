@@ -565,6 +565,294 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
     verify(mockEntityService).ingestProposal(any(), any(), anyBoolean());
   }
 
+  @Test
+  public void testUpdateEntityWithDomain_Authorized() throws Exception {
+    // Test UPDATE operation with domain authorization
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+    Urn domainUrn = UrnUtils.getUrn(FINANCE_DOMAIN_URN);
+
+    // Mock entity exists
+    when(mockEntityService.exists(any(), anyCollection(), eq(true)))
+        .thenReturn(Collections.singleton(datasetUrn));
+
+    // Mock successful ingest result
+    BatchItem mockBatchItem = mock(BatchItem.class);
+    when(mockBatchItem.getChangeType()).thenReturn(ChangeType.UPDATE);
+    when(mockBatchItem.getAspectName()).thenReturn("domains");
+    when(mockBatchItem.getRecordTemplate())
+        .thenReturn(new Domains().setDomains(new UrnArray(Collections.singletonList(domainUrn))));
+
+    when(mockEntityService.ingestProposal(any(), any(), anyBoolean()))
+        .thenReturn(
+            Collections.singletonList(
+                IngestResult.builder()
+                    .urn(datasetUrn)
+                    .request(mockBatchItem)
+                    .sqlCommitted(true)
+                    .build()));
+
+    String requestBody =
+        "[{\"urn\": \""
+            + DATASET_URN
+            + "\", "
+            + "\"status\": {\"value\": {\"removed\": false}}, "
+            + "\"domains\": {\"value\": {\"domains\": [\""
+            + FINANCE_DOMAIN_URN
+            + "\"]}}}]";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    verify(mockEntityService).ingestProposal(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testCreateMultipleDomainsSingleEntity_Authorized() throws Exception {
+    // Test entity with MULTIPLE domains on a single entity
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+    Urn financeDomainUrn = UrnUtils.getUrn(FINANCE_DOMAIN_URN);
+    Urn marketingDomainUrn = UrnUtils.getUrn(MARKETING_DOMAIN_URN);
+
+    // Mock successful ingest result with multiple domains
+    BatchItem mockBatchItem = mock(BatchItem.class);
+    when(mockBatchItem.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockBatchItem.getAspectName()).thenReturn("domains");
+    when(mockBatchItem.getRecordTemplate())
+        .thenReturn(
+            new Domains()
+                .setDomains(
+                    new UrnArray(java.util.Arrays.asList(financeDomainUrn, marketingDomainUrn))));
+
+    when(mockEntityService.ingestProposal(any(), any(), anyBoolean()))
+        .thenReturn(
+            Collections.singletonList(
+                IngestResult.builder()
+                    .urn(datasetUrn)
+                    .request(mockBatchItem)
+                    .sqlCommitted(true)
+                    .build()));
+
+    String requestBody =
+        "[{\"urn\": \""
+            + DATASET_URN
+            + "\", "
+            + "\"domains\": {\"value\": {\"domains\": [\""
+            + FINANCE_DOMAIN_URN
+            + "\", \""
+            + MARKETING_DOMAIN_URN
+            + "\"]}}}]";
+
+    // Should succeed - user has permission on both domains
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    verify(mockEntityService).ingestProposal(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testBatchCreateEmptyDomains_Success() throws Exception {
+    // Test batch operation with entities having empty domain arrays
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+
+    BatchItem mockBatchItem = mock(BatchItem.class);
+    when(mockBatchItem.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockBatchItem.getAspectName()).thenReturn("domains");
+    when(mockBatchItem.getRecordTemplate()).thenReturn(new Domains().setDomains(new UrnArray()));
+
+    when(mockEntityService.ingestProposal(any(), any(), anyBoolean()))
+        .thenReturn(
+            Collections.singletonList(
+                IngestResult.builder()
+                    .urn(datasetUrn)
+                    .request(mockBatchItem)
+                    .sqlCommitted(true)
+                    .build()));
+
+    String requestBody =
+        "[{\"urn\": \"" + DATASET_URN + "\", \"domains\": {\"value\": {\"domains\": []}}}]";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    verify(mockEntityService).ingestProposal(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testDeleteNonExistentEntity() throws Exception {
+    // Test deleting an entity that doesn't exist
+    // API returns 200 even for non-existent entities (idempotent delete)
+    when(mockEntityService.exists(any(), anyCollection(), eq(true)))
+        .thenReturn(Collections.emptySet()); // Entity doesn't exist
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(
+                "/openapi/v3/entity/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,nonexistent,PROD)"))
+        .andExpect(status().isOk()); // Returns 200 for idempotent delete
+
+    // Delete is still called - idempotent behavior
+    verify(mockEntityService).deleteUrn(any(), any());
+  }
+
+  @Test
+  public void testBatchCreateMixedDomainsAndNoDomains() throws Exception {
+    // Test batch with some entities having domains and others not
+    Urn dataset1Urn = UrnUtils.getUrn(DATASET_URN);
+    Urn dataset2Urn = UrnUtils.getUrn(DATASET_URN_2);
+    Urn financeDomainUrn = UrnUtils.getUrn(FINANCE_DOMAIN_URN);
+
+    BatchItem mockBatchItem1 = mock(BatchItem.class);
+    when(mockBatchItem1.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockBatchItem1.getAspectName()).thenReturn("domains");
+    when(mockBatchItem1.getRecordTemplate())
+        .thenReturn(
+            new Domains().setDomains(new UrnArray(Collections.singletonList(financeDomainUrn))));
+
+    BatchItem mockBatchItem2 = mock(BatchItem.class);
+    when(mockBatchItem2.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockBatchItem2.getAspectName()).thenReturn("status");
+    when(mockBatchItem2.getRecordTemplate()).thenReturn(new Status().setRemoved(false));
+
+    when(mockEntityService.ingestProposal(any(), any(), anyBoolean()))
+        .thenReturn(
+            java.util.Arrays.asList(
+                IngestResult.builder()
+                    .urn(dataset1Urn)
+                    .request(mockBatchItem1)
+                    .sqlCommitted(true)
+                    .build(),
+                IngestResult.builder()
+                    .urn(dataset2Urn)
+                    .request(mockBatchItem2)
+                    .sqlCommitted(true)
+                    .build()));
+
+    String requestBody =
+        "[{\"urn\": \""
+            + DATASET_URN
+            + "\", \"domains\": {\"value\": {\"domains\": [\""
+            + FINANCE_DOMAIN_URN
+            + "\"]}}}, "
+            + "{\"urn\": \""
+            + DATASET_URN_2
+            + "\", \"status\": {\"value\": {\"removed\": false}}}]";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    verify(mockEntityService).ingestProposal(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testCreateEntityWithDomain_SystemContext() throws Exception {
+    // Test that system operations work with domain authorization
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+    Urn domainUrn = UrnUtils.getUrn(FINANCE_DOMAIN_URN);
+
+    // Mock system authentication
+    Authentication systemAuth = mock(Authentication.class);
+    when(systemAuth.getActor()).thenReturn(new Actor(ActorType.USER, "__datahub_system"));
+    AuthenticationContext.setAuthentication(systemAuth);
+
+    BatchItem mockBatchItem = mock(BatchItem.class);
+    when(mockBatchItem.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockBatchItem.getAspectName()).thenReturn("domains");
+    when(mockBatchItem.getRecordTemplate())
+        .thenReturn(new Domains().setDomains(new UrnArray(Collections.singletonList(domainUrn))));
+
+    when(mockEntityService.ingestProposal(any(), any(), anyBoolean()))
+        .thenReturn(
+            Collections.singletonList(
+                IngestResult.builder()
+                    .urn(datasetUrn)
+                    .request(mockBatchItem)
+                    .sqlCommitted(true)
+                    .build()));
+
+    String requestBody =
+        "[{\"urn\": \""
+            + DATASET_URN
+            + "\", "
+            + "\"domains\": {\"value\": {\"domains\": [\""
+            + FINANCE_DOMAIN_URN
+            + "\"]}}}]";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset?systemAuthentication=true")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    verify(mockEntityService).ingestProposal(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testBatchDelete_EndpointNotSupported() throws Exception {
+    // Batch delete via DELETE with JSON body is not supported (405 Method Not Allowed)
+    // Individual delete endpoints should be used instead
+    Urn dataset1Urn = UrnUtils.getUrn(DATASET_URN);
+    Urn dataset2Urn = UrnUtils.getUrn(DATASET_URN_2);
+
+    // Mock both entities exist
+    when(mockEntityService.exists(any(), anyCollection(), eq(true)))
+        .thenReturn(new java.util.HashSet<>(java.util.Arrays.asList(dataset1Urn, dataset2Urn)));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete("/openapi/v3/entity/dataset")
+                .content("[\"" + DATASET_URN + "\", \"" + DATASET_URN_2 + "\"]")
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isMethodNotAllowed()); // 405 - batch delete not supported
+
+    verify(mockEntityService, never()).deleteUrn(any(), any());
+  }
+
+  @Test
+  public void testCreateWithInvalidJson() throws Exception {
+    // Test handling of invalid JSON
+    String invalidJson = "[{\"urn\": \"" + DATASET_URN + "\", invalid json}]";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset")
+                .content(invalidJson)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+
+    verify(mockEntityService, never()).ingestProposal(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testCreateWithEmptyRequestBody() throws Exception {
+    // Test handling of empty request body - API accepts empty arrays (returns 202)
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset")
+                .content("[]")
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isAccepted()); // 202 - empty array is accepted
+
+    // ingestProposal is called with empty batch
+    verify(mockEntityService).ingestProposal(any(), any(), anyBoolean());
+  }
+
   @TestConfiguration
   public static class TestConfig {
     @MockBean public EntityServiceImpl entityService;
