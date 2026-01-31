@@ -6,12 +6,12 @@
         "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)"
     ],
     "out_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.mv_daily_stats,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.agg_daily_stats,PROD)"
     ],
     "column_lineage": [
         {
             "downstream": {
-                "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.mv_daily_stats,PROD)",
+                "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.agg_daily_stats,PROD)",
                 "column": "date",
                 "column_type": null,
                 "native_column_type": null
@@ -29,7 +29,7 @@
         },
         {
             "downstream": {
-                "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.mv_daily_stats,PROD)",
+                "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.agg_daily_stats,PROD)",
                 "column": "total_events",
                 "column_type": {
                     "type": {

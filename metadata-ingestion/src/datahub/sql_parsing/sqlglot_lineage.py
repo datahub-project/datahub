@@ -549,6 +549,19 @@ def _table_level_lineage(
         return table
 
     # Generate table-level lineage.
+    # ClickHouse-specific: For CREATE MATERIALIZED VIEW ... TO target_table,
+    # the actual output is the TO table, not the view itself.
+    clickhouse_to_tables = set()
+    if is_dialect_instance(dialect, "clickhouse"):
+        clickhouse_to_tables = _extract_table_names(
+            (
+                to_prop.this
+                for to_prop in statement.find_all(sqlglot.exp.ToTableProperty)
+                if isinstance(to_prop.this, sqlglot.exp.Table)
+            ),
+            dialect,
+        )
+
     modified = (
         _extract_table_names(
             (
@@ -571,6 +584,7 @@ def _table_level_lineage(
             # For statements that include a column list, like
             # CREATE DDL statements and `INSERT INTO table (col1, col2) SELECT ...`
             # the table name is nested inside a Schema object.
+            # ClickHouse: Skip if there's a TO table (use that instead).
             (
                 expr.this.this
                 for expr in statement.find_all(
@@ -579,9 +593,11 @@ def _table_level_lineage(
                 )
                 if isinstance(expr.this, sqlglot.exp.Schema)
                 and isinstance(expr.this.this, sqlglot.exp.Table)
+                and not clickhouse_to_tables  # Skip MV name if TO table exists
             ),
             dialect,
         )
+        | clickhouse_to_tables  # Add ClickHouse TO tables as output
         | _extract_table_names(
             # For drop statements, we only want it if a table/view is being dropped.
             # Other "kinds" will not have table.name populated.
@@ -608,6 +624,11 @@ def _table_level_lineage(
                 and not _is_in_clickhouse_dict_function(table)
                 # ClickHouse: Filter out TO table in CREATE MATERIALIZED VIEW ... TO target_table
                 and not isinstance(table.parent, sqlglot.exp.ToTableProperty)
+                # ClickHouse: Filter out MV name (in Schema) when TO table exists
+                and not (
+                    clickhouse_to_tables
+                    and isinstance(table.parent, sqlglot.exp.Schema)
+                )
             ),
             dialect,
         )
@@ -1608,31 +1629,54 @@ def _translate_internal_column_lineage(
     raw_column_lineage: _ColumnLineageInfo,
     dialect: sqlglot.Dialect,
 ) -> Optional[ColumnLineageInfo]:
+    # ClickHouse-specific: Handle unresolvable tables gracefully.
+    # ClickHouse has ARRAY JOIN which creates pseudo-tables, and complex CTEs
+    # with SELECT * can create phantom table references that can't be resolved.
+    # For ClickHouse, we filter these out instead of failing entirely.
+    is_clickhouse = is_dialect_instance(dialect, "clickhouse")
+
     downstream_urn = None
     if raw_column_lineage.downstream.table:
-        downstream_urn = table_name_urn_mapping.get(raw_column_lineage.downstream.table)
-        if downstream_urn is None:
-            # Skip column lineage entries where downstream table can't be resolved
-            logger.debug(
-                f"Skipping column lineage with unresolvable downstream table: "
-                f"{raw_column_lineage.downstream.table}"
+        if is_clickhouse:
+            downstream_urn = table_name_urn_mapping.get(
+                raw_column_lineage.downstream.table
             )
-            return None
-
-    # Filter out upstreams with unresolvable tables (e.g., from ARRAY JOIN pseudo-tables,
-    # CTEs with complex subquery scopes, etc.)
-    resolved_upstreams = []
-    for upstream in raw_column_lineage.upstreams:
-        urn = table_name_urn_mapping.get(upstream.table)
-        if urn is not None:
-            resolved_upstreams.append(
-                ColumnRef(
-                    table=urn,
-                    column=upstream.column,
+            if downstream_urn is None:
+                logger.debug(
+                    f"Skipping column lineage with unresolvable downstream table: "
+                    f"{raw_column_lineage.downstream.table}"
                 )
-            )
+                return None
         else:
-            logger.debug(f"Skipping upstream with unresolvable table: {upstream.table}")
+            downstream_urn = table_name_urn_mapping[raw_column_lineage.downstream.table]
+
+    # Build upstreams list, with ClickHouse-specific graceful handling
+    if is_clickhouse:
+        # Filter out upstreams with unresolvable tables (e.g., from ARRAY JOIN
+        # pseudo-tables, CTEs with complex subquery scopes, etc.)
+        resolved_upstreams = []
+        for upstream in raw_column_lineage.upstreams:
+            urn = table_name_urn_mapping.get(upstream.table)
+            if urn is not None:
+                resolved_upstreams.append(
+                    ColumnRef(
+                        table=urn,
+                        column=upstream.column,
+                    )
+                )
+            else:
+                logger.debug(
+                    f"Skipping upstream with unresolvable table: {upstream.table}"
+                )
+    else:
+        # For other dialects, use original behavior (KeyError on missing table)
+        resolved_upstreams = [
+            ColumnRef(
+                table=table_name_urn_mapping[upstream.table],
+                column=upstream.column,
+            )
+            for upstream in raw_column_lineage.upstreams
+        ]
 
     return ColumnLineageInfo(
         downstream=DownstreamColumnRef(
@@ -1887,22 +1931,45 @@ def _sqlglot_lineage_inner(
     out_urns = sorted({table_name_urn_mapping[table] for table in modified})
     column_lineage_urns = None
     if column_lineage:
-        # Translate column lineage, filtering out entries with unresolvable tables.
-        # This allows partial column lineage to be emitted even when some tables
-        # can't be resolved (e.g., ARRAY JOIN pseudo-tables, complex CTE scopes).
-        column_lineage_urns = [
-            translated
-            for internal_col_lineage in column_lineage
-            if (
-                translated := _translate_internal_column_lineage(
-                    table_name_urn_mapping, internal_col_lineage, dialect=dialect
+        if is_dialect_instance(dialect, "clickhouse"):
+            # ClickHouse-specific: Filter out entries with unresolvable tables.
+            # This allows partial column lineage to be emitted even when some tables
+            # can't be resolved (e.g., ARRAY JOIN pseudo-tables, complex CTE scopes).
+            column_lineage_urns = [
+                translated
+                for internal_col_lineage in column_lineage
+                if (
+                    translated := _translate_internal_column_lineage(
+                        table_name_urn_mapping, internal_col_lineage, dialect=dialect
+                    )
                 )
-            )
-            is not None
-        ]
-        if not column_lineage_urns:
-            # All column lineages were filtered out
-            column_lineage_urns = None
+                is not None
+            ]
+            if not column_lineage_urns:
+                # All column lineages were filtered out
+                column_lineage_urns = None
+        else:
+            # For other dialects, use original behavior with try/except
+            try:
+                column_lineage_urns = [
+                    translated
+                    for internal_col_lineage in column_lineage
+                    if (
+                        translated := _translate_internal_column_lineage(
+                            table_name_urn_mapping,
+                            internal_col_lineage,
+                            dialect=dialect,
+                        )
+                    )
+                    is not None
+                ]
+            except KeyError as e:
+                # When this happens, it's usually because of things like PIVOT where we
+                # can't really go up the scope chain.
+                logger.debug(
+                    f"Failed to translate column lineage to urns: {e}", exc_info=True
+                )
+                debug_info.column_error = e
     joins_urns = None
     if joins is not None:
         try:
