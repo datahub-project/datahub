@@ -1607,10 +1607,33 @@ def _translate_internal_column_lineage(
     table_name_urn_mapping: Dict[_TableName, str],
     raw_column_lineage: _ColumnLineageInfo,
     dialect: sqlglot.Dialect,
-) -> ColumnLineageInfo:
+) -> Optional[ColumnLineageInfo]:
     downstream_urn = None
     if raw_column_lineage.downstream.table:
-        downstream_urn = table_name_urn_mapping[raw_column_lineage.downstream.table]
+        downstream_urn = table_name_urn_mapping.get(raw_column_lineage.downstream.table)
+        if downstream_urn is None:
+            # Skip column lineage entries where downstream table can't be resolved
+            logger.debug(
+                f"Skipping column lineage with unresolvable downstream table: "
+                f"{raw_column_lineage.downstream.table}"
+            )
+            return None
+
+    # Filter out upstreams with unresolvable tables (e.g., from ARRAY JOIN pseudo-tables,
+    # CTEs with complex subquery scopes, etc.)
+    resolved_upstreams = []
+    for upstream in raw_column_lineage.upstreams:
+        urn = table_name_urn_mapping.get(upstream.table)
+        if urn is not None:
+            resolved_upstreams.append(
+                ColumnRef(
+                    table=urn,
+                    column=upstream.column,
+                )
+            )
+        else:
+            logger.debug(f"Skipping upstream with unresolvable table: {upstream.table}")
+
     return ColumnLineageInfo(
         downstream=DownstreamColumnRef(
             table=downstream_urn,
@@ -1631,13 +1654,7 @@ def _translate_internal_column_lineage(
                 else None
             ),
         ),
-        upstreams=[
-            ColumnRef(
-                table=table_name_urn_mapping[upstream.table],
-                column=upstream.column,
-            )
-            for upstream in raw_column_lineage.upstreams
-        ],
+        upstreams=resolved_upstreams,
         logic=raw_column_lineage.logic,
     )
 
@@ -1870,20 +1887,22 @@ def _sqlglot_lineage_inner(
     out_urns = sorted({table_name_urn_mapping[table] for table in modified})
     column_lineage_urns = None
     if column_lineage:
-        try:
-            column_lineage_urns = [
-                _translate_internal_column_lineage(
+        # Translate column lineage, filtering out entries with unresolvable tables.
+        # This allows partial column lineage to be emitted even when some tables
+        # can't be resolved (e.g., ARRAY JOIN pseudo-tables, complex CTE scopes).
+        column_lineage_urns = [
+            translated
+            for internal_col_lineage in column_lineage
+            if (
+                translated := _translate_internal_column_lineage(
                     table_name_urn_mapping, internal_col_lineage, dialect=dialect
                 )
-                for internal_col_lineage in column_lineage
-            ]
-        except KeyError as e:
-            # When this happens, it's usually because of things like PIVOT where we can't
-            # really go up the scope chain.
-            logger.debug(
-                f"Failed to translate column lineage to urns: {e}", exc_info=True
             )
-            debug_info.column_error = e
+            is not None
+        ]
+        if not column_lineage_urns:
+            # All column lineages were filtered out
+            column_lineage_urns = None
     joins_urns = None
     if joins is not None:
         try:

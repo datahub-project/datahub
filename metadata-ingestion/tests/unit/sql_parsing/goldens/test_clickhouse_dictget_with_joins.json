@@ -7,7 +7,62 @@
         "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.users,PROD)"
     ],
     "out_tables": [],
-    "column_lineage": null,
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "event_id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+                    "column": "event_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"e\".\"event_id\" AS \"event_id\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "user_name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.users,PROD)",
+                    "column": "user_name"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"u\".\"user_name\" AS \"user_name\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "category_name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+                    "column": "category_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "DICTGETORDEFAULT(\"default\".\"categories\", 'name', \"e\".\"category_id\", 'Unknown') AS \"category_name\""
+            }
+        }
+    ],
     "joins": [
         {
             "join_type": "JOIN",
