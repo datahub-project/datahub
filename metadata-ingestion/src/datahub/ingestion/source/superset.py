@@ -344,7 +344,13 @@ class SupersetSource(StatefulIngestionSourceBase):
             allowed_methods=RETRY_ALLOWED_METHODS,
             raise_on_status=False,
         )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
+        # Set connection pool size to match max_threads to avoid "Connection pool is full" warnings
+        pool_size = self.config.max_threads + 10  # Add buffer for concurrent requests
+        adapter = HTTPAdapter(
+            max_retries=retry_strategy,
+            pool_connections=pool_size,
+            pool_maxsize=pool_size,
+        )
         requests_session.mount("http://", adapter)
         requests_session.mount("https://", adapter)
 
@@ -417,6 +423,17 @@ class SupersetSource(StatefulIngestionSourceBase):
         ]
 
     @lru_cache(maxsize=None)
+    def get_dashboard_info(self, dashboard_id: int) -> dict:
+        dashboard_response = self.session.get(
+            f"{self.config.connect_uri}/api/v1/dashboard/{dashboard_id}",
+            timeout=self.config.timeout,
+        )
+        if dashboard_response.status_code != 200:
+            logger.warning(f"Failed to get dashboard info: {dashboard_response.text}")
+            return {}
+        return dashboard_response.json()
+
+    @lru_cache(maxsize=None)
     def get_dataset_info(self, dataset_id: int) -> dict:
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
@@ -430,12 +447,17 @@ class SupersetSource(StatefulIngestionSourceBase):
     def get_datasource_urn_from_id(
         self, dataset_response: dict, platform_instance: str
     ) -> str:
-        schema_name = dataset_response.get("result", {}).get("schema")
-        table_name = dataset_response.get("result", {}).get("table_name")
-        database_id = dataset_response.get("result", {}).get("database", {}).get("id")
-        database_name = (
-            dataset_response.get("result", {}).get("database", {}).get("database_name")
-        )
+        result = dataset_response.get("result", {})
+        if not result:
+            dataset_id = dataset_response.get("id", "unknown")
+            raise ValueError(
+                f"Could not construct dataset URN: empty result for dataset_id={dataset_id}"
+            )
+
+        schema_name = result.get("schema")
+        table_name = result.get("table_name")
+        database_id = result.get("database", {}).get("id")
+        database_name = result.get("database", {}).get("database_name")
         database_name = self.config.database_alias.get(database_name, database_name)
 
         # Druid do not have a database concept and has a limited schema concept, but they are nonetheless reported
@@ -459,7 +481,10 @@ class SupersetSource(StatefulIngestionSourceBase):
                 env=self.config.env,
             )
 
-        raise ValueError("Could not construct dataset URN")
+        raise ValueError(
+            f"Could not construct dataset URN: table_name={table_name}, database_id={database_id}, "
+            f"dataset_id={result.get('id', 'unknown')}"
+        )
 
     def construct_dashboard_from_api_data(
         self, dashboard_data: dict
@@ -557,13 +582,23 @@ class SupersetSource(StatefulIngestionSourceBase):
     def _process_dashboard(self, dashboard_data: Any) -> Iterable[MetadataWorkUnit]:
         dashboard_title = ""
         try:
-            dashboard_id = str(dashboard_data.get("id"))
+            dashboard_id = dashboard_data.get("id")
             dashboard_title = dashboard_data.get("dashboard_title", "")
             if not self.config.dashboard_pattern.allowed(dashboard_title):
                 self.report.report_dropped(
                     f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by dashboard_pattern"
                 )
                 return
+
+            # Fetch detailed dashboard info to get position_json (contains chart references)
+            # The list API doesn't return position_json, only the detail API does
+            dashboard_detail = self.get_dashboard_info(dashboard_id)
+            if dashboard_detail:
+                # Merge detail data into dashboard_data, prioritizing detail data
+                detail_result = dashboard_detail.get("result", {})
+                for key, value in detail_result.items():
+                    if value is not None:
+                        dashboard_data[key] = value
 
             if self.config.database_pattern != AllowDenyPattern.allow_all():
                 raw_position_data = dashboard_data.get("position_json", "{}")

@@ -1553,7 +1553,7 @@ def _translate_internal_column_lineage(
 ) -> ColumnLineageInfo:
     downstream_urn = None
     if raw_column_lineage.downstream.table:
-        downstream_urn = table_name_urn_mapping[raw_column_lineage.downstream.table]
+        downstream_urn = table_name_urn_mapping.get(raw_column_lineage.downstream.table)
     return ColumnLineageInfo(
         downstream=DownstreamColumnRef(
             table=downstream_urn,
@@ -1580,6 +1580,7 @@ def _translate_internal_column_lineage(
                 column=upstream.column,
             )
             for upstream in raw_column_lineage.upstreams
+            if upstream.table in table_name_urn_mapping
         ],
         logic=raw_column_lineage.logic,
     )
@@ -1809,8 +1810,20 @@ def _sqlglot_lineage_inner(
     # TODO: Can we generate a common WHERE clauses section?
 
     # Convert TableName to urns.
-    in_urns = sorted({table_name_urn_mapping[table] for table in tables})
-    out_urns = sorted({table_name_urn_mapping[table] for table in modified})
+    in_urns = sorted(
+        {
+            table_name_urn_mapping[table]
+            for table in tables
+            if table in table_name_urn_mapping
+        }
+    )
+    out_urns = sorted(
+        {
+            table_name_urn_mapping[table]
+            for table in modified
+            if table in table_name_urn_mapping
+        }
+    )
     column_lineage_urns = None
     if column_lineage:
         try:
