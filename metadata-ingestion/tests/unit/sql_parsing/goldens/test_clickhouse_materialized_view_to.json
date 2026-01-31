@@ -1,0 +1,53 @@
+{
+    "query_type": "CREATE_DDL",
+    "query_type_props": {},
+    "query_fingerprint": "83712a0b9051b7d87766d47722145af1931eaa5c9482b3b7b53b9f6cceb1063a",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.mv_daily_stats,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.mv_daily_stats,PROD)",
+                "column": "date",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+                    "column": "timestamp"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "toDate(\"events\".\"timestamp\") AS \"date\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.mv_daily_stats,PROD)",
+                "column": "total_events",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "Nullable(Int64)"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "count(*) AS \"total_events\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "CREATE MATERIALIZED VIEW analytics.mv_daily_stats TO analytics.agg_daily_stats (date DATE, total_events UInt64) AS SELECT toDate(timestamp) AS date, count(*) AS total_events FROM analytics.events GROUP BY date"
+    }
+}

@@ -606,6 +606,8 @@ def _table_level_lineage(
                 if not isinstance(table.parent, sqlglot.exp.Drop)
                 # ClickHouse: Filter out dictionary references in DICTGET() and similar functions
                 and not _is_in_clickhouse_dict_function(table)
+                # ClickHouse: Filter out TO table in CREATE MATERIALIZED VIEW ... TO target_table
+                and not isinstance(table.parent, sqlglot.exp.ToTableProperty)
             ),
             dialect,
         )

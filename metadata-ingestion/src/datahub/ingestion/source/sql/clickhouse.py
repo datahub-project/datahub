@@ -330,7 +330,18 @@ def _get_clickhouse_columns(self, connection, table_name, schema=None, **kw):
 
 
 def _get_column_info(self, name, format_type, comment):
-    col_type = self._get_column_type(name, format_type)
+    try:
+        col_type = self._get_column_type(name, format_type)
+    except TypeError as e:
+        # clickhouse_sqlalchemy can fail on complex types like Map with nested types
+        # that it doesn't fully support (e.g., Map(String, String) parsing issues).
+        # Fall back to NullType to allow schema discovery to continue.
+        logger.warning(
+            f"Failed to parse column type for '{name}' with type '{format_type}': {e}. "
+            "Using NullType as fallback."
+        )
+        col_type = sqltypes.NullType()
+
     nullable = False
 
     # extract nested_type from LowCardinality type

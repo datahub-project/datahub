@@ -1679,3 +1679,21 @@ JOIN analytics.users u ON e.user_id = u.id
         dialect="clickhouse",
         expected_file=RESOURCE_DIR / "test_clickhouse_dictget_with_joins.json",
     )
+
+
+def test_clickhouse_materialized_view_to_table() -> None:
+    # Test that the TO table in ClickHouse CREATE MATERIALIZED VIEW ... TO target_table
+    # is not treated as an upstream table. The TO table is the storage target, not a data source.
+    assert_sql_result(
+        """\
+CREATE MATERIALIZED VIEW analytics.mv_daily_stats TO analytics.agg_daily_stats
+(date Date, total_events UInt64)
+AS SELECT
+    toDate(timestamp) AS date,
+    count(*) AS total_events
+FROM analytics.events
+GROUP BY date
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_materialized_view_to.json",
+    )
