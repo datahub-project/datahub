@@ -1191,6 +1191,11 @@ class SqlParsingAggregator(Closeable):
             "MATERIALIZED VIEW" in view_def_upper
             and re.search(r"\bTO\s+\S+", view_def_upper) is not None
         )
+        if is_clickhouse_mv_with_to:
+            logger.debug(
+                f"ClickHouse MV {view_urn}: out_tables={parsed.out_tables}, "
+                f"column_lineage_count={len(parsed.column_lineage or [])}"
+            )
         if (
             is_clickhouse_mv_with_to
             and parsed.out_tables
