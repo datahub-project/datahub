@@ -1,4 +1,5 @@
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -162,7 +163,27 @@ class RedshiftSqlLineage(Closeable):
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
 
+    # Regex patterns to detect Sigma Computing temporary/materialization tables
+    # Sigma creates tables like sigma.t_mat_12345 or sigma.t_something_1234567890123
+    _SIGMA_TEMP_TABLE_PATTERNS = [
+        re.compile(r"^sigma\.t_mat_", re.IGNORECASE),  # Materialization tables
+        re.compile(r"^sigma\.t_[^.]+_\d{10,}$", re.IGNORECASE),  # Timestamp-based temps
+    ]
+
+    def _is_sigma_temp_table(self, name: str) -> bool:
+        """Check if the table name matches Sigma Computing temp table patterns.
+
+        Sigma creates temporary tables in the 'sigma' schema with patterns like:
+        - sigma.t_mat_* (materialization tables)
+        - sigma.t_*_<timestamp> (temporary tables with Unix timestamp suffix)
+        """
+        return any(pattern.match(name) for pattern in self._SIGMA_TEMP_TABLE_PATTERNS)
+
     def _is_temp_table(self, name: str) -> bool:
+        # Check Sigma temp table patterns first (known BI tool pattern)
+        if self._is_sigma_temp_table(name):
+            return True
+
         return (
             DatasetUrn.create_from_ids(
                 self.platform,
