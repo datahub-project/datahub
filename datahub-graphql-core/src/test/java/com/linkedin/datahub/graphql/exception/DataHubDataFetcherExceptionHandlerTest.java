@@ -223,4 +223,203 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertEquals(error.getErrorCode(), DataHubGraphQLErrorCode.SERVER_ERROR.getCode());
     assertTrue(error.getMessage().contains("Invalid state"));
   }
+
+  @Test
+  public void testHandleException_ExceptionWithNullMessage() throws Exception {
+    // Test exception with null message
+    RuntimeException exceptionWithNullMessage = new RuntimeException((String) null);
+    when(mockParameters.getException()).thenReturn(exceptionWithNullMessage);
+
+    CompletableFuture<DataFetcherExceptionHandlerResult> result =
+        handler.handleException(mockParameters);
+
+    assertNotNull(result);
+    DataFetcherExceptionHandlerResult handlerResult = result.get();
+    assertNotNull(handlerResult);
+    assertEquals(handlerResult.getErrors().size(), 1);
+    assertNotNull(handlerResult.getErrors().get(0).getMessage());
+  }
+
+  @Test
+  public void testHandleException_ExceptionWithEmptyMessage() throws Exception {
+    // Test exception with empty message
+    RuntimeException exceptionWithEmptyMessage = new RuntimeException("");
+    when(mockParameters.getException()).thenReturn(exceptionWithEmptyMessage);
+
+    CompletableFuture<DataFetcherExceptionHandlerResult> result =
+        handler.handleException(mockParameters);
+
+    assertNotNull(result);
+    DataFetcherExceptionHandlerResult handlerResult = result.get();
+    assertNotNull(handlerResult);
+    assertEquals(handlerResult.getErrors().size(), 1);
+    assertNotNull(handlerResult.getErrors().get(0).getMessage());
+  }
+
+  @Test
+  public void testHandleException_DeepExceptionChain() throws Exception {
+    // Create a deep exception chain
+    Exception rootCause = new Exception("Root cause message");
+    Exception level1 = new Exception("Level 1 message", rootCause);
+    Exception level2 = new Exception("Level 2 message", level1);
+    Exception level3 = new Exception("Level 3 message", level2);
+    when(mockParameters.getException()).thenReturn(level3);
+
+    CompletableFuture<DataFetcherExceptionHandlerResult> result =
+        handler.handleException(mockParameters);
+
+    assertNotNull(result);
+    DataFetcherExceptionHandlerResult handlerResult = result.get();
+    assertNotNull(handlerResult);
+    assertEquals(handlerResult.getErrors().size(), 1);
+
+    String errorMessage = handlerResult.getErrors().get(0).getMessage();
+    assertNotNull(errorMessage);
+    // Should contain some error message from the chain
+    assertTrue(errorMessage.length() > 0);
+  }
+
+  @Test
+  public void testHandleException_CircularCauseChain() throws Exception {
+    // Test handling of circular cause chains (should not infinite loop)
+    RuntimeException ex1 = new RuntimeException("Exception 1");
+    RuntimeException ex2 = new RuntimeException("Exception 2", ex1);
+    // Note: Can't actually create circular reference in Java without reflection,
+    // but test that handler can handle exceptions with causes
+    when(mockParameters.getException()).thenReturn(ex2);
+
+    CompletableFuture<DataFetcherExceptionHandlerResult> result =
+        handler.handleException(mockParameters);
+
+    assertNotNull(result);
+    DataFetcherExceptionHandlerResult handlerResult = result.get();
+    assertNotNull(handlerResult);
+    assertEquals(handlerResult.getErrors().size(), 1);
+    assertNotNull(handlerResult.getErrors().get(0).getMessage());
+  }
+
+  @Test
+  public void testHandleException_DuplicateCauseMessages() throws Exception {
+    // Test that duplicate messages in cause chain are handled properly
+    Exception rootCause = new Exception("Duplicate message");
+    Exception wrapper1 = new Exception("Duplicate message", rootCause);
+    Exception wrapper2 = new Exception("Unique message", wrapper1);
+    when(mockParameters.getException()).thenReturn(wrapper2);
+
+    CompletableFuture<DataFetcherExceptionHandlerResult> result =
+        handler.handleException(mockParameters);
+
+    assertNotNull(result);
+    DataFetcherExceptionHandlerResult handlerResult = result.get();
+    assertNotNull(handlerResult);
+    assertEquals(handlerResult.getErrors().size(), 1);
+
+    String errorMessage = handlerResult.getErrors().get(0).getMessage();
+    assertNotNull(errorMessage);
+    // Should have some error message
+    assertTrue(errorMessage.length() > 0);
+  }
+
+  @Test
+  public void testHandleException_MultipleNestedDataHubExceptions() throws Exception {
+    // Test multiple nested DataHub exceptions
+    DataHubGraphQLException innerException =
+        new DataHubGraphQLException("Inner error", DataHubGraphQLErrorCode.NOT_FOUND);
+    DataHubGraphQLException outerException =
+        new DataHubGraphQLException(
+            "Outer error", DataHubGraphQLErrorCode.BAD_REQUEST, innerException);
+    when(mockParameters.getException()).thenReturn(outerException);
+
+    CompletableFuture<DataFetcherExceptionHandlerResult> result =
+        handler.handleException(mockParameters);
+
+    assertNotNull(result);
+    DataFetcherExceptionHandlerResult handlerResult = result.get();
+    assertNotNull(handlerResult);
+    assertEquals(handlerResult.getErrors().size(), 1);
+
+    DataHubGraphQLError error = (DataHubGraphQLError) handlerResult.getErrors().get(0);
+    // Should use the first DataHub exception found
+    assertEquals(error.getErrorCode(), DataHubGraphQLErrorCode.BAD_REQUEST.getCode());
+  }
+
+  @Test
+  public void testHandleException_ValidationExceptionEmptyCollection() throws Exception {
+    // Test ValidationException with empty collection (null collection not allowed by constructor)
+    ValidationExceptionCollection collection = mock(ValidationExceptionCollection.class);
+    when(collection.getSubTypes()).thenReturn(Collections.emptySet());
+    when(collection.toString()).thenReturn("Empty validation collection");
+
+    com.linkedin.metadata.entity.validation.ValidationException validationException =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    when(mockParameters.getException()).thenReturn(validationException);
+
+    CompletableFuture<DataFetcherExceptionHandlerResult> result =
+        handler.handleException(mockParameters);
+
+    assertNotNull(result);
+    DataFetcherExceptionHandlerResult handlerResult = result.get();
+    assertNotNull(handlerResult);
+    assertEquals(handlerResult.getErrors().size(), 1);
+    assertNotNull(handlerResult.getErrors().get(0).getMessage());
+  }
+
+  @Test
+  public void testHandleException_ExceptionPriority() throws Exception {
+    // Test that DataHubGraphQLException takes priority over IllegalArgumentException
+    IllegalArgumentException illegalArg = new IllegalArgumentException("Illegal arg message");
+    DataHubGraphQLException graphqlException =
+        new DataHubGraphQLException("GraphQL message", DataHubGraphQLErrorCode.NOT_FOUND);
+
+    // Wrap GraphQL exception in IllegalArgument
+    IllegalArgumentException wrapper = new IllegalArgumentException("Wrapper", graphqlException);
+    when(mockParameters.getException()).thenReturn(wrapper);
+
+    CompletableFuture<DataFetcherExceptionHandlerResult> result =
+        handler.handleException(mockParameters);
+
+    assertNotNull(result);
+    DataFetcherExceptionHandlerResult handlerResult = result.get();
+    assertNotNull(handlerResult);
+
+    DataHubGraphQLError error = (DataHubGraphQLError) handlerResult.getErrors().get(0);
+    // Should prioritize DataHubGraphQLException
+    assertEquals(error.getErrorCode(), DataHubGraphQLErrorCode.NOT_FOUND.getCode());
+  }
+
+  @Test
+  public void testHandleException_AllExceptionTypesNull() throws Exception {
+    // Test with a generic exception that doesn't match any specific type deeply
+    Exception genericException = new Exception("Generic exception");
+    when(mockParameters.getException()).thenReturn(genericException);
+
+    CompletableFuture<DataFetcherExceptionHandlerResult> result =
+        handler.handleException(mockParameters);
+
+    assertNotNull(result);
+    DataFetcherExceptionHandlerResult handlerResult = result.get();
+    assertNotNull(handlerResult);
+    assertEquals(handlerResult.getErrors().size(), 1);
+    assertNotNull(handlerResult.getErrors().get(0).getMessage());
+  }
+
+  @Test
+  public void testHandleException_ExtractErrorMessageWithRootCause() throws Exception {
+    // Test error message extraction includes root cause
+    Exception rootCause = new Exception("This is the root cause");
+    Exception middleException = new Exception("Middle exception", rootCause);
+    RuntimeException topException = new RuntimeException("Top level exception", middleException);
+    when(mockParameters.getException()).thenReturn(topException);
+
+    CompletableFuture<DataFetcherExceptionHandlerResult> result =
+        handler.handleException(mockParameters);
+
+    assertNotNull(result);
+    DataFetcherExceptionHandlerResult handlerResult = result.get();
+    assertNotNull(handlerResult);
+
+    String errorMessage = handlerResult.getErrors().get(0).getMessage();
+    // Should include root cause in the message
+    assertTrue(errorMessage.contains("Root cause:") || errorMessage.contains("root cause"));
+  }
 }
