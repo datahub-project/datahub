@@ -785,6 +785,7 @@ def _prepare_query_columns(
             # - running the full pre-type annotation optimizer
 
             # logger.debug("Schema: %s", sqlglot_db_schema.mapping)
+            logger.debug("[CLL] Starting sqlglot optimizer")
             statement = sqlglot.optimizer.optimizer.optimize(
                 statement,
                 dialect=dialect,
@@ -798,6 +799,7 @@ def _prepare_query_columns(
                 db=default_schema,
                 rules=_OPTIMIZE_RULES,
             )
+            logger.debug("[CLL] sqlglot optimizer completed")
         except (sqlglot.errors.OptimizeError, ValueError) as e:
             raise SqlUnderstandingError(
                 f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
@@ -985,8 +987,14 @@ def _column_level_lineage(
     default_schema: Optional[str],
 ) -> _ColumnLineageWithDebugInfo:
     # Simplify the input statement for column-level lineage generation.
+    logger.debug(
+        f"[CLL] Starting _column_level_lineage for downstream={downstream_table}"
+    )
     try:
         select_statement = _try_extract_select(statement, dialect=dialect)
+        logger.debug(
+            f"[CLL] _try_extract_select completed, type={type(select_statement).__name__}"
+        )
     except Exception as e:
         raise SqlUnderstandingError(
             f"Failed to extract select from statement: {e}"
@@ -994,6 +1002,7 @@ def _column_level_lineage(
 
     try:
         assert select_statement is not None
+        logger.debug("[CLL] Starting _prepare_query_columns")
         (select_statement, column_resolver) = _prepare_query_columns(
             select_statement,
             dialect=dialect,
@@ -1001,6 +1010,7 @@ def _column_level_lineage(
             default_db=default_db,
             default_schema=default_schema,
         )
+        logger.debug("[CLL] _prepare_query_columns completed")
     except UnsupportedStatementTypeError as e:
         # Inject details about the outer statement type too.
         e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
@@ -1897,6 +1907,13 @@ def _sqlglot_lineage_inner(
 
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     joins = None
+    # Log context for column lineage debugging
+    table_context = (
+        f"downstream={downstream_table}, tables={list(table_name_schema_mapping.keys())}"
+        if downstream_table or table_name_schema_mapping
+        else "no tables"
+    )
+    logger.debug(f"Starting column-level lineage generation: {table_context}")
     try:
         with cooperative_timeout(
             timeout=(
@@ -1913,14 +1930,23 @@ def _sqlglot_lineage_inner(
             )
             column_lineage = column_lineage_debug_info.column_lineage
             joins = column_lineage_debug_info.joins
+            logger.debug(
+                f"Column-level lineage completed: {len(column_lineage or [])} entries, {table_context}"
+            )
     except CooperativeTimeoutError as e:
-        logger.debug(f"Timed out while generating column-level lineage: {e}")
+        logger.debug(
+            f"Timed out while generating column-level lineage ({table_context}): {e}"
+        )
         debug_info.column_error = e
     except UnsupportedStatementTypeError as e:
         # For this known exception type, we assume the error is logged at the point of failure.
+        logger.debug(f"Unsupported statement type for column lineage ({table_context})")
         debug_info.column_error = e
     except Exception as e:
-        logger.debug(f"Failed to generate column-level lineage: {e}", exc_info=True)
+        logger.debug(
+            f"Failed to generate column-level lineage ({table_context}): {e}",
+            exc_info=True,
+        )
         debug_info.column_error = e
 
     # TODO: Can we generate a common JOIN tables / keys section?
