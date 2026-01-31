@@ -3,6 +3,7 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 import dataclasses
 import functools
 import logging
+import re
 import traceback
 from collections import defaultdict
 from typing import (
@@ -2191,6 +2192,28 @@ def create_schema_resolver(
     )
 
 
+# Regex pattern to fix Sigma Computing malformed SQL.
+# Sigma generates SQL with missing space between type cast and identifier:
+# e.g., "::timestamptzcast_date_to_timestamp" should be "::timestamptz cast_date_to_timestamp"
+# Pattern matches ::TYPE immediately followed by "cast_" without space
+_SIGMA_CAST_FIX_PATTERN = re.compile(
+    r"::(timestamp(?:tz)?|date|time(?:tz)?|int(?:eger)?|bigint|smallint|"
+    r"float|real|double|numeric|decimal|varchar|char|text|boolean|bool)"
+    r"(cast_)",
+    re.IGNORECASE,
+)
+
+
+def _preprocess_query_for_sigma(query: str) -> str:
+    """Preprocess query to fix Sigma Computing malformed SQL.
+
+    Sigma generates SQL with missing spaces in type casts followed by
+    cast function identifiers, e.g., "::timestamptzcast_" instead of
+    "::timestamptz cast_". This causes sqlglot parsing failures.
+    """
+    return _SIGMA_CAST_FIX_PATTERN.sub(r"::\1 \2", query)
+
+
 def create_lineage_sql_parsed_result(
     query: str,
     default_db: Optional[str],
@@ -2214,9 +2237,15 @@ def create_lineage_sql_parsed_result(
     if graph and schema_aware:
         needs_close = False
 
+    # Apply Sigma Computing SQL fix for Redshift platform
+    # Sigma generates malformed SQL with missing spaces in type casts
+    processed_query = query
+    if platform == "redshift":
+        processed_query = _preprocess_query_for_sigma(query)
+
     try:
         return sqlglot_lineage(
-            query,
+            processed_query,
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
