@@ -54,6 +54,8 @@ public class GraphQLController {
 
   @Inject MetricUtils metricUtils;
 
+  @Inject com.linkedin.datahub.graphql.AspectMappingRegistry aspectMappingRegistry;
+
   @Nonnull
   @Inject
   @Named("systemOperationContext")
@@ -130,6 +132,8 @@ public class GraphQLController {
             operationName,
             query,
             variables);
+    // Set the AspectMappingRegistry for aspect-level optimizations
+    context.setAspectMappingRegistry(aspectMappingRegistry);
     Span.current().setAttribute(ACTOR_URN_ATTR, context.getActorUrn());
 
     final String threadName = Thread.currentThread().getName();

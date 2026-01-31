@@ -167,6 +167,7 @@ dependencies {
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
   testFixturesApi project(':datahub-graphql-core')
+  testFixturesApi externalDependency.graphqlJava
   testImplementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
   testImplementation project(':metadata-service:auth-impl')
   testFixturesApi project(':metadata-service:configuration')
