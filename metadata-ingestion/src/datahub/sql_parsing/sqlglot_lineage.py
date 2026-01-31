@@ -2192,26 +2192,54 @@ def create_schema_resolver(
     )
 
 
-# Regex pattern to fix Sigma Computing malformed SQL.
-# Sigma generates SQL with missing space between type cast and identifier:
-# e.g., "::timestamptzcast_date_to_timestamp" should be "::timestamptz cast_date_to_timestamp"
-# Pattern matches ::TYPE immediately followed by "cast_" without space
-_SIGMA_CAST_FIX_PATTERN = re.compile(
-    r"::(timestamp(?:tz)?|date|time(?:tz)?|int(?:eger)?|bigint|smallint|"
-    r"float|real|double|numeric|decimal|varchar|char|text|boolean|bool)"
-    r"(cast_)",
-    re.IGNORECASE,
-)
+# Regex patterns to fix Sigma Computing malformed SQL.
+# Sigma generates SQL with missing spaces between keywords/operators.
+# Each tuple is (pattern, replacement).
+_SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
+    # ::TYPEcast_ -> ::TYPE cast_
+    # e.g., "::timestamptzcast_date_to_timestamp" -> "::timestamptz cast_date_to_timestamp"
+    (
+        re.compile(
+            r"::(timestamp(?:tz)?|date|time(?:tz)?|int(?:eger)?|bigint|smallint|"
+            r"float|real|double|numeric|decimal|varchar|char|text|boolean|bool)"
+            r"(cast_)",
+            re.IGNORECASE,
+        ),
+        r"::\1 \2",
+    ),
+    # casewhen -> case when (only when followed by space or quote)
+    (re.compile(r"\bcasewhen\b", re.IGNORECASE), "case when"),
+    # SQL keyword + aggregate without space: ormin(, andmax(, ormax(, andmin(, orsum(, andsum(, orcount(, andcount(
+    (re.compile(r"\bor(min|max|sum|count|avg)\s*\(", re.IGNORECASE), r"or \1("),
+    (re.compile(r"\band(min|max|sum|count|avg)\s*\(", re.IGNORECASE), r"and \1("),
+    # notnull -> not null, nulland -> null and, nullor -> null or
+    (re.compile(r"\bnotnull\b", re.IGNORECASE), "not null"),
+    (re.compile(r"\bnulland\b", re.IGNORECASE), "null and"),
+    (re.compile(r"\bnullor\b", re.IGNORECASE), "null or"),
+    # isnull followed by and/or without space: isnulland -> is null and
+    (re.compile(r"\bis\s+nulland\b", re.IGNORECASE), "is null and"),
+    (re.compile(r"\bis\s+nullor\b", re.IGNORECASE), "is null or"),
+]
 
 
 def _preprocess_query_for_sigma(query: str) -> str:
     """Preprocess query to fix Sigma Computing malformed SQL.
 
-    Sigma generates SQL with missing spaces in type casts followed by
-    cast function identifiers, e.g., "::timestamptzcast_" instead of
-    "::timestamptz cast_". This causes sqlglot parsing failures.
+    Sigma generates SQL with missing spaces between keywords, operators,
+    and function calls. This causes sqlglot parsing failures.
+
+    Known Sigma malformations:
+    - ::timestamptzcast_ -> ::timestamptz cast_
+    - casewhen -> case when
+    - ormin( -> or min(
+    - andmax( -> and max(
+    - notnull -> not null
+    - nulland -> null and
     """
-    return _SIGMA_CAST_FIX_PATTERN.sub(r"::\1 \2", query)
+    result = query
+    for pattern, replacement in _SIGMA_SQL_FIX_PATTERNS:
+        result = pattern.sub(replacement, result)
+    return result
 
 
 def create_lineage_sql_parsed_result(
