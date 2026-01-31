@@ -326,6 +326,15 @@ def _get_clickhouse_columns(self, connection, table_name, schema=None, **kw):
         connection, schema, info_cache=info_cache
     )
     key = (schema, table_name)
+    if key not in all_schema_columns:
+        # Some tables (e.g., distributed log shards like s3queue_log_5, session_log_2)
+        # exist in system.tables but have no entries in system.columns.
+        # Return empty list to allow ingestion to continue.
+        logger.debug(
+            f"No columns found for table '{schema}.{table_name}' in system.columns. "
+            "This may be a distributed shard or virtual table."
+        )
+        return []
     return all_schema_columns[key]
 
 
