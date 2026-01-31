@@ -830,7 +830,19 @@ class SqlParsingAggregator(Closeable):
 
         self.report.num_view_definitions += 1
 
-        self._view_definitions[str(view_urn)] = ViewDefinition(
+        # Log when adding specific views for debugging CLL issues
+        view_urn_str = str(view_urn)
+        if (
+            "identification_metrics__5min" in view_urn_str
+            or "identification_metrics__day" in view_urn_str
+        ):
+            logger.info(
+                f"[ADD-VIEW-DEF] Adding view definition for {view_urn_str}, "
+                f"view_def_len={len(view_definition)}, "
+                f"default_db={default_db}, default_schema={default_schema}"
+            )
+
+        self._view_definitions[view_urn_str] = ViewDefinition(
             view_definition=view_definition,
             default_db=default_db,
             default_schema=default_schema,
@@ -1162,6 +1174,16 @@ class SqlParsingAggregator(Closeable):
         # instead of a CREATE VIEW ... AS SELECT statement. In those cases, we can't
         # trust the parsed query type or downstream urn.
 
+        # Log when processing specific views for debugging CLL issues
+        if (
+            "identification_metrics__5min" in view_urn
+            or "identification_metrics__day" in view_urn
+        ):
+            logger.info(
+                f"[PROCESS-VIEW-DEF] Processing view definition for {view_urn}, "
+                f"view_def_len={len(view_definition.view_definition)}"
+            )
+
         # Run the SQL parser.
         parsed = self._run_sql_parser(
             view_definition.view_definition,
@@ -1173,13 +1195,29 @@ class SqlParsingAggregator(Closeable):
             self.report.views_parse_failures[view_urn] = (
                 f"{parsed.debug_info.error} on query: {view_definition.view_definition[:100]}"
             )
+            if "identification_metrics__5min" in view_urn:
+                logger.warning(
+                    f"[PROCESS-VIEW-DEF] Parse error for {view_urn}: {parsed.debug_info.error}"
+                )
         if parsed.debug_info.table_error:
             self.report.num_views_failed += 1
+            if "identification_metrics__5min" in view_urn:
+                logger.warning(
+                    f"[PROCESS-VIEW-DEF] Table error for {view_urn}: {parsed.debug_info.table_error}"
+                )
             return  # we can't do anything with this query
         elif isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
             self.report.num_views_column_timeout += 1
+            if "identification_metrics__5min" in view_urn:
+                logger.warning(
+                    f"[PROCESS-VIEW-DEF] Column timeout for {view_urn}: {parsed.debug_info.column_error}"
+                )
         elif parsed.debug_info.column_error:
             self.report.num_views_column_failed += 1
+            if "identification_metrics__5min" in view_urn:
+                logger.warning(
+                    f"[PROCESS-VIEW-DEF] Column error for {view_urn}: {parsed.debug_info.column_error}"
+                )
 
         # Determine the actual downstream URN.
         # For ClickHouse MVs with TO clause, the SQL parser identifies the TO table

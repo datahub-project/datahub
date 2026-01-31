@@ -1116,7 +1116,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
-            for view in inspector.get_view_names(schema):
+            view_names = inspector.get_view_names(schema)
+            logger.debug(
+                f"[VIEW-DISCOVERY] Schema {schema}: found {len(view_names)} views"
+            )
+            for view in view_names:
                 dataset_name = self.get_identifier(
                     schema=schema, entity=view, inspector=inspector
                 )
@@ -1208,6 +1212,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         view_definition = self._get_view_definition(inspector, schema, view)
         properties["view_definition"] = view_definition
+        view_def_len = len(view_definition) if view_definition else 0
+        logger.debug(
+            f"[VIEW-DEF] {dataset_name}: view_definition length={view_def_len}, "
+            f"include_view_lineage={self.config.include_view_lineage}"
+        )
         if view_definition and self.config.include_view_lineage:
             default_db = None
             default_schema = None
@@ -1222,11 +1231,20 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     exc=e,
                 )
 
+            logger.debug(
+                f"[VIEW-DEF] Adding to aggregator: {dataset_name} -> {dataset_urn}"
+            )
             self.aggregator.add_view_definition(
                 view_urn=dataset_urn,
                 view_definition=view_definition,
                 default_db=default_db,
                 default_schema=default_schema,
+            )
+        elif not view_definition:
+            logger.warning(f"[VIEW-DEF] Empty view definition for {dataset_name}")
+        elif not self.config.include_view_lineage:
+            logger.debug(
+                f"[VIEW-DEF] Skipping {dataset_name}: include_view_lineage=False"
             )
 
         dataset_snapshot = DatasetSnapshotClass(
