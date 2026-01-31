@@ -487,6 +487,84 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
     verify(mockEntityService).ingestProposal(any(), any(), anyBoolean());
   }
 
+  @Test
+  public void testCreateEntityAsync_WithDomain() throws Exception {
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+    Urn domainUrn = UrnUtils.getUrn(FINANCE_DOMAIN_URN);
+
+    // Mock successful ingest result
+    BatchItem mockBatchItem = mock(BatchItem.class);
+    when(mockBatchItem.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockBatchItem.getAspectName()).thenReturn("domains");
+    when(mockBatchItem.getRecordTemplate())
+        .thenReturn(new Domains().setDomains(new UrnArray(Collections.singletonList(domainUrn))));
+
+    when(mockEntityService.ingestProposal(any(), any(), anyBoolean()))
+        .thenReturn(
+            Collections.singletonList(
+                IngestResult.builder()
+                    .urn(datasetUrn)
+                    .request(mockBatchItem)
+                    .sqlCommitted(true)
+                    .build()));
+
+    String requestBody =
+        "[{\"urn\": \""
+            + DATASET_URN
+            + "\", "
+            + "\"status\": {\"value\": {\"removed\": false}}, "
+            + "\"domains\": {\"value\": {\"domains\": [\""
+            + FINANCE_DOMAIN_URN
+            + "\"]}}}]";
+
+    // Test async mode with ?async=true
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset?async=true")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    // Verify ingestion was performed with async=true
+    verify(mockEntityService).ingestProposal(any(), any(), eq(true));
+  }
+
+  @Test
+  public void testCreateEntity_NullFeatureFlags() throws Exception {
+    // Test behavior when featureFlags is null
+    when(mockConfigurationProvider.getFeatureFlags()).thenReturn(null);
+
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+
+    // Mock successful ingest result
+    BatchItem mockBatchItem = mock(BatchItem.class);
+    when(mockBatchItem.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockBatchItem.getAspectName()).thenReturn("status");
+    when(mockBatchItem.getRecordTemplate()).thenReturn(new Status().setRemoved(false));
+
+    when(mockEntityService.ingestProposal(any(), any(), anyBoolean()))
+        .thenReturn(
+            Collections.singletonList(
+                IngestResult.builder()
+                    .urn(datasetUrn)
+                    .request(mockBatchItem)
+                    .sqlCommitted(true)
+                    .build()));
+
+    String requestBody =
+        "[{\"urn\": \"" + DATASET_URN + "\", \"status\": {\"value\": {\"removed\": false}}}]";
+
+    // Should succeed - falls back to standard authorization when featureFlags is null
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    verify(mockEntityService).ingestProposal(any(), any(), anyBoolean());
+  }
+
   @TestConfiguration
   public static class TestConfig {
     @MockBean public EntityServiceImpl entityService;
