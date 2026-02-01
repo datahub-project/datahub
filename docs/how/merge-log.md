@@ -3371,3 +3371,31 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **c2b95f1bbf** - feat(ui): add Notion as ingestion source in UI (#8026) (#15970)
   *by Anna Everhart <149417426+annadoesdesign@users.noreply.github.com> on 2026-01-23*
+
+## Upstream Merge Session - 2026-02-01 15:20:47
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 5
+- **Strategy**: stacked
+- **Started**: 2026-02-01 15:20:47
+
+### Commits Included in This Merge
+
+- **45c83c943b** - fix(ui/search/filters): Fix tooltip on more filters dropdown (#15971)
+  *by Andrew Sikowitz <andrew.sikowitz@acryl.io> on 2026-01-23*
+
+- **ddf207b49c** - feat(ui): Updated Manage User UI (#15961)
+  *by Ben Blazke <benjiaming@users.noreply.github.com> on 2026-01-23*
+
+- **0dd157fcc3** - fix(powerbi): Add DataPlatformInstance aspect to enable recursive deletion by platform instance (#15929)
+  *by Rajat Singh <rajats2502@gmail.com> on 2026-01-26*
+
+- **134030187e** - feat(ingestion): make SQL parse cache size configurable via env var (#15977)
+  *by Jonny Dixon <45681293+acrylJonny@users.noreply.github.com> on 2026-01-26*
+
+- **68b0bf327a** - feat(ingestion): add datahub-documents source with chunking and embed… (#15975)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-01-26*
