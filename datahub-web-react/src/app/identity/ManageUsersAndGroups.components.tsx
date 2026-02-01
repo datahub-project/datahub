@@ -29,6 +29,7 @@ export const HeaderLeft = styled.div`
 export const HeaderRight = styled.div`
     display: flex;
     align-items: center;
+    gap: 12px;
 `;
 
 export const Content = styled.div`
