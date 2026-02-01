@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.ByteArrayInputStream;
+import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.HashMap;
@@ -27,6 +28,7 @@ public class ApplicationControllerTest {
 
   private Application application;
   private Config config;
+  private HttpClient mockHttpClient;
 
   @BeforeEach
   void setUp() {
@@ -37,7 +39,7 @@ public class ApplicationControllerTest {
     configMap.put("proxy.streamingPathPrefixes", "/openapi/v1/ai-chat/message");
     config = ConfigFactory.parseMap(configMap);
 
-    java.net.http.HttpClient mockHttpClient = mock(java.net.http.HttpClient.class);
+    mockHttpClient = mock(HttpClient.class);
     Environment mockEnvironment = mock(Environment.class);
     application = new Application(mockHttpClient, mockEnvironment, config);
   }
@@ -175,6 +177,29 @@ public class ApplicationControllerTest {
   }
 
   @Test
+  void buildProxyResponseHeader_stripsContentEncodingAndTransferEncoding() throws Exception {
+    HttpResponse<?> apiResponse = mock(HttpResponse.class);
+    java.net.http.HttpHeaders responseHeaders = mock(java.net.http.HttpHeaders.class);
+    Map<String, List<String>> headerMap = new HashMap<>();
+    headerMap.put(Http.HeaderNames.CONTENT_TYPE, List.of("application/json"));
+    headerMap.put(Http.HeaderNames.CONTENT_ENCODING, List.of("gzip"));
+    headerMap.put(Http.HeaderNames.TRANSFER_ENCODING, List.of("chunked"));
+    when(apiResponse.statusCode()).thenReturn(200);
+    when(apiResponse.headers()).thenReturn(responseHeaders);
+    when(responseHeaders.map()).thenReturn(headerMap);
+
+    play.mvc.ResponseHeader result = invokeBuildProxyResponseHeader(apiResponse, false);
+
+    assertEquals(200, result.status());
+    assertFalse(
+        result.headers().containsKey(Http.HeaderNames.CONTENT_ENCODING),
+        "Content-Encoding must be stripped so GzipFilter can add gzip");
+    assertFalse(
+        result.headers().containsKey(Http.HeaderNames.TRANSFER_ENCODING),
+        "Transfer-Encoding must be stripped");
+  }
+
+  @Test
   void buildProxyResult_streaming_setsContentEncodingIdentitySoGzipFilterSkips() throws Exception {
     Http.Request request = mock(Http.Request.class);
     HttpResponse<?> apiResponse = mock(HttpResponse.class);
@@ -255,6 +280,49 @@ public class ApplicationControllerTest {
     assertEquals(500, result.status());
   }
 
+  @Test
+  void mapPath_apiV2Graphql_returnsApiGraphql() throws Exception {
+    assertEquals("/api/graphql", invokeMapPath("/api/v2/graphql"));
+  }
+
+  @Test
+  void mapPath_apiGmsPrefix_stripsGmsPrefix() throws Exception {
+    assertEquals("/entities", invokeMapPath("/api/gms/entities"));
+  }
+
+  @Test
+  void mapPath_swaggerPath_doesNotStripBasePath() throws Exception {
+    Map<String, Object> configMap = new HashMap<>();
+    configMap.put("datahub.basePath", "/datahub");
+    configMap.put("proxy.streamingPathPrefixes", "");
+    Config configWithBasePath = ConfigFactory.parseMap(configMap);
+    Application appWithBasePath =
+        new Application(mock(HttpClient.class), mock(Environment.class), configWithBasePath);
+    String result = invokeMapPath(appWithBasePath, "/datahub/openapi/swagger-ui");
+    assertEquals("/datahub/openapi/swagger-ui", result);
+  }
+
+  @Test
+  void mapPath_withBasePath_stripsBasePath() throws Exception {
+    Map<String, Object> configMap = new HashMap<>();
+    configMap.put("datahub.basePath", "/datahub");
+    configMap.put("proxy.streamingPathPrefixes", "");
+    Config configWithBasePath = ConfigFactory.parseMap(configMap);
+    Application appWithBasePath =
+        new Application(mock(HttpClient.class), mock(Environment.class), configWithBasePath);
+    assertEquals("/api/graphql", invokeMapPath(appWithBasePath, "/datahub/api/graphql"));
+  }
+
+  private String invokeMapPath(String path) throws Exception {
+    return invokeMapPath(application, path);
+  }
+
+  private String invokeMapPath(Application app, String path) throws Exception {
+    var method = Application.class.getDeclaredMethod("mapPath", String.class);
+    method.setAccessible(true);
+    return (String) method.invoke(app, path);
+  }
+
   private Result invokeBuildProxyResult(
       Http.Request request,
       String resolvedUri,
@@ -290,5 +358,14 @@ public class ApplicationControllerTest {
     var method = Application.class.getDeclaredMethod("handleProxyException", Throwable.class);
     method.setAccessible(true);
     return (Result) method.invoke(application, ex);
+  }
+
+  private play.mvc.ResponseHeader invokeBuildProxyResponseHeader(
+      HttpResponse<?> apiResponse, boolean useStreaming) throws Exception {
+    var method =
+        Application.class.getDeclaredMethod(
+            "buildProxyResponseHeader", HttpResponse.class, boolean.class);
+    method.setAccessible(true);
+    return (play.mvc.ResponseHeader) method.invoke(application, apiResponse, useStreaming);
   }
 }
