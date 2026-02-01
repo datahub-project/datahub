@@ -58,9 +58,9 @@ class TestPlatformNormalization:
         """Test platform normalization with invalid type."""
         generator = UrnGeneratorBase()
         with pytest.raises(ValueError, match="must be a string"):
-            generator._normalize_platform(123)
+            generator._normalize_platform(123)  # type: ignore[arg-type]
         with pytest.raises(ValueError, match="must be a string"):
-            generator._normalize_platform([])
+            generator._normalize_platform([])  # type: ignore[arg-type]
 
     def test_normalize_platform_urn_empty_name(self):
         """Test platform normalization with URN that has empty name."""
@@ -126,9 +126,9 @@ class TestIRIPathDerivation:
         """Test path derivation from invalid type."""
         generator = UrnGeneratorBase()
         with pytest.raises(ValueError, match="must be a non-empty string"):
-            generator.derive_path_from_iri(None)
+            generator.derive_path_from_iri(None)  # type: ignore[arg-type]
         with pytest.raises(ValueError, match="must be a non-empty string"):
-            generator.derive_path_from_iri(123)
+            generator.derive_path_from_iri(123)  # type: ignore[arg-type]
 
     def test_derive_path_from_iri_no_scheme(self):
         """Test path derivation from IRI without scheme."""
@@ -285,9 +285,9 @@ class TestGenerateGroupNameFromOwnerIRI:
         """Test group name generation from invalid type."""
         generator = UrnGeneratorBase()
         with pytest.raises(ValueError, match="must be a non-empty string"):
-            generator.generate_group_name_from_owner_iri(None)
+            generator.generate_group_name_from_owner_iri(None)  # type: ignore[arg-type]
         with pytest.raises(ValueError, match="must be a non-empty string"):
-            generator.generate_group_name_from_owner_iri(123)
+            generator.generate_group_name_from_owner_iri(123)  # type: ignore[arg-type]
 
     def test_generate_group_name_from_owner_iri_invalid_format(self):
         """Test group name generation from invalid format."""
@@ -371,13 +371,13 @@ class TestExtractNameFromLabel:
     def test_extract_name_from_label_invalid_graph(self):
         """Test extraction with invalid graph type."""
         with pytest.raises(ValueError, match="must be an RDFLib Graph"):
-            extract_name_from_label("not a graph", URIRef("http://example.org/term"))
+            extract_name_from_label("not a graph", URIRef("http://example.org/term"))  # type: ignore[arg-type]
 
     def test_extract_name_from_label_invalid_uri(self):
         """Test extraction with invalid URI type."""
         graph = Graph()
         with pytest.raises(ValueError, match="must be an RDFLib URIRef"):
-            extract_name_from_label(graph, "http://example.org/term")
+            extract_name_from_label(graph, "http://example.org/term")  # type: ignore[arg-type]
 
     def test_extract_name_from_label_string_literal(self):
         """Test extraction with string literal."""
