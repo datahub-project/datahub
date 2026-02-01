@@ -67,7 +67,7 @@ class TestEntityRegistryRegistration:
         converter.entity_type = "test"
         mcp_builder = MagicMock(spec=EntityMCPBuilder)
         mcp_builder.entity_type = "test"
-        processor = EntityProcessor(
+        processor: EntityProcessor = EntityProcessor(
             extractor=extractor, converter=converter, mcp_builder=mcp_builder
         )
 
@@ -83,7 +83,7 @@ class TestEntityRegistryRegistration:
         converter.entity_type = "other"  # Mismatch
         mcp_builder = MagicMock(spec=EntityMCPBuilder)
         mcp_builder.entity_type = "test"
-        processor = EntityProcessor(
+        processor: EntityProcessor = EntityProcessor(
             extractor=extractor, converter=converter, mcp_builder=mcp_builder
         )
 
