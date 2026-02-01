@@ -124,45 +124,275 @@ def version(include_server: bool = False) -> None:
         click.echo(f"Server config: {server_config}")
 
 
+def get_init_config_value(
+    arg_value: Optional[str],
+    env_var: str,
+    prompt_text: str,
+    default: Optional[str] = None,
+    hide_input: bool = False,
+) -> str:
+    """Get config value from CLI arg, env var, or interactive prompt.
+
+    Precedence: CLI arg > Environment variable > Interactive prompt
+
+    Args:
+        arg_value: Value from CLI argument (if provided)
+        env_var: Environment variable name to check
+        prompt_text: Text to show in interactive prompt
+        default: Default value for prompt
+        hide_input: Whether to hide input (for passwords)
+
+    Returns:
+        The resolved configuration value
+    """
+    # Priority 1: CLI argument
+    if arg_value is not None:
+        return arg_value
+
+    # Priority 2: Environment variable
+    env_value = os.environ.get(env_var)
+    if env_value:
+        return env_value
+
+    # Priority 3: Interactive prompt (fallback)
+    return click.prompt(
+        text=prompt_text,
+        type=str,
+        default=default or "",
+        hide_input=hide_input,
+    )
+
+
+def _validate_init_inputs(
+    use_password: bool,
+    token: Optional[str],
+    username: Optional[str],
+    password: Optional[str],
+    token_duration: str,
+) -> None:
+    """Validate init command inputs for consistency.
+
+    Args:
+        use_password: Whether password authentication is requested (deprecated)
+        token: Token value (if provided)
+        username: Username value (if provided)
+        password: Password value (if provided)
+        token_duration: Token expiration duration (if provided)
+
+    Raises:
+        click.UsageError: If inputs are invalid or inconsistent
+    """
+    # Check if credentials will come from CLI args or env vars
+    username_provided = username or os.environ.get("DATAHUB_USERNAME")
+    password_provided = password or os.environ.get("DATAHUB_PASSWORD")
+    token_provided = token or os.environ.get("DATAHUB_GMS_TOKEN")
+
+    # Auto-detect token generation mode
+    should_generate_token = bool(username_provided and password_provided)
+
+    # Validate: can't use both token and username/password
+    if token_provided and should_generate_token:
+        raise click.UsageError(
+            "Cannot use both --token and username/password. "
+            "Provide either:\n"
+            "  - Direct token: --token <token>\n"
+            "  - Generate from credentials: --username <user> --password <pass>"
+        )
+
+    # Validate: username and password must be provided together (only check CLI args)
+    if (username and not password) or (password and not username):
+        raise click.UsageError(
+            "Both --username and --password required for token generation"
+        )
+
+    # Validate: token duration only applies when generating token
+    if not should_generate_token and not use_password and token_duration != "ONE_HOUR":
+        raise click.UsageError(
+            "--token-duration only applies when generating token from username/password"
+        )
+
+
 @datahub.command()
 @click.option(
     "--use-password",
-    type=bool,
     is_flag=True,
     default=False,
-    help="If passed then uses password to initialise token.",
+    hidden=True,
+    help="(DEPRECATED) Auto-detected when --username and --password provided.",
 )
-def init(use_password: bool = False) -> None:
-    """Configure which datahub instance to connect to"""
+@click.option(
+    "--host",
+    "-h",
+    type=str,
+    default=None,
+    help="DataHub GMS host URL (default: http://localhost:8080, DataHub Cloud: https://your-instance.acryl.io/gms)",
+)
+@click.option(
+    "--token",
+    "-t",
+    type=str,
+    default=None,
+    help="DataHub access token (alternative to username/password)",
+)
+@click.option(
+    "--username",
+    "-u",
+    type=str,
+    default=None,
+    help="DataHub username (for token generation)",
+)
+@click.option(
+    "--password",
+    "-p",
+    type=str,
+    default=None,
+    help="DataHub password (for token generation)",
+)
+@click.option(
+    "--token-duration",
+    type=click.Choice(
+        [
+            "ONE_HOUR",
+            "ONE_DAY",
+            "ONE_WEEK",
+            "ONE_MONTH",
+            "THREE_MONTHS",
+            "SIX_MONTHS",
+            "ONE_YEAR",
+            "NO_EXPIRY",
+        ],
+        case_sensitive=False,
+    ),
+    default="ONE_HOUR",
+    help="Token expiration duration (when generating from username/password)",
+)
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    default=False,
+    help="Overwrite existing config without confirmation",
+)
+def init(
+    use_password: bool = False,
+    host: Optional[str] = None,
+    token: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+    token_duration: str = "ONE_HOUR",
+    force: bool = False,
+) -> None:
+    """Configure which DataHub instance to connect to.
 
-    if os.path.isfile(DATAHUB_CONFIG_PATH):
+    Supports both interactive and non-interactive modes for flexibility in different environments.
+
+    \b
+    Quickstart (local DataHub instance with default credentials):
+        # Generates token from default username/password (datahub/datahub)
+        # Connects to http://localhost:8080 by default
+        datahub init --username datahub --password datahub
+
+    \b
+    Interactive Mode (prompts for input):
+        datahub init
+
+    \b
+    Mode 1: Auto-Generate Token from Username/Password
+        # Default duration (1 hour)
+        datahub init --username alice --password secret
+
+        # Custom duration (for long-running jobs)
+        datahub init --username alice --password secret --token-duration ONE_MONTH
+
+        # Non-expiring token (for CI/CD)
+        datahub init --username alice --password secret --token-duration NO_EXPIRY
+
+    \b
+    Mode 2: Use Existing Token
+        datahub init --token <your-existing-token>
+
+    \b
+    Environment Variables (for automation):
+        export DATAHUB_GMS_URL=http://localhost:8080
+        export DATAHUB_USERNAME=alice
+        export DATAHUB_PASSWORD=secret
+        datahub init --token-duration ONE_WEEK --force
+
+    \b
+    Available Token Durations:
+        ONE_HOUR (default), ONE_DAY, ONE_WEEK, ONE_MONTH,
+        THREE_MONTHS, SIX_MONTHS, ONE_YEAR, NO_EXPIRY
+
+    \b
+    DataHub Cloud (Acryl-hosted instances):
+        datahub init --host https://your-instance.acryl.io/gms --token <your-token>
+    """
+    # Show deprecation warning if --use-password used
+    if use_password:
+        click.echo(
+            "Warning: --use-password is deprecated. "
+            "Token generation is now auto-detected when --username and --password are provided.",
+            err=True,
+        )
+
+    # Validate input combinations
+    _validate_init_inputs(use_password, token, username, password, token_duration)
+
+    # Handle overwrite confirmation
+    if os.path.isfile(DATAHUB_CONFIG_PATH) and not force:
         click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
 
-    click.echo(
-        "Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for Acryl hosted users)"
+    # Get host (CLI arg > Env var > Prompt)
+    host_value = get_init_config_value(
+        arg_value=host,
+        env_var="DATAHUB_GMS_URL",
+        prompt_text="Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for DataHub Cloud)\nEnter your DataHub host",
+        default="http://localhost:8080",
     )
-    host = click.prompt(
-        "Enter your DataHub host", type=str, default="http://localhost:8080"
-    )
-    host = fixup_gms_url(host)
-    if use_password:
-        username = click.prompt("Enter your DataHub username", type=str)
-        password = click.prompt(
-            "Enter your DataHub password",
-            type=str,
+    host_value = fixup_gms_url(host_value)
+
+    # Determine token acquisition mode (check both CLI args and env vars)
+    username_provided = username or os.environ.get("DATAHUB_USERNAME")
+    password_provided = password or os.environ.get("DATAHUB_PASSWORD")
+    should_generate_token = bool(username_provided and password_provided)
+
+    if should_generate_token or use_password:
+        # Generate token from credentials
+        username_value = get_init_config_value(
+            arg_value=username,
+            env_var="DATAHUB_USERNAME",
+            prompt_text="Enter your DataHub username",
         )
-        _, token = generate_access_token(
-            username=username, password=password, gms_url=host
+
+        password_value = get_init_config_value(
+            arg_value=password,
+            env_var="DATAHUB_PASSWORD",
+            prompt_text="Enter your DataHub password",
+            hide_input=True,
         )
+
+        # Generate token with specified duration
+        _, token_value = generate_access_token(
+            username=username_value,
+            password=password_value,
+            gms_url=host_value,
+            validity=token_duration.upper(),
+        )
+
+        click.echo(f"✓ Generated token (expires: {token_duration.upper()})")
     else:
-        token = click.prompt(
-            "Enter your DataHub access token",
-            type=str,
+        # Get token directly
+        token_value = get_init_config_value(
+            arg_value=token,
+            env_var="DATAHUB_GMS_TOKEN",
+            prompt_text="Enter your DataHub access token",
             default="",
         )
-    write_gms_config(host, token, merge_with_previous=False)
 
-    click.echo(f"Written to {DATAHUB_CONFIG_PATH}")
+    # Write configuration
+    write_gms_config(host_value, token_value, merge_with_previous=False)
+
+    click.echo(f"✓ Configuration written to {DATAHUB_CONFIG_PATH}")
 
 
 datahub.add_command(check)
