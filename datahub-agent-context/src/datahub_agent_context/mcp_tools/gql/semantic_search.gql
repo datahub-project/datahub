@@ -1,0 +1,738 @@
+query semanticSearch(
+  $query: String!
+  $types: [EntityType!]
+  $orFilters: [AndFilterInput!]
+  $count: Int
+  $start: Int
+  $viewUrn: String
+  $searchFlags: SearchFlags
+) {
+  semanticSearchAcrossEntities(
+    input: {
+      types: $types
+      query: $query
+      orFilters: $orFilters
+      count: $count
+      start: $start
+      viewUrn: $viewUrn
+      searchFlags: $searchFlags
+    }
+  ) {
+    start
+    count
+    total
+    searchResults {
+      entity {
+        ...SearchEntityInfo
+      }
+      matchedFields {
+        name
+        value
+      }
+    }
+    facets {
+      field
+      displayName
+      aggregations {
+        value
+        count
+        entity {
+          ...FacetEntityInfo
+        }
+      }
+    }
+  }
+}
+
+fragment SearchEntityInfo on Entity {
+  urn
+  type
+  ... on Dataset {
+    name
+    origin
+    properties {
+      name
+      description
+      customProperties {
+        key
+        value
+      }
+    }
+    platform {
+      ...PlatformFields
+    }
+    tags {
+      tags {
+        tag {
+          urn
+          name
+          properties {
+            name
+            description
+          }
+        }
+      }
+    }
+    glossaryTerms {
+      terms {
+        term {
+          urn
+          name
+          properties {
+            name
+            description
+          }
+        }
+      }
+    }
+    ownership {
+      owners {
+        owner {
+          ... on CorpUser {
+            urn
+            username
+          }
+          ... on CorpGroup {
+            urn
+            name
+          }
+        }
+      }
+    }
+    domain {
+      domain {
+        urn
+        properties {
+          name
+          description
+        }
+      }
+    }
+    container {
+      urn
+      properties {
+        name
+      }
+      platform {
+        ...PlatformFields
+      }
+    }
+  }
+  ... on Chart {
+    properties {
+      name
+      description
+    }
+    platform {
+      ...PlatformFields
+    }
+    tags {
+      tags {
+        tag {
+          urn
+          name
+        }
+      }
+    }
+    glossaryTerms {
+      terms {
+        term {
+          urn
+          name
+        }
+      }
+    }
+    ownership {
+      owners {
+        owner {
+          ... on CorpUser {
+            urn
+            username
+          }
+          ... on CorpGroup {
+            urn
+            name
+          }
+        }
+      }
+    }
+    domain {
+      domain {
+        urn
+        properties {
+          name
+          description
+        }
+      }
+    }
+  }
+  ... on Dashboard {
+    properties {
+      name
+      description
+    }
+    platform {
+      ...PlatformFields
+    }
+    tags {
+      tags {
+        tag {
+          urn
+          name
+        }
+      }
+    }
+    glossaryTerms {
+      terms {
+        term {
+          urn
+          name
+        }
+      }
+    }
+    ownership {
+      owners {
+        owner {
+          ... on CorpUser {
+            urn
+            username
+          }
+          ... on CorpGroup {
+            urn
+            name
+          }
+        }
+      }
+    }
+    domain {
+      domain {
+        urn
+        properties {
+          name
+          description
+        }
+      }
+    }
+  }
+  ... on DataJob {
+    dataFlow {
+      urn
+    }
+    jobId
+    properties {
+      name
+      description
+    }
+    tags {
+      tags {
+        tag {
+          urn
+          name
+        }
+      }
+    }
+    glossaryTerms {
+      terms {
+        term {
+          urn
+          name
+        }
+      }
+    }
+    ownership {
+      owners {
+        owner {
+          ... on CorpUser {
+            urn
+            username
+          }
+          ... on CorpGroup {
+            urn
+            name
+          }
+        }
+      }
+    }
+    domain {
+      domain {
+        urn
+        properties {
+          name
+          description
+        }
+      }
+    }
+  }
+  ... on DataFlow {
+    flowId
+    cluster
+    properties {
+      name
+      description
+    }
+    platform {
+      ...PlatformFields
+    }
+    tags {
+      tags {
+        tag {
+          urn
+          name
+        }
+      }
+    }
+    glossaryTerms {
+      terms {
+        term {
+          urn
+          name
+        }
+      }
+    }
+    ownership {
+      owners {
+        owner {
+          ... on CorpUser {
+            urn
+            username
+          }
+          ... on CorpGroup {
+            urn
+            name
+          }
+        }
+      }
+    }
+    domain {
+      domain {
+        urn
+        properties {
+          name
+          description
+        }
+      }
+    }
+  }
+  ... on CorpUser {
+    username
+    properties {
+      displayName
+      email
+    }
+  }
+  ... on CorpGroup {
+    name
+    properties {
+      displayName
+      email
+    }
+  }
+  ... on Domain {
+    properties {
+      name
+      description
+    }
+  }
+  ... on Container {
+    properties {
+      name
+      description
+    }
+    platform {
+      ...PlatformFields
+    }
+    tags {
+      tags {
+        tag {
+          urn
+          name
+        }
+      }
+    }
+    glossaryTerms {
+      terms {
+        term {
+          urn
+          name
+        }
+      }
+    }
+    ownership {
+      owners {
+        owner {
+          ... on CorpUser {
+            urn
+            username
+          }
+          ... on CorpGroup {
+            urn
+            name
+          }
+        }
+      }
+    }
+    domain {
+      domain {
+        urn
+        properties {
+          name
+          description
+        }
+      }
+    }
+  }
+  ... on GlossaryTerm {
+    name
+    properties {
+      name
+      description
+    }
+  }
+  ... on Tag {
+    name
+    properties {
+      name
+      description
+    }
+  }
+  ... on MLModel {
+    name
+    properties {
+      description
+    }
+    platform {
+      ...PlatformFields
+    }
+    tags {
+      tags {
+        tag {
+          urn
+          name
+        }
+      }
+    }
+    glossaryTerms {
+      terms {
+        term {
+          urn
+          name
+        }
+      }
+    }
+    ownership {
+      owners {
+        owner {
+          ... on CorpUser {
+            urn
+            username
+          }
+          ... on CorpGroup {
+            urn
+            name
+          }
+        }
+      }
+    }
+    domain {
+      domain {
+        urn
+        properties {
+          name
+          description
+        }
+      }
+    }
+  }
+  ... on MLFeature {
+    name
+    properties {
+      description
+    }
+    tags {
+      tags {
+        tag {
+          urn
+          name
+        }
+      }
+    }
+    glossaryTerms {
+      terms {
+        term {
+          urn
+          name
+        }
+      }
+    }
+    ownership {
+      owners {
+        owner {
+          ... on CorpUser {
+            urn
+            username
+          }
+          ... on CorpGroup {
+            urn
+            name
+          }
+        }
+      }
+    }
+    domain {
+      domain {
+        urn
+        properties {
+          name
+          description
+        }
+      }
+    }
+  }
+  ... on MLFeatureTable {
+    name
+    properties {
+      description
+    }
+    platform {
+      ...PlatformFields
+    }
+    tags {
+      tags {
+        tag {
+          urn
+          name
+        }
+      }
+    }
+    glossaryTerms {
+      terms {
+        term {
+          urn
+          name
+        }
+      }
+    }
+    ownership {
+      owners {
+        owner {
+          ... on CorpUser {
+            urn
+            username
+          }
+          ... on CorpGroup {
+            urn
+            name
+          }
+        }
+      }
+    }
+    domain {
+      domain {
+        urn
+        properties {
+          name
+          description
+        }
+      }
+    }
+  }
+  ... on MLPrimaryKey {
+    name
+    properties {
+      description
+    }
+    tags {
+      tags {
+        tag {
+          urn
+          name
+        }
+      }
+    }
+    glossaryTerms {
+      terms {
+        term {
+          urn
+          name
+        }
+      }
+    }
+    ownership {
+      owners {
+        owner {
+          ... on CorpUser {
+            urn
+            username
+          }
+          ... on CorpGroup {
+            urn
+            name
+          }
+        }
+      }
+    }
+    domain {
+      domain {
+        urn
+        properties {
+          name
+          description
+        }
+      }
+    }
+  }
+  ... on MLModelGroup {
+    name
+    properties {
+      description
+    }
+    platform {
+      ...PlatformFields
+    }
+    tags {
+      tags {
+        tag {
+          urn
+          name
+        }
+      }
+    }
+    glossaryTerms {
+      terms {
+        term {
+          urn
+          name
+        }
+      }
+    }
+    ownership {
+      owners {
+        owner {
+          ... on CorpUser {
+            urn
+            username
+          }
+          ... on CorpGroup {
+            urn
+            name
+          }
+        }
+      }
+    }
+    domain {
+      domain {
+        urn
+        properties {
+          name
+          description
+        }
+      }
+    }
+  }
+  ... on Document {
+    subType
+    platform {
+      ...PlatformFields
+    }
+    info {
+      title
+    }
+    domain {
+      domain {
+        urn
+        properties {
+          name
+          description
+        }
+      }
+    }
+    tags {
+      tags {
+        tag {
+          urn
+          name
+        }
+      }
+    }
+    glossaryTerms {
+      terms {
+        term {
+          urn
+          name
+        }
+      }
+    }
+    ownership {
+      owners {
+        owner {
+          ... on CorpUser {
+            urn
+            username
+          }
+          ... on CorpGroup {
+            urn
+            name
+          }
+        }
+      }
+    }
+  }
+}
+
+fragment PlatformFields on DataPlatform {
+  urn
+  name
+  properties {
+    displayName
+    logoUrl
+  }
+}
+
+fragment FacetEntityInfo on Entity {
+  urn
+  type
+  ... on Tag {
+    name
+    properties {
+      name
+      description
+      colorHex
+    }
+  }
+  ... on GlossaryTerm {
+    name
+    properties {
+      name
+      description
+    }
+  }
+  ... on Domain {
+    properties {
+      name
+      description
+    }
+  }
+  ... on Container {
+    properties {
+      name
+    }
+    platform {
+      ...PlatformFields
+    }
+  }
+  ... on CorpUser {
+    username
+    properties {
+      displayName
+    }
+  }
+  ... on CorpGroup {
+    name
+    properties {
+      displayName
+    }
+  }
+  ... on DataPlatform {
+    ...PlatformFields
+  }
+}

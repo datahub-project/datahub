@@ -150,6 +150,14 @@ fragment SearchEntityInfo on Entity {
       email
     }
   }
+  ... on Document {
+    info {
+      title
+    }
+    platform {
+      ...SimplePlatformFields
+    }
+  }
 }
 
 fragment FacetEntityInfo on Entity {
