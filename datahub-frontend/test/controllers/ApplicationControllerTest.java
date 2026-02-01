@@ -7,12 +7,15 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.ByteArrayInputStream;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import play.Environment;
@@ -281,6 +284,70 @@ public class ApplicationControllerTest {
   }
 
   @Test
+  void proxy_graphqlUri_usesBufferedPathAndContentTypeHeader() throws Exception {
+    Http.Request request = mockProxyRequest("/api/graphql", Optional.of("application/json"));
+    doReturn(new CompletableFuture<>()).when(mockHttpClient).sendAsync(any(), any());
+
+    application.proxy("graphql", request);
+
+    verify(mockHttpClient).sendAsync(any(HttpRequest.class), any());
+  }
+
+  @Test
+  void proxy_streamingPathUri_usesStreamingPath() throws Exception {
+    Http.Request request = mockProxyRequest("/openapi/v1/ai-chat/message", Optional.empty());
+    doReturn(new CompletableFuture<>()).when(mockHttpClient).sendAsync(any(), any());
+
+    application.proxy("v1/ai-chat/message", request);
+
+    verify(mockHttpClient).sendAsync(any(HttpRequest.class), any());
+  }
+
+  @Test
+  void proxy_sendAsyncFailsWithTimeout_returnsGatewayTimeout() throws Exception {
+    Http.Request request = mockProxyRequest("/api/graphql", Optional.empty());
+    doReturn(
+            CompletableFuture.failedFuture(
+                new java.util.concurrent.CompletionException(
+                    new java.net.http.HttpTimeoutException("timed out"))))
+        .when(mockHttpClient)
+        .sendAsync(any(), any());
+
+    Result result = application.proxy("graphql", request).get();
+
+    assertEquals(504, result.status());
+  }
+
+  @Test
+  void proxy_sendAsyncFailsWithConnectException_returnsBadGateway() throws Exception {
+    Http.Request request = mockProxyRequest("/api/graphql", Optional.empty());
+    doReturn(
+            CompletableFuture.failedFuture(
+                new java.util.concurrent.CompletionException(
+                    new java.net.ConnectException("Connection refused"))))
+        .when(mockHttpClient)
+        .sendAsync(any(), any());
+
+    Result result = application.proxy("graphql", request).get();
+
+    assertEquals(502, result.status());
+  }
+
+  @Test
+  void proxy_sendAsyncFailsWithGenericException_returnsInternalServerError() throws Exception {
+    Http.Request request = mockProxyRequest("/api/graphql", Optional.empty());
+    doReturn(
+            CompletableFuture.failedFuture(
+                new java.util.concurrent.CompletionException(new RuntimeException("unknown"))))
+        .when(mockHttpClient)
+        .sendAsync(any(), any());
+
+    Result result = application.proxy("graphql", request).get();
+
+    assertEquals(500, result.status());
+  }
+
+  @Test
   void mapPath_apiV2Graphql_returnsApiGraphql() throws Exception {
     assertEquals("/api/graphql", invokeMapPath("/api/v2/graphql"));
   }
@@ -311,6 +378,24 @@ public class ApplicationControllerTest {
     Application appWithBasePath =
         new Application(mock(HttpClient.class), mock(Environment.class), configWithBasePath);
     assertEquals("/api/graphql", invokeMapPath(appWithBasePath, "/datahub/api/graphql"));
+  }
+
+  private Http.Request mockProxyRequest(String uri, Optional<String> contentType) {
+    Http.Request request = mock(Http.Request.class);
+    Http.Session session = mock(Http.Session.class);
+    Http.Headers headers = mock(Http.Headers.class);
+    Http.RequestBody body = mock(Http.RequestBody.class);
+    when(request.uri()).thenReturn(uri);
+    when(request.method()).thenReturn("GET");
+    when(request.getHeaders()).thenReturn(headers);
+    when(headers.toMap()).thenReturn(new HashMap<>());
+    when(request.contentType()).thenReturn(contentType);
+    when(request.session()).thenReturn(session);
+    when(session.data()).thenReturn(Collections.emptyMap());
+    when(request.body()).thenReturn(body);
+    when(body.asBytes()).thenReturn(null);
+    when(body.asText()).thenReturn(null);
+    return request;
   }
 
   private String invokeMapPath(String path) throws Exception {
