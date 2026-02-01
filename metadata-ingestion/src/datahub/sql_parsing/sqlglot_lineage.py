@@ -2235,6 +2235,10 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     # isnull followed by and/or without space: isnulland -> is null and
     (re.compile(r"\bis\s+nulland\b", re.IGNORECASE), "is null and"),
     (re.compile(r"\bis\s+nullor\b", re.IGNORECASE), "is null or"),
+    # is nullnull_eq_ -> is null null_eq_ (null followed by identifier starting with null)
+    (re.compile(r"\bnull(null_[a-z0-9_]+)", re.IGNORECASE), r"null \1"),
+    # endif_ -> end if_ (end followed by identifier starting with if)
+    (re.compile(r"\bend(if_[a-z0-9_]+)", re.IGNORECASE), r"end \1"),
     # when<alias>. -> when <alias>. (e.g., "whenq11.col" -> "when q11.col")
     (re.compile(r"\bwhen([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"when \1."),
     # then<alias>. -> then <alias>. (e.g., "thenq11.col" -> "then q11.col")
