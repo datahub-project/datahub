@@ -637,9 +637,16 @@ class RedshiftSqlLineage(Closeable):
                     except Exception as e:
                         # Log per-row errors but continue processing other rows.
                         # This prevents one bad query from stopping the entire phase.
+                        # Include DDL snippet to help debug parsing issues.
+                        ddl_snippet = (
+                            lineage_row.ddl[:200] + "..."
+                            if lineage_row.ddl and len(lineage_row.ddl) > 200
+                            else lineage_row.ddl
+                        )
                         logger.debug(
                             f"Failed to process {lineage_type.name} lineage row "
-                            f"for {lineage_row.target_schema}.{lineage_row.target_table}: {e}",
+                            f"for {lineage_row.target_schema}.{lineage_row.target_table}: {e}. "
+                            f"DDL: {ddl_snippet}",
                             exc_info=True,
                         )
         except Exception as e:
