@@ -695,6 +695,9 @@ class SqlParsingAggregator(Closeable):
         This will also generate an operation aspect for the query if there is
         a timestamp and the query type field is set to a mutation type.
 
+        If column_lineage is not provided but query_text is available, the method
+        will attempt to parse the SQL to extract column-level lineage.
+
         Args:
             known_query_lineage: The known query lineage information.
             merge_lineage: Whether to merge the lineage with any existing lineage
@@ -713,6 +716,24 @@ class SqlParsingAggregator(Closeable):
                 )
         formatted_query = self._maybe_format_query(known_query_lineage.query_text)
 
+        # If column_lineage is not provided, try to parse it from the query text.
+        column_lineage = known_query_lineage.column_lineage
+        if not column_lineage and known_query_lineage.query_text and self._need_schemas:
+            parsed = self._run_sql_parser(
+                query=known_query_lineage.query_text,
+                default_db=None,
+                default_schema=None,
+                schema_resolver=self._schema_resolver,
+                session_id=known_query_lineage.session_id or _MISSING_SESSION_ID,
+                timestamp=known_query_lineage.timestamp,
+            )
+            if parsed.column_lineage:
+                column_lineage = parsed.column_lineage
+                logger.debug(
+                    f"Parsed column lineage for known query: "
+                    f"{len(column_lineage)} column mappings found"
+                )
+
         # Register the query.
         self._add_to_query_map(
             QueryMetadata(
@@ -724,7 +745,7 @@ class SqlParsingAggregator(Closeable):
                 latest_timestamp=known_query_lineage.timestamp,
                 actor=None,
                 upstreams=known_query_lineage.upstreams,
-                column_lineage=known_query_lineage.column_lineage or [],
+                column_lineage=column_lineage or [],
                 column_usage=known_query_lineage.column_usage or {},
                 confidence_score=1.0,
             ),
