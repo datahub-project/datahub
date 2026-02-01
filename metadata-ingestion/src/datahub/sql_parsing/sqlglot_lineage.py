@@ -2235,6 +2235,41 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     # isnull followed by and/or without space: isnulland -> is null and
     (re.compile(r"\bis\s+nulland\b", re.IGNORECASE), "is null and"),
     (re.compile(r"\bis\s+nullor\b", re.IGNORECASE), "is null or"),
+    # when<alias>. -> when <alias>. (e.g., "whenq11.col" -> "when q11.col")
+    (re.compile(r"\bwhen([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"when \1."),
+    # then<alias>. -> then <alias>. (e.g., "thenq11.col" -> "then q11.col")
+    (re.compile(r"\bthen([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"then \1."),
+    # else<alias>. -> else <alias>. (e.g., "elseq11.col" -> "else q11.col")
+    (re.compile(r"\belse([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"else \1."),
+    # when<identifier> followed by space/operator -> when <identifier>
+    # e.g., "whene_r6m06nuq then" -> "when e_r6m06nuq then"
+    # Negative lookbehind to avoid matching "when" that's already fine
+    (
+        re.compile(r"\bwhen([a-z][a-z0-9_]+)\s+(then|and|or|>|<|=|!)", re.IGNORECASE),
+        r"when \1 \2",
+    ),
+    # from<schema>.<table> or from<schema>.t_ (Sigma temp table pattern)
+    (re.compile(r"\bfrom([a-z][a-z0-9_]*)\.([a-z])", re.IGNORECASE), r"from \1.\2"),
+    # groupby -> group by
+    (re.compile(r"\bgroupby\b", re.IGNORECASE), "group by"),
+    # orderby -> order by
+    (re.compile(r"\borderby\b", re.IGNORECASE), "order by"),
+    # or<function>( -> or <function>( for common functions
+    (
+        re.compile(
+            r"\bor(dateadd|datediff|date_trunc|coalesce|nullif|cast)\s*\(",
+            re.IGNORECASE,
+        ),
+        r"or \1(",
+    ),
+    # and<identifier> followed by comparison operator -> and <identifier>
+    # e.g., "andwdctsy87db > 0" -> "and wdctsy87db > 0"
+    (
+        re.compile(r"\band([a-z][a-z0-9_]+)\s*(>|<|=|!|is\b|in\b)", re.IGNORECASE),
+        r"and \1 \2",
+    ),
+    # on<alias>. -> on <alias>. (e.g., "onq3.id" -> "on q3.id")
+    (re.compile(r"\bon([a-z][a-z0-9_]*)\.([a-z])", re.IGNORECASE), r"on \1.\2"),
 ]
 
 
@@ -2255,6 +2290,16 @@ def _preprocess_query_for_sigma(query: str) -> str:
     - notnull -> not null
     - nulland -> null and
     - nullgroup -> null group
+    - whenq11. -> when q11. (when + alias.column)
+    - thenq11. -> then q11. (then + alias.column)
+    - elseq11. -> else q11. (else + alias.column)
+    - whene_xxx then -> when e_xxx then (when + identifier + keyword)
+    - fromsigma.t_ -> from sigma.t_ (from + schema.table)
+    - groupby -> group by
+    - orderby -> order by
+    - ordateadd( -> or dateadd( (or + function)
+    - andxxx > 0 -> and xxx > 0 (and + identifier + operator)
+    - onq3.id -> on q3.id (on + alias.column)
     """
     result = query
     for pattern, replacement in _SIGMA_SQL_FIX_PATTERNS:
