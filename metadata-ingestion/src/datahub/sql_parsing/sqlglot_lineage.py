@@ -2272,8 +2272,9 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
         re.compile(r"\band([a-z][a-z0-9_]+)\s*(>|<|=|!|is\b|in\b)", re.IGNORECASE),
         r"and \1 \2",
     ),
-    # on<alias>. -> on <alias>. (e.g., "onq3.id" -> "on q3.id")
-    (re.compile(r"\bon([a-z][a-z0-9_]*)\.([a-z])", re.IGNORECASE), r"on \1.\2"),
+    # on<short-alias>. -> on <short-alias>. (e.g., "onq3.id" -> "on q3.id")
+    # Only match short aliases (1-3 chars) to avoid breaking identifiers like "online_ret"
+    (re.compile(r"\bon([a-z][a-z0-9]{0,2})\.([a-z])", re.IGNORECASE), r"on \1.\2"),
     # or<identifier starting with if_> -> or <identifier>
     # e.g., "orif_542 is null" -> "or if_542 is null"
     (re.compile(r"\bor(if_[a-z0-9_]+)", re.IGNORECASE), r"or \1"),
@@ -2282,6 +2283,41 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     # select<identifier> followed by comma or keyword -> select <identifier>
     # e.g., "selectstatus," -> "select status,"
     (re.compile(r"\bselect([a-z][a-z0-9_]*)\s*,", re.IGNORECASE), r"select \1,"),
+    # end thencase -> end then case (CASE END followed by THEN CASE without spaces)
+    (re.compile(r"\bend\s+thencase\b", re.IGNORECASE), "end then case"),
+    # end then<identifier> -> end then <identifier> (e.g., "end thencase when")
+    (re.compile(r"\bend\s+then([a-z][a-z0-9_]+)", re.IGNORECASE), r"end then \1"),
+    # end else<function>( -> end else <function>( (e.g., "end elsedateadd(")
+    (
+        re.compile(
+            r"\bend\s+else(dateadd|datediff|date_trunc|coalesce|nullif|cast|case)\b",
+            re.IGNORECASE,
+        ),
+        r"end else \1",
+    ),
+    # CAST(... AS<TYPE> -> CAST(... AS <TYPE> (missing space after AS in CAST)
+    # e.g., "CAST(1 ASINT4)" -> "CAST(1 AS INT4)"
+    (
+        re.compile(
+            r"\bAS(INT[248]?|INTEGER|BIGINT|SMALLINT|FLOAT|REAL|DOUBLE|NUMERIC|"
+            r"DECIMAL|VARCHAR|CHAR|TEXT|BOOLEAN|BOOL|TIMESTAMP(?:TZ)?|DATE|TIME(?:TZ)?)\b",
+            re.IGNORECASE,
+        ),
+        r"AS \1",
+    ),
+    # group by<identifier> -> group by <identifier> (missing space after BY)
+    # e.g., "group byrep_name" -> "group by rep_name"
+    (re.compile(r"\bgroup\s+by([a-z][a-z0-9_]+)", re.IGNORECASE), r"group by \1"),
+    # order by<identifier> -> order by <identifier>
+    (re.compile(r"\border\s+by([a-z][a-z0-9_]+)", re.IGNORECASE), r"order by \1"),
+    # <alias>on <keyword> -> <alias> on <keyword> (alias followed directly by ON)
+    # e.g., ") q6on coalesce" -> ") q6 on coalesce"
+    (
+        re.compile(
+            r"\)(\s*)([a-z][a-z0-9_]*)on\s+(coalesce|q\d+\.|[a-z])", re.IGNORECASE
+        ),
+        r")\1\2 on \3",
+    ),
 ]
 
 
@@ -2312,6 +2348,11 @@ def _preprocess_query_for_sigma(query: str) -> str:
     - ordateadd( -> or dateadd( (or + function)
     - andxxx > 0 -> and xxx > 0 (and + identifier + operator)
     - onq3.id -> on q3.id (on + alias.column)
+    - end thencase -> end then case (CASE END then CASE)
+    - end elsedateadd -> end else dateadd (CASE END else function)
+    - ASINT4 -> AS INT4 (missing space in CAST AS type)
+    - group byrep_name -> group by rep_name (missing space after BY)
+    - q6on coalesce -> q6 on coalesce (alias before ON)
     """
     result = query
     for pattern, replacement in _SIGMA_SQL_FIX_PATTERNS:

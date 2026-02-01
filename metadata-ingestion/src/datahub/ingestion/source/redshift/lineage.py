@@ -632,7 +632,16 @@ class RedshiftSqlLineage(Closeable):
                 for lineage_row in RedshiftDataDictionary.get_lineage_rows(
                     conn=connection, query=query
                 ):
-                    processor(lineage_row)
+                    try:
+                        processor(lineage_row)
+                    except Exception as e:
+                        # Log per-row errors but continue processing other rows.
+                        # This prevents one bad query from stopping the entire phase.
+                        logger.debug(
+                            f"Failed to process {lineage_type.name} lineage row "
+                            f"for {lineage_row.target_schema}.{lineage_row.target_table}: {e}",
+                            exc_info=True,
+                        )
         except Exception as e:
             self.report.warning(
                 title="Failed to extract some lineage",
