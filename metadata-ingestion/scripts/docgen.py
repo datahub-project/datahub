@@ -296,6 +296,7 @@ class PluginMetrics:
     loaded: int = 0
     generated: int = 0
     failed: int = 0
+    missing_capability_data: int = 0
 
 
 @dataclasses.dataclass
@@ -351,8 +352,8 @@ def generate(  # noqa: C901
                     plugin_name, plugin_data, out_dir=out_dir
                 )
             else:
-                logger.error(f"Plugin {plugin_name} not found in capability data")
-                plugin_metrics.failed += 1
+                logger.warning(f"Plugin {plugin_name} not found in capability data")
+                plugin_metrics.missing_capability_data += 1
                 continue
         except Exception as e:
             logger.error(
@@ -621,6 +622,7 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
         )
     )
     print("############################################")
+    # Only exit with error code if there were actual failures (exceptions), not just missing capability data
     if plugin_metrics.failed > 0:
         sys.exit(1)
 
