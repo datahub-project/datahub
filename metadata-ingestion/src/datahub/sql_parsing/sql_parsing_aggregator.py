@@ -43,6 +43,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
     SqlParsingResult,
+    _preprocess_dms_update_query,
     _preprocess_query_for_sigma,
     _sqlglot_lineage_cached,
     infer_output_schema,
@@ -719,19 +720,25 @@ class SqlParsingAggregator(Closeable):
         # If column_lineage is not provided, try to parse it from the query text.
         column_lineage = known_query_lineage.column_lineage
         if not column_lineage and known_query_lineage.query_text and self._need_schemas:
-            parsed = self._run_sql_parser(
-                query=known_query_lineage.query_text,
-                default_db=None,
-                default_schema=None,
-                schema_resolver=self._schema_resolver,
-                session_id=known_query_lineage.session_id or _MISSING_SESSION_ID,
-                timestamp=known_query_lineage.timestamp,
-            )
-            if parsed.column_lineage:
-                column_lineage = parsed.column_lineage
+            try:
+                parsed = self._run_sql_parser(
+                    query=known_query_lineage.query_text,
+                    default_db=None,
+                    default_schema=None,
+                    schema_resolver=self._schema_resolver,
+                    session_id=known_query_lineage.session_id or _MISSING_SESSION_ID,
+                    timestamp=known_query_lineage.timestamp,
+                )
+                if parsed.column_lineage:
+                    column_lineage = parsed.column_lineage
+                    logger.debug(
+                        f"Parsed column lineage for known query: "
+                        f"{len(column_lineage)} column mappings found"
+                    )
+            except Exception as e:
                 logger.debug(
-                    f"Parsed column lineage for known query: "
-                    f"{len(column_lineage)} column mappings found"
+                    f"Failed to parse column lineage for known query: {e}",
+                    exc_info=True,
                 )
 
         # Register the query.
@@ -1238,10 +1245,12 @@ class SqlParsingAggregator(Closeable):
         user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None,
         override_dialect: Optional[DialectOrStr] = None,
     ) -> SqlParsingResult:
-        # Apply Sigma SQL preprocessing for Redshift platform.
-        # Sigma Computing generates malformed SQL with missing spaces between keywords.
+        # Apply preprocessing for Redshift platform.
         if self.platform.platform_name == "redshift":
+            # Fix Sigma Computing malformed SQL (missing spaces between keywords).
             query = _preprocess_query_for_sigma(query)
+            # Add FROM clause for DMS UPDATE queries (implicit table references).
+            query = _preprocess_dms_update_query(query)
 
         with self.report.sql_parsing_timer:
             parsed = sqlglot_lineage(
