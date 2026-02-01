@@ -2274,6 +2274,14 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     ),
     # on<alias>. -> on <alias>. (e.g., "onq3.id" -> "on q3.id")
     (re.compile(r"\bon([a-z][a-z0-9_]*)\.([a-z])", re.IGNORECASE), r"on \1.\2"),
+    # or<identifier starting with if_> -> or <identifier>
+    # e.g., "orif_542 is null" -> "or if_542 is null"
+    (re.compile(r"\bor(if_[a-z0-9_]+)", re.IGNORECASE), r"or \1"),
+    # selectstatus -> select status (select followed by status without space)
+    (re.compile(r"\bselectstatus\b", re.IGNORECASE), "select status"),
+    # select<identifier> followed by comma or keyword -> select <identifier>
+    # e.g., "selectstatus," -> "select status,"
+    (re.compile(r"\bselect([a-z][a-z0-9_]*)\s*,", re.IGNORECASE), r"select \1,"),
 ]
 
 
@@ -2308,6 +2316,65 @@ def _preprocess_query_for_sigma(query: str) -> str:
     result = query
     for pattern, replacement in _SIGMA_SQL_FIX_PATTERNS:
         result = pattern.sub(replacement, result)
+    return result
+
+
+# Pattern to find DMS staging table references in UPDATE SET expressions
+# Matches: "schema"."awsdms_*"
+_DMS_STAGING_TABLE_PATTERN = re.compile(r'"([^"]+)"\.\"(awsdms_[^"]+)\"', re.IGNORECASE)
+
+
+def _preprocess_dms_update_query(query: str) -> str:
+    """Preprocess AWS DMS UPDATE queries to add missing FROM clause.
+
+    AWS DMS CDC generates UPDATE queries that reference the staging table
+    directly in SET expressions without a FROM clause:
+
+        UPDATE "public"."target" SET
+            "col1" = CASE WHEN "public"."awsdms_changes..."."col1" IS NULL
+                     THEN "public"."target"."col1"
+                     ELSE CAST("public"."awsdms_changes..."."col1" AS ...) END
+        WHERE ...
+
+    Sqlglot doesn't detect implicit table references in UPDATE SET expressions,
+    so column-level lineage extraction fails. This function injects an explicit
+    FROM clause to make the staging table visible to the parser.
+    """
+    # Only process UPDATE statements
+    if not query.strip().upper().startswith("UPDATE"):
+        return query
+
+    # Check if query already has a FROM clause
+    if re.search(r"\bFROM\b", query, re.IGNORECASE):
+        return query
+
+    # Find DMS staging table references
+    matches = _DMS_STAGING_TABLE_PATTERN.findall(query)
+    if not matches:
+        return query
+
+    # Extract unique staging tables (schema, table pairs)
+    staging_tables = set()
+    for schema, table in matches:
+        if table.lower().startswith("awsdms_"):
+            staging_tables.add((schema, table))
+
+    if not staging_tables:
+        return query
+
+    # Build FROM clause with all staging tables
+    from_parts = [f'"{schema}"."{table}"' for schema, table in staging_tables]
+    from_clause = " FROM " + ", ".join(from_parts)
+
+    # Insert FROM clause before WHERE (or at end if no WHERE)
+    where_match = re.search(r"\bWHERE\b", query, re.IGNORECASE)
+    if where_match:
+        insert_pos = where_match.start()
+        result = query[:insert_pos] + from_clause + " " + query[insert_pos:]
+    else:
+        result = query + from_clause
+
+    logger.debug(f"Injected FROM clause for DMS UPDATE: {from_clause}")
     return result
 
 
