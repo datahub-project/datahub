@@ -2273,8 +2273,10 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
         r"and \1 \2",
     ),
     # on<short-alias>. -> on <short-alias>. (e.g., "onq3.id" -> "on q3.id")
-    # Only match short aliases (1-3 chars) to avoid breaking identifiers like "online_ret"
-    (re.compile(r"\bon([a-z][a-z0-9]{0,2})\.([a-z])", re.IGNORECASE), r"on \1.\2"),
+    # Match aliases like q1, q12, q123 (letter + up to 3 digits) to avoid breaking identifiers like "online_ret"
+    (re.compile(r"\bon([a-z]\d{1,3})\.([a-z])", re.IGNORECASE), r"on \1.\2"),
+    # Also match short alphanumeric aliases (2-3 chars starting with letter)
+    (re.compile(r"\bon([a-z][a-z0-9]{1,2})\.([a-z])", re.IGNORECASE), r"on \1.\2"),
     # or<identifier starting with if_> -> or <identifier>
     # e.g., "orif_542 is null" -> "or if_542 is null"
     (re.compile(r"\bor(if_[a-z0-9_]+)", re.IGNORECASE), r"or \1"),
