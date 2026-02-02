@@ -712,7 +712,7 @@ jedi==0.19.2
     # via
     #   -r requirements.txt
     #   ipython
-jinja2==3.1.4
+jinja2==3.1.6
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
