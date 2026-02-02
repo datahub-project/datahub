@@ -536,6 +536,7 @@ plugins: Dict[str, Set[str]] = {
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
+    "clickhouse-queries": sql_common | usage_common | clickhouse_common | sqlglot_lib,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "cockroachdb": sql_common
     | postgres_common
@@ -833,6 +834,7 @@ base_dev_requirements = {
             "athena",
             "bigquery",
             "clickhouse",
+            "clickhouse-queries",
             "clickhouse-usage",
             "cockroachdb",
             "confluence",
@@ -917,6 +919,7 @@ full_test_dev_requirements = {
             "fabric-onelake",
             "circuit-breaker",
             "clickhouse",
+            "clickhouse-queries",
             "db2",
             "debug-recording",
             "delta-lake",
@@ -959,6 +962,7 @@ entry_points = {
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
+        "clickhouse-queries = datahub.ingestion.source.sql.clickhouse.clickhouse_queries:ClickHouseQueriesSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
         "confluence = datahub.ingestion.source.confluence.confluence_source:ConfluenceSource",
