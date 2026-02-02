@@ -1,0 +1,84 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "b7287c7c3ccec19c87cd040ac465e38ed962c7a1096bd97543868b1570ff9430",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,public.awsdms_changes,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,public.application_encryption_keys,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,public.application_encryption_keys,PROD)",
+                "column": "id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR(65535)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,public.awsdms_changes,PROD)",
+                    "column": "col1"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CAST(\"awsdms_changes\".\"col1\" AS VARCHAR(65535)) AS \"id\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,public.application_encryption_keys,PROD)",
+                "column": "subscription_id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR(65535)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,public.awsdms_changes,PROD)",
+                    "column": "col2"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CAST(\"awsdms_changes\".\"col2\" AS VARCHAR(65535)) AS \"subscription_id\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,public.application_encryption_keys,PROD)",
+                "column": "encrypted_key",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR(65535)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,public.awsdms_changes,PROD)",
+                    "column": "col3"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CAST(\"awsdms_changes\".\"col3\" AS VARCHAR(65535)) AS \"encrypted_key\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "INSERT INTO \"public\".\"application_encryption_keys\" (\"id\", \"subscription_id\", \"encrypted_key\") SELECT CAST(\"public\".\"awsdms_changes\".\"col1\" AS VARCHAR(?)), CAST(\"public\".\"awsdms_changes\".\"col2\" AS VARCHAR(?)), CAST(\"public\".\"awsdms_changes\".\"col3\" AS VARCHAR(?)) FROM \"public\".\"awsdms_changes\""
+    }
+}

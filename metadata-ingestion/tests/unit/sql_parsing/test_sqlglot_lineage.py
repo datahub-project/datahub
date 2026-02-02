@@ -255,6 +255,24 @@ FROM source_db.dbo.source_table
     )
 
 
+def test_redshift_dms_insert_column_name_mapping() -> None:
+    # Redshift: AWS DMS INSERT queries use generic col1, col2 in staging tables
+    # Tests that column mapping works correctly (INSERT cols != SELECT cols)
+    # Example: INSERT INTO public.target (id, name) SELECT col1, col2 FROM awsdms_staging
+    assert_sql_result(
+        """
+INSERT INTO "public"."application_encryption_keys" ("id", "subscription_id", "encrypted_key")
+SELECT CAST("public"."awsdms_changes"."col1" AS VARCHAR(65535)),
+       CAST("public"."awsdms_changes"."col2" AS VARCHAR(65535)),
+       CAST("public"."awsdms_changes"."col3" AS VARCHAR(65535))
+FROM "public"."awsdms_changes"
+""",
+        dialect="redshift",
+        expected_file=RESOURCE_DIR
+        / "test_redshift_dms_insert_column_name_mapping.json",
+    )
+
+
 def test_select_with_full_col_name() -> None:
     # In this case, `widget` is a struct column.
     # This also tests the `default_db` functionality.
