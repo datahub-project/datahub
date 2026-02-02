@@ -80,14 +80,16 @@ jobs:
             fi
           done < /tmp/projects_to_check.txt
 
-      - name: Checkout master branch
+      # Use github.base_ref to automatically detect the PR's target branch.
+      # Fork repositories no longer need to override the base branch name.
+      - name: Checkout base branch
         run: |
-          git fetch origin master
-          git checkout origin/master
+          git fetch origin ${{ github.base_ref }}
+          git checkout origin/${{ github.base_ref }}
 
-      - name: Analyze dependencies on master branch
+      - name: Analyze dependencies on base branch
         run: |
-          echo "Analyzing Python dependencies on master branch..."
+          echo "Analyzing Python dependencies on base branch (${{ github.base_ref }})..."
           mkdir -p /tmp/master-results
 
           while IFS= read -r project; do
@@ -97,7 +99,7 @@ jobs:
               echo "  Analyzing: $project -> /tmp/master-${safe_name}.json"
 
               python .github/scripts/dep-analyzer.py --exec --json "$project" > "/tmp/master-${safe_name}.json" 2>&1 || {
-                echo "Warning: Failed to analyze $project on master branch"
+                echo "Warning: Failed to analyze $project on base branch"
                 echo '{"by_level": {}, "errors": ["Analysis failed"]}' > "/tmp/master-${safe_name}.json"
               }
             fi
