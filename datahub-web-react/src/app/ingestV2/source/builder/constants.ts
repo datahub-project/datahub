@@ -6,6 +6,7 @@ import bigqueryLogo from '@images/bigquerylogo.png';
 import cassandraLogo from '@images/cassandralogo.png';
 import clickhouseLogo from '@images/clickhouselogo.png';
 import cockroachdbLogo from '@images/cockroachdblogo.png';
+import confluenceLogo from '@images/confluencelogo.svg';
 import csvLogo from '@images/csv-logo.png';
 import dagsterLogo from '@images/dagsterlogo.svg';
 import databricksLogo from '@images/databrickslogo.png';
@@ -120,6 +121,8 @@ export const MSSQL = 'mssql';
 export const MSSQL_URN = `urn:li:dataPlatform:${MSSQL}`;
 export const MYSQL = 'mysql';
 export const MYSQL_URN = `urn:li:dataPlatform:${MYSQL}`;
+export const CONFLUENCE = 'confluence';
+export const CONFLUENCE_URN = `urn:li:dataPlatform:${CONFLUENCE}`;
 export const NOTION = 'notion';
 export const NOTION_URN = `urn:li:dataPlatform:${NOTION}`;
 export const OKTA = 'okta';
@@ -222,6 +225,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [MONGO_DB_URN]: mongodbLogo,
     [MSSQL_URN]: mssqlLogo,
     [MYSQL_URN]: mysqlLogo,
+    [CONFLUENCE_URN]: confluenceLogo,
     [NOTION_URN]: notionLogo,
     [OKTA_URN]: oktaLogo,
     [ORACLE_URN]: oracleLogo,
