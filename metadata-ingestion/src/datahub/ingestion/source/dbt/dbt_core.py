@@ -232,6 +232,34 @@ def extract_dbt_entities(
         else:
             catalog_type = catalog_node["metadata"]["type"]
 
+        # Extract stats from catalog (e.g., num_rows, num_bytes from BigQuery/Snowflake)
+        row_count: Optional[int] = None
+        size_in_bytes: Optional[int] = None
+        if catalog_node is not None:
+            catalog_stats = catalog_node.get("stats", {})
+
+            # Extract row count (num_rows)
+            num_rows_stat = catalog_stats.get("num_rows", {})
+            if (
+                num_rows_stat.get("include", False)
+                and num_rows_stat.get("value") is not None
+            ):
+                try:
+                    row_count = int(num_rows_stat["value"])
+                except (ValueError, TypeError):
+                    pass
+
+            # Extract size in bytes (num_bytes)
+            num_bytes_stat = catalog_stats.get("num_bytes", {})
+            if (
+                num_bytes_stat.get("include", False)
+                and num_bytes_stat.get("value") is not None
+            ):
+                try:
+                    size_in_bytes = int(num_bytes_stat["value"])
+                except (ValueError, TypeError):
+                    pass
+
         # initialize comment to "" for consistency with descriptions
         # (since dbt null/undefined descriptions as "")
         comment = ""
@@ -334,6 +362,8 @@ def extract_dbt_entities(
             ),  # Backward compatibility dbt <=v1.2
             test_info=test_info,
             freshness_info=freshness_info,
+            row_count=row_count,
+            size_in_bytes=size_in_bytes,
         )
 
         # Load columns from catalog, and override some properties from manifest.

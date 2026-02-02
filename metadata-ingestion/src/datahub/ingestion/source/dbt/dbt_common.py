@@ -99,6 +99,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
+    DatasetProfileClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
     GlossaryTermsClass,
@@ -805,6 +806,10 @@ class DBTNode:
     )
 
     model_performances: List["DBTModelPerformance"] = field(default_factory=list)
+
+    # Stats from catalog.json (e.g., num_rows, num_bytes from BigQuery/Snowflake)
+    row_count: Optional[int] = None
+    size_in_bytes: Optional[int] = None
 
     @staticmethod
     def _join_parts(parts: List[Optional[str]]) -> str:
@@ -1920,6 +1925,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 yield from auto_workunit(
                     self._create_dataprocess_instance_mcps(node, upstream_lineage_class)
                 )
+
+            # Dataset profile (stats from catalog.json).
+            if self.config.entities_enabled.can_emit_node_type(node.node_type):
+                if node.row_count is not None or node.size_in_bytes is not None:
+                    dataset_profile = DatasetProfileClass(
+                        timestampMillis=int(datetime.now().timestamp() * 1000),
+                        rowCount=node.row_count,
+                        columnCount=len(node.columns) if node.columns else None,
+                        sizeInBytes=node.size_in_bytes,
+                    )
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=node_datahub_urn,
+                        aspect=dataset_profile,
+                    ).as_workunit()
 
     def _create_dataprocess_instance_mcps(
         self,

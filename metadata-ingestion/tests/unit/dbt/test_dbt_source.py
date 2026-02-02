@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, TypedDict, Union
+from typing import Any, Dict, List, Optional, TypedDict, Union
 from unittest import mock
 
 import pytest
@@ -21,6 +21,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
 from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
+    extract_dbt_entities,
     parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
@@ -1812,3 +1813,213 @@ def test_make_assertion_result_from_freshness(
     assert isinstance(mcp.aspect, AssertionRunEventClass)
     assert mcp.aspect.result is not None
     assert mcp.aspect.result.type == expected
+
+
+# =============================================================================
+# Tests for catalog.json stats extraction (row_count, size_in_bytes)
+# =============================================================================
+
+
+def _create_manifest_entity(
+    name: str = "my_model",
+    materialized: str = "table",
+) -> Dict[str, Any]:
+    """Helper to create a manifest entity for stats tests."""
+    return {
+        "name": name,
+        "database": "test_db",
+        "schema": "test_schema",
+        "resource_type": "model",
+        "original_file_path": f"models/{name}.sql",
+        "config": {"materialized": materialized},
+        "description": "Test model",
+        "meta": {},
+        "tags": [],
+    }
+
+
+def _create_catalog_entity_with_stats(
+    name: str = "my_model",
+    catalog_type: str = "table",
+    num_rows: Optional[float] = None,
+    num_bytes: Optional[float] = None,
+    include_rows: bool = True,
+    include_bytes: bool = True,
+) -> Dict[str, Any]:
+    """Helper to create a catalog entity with stats for tests."""
+    stats: Dict[str, Any] = {
+        "has_stats": {
+            "id": "has_stats",
+            "label": "Has Stats?",
+            "value": num_rows is not None or num_bytes is not None,
+            "include": False,
+            "description": "Indicates whether there are statistics",
+        },
+    }
+    if num_rows is not None:
+        stats["num_rows"] = {
+            "id": "num_rows",
+            "label": "# Rows",
+            "value": num_rows,
+            "include": include_rows,
+            "description": "Approximate count of rows",
+        }
+    if num_bytes is not None:
+        stats["num_bytes"] = {
+            "id": "num_bytes",
+            "label": "Approximate Size",
+            "value": num_bytes,
+            "include": include_bytes,
+            "description": "Approximate size of table",
+        }
+
+    return {
+        "metadata": {
+            "type": catalog_type,
+            "schema": "test_schema",
+            "name": name,
+            "database": "test_db",
+            "comment": None,
+        },
+        "columns": {},
+        "stats": stats,
+    }
+
+
+def test_extract_catalog_stats_with_row_count_and_size() -> None:
+    """Test that stats are extracted when present in catalog.json."""
+    manifest_entities = {"model.test.my_model": _create_manifest_entity()}
+    catalog_entities = {
+        "model.test.my_model": _create_catalog_entity_with_stats(
+            num_rows=1000.0, num_bytes=50000.0
+        )
+    }
+
+    report = DBTSourceReport()
+    nodes = extract_dbt_entities(
+        all_manifest_entities=manifest_entities,
+        all_catalog_entities=catalog_entities,
+        sources_results=[],
+        manifest_adapter="bigquery",
+        use_identifiers=False,
+        tag_prefix="dbt:",
+        only_include_if_in_catalog=False,
+        include_database_name=True,
+        report=report,
+    )
+
+    assert len(nodes) == 1
+    node = nodes[0]
+    assert node.row_count == 1000
+    assert node.size_in_bytes == 50000
+
+
+def test_extract_catalog_stats_without_stats() -> None:
+    """Test that stats are None when not present in catalog.json."""
+    manifest_entities = {
+        "model.test.my_model": _create_manifest_entity(materialized="view")
+    }
+    catalog_entities = {
+        "model.test.my_model": _create_catalog_entity_with_stats(catalog_type="view")
+    }
+
+    report = DBTSourceReport()
+    nodes = extract_dbt_entities(
+        all_manifest_entities=manifest_entities,
+        all_catalog_entities=catalog_entities,
+        sources_results=[],
+        manifest_adapter="bigquery",
+        use_identifiers=False,
+        tag_prefix="dbt:",
+        only_include_if_in_catalog=False,
+        include_database_name=True,
+        report=report,
+    )
+
+    assert len(nodes) == 1
+    node = nodes[0]
+    assert node.row_count is None
+    assert node.size_in_bytes is None
+
+
+def test_extract_catalog_stats_with_include_false() -> None:
+    """Test that stats are not extracted when include=False."""
+    manifest_entities = {"model.test.my_model": _create_manifest_entity()}
+    catalog_entities = {
+        "model.test.my_model": _create_catalog_entity_with_stats(
+            num_rows=1000.0,
+            num_bytes=50000.0,
+            include_rows=False,
+            include_bytes=False,
+        )
+    }
+
+    report = DBTSourceReport()
+    nodes = extract_dbt_entities(
+        all_manifest_entities=manifest_entities,
+        all_catalog_entities=catalog_entities,
+        sources_results=[],
+        manifest_adapter="bigquery",
+        use_identifiers=False,
+        tag_prefix="dbt:",
+        only_include_if_in_catalog=False,
+        include_database_name=True,
+        report=report,
+    )
+
+    assert len(nodes) == 1
+    node = nodes[0]
+    # Stats should be None because include=False
+    assert node.row_count is None
+    assert node.size_in_bytes is None
+
+
+def test_extract_catalog_stats_no_catalog() -> None:
+    """Test that stats are None when no catalog is provided."""
+    manifest_entities = {
+        "model.test.my_model": _create_manifest_entity(materialized="ephemeral")
+    }
+
+    report = DBTSourceReport()
+    nodes = extract_dbt_entities(
+        all_manifest_entities=manifest_entities,
+        all_catalog_entities=None,  # No catalog
+        sources_results=[],
+        manifest_adapter="bigquery",
+        use_identifiers=False,
+        tag_prefix="dbt:",
+        only_include_if_in_catalog=False,
+        include_database_name=True,
+        report=report,
+    )
+
+    assert len(nodes) == 1
+    node = nodes[0]
+    assert node.row_count is None
+    assert node.size_in_bytes is None
+
+
+def test_extract_catalog_stats_partial_only_row_count() -> None:
+    """Test extraction when only row count is present (no size)."""
+    manifest_entities = {"model.test.my_model": _create_manifest_entity()}
+    catalog_entities = {
+        "model.test.my_model": _create_catalog_entity_with_stats(num_rows=500.0)
+    }
+
+    report = DBTSourceReport()
+    nodes = extract_dbt_entities(
+        all_manifest_entities=manifest_entities,
+        all_catalog_entities=catalog_entities,
+        sources_results=[],
+        manifest_adapter="bigquery",
+        use_identifiers=False,
+        tag_prefix="dbt:",
+        only_include_if_in_catalog=False,
+        include_database_name=True,
+        report=report,
+    )
+
+    assert len(nodes) == 1
+    node = nodes[0]
+    assert node.row_count == 500
+    assert node.size_in_bytes is None  # Not present in catalog
