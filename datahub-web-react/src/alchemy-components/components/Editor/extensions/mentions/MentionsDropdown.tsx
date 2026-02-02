@@ -1,6 +1,6 @@
 import { useCommands } from '@remirror/react';
 import { Typography } from 'antd';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -68,15 +68,14 @@ export const MentionsDropdown = ({ suggestions }: Props) => {
 
     useDebounce(() => setOptions(flattenOptions(suggestions)), 250, [suggestions]);
     const onSubmit = useCallback(
-        (item: Option) => {
-            if (item.entity) {
-                createDataHubMention({
-                    name: entityRegistry.getDisplayName(item.type, item.entity),
-                    urn: item.entity.urn,
-                });
-                return true;
-            }
-            return false;
+        (item: Option | undefined) => {
+            // Guard: item may be undefined if Enter is pressed during debounce window
+            if (!item?.entity) return false;
+            createDataHubMention({
+                name: entityRegistry.getDisplayName(item.type, item.entity),
+                urn: item.entity.urn,
+            });
+            return true;
         },
         [createDataHubMention, entityRegistry],
     );
@@ -84,6 +83,14 @@ export const MentionsDropdown = ({ suggestions }: Props) => {
     /** Store a separate list of options without header items for arrow keys navigation  */
     const items = useMemo(() => options.filter(({ header }) => !header), [options]);
     const { selectedIndex, filter } = useDataHubMentions<Option>({ items, onEnter: onSubmit });
+
+    // Ref for the currently selected item to scroll into view
+    const selectedRef = useRef<HTMLDivElement>(null);
+
+    // Scroll selected item into view when navigating with keyboard
+    useEffect(() => {
+        selectedRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, [selectedIndex]);
 
     return (
         <div role="menu">
@@ -106,7 +113,13 @@ export const MentionsDropdown = ({ suggestions }: Props) => {
                 };
 
                 return (
-                    <OptionItem active={highlight} key={entity.urn} onMouseDown={onMouseDown} role="option">
+                    <OptionItem
+                        ref={highlight ? selectedRef : undefined}
+                        active={highlight}
+                        key={entity.urn}
+                        onMouseDown={onMouseDown}
+                        role="option"
+                    >
                         <AutoCompleteItem query={filter ?? ''} entity={entity} />
                     </OptionItem>
                 );
