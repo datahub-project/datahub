@@ -31,6 +31,7 @@ from datahub.configuration.time_window_config import (
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -554,7 +555,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
 
     config: ClickHouseConfig
 
-    def __init__(self, config: ClickHouseConfig, ctx):
+    def __init__(self, config: ClickHouseConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "clickhouse")
         self._lineage_map: Optional[Dict[str, LineageItem]] = None
         self._all_tables_set: Optional[Set[str]] = None
