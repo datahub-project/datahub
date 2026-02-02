@@ -1,0 +1,165 @@
+# Confluence Source Configuration Examples
+
+# ============================================================================
+# Minimal Configuration - Confluence Cloud
+# ============================================================================
+# Basic setup for ingesting from Confluence Cloud with API token authentication
+
+source:
+  type: confluence
+  config:
+    # Connection settings
+    url: "https://your-domain.atlassian.net/wiki"
+    username: "your-email@example.com"
+    api_token: "${CONFLUENCE_API_TOKEN}"  # Generate at: https://id.atlassian.com/manage-profile/security/api-tokens
+
+    # Optional: specify spaces to ingest (omit to ingest all accessible spaces)
+    spaces: ["TEAM", "DOCS", "ENGINEERING"]
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+
+# ============================================================================
+# Minimal Configuration - Confluence Data Center
+# ============================================================================
+# Basic setup for ingesting from Confluence Data Center/Server with PAT authentication
+
+# source:
+#   type: confluence
+#   config:
+#     url: "https://confluence.your-company.com"
+#     cloud: false
+#     personal_access_token: "${CONFLUENCE_PAT}"
+#     spaces: ["TEAM", "DOCS"]
+
+# sink:
+#   type: datahub-rest
+#   config:
+#     server: "http://localhost:8080"
+
+# ============================================================================
+# Advanced Configuration with Semantic Search
+# ============================================================================
+# Full-featured configuration with chunking, embeddings, and advanced options
+
+# source:
+#   type: confluence
+#   config:
+#     # Connection settings
+#     url: "https://your-domain.atlassian.net/wiki"
+#     username: "your-email@example.com"
+#     api_token: "${CONFLUENCE_API_TOKEN}"
+#     cloud: true
+#
+#     # Space configuration
+#     max_spaces: 50  # Limit number of spaces when auto-discovering
+#     max_pages_per_space: 1000  # Max pages per space
+#     recursive: true  # Fetch child pages recursively
+#
+#     # Document processing
+#     processing:
+#       partition:
+#         strategy: "auto"  # Options: auto, hi_res, fast, ocr_only
+#         ocr_languages: ["eng"]  # Languages for OCR
+#       parallelism:
+#         num_processes: 2  # Number of worker processes
+#
+#     # Document mapping
+#     document_mapping:
+#       id_pattern: "{source_type}-{basename}"  # Pattern for document IDs
+#       id_normalization:
+#         lowercase: true
+#         replace_spaces_with: "-"
+#         remove_special_chars: true
+#       title:
+#         extract_from_content: true
+#         fallback_to_filename: true
+#
+#     # Hierarchy configuration
+#     hierarchy:
+#       enabled: true
+#       parent_strategy: "confluence"  # Use Confluence's native page hierarchy
+#
+#     # Content filtering
+#     filtering:
+#       min_text_length: 100  # Skip documents with less than 100 characters
+#       include_empty_docs: false  # Exclude empty documents
+#
+#     # Text chunking for semantic search
+#     chunking:
+#       enabled: true
+#       strategy: "by_title"  # Options: basic, by_title, by_page, by_similarity
+#       chunk_size: 500  # Target chunk size in tokens
+#       chunk_overlap: 50  # Overlap between chunks
+#       max_chunks_per_document: 100  # Limit chunks per document
+#
+#     # Embedding generation
+#     embedding:
+#       enabled: true
+#       provider: "openai"  # Options: openai, azure_openai, bedrock, etc.
+#       model: "text-embedding-3-small"  # OpenAI embedding model
+#       api_key: "${OPENAI_API_KEY}"
+#       # For Azure OpenAI:
+#       # provider: "azure_openai"
+#       # azure_endpoint: "https://your-resource.openai.azure.com/"
+#       # azure_deployment: "your-deployment-name"
+#       # api_key: "${AZURE_OPENAI_API_KEY}"
+#
+#     # Advanced options
+#     advanced:
+#       continue_on_failure: true  # Continue ingestion on errors
+#       max_errors: 100  # Stop after this many errors
+#       timeout_seconds: 300  # Timeout for long operations
+#
+#     # Stateful ingestion for incremental updates
+#     stateful_ingestion:
+#       enabled: true
+#       remove_stale_metadata: true  # Remove pages that no longer exist
+#       state_provider:
+#         type: "datahub"
+#         config:
+#           datahub_api:
+#             server: "http://localhost:8080"
+#
+# sink:
+#   type: datahub-rest
+#   config:
+#     server: "http://localhost:8080"
+
+# ============================================================================
+# Configuration Notes
+# ============================================================================
+
+# Authentication:
+# - Cloud: Requires username + api_token
+# - Data Center: Requires personal_access_token
+# - Only one authentication method should be provided
+
+# Space Discovery:
+# - If 'spaces' is provided: only those spaces are ingested
+# - If 'spaces' is omitted: all accessible spaces are auto-discovered (up to max_spaces)
+
+# Chunking Strategies:
+# - basic: Split by character count
+# - by_title: Split at section titles (recommended for Confluence)
+# - by_page: Keep entire page as one chunk
+# - by_similarity: Smart chunking based on semantic similarity
+
+# Embedding Providers:
+# - openai: OpenAI's embedding models
+# - azure_openai: Azure OpenAI Service
+# - bedrock: AWS Bedrock
+# - vertexai: Google Vertex AI
+# - huggingface: HuggingFace models
+
+# Performance Tuning:
+# - Reduce num_processes if hitting rate limits
+# - Increase max_pages_per_space for large spaces
+# - Disable chunking/embeddings for faster ingestion
+
+# Stateful Ingestion:
+# - Tracks content changes via content hash
+# - Only processes pages when content or config changes
+# - Automatically removes deleted pages when remove_stale_metadata=true

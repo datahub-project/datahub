@@ -150,6 +150,262 @@ source:
           timeout: 120
 ```
 
+### Google BigLake REST Catalog + GCS warehouse
+
+DataHub supports ingesting metadata from [Google BigLake](https://cloud.google.com/bigquery/docs/biglake-intro) via the Iceberg REST Catalog API.
+BigLake provides unified governance and security for data across data lakes and data warehouses.
+
+PyIceberg 0.9+ natively supports BigLake authentication using Google Cloud's Application Default Credentials (ADC).
+
+#### Prerequisites
+
+1. **GCP Project** with BigLake API enabled:
+
+   ```bash
+   gcloud services enable biglake.googleapis.com --project=YOUR_PROJECT_ID
+   ```
+
+2. **Service Account** with required permissions:
+
+   - `biglake.catalogs.get`
+   - `biglake.tables.get`
+   - `biglake.tables.list`
+   - `biglake.databases.get`
+   - `biglake.databases.list`
+   - Storage Object Viewer (for GCS buckets containing Iceberg data)
+
+3. **BigLake Catalog** created in your GCP project:
+   ```bash
+   gcloud alpha biglake catalogs create CATALOG_NAME \
+     --location=REGION \
+     --project=PROJECT_ID
+   ```
+
+#### Configuration
+
+BigLake authentication uses Application Default Credentials (ADC). DataHub provides automatic OAuth scope fixing for seamless integration.
+
+**Setup:**
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+export GCP_PROJECT_ID=your-project-id
+export GCS_WAREHOUSE_BUCKET=your-bucket-name
+```
+
+#### Configuration
+
+```yaml
+source:
+  type: iceberg
+  config:
+    env: dev
+    catalog:
+      my_biglake_catalog:
+        type: rest
+        uri: https://biglake.googleapis.com/iceberg/v1/restcatalog
+        warehouse: gs://my-bucket
+        auth:
+          type: google
+          google:
+            scopes:
+              - https://www.googleapis.com/auth/cloud-platform
+        header.x-goog-user-project: my-project
+        header.X-Iceberg-Access-Delegation: "" # End-user credentials mode
+        connection:
+          timeout: 120
+          retry:
+            total: 5
+            backoff_factor: 0.3
+```
+
+**Key Configuration Parameters:**
+
+- `auth.type: google` - Uses Application Default Credentials
+- `auth.google.scopes` - OAuth scopes required for BigLake access
+- `header.x-goog-user-project` - Specifies the GCP project for billing
+- `header.X-Iceberg-Access-Delegation: ""` - Uses end-user credentials mode
+
+#### How Authentication Works
+
+When using `auth.type: google` with explicit scopes:
+
+1. **Discovers credentials** using Google Cloud's Application Default Credentials (ADC) chain:
+
+   - **Environment Variable**: `GOOGLE_APPLICATION_CREDENTIALS` pointing to service account JSON (most common)
+   - **gcloud CLI**: Credentials from `gcloud auth application-default login`
+   - **GCE/GKE Metadata Server**: Automatic when running on Google Cloud infrastructure
+   - **Workload Identity**: Automatic when using GKE Workload Identity
+
+2. **Uses explicit OAuth scopes**: The `auth.google.scopes` configuration ensures the correct `cloud-platform` scope is used for BigLake access
+
+   - PyIceberg passes the scopes directly to `google.auth.default()`
+   - Requires `google-auth` library to be installed (included in DataHub dependencies)
+
+3. **Handles token refresh**: Automatic token refresh with no manual management needed
+
+#### Using Managed Ingestion with Secrets
+
+For production environments using Managed Ingestion (via the DataHub UI), you can securely store your GCP service account credentials as DataHub secrets instead of using environment variables.
+
+**Step 1: Create a Secret in DataHub**
+
+1. Navigate to **Settings** > **Secrets** in the DataHub UI
+2. Click **Create new secret**
+3. Enter a name (e.g., `BIGLAKE_SERVICE_ACCOUNT_JSON`)
+4. Paste the **entire contents** of your GCP service account JSON file as the value
+5. Optionally add a description
+6. Click **Create**
+
+**Step 2: Reference the Secret in Your Recipe**
+
+Use the `${SECRET_NAME}` syntax to reference your secret in the ingestion recipe:
+
+```yaml
+source:
+  type: iceberg
+  config:
+    env: prod
+    catalog:
+      my_biglake_catalog:
+        type: rest
+        uri: https://biglake.googleapis.com/iceberg/v1/restcatalog
+        warehouse: gs://my-bucket
+        auth:
+          type: google
+          google:
+            credentials_json: ${BIGLAKE_SERVICE_ACCOUNT_JSON}
+            scopes:
+              - https://www.googleapis.com/auth/cloud-platform
+        header.x-goog-user-project: my-project
+        header.X-Iceberg-Access-Delegation: ""
+
+sink:
+  type: datahub-rest
+  config:
+    server: ${DATAHUB_GMS_URL}
+    token: ${DATAHUB_GMS_TOKEN}
+```
+
+The secret will be automatically resolved at runtime when the ingestion executes.
+
+**Alternative: Using Structured Credentials**
+
+You can also use individual secrets for each credential component, which provides better validation:
+
+```yaml
+source:
+  type: iceberg
+  config:
+    catalog:
+      my_biglake_catalog:
+        type: rest
+        uri: https://biglake.googleapis.com/iceberg/v1/restcatalog
+        warehouse: gs://my-bucket
+        auth:
+          type: google
+          google:
+            credentials:
+              project_id: ${GCP_PROJECT_ID}
+              private_key_id: ${GCP_PRIVATE_KEY_ID}
+              private_key: ${GCP_PRIVATE_KEY}
+              client_email: ${GCP_CLIENT_EMAIL}
+              client_id: ${GCP_CLIENT_ID}
+            scopes:
+              - https://www.googleapis.com/auth/cloud-platform
+        header.x-goog-user-project: ${GCP_PROJECT_ID}
+        header.X-Iceberg-Access-Delegation: ""
+```
+
+Create these individual secrets in DataHub:
+
+- `GCP_PROJECT_ID`
+- `GCP_PRIVATE_KEY_ID`
+- `GCP_PRIVATE_KEY` (the private key value from your service account JSON)
+- `GCP_CLIENT_EMAIL`
+- `GCP_CLIENT_ID`
+
+**Step 3: Deploy via DataHub UI**
+
+1. Navigate to **Ingestion** > **Create new source**
+2. Select **Iceberg** as the source type
+3. Paste your recipe configuration with secret references
+4. Configure a schedule (optional)
+5. Click **Save and Run**
+
+#### Using Vended Credentials (Optional)
+
+**Important**: Vended credentials require your BigLake catalog to be configured with `CREDENTIAL_MODE_SERVICE_ACCOUNT`. Most BigLake catalogs use `CREDENTIAL_MODE_END_USER` by default, which **does not** support vended credentials.
+
+If you get an error stating "X-Iceberg-Access-Delegation header must not contain vended-credentials when credential mode is CREDENTIAL_MODE_END_USER", your catalog doesn't support this feature. Use the standard configuration with `header.X-Iceberg-Access-Delegation: ""` instead.
+
+For catalogs that support vended credentials, set `header.X-Iceberg-Access-Delegation: vended-credentials`:
+
+```yaml
+source:
+  type: iceberg
+  config:
+    env: dev
+    catalog:
+      my_biglake_catalog:
+        type: rest
+        uri: https://biglake.googleapis.com/iceberg/v1/restcatalog
+        warehouse: gs://my-bucket
+        auth:
+          type: google
+          google:
+            scopes:
+              - https://www.googleapis.com/auth/cloud-platform
+        header.x-goog-user-project: my-project
+        header.X-Iceberg-Access-Delegation: vended-credentials # Only for CREDENTIAL_MODE_SERVICE_ACCOUNT
+```
+
+**When to use vended credentials:**
+
+- Running ingestion from environments without direct GCS access
+- Implementing fine-grained access control through BigLake
+- Avoiding long-lived service account keys
+
+BigLake will generate short-lived service account token scoped to the specific tables being accessed.
+
+#### Troubleshooting
+
+**Error: "invalid_scope: Invalid OAuth scope or ID token audience provided"**
+
+This error occurs when OAuth scopes are not properly configured. To fix:
+
+- Ensure `auth.google.scopes` is set to `["https://www.googleapis.com/auth/cloud-platform"]` in your configuration
+- Verify `google-auth` library is installed: `pip install google-auth`
+- Check that `GOOGLE_APPLICATION_CREDENTIALS` points to a valid service account JSON file
+
+**Error: "X-Iceberg-Access-Delegation header must not contain vended-credentials when credential mode is CREDENTIAL_MODE_END_USER"**
+
+- Your BigLake catalog uses end-user credentials mode, which doesn't support vended credentials
+- **Solution**: Use `header.X-Iceberg-Access-Delegation: ""` (empty string) in your configuration
+- Vended credentials only work with `CREDENTIAL_MODE_SERVICE_ACCOUNT`
+
+**Error: "Authentication failed"**
+
+- Verify ADC is configured: `gcloud auth application-default print-access-token`
+- Check service account has required permissions
+- Ensure BigLake API is enabled: `gcloud services list --enabled | grep biglake`
+
+**Error: "Catalog not found"**
+
+- Verify catalog exists: `gcloud alpha biglake catalogs list --location=REGION --project=PROJECT`
+- Check URI format: `https://biglake.googleapis.com/v1/projects/{PROJECT}/locations/{REGION}/catalogs/{CATALOG}`
+
+**Error: "Permission denied on GCS warehouse"**
+
+- Grant Storage Object Viewer role to service account:
+  ```bash
+  gsutil iam ch serviceAccount:SA_EMAIL:roles/storage.objectViewer gs://BUCKET_NAME
+  ```
+
+**Error: "User project header required"**
+
+- Ensure `header.x-goog-user-project` is set to your GCP project ID
+
 ### SQL catalog + Azure DLS as the warehouse
 
 This example targets `Postgres` as the sql-type `Iceberg` catalog and uses Azure DLS as the warehouse.
