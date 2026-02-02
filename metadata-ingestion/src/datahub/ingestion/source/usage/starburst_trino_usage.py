@@ -2,6 +2,7 @@ import collections
 import dataclasses
 import json
 import logging
+import re
 from datetime import datetime
 from email.utils import parseaddr
 from typing import Any, Dict, Iterable, List, Optional
@@ -9,7 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional
 from dateutil import parser
 from pydantic.fields import Field
 from pydantic.main import BaseModel
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
@@ -57,6 +58,20 @@ ORDER BY end_time desc
 TrinoTableRef = str
 AggregatedDataset = GenericAggregatedDataset[TrinoTableRef]
 
+# Valid identifier pattern for Trino/Starburst (alphanumeric and underscores)
+TRINO_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def validate_trino_identifier(identifier: str, field_name: str) -> str:
+    """Validate that identifier is safe for SQL interpolation."""
+    if not TRINO_IDENTIFIER_PATTERN.match(identifier):
+        raise ValueError(
+            f"Invalid {field_name}: '{identifier}'. "
+            f"Must contain only alphanumeric characters and underscores, "
+            f"and start with a letter or underscore."
+        )
+    return identifier
+
 
 class TrinoConnectorInfo(BaseModel):
     partitionIds: List[str]
@@ -99,6 +114,12 @@ class TrinoUsageConfig(TrinoConfig, BaseUsageConfig, EnvBasedSourceBaseConfig):
     )
     options: dict = Field(default={}, description="")
     database: str = Field(description="The name of the catalog from getting the usage")
+
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+        # Validate audit_catalog and audit_schema to prevent SQL injection
+        validate_trino_identifier(self.audit_catalog, "audit_catalog")
+        validate_trino_identifier(self.audit_schema, "audit_schema")
 
     def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
@@ -166,23 +187,24 @@ class TrinoUsageSource(Source):
     def _get_trino_history(self):
         query = self._make_usage_query()
         engine = self._make_sql_engine()
-        results = engine.execute(query)
         events = []
-        for row in results:
-            event_dict = row._asdict()
+        with engine.connect() as connection:
+            results = connection.execute(text(query))
+            for row in results:
+                event_dict = row._asdict()
 
-            # stripping extra spaces caused by above _asdict() conversion
-            for k, v in event_dict.items():
-                if isinstance(v, str):
-                    event_dict[k] = v.strip()
+                # stripping extra spaces caused by above _asdict() conversion
+                for k, v in event_dict.items():
+                    if isinstance(v, str):
+                        event_dict[k] = v.strip()
 
-            if event_dict.get("starttime", None):
-                event_dict["starttime"] = event_dict.get("starttime").__str__()
-            if event_dict.get("endtime", None):
-                event_dict["endtime"] = event_dict.get("endtime").__str__()
+                if event_dict.get("starttime", None):
+                    event_dict["starttime"] = event_dict.get("starttime").__str__()
+                if event_dict.get("endtime", None):
+                    event_dict["endtime"] = event_dict.get("endtime").__str__()
 
-            logger.debug(f"event_dict: {event_dict}")
-            events.append(event_dict)
+                logger.debug(f"event_dict: {event_dict}")
+                events.append(event_dict)
 
         if events:
             return events

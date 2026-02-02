@@ -8,7 +8,10 @@ from sqlalchemy.sql import sqltypes
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
-from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    SnowflakeQuery,
+    escape_snowflake_identifier,
+)
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDatabase,
@@ -104,7 +107,11 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             estimated_block_row_count = 500_000
             block_profiling_min_rows = 100 * estimated_block_row_count
 
-            tablename = f'"{db_name}"."{schema_name}"."{table.name}"'
+            # Escape identifiers to prevent SQL injection via embedded double quotes
+            escaped_db = escape_snowflake_identifier(db_name)
+            escaped_schema = escape_snowflake_identifier(schema_name)
+            escaped_table = escape_snowflake_identifier(table.name)
+            tablename = f'"{escaped_db}"."{escaped_schema}"."{escaped_table}"'
             sample_pc = self.config.profiling.sample_size / table.rows_count
 
             overgeneration_factor = 1000

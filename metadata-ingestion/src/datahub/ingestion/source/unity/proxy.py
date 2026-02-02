@@ -48,7 +48,10 @@ from datahub.ingestion.source.unity.config import (
     UsageDataSource,
 )
 from datahub.ingestion.source.unity.connection import get_sql_connection_params
-from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
+from datahub.ingestion.source.unity.hive_metastore_proxy import (
+    HiveMetastoreProxy,
+    _escape_backtick_identifier,
+)
 from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
 )
@@ -1327,7 +1330,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching schema tags for catalog: `{catalog}`")
 
-        query = f"SELECT * FROM `{catalog}`.information_schema.schema_tags"
+        escaped_catalog = _escape_backtick_identifier(catalog)
+        query = f"SELECT * FROM `{escaped_catalog}`.information_schema.schema_tags"
         rows = self._execute_sql_query(query)
 
         result_dict: Dict[str, List[UnityCatalogTag]] = {}
@@ -1350,7 +1354,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching table tags for catalog: `{catalog}`")
 
-        query = f"SELECT * FROM `{catalog}`.information_schema.catalog_tags"
+        escaped_catalog = _escape_backtick_identifier(catalog)
+        query = f"SELECT * FROM `{escaped_catalog}`.information_schema.catalog_tags"
         rows = self._execute_sql_query(query)
 
         result_dict: Dict[str, List[UnityCatalogTag]] = {}
@@ -1372,7 +1377,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching table tags for catalog: `{catalog}`")
 
-        query = f"SELECT * FROM `{catalog}`.information_schema.table_tags"
+        escaped_catalog = _escape_backtick_identifier(catalog)
+        query = f"SELECT * FROM `{escaped_catalog}`.information_schema.table_tags"
         rows = self._execute_sql_query(query)
 
         result_dict: Dict[str, List[UnityCatalogTag]] = {}
@@ -1395,7 +1401,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching column tags for catalog: `{catalog}`")
 
-        query = f"SELECT * FROM `{catalog}`.information_schema.column_tags"
+        escaped_catalog = _escape_backtick_identifier(catalog)
+        query = f"SELECT * FROM `{escaped_catalog}`.information_schema.column_tags"
         rows = self._execute_sql_query(query)
 
         result_dict: Dict[str, List[UnityCatalogTag]] = {}

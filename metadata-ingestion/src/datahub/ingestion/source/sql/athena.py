@@ -640,7 +640,12 @@ class AthenaSource(SQLAlchemySource):
     def _get_partitions_create_table(self, schema: str, table: str) -> List[str]:
         assert self.cursor
         try:
-            res = self.cursor.execute(f"SHOW CREATE TABLE `{schema}`.`{table}`")
+            # Defense-in-depth: sanitize identifiers even though they come from DB metadata
+            sanitized_schema = self._sanitize_identifier(schema)
+            sanitized_table = self._sanitize_identifier(table)
+            res = self.cursor.execute(
+                f"SHOW CREATE TABLE `{sanitized_schema}`.`{sanitized_table}`"
+            )
         except Exception as e:
             # Athena does not support SHOW CREATE TABLE for views
             # and will throw an error. We need to handle this case

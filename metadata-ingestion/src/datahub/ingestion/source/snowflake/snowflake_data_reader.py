@@ -5,6 +5,9 @@ import pandas as pd
 
 from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    escape_snowflake_identifier,
+)
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.Logger(__name__)
@@ -40,7 +43,12 @@ class SnowflakeDataReader(DataReader):
             f"Collecting sample values for table {db_name}.{schema_name}.{table_name}"
         )
         with PerfTimer() as timer, self.conn.native_connection().cursor() as cursor:
-            sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({sample_size} rows);'
+            # Escape identifiers to prevent SQL injection via embedded double quotes
+            escaped_db = escape_snowflake_identifier(db_name)
+            escaped_schema = escape_snowflake_identifier(schema_name)
+            escaped_table = escape_snowflake_identifier(table_name)
+            # sample_size is validated as int by pydantic config, safe for interpolation
+            sql = f'select * from "{escaped_db}"."{escaped_schema}"."{escaped_table}" sample ({int(sample_size)} rows);'
             cursor.execute(sql)
             dat = cursor.fetchall()
             # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.
