@@ -4,7 +4,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 from neo4j import GraphDatabase
-from pydantic import Field
+from pydantic import Field, SecretStr
 
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -47,7 +47,7 @@ class Neo4jConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
 ):
     username: str = Field(description="Neo4j Username")
-    password: str = Field(description="Neo4j Password")
+    password: SecretStr = Field(description="Neo4j Password")
     uri: str = Field(description="The URI for the Neo4j server")
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -145,7 +145,8 @@ class Neo4jSource(StatefulIngestionSourceBase):
 
     def get_neo4j_metadata(self, query: str) -> Optional[pd.DataFrame]:
         driver = GraphDatabase.driver(
-            self.config.uri, auth=(self.config.username, self.config.password)
+            self.config.uri,
+            auth=(self.config.username, self.config.password.get_secret_value()),
         )
         """
         This process retrieves the metadata for Neo4j objects using an APOC query,

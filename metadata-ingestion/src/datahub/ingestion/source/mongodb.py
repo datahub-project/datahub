@@ -6,7 +6,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesVie
 import bson.timestamp
 import pymongo.collection
 from packaging import version
-from pydantic import PositiveInt, field_validator
+from pydantic import PositiveInt, SecretStr, field_validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
@@ -97,7 +97,7 @@ class MongoDBConfig(
         default="mongodb://localhost", description="MongoDB connection URI."
     )
     username: Optional[str] = Field(default=None, description="MongoDB username.")
-    password: Optional[str] = Field(default=None, description="MongoDB password.")
+    password: Optional[SecretStr] = Field(default=None, description="MongoDB password.")
     authMechanism: Optional[str] = Field(
         default=None, description="MongoDB authentication mechanism."
     )
@@ -291,7 +291,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
         if self.config.username is not None:
             options["username"] = self.config.username
         if self.config.password is not None:
-            options["password"] = self.config.password
+            options["password"] = self.config.password.get_secret_value()
         if self.config.authMechanism is not None:
             options["authMechanism"] = self.config.authMechanism
         options = {

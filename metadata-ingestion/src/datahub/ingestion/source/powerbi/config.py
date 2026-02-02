@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Dict, List, Literal, Optional, Union
 
 import pydantic
-from pydantic import field_validator, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
@@ -431,7 +431,7 @@ class PowerBiDashboardSourceConfig(
     # Azure app client identifier
     client_id: str = pydantic.Field(description="Azure app client identifier")
     # Azure app client secret
-    client_secret: str = pydantic.Field(description="Azure app client secret")
+    client_secret: SecretStr = pydantic.Field(description="Azure app client secret")
     # timeout for meta-data scanning
     scan_timeout: int = pydantic.Field(
         default=60, description="timeout for PowerBI metadata scanning"

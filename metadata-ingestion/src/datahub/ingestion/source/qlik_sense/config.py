@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional
 
 import pydantic
+from pydantic import SecretStr
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
@@ -113,7 +114,7 @@ class QlikSourceConfig(
     StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
 ):
     tenant_hostname: str = pydantic.Field(description="Qlik Tenant hostname")
-    api_key: str = pydantic.Field(description="Qlik API Key")
+    api_key: SecretStr = pydantic.Field(description="Qlik API Key")
     # Qlik space identifier
     space_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

@@ -4,7 +4,7 @@ import warnings
 from typing import Any, Dict, Optional
 
 import pydantic
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from typing_extensions import Literal
 
 from datahub.configuration.common import (
@@ -107,8 +107,8 @@ class DatabricksDestinationConfig(UnityCatalogConnectionConfig):
 
 
 class FivetranAPIConfig(ConfigModel):
-    api_key: str = Field(description="Fivetran API key")
-    api_secret: str = Field(description="Fivetran API secret")
+    api_key: SecretStr = Field(description="Fivetran API key")
+    api_secret: SecretStr = Field(description="Fivetran API secret")
     base_url: str = Field(
         default="https://api.fivetran.com", description="Fivetran API base URL"
     )

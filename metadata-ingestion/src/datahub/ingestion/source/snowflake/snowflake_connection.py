@@ -83,7 +83,7 @@ class SnowflakeConnectionConfig(ConfigModel):
     password: Optional[pydantic.SecretStr] = pydantic.Field(
         default=None, exclude=True, description="Snowflake password."
     )
-    private_key: Optional[str] = pydantic.Field(
+    private_key: Optional[pydantic.SecretStr] = pydantic.Field(
         default=None,
         description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n' if using key pair authentication. Encrypted version of private key will be in a form of '-----BEGIN ENCRYPTED PRIVATE KEY-----\\nencrypted-private-key\\n-----END ENCRYPTED PRIVATE KEY-----\\n' See: https://docs.snowflake.com/en/user-guide/key-pair-auth.html",
     )
@@ -118,7 +118,7 @@ class SnowflakeConnectionConfig(ConfigModel):
         description="Connect args to pass to Snowflake SqlAlchemy driver",
         exclude=True,
     )
-    token: Optional[str] = pydantic.Field(
+    token: Optional[pydantic.SecretStr] = pydantic.Field(
         default=None,
         description="OAuth token from external identity provider. Not recommended for most use cases because it will not be able to refresh once expired.",
     )
@@ -277,7 +277,9 @@ class SnowflakeConnectionConfig(ConfigModel):
             and self.authentication_type == "KEY_PAIR_AUTHENTICATOR"
         ):
             if self.private_key is not None:
-                pkey_bytes = self.private_key.replace("\\n", "\n").encode()
+                pkey_bytes = (
+                    self.private_key.get_secret_value().replace("\\n", "\n").encode()
+                )
             else:
                 assert self.private_key_path, (
                     "missing required private key path to read key from"
@@ -326,7 +328,7 @@ class SnowflakeConnectionConfig(ConfigModel):
         if self.oauth_config.use_certificate:
             response = generator.get_token_with_certificate(
                 private_key_content=str(self.oauth_config.encoded_oauth_public_key),
-                public_key_content=str(self.oauth_config.encoded_oauth_private_key),
+                public_key_content=self.oauth_config.encoded_oauth_private_key.get_secret_value(),
                 scopes=self.oauth_config.scopes,
             )
         else:
@@ -387,7 +389,9 @@ class SnowflakeConnectionConfig(ConfigModel):
                 user=self.username,
                 account=self.account_id,
                 authenticator="oauth",
-                token=self.token,  # Token generated externally and provided directly to the recipe
+                token=self.token.get_secret_value()
+                if self.token
+                else None,  # Token generated externally and provided directly to the recipe
                 warehouse=self.warehouse,
                 role=self.role,
                 application=_APPLICATION_NAME,

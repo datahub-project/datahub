@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
 from ldap.controls import SimplePagedResultsControl
+from pydantic import SecretStr
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigurationError
@@ -108,7 +109,7 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     # Server configuration.
     ldap_server: str = Field(description="LDAP server URL.")
     ldap_user: str = Field(description="LDAP user.")
-    ldap_password: str = Field(description="LDAP password.")
+    ldap_password: SecretStr = Field(description="LDAP password.")
 
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -249,7 +250,7 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         try:
             self.ldap_client.simple_bind_s(
-                self.config.ldap_user, self.config.ldap_password
+                self.config.ldap_user, self.config.ldap_password.get_secret_value()
             )
         except ldap.LDAPError as e:
             raise ConfigurationError("LDAP connection failed") from e

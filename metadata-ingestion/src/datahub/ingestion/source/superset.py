@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import dateutil.parser as dp
 import requests
 import sqlglot
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, SecretStr, field_validator, model_validator
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -213,7 +213,9 @@ class SupersetConfig(
         description="Regex patterns for databases to filter in ingestion.",
     )
     username: Optional[str] = Field(default=None, description="Superset username.")
-    password: Optional[str] = Field(default=None, description="Superset password.")
+    password: Optional[SecretStr] = Field(
+        default=None, description="Superset password."
+    )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Superset Stateful Ingestion Config."
@@ -328,7 +330,9 @@ class SupersetSource(StatefulIngestionSourceBase):
             f"{self.config.connect_uri}/api/v1/security/login",
             json={
                 "username": self.config.username,
-                "password": self.config.password,
+                "password": self.config.password.get_secret_value()
+                if self.config.password
+                else None,
                 "refresh": True,
                 "provider": self.config.provider,
             },

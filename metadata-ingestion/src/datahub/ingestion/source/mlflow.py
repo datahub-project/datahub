@@ -9,6 +9,7 @@ from mlflow.entities import Dataset as MlflowDataset, Experiment, Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities import PagedList
+from pydantic import SecretStr
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
@@ -120,7 +121,7 @@ class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     username: Optional[str] = Field(
         default=None, description="Username for MLflow authentication"
     )
-    password: Optional[str] = Field(
+    password: Optional[SecretStr] = Field(
         default=None, description="Password for MLflow authentication"
     )
 
@@ -187,7 +188,9 @@ class MLflowSource(StatefulIngestionSourceBase):
 
         if self.config.username and self.config.password:
             os.environ["MLFLOW_TRACKING_USERNAME"] = self.config.username
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = self.config.password
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = (
+                self.config.password.get_secret_value()
+            )
 
         return MlflowClient(
             tracking_uri=self.config.tracking_uri,

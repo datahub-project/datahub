@@ -25,7 +25,7 @@ class UnityCatalogConnectionConfig(ConfigModel):
     """
 
     scheme: str = DATABRICKS
-    token: Optional[str] = pydantic.Field(
+    token: Optional[SecretStr] = pydantic.Field(
         default=None, description="Databricks personal access token"
     )
     azure_auth: Optional[AzureAuthConfig] = Field(
@@ -96,7 +96,7 @@ def create_workspace_client(config: UnityCatalogConnectionConfig) -> WorkspaceCl
         host=config.workspace_url,
         product=DATABRICKS_USER_AGENT_ENTRY,
         product_version=nice_version_name(),
-        token=config.token,
+        token=config.token.get_secret_value() if config.token else None,
         azure_tenant_id=config.azure_auth.tenant_id if config.azure_auth else None,
         azure_client_id=config.azure_auth.client_id if config.azure_auth else None,
         azure_client_secret=(

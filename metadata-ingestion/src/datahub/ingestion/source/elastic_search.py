@@ -8,7 +8,7 @@ from hashlib import md5
 from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type, Union
 
 from elasticsearch import Elasticsearch
-from pydantic import field_validator
+from pydantic import SecretStr, field_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -259,7 +259,7 @@ class ElasticsearchSourceConfig(
     username: Optional[str] = Field(
         default=None, description="The username credential."
     )
-    password: Optional[str] = Field(
+    password: Optional[SecretStr] = Field(
         default=None, description="The password credential."
     )
     api_key: Optional[Union[Any, str]] = Field(
@@ -343,7 +343,14 @@ class ElasticsearchSourceConfig(
 
     @property
     def http_auth(self) -> Optional[Tuple[str, str]]:
-        return None if self.username is None else (self.username, self.password or "")
+        return (
+            None
+            if self.username is None
+            else (
+                self.username,
+                self.password.get_secret_value() if self.password else "",
+            )
+        )
 
 
 @platform_name("Elasticsearch")

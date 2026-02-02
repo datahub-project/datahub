@@ -29,6 +29,6 @@ class OAuthConfiguration(ConfigModel):
     encoded_oauth_public_key: Optional[str] = Field(
         None, description="base64 encoded certificate content if use_certificate = true"
     )
-    encoded_oauth_private_key: Optional[str] = Field(
+    encoded_oauth_private_key: Optional[SecretStr] = Field(
         None, description="base64 encoded private key content if use_certificate = true"
     )

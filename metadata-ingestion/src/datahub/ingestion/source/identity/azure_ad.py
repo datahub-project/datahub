@@ -8,6 +8,7 @@ from typing import Any, Dict, Generator, Iterable, List, Optional
 
 import click
 import requests
+from pydantic import SecretStr
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter, Retry
 
@@ -67,7 +68,7 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     tenant_id: str = Field(
         description="Directory ID. Found in your app registration on Azure AD Portal"
     )
-    client_secret: str = Field(
+    client_secret: SecretStr = Field(
         description="Client secret. Found in your app registration on Azure AD Portal"
     )
     authority: str = Field(
@@ -273,7 +274,7 @@ class AzureADSource(StatefulIngestionSourceBase):
             "grant_type": "client_credentials",
             "client_id": self.config.client_id,
             "tenant_id": self.config.tenant_id,
-            "client_secret": self.config.client_secret,
+            "client_secret": self.config.client_secret.get_secret_value(),
             "resource": "https://graph.microsoft.com",
             "scope": "https://graph.microsoft.com/.default",
         }

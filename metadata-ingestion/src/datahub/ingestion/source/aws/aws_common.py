@@ -11,6 +11,7 @@ from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
 from botocore.exceptions import ClientError, NoCredentialsError
 from botocore.utils import fix_s3_host
+from pydantic import SecretStr
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
@@ -275,11 +276,11 @@ class AwsConnectionConfig(ConfigModel):
         default=None,
         description=f"AWS access key ID. {AUTODETECT_CREDENTIALS_DOC_LINK}",
     )
-    aws_secret_access_key: Optional[str] = Field(
+    aws_secret_access_key: Optional[SecretStr] = Field(
         default=None,
         description=f"AWS secret access key. {AUTODETECT_CREDENTIALS_DOC_LINK}",
     )
-    aws_session_token: Optional[str] = Field(
+    aws_session_token: Optional[SecretStr] = Field(
         default=None,
         description=f"AWS session token. {AUTODETECT_CREDENTIALS_DOC_LINK}",
     )
@@ -343,8 +344,12 @@ class AwsConnectionConfig(ConfigModel):
             # Explicit credentials take precedence
             session = Session(
                 aws_access_key_id=self.aws_access_key_id,
-                aws_secret_access_key=self.aws_secret_access_key,
-                aws_session_token=self.aws_session_token,
+                aws_secret_access_key=self.aws_secret_access_key.get_secret_value(),
+                aws_session_token=(
+                    self.aws_session_token.get_secret_value()
+                    if self.aws_session_token
+                    else None
+                ),
                 region_name=self.aws_region,
             )
         elif self.aws_profile:

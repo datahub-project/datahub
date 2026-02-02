@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 import pydantic
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
@@ -145,7 +145,7 @@ class SigmaSourceConfig(
         default=Constant.DEFAULT_API_URL, description="Sigma API hosted URL."
     )
     client_id: str = pydantic.Field(description="Sigma Client ID")
-    client_secret: str = pydantic.Field(description="Sigma Client Secret")
+    client_secret: SecretStr = pydantic.Field(description="Sigma Client Secret")
     # Sigma workspace identifier
     workspace_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
