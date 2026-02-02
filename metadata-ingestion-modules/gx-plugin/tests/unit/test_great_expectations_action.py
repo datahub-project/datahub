@@ -698,6 +698,7 @@ def test_DataHubValidationAction_existing_assertion_uses_patch(
     assert isinstance(first_mcp, MetadataChangeProposalClass)
     assert first_mcp.changeType == ChangeTypeClass.PATCH
     assert first_mcp.aspectName == "assertionInfo"
+    assert first_mcp.aspect is not None
     assert first_mcp.aspect.contentType == JSON_PATCH_CONTENT_TYPE
 
     patch_payload = json.loads(first_mcp.aspect.value.decode())
