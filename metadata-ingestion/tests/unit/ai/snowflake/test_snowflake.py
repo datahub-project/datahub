@@ -3,13 +3,15 @@
 from pathlib import Path
 from unittest.mock import Mock
 
-from datahub.ai.snowflake.snowflake import (
-    create_snowflake_agent,
-    execute_sql_in_snowflake,
+from datahub.ai.snowflake.generators import (
     generate_configuration_sql,
     generate_cortex_agent_sql,
     generate_network_rules_sql,
     generate_stored_procedure_sql,
+)
+from datahub.ai.snowflake.snowflake import (
+    create_snowflake_agent,
+    execute_sql_in_snowflake,
 )
 
 
