@@ -141,3 +141,63 @@ def test_get_view_definition_without_schema():
     )
 
     assert result == expected_view_sql
+
+
+# Query log extraction tests
+
+
+def test_query_log_config_defaults():
+    """Test that query log config options have correct defaults."""
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+        }
+    )
+
+    assert config.include_query_log_lineage is False
+    assert config.include_usage_statistics is False
+    assert config.include_query_log_operations is False
+    assert config.query_log_table == "system.query_log"
+    assert config.top_n_queries == 10
+
+
+def test_query_log_config_enabled():
+    """Test that query log config options can be enabled."""
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+            "include_usage_statistics": True,
+            "query_log_table": "custom.query_log_view",
+            "query_log_deny_usernames": ["system", "default"],
+        }
+    )
+
+    assert config.include_query_log_lineage is True
+    assert config.include_usage_statistics is True
+    assert config.query_log_table == "custom.query_log_view"
+    assert config.query_log_deny_usernames == ["system", "default"]
+
+
+def test_temporary_tables_pattern():
+    """Test that temporary tables patterns are compiled correctly."""
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+        }
+    )
+
+    patterns = config._compiled_temporary_tables_pattern
+
+    # Default patterns
+    assert len(patterns) == 4
+
+    # Test pattern matching
+    assert patterns[0].match("_temp_table")  # ^_.*
+    assert patterns[1].match("db.tmp_staging")  # .*\.tmp_.*
+    assert patterns[2].match("db.temp_data")  # .*\.temp_.*
+    assert patterns[3].match("db._inner_mv")  # .*\._inner.*
+
+    # Non-matching cases
+    assert not patterns[0].match("normal_table")
+    assert not patterns[1].match("db.regular_table")

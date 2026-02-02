@@ -1,8 +1,11 @@
 import json
+import re
 import textwrap
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
+from functools import cached_property
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import clickhouse_driver
@@ -19,9 +22,12 @@ from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import HiddenFromDocs, LaxStr
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs, LaxStr
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
-from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.configuration.time_window_config import (
+    BaseTimeWindowConfig,
+    get_time_bucket,
+)
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -33,6 +39,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.sql_common import (
@@ -44,6 +51,7 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
 )
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -58,6 +66,11 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
     UpstreamClass,
+)
+from datahub.metadata.urns import CorpUserUrn
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    ObservedQuery,
+    SqlParsingAggregator,
 )
 
 assert clickhouse_driver
@@ -151,6 +164,54 @@ class ClickHouseConfig(
         default=True, description="Whether table lineage should be ingested."
     )
     include_materialized_views: Optional[bool] = Field(default=True, description="")
+
+    # Query log extraction options
+    include_query_log_lineage: bool = Field(
+        default=False,
+        description="Whether to extract lineage from query_log (INSERT/CREATE queries). "
+        "This complements the definition-based lineage from views/MVs.",
+    )
+    include_usage_statistics: bool = Field(
+        default=False,
+        description="Whether to extract usage statistics from query_log (SELECT queries).",
+    )
+    include_query_log_operations: bool = Field(
+        default=False,
+        description="Whether to emit operation aspects from query_log.",
+    )
+    query_log_table: str = Field(
+        default="system.query_log",
+        description="The query log table to read from. "
+        "Can be customized to a view for clustered setups.",
+    )
+    query_log_deny_usernames: List[str] = Field(
+        default=[],
+        description="List of ClickHouse usernames to exclude from query log extraction.",
+    )
+    user_email_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for user emails/usernames to filter in usage.",
+    )
+    temporary_tables_pattern: List[str] = Field(
+        default=[
+            r"^_.*",  # Tables starting with underscore
+            r".*\.tmp_.*",  # Tables with tmp_ prefix
+            r".*\.temp_.*",  # Tables with temp_ prefix
+            r".*\._inner.*",  # Inner tables for materialized views
+        ],
+        description="Regex patterns for temporary tables to filter from lineage.",
+    )
+    top_n_queries: pydantic.PositiveInt = Field(
+        default=10,
+        description="Number of top queries to save to each table for usage statistics.",
+    )
+
+    @cached_property
+    def _compiled_temporary_tables_pattern(self) -> List[re.Pattern[str]]:
+        return [
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in self.temporary_tables_pattern
+        ]
 
     def get_sql_alchemy_url(
         self,
@@ -456,6 +517,10 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
     SourceCapability.LINEAGE_FINE,
     "Enabled by default via `include_view_column_lineage`",
 )
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Optionally enabled via `include_usage_statistics`",
+)
 class ClickHouseSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:
@@ -465,27 +530,204 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
     - Table, row, and column statistics via optional SQL profiling.
     - Table, view, materialized view and dictionary(with CLICKHOUSE source_type) lineage
 
-    :::tip
+    ### Query Log Extraction
 
-    You can also get fine-grained usage statistics for ClickHouse using the `clickhouse-usage` source described below.
+    Enable `include_query_log_lineage` and/or `include_usage_statistics` to extract
+    additional metadata from ClickHouse's `system.query_log`:
 
-    :::
+    - **Query-based lineage**: Table and column-level lineage from INSERT/CREATE queries
+    - **Usage statistics**: Dataset usage from SELECT queries
+    - **Operations**: Operation aspects (INSERT, UPDATE, etc.)
+
+    ```yaml
+    source:
+      type: clickhouse
+      config:
+        host_port: "localhost:8123"
+        include_query_log_lineage: true
+        include_usage_statistics: true
+        start_time: "2024-01-01T00:00:00Z"
+        end_time: "2024-01-08T00:00:00Z"
+    ```
 
     """
 
     config: ClickHouseConfig
 
-    def __init__(self, config, ctx):
+    def __init__(self, config: ClickHouseConfig, ctx):
         super().__init__(config, ctx, "clickhouse")
         self._lineage_map: Optional[Dict[str, LineageItem]] = None
         self._all_tables_set: Optional[Set[str]] = None
+        self._query_log_aggregator: Optional[SqlParsingAggregator] = None
+
+        # Initialize query log aggregator if needed
+        if self._should_extract_query_log():
+            self._init_query_log_aggregator()
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = ClickHouseConfig.model_validate(config_dict)
         return cls(config, ctx)
 
+    def _should_extract_query_log(self) -> bool:
+        """Check if any query log extraction feature is enabled."""
+        return (
+            self.config.include_query_log_lineage
+            or self.config.include_usage_statistics
+            or self.config.include_query_log_operations
+        )
+
+    def _init_query_log_aggregator(self) -> None:
+        """Initialize the SQL parsing aggregator for query log extraction."""
+        start_time, end_time = self._get_query_log_time_window()
+
+        self._query_log_aggregator = SqlParsingAggregator(
+            platform="clickhouse",
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            graph=self.ctx.graph,
+            eager_graph_load=False,
+            generate_lineage=self.config.include_query_log_lineage,
+            generate_queries=self.config.include_query_log_lineage,
+            generate_usage_statistics=self.config.include_usage_statistics,
+            generate_query_usage_statistics=self.config.include_usage_statistics,
+            usage_config=BaseUsageConfig(
+                bucket_duration=self.config.bucket_duration,
+                start_time=start_time,
+                end_time=end_time,
+                user_email_pattern=self.config.user_email_pattern,
+                top_n_queries=self.config.top_n_queries,
+            ),
+            generate_operations=self.config.include_query_log_operations,
+            is_temp_table=self._is_temp_table,
+            format_queries=False,
+        )
+
+    def _get_query_log_time_window(self) -> Tuple[datetime, datetime]:
+        """Get the time window for query log extraction."""
+        start_time = self.config.start_time
+        end_time = self.config.end_time
+
+        # Align to bucket boundaries for accurate aggregation
+        if self.config.include_usage_statistics:
+            start_time = get_time_bucket(start_time, self.config.bucket_duration)
+
+        return start_time, end_time
+
+    def _is_temp_table(self, name: str) -> bool:
+        """Check if a table name matches temporary table patterns."""
+        for pattern in self.config._compiled_temporary_tables_pattern:
+            if pattern.match(name):
+                return True
+        return False
+
+    def _build_query_log_query(self) -> str:
+        """Build SQL query to fetch relevant entries from query_log."""
+        start_time, end_time = self._get_query_log_time_window()
+        start_time_str = start_time.strftime(clickhouse_datetime_format)
+        end_time_str = end_time.strftime(clickhouse_datetime_format)
+
+        # Build user exclusion filter
+        user_filters = []
+        for username in self.config.query_log_deny_usernames:
+            user_filters.append(f"user != '{username}'")
+        user_filter_clause = " AND ".join(user_filters) if user_filters else "1=1"
+
+        # Query kinds that produce lineage (INSERT, CREATE TABLE AS)
+        # For usage, we also include SELECT
+        query_kinds = ["'Insert'", "'Create'", "'Select'"]
+        query_kinds_clause = ", ".join(query_kinds)
+
+        return f"""
+SELECT
+    query_id,
+    query,
+    query_kind,
+    user,
+    event_time,
+    query_duration_ms,
+    read_rows,
+    written_rows,
+    current_database,
+    normalized_query_hash
+FROM {self.config.query_log_table}
+WHERE type = 'QueryFinish'
+  AND is_initial_query = 1
+  AND event_time >= '{start_time_str}'
+  AND event_time < '{end_time_str}'
+  AND query_kind IN ({query_kinds_clause})
+  AND {user_filter_clause}
+  AND query NOT LIKE '%system.%'
+ORDER BY event_time ASC
+"""
+
+    def _extract_query_log(self) -> Iterable[MetadataWorkUnit]:
+        """Extract lineage and usage from query_log and yield workunits."""
+        if not self._query_log_aggregator:
+            return
+
+        url = self.config.get_sql_alchemy_url()
+        engine = create_engine(url, **self.config.options)
+
+        query = self._build_query_log_query()
+        logger.info("Fetching query log from ClickHouse...")
+        logger.debug(f"Query log SQL: {query[:200]}...")
+
+        try:
+            result = engine.execute(text(query))
+            rows = list(result)
+            logger.info(f"Fetched {len(rows)} queries from query_log")
+        except Exception as e:
+            self.report.report_failure(
+                "query_log_extraction",
+                f"Failed to fetch query log: {e}",
+            )
+            return
+
+        num_lineage = 0
+        num_usage = 0
+        for row in rows:
+            row_dict = dict(row._mapping)
+            observed_query = self._parse_query_log_row(row_dict)
+            if observed_query:
+                query_kind = row_dict.get("query_kind", "")
+                if query_kind in ("Insert", "Create"):
+                    num_lineage += 1
+                elif query_kind == "Select":
+                    num_usage += 1
+                self._query_log_aggregator.add(observed_query)
+
+        logger.info(
+            f"Query log processing complete: {num_lineage} lineage queries, "
+            f"{num_usage} usage queries"
+        )
+
+        yield from auto_workunit(self._query_log_aggregator.gen_metadata())
+
+    def _parse_query_log_row(self, row: Dict) -> Optional[ObservedQuery]:
+        """Parse a query_log row into an ObservedQuery."""
+        try:
+            timestamp = row["event_time"]
+            if isinstance(timestamp, datetime):
+                timestamp = timestamp.astimezone(timezone.utc)
+
+            query = row["query"]
+            user = row.get("user", "")
+
+            return ObservedQuery(
+                query=query,
+                session_id=row.get("query_id"),
+                timestamp=timestamp,
+                user=CorpUserUrn(user) if user else None,
+                default_db=row.get("current_database"),
+                query_hash=str(row.get("normalized_query_hash", "")),
+            )
+        except Exception as e:
+            logger.warning(f"Failed to parse query log row: {e}")
+            return None
+
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        # Emit schema and definition-based lineage workunits
         for wu in super().get_workunits_internal():
             if (
                 self.config.include_table_lineage
@@ -503,6 +745,10 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
 
             # Emit the work unit from super.
             yield wu
+
+        # Emit query log based lineage and usage workunits
+        if self._should_extract_query_log():
+            yield from self._extract_query_log()
 
     def _get_all_tables(self) -> Set[str]:
         all_tables_query: str = textwrap.dedent(
@@ -738,3 +984,8 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         )
 
         return mcp
+
+    def close(self) -> None:
+        if self._query_log_aggregator:
+            self._query_log_aggregator.close()
+        super().close()
