@@ -13,7 +13,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799502,
+        "lastObserved": 1770049259221,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -34,7 +34,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799503,
+        "lastObserved": 1770049259221,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -55,7 +55,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799503,
+        "lastObserved": 1770049259221,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -76,7 +76,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799503,
+        "lastObserved": 1770049259223,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -97,7 +97,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799503,
+        "lastObserved": 1770049259223,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -118,7 +118,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799503,
+        "lastObserved": 1770049259224,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -139,7 +139,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799503,
+        "lastObserved": 1770049259224,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -160,7 +160,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799503,
+        "lastObserved": 1770049259224,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -181,7 +181,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799503,
+        "lastObserved": 1770049259224,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -202,7 +202,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799503,
+        "lastObserved": 1770049259224,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -223,7 +223,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799503,
+        "lastObserved": 1770049259224,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -244,7 +244,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799505,
+        "lastObserved": 1770049259226,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -265,7 +265,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799505,
+        "lastObserved": 1770049259227,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -286,7 +286,28 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799506,
+        "lastObserved": 1770049259227,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)-globalTags",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "globalTags",
+      "aspect": {
+        "value": "{\"tags\": [{\"tag\": \"urn:li:tag:Shared\"}, {\"tag\": \"urn:li:tag:Owner-Domain:example.com\"}]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1770049259227,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -307,7 +328,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799506,
+        "lastObserved": 1770049259227,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -324,11 +345,11 @@
       "changeType": "UPSERT",
       "aspectName": "subTypes",
       "aspect": {
-        "value": "{\"typeNames\": [\"Google Sheet\"]}",
+        "value": "{\"typeNames\": [\"Google Sheets\"]}",
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799506,
+        "lastObserved": 1770049259227,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -349,7 +370,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799506,
+        "lastObserved": 1770049259228,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -370,7 +391,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799506,
+        "lastObserved": 1770049259228,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -391,7 +412,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799506,
+        "lastObserved": 1770049259228,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -412,7 +433,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799506,
+        "lastObserved": 1770049259228,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -433,7 +454,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799506,
+        "lastObserved": 1770049259228,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -454,7 +475,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799506,
+        "lastObserved": 1770049259228,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -475,7 +496,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799508,
+        "lastObserved": 1770049259230,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -496,7 +517,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799508,
+        "lastObserved": 1770049259230,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -517,7 +538,28 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799508,
+        "lastObserved": 1770049259231,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)-globalTags",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "globalTags",
+      "aspect": {
+        "value": "{\"tags\": [{\"tag\": \"urn:li:tag:Shared\"}, {\"tag\": \"urn:li:tag:Owner-Domain:example.com\"}]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1770049259231,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -538,7 +580,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799508,
+        "lastObserved": 1770049259231,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -555,11 +597,11 @@
       "changeType": "UPSERT",
       "aspectName": "subTypes",
       "aspect": {
-        "value": "{\"typeNames\": [\"Google Sheet\"]}",
+        "value": "{\"typeNames\": [\"Google Sheets\"]}",
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799509,
+        "lastObserved": 1770049259231,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -580,7 +622,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799509,
+        "lastObserved": 1770049259231,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -597,11 +639,11 @@
       "changeType": "UPSERT",
       "aspectName": "upstreamLineage",
       "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD),Sheet1.A)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD),Sheet1.Name)\"], \"transformOperation\": \"IMPORTRANGE\", \"confidenceScore\": 1.0}]}",
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:bigquery,docs.google.com,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD),Sheet1.A)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD),Sheet1.Name)\"], \"transformOperation\": \"IMPORTRANGE\", \"confidenceScore\": 1.0}]}",
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799509,
+        "lastObserved": 1770049259231,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -622,7 +664,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799509,
+        "lastObserved": 1770049259231,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -643,7 +685,49 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799509,
+        "lastObserved": 1770049259231,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:tag:Owner-Domain:example.com-tagKey",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "tag",
+      "entityUrn": "urn:li:tag:Owner-Domain:example.com",
+      "changeType": "UPSERT",
+      "aspectName": "tagKey",
+      "aspect": {
+        "value": "{\"name\": \"Owner-Domain:example.com\"}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1770049259232,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:tag:Shared-tagKey",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "tag",
+      "entityUrn": "urn:li:tag:Shared",
+      "changeType": "UPSERT",
+      "aspectName": "tagKey",
+      "aspect": {
+        "value": "{\"name\": \"Shared\"}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1770049259232,
         "runId": "google-sheets-lineage_test",
         "lastRunId": "no-run-id-provided"
       }

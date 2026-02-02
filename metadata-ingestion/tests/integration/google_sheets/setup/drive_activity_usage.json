@@ -1,0 +1,63 @@
+{
+  "activities": [
+    {
+      "primaryActionDetail": {
+        "view": {
+          "viewCount": 45
+        }
+      },
+      "actors": [
+        {
+          "user": {
+            "knownUser": {
+              "personName": "people/user1"
+            }
+          }
+        },
+        {
+          "user": {
+            "knownUser": {
+              "personName": "people/user2"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "driveItem": {
+            "name": "items/1abc_sales_report_2024",
+            "title": "Sales Report 2024",
+            "mimeType": "application/vnd.google-apps.spreadsheet"
+          }
+        }
+      ],
+      "timestamp": "2024-01-15T14:30:00Z"
+    },
+    {
+      "primaryActionDetail": {
+        "view": {
+          "viewCount": 23
+        }
+      },
+      "actors": [
+        {
+          "user": {
+            "knownUser": {
+              "personName": "people/user3"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "driveItem": {
+            "name": "items/2def_product_catalog",
+            "title": "Product Catalog",
+            "mimeType": "application/vnd.google-apps.spreadsheet"
+          }
+        }
+      ],
+      "timestamp": "2024-02-10T11:20:00Z"
+    }
+  ]
+}

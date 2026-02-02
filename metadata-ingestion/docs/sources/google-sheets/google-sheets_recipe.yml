@@ -20,25 +20,57 @@ source:
         - ".*" # Include all folders by default
       deny: [] # No exclusions by default
 
-    # Optional: extract usage statistics
+    # Optional: extract usage statistics from Drive Activity API
     extract_usage_stats: true
+    usage_stats_lookback_days: 30 # Number of days to look back for usage statistics
 
-    # Optional: extract lineage from formulas
+    # Optional: extract labels from Google Drive as tags
+    extract_tags: true
+
+    # Optional: extract named ranges as custom properties
+    extract_named_ranges: false
+
+    # Optional: lineage extraction configuration
     extract_lineage_from_formulas: true
+    parse_sql_for_lineage: true # Use sqlglot for SQL parsing
     enable_cross_platform_lineage: true
     extract_column_level_lineage: true
+    convert_lineage_urns_to_lowercase: true # Recommended for consistency
+
+    # Optional: map database hostnames to platform instances for cross-platform lineage
+    # database_hostname_to_platform_instance_map:
+    #   "bigquery.googleapis.com": "prod"
+    #   "snowflake.acme.com": "prod"
 
     # Optional: scan shared drives in addition to 'My Drive'
     scan_shared_drives: false
+
+    # Optional: filter which Shared Drives to scan by name (only when scan_shared_drives=true)
+    shared_drive_patterns:
+      allow:
+        - "Engineering*" # Include drives starting with "Engineering"
+        - "Product Team"
+      deny:
+        - "*Archive*" # Exclude any drive with "Archive" in name
+        - "*Old*"
+
+    # Optional: configure header row detection
+    header_detection_mode: "first_row" # Options: "first_row" (default), "auto_detect", "none"
+    header_row_index: null # Explicit 0-based row index (overrides header_detection_mode if set)
+    skip_empty_leading_rows: true # Skip empty rows before applying header detection
 
     # Optional: treat individual sheets as datasets
     # If true: each sheet within a Google Sheets document becomes a separate dataset
     # If false: each Google Sheets document is a dataset with sheets as fields
     sheets_as_datasets: false
 
-    # Optional: specify retry settings for API requests
+    # Optional: API request configuration
     max_retries: 3
     retry_delay: 1 # seconds
+    requests_per_second: null # Rate limit API requests (null = no limit)
+
+    # Optional: incremental ingestion
+    enable_incremental_ingestion: true # Only process sheets modified since last run
 
     # Optional: enable data profiling
     profiling:

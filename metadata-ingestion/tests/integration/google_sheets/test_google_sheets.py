@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.google_sheets import (
+from datahub.ingestion.source.google_sheets.google_sheets_source import (
     GoogleSheetsSource,
     GoogleSheetsSourceConfig,
 )
@@ -436,7 +436,7 @@ def test_generate_golden_file(
 
         # Create the source directly instead of using Pipeline.create
         source = GoogleSheetsSource(
-            config=GoogleSheetsSourceConfig.parse_obj(test_config), ctx=ctx
+            config=GoogleSheetsSourceConfig.model_validate(test_config), ctx=ctx
         )
 
         # Inject mocked services
@@ -464,6 +464,128 @@ def test_generate_golden_file(
 
     finally:
         credentials_patch.stop()
+
+
+@pytest.mark.integration
+def test_pydantic_models_and_sql_parsing(mock_google_services, tmp_path):
+    """Test that Pydantic models work correctly and SQL parsing is integrated."""
+    from datahub.ingestion.source.google_sheets.google_sheets_source import (
+        GoogleSheetsSourceConfig,
+    )
+    from datahub.ingestion.source.google_sheets.models import (
+        DatabaseReference,
+        JdbcParseResult,
+        SheetPathResult,
+    )
+
+    # Test Pydantic models directly
+    jdbc_result = JdbcParseResult(
+        platform="bigquery",
+        database="my_project",
+        sql_query="SELECT * FROM dataset.table",
+    )
+    assert jdbc_result.platform == "bigquery"
+    assert jdbc_result.database == "my_project"
+    assert jdbc_result.sql_query == "SELECT * FROM dataset.table"
+
+    path_result = SheetPathResult(
+        full_path="/Folder/Sheet", folder_path_parts=["Folder"]
+    )
+    assert path_result.full_path == "/Folder/Sheet"
+    assert len(path_result.folder_path_parts) == 1
+
+    db_ref = DatabaseReference.create_bigquery("proj", "dataset", "table")
+    assert db_ref.platform == "bigquery"
+    assert db_ref.table_identifier == "proj.dataset.table"
+
+    # Test that source can be instantiated with config
+    test_credentials_file = tmp_path / "test_creds.json"
+    test_credentials_file.write_text("{}")
+
+    config = GoogleSheetsSourceConfig.model_validate(
+        {
+            "credentials": str(test_credentials_file),
+            "parse_sql_for_lineage": True,
+            "extract_tags": False,  # No synthetic tags
+        }
+    )
+
+    assert config.parse_sql_for_lineage is True
+    assert config.extract_tags is False
+
+
+@pytest.mark.integration
+def test_no_synthetic_metadata(mock_basic_sheet_data, tmp_path):
+    """Test that no synthetic tags or descriptions are created."""
+    from datahub.ingestion.source.google_sheets.models import DriveFile
+    from datahub.ingestion.source.google_sheets.utils import (
+        extract_tags_from_drive_metadata,
+    )
+
+    test_credentials_file = tmp_path / "test_creds.json"
+    test_credentials_file.write_text("{}")
+
+    config = GoogleSheetsSourceConfig.model_validate(
+        {"credentials": str(test_credentials_file), "extract_tags": True}
+    )
+
+    # With extract_tags=True but no labelInfo, should return empty
+    sheet = DriveFile(
+        id="test123",
+        name="Test Sheet",
+        mimeType="application/vnd.google-apps.spreadsheet",
+        shared=True,
+        owners=[{"emailAddress": "test@example.com"}],
+    )
+    tags = extract_tags_from_drive_metadata(sheet, config)
+
+    # Should be empty - no labelInfo provided
+    assert len(tags) == 0, "No tags without labelInfo"
+
+
+@pytest.mark.integration
+def test_real_drive_label_extraction(tmp_path):
+    """Test that real Drive labels are extracted correctly."""
+    from datahub.ingestion.source.google_sheets.models import DriveFile
+    from datahub.ingestion.source.google_sheets.utils import (
+        extract_tags_from_drive_metadata,
+    )
+
+    test_credentials_file = tmp_path / "test_creds.json"
+    test_credentials_file.write_text("{}")
+
+    config = GoogleSheetsSourceConfig.model_validate(
+        {"credentials": str(test_credentials_file), "extract_tags": True}
+    )
+
+    # Sheet with real Drive labelInfo structure
+    sheet = DriveFile(
+        id="test123",
+        name="Test Sheet",
+        mimeType="application/vnd.google-apps.spreadsheet",
+        labelInfo={
+            "labels": [
+                {
+                    "id": "finance-label-001",
+                    "fields": {
+                        "department": {"text": ["Finance"]},
+                        "status": {"selection": ["active", "reviewed"]},
+                    },
+                }
+            ]
+        },
+    )
+
+    tags = extract_tags_from_drive_metadata(sheet, config)
+
+    # Should have 1 label ID + 1 text field + 2 selections = 4 tags
+    assert len(tags) == 4, f"Expected 4 tags, got {len(tags)}"
+
+    tag_values = [tag.tag for tag in tags]
+    assert any("drive-label:finance-label-001" in t for t in tag_values)
+    assert any("drive-label-field:Finance" in t for t in tag_values)
+    assert any("drive-label-selection:active" in t for t in tag_values)
+    assert any("drive-label-selection:reviewed" in t for t in tag_values)
 
 
 @pytest.mark.parametrize(
@@ -499,7 +621,7 @@ def test_google_sheets_validation(config_dict, is_success, error_message, tmp_pa
             config_dict["credentials"] = str(test_creds_file)
 
             # This should not raise an exception
-            GoogleSheetsSourceConfig.parse_obj(config_dict)
+            GoogleSheetsSourceConfig.model_validate(config_dict)
         else:
             with pytest.raises(ValueError, match=error_message):
-                GoogleSheetsSourceConfig.parse_obj(config_dict)
+                GoogleSheetsSourceConfig.model_validate(config_dict)

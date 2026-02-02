@@ -1,0 +1,67 @@
+{
+  "files": [
+    {
+      "id": "1abc_sales_report_2024",
+      "name": "Sales Report 2024",
+      "description": "Annual sales data and analysis",
+      "mimeType": "application/vnd.google-apps.spreadsheet",
+      "owners": [
+        {
+          "emailAddress": "john.doe@company.com",
+          "displayName": "John Doe"
+        }
+      ],
+      "permissions": [
+        {
+          "id": "perm1",
+          "type": "user",
+          "emailAddress": "john.doe@company.com",
+          "role": "owner"
+        },
+        {
+          "id": "perm2",
+          "type": "user",
+          "emailAddress": "jane.smith@company.com",
+          "role": "writer"
+        },
+        {
+          "id": "perm3",
+          "type": "user",
+          "emailAddress": "viewer@company.com",
+          "role": "reader"
+        }
+      ],
+      "createdTime": "2024-01-01T10:00:00.000Z",
+      "modifiedTime": "2024-01-15T14:30:00.000Z",
+      "webViewLink": "https://docs.google.com/spreadsheets/d/1abc_sales_report_2024",
+      "shared": true,
+      "parents": ["root"]
+    },
+    {
+      "id": "2def_product_catalog",
+      "name": "Product Catalog",
+      "description": "Master product list",
+      "mimeType": "application/vnd.google-apps.spreadsheet",
+      "owners": [
+        {
+          "emailAddress": "product.manager@company.com",
+          "displayName": "Product Manager"
+        }
+      ],
+      "permissions": [
+        {
+          "id": "perm4",
+          "type": "user",
+          "emailAddress": "product.manager@company.com",
+          "role": "owner"
+        }
+      ],
+      "createdTime": "2024-02-01T09:00:00.000Z",
+      "modifiedTime": "2024-02-10T11:20:00.000Z",
+      "webViewLink": "https://docs.google.com/spreadsheets/d/2def_product_catalog",
+      "shared": false,
+      "parents": ["root"]
+    }
+  ],
+  "nextPageToken": null
+}

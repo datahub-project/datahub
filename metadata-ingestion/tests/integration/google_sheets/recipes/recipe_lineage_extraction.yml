@@ -1,0 +1,41 @@
+source:
+  type: google-sheets
+  config:
+    credentials: "dummy_credentials.json"
+    
+    # Lineage configuration
+    sheets_as_datasets: false
+    extract_lineage_from_formulas: true
+    parse_sql_for_lineage: true
+    enable_cross_platform_lineage: true
+    extract_column_level_lineage: true
+    convert_lineage_urns_to_lowercase: true
+    
+    # Platform instance mapping for cross-platform lineage
+    database_hostname_to_platform_instance_map:
+      "bigquery.googleapis.com": "prod"
+      "acme.snowflakecomputing.com": "prod"
+    
+    # Filtering
+    sheet_patterns:
+      allow:
+        - ".*"
+      deny: []
+    
+    folder_patterns:
+      allow:
+        - ".*"
+      deny: []
+    
+    # No profiling or usage stats
+    profiling:
+      enabled: false
+    extract_usage_stats: false
+    
+    max_retries: 3
+    retry_delay: 1
+
+sink:
+  type: file
+  config:
+    filename: "./google_sheets_lineage_mces.json"

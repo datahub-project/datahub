@@ -1,0 +1,20 @@
+{
+  "drives": [
+    {
+      "id": "drive_engineering_team",
+      "name": "Engineering Team",
+      "createdTime": "2023-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "drive_product_team",
+      "name": "Product Team",
+      "createdTime": "2023-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "drive_archive_old",
+      "name": "Archive - Old Projects",
+      "createdTime": "2022-01-01T00:00:00.000Z"
+    }
+  ],
+  "nextPageToken": null
+}

@@ -1,0 +1,82 @@
+{
+  "spreadsheetId": "5mno_customer_data",
+  "properties": {
+    "title": "Customer Data Export",
+    "locale": "en_US",
+    "timeZone": "America/Chicago"
+  },
+  "sheets": [
+    {
+      "properties": {
+        "sheetId": 0,
+        "title": "Customers",
+        "index": 0,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 150,
+          "columnCount": 12
+        }
+      },
+      "data": [
+        {
+          "rowData": [
+            {
+              "values": []
+            },
+            {
+              "values": []
+            },
+            {
+              "values": [
+                {"formattedValue": "Customer ID", "userEnteredValue": {"stringValue": "Customer ID"}},
+                {"formattedValue": "First Name", "userEnteredValue": {"stringValue": "First Name"}},
+                {"formattedValue": "Last Name", "userEnteredValue": {"stringValue": "Last Name"}},
+                {"formattedValue": "Email", "userEnteredValue": {"stringValue": "Email"}},
+                {"formattedValue": "Phone", "userEnteredValue": {"stringValue": "Phone"}},
+                {"formattedValue": "Address", "userEnteredValue": {"stringValue": "Address"}},
+                {"formattedValue": "City", "userEnteredValue": {"stringValue": "City"}},
+                {"formattedValue": "State", "userEnteredValue": {"stringValue": "State"}},
+                {"formattedValue": "ZIP Code", "userEnteredValue": {"stringValue": "ZIP Code"}},
+                {"formattedValue": "Country", "userEnteredValue": {"stringValue": "Country"}},
+                {"formattedValue": "Signup Date", "userEnteredValue": {"stringValue": "Signup Date"}},
+                {"formattedValue": "Status", "userEnteredValue": {"stringValue": "Status"}}
+              ]
+            },
+            {
+              "values": [
+                {"formattedValue": "C001", "userEnteredValue": {"stringValue": "C001"}},
+                {"formattedValue": "John", "userEnteredValue": {"stringValue": "John"}},
+                {"formattedValue": "Smith", "userEnteredValue": {"stringValue": "Smith"}},
+                {"formattedValue": "john.smith@example.com", "userEnteredValue": {"stringValue": "john.smith@example.com"}},
+                {"formattedValue": "555-0100", "userEnteredValue": {"stringValue": "555-0100"}},
+                {"formattedValue": "123 Main St", "userEnteredValue": {"stringValue": "123 Main St"}},
+                {"formattedValue": "New York", "userEnteredValue": {"stringValue": "New York"}},
+                {"formattedValue": "NY", "userEnteredValue": {"stringValue": "NY"}},
+                {"formattedValue": "10001", "userEnteredValue": {"stringValue": "10001"}},
+                {"formattedValue": "USA", "userEnteredValue": {"stringValue": "USA"}},
+                {"formattedValue": "2024-01-15", "userEnteredValue": {"stringValue": "2024-01-15"}},
+                {"formattedValue": "Active", "userEnteredValue": {"stringValue": "Active"}}
+              ]
+            },
+            {
+              "values": [
+                {"formattedValue": "C002", "userEnteredValue": {"stringValue": "C002"}},
+                {"formattedValue": "Jane", "userEnteredValue": {"stringValue": "Jane"}},
+                {"formattedValue": "Doe", "userEnteredValue": {"stringValue": "Doe"}},
+                {"formattedValue": "jane.doe@example.com", "userEnteredValue": {"stringValue": "jane.doe@example.com"}},
+                {"formattedValue": "555-0101", "userEnteredValue": {"stringValue": "555-0101"}},
+                {"formattedValue": "456 Oak Ave", "userEnteredValue": {"stringValue": "456 Oak Ave"}},
+                {"formattedValue": "Los Angeles", "userEnteredValue": {"stringValue": "Los Angeles"}},
+                {"formattedValue": "CA", "userEnteredValue": {"stringValue": "CA"}},
+                {"formattedValue": "90001", "userEnteredValue": {"stringValue": "90001"}},
+                {"formattedValue": "USA", "userEnteredValue": {"stringValue": "USA"}},
+                {"formattedValue": "2024-02-01", "userEnteredValue": {"stringValue": "2024-02-01"}},
+                {"formattedValue": "Active", "userEnteredValue": {"stringValue": "Active"}}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

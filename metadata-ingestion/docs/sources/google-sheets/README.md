@@ -4,6 +4,18 @@
 
 The Google Sheets connector extracts metadata from Google Sheets documents, including schema information, lineage relationships, usage statistics, and data profiles. It uses the Google Drive and Google Sheets APIs to extract this information.
 
+### Key Features
+
+- **Flexible Header Detection**: Auto-detect headers, use first row, or specify explicit row index
+- **Shared Drive Filtering**: Granular control over which Shared Drives to scan by name patterns
+- **Cross-Platform Lineage**: Extract lineage from formulas connecting to BigQuery, Snowflake, PostgreSQL, MySQL, and Redshift
+- **Column-Level Lineage**: Detailed lineage tracking from IMPORTRANGE and QUERY formulas
+- **SQL Parsing**: Parse SQL queries in QUERY() formulas for comprehensive lineage
+- **Data Profiling**: Statistical analysis of sheet data including distributions, nulls, and sample values
+- **Usage Statistics**: Track view counts and user activity
+- **Incremental Ingestion**: Only process sheets modified since last run
+- **Container Hierarchy**: Organize sheets by folder structure in DataHub
+
 ### Concept Mapping
 
 Here's a table for **Concept Mapping** between Google Sheets and DataHub to provide a clear overview of how entities and concepts in Google Sheets are mapped to corresponding entities in DataHub:

@@ -38,6 +38,7 @@ class DatasetSubTypes(StrEnum):
     PROJECTIONS = "Projections"
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
+    GOOGLE_SHEETS_TAB = "Google Sheet Tab"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -54,12 +55,14 @@ class DatasetContainerSubTypes(StrEnum):
     # Generic SubTypes
     DATABASE = "Database"
     SCHEMA = "Schema"
+    PLATFORM = "Platform"
     # System-Specific SubTypes
     CATALOG = "Catalog"  # Presto or Unity Catalog
     BIGQUERY_PROJECT = "Project"
     BIGQUERY_DATASET = "Dataset"
     DATABRICKS_METASTORE = "Metastore"
     FOLDER = "Folder"
+    GOOGLE_SHEETS_SPREADSHEET = "Google Sheets Document"
     S3_BUCKET = "S3 bucket"
     GCS_BUCKET = "GCS bucket"
     ABS_CONTAINER = "ABS container"

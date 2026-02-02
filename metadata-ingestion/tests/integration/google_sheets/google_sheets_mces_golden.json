@@ -13,7 +13,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799426,
+        "lastObserved": 1770049259169,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -34,7 +34,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799426,
+        "lastObserved": 1770049259169,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -55,7 +55,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799426,
+        "lastObserved": 1770049259169,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -76,7 +76,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799426,
+        "lastObserved": 1770049259172,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -97,7 +97,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799426,
+        "lastObserved": 1770049259172,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -118,7 +118,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799426,
+        "lastObserved": 1770049259172,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -139,7 +139,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799426,
+        "lastObserved": 1770049259172,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -160,7 +160,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799427,
+        "lastObserved": 1770049259172,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -181,7 +181,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799427,
+        "lastObserved": 1770049259173,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -202,7 +202,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799427,
+        "lastObserved": 1770049259173,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -223,7 +223,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799427,
+        "lastObserved": 1770049259173,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -244,7 +244,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799445,
+        "lastObserved": 1770049259187,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -265,7 +265,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799445,
+        "lastObserved": 1770049259187,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -286,7 +286,28 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799446,
+        "lastObserved": 1770049259188,
+        "runId": "google-sheets-basic_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)-globalTags",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "globalTags",
+      "aspect": {
+        "value": "{\"tags\": [{\"tag\": \"urn:li:tag:Shared\"}, {\"tag\": \"urn:li:tag:Owner-Domain:example.com\"}]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1770049259188,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -307,7 +328,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799446,
+        "lastObserved": 1770049259188,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -324,11 +345,11 @@
       "changeType": "UPSERT",
       "aspectName": "subTypes",
       "aspect": {
-        "value": "{\"typeNames\": [\"Google Sheet\"]}",
+        "value": "{\"typeNames\": [\"Google Sheets\"]}",
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799446,
+        "lastObserved": 1770049259188,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -349,7 +370,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799446,
+        "lastObserved": 1770049259188,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -358,9 +379,9 @@
   },
   {
     "type": "MetadataWorkUnit",
-    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)-datasetProfile-1747177799433",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)-datasetProfile-1770049259174",
     "is_primary_source": true,
-    "metadata_error": "(<avro.schema.RecordSchema object at 0x104b4c160>, DatasetProfileClass({'timestampMillis': 1747177799433, 'eventGranularity': None, 'partitionSpec': PartitionSpecClass({'partition': 'FULL_TABLE_SNAPSHOT', 'timePartition': None, 'type': 'FULL_TABLE'}), 'messageId': None, 'rowCount': 3, 'columnCount': 3, 'fieldProfiles': [DatasetFieldProfileClass({'fieldPath': 'Sheet1.Name', 'uniqueCount': 0, 'uniqueProportion': 0, 'nullCount': 3, 'nullProportion': 1.0, 'min': None, 'max': None, 'mean': None, 'median': None, 'stdev': None, 'quantiles': None, 'distinctValueFrequencies': None, 'histogram': None, 'sampleValues': None}), DatasetFieldProfileClass({'fieldPath': 'Sheet1.Age', 'uniqueCount': 3, 'uniqueProportion': 1.0, 'nullCount': 0, 'nullProportion': 0.0, 'min': '25', 'max': '35', 'mean': '30.0', 'median': '30.0', 'stdev': '5.0', 'quantiles': [QuantileClass({'quantile': '0.05', 'value': '25.5'}), QuantileClass({'quantile': '0.25', 'value': '27.5'}), QuantileClass({'quantile': '0.5', 'value': '30.0'}), QuantileClass({'quantile': '0.75', 'value': '32.5'}), QuantileClass({'quantile': '0.95', 'value': '34.5'})], 'distinctValueFrequencies': [ValueFrequencyClass({'value': '30', 'frequency': 1}), ValueFrequencyClass({'value': '25', 'frequency': 1}), ValueFrequencyClass({'value': '35', 'frequency': 1})], 'histogram': HistogramClass({'boundaries': ['25.0', '25.5', '26.0', '26.5', '27.0', '27.5', '28.0', '28.5', '29.0', '29.5', '30.0', '30.5', '31.0', '31.5', '32.0', '32.5', '33.0', '33.5', '34.0', '34.5'], 'heights': [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]}), 'sampleValues': ['30', '25', '35']}), DatasetFieldProfileClass({'fieldPath': 'Sheet1.City', 'uniqueCount': 0, 'uniqueProportion': 0, 'nullCount': 3, 'nullProportion': 1.0, 'min': None, 'max': None, 'mean': None, 'median': None, 'stdev': None, 'quantiles': None, 'distinctValueFrequencies': None, 'histogram': None, 'sampleValues': None})], 'sizeInBytes': None}))",
+    "metadata_error": "(<avro.schema.RecordSchema object at 0x10b0e73d0>, DatasetProfileClass({'timestampMillis': 1770049259174, 'eventGranularity': None, 'partitionSpec': PartitionSpecClass({'partition': 'FULL_TABLE_SNAPSHOT', 'timePartition': None, 'type': 'FULL_TABLE'}), 'messageId': None, 'rowCount': 3, 'columnCount': 3, 'fieldProfiles': [DatasetFieldProfileClass({'fieldPath': 'Sheet1.Name', 'uniqueCount': 0, 'uniqueProportion': 0, 'nullCount': 3, 'nullProportion': 1.0, 'min': None, 'max': None, 'mean': None, 'median': None, 'stdev': None, 'quantiles': None, 'distinctValueFrequencies': None, 'histogram': None, 'sampleValues': None}), DatasetFieldProfileClass({'fieldPath': 'Sheet1.Age', 'uniqueCount': 3, 'uniqueProportion': 1.0, 'nullCount': 0, 'nullProportion': 0.0, 'min': '25', 'max': '35', 'mean': '30.0', 'median': '30.0', 'stdev': '5.0', 'quantiles': [QuantileClass({'quantile': '0.05', 'value': '25.5'}), QuantileClass({'quantile': '0.25', 'value': '27.5'}), QuantileClass({'quantile': '0.5', 'value': '30.0'}), QuantileClass({'quantile': '0.75', 'value': '32.5'}), QuantileClass({'quantile': '0.95', 'value': '34.5'})], 'distinctValueFrequencies': [ValueFrequencyClass({'value': '30', 'frequency': 1}), ValueFrequencyClass({'value': '25', 'frequency': 1}), ValueFrequencyClass({'value': '35', 'frequency': 1})], 'histogram': HistogramClass({'boundaries': ['25.0', '25.5', '26.0', '26.5', '27.0', '27.5', '28.0', '28.5', '29.0', '29.5', '30.0', '30.5', '31.0', '31.5', '32.0', '32.5', '33.0', '33.5', '34.0', '34.5'], 'heights': [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]}), 'sampleValues': ['30', '35', '25']}), DatasetFieldProfileClass({'fieldPath': 'Sheet1.City', 'uniqueCount': 0, 'uniqueProportion': 0, 'nullCount': 3, 'nullProportion': 1.0, 'min': None, 'max': None, 'mean': None, 'median': None, 'stdev': None, 'quantiles': None, 'distinctValueFrequencies': None, 'histogram': None, 'sampleValues': None})], 'sizeInBytes': None}))",
     "treat_errors_as_warnings": false
   },
   {
@@ -377,7 +398,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799446,
+        "lastObserved": 1770049259188,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -398,7 +419,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799447,
+        "lastObserved": 1770049259189,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -419,7 +440,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799447,
+        "lastObserved": 1770049259189,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -440,7 +461,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799447,
+        "lastObserved": 1770049259189,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -461,7 +482,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799447,
+        "lastObserved": 1770049259189,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -482,7 +503,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799452,
+        "lastObserved": 1770049259193,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -503,7 +524,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799452,
+        "lastObserved": 1770049259193,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -524,7 +545,28 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799453,
+        "lastObserved": 1770049259194,
+        "runId": "google-sheets-basic_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)-globalTags",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "globalTags",
+      "aspect": {
+        "value": "{\"tags\": [{\"tag\": \"urn:li:tag:Shared\"}, {\"tag\": \"urn:li:tag:Owner-Domain:example.com\"}]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1770049259194,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -545,7 +587,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799453,
+        "lastObserved": 1770049259194,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -562,11 +604,11 @@
       "changeType": "UPSERT",
       "aspectName": "subTypes",
       "aspect": {
-        "value": "{\"typeNames\": [\"Google Sheet\"]}",
+        "value": "{\"typeNames\": [\"Google Sheets\"]}",
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799453,
+        "lastObserved": 1770049259194,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -587,7 +629,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799453,
+        "lastObserved": 1770049259194,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -604,11 +646,11 @@
       "changeType": "UPSERT",
       "aspectName": "upstreamLineage",
       "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD),Sheet1.A)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD),Sheet1.Name)\"], \"transformOperation\": \"IMPORTRANGE\", \"confidenceScore\": 1.0}]}",
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:bigquery,docs.google.com,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD),Sheet1.A)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD),Sheet1.Name)\"], \"transformOperation\": \"IMPORTRANGE\", \"confidenceScore\": 1.0}]}",
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799453,
+        "lastObserved": 1770049259195,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -617,9 +659,9 @@
   },
   {
     "type": "MetadataWorkUnit",
-    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)-datasetProfile-1747177799449",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)-datasetProfile-1770049259191",
     "is_primary_source": true,
-    "metadata_error": "(<avro.schema.RecordSchema object at 0x104b4c160>, DatasetProfileClass({'timestampMillis': 1747177799449, 'eventGranularity': None, 'partitionSpec': PartitionSpecClass({'partition': 'FULL_TABLE_SNAPSHOT', 'timePartition': None, 'type': 'FULL_TABLE'}), 'messageId': None, 'rowCount': 1, 'columnCount': 3, 'fieldProfiles': [DatasetFieldProfileClass({'fieldPath': 'Sheet1.Name', 'uniqueCount': 0, 'uniqueProportion': 0, 'nullCount': 1, 'nullProportion': 1.0, 'min': None, 'max': None, 'mean': None, 'median': None, 'stdev': None, 'quantiles': None, 'distinctValueFrequencies': None, 'histogram': None, 'sampleValues': None}), DatasetFieldProfileClass({'fieldPath': 'Sheet1.Age', 'uniqueCount': 1, 'uniqueProportion': 1.0, 'nullCount': 0, 'nullProportion': 0.0, 'min': '30', 'max': '30', 'mean': '30.0', 'median': '30.0', 'stdev': 'nan', 'quantiles': [QuantileClass({'quantile': '0.05', 'value': '30.0'}), QuantileClass({'quantile': '0.25', 'value': '30.0'}), QuantileClass({'quantile': '0.5', 'value': '30.0'}), QuantileClass({'quantile': '0.75', 'value': '30.0'}), QuantileClass({'quantile': '0.95', 'value': '30.0'})], 'distinctValueFrequencies': [ValueFrequencyClass({'value': '30', 'frequency': 1})], 'histogram': HistogramClass({'boundaries': ['29.5', '29.55', '29.6', '29.65', '29.7', '29.75', '29.8', '29.85', '29.9', '29.95', '30.0', '30.05', '30.1', '30.15', '30.2', '30.25', '30.3', '30.35', '30.4', '30.45'], 'heights': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}), 'sampleValues': ['30']}), DatasetFieldProfileClass({'fieldPath': 'Sheet1.City', 'uniqueCount': 0, 'uniqueProportion': 0, 'nullCount': 1, 'nullProportion': 1.0, 'min': None, 'max': None, 'mean': None, 'median': None, 'stdev': None, 'quantiles': None, 'distinctValueFrequencies': None, 'histogram': None, 'sampleValues': None})], 'sizeInBytes': None}))",
+    "metadata_error": "(<avro.schema.RecordSchema object at 0x10b0e73d0>, DatasetProfileClass({'timestampMillis': 1770049259191, 'eventGranularity': None, 'partitionSpec': PartitionSpecClass({'partition': 'FULL_TABLE_SNAPSHOT', 'timePartition': None, 'type': 'FULL_TABLE'}), 'messageId': None, 'rowCount': 1, 'columnCount': 3, 'fieldProfiles': [DatasetFieldProfileClass({'fieldPath': 'Sheet1.Name', 'uniqueCount': 0, 'uniqueProportion': 0, 'nullCount': 1, 'nullProportion': 1.0, 'min': None, 'max': None, 'mean': None, 'median': None, 'stdev': None, 'quantiles': None, 'distinctValueFrequencies': None, 'histogram': None, 'sampleValues': None}), DatasetFieldProfileClass({'fieldPath': 'Sheet1.Age', 'uniqueCount': 1, 'uniqueProportion': 1.0, 'nullCount': 0, 'nullProportion': 0.0, 'min': '30', 'max': '30', 'mean': '30.0', 'median': '30.0', 'stdev': 'nan', 'quantiles': [QuantileClass({'quantile': '0.05', 'value': '30.0'}), QuantileClass({'quantile': '0.25', 'value': '30.0'}), QuantileClass({'quantile': '0.5', 'value': '30.0'}), QuantileClass({'quantile': '0.75', 'value': '30.0'}), QuantileClass({'quantile': '0.95', 'value': '30.0'})], 'distinctValueFrequencies': [ValueFrequencyClass({'value': '30', 'frequency': 1})], 'histogram': HistogramClass({'boundaries': ['29.5', '29.55', '29.6', '29.65', '29.7', '29.75', '29.8', '29.85', '29.9', '29.95', '30.0', '30.05', '30.1', '30.15', '30.2', '30.25', '30.3', '30.35', '30.4', '30.45'], 'heights': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}), 'sampleValues': ['30']}), DatasetFieldProfileClass({'fieldPath': 'Sheet1.City', 'uniqueCount': 0, 'uniqueProportion': 0, 'nullCount': 1, 'nullProportion': 1.0, 'min': None, 'max': None, 'mean': None, 'median': None, 'stdev': None, 'quantiles': None, 'distinctValueFrequencies': None, 'histogram': None, 'sampleValues': None})], 'sizeInBytes': None}))",
     "treat_errors_as_warnings": false
   },
   {
@@ -636,7 +678,7 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799454,
+        "lastObserved": 1770049259195,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }
@@ -657,7 +699,49 @@
         "contentType": "application/json"
       },
       "systemMetadata": {
-        "lastObserved": 1747177799454,
+        "lastObserved": 1770049259195,
+        "runId": "google-sheets-basic_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:tag:Owner-Domain:example.com-tagKey",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "tag",
+      "entityUrn": "urn:li:tag:Owner-Domain:example.com",
+      "changeType": "UPSERT",
+      "aspectName": "tagKey",
+      "aspect": {
+        "value": "{\"name\": \"Owner-Domain:example.com\"}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1770049259195,
+        "runId": "google-sheets-basic_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:tag:Shared-tagKey",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "tag",
+      "entityUrn": "urn:li:tag:Shared",
+      "changeType": "UPSERT",
+      "aspectName": "tagKey",
+      "aspect": {
+        "value": "{\"name\": \"Shared\"}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1770049259195,
         "runId": "google-sheets-basic_test",
         "lastRunId": "no-run-id-provided"
       }

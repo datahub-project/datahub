@@ -1,0 +1,31 @@
+{
+  "files": [
+    {
+      "id": "3ghi_engineering_metrics",
+      "name": "Engineering Metrics Dashboard",
+      "description": "Team performance metrics",
+      "mimeType": "application/vnd.google-apps.spreadsheet",
+      "driveId": "drive_engineering_team",
+      "owners": [
+        {
+          "emailAddress": "engineering.lead@company.com",
+          "displayName": "Engineering Lead"
+        }
+      ],
+      "permissions": [
+        {
+          "id": "perm5",
+          "type": "user",
+          "emailAddress": "engineering.lead@company.com",
+          "role": "owner"
+        }
+      ],
+      "createdTime": "2024-03-01T08:00:00.000Z",
+      "modifiedTime": "2024-03-20T16:45:00.000Z",
+      "webViewLink": "https://docs.google.com/spreadsheets/d/3ghi_engineering_metrics",
+      "shared": true,
+      "parents": ["drive_engineering_team"]
+    }
+  ],
+  "nextPageToken": null
+}

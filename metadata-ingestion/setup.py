@@ -688,16 +688,17 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks_common | databricks | sql_common,
-    "google-sheets": {
-        "google-auth>=2.15.0",
-        "google-api-python-client>=2.70.0",
+    "google-sheets": sqlglot_lib
+    | {
+        "google-auth>=2.15.0,<3.0.0",
+        "google-api-python-client>=2.70.0,<3.0.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
         "numpy<2",
         # Constraint needed for compatibility with databricks-sql-connector
         "pandas<2.2.0",
-        },
+    },
     "notion": notion_common,
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
@@ -1032,7 +1033,7 @@ entry_points = {
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
-        "google-sheets = datahub.ingestion.source.google_sheets:GoogleSheetsSource",
+        "google-sheets = datahub.ingestion.source.google_sheets.google_sheets_source:GoogleSheetsSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",

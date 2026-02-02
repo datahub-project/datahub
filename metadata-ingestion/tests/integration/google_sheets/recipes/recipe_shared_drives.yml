@@ -1,0 +1,41 @@
+source:
+  type: google-sheets
+  config:
+    credentials: "dummy_credentials.json"
+    
+    # Shared drive configuration
+    scan_shared_drives: true
+    shared_drive_patterns:
+      allow:
+        - "Engineering*"
+        - "Product Team"
+      deny:
+        - "*Archive*"
+        - "*Old*"
+    
+    sheets_as_datasets: false
+    extract_usage_stats: false
+    extract_lineage_from_formulas: false
+    
+    # Filtering
+    sheet_patterns:
+      allow:
+        - ".*"
+      deny: []
+    
+    folder_patterns:
+      allow:
+        - ".*"
+      deny: []
+    
+    # No profiling
+    profiling:
+      enabled: false
+    
+    max_retries: 3
+    retry_delay: 1
+
+sink:
+  type: file
+  config:
+    filename: "./google_sheets_shared_drives_mces.json"

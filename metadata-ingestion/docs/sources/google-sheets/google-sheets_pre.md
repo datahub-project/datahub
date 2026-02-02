@@ -30,8 +30,17 @@ This source pulls metadata directly from Google Sheets and enables data profilin
    - The service account email will look like: `service-account-name@project-id.iam.gserviceaccount.com`
    - For proper lineage extraction, ensure the service account has access to all linked sheets
 
+#### Configuration Tips
+
+- **Shared Drives**: Use `shared_drive_patterns` to filter specific Shared Drives by name when `scan_shared_drives=true`
+- **Header Detection**: Use `auto_detect` mode for sheets with varying header positions, or `header_row_index` for fixed positions
+- **Incremental Ingestion**: Enable `enable_incremental_ingestion` to only process modified sheets on subsequent runs
+- **Cross-Platform Lineage**: Enable `enable_cross_platform_lineage` to extract lineage from QUERY() formulas connecting to databases
+
 #### Troubleshooting
 
 - **Permission Issues**: Ensure the service account has at least "Viewer" access to all sheets you want to catalog
-- **Rate Limiting**: The connector includes retry logic, but Google API rate limits may still apply
-- **Lineage Extraction Failures**: Check that all referenced sheets are accessible to the service account
+- **Rate Limiting**: Configure `requests_per_second` to avoid hitting Google API rate limits. The connector includes retry logic with `max_retries` and `retry_delay`
+- **Lineage Extraction Failures**: Check that all referenced sheets are accessible to the service account. For cross-platform lineage, ensure `parse_sql_for_lineage` is enabled
+- **Shared Drive Access**: If Shared Drives aren't appearing, verify the service account has been added to the Shared Drive with at least "Viewer" permission
+- **Header Detection Issues**: If auto-detection isn't working, use explicit `header_row_index` or examine sheets with `skip_empty_leading_rows=false`

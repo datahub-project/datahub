@@ -1,0 +1,68 @@
+{
+  "spreadsheetId": "2def_product_catalog",
+  "properties": {
+    "title": "Product Catalog",
+    "locale": "en_US",
+    "timeZone": "America/New_York"
+  },
+  "sheets": [
+    {
+      "properties": {
+        "sheetId": 0,
+        "title": "Products",
+        "index": 0,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 50,
+          "columnCount": 8
+        }
+      },
+      "data": [
+        {
+          "rowData": [
+            {
+              "values": [
+                {"formattedValue": "Product ID", "userEnteredValue": {"stringValue": "Product ID"}},
+                {"formattedValue": "Name", "userEnteredValue": {"stringValue": "Name"}},
+                {"formattedValue": "Category", "userEnteredValue": {"stringValue": "Category"}},
+                {"formattedValue": "Price", "userEnteredValue": {"stringValue": "Price"}},
+                {"formattedValue": "Stock", "userEnteredValue": {"stringValue": "Stock"}},
+                {"formattedValue": "Imported Sales Data", "userEnteredValue": {"stringValue": "Imported Sales Data"}}
+              ]
+            },
+            {
+              "values": [
+                {"formattedValue": "P001", "userEnteredValue": {"stringValue": "P001"}},
+                {"formattedValue": "Widget A", "userEnteredValue": {"stringValue": "Widget A"}},
+                {"formattedValue": "Electronics", "userEnteredValue": {"stringValue": "Electronics"}},
+                {"formattedValue": "99.99", "userEnteredValue": {"numberValue": 99.99}},
+                {"formattedValue": "500", "userEnteredValue": {"numberValue": 500}},
+                {
+                  "formattedValue": "150",
+                  "userEnteredValue": {
+                    "formulaValue": "=IMPORTRANGE(\"1abc_sales_report_2024\",\"Q1 Sales!C2\")"
+                  }
+                }
+              ]
+            },
+            {
+              "values": [
+                {"formattedValue": "P002", "userEnteredValue": {"stringValue": "P002"}},
+                {"formattedValue": "Widget B", "userEnteredValue": {"stringValue": "Widget B"}},
+                {"formattedValue": "Electronics", "userEnteredValue": {"stringValue": "Electronics"}},
+                {"formattedValue": "149.99", "userEnteredValue": {"numberValue": 149.99}},
+                {"formattedValue": "300", "userEnteredValue": {"numberValue": 300}},
+                {
+                  "formattedValue": "200",
+                  "userEnteredValue": {
+                    "formulaValue": "=IMPORTRANGE(\"1abc_sales_report_2024\",\"Q1 Sales!C3\")"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
