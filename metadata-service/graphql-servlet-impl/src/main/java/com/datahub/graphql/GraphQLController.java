@@ -208,7 +208,7 @@ public class GraphQLController {
                       1);
               }
             });
-    if (executionResult.getErrors().size() != 0 && metricUtils != null) {
+    if (!executionResult.getErrors().isEmpty() && metricUtils != null) {
       metricUtils.increment(MetricRegistry.name(this.getClass(), "error"), 1);
     }
   }
