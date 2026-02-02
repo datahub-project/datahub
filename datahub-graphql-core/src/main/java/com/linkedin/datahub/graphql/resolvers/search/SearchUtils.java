@@ -117,7 +117,8 @@ public class SearchUtils {
           EntityType.DOMAIN,
           EntityType.BUSINESS_ATTRIBUTE,
           EntityType.APPLICATION,
-          EntityType.STRUCTURED_PROPERTY);
+          EntityType.STRUCTURED_PROPERTY,
+          EntityType.DOCUMENT);
 
   /** Entities that are part of browse by default */
   public static final List<EntityType> BROWSE_ENTITY_TYPES =

@@ -1,26 +1,13 @@
-import { Button, SimpleSelect, colors } from '@components';
-import React, { useCallback, useEffect, useState } from 'react';
+import { Button, Editor, SimpleSelect, colors } from '@components';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { SelectOption } from '@components/components/Select/types';
 
-import { ChatMentionsDropdown } from '@app/chat/components/input/ChatMentionsDropdown';
-import { useMentionInput } from '@app/chat/hooks/useMentionInput';
-import { flattenAutocompleteSuggestions } from '@app/chat/utils/autocompleteUtils';
-import { useUserContext } from '@app/context/useUserContext';
-
-import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
-
-const InputContainer = styled.div`
-    position: relative;
+const InputContainer = styled.div<{ $isFocused?: boolean; $isWelcomeState?: boolean; $isStreaming?: boolean }>`
+    display: flex;
+    flex-direction: column;
     flex: 1;
-`;
-
-const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $isWelcomeState?: boolean; $isStreaming?: boolean }>`
-    width: 100%;
-    min-height: 120px;
-    max-height: 120px; /* Grows up to 120px, then scrolls */
-    padding: 12px 56px 48px 16px; /* Extra right padding for send button + bottom controls */
     border: 1px solid
         ${(props) => {
             if (props.$isFocused && !props.$isStreaming) return colors.violet[200];
@@ -28,64 +15,24 @@ const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $isWelcomeState?: 
         }};
     border-radius: ${(props) => (props.$isWelcomeState ? '16px' : '12px')};
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    font-size: 14px;
-    font-family: inherit;
-    line-height: 20px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    overflow-wrap: break-word;
-    word-break: break-word;
-    white-space: pre-wrap;
-    outline: none;
     transition: all 0.2s;
     background-color: white;
-    cursor: ${(props) => (props.$isStreaming ? 'default' : 'text')};
-    pointer-events: ${(props) => (props.$isStreaming ? 'none' : 'auto')};
 
     ${(props) => props.$isFocused && !props.$isStreaming && `outline: 1px solid ${colors.violet[200]};`}
-
-    &:empty:before {
-        content: attr(data-placeholder);
-        color: ${colors.gray[400]};
-        pointer-events: none;
-    }
-
-    /* Mention spans */
-    .mention {
-        color: ${colors.primary[500]};
-        font-weight: 500;
-        cursor: pointer;
-
-        &:hover {
-            text-decoration: underline;
-        }
-    }
-
-    /* Only show scrollbar when content exceeds max-height */
-    &::-webkit-scrollbar {
-        width: 4px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-        background-color: ${colors.gray[300]};
-        border-radius: 2px;
-    }
 `;
 
-const SendButtonWrapper = styled.div`
-    position: absolute;
-    right: 8px;
-    bottom: 8px;
-    cursor: pointer;
-    pointer-events: auto;
+const EditorArea = styled.div<{ $isStreaming?: boolean }>`
+    flex: 1;
+    cursor: ${(props) => (props.$isStreaming ? 'default' : 'text')};
+    pointer-events: ${(props) => (props.$isStreaming ? 'none' : 'auto')};
 `;
 
-const ModeSelectWrapper = styled.div`
-    position: absolute;
-    left: 8px;
-    bottom: 8px;
-    pointer-events: auto;
-    z-index: 1;
+const ControlsRow = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 8px 8px 8px;
+    flex-shrink: 0;
 `;
 
 interface Props {
@@ -117,77 +64,47 @@ export const ChatInput: React.FC<Props> = ({
     autoFocus = false,
 }) => {
     const [isFocused, setIsFocused] = useState(false);
-    const userContext = useUserContext();
-    const viewUrn = userContext.localState?.selectedViewUrn;
-    const [getAutoComplete, { data: autocompleteData, loading }] = useGetAutoCompleteMultipleResultsLazyQuery();
-    const shouldBlurOnClearRef = React.useRef(false);
-
-    // Use the mention input hook
-    const {
-        contentEditableRef,
-        mentionState,
-        handleInput,
-        handleEntitySelect,
-        handleKeyDown: handleMentionKeyDown,
-        handleBlur,
-    } = useMentionInput({
-        value,
-        onChange,
-        onEntitySelect: () => {}, // No additional action needed
-    });
+    const editorRef = useRef<any>(null);
+    const shouldBlurOnClearRef = useRef(false);
+    // Track the last value to detect external clears
+    const lastValueRef = useRef(value);
 
     // Auto-focus input on mount when autoFocus is true
     useEffect(() => {
-        if (autoFocus) {
-            // Use requestAnimationFrame to ensure DOM is painted
+        if (autoFocus && editorRef.current) {
             requestAnimationFrame(() => {
-                contentEditableRef.current?.focus();
+                editorRef.current?.focus?.();
             });
         }
-    }, [autoFocus, contentEditableRef]);
+    }, [autoFocus]);
 
-    // Fetch autocomplete suggestions when query changes
+    // Clear editor content and blur when value is cleared after sending
     useEffect(() => {
-        if (mentionState.isActive && mentionState.query) {
-            getAutoComplete({ variables: { input: { query: mentionState.query, viewUrn } } });
+        if (value === '' && lastValueRef.current !== '') {
+            // Clear the editor content since Editor doesn't sync external content changes in edit mode
+            editorRef.current?.commands?.setContent?.('');
+            if (shouldBlurOnClearRef.current) {
+                editorRef.current?.blur?.();
+                shouldBlurOnClearRef.current = false;
+            }
         }
-    }, [mentionState.isActive, mentionState.query, getAutoComplete, viewUrn]);
-
-    // Blur input when value is cleared after sending
-    useEffect(() => {
-        if (value === '' && shouldBlurOnClearRef.current && contentEditableRef.current === document.activeElement) {
-            contentEditableRef.current?.blur();
-            shouldBlurOnClearRef.current = false;
-        }
-    }, [value, contentEditableRef]);
+        lastValueRef.current = value;
+    }, [value]);
 
     // Blur input when streaming starts
     useEffect(() => {
-        if (isStreaming && contentEditableRef.current === document.activeElement) {
-            contentEditableRef.current?.blur();
+        if (isStreaming) {
+            editorRef.current?.blur?.();
         }
-    }, [isStreaming, contentEditableRef]);
+    }, [isStreaming]);
 
-    // Handle keyboard events including submit
-    const handleKeyDown = useCallback(
-        (e: React.KeyboardEvent<HTMLDivElement>) => {
-            // Handle mention-specific keyboard events
-            handleMentionKeyDown(e);
-
-            // Handle submit
-            if (!mentionState.isActive && e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                if (!isStreaming && value.trim()) {
-                    shouldBlurOnClearRef.current = true;
-                    onSubmit();
-                }
-            }
-        },
-        [handleMentionKeyDown, mentionState.isActive, isStreaming, value, onSubmit],
-    );
-
-    const suggestions = autocompleteData?.autoCompleteForMultiple?.suggestions || [];
-    const entities = flattenAutocompleteSuggestions(suggestions);
+    // Handle submit
+    const handleSubmit = useCallback(() => {
+        if (!isStreaming && value.trim()) {
+            shouldBlurOnClearRef.current = true;
+            onSubmit();
+        }
+    }, [isStreaming, value, onSubmit]);
 
     const isSubmitDisabled = !isStreaming && !value.trim();
 
@@ -202,36 +119,71 @@ export const ChatInput: React.FC<Props> = ({
 
     const showModeSelect = Boolean(modeOptions?.length && onModeChange);
 
-    // Handle paste safely: allow default paste but guard empty selection to avoid errors
-    const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
-        const selection = document.getSelection();
-        if (!selection || selection.rangeCount === 0) {
-            // Prevent errors when selection is unavailable (rare in contentEditable)
-            e.preventDefault();
+    // Handle focus/blur events from the editor wrapper
+    const handleFocus = useCallback(() => setIsFocused(true), []);
+    const handleBlur = useCallback(() => setIsFocused(false), []);
+
+    // Handle Enter key to submit (Shift+Enter for new line)
+    const handleKeyDown = useCallback(
+        (event: React.KeyboardEvent<HTMLDivElement>) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                // Check if mentions dropdown is active (either in-editor or portal-rendered)
+                const mentionsDropdown = document.querySelector(
+                    '.remirror-floating-popover, .mentions-dropdown-portal',
+                );
+                if (mentionsDropdown) {
+                    // Let dropdown handle Enter for selection
+                    return;
+                }
+
+                event.preventDefault();
+                handleSubmit();
+            }
+        },
+        [handleSubmit],
+    );
+
+    // Handle paste - insert as plain text to avoid paragraph wrapping
+    const handlePaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+        const text = event.clipboardData.getData('text/plain');
+        if (text) {
+            event.preventDefault();
+            editorRef.current?.commands?.insertText?.(text);
+            // Scroll the editor container to show the cursor
+            requestAnimationFrame(() => {
+                const editor = document.querySelector('.remirror-editor.ProseMirror') as HTMLElement;
+                if (editor) {
+                    editor.scrollTop = editor.scrollHeight;
+                }
+            });
         }
     }, []);
 
     return (
-        <InputContainer>
-            <ContentEditableDiv
-                ref={contentEditableRef}
-                contentEditable={!isStreaming}
-                onInput={handleInput}
-                onPaste={handlePaste}
-                onKeyDown={handleKeyDown}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => {
-                    setIsFocused(false);
-                    handleBlur();
-                }}
-                data-placeholder={placeholder}
-                $isFocused={isFocused}
-                $isWelcomeState={isWelcomeState}
-                $isStreaming={isStreaming}
-                suppressContentEditableWarning
-            />
-            {showModeSelect && (
-                <ModeSelectWrapper>
+        <InputContainer
+            $isFocused={isFocused}
+            $isWelcomeState={isWelcomeState}
+            $isStreaming={isStreaming}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+        >
+            <EditorArea $isStreaming={isStreaming}>
+                <Editor
+                    ref={editorRef}
+                    content={value}
+                    onChange={onChange}
+                    onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
+                    placeholder={placeholder}
+                    readOnly={isStreaming}
+                    hideToolbar
+                    compact
+                    hideBorder
+                    doNotFocus={!autoFocus}
+                />
+            </EditorArea>
+            <ControlsRow>
+                {showModeSelect ? (
                     <SimpleSelect
                         options={modeOptions || []}
                         values={selectedMode ? [selectedMode] : []}
@@ -248,9 +200,9 @@ export const ChatInput: React.FC<Props> = ({
                         isDisabled={isStreaming}
                         optionSwitchable={false}
                     />
-                </ModeSelectWrapper>
-            )}
-            <SendButtonWrapper>
+                ) : (
+                    <div />
+                )}
                 <Button
                     onClick={handleButtonClick}
                     disabled={isSubmitDisabled}
@@ -265,16 +217,7 @@ export const ChatInput: React.FC<Props> = ({
                     color="violet"
                     aria-label={isStreaming ? 'Stop generating' : 'Send message'}
                 />
-            </SendButtonWrapper>
-            {mentionState.isActive && (
-                <ChatMentionsDropdown
-                    query={mentionState.query}
-                    entities={entities}
-                    loading={loading}
-                    onSelect={handleEntitySelect}
-                    coordinates={mentionState.coordinates}
-                />
-            )}
+            </ControlsRow>
         </InputContainer>
     );
 };
