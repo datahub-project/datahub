@@ -409,7 +409,7 @@ def test_assertion_info_patch_preserves_note(graph_client):
                     dataset=dataset_urn,
                     scope=DatasetAssertionScopeClass.DATASET_SCHEMA,
                     operator=AssertionStdOperatorClass.EQUAL_TO,
-                ),
+                ).to_obj(),
             },
             {
                 "op": "add",
