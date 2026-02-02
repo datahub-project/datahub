@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-08-28T07:13:19.226648+00:00",
+  "generated_at": "2026-01-27T23:33:49.965494+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -135,6 +135,43 @@
       "platform_id": "azure-ad",
       "platform_name": "Azure AD",
       "support_status": "CERTIFIED"
+    },
+    "azure-data-factory": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Data Factory"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Extracts lineage from Copy and Data Flow activities",
+          "subtype_modifier": [
+            "Copy Activity",
+            "Data Flow Activity"
+          ],
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.azure_data_factory.adf_source.AzureDataFactorySource",
+      "platform_id": "azure-data-factory",
+      "platform_name": "Azure Data Factory",
+      "support_status": "INCUBATING"
     },
     "bigquery": {
       "capabilities": [
@@ -515,6 +552,20 @@
       "platform_name": "DataHubDebug",
       "support_status": "TESTING"
     },
+    "datahub-documents": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubDocumentsSource",
+      "platform_id": "datahub-documents",
+      "platform_name": "DataHubDocuments",
+      "support_status": "INCUBATING"
+    },
     "datahub-gc": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.gc.datahub_gc.DataHubGcSource",
@@ -541,6 +592,125 @@
       "platform_id": "file-based-lineage",
       "platform_name": "File Based Lineage",
       "support_status": "CERTIFIED"
+    },
+    "dataplex": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default, can be disabled via configuration `include_schema`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Optionally enabled via configuration `include_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.dataplex.dataplex.DataplexSource",
+      "platform_id": "dataplex",
+      "platform_name": "Dataplex",
+      "support_status": "INCUBATING"
+    },
+    "db2": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "CLASSIFICATION",
+          "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.sql.db2.Db2Source",
+      "platform_id": "db2",
+      "platform_name": "IBM Db2",
+      "support_status": "TESTING"
     },
     "dbt": {
       "capabilities": [
@@ -815,7 +985,7 @@
       "classname": "datahub.ingestion.source.dynamodb.dynamodb.DynamoDBSource",
       "platform_id": "dynamodb",
       "platform_name": "DynamoDB",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "elasticsearch": {
       "capabilities": [
@@ -868,6 +1038,38 @@
       "platform_id": "excel",
       "platform_name": "Excel",
       "support_status": "INCUBATING"
+    },
+    "fabric-onelake": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.fabric.onelake.source.FabricOneLakeSource",
+      "platform_id": "fabric-onelake",
+      "platform_name": "Fabric OneLake",
+      "support_status": "TESTING"
     },
     "feast": {
       "capabilities": [
@@ -945,7 +1147,7 @@
       "classname": "datahub.ingestion.source.fivetran.fivetran.FivetranSource",
       "platform_id": "fivetran",
       "platform_name": "Fivetran",
-      "support_status": "INCUBATING"
+      "support_status": "CERTIFIED"
     },
     "gcs": {
       "capabilities": [
@@ -1197,7 +1399,7 @@
       "classname": "datahub.ingestion.source.hex.hex.HexSource",
       "platform_id": "hex",
       "platform_name": "Hex",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "hive": {
       "capabilities": [
@@ -1218,8 +1420,9 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -1256,8 +1459,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -1269,7 +1473,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hive.HiveSource",
+      "classname": "datahub.ingestion.source.sql.hive.hive_source.HiveSource",
       "platform_id": "hive",
       "platform_name": "Hive",
       "support_status": "CERTIFIED"
@@ -1293,8 +1497,9 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -1331,9 +1536,12 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "View lineage is not supported",
-          "subtype_modifier": null,
-          "supported": false
+          "description": "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
+          "subtype_modifier": [
+            "Table",
+            "View"
+          ],
+          "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
@@ -1342,7 +1550,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hive_metastore.HiveMetastoreSource",
+      "classname": "datahub.ingestion.source.sql.hive.hive_metastore_source.HiveMetastoreSource",
       "platform_id": "hive-metastore",
       "platform_name": "Hive Metastore",
       "support_status": "CERTIFIED"
@@ -1395,7 +1603,7 @@
       "classname": "datahub.ingestion.source.iceberg.iceberg.IcebergSource",
       "platform_id": "iceberg",
       "platform_name": "Iceberg",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "json-schema": {
       "capabilities": [
@@ -1787,7 +1995,7 @@
       "classname": "datahub.ingestion.source.mlflow.MLflowSource",
       "platform_id": "mlflow",
       "platform_name": "MLflow",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "mode": {
       "capabilities": [
@@ -2077,6 +2285,26 @@
       "platform_name": "NiFi",
       "support_status": "CERTIFIED"
     },
+    "notion": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.notion.notion_source.NotionSource",
+      "platform_id": "notion",
+      "platform_name": "Notion",
+      "support_status": "INCUBATING"
+    },
     "okta": {
       "capabilities": [
         {
@@ -2100,10 +2328,34 @@
     "openapi": {
       "capabilities": [
         {
-          "capability": "PLATFORM_INSTANCE",
-          "description": "",
+          "capability": "DESCRIPTIONS",
+          "description": "Extracts endpoint descriptions and summaries from OpenAPI specifications",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Does not currently support domain assignment",
           "subtype_modifier": null,
           "supported": false
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Does not currently support extracting ownership",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "TAGS",
+          "description": "Extracts tags from OpenAPI specifications",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Extracts schemas from OpenAPI specifications for GET, POST, PUT, and PATCH methods",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.openapi.OpenApiSource",
@@ -2130,10 +2382,17 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
           "subtype_modifier": [
+            "Stored Procedure",
             "View"
           ],
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Enabled by default via SQL aggregator when processing observed queries",
+          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -2162,8 +2421,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`",
           "subtype_modifier": [
+            "Stored Procedure",
             "View"
           ],
           "supported": true
@@ -2373,6 +2633,12 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Supported by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "subtype_modifier": null,
@@ -2479,8 +2745,9 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -2517,9 +2784,12 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "View lineage is not supported",
-          "subtype_modifier": null,
-          "supported": false
+          "description": "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
+          "subtype_modifier": [
+            "Table",
+            "View"
+          ],
+          "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
@@ -2528,7 +2798,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hive_metastore.HiveMetastoreSource",
+      "classname": "datahub.ingestion.source.sql.hive.hive_metastore_source.HiveMetastoreSource",
       "platform_id": "hive-metastore",
       "platform_name": "Hive Metastore",
       "support_status": "CERTIFIED"
@@ -2769,7 +3039,7 @@
       "classname": "datahub.ingestion.source.s3.source.S3Source",
       "platform_id": "s3",
       "platform_name": "S3 / Local Files",
-      "support_status": "INCUBATING"
+      "support_status": "CERTIFIED"
     },
     "sac": {
       "capabilities": [
@@ -2882,7 +3152,7 @@
       "classname": "datahub.ingestion.source.salesforce.SalesforceSource",
       "platform_id": "salesforce",
       "platform_name": "Salesforce",
-      "support_status": "INCUBATING"
+      "support_status": "CERTIFIED"
     },
     "sigma": {
       "capabilities": [
@@ -2960,6 +3230,38 @@
       "classname": "datahub.ingestion.source.slack.slack.SlackSource",
       "platform_id": "slack",
       "platform_name": "Slack",
+      "support_status": "CERTIFIED"
+    },
+    "snaplogic": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Not supported yet",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "SnapLogic does not support platform instances",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.snaplogic.snaplogic.SnaplogicSource",
+      "platform_id": "snaplogic",
+      "platform_name": "SnapLogic",
       "support_status": "TESTING"
     },
     "snowflake": {
@@ -3175,6 +3477,12 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Supported by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "subtype_modifier": null,
@@ -3316,6 +3624,12 @@
         {
           "capability": "DOMAINS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Optionally enabled via configuration (extract_ownership)",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3506,7 +3820,7 @@
       "classname": "datahub.ingestion.source.unity.source.UnityCatalogSource",
       "platform_id": "databricks",
       "platform_name": "Databricks",
-      "support_status": "INCUBATING"
+      "support_status": "CERTIFIED"
     },
     "vertexai": {
       "capabilities": [
@@ -3520,7 +3834,7 @@
       "classname": "datahub.ingestion.source.vertexai.vertexai.VertexAISource",
       "platform_id": "vertexai",
       "platform_name": "Vertex AI",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "vertica": {
       "capabilities": [

@@ -1,6 +1,14 @@
 import { Editor, Modal } from '@components';
+import { message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
+import useFileUpload from '@app/shared/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
+
+import { UploadDownloadScenario } from '@types';
 
 const StyledEditor = styled(Editor)`
     border: none;
@@ -37,24 +45,41 @@ export default function EditDescriptionModal({
     emptyDescriptionText,
     closeModal,
 }: Props) {
+    const canEditDescription = useDocumentationPermission();
+    const { urn: assetUrn } = useEntityData();
+    const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
+        scenario: UploadDownloadScenario.AssetDocumentation,
+        assetUrn,
+    });
+    const { uploadFile } = useFileUpload({ scenario: UploadDownloadScenario.AssetDocumentation, assetUrn });
     return (
         <Modal
             title="Edit Description"
             onCancel={closeModal}
             width="80vw"
             style={{ maxWidth: '1200px' }}
+            maskClosable={false}
             buttons={[
                 {
                     text: 'Cancel',
                     variant: 'text',
                     onClick: () => closeModal(),
+                    buttonDataTestId: 'cancel-button',
                 },
                 {
                     text: 'Publish',
                     onClick: () => {
-                        handleDescriptionUpdate();
+                        handleDescriptionUpdate().catch((e) => {
+                            message.destroy();
+                            message.error({
+                                content: `Failed to update description: \n ${e.message || ''}`,
+                                duration: 3,
+                            });
+                        });
                         closeModal();
                     },
+                    disabled: !canEditDescription,
+                    buttonDataTestId: 'publish-button',
                 },
             ]}
         >
@@ -64,6 +89,11 @@ export default function EditDescriptionModal({
                 hideHighlightToolbar
                 onChange={(description) => setUpdatedDescription(description)}
                 toolbarStyles={toolbarStyles}
+                dataTestId="description-editor"
+                uploadFileProps={{
+                    onFileUpload: uploadFile,
+                    ...uploadFileAnalyticsCallbacks,
+                }}
             />
         </Modal>
     );

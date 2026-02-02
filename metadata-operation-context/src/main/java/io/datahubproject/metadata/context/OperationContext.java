@@ -17,7 +17,6 @@ import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.exception.ActorAccessException;
@@ -163,17 +162,18 @@ public class OperationContext implements AuthorizationSession {
       @Nonnull Authentication systemAuthentication,
       @Nonnull EntityRegistry entityRegistry,
       @Nullable ServicesRegistryContext servicesRegistryContext,
-      @Nullable IndexConvention indexConvention,
+      @Nullable SearchContext searchContext,
       @Nullable RetrieverContext retrieverContext,
       @Nonnull ValidationContext validationContext,
       @Nullable SystemTelemetryContext systemTelemetryContext,
       boolean enforceExistenceEnabled) {
-    return asSystem(
+
+    return OperationContext.asSystem(
         config,
         systemAuthentication,
         entityRegistry,
         servicesRegistryContext,
-        indexConvention,
+        searchContext,
         retrieverContext,
         validationContext,
         ObjectMapperContext.DEFAULT,
@@ -184,15 +184,14 @@ public class OperationContext implements AuthorizationSession {
   public static OperationContext asSystem(
       @Nonnull OperationContextConfig config,
       @Nonnull Authentication systemAuthentication,
-      @Nullable EntityRegistry entityRegistry,
+      @Nonnull EntityRegistry entityRegistry,
       @Nullable ServicesRegistryContext servicesRegistryContext,
-      @Nullable IndexConvention indexConvention,
+      @Nullable SearchContext searchContext,
       @Nullable RetrieverContext retrieverContext,
       @Nonnull ValidationContext validationContext,
       @Nonnull ObjectMapperContext objectMapperContext,
       @Nullable SystemTelemetryContext systemTelemetryContext,
       boolean enforceExistenceEnabled) {
-
     ActorContext systemActorContext =
         ActorContext.builder()
             .systemAuth(true)
@@ -201,28 +200,24 @@ public class OperationContext implements AuthorizationSession {
             .build();
     OperationContextConfig systemConfig =
         config.toBuilder().allowSystemAuthentication(true).build();
-    SearchContext systemSearchContext =
-        indexConvention == null
-            ? SearchContext.EMPTY
-            : SearchContext.builder().indexConvention(indexConvention).build();
 
     try {
       return OperationContext.builder()
           .operationContextConfig(systemConfig)
           .systemActorContext(systemActorContext)
-          .searchContext(systemSearchContext)
+          .searchContext(searchContext != null ? searchContext : SearchContext.EMPTY)
           .entityRegistryContext(EntityRegistryContext.builder().build(entityRegistry))
           .servicesRegistryContext(servicesRegistryContext)
           // Authorizer.EMPTY doesn't actually apply to system auth
           .authorizationContext(
               AuthorizationContext.builder().authorizer(Authorizer.SYSTEM).build())
           .retrieverContext(retrieverContext)
-          .objectMapperContext(objectMapperContext)
           .validationContext(validationContext)
+          .objectMapperContext(objectMapperContext)
           .systemTelemetryContext(systemTelemetryContext)
-          .build(systemAuthentication, false);
-    } catch (OperationContextException e) {
-      throw new RuntimeException(e);
+          .build(systemAuthentication, enforceExistenceEnabled);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to build OperationContext", e);
     }
   }
 
@@ -238,6 +233,11 @@ public class OperationContext implements AuthorizationSession {
   @Nonnull private final ObjectMapperContext objectMapperContext;
   @Nonnull private final ValidationContext validationContext;
   @Nullable private final SystemTelemetryContext systemTelemetryContext;
+
+  // Mutable collection for pending aspect deletions during validation
+  // This is per-operation and not shared across threads, so ArrayList is safe
+  @Builder.Default @Nonnull
+  private final List<Object> pendingDeletions = new java.util.ArrayList<>();
 
   public OperationContext withSearchFlags(
       @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
@@ -563,6 +563,31 @@ public class OperationContext implements AuthorizationSession {
     return objectMapperContext.getYamlMapper();
   }
 
+  /**
+   * Add a pending aspect deletion request to be processed after the current transaction commits.
+   * Used by aspect size validation to collect oversized aspects that need remediation deletion.
+   */
+  public void addPendingDeletion(@Nonnull Object request) {
+    pendingDeletions.add(request);
+  }
+
+  /**
+   * Get all pending aspect deletion requests for this operation. Returns a copy to prevent external
+   * modification.
+   */
+  @Nonnull
+  public List<Object> getPendingDeletions() {
+    return new java.util.ArrayList<>(pendingDeletions);
+  }
+
+  /**
+   * Clear all pending aspect deletion requests for this operation. Should be called after deletions
+   * are processed.
+   */
+  public void clearPendingDeletions() {
+    pendingDeletions.clear();
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -637,7 +662,8 @@ public class OperationContext implements AuthorizationSession {
           this.retrieverContext,
           this.objectMapperContext != null ? this.objectMapperContext : ObjectMapperContext.DEFAULT,
           this.validationContext,
-          this.systemTelemetryContext);
+          this.systemTelemetryContext,
+          new java.util.ArrayList<>());
     }
 
     private OperationContext build() {

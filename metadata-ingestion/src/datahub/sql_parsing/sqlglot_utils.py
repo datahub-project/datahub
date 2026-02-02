@@ -9,15 +9,15 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.optimizer.eliminate_ctes
 
+from datahub.configuration.env_vars import get_sql_parse_cache_size
 from datahub.sql_parsing.fingerprint_utils import generate_hash
 
 assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
-SQL_PARSE_CACHE_SIZE = 1000
-
-FORMAT_QUERY_CACHE_SIZE = 1000
+SQL_PARSE_CACHE_SIZE = get_sql_parse_cache_size()
+FORMAT_QUERY_CACHE_SIZE = get_sql_parse_cache_size()
 
 
 def _get_dialect_str(platform: str) -> str:
@@ -40,9 +40,6 @@ def _get_dialect_str(platform: str) -> str:
         # let the fuzzy resolution logic handle it.
         # MariaDB is a fork of MySQL, so we reuse the same dialect.
         return "mysql, normalization_strategy = lowercase"
-    # Dremio is based upon drill. Not 100% compatibility
-    elif platform == "dremio":
-        return "drill"
     else:
         return platform
 

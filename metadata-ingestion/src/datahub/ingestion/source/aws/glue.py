@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 
 import botocore.exceptions
 import yaml
-from pydantic import validator
+from pydantic import field_validator
 from pydantic.fields import Field
 
 from datahub.api.entities.dataset.dataset import Dataset
@@ -221,7 +221,8 @@ class GlueSourceConfig(
     def lakeformation_client(self):
         return self.get_lakeformation_client()
 
-    @validator("glue_s3_lineage_direction")
+    @field_validator("glue_s3_lineage_direction", mode="after")
+    @classmethod
     def check_direction(cls, v: str) -> str:
         if v.lower() not in ["upstream", "downstream"]:
             raise ValueError(
@@ -229,7 +230,8 @@ class GlueSourceConfig(
             )
         return v.lower()
 
-    @validator("platform")
+    @field_validator("platform", mode="after")
+    @classmethod
     def platform_validator(cls, v: str) -> str:
         if not v or v in VALID_PLATFORMS:
             return v
@@ -334,6 +336,26 @@ class GlueSource(StatefulIngestionSourceBase):
         "Resource": "*"
     }
     ```
+
+    ### Glue Cross-account Access
+
+    Glue ingestion supports cross-account access and lineage by allowing you to specify the target AWS account's Glue catalog using the `catalog_id` parameter in the ingestion recipe.
+    This enables ingestion of Glue metadata from different AWS accounts, supporting cross-account lineage scenarios.
+    You must ensure the correct IAM roles and permissions are set up for cross-account access.
+
+    Example: There are 2 AWS accounts A and B, A has shared metadata with B. Account A has Glue table - tableA.
+    If you ingest account A using Glue it will create dataset tableA in DataHub.
+    If you want to ingest tableA via account B you can pass `catalog_id` parameter in recipe with A's catalog id.
+
+    **Ingestion without platform instance parameter**
+    - If both catalogs are ingested without platform instance parameter, DataHub should be able to understand that the database and tables are same
+    - DataHub will create single entity for table tableA
+    - It should show lineage between Glue and S3.
+      You have to ingest S3 as separate source (https://docs.datahub.com/docs/generated/ingestion/sources/s3)
+
+    **Ingestion with platform instance parameter**
+    - It will create separate entities for tableA as it will have different URN path
+    - It should show lineage between Glue and S3
 
     """
 
@@ -473,7 +495,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = GlueSourceConfig.parse_obj(config_dict)
+        config = GlueSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @property
@@ -1399,7 +1421,9 @@ class GlueSource(StatefulIngestionSourceBase):
                     # Not common, but capturing counts here for reporting
                     self.report.num_dataset_to_dataset_edges_in_job += 1
 
-            for dataset_id, dataset_mce in zip(new_dataset_ids, new_dataset_mces):
+            for dataset_id, dataset_mce in zip(
+                new_dataset_ids, new_dataset_mces, strict=False
+            ):
                 yield MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
 
     def _extract_record(

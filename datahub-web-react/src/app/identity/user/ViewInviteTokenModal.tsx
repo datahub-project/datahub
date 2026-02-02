@@ -1,17 +1,17 @@
 import { UserOutlined } from '@ant-design/icons';
-import { Button, Tooltip } from '@components';
-import { Modal, Select, Typography, message } from 'antd';
-import * as QueryString from 'query-string';
+import { Button, Modal, Tooltip } from '@components';
+import { Select, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
 import { mapRoleIcon } from '@app/identity/user/UserUtils';
+import { useRoleSelector } from '@app/identity/user/useRoleSelector';
 import { PageRoutes } from '@conf/Global';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useCreateInviteTokenMutation } from '@graphql/mutations.generated';
-import { useGetInviteTokenQuery, useListRolesQuery } from '@graphql/role.generated';
+import { useGetInviteTokenQuery } from '@graphql/role.generated';
 import { DataHubRole } from '@types';
 
 const ModalSection = styled.div`
@@ -32,15 +32,27 @@ const InviteLinkDiv = styled.div`
     margin-top: -12px;
     display: flex;
     flex-direction: row;
-    justify-content: flex-start;
+    justify-content: space-between;
     gap: 10px;
     align-items: center;
+`;
+
+const ActionsContainer = styled.div`
+    display: flex;
+    gap: 10px;
+`;
+
+const InfoContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 10px;
 `;
 
 const CopyText = styled(Typography.Text)`
     display: flex;
     gap: 10px;
     align-items: center;
+    flex: 1;
 `;
 
 const RoleSelect = styled(Select)`
@@ -59,27 +71,11 @@ type Props = {
 
 export default function ViewInviteTokenModal({ open, onClose }: Props) {
     const baseUrl = window.location.origin;
-    const location = useLocation();
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const paramsQuery = (params?.query as string) || undefined;
-    const [query, setQuery] = useState<undefined | string>(undefined);
-    useEffect(() => setQuery(paramsQuery), [paramsQuery]);
     const [selectedRole, setSelectedRole] = useState<DataHubRole>();
 
-    // Code related to listing role options and selecting a role
     const noRoleText = 'No Role';
 
-    const { data: rolesData } = useListRolesQuery({
-        fetchPolicy: 'cache-first',
-        variables: {
-            input: {
-                start: 0,
-                count: 10,
-                query,
-            },
-        },
-    });
-    const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
+    const { roles: selectRoleOptions } = useRoleSelector();
 
     const rolesMap: Map<string, DataHubRole> = new Map();
     selectRoleOptions.forEach((role) => {
@@ -89,7 +85,7 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
     const roleSelectOptions = () =>
         selectRoleOptions.map((role) => {
             return (
-                <Select.Option value={role.urn}>
+                <Select.Option key={role.urn} value={role.urn}>
                     <RoleIcon>{mapRoleIcon(role.name)}</RoleIcon>
                     {role.name}
                 </Select.Option>
@@ -144,61 +140,55 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
             });
     };
 
-    const inviteLink = `${baseUrl}${PageRoutes.SIGN_UP}?invite_token=${inviteToken}`;
+    const inviteLink = `${baseUrl}${resolveRuntimePath(`${PageRoutes.SIGN_UP}?invite_token=${inviteToken}`)}`;
 
     return (
-        <Modal
-            width={950}
-            footer={null}
-            title={
-                <Typography.Text>
-                    <b>Share Invite Link</b>
-                </Typography.Text>
-            }
-            open={open}
-            onCancel={onClose}
-        >
+        <Modal width={950} footer={null} buttons={[]} title="Share Invite Link" open={open} onCancel={onClose}>
             <ModalSection>
                 <InviteLinkDiv>
-                    <RoleSelect
-                        placeholder={
-                            <>
-                                <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />
+                    <InfoContainer>
+                        <RoleSelect
+                            placeholder={
+                                <>
+                                    <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />
+                                    {noRoleText}
+                                </>
+                            }
+                            value={selectedRole?.urn || undefined}
+                            onChange={(e) => onSelectRole(e as string)}
+                        >
+                            <Select.Option value="">
+                                <RoleIcon>{mapRoleIcon(noRoleText)}</RoleIcon>
                                 {noRoleText}
-                            </>
-                        }
-                        value={selectedRole?.urn || undefined}
-                        onChange={(e) => onSelectRole(e as string)}
-                    >
-                        <Select.Option value="">
-                            <RoleIcon>{mapRoleIcon(noRoleText)}</RoleIcon>
-                            {noRoleText}
-                        </Select.Option>
-                        {roleSelectOptions()}
-                    </RoleSelect>
-                    <CopyText>
-                        <pre>{inviteLink}</pre>
-                    </CopyText>
-                    <Tooltip title="Copy invite link.">
-                        <Button
-                            onClick={() => {
-                                navigator.clipboard.writeText(inviteLink);
-                                message.success('Copied invite link to clipboard');
-                            }}
-                        >
-                            Copy
-                        </Button>
-                    </Tooltip>
-                    <Tooltip title="Generate a new link. Any old links will no longer be valid.">
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                createInviteToken(selectedRole?.urn);
-                            }}
-                        >
-                            Refresh
-                        </Button>
-                    </Tooltip>
+                            </Select.Option>
+                            {roleSelectOptions()}
+                        </RoleSelect>
+                        <CopyText>
+                            <pre>{inviteLink}</pre>
+                        </CopyText>
+                    </InfoContainer>
+                    <ActionsContainer>
+                        <Tooltip title="Copy invite link.">
+                            <Button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(inviteLink);
+                                    message.success('Copied invite link to clipboard');
+                                }}
+                            >
+                                Copy
+                            </Button>
+                        </Tooltip>
+                        <Tooltip title="Generate a new link. Any old links will no longer be valid.">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    createInviteToken(selectedRole?.urn);
+                                }}
+                            >
+                                Refresh
+                            </Button>
+                        </Tooltip>
+                    </ActionsContainer>
                 </InviteLinkDiv>
                 <ModalSectionFooter type="secondary">
                     Copy an invite link to send to your users. When they join, users will be automatically assigned to

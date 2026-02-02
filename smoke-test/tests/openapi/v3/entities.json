@@ -102,7 +102,9 @@
         "pitKeepAlive": "1m",
         "count": "1",
         "query": "qualifiedName:entities\\.datasetSingle*",
-        "sortCriteria": "urn"
+        "sortCriteria": "urn",
+        "skipAggregation": false,
+        "scrollIdPerEntity": true
       },
       "description": "Generic scroll",
       "json": {
@@ -114,7 +116,9 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
-        "root\\['totalCount'\\]"
+        "root\\['totalCount'\\]",
+        "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]",
+        "root\\['facets'\\]"
       ],
       "json": {
         "entities": [
@@ -129,7 +133,8 @@
               }
             }
           }
-        ]
+        ],
+        "totalCount": 3
       }
     }
   },
@@ -144,7 +149,8 @@
         "sortCriteria": [
           {
             "field": "name",
-            "order": "ASCENDING"
+            "order": "ASCENDING",
+            "missingValue": "FIRST"
           }
         ],
         "aspects": [],
@@ -168,7 +174,8 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\['scrollId'\\]"
+        "root\\['scrollId'\\]",
+        "root\\['facets'\\]"
       ],
       "json": {
         "entities": [
@@ -185,7 +192,7 @@
                 "datasetNameDelimiter": ".",
                 "type": "OTHERS",
                 "displayName": "OpenAPI",
-                "logoUrl": "/assets/platforms/openapilogo.png"
+                "logoUrl": "assets/platforms/openapilogo.png"
               }
             }
           }
@@ -223,7 +230,8 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\['scrollId'\\]"
+        "root\\['scrollId'\\]",
+        "root\\['facets'\\]"
       ],
       "json": {
         "entities": [
@@ -240,7 +248,7 @@
                 "datasetNameDelimiter": ".",
                 "type": "OTHERS",
                 "displayName": "vertexai",
-                "logoUrl": "/assets/platforms/vertexai.png"
+                "logoUrl": "assets/platforms/vertexai.png"
               }
             }
           }
@@ -269,6 +277,7 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
+        "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]",
         "root\\['totalCount'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['sourceIP'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['telemetryTraceId'\\]",
@@ -302,6 +311,14 @@
               }
             }
           }
+        ],
+        "facets":[
+          {
+            "field":"entity",
+            "aggregations":{
+              "dataset":1
+            }
+          }
         ]
       }
     }
@@ -322,6 +339,7 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
+        "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]",
         "root\\['totalCount'\\]"
       ],
       "json": {
@@ -342,7 +360,9 @@
               }
             }
           }
-        ]
+        ],
+        "facets": [],
+        "totalCount": 3
       }
     }
   },

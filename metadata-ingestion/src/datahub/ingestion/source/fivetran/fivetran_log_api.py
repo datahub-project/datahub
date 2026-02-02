@@ -9,6 +9,7 @@ from sqlalchemy import create_engine
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.source.fivetran.config import (
+    DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES,
     Constant,
     FivetranLogConfig,
     FivetranSourceReport,
@@ -20,6 +21,10 @@ from datahub.ingestion.source.fivetran.data_classes import (
     TableLineage,
 )
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
+from datahub.ingestion.source.unity.connection import (
+    create_workspace_client,
+    get_sql_connection_params,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -49,13 +54,39 @@ class FivetranLogAPI:
                     snowflake_destination_config.get_sql_alchemy_url(),
                     **snowflake_destination_config.get_options(),
                 )
-                engine.execute(
-                    fivetran_log_query.use_database(
-                        snowflake_destination_config.database,
+
+                """
+                Special Handling for Snowflake Backward Compatibility:
+                We have migrated to using quoted identifiers for database and schema names.
+                However, we need to support backward compatibility for existing databases and schemas that were created with unquoted identifiers.
+                When an unquoted identifier us used, we automatically convert it to uppercase + quoted identifier (this is Snowflake's behavior to resolve the identifier).
+                unquoted identifier -> uppercase + quoted identifier -> Snowflake resolves the identifier
+                """
+                snowflake_database = (
+                    snowflake_destination_config.database.upper()
+                    if FivetranLogQuery._is_valid_unquoted_identifier(
+                        snowflake_destination_config.database
                     )
+                    else snowflake_destination_config.database
+                )
+                logger.info(
+                    f"Using snowflake database: {snowflake_database} (original: {snowflake_destination_config.database})"
+                )
+                engine.execute(fivetran_log_query.use_database(snowflake_database))
+
+                snowflake_schema = (
+                    snowflake_destination_config.log_schema.upper()
+                    if FivetranLogQuery._is_valid_unquoted_identifier(
+                        snowflake_destination_config.log_schema
+                    )
+                    else snowflake_destination_config.log_schema
+                )
+
+                logger.info(
+                    f"Using snowflake schema: {snowflake_schema} (original: {snowflake_destination_config.log_schema})"
                 )
                 fivetran_log_query.set_schema(
-                    snowflake_destination_config.log_schema,
+                    snowflake_schema,
                 )
                 fivetran_log_database = snowflake_destination_config.database
         elif destination_platform == "bigquery":
@@ -73,6 +104,27 @@ class FivetranLogAPI:
                 if result is None:
                     raise ValueError("Failed to retrieve BigQuery project ID")
                 fivetran_log_database = result[0]
+        elif destination_platform == "databricks":
+            databricks_destination_config = (
+                self.fivetran_log_config.databricks_destination_config
+            )
+            if databricks_destination_config is not None:
+                # Pass connect_args (server_hostname, http_path, credentials_provider)
+                # so the databricks-sql-connector has valid authentication settings.
+                options = {
+                    **databricks_destination_config.get_options(),
+                    "connect_args": get_sql_connection_params(
+                        create_workspace_client(databricks_destination_config)
+                    ),
+                }
+                engine = create_engine(
+                    databricks_destination_config.get_sql_alchemy_url(
+                        databricks_destination_config.catalog
+                    ),
+                    **options,
+                )
+                fivetran_log_query.set_schema(databricks_destination_config.log_schema)
+                fivetran_log_database = databricks_destination_config.catalog
         else:
             raise ConfigurationError(
                 f"Destination platform '{destination_platform}' is not yet supported."
@@ -99,7 +151,11 @@ class FivetranLogAPI:
         """
         Returns dict of column lineage metadata with key as (<SOURCE_TABLE_ID>, <DESTINATION_TABLE_ID>)
         """
-        all_column_lineage = defaultdict(list)
+        all_column_lineage: Dict[Tuple[str, str], List] = defaultdict(list)
+
+        if not connector_ids:
+            return dict(all_column_lineage)
+
         column_lineage_result = self._query(
             self.fivetran_log_query.get_column_lineage_query(
                 connector_ids=connector_ids
@@ -117,7 +173,11 @@ class FivetranLogAPI:
         """
         Returns dict of table lineage metadata with key as 'CONNECTOR_ID'
         """
-        connectors_table_lineage_metadata = defaultdict(list)
+        connectors_table_lineage_metadata: Dict[str, List] = defaultdict(list)
+
+        if not connector_ids:
+            return dict(connectors_table_lineage_metadata)
+
         table_lineage_result = self._query(
             self.fivetran_log_query.get_table_lineage_query(connector_ids=connector_ids)
         )
@@ -233,9 +293,15 @@ class FivetranLogAPI:
         return self._get_users().get(user_id)
 
     def _fill_connectors_lineage(self, connectors: List[Connector]) -> None:
-        connector_ids = [connector.connector_id for connector in connectors]
-        table_lineage_metadata = self._get_table_lineage_metadata(connector_ids)
-        column_lineage_metadata = self._get_column_lineage_metadata(connector_ids)
+        # Create 2 filtered connector_ids lists - one for table lineage and one for column lineage
+        tll_connector_ids: List[str] = []
+        cll_connector_ids: List[str] = []
+        for connector in connectors:
+            tll_connector_ids.append(connector.connector_id)
+            if connector.connector_type not in DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES:
+                cll_connector_ids.append(connector.connector_id)
+        table_lineage_metadata = self._get_table_lineage_metadata(tll_connector_ids)
+        column_lineage_metadata = self._get_column_lineage_metadata(cll_connector_ids)
         for connector in connectors:
             connector.lineage = self._extract_connector_lineage(
                 table_lineage_result=table_lineage_metadata.get(connector.connector_id),

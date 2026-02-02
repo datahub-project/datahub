@@ -1,12 +1,15 @@
 from typing import Dict, Optional
 
-from pydantic import Field, SecretStr, validator
+from pydantic import Field, SecretStr, field_validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
@@ -37,7 +40,7 @@ class GrafanaSourceConfig(
 ):
     """Configuration for Grafana source"""
 
-    platform: str = Field(default="grafana", hidden_from_docs=True)
+    platform: HiddenFromDocs[str] = Field(default="grafana")
     url: str = Field(
         description="Grafana URL in the format http://your-grafana-instance with no trailing slash"
     )
@@ -80,6 +83,16 @@ class GrafanaSourceConfig(
     ingest_owners: bool = Field(
         default=True, description="Whether to ingest dashboard ownership information"
     )
+    remove_email_suffix: bool = Field(
+        True,
+        description="Remove Grafana user email suffix for example, @acryl.io, "
+        "when assigning ownership.",
+    )
+    skip_text_panels: bool = Field(
+        default=False,
+        description="Whether to skip text panels during ingestion. "
+        "Text panels don't contain data visualizations and may not be relevant for data lineage.",
+    )
 
     include_lineage: bool = Field(
         default=True,
@@ -99,6 +112,11 @@ class GrafanaSourceConfig(
         description="Map of Grafana datasource types/UIDs to platform connection configs for lineage extraction",
     )
 
-    @validator("url", allow_reuse=True)
-    def remove_trailing_slash(cls, v):
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None, description="Stateful ingestion configuration"
+    )
+
+    @field_validator("url", mode="after")
+    @classmethod
+    def remove_trailing_slash(cls, v: str) -> str:
         return config_clean.remove_trailing_slashes(v)

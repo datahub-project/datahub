@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import { useMutationUrn } from '@app/entity/shared/EntityContext';
 import { pathMatchesExact } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import NotesSection from '@app/entityV2/shared/notes/NotesSection';
+import FieldBusinessAttribute from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldBusinessAttribute';
 import FieldDescription from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDescription';
 import { FieldDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDetails';
 import FieldTags from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTags';
@@ -12,9 +13,18 @@ import FieldTerms from '@app/entityV2/shared/tabs/Dataset/Schema/components/Sche
 import SampleValuesSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SampleValuesSection';
 import StatsSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSection';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import useFileUpload from '@app/shared/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
 import SidebarStructuredProperties from '@src/app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 
-import { DatasetFieldProfile, EditableSchemaMetadata, Post, SchemaField, UsageQueryResult } from '@types';
+import {
+    DatasetFieldProfile,
+    EditableSchemaMetadata,
+    Post,
+    SchemaField,
+    UploadDownloadScenario,
+    UsageQueryResult,
+} from '@types';
 
 const MetadataSections = styled.div`
     padding: 16px 12px;
@@ -33,12 +43,26 @@ interface AboutFieldTabProps {
         setSelectedTabName: any;
         refetch?: () => void;
         refetchNotes?: () => void;
+        fieldUrn?: string;
+        assetUrn?: string;
     };
 }
 
 export function AboutFieldTab({ properties }: AboutFieldTabProps) {
     const datasetUrn = useMutationUrn();
     const { refetch, refetchNotes } = properties;
+
+    const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
+        scenario: UploadDownloadScenario.AssetDocumentation,
+        assetUrn: properties.assetUrn,
+        schemaField: properties.fieldUrn,
+    });
+
+    const { uploadFile } = useFileUpload({
+        scenario: UploadDownloadScenario.AssetDocumentation,
+        assetUrn: properties.assetUrn,
+        schemaField: properties.fieldUrn,
+    });
 
     const expandedFieldIndex = useMemo(
         () => properties.schemaFields.findIndex((row) => row.fieldPath === properties.expandedDrawerFieldPath),
@@ -77,7 +101,16 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             refetch={delayedRefetchNotes}
                         />
                         {!!notes?.length && <StyledDivider />}
-                        <FieldDescription expandedField={expandedField} editableFieldInfo={editableFieldInfo} />
+                        <FieldDescription
+                            expandedField={expandedField}
+                            editableFieldInfo={editableFieldInfo}
+                            editorProps={{
+                                uploadFileProps: {
+                                    onFileUpload: uploadFile,
+                                    ...uploadFileAnalyticsCallbacks,
+                                },
+                            }}
+                        />
                         <FieldTags
                             expandedField={expandedField}
                             editableSchemaMetadata={properties.editableSchemaMetadata}
@@ -86,6 +119,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             expandedField={expandedField}
                             editableSchemaMetadata={properties.editableSchemaMetadata}
                         />
+                        <FieldBusinessAttribute expandedField={expandedField} refetch={refetch} />
                         <SidebarStructuredProperties
                             properties={{
                                 isSchemaSidebar: true,

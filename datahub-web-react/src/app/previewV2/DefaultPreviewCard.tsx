@@ -170,7 +170,7 @@ interface Props {
     // how the listed node is connected to the source node
     degree?: number;
     parentEntities?: Entity[] | null;
-    previewType?: Maybe<PreviewType>;
+    previewType: PreviewType;
     paths?: EntityPath[];
     health?: Health[];
     lastUpdatedMs?: DatasetLastUpdatedMs | DashboardLastUpdatedMs;

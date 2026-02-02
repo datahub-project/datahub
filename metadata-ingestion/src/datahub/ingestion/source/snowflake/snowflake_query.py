@@ -178,6 +178,10 @@ class SnowflakeQuery:
         order by procedure_schema, procedure_name"""
 
     @staticmethod
+    def streamlit_apps_for_database(db_name: str) -> str:
+        return f'SHOW STREAMLITS IN DATABASE "{db_name}"'
+
+    @staticmethod
     def get_all_tags():
         return """
         SELECT tag_database as "TAG_DATABASE",
@@ -305,6 +309,188 @@ WHERE TABLE_CATALOG = '{db_name}'
             FROM SNOWFLAKE.ACCOUNT_USAGE.VIEWS
             WHERE IS_SECURE = 'YES' AND VIEW_DEFINITION !='' AND DELETED IS NULL
         """
+
+    @staticmethod
+    def get_semantic_views_for_database(db_name: str) -> str:
+        # Query semantic views from dedicated INFORMATION_SCHEMA.SEMANTIC_VIEWS view
+        return f"""\
+SELECT
+  CATALOG as "SEMANTIC_VIEW_CATALOG",
+  SCHEMA as "SEMANTIC_VIEW_SCHEMA",
+  NAME as "SEMANTIC_VIEW_NAME",
+  COMMENT,
+  CREATED
+FROM "{db_name}".information_schema.semantic_views
+"""
+
+    @staticmethod
+    def get_semantic_views_for_schema(db_name: str, schema_name: str) -> str:
+        return f"""\
+{SnowflakeQuery.get_semantic_views_for_database(db_name).rstrip()}
+WHERE SCHEMA = '{schema_name}'
+"""
+
+    @staticmethod
+    def get_semantic_view_ddl(
+        db_name: str, schema_name: str, semantic_view_name: str
+    ) -> str:
+        """Generate query to get the DDL definition of a semantic view.
+
+        Note: Inputs are expected to be pre-validated Snowflake identifiers from
+        INFORMATION_SCHEMA queries. Double-quote escaping is used for identifiers.
+        """
+        return f"""SELECT GET_DDL('SEMANTIC_VIEW', '"{db_name}"."{schema_name}"."{semantic_view_name}"') AS "DDL";"""
+
+    @staticmethod
+    def get_semantic_tables_for_database(db_name: str) -> str:
+        """Generate query to get semantic tables (base table mappings) for all semantic views in a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  name AS "SEMANTIC_TABLE_NAME",
+  base_table_catalog AS "BASE_TABLE_CATALOG",
+  base_table_schema AS "BASE_TABLE_SCHEMA",
+  base_table_name AS "BASE_TABLE_NAME",
+  primary_keys AS "PRIMARY_KEYS",
+  unique_keys AS "UNIQUE_KEYS",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_tables
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_tables_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic tables for semantic views in a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  name AS "SEMANTIC_TABLE_NAME",
+  base_table_catalog AS "BASE_TABLE_CATALOG",
+  base_table_schema AS "BASE_TABLE_SCHEMA",
+  base_table_name AS "BASE_TABLE_NAME",
+  primary_keys AS "PRIMARY_KEYS",
+  unique_keys AS "UNIQUE_KEYS",
+  comment AS "COMMENT"
+FROM "{db_name}".information_schema.semantic_tables
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_dimensions_for_database(db_name: str) -> str:
+        """Generate query to get all semantic dimensions for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_dimensions
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_dimensions_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic dimensions for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_dimensions
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_facts_for_database(db_name: str) -> str:
+        """Generate query to get all semantic facts for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_facts
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_facts_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic facts for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_facts
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_metrics_for_database(db_name: str) -> str:
+        """Generate query to get all semantic metrics for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_metrics
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_metrics_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic metrics for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_metrics
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
 
     @staticmethod
     def columns_for_schema(
@@ -1002,7 +1188,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     def get_dynamic_table_graph_history(db_name: str) -> str:
         """Get dynamic table dependency information from information schema."""
         return f"""
-            SELECT   
+            SELECT
                 name,
                 inputs,
                 target_lag_type,
@@ -1011,4 +1197,225 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 alter_trigger
             FROM TABLE("{db_name}".INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
             ORDER BY name
+        """
+
+    # ==================== Semantic View Usage Queries ====================
+
+    @staticmethod
+    def semantic_view_usage_statistics(
+        start_time_millis: int,
+        end_time_millis: int,
+        time_bucket_size: BucketDuration,
+        top_n_queries: int = 10,
+    ) -> str:
+        """Query QUERY_HISTORY for semantic view usage statistics.
+
+        Uses pattern matching on SEMANTIC_VIEW() function calls.
+        """
+        assert (
+            time_bucket_size == BucketDuration.DAY
+            or time_bucket_size == BucketDuration.HOUR
+        )
+
+        return f"""
+        WITH semantic_view_queries AS (
+            SELECT
+                query_id,
+                start_time AS query_start_time,
+                user_name,
+                query_text,
+                total_elapsed_time,
+                rows_produced,
+                -- Extract semantic view name from SEMANTIC_VIEW(name ...) pattern
+                REGEXP_SUBSTR(query_text, 'SEMANTIC_VIEW\\\\(\\\\s*([A-Za-z0-9_\\\\.]+)', 1, 1, 'i', 1) AS semantic_view_name,
+                -- Detect if this is a Cortex Analyst generated query
+                CASE
+                    WHEN query_text LIKE '%-- Generated by Cortex Analyst%' THEN 'CORTEX_ANALYST'
+                    ELSE 'DIRECT_SQL'
+                END AS query_source
+            FROM snowflake.account_usage.query_history
+            WHERE query_text ILIKE '%SEMANTIC_VIEW(%'
+                AND execution_status = 'SUCCESS'
+                AND start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                AND start_time < to_timestamp_ltz({end_time_millis}, 3)
+        ),
+        usage_aggregated AS (
+            SELECT
+                semantic_view_name,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                COUNT(DISTINCT query_id) AS total_queries,
+                COUNT(DISTINCT user_name) AS unique_users,
+                SUM(CASE WHEN query_source = 'DIRECT_SQL' THEN 1 ELSE 0 END) AS direct_sql_queries,
+                SUM(CASE WHEN query_source = 'CORTEX_ANALYST' THEN 1 ELSE 0 END) AS cortex_analyst_queries,
+                AVG(total_elapsed_time) AS avg_execution_time_ms,
+                SUM(rows_produced) AS total_rows_produced
+            FROM semantic_view_queries
+            WHERE semantic_view_name IS NOT NULL
+            GROUP BY semantic_view_name, bucket_start_time
+        ),
+        user_counts AS (
+            SELECT
+                semantic_view_name,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                user_name,
+                COUNT(DISTINCT query_id) AS query_count
+            FROM semantic_view_queries
+            WHERE semantic_view_name IS NOT NULL
+            GROUP BY semantic_view_name, bucket_start_time, user_name
+        ),
+        top_queries AS (
+            SELECT
+                semantic_view_name,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                query_text,
+                COUNT(DISTINCT query_id) AS query_count
+            FROM semantic_view_queries
+            WHERE semantic_view_name IS NOT NULL
+            GROUP BY semantic_view_name, bucket_start_time, query_text
+            QUALIFY ROW_NUMBER() OVER (
+                PARTITION BY semantic_view_name, bucket_start_time
+                ORDER BY query_count DESC, query_text ASC
+            ) <= {top_n_queries}
+        )
+        SELECT
+            ua.semantic_view_name AS "SEMANTIC_VIEW_NAME",
+            ua.bucket_start_time AS "BUCKET_START_TIME",
+            ua.total_queries AS "TOTAL_QUERIES",
+            ua.unique_users AS "UNIQUE_USERS",
+            ua.direct_sql_queries AS "DIRECT_SQL_QUERIES",
+            ua.cortex_analyst_queries AS "CORTEX_ANALYST_QUERIES",
+            ua.avg_execution_time_ms AS "AVG_EXECUTION_TIME_MS",
+            ua.total_rows_produced AS "TOTAL_ROWS_PRODUCED",
+            ARRAY_AGG(DISTINCT OBJECT_CONSTRUCT(
+                'user_name', uc.user_name,
+                'query_count', uc.query_count
+            )) AS "USER_COUNTS",
+            ARRAY_AGG(DISTINCT tq.query_text) AS "TOP_SQL_QUERIES"
+        FROM usage_aggregated ua
+        LEFT JOIN user_counts uc
+            ON ua.semantic_view_name = uc.semantic_view_name
+            AND ua.bucket_start_time = uc.bucket_start_time
+        LEFT JOIN top_queries tq
+            ON ua.semantic_view_name = tq.semantic_view_name
+            AND ua.bucket_start_time = tq.bucket_start_time
+        GROUP BY
+            ua.semantic_view_name,
+            ua.bucket_start_time,
+            ua.total_queries,
+            ua.unique_users,
+            ua.direct_sql_queries,
+            ua.cortex_analyst_queries,
+            ua.avg_execution_time_ms,
+            ua.total_rows_produced
+        ORDER BY ua.bucket_start_time, ua.semantic_view_name
+        """
+
+    @staticmethod
+    def semantic_view_queries(
+        start_time_millis: int,
+        end_time_millis: int,
+        max_queries: int = 100,
+    ) -> str:
+        """Query QUERY_HISTORY for queries against semantic views.
+
+        Uses pattern matching on SEMANTIC_VIEW() function calls.
+        Returns individual query records for emission as Query entities.
+        """
+        return f"""
+        SELECT
+            query_id AS "QUERY_ID",
+            query_text AS "QUERY_TEXT",
+            user_name AS "USER_NAME",
+            role_name AS "ROLE_NAME",
+            warehouse_name AS "WAREHOUSE_NAME",
+            start_time AS "START_TIME",
+            total_elapsed_time AS "TOTAL_ELAPSED_TIME",
+            rows_produced AS "ROWS_PRODUCED",
+            -- Extract semantic view name from SEMANTIC_VIEW(name ...) pattern
+            REGEXP_SUBSTR(query_text, 'SEMANTIC_VIEW\\\\(\\\\s*([A-Za-z0-9_\\\\.]+)', 1, 1, 'i', 1) AS "SEMANTIC_VIEW_NAME",
+            -- Detect if this is a Cortex Analyst generated query
+            CASE
+                WHEN query_text LIKE '%-- Generated by Cortex Analyst%' THEN 'CORTEX_ANALYST'
+                ELSE 'DIRECT_SQL'
+            END AS "QUERY_SOURCE"
+        FROM snowflake.account_usage.query_history
+        WHERE query_text ILIKE '%SEMANTIC_VIEW(%'
+            AND execution_status = 'SUCCESS'
+            AND start_time >= to_timestamp_ltz({start_time_millis}, 3)
+            AND start_time < to_timestamp_ltz({end_time_millis}, 3)
+        ORDER BY start_time DESC
+        LIMIT {max_queries}
+        """
+
+    @staticmethod
+    def semantic_view_profile_counts(db_name: str) -> str:
+        """Query to get counts of dimensions, facts, metrics for semantic view profiles.
+
+        This aggregates counts from SEMANTIC_DIMENSIONS, SEMANTIC_FACTS, SEMANTIC_METRICS,
+        and SEMANTIC_TABLES to populate the Stats tab (DatasetProfile).
+        """
+        return f"""
+        WITH dimension_counts AS (
+            SELECT
+                semantic_view_catalog,
+                semantic_view_schema,
+                semantic_view_name,
+                COUNT(*) AS dimension_count
+            FROM "{db_name}".information_schema.semantic_dimensions
+            GROUP BY semantic_view_catalog, semantic_view_schema, semantic_view_name
+        ),
+        fact_counts AS (
+            SELECT
+                semantic_view_catalog,
+                semantic_view_schema,
+                semantic_view_name,
+                COUNT(*) AS fact_count
+            FROM "{db_name}".information_schema.semantic_facts
+            GROUP BY semantic_view_catalog, semantic_view_schema, semantic_view_name
+        ),
+        metric_counts AS (
+            SELECT
+                semantic_view_catalog,
+                semantic_view_schema,
+                semantic_view_name,
+                COUNT(*) AS metric_count
+            FROM "{db_name}".information_schema.semantic_metrics
+            GROUP BY semantic_view_catalog, semantic_view_schema, semantic_view_name
+        ),
+        table_counts AS (
+            SELECT
+                semantic_view_catalog,
+                semantic_view_schema,
+                semantic_view_name,
+                COUNT(*) AS table_count
+            FROM "{db_name}".information_schema.semantic_tables
+            GROUP BY semantic_view_catalog, semantic_view_schema, semantic_view_name
+        )
+        SELECT
+            sv.CATALOG AS "SEMANTIC_VIEW_CATALOG",
+            sv.SCHEMA AS "SEMANTIC_VIEW_SCHEMA",
+            sv.NAME AS "SEMANTIC_VIEW_NAME",
+            COALESCE(dc.dimension_count, 0) AS "DIMENSION_COUNT",
+            COALESCE(fc.fact_count, 0) AS "FACT_COUNT",
+            COALESCE(mc.metric_count, 0) AS "METRIC_COUNT",
+            COALESCE(tc.table_count, 0) AS "TABLE_COUNT",
+            COALESCE(dc.dimension_count, 0) + COALESCE(fc.fact_count, 0) + COALESCE(mc.metric_count, 0) AS "TOTAL_COLUMN_COUNT"
+        FROM "{db_name}".information_schema.semantic_views sv
+        LEFT JOIN dimension_counts dc
+            ON sv.CATALOG = dc.semantic_view_catalog
+            AND sv.SCHEMA = dc.semantic_view_schema
+            AND sv.NAME = dc.semantic_view_name
+        LEFT JOIN fact_counts fc
+            ON sv.CATALOG = fc.semantic_view_catalog
+            AND sv.SCHEMA = fc.semantic_view_schema
+            AND sv.NAME = fc.semantic_view_name
+        LEFT JOIN metric_counts mc
+            ON sv.CATALOG = mc.semantic_view_catalog
+            AND sv.SCHEMA = mc.semantic_view_schema
+            AND sv.NAME = mc.semantic_view_name
+        LEFT JOIN table_counts tc
+            ON sv.CATALOG = tc.semantic_view_catalog
+            AND sv.SCHEMA = tc.semantic_view_schema
+            AND sv.NAME = tc.semantic_view_name
+        ORDER BY sv.SCHEMA, sv.NAME
         """

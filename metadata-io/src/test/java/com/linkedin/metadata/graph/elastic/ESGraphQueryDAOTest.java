@@ -1,13 +1,15 @@
 package com.linkedin.metadata.graph.elastic;
 
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -16,24 +18,29 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.GraphQueryConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.commons.lang3.NotImplementedException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.RestHighLevelClient;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class ESGraphQueryDAOTest {
 
-  private RestHighLevelClient mockClient;
+  private SearchClientShim<?> mockClient;
   private GraphServiceConfiguration mockGraphServiceConfig;
   private ElasticSearchConfiguration mockElasticSearchConfig;
   private MetricUtils mockMetricUtils;
@@ -46,9 +53,12 @@ public class ESGraphQueryDAOTest {
   private SearchRequest mockSearchRequest;
   private SearchResponse mockSearchResponse;
 
+  // Track created DAOs for cleanup to prevent thread pool leaks
+  private final List<ESGraphQueryDAO> createdDAOs = new ArrayList<>();
+
   @BeforeMethod
   public void setUp() {
-    mockClient = mock(RestHighLevelClient.class);
+    mockClient = mock(SearchClientShim.class);
     mockGraphServiceConfig = mock(GraphServiceConfiguration.class);
     mockElasticSearchConfig = mock(ElasticSearchConfiguration.class);
     mockMetricUtils = mock(MetricUtils.class);
@@ -60,35 +70,60 @@ public class ESGraphQueryDAOTest {
     mockSortCriteria = Arrays.asList(mock(SortCriterion.class));
     mockSearchRequest = mock(SearchRequest.class);
     mockSearchResponse = mock(SearchResponse.class);
+
+    // Configure nested mock objects for ElasticSearchConfiguration
+    SearchConfiguration mockSearchConfig = mock(SearchConfiguration.class);
+    GraphQueryConfiguration mockGraphQueryConfig = mock(GraphQueryConfiguration.class);
+
+    when(mockElasticSearchConfig.getSearch()).thenReturn(mockSearchConfig);
+    when(mockSearchConfig.getGraph()).thenReturn(mockGraphQueryConfig);
+
+    // Configure GraphQueryConfiguration with valid values for thread pool creation
+    when(mockGraphQueryConfig.getMaxThreads()).thenReturn(1);
+    createdDAOs.clear(); // Clear any previously tracked DAOs
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Shutdown all created DAOs to prevent thread pool leaks
+    for (ESGraphQueryDAO dao : createdDAOs) {
+      try {
+        dao.destroy();
+      } catch (Exception e) {
+        // Log but don't fail the test
+        System.err.println("Failed to destroy DAO: " + e.getMessage());
+      }
+    }
+    createdDAOs.clear();
   }
 
   @Test
   public void testConstructorWithElasticsearchImplementation() {
-    when(mockElasticSearchConfig.getImplementation())
-        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
 
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+    createdDAOs.add(dao);
 
     assertNotNull(dao);
   }
 
   @Test
   public void testConstructorWithOpenSearchImplementation() {
-    when(mockElasticSearchConfig.getImplementation())
-        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+    createdDAOs.add(dao);
 
     assertNotNull(dao);
   }
 
   @Test
   public void testConstructorWithUnsupportedImplementation() {
-    when(mockElasticSearchConfig.getImplementation()).thenReturn("unsupported");
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.UNKNOWN);
 
     assertThrows(
         NotImplementedException.class,
@@ -100,11 +135,11 @@ public class ESGraphQueryDAOTest {
 
   @Test
   public void testGetLineage() {
-    when(mockElasticSearchConfig.getImplementation())
-        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+    createdDAOs.add(dao);
 
     // Use reflection to set the delegate since it's private
     try {
@@ -115,7 +150,7 @@ public class ESGraphQueryDAOTest {
       throw new RuntimeException(e);
     }
 
-    LineageResponse expectedResponse = new LineageResponse(5, Arrays.asList());
+    LineageResponse expectedResponse = new LineageResponse(5, Arrays.asList(), false);
     when(mockDelegate.getLineage(
             eq(mockOperationContext),
             eq(mockEntityUrn),
@@ -135,11 +170,11 @@ public class ESGraphQueryDAOTest {
 
   @Test
   public void testGetImpactLineage() {
-    when(mockElasticSearchConfig.getImplementation())
-        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+    createdDAOs.add(dao);
 
     // Use reflection to set the delegate since it's private
     try {
@@ -150,7 +185,7 @@ public class ESGraphQueryDAOTest {
       throw new RuntimeException(e);
     }
 
-    LineageResponse expectedResponse = new LineageResponse(3, Arrays.asList());
+    LineageResponse expectedResponse = new LineageResponse(3, Arrays.asList(), false);
     when(mockDelegate.getImpactLineage(
             eq(mockOperationContext), eq(mockEntityUrn), eq(mockLineageGraphFilters), eq(5)))
         .thenReturn(expectedResponse);
@@ -165,11 +200,11 @@ public class ESGraphQueryDAOTest {
 
   @Test
   public void testGetSearchResponseBasic() {
-    when(mockElasticSearchConfig.getImplementation())
-        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+    createdDAOs.add(dao);
 
     // Use reflection to set the delegate since it's private
     try {
@@ -192,11 +227,11 @@ public class ESGraphQueryDAOTest {
 
   @Test
   public void testGetSearchResponseAdvanced() {
-    when(mockElasticSearchConfig.getImplementation())
-        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+    createdDAOs.add(dao);
 
     // Use reflection to set the delegate since it's private
     try {
@@ -228,11 +263,11 @@ public class ESGraphQueryDAOTest {
 
   @Test
   public void testGetSearchResponseWithNullParameters() {
-    when(mockElasticSearchConfig.getImplementation())
-        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+    createdDAOs.add(dao);
 
     // Use reflection to set the delegate since it's private
     try {
@@ -264,11 +299,11 @@ public class ESGraphQueryDAOTest {
 
   @Test
   public void testExecuteSearch() {
-    when(mockElasticSearchConfig.getImplementation())
-        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+    createdDAOs.add(dao);
 
     // Use reflection to set the delegate since it's private
     try {
@@ -289,8 +324,7 @@ public class ESGraphQueryDAOTest {
 
   @Test
   public void testConstructorCreatesCorrectDelegateForElasticsearch() {
-    when(mockElasticSearchConfig.getImplementation())
-        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
 
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
@@ -303,25 +337,25 @@ public class ESGraphQueryDAOTest {
 
   @Test
   public void testConstructorCreatesCorrectDelegateForOpenSearch() {
-    when(mockElasticSearchConfig.getImplementation())
-        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+    createdDAOs.add(dao);
 
     assertNotNull(dao);
-    // The delegate should be an instance of GraphQueryOpenSearchDAO
+    // The delegate should be an instance of GraphQueryPITDAO
     assertTrue(dao instanceof ESGraphQueryDAO);
   }
 
   @Test
   public void testGetLineageWithNullCount() {
-    when(mockElasticSearchConfig.getImplementation())
-        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+    createdDAOs.add(dao);
 
     // Use reflection to set the delegate since it's private
     try {
@@ -332,7 +366,7 @@ public class ESGraphQueryDAOTest {
       throw new RuntimeException(e);
     }
 
-    LineageResponse expectedResponse = new LineageResponse(5, Arrays.asList());
+    LineageResponse expectedResponse = new LineageResponse(5, Arrays.asList(), false);
     when(mockDelegate.getLineage(
             eq(mockOperationContext),
             eq(mockEntityUrn),
@@ -352,11 +386,11 @@ public class ESGraphQueryDAOTest {
 
   @Test
   public void testGetSearchResponseWithNullCount() {
-    when(mockElasticSearchConfig.getImplementation())
-        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+    createdDAOs.add(dao);
 
     // Use reflection to set the delegate since it's private
     try {
@@ -379,11 +413,11 @@ public class ESGraphQueryDAOTest {
 
   @Test
   public void testGetSearchResponseAdvancedWithNullParameters() {
-    when(mockElasticSearchConfig.getImplementation())
-        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+    createdDAOs.add(dao);
 
     // Use reflection to set the delegate since it's private
     try {
@@ -411,5 +445,102 @@ public class ESGraphQueryDAOTest {
     verify(mockDelegate)
         .getSearchResponse(
             mockOperationContext, mockGraphFilters, mockSortCriteria, "scroll123", "5m", null);
+  }
+
+  @Test
+  public void testDestroyWithGraphQueryPITDAO() throws Exception {
+    // Test destroy() method when delegate is GraphQueryPITDAO
+    SearchClientShim<?> testClient = mock(SearchClientShim.class);
+    when(testClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    // Create a real GraphQueryPITDAO as delegate
+    GraphQueryPITDAO pitDAO =
+        new GraphQueryPITDAO(testClient, mockGraphServiceConfig, mockElasticSearchConfig, null);
+
+    // Create ESGraphQueryDAO with GraphQueryPITDAO as delegate
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(testClient, mockGraphServiceConfig, mockElasticSearchConfig, null);
+    // Note: This test explicitly calls destroy(), but we track it anyway for safety
+    createdDAOs.add(dao);
+
+    // Use reflection to set the delegate to our GraphQueryPITDAO
+    java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+    delegateField.setAccessible(true);
+    delegateField.set(dao, pitDAO);
+
+    // Verify the delegate is a GraphQueryPITDAO
+    GraphQueryBaseDAO actualDelegate = (GraphQueryBaseDAO) delegateField.get(dao);
+    assertTrue(actualDelegate instanceof GraphQueryPITDAO);
+
+    // Call destroy()
+    dao.destroy();
+
+    // Verify that the pitExecutor is shutdown
+    assertTrue(pitDAO.pitExecutor.isShutdown(), "PIT executor should be shutdown after destroy()");
+    assertTrue(
+        pitDAO.pitExecutor.isTerminated(), "PIT executor should be terminated after destroy()");
+  }
+
+  @Test
+  public void testDestroyWithNonGraphQueryPITDAO() throws Exception {
+    // Test destroy() method when delegate is NOT GraphQueryPITDAO
+    SearchClientShim<?> testClient = mock(SearchClientShim.class);
+    when(testClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
+
+    // Create ESGraphQueryDAO (which will have GraphQueryElasticsearch7DAO as delegate)
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(testClient, mockGraphServiceConfig, mockElasticSearchConfig, null);
+    // Note: This test explicitly calls destroy(), but we track it anyway for safety
+    createdDAOs.add(dao);
+
+    // Verify the delegate is NOT a GraphQueryPITDAO
+    java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+    delegateField.setAccessible(true);
+    GraphQueryBaseDAO actualDelegate = (GraphQueryBaseDAO) delegateField.get(dao);
+    assertFalse(actualDelegate instanceof GraphQueryPITDAO);
+
+    // Call destroy() - should not throw exception
+    dao.destroy();
+
+    // Test passes if no exception is thrown
+  }
+
+  @Test
+  public void testDestroyWithNullDelegate() throws Exception {
+    // Test destroy() method when delegate is null
+    SearchClientShim<?> testClient = mock(SearchClientShim.class);
+    when(testClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    // Create ESGraphQueryDAO
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(testClient, mockGraphServiceConfig, mockElasticSearchConfig, null);
+    // Note: This test explicitly calls destroy(), but we track it anyway for safety
+    createdDAOs.add(dao);
+
+    // Use reflection to set the delegate to null
+    java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+    delegateField.setAccessible(true);
+    delegateField.set(dao, null);
+
+    // Call destroy() - should not throw exception
+    dao.destroy();
+
+    // Test passes if no exception is thrown
+  }
+
+  @Test
+  public void testCleanupPointInTime() throws IOException {
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+
+    String pitId = "test-pit-id";
+    dao.cleanupPointInTime(pitId);
+
+    // Verify ESUtils.cleanupPointInTime was called with correct parameters
+    verify(mockClient, times(1)).deletePit(argThat(req -> req.getPitIds().contains(pitId)), any());
   }
 }

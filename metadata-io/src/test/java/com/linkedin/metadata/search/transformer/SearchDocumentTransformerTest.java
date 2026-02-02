@@ -429,10 +429,20 @@ public class SearchDocumentTransformerTest {
     String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)";
     SearchDocumentTransformer test = new SearchDocumentTransformer(1000, 1000, 1000);
 
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            RetrieverContext.builder()
+                .aspectRetriever(mock(AspectRetriever.class))
+                .cachingAspectRetriever(
+                    TestOperationContexts.emptyActiveUsersAspectRetriever(() -> ENTITY_REGISTRY))
+                .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
+                .build());
+
     // editedDescription - empty string
     Optional<ObjectNode> transformed =
         test.transformAspect(
-            mock(OperationContext.class),
+            opContext,
             UrnUtils.getUrn(entityUrn),
             new EditableDatasetProperties().setDescription(""),
             ENTITY_REGISTRY
@@ -449,7 +459,7 @@ public class SearchDocumentTransformerTest {
     // description - empty string
     transformed =
         test.transformAspect(
-            mock(OperationContext.class),
+            opContext,
             UrnUtils.getUrn(entityUrn),
             new DatasetProperties().setDescription(""),
             ENTITY_REGISTRY
@@ -487,7 +497,6 @@ public class SearchDocumentTransformerTest {
 
     // Mock AspectRetriever and OperationContext
     AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
-    OperationContext opContext = Mockito.mock(OperationContext.class);
 
     // Mock the aspectRetriever to return a structured property definition
     Map<Urn, Map<String, Aspect>> mockDefinitions = new HashMap<>();
@@ -503,9 +512,18 @@ public class SearchDocumentTransformerTest {
     aspectMap.put(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, structuredPropertyDefinitionAspect);
     mockDefinitions.put(UrnUtils.getUrn(structuredPropertyUrn), aspectMap);
 
-    Mockito.when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
     Mockito.when(aspectRetriever.getLatestAspectObjects(any(Set.class), any(Set.class)))
         .thenReturn(mockDefinitions);
+
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            RetrieverContext.builder()
+                .aspectRetriever(aspectRetriever)
+                .cachingAspectRetriever(
+                    TestOperationContexts.emptyActiveUsersAspectRetriever(() -> ENTITY_REGISTRY))
+                .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
+                .build());
 
     Optional<ObjectNode> transformed =
         test.transformAspect(
@@ -1011,5 +1029,97 @@ public class SearchDocumentTransformerTest {
     assertEquals(deepNode.get("e").asText(), "updatedDeepValue");
     assertTrue(deepNode.has("f"));
     assertTrue(deepNode.get("f").isNull());
+  }
+
+  @Test
+  public void testSanitizeRichTextWithAnnotation() throws Exception {
+    SearchDocumentTransformer transformer = new SearchDocumentTransformer(1000, 1000, 1000);
+
+    // Create a dataset with description containing base64 image
+    // Note: Description must be > 1000 chars for sanitization to trigger
+    StringBuilder longDescription = new StringBuilder();
+    longDescription.append("This is a comprehensive description of the dataset. ");
+    // Pad to ensure > 1000 characters
+    for (int i = 0; i < 20; i++) {
+      longDescription.append(
+          "This dataset contains important business data that is used across multiple teams. ");
+    }
+    longDescription.append("Here is an embedded image: ");
+    longDescription.append(
+        "![test](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==)");
+    longDescription.append(" This concludes the description.");
+
+    String descriptionWithImage = longDescription.toString();
+    assertTrue(
+        descriptionWithImage.length() > 1000,
+        "Description must be > 1000 chars for sanitization to trigger");
+
+    DatasetProperties properties = new DatasetProperties();
+    properties.setDescription(descriptionWithImage);
+
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+    EntitySpec entitySpec = ENTITY_REGISTRY.getEntitySpec("dataset");
+
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    Optional<ObjectNode> result =
+        transformer.transformAspect(
+            opContext,
+            urn,
+            properties,
+            entitySpec.getAspectSpec("datasetProperties"),
+            false,
+            AuditStampUtils.createDefaultAuditStamp());
+
+    assertTrue(result.isPresent());
+    ObjectNode searchDoc = result.get();
+
+    // Description field has sanitizeRichText: true in DatasetProperties.pdl
+    // Base64 image should be removed
+    String indexedDescription = searchDoc.get("description").asText();
+    assertFalse(
+        indexedDescription.contains("data:image"),
+        "Base64 image should be sanitized from description field");
+    assertTrue(
+        indexedDescription.contains("[Image: test]"),
+        "Alt text should be preserved as [Image: test]");
+  }
+
+  @Test
+  public void testNoSanitizationWithoutAnnotation() throws Exception {
+    SearchDocumentTransformer transformer = new SearchDocumentTransformer(1000, 1000, 1000);
+
+    // Create editable properties with name field containing base64 image
+    // name field is TEXT_PARTIAL but does NOT have sanitizeRichText annotation
+    String nameWithImage =
+        "Dataset Name ![img](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==)";
+
+    EditableDatasetProperties editableProps = new EditableDatasetProperties();
+    editableProps.setName(nameWithImage);
+
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+    EntitySpec entitySpec = ENTITY_REGISTRY.getEntitySpec("dataset");
+
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    Optional<ObjectNode> result =
+        transformer.transformAspect(
+            opContext,
+            urn,
+            editableProps,
+            entitySpec.getAspectSpec("editableDatasetProperties"),
+            false,
+            AuditStampUtils.createDefaultAuditStamp());
+
+    assertTrue(result.isPresent());
+    ObjectNode searchDoc = result.get();
+
+    // name field is TEXT_PARTIAL but does NOT have sanitizeRichText annotation
+    // Base64 image should NOT be sanitized
+    String indexedName = searchDoc.get("editedName").asText();
+    assertTrue(
+        indexedName.contains("data:image"),
+        "Base64 image should NOT be sanitized for fields without sanitizeRichText annotation");
+    assertTrue(indexedName.contains("Dataset Name"), "Original text should be preserved");
   }
 }

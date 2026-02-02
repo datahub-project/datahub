@@ -192,6 +192,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -230,6 +231,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
+            EntityCapabilityType.RELATED_DOCUMENTS,
         ]);
     };
 }

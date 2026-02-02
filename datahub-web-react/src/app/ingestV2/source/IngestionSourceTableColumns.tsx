@@ -119,6 +119,7 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                 }
             }}
             $shouldUnderline={!!onNameClick}
+            data-testid="ingestion-source-name"
         >
             {record.name || ''}
         </SourceNameText>
@@ -150,7 +151,7 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
             </DisplayNameContainer>
             {record.cliIngestion && (
                 <Tooltip title="This source is ingested from the command-line interface (CLI)">
-                    <div>
+                    <div data-testid="ingestion-source-cli-pill">
                         <Pill label="CLI" color="blue" size="xs" />
                     </div>
                 </Tooltip>
@@ -181,6 +182,7 @@ export function ScheduleColumn({ schedule, timezone }: { schedule: string; timez
                     showArrow: false,
                 },
             }}
+            data-testid="schedule"
         >
             {scheduleText || '-'}
         </TextContainer>
@@ -365,7 +367,7 @@ export function ActionsColumn({
                 <Icon
                     icon="Stop"
                     source="phosphor"
-                    // weight="fill"
+                    weight="fill"
                     color="primary"
                     onClick={(e) => {
                         e.stopPropagation();
@@ -379,13 +381,14 @@ export function ActionsColumn({
             <Icon
                 icon="Play"
                 source="phosphor"
-                // weight="fill"
+                weight="fill"
                 color="violet"
                 onClick={(e) => {
                     e.stopPropagation();
                     onExecute(record.urn);
                 }}
                 tooltipText="Execute"
+                data-testid="run-ingestion-source-button"
             />
         );
     };

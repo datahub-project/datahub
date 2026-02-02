@@ -47,7 +47,8 @@ export function convertEditableSchemaMetadataForUpdate(
     };
 }
 
-export function filterKeyFieldPath(showKeySchema: boolean, field: SchemaField) {
+export function filterKeyFieldPath(showKeySchema: boolean | undefined, field: SchemaField) {
+    if (showKeySchema === undefined) return true;
     return field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1 ? showKeySchema : !showKeySchema;
 }
 
@@ -58,10 +59,17 @@ export function downgradeV2FieldPath(fieldPath?: string | null) {
 
     const cleanedFieldPath = fieldPath.replace(KEY_SCHEMA_PREFIX, '').replace(VERSION_PREFIX, '');
 
-    // strip out all annotation segments
+    // Remove all bracket annotations (e.g., [0], [*], [key]) from the field path
     return cleanedFieldPath
         .split('.')
-        .map((segment) => (segment.startsWith('[') ? null : segment))
+        .map((segment) => {
+            // Remove segments that are entirely brackets (e.g., "[0]", "[*]")
+            if (segment.startsWith('[') && segment.endsWith(']')) {
+                return null;
+            }
+            // Remove bracket suffixes from segments (e.g., "addresses[0]" -> "addresses")
+            return segment.replace(/\[[^\]]*\]/g, '');
+        })
         .filter(Boolean)
         .join('.');
 }
@@ -83,7 +91,7 @@ export function pathMatchesExact(fieldPathA?: string | null, fieldPathB?: string
 export function groupByFieldPath(
     schemaRows?: Array<SchemaField>,
     options: {
-        showKeySchema: boolean;
+        showKeySchema: boolean | undefined;
     } = { showKeySchema: false },
 ): Array<ExtendedSchemaFields> {
     const rows = [

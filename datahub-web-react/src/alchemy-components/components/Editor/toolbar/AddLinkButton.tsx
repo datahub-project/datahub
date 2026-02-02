@@ -22,7 +22,7 @@ export const AddLinkButton = () => {
         <>
             <CommandButton
                 active={active}
-                icon={<LinkSimpleHorizontal size={24} color={colors.gray[1800]} />}
+                icon={<LinkSimpleHorizontal size={20} color={colors.gray[1800]} />}
                 commandName="insertLink"
                 onClick={handleButtonClick}
             />

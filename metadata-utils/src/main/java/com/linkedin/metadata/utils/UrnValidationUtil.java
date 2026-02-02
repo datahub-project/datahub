@@ -74,7 +74,7 @@ public class UrnValidationUtil {
                   "Simple URN %s contains comma character which is not allowed in non-tuple URNs",
                   urn));
         } else {
-          log.error(
+          log.warn(
               "Simple URN {} contains comma character which is not allowed in non-tuple URNs", urn);
         }
       }
@@ -91,7 +91,7 @@ public class UrnValidationUtil {
       if (strict) {
         throw new IllegalArgumentException(message);
       } else {
-        log.error(message);
+        log.warn(message);
       }
     }
 
@@ -221,6 +221,14 @@ public class UrnValidationUtil {
       // Recursively traverse nested DataMaps
       if (value instanceof DataMap) {
         traverseDataMap((DataMap) value, fieldPath, urnValidationSpecs, result);
+      } else if (value instanceof DataList) {
+        // Recursively traverse DataMaps within arrays (e.g., array[RecordType])
+        DataList list = (DataList) value;
+        for (Object item : list) {
+          if (item instanceof DataMap) {
+            traverseDataMap((DataMap) item, fieldPath + "/*", urnValidationSpecs, result);
+          }
+        }
       }
     }
   }

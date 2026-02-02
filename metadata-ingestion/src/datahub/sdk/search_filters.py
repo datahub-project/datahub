@@ -3,7 +3,6 @@ from __future__ import annotations
 import abc
 import json
 from typing import (
-    TYPE_CHECKING,
     Annotated,
     Any,
     ClassVar,
@@ -16,12 +15,9 @@ from typing import (
 )
 
 import pydantic
+from pydantic import field_validator
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.pydantic_migration_helpers import (
-    PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
-    PYDANTIC_VERSION_2,
-)
 from datahub.ingestion.graph.client import flexible_entity_type_to_graphql
 from datahub.ingestion.graph.filters import (
     FilterOperator,
@@ -30,7 +26,14 @@ from datahub.ingestion.graph.filters import (
     _get_status_filter,
 )
 from datahub.metadata.schema_classes import EntityTypeName
-from datahub.metadata.urns import ContainerUrn, DataPlatformUrn, DomainUrn
+from datahub.metadata.urns import (
+    ContainerUrn,
+    CorpGroupUrn,
+    CorpUserUrn,
+    DataPlatformUrn,
+    DomainUrn,
+)
+from datahub.utilities.urns.urn import guess_entity_type
 
 _AndSearchFilterRule = TypedDict(
     "_AndSearchFilterRule", {"and": List[SearchFilterRule]}
@@ -39,13 +42,7 @@ _OrFilters = List[_AndSearchFilterRule]
 
 
 class _BaseFilter(ConfigModel):
-    class Config:
-        # We can't wrap this in a TYPE_CHECKING block because the pydantic plugin
-        # doesn't recognize it properly. So unfortunately we'll need to live
-        # with the deprecation warning w/ pydantic v2.
-        allow_population_by_field_name = True
-        if PYDANTIC_VERSION_2:
-            populate_by_name = True
+    model_config = pydantic.ConfigDict(populate_by_name=True)
 
     @abc.abstractmethod
     def compile(self) -> _OrFilters: ...
@@ -57,10 +54,7 @@ class _BaseFilter(ConfigModel):
     def _field_discriminator(cls) -> str:
         if cls is _BaseFilter:
             raise ValueError("Cannot get discriminator for _BaseFilter")
-        if PYDANTIC_VERSION_2:
-            fields: dict = cls.model_fields  # type: ignore
-        else:
-            fields = cls.__fields__  # type: ignore
+        fields: dict = cls.model_fields  # type: ignore
 
         # Assumes that there's only one field name per filter.
         # If that's not the case, this method should be overridden.
@@ -101,7 +95,8 @@ class _EntitySubtypeFilter(_BaseFilter):
         description="The entity subtype to filter on. Can be 'Table', 'View', 'Source', etc. depending on the native platform's concepts.",
     )
 
-    @pydantic.validator("entity_subtype", pre=True)
+    @field_validator("entity_subtype", mode="before")
+    @classmethod
     def validate_entity_subtype(cls, v: str) -> List[str]:
         return [v] if not isinstance(v, list) else v
 
@@ -140,10 +135,13 @@ class _PlatformFilter(_BaseFilter):
     platform: List[str]
     # TODO: Add validator to convert string -> list of strings
 
-    @pydantic.validator("platform", each_item=True)
-    def validate_platform(cls, v: str) -> str:
+    @field_validator("platform", mode="before")
+    @classmethod
+    def validate_platform(cls, v):
         # Subtle - we use the constructor instead of the from_string method
         # because coercion is acceptable here.
+        if isinstance(v, list):
+            return [str(DataPlatformUrn(item)) for item in v]
         return str(DataPlatformUrn(v))
 
     def _build_rule(self) -> SearchFilterRule:
@@ -160,8 +158,11 @@ class _PlatformFilter(_BaseFilter):
 class _DomainFilter(_BaseFilter):
     domain: List[str]
 
-    @pydantic.validator("domain", each_item=True)
-    def validate_domain(cls, v: str) -> str:
+    @field_validator("domain", mode="before")
+    @classmethod
+    def validate_domain(cls, v):
+        if isinstance(v, list):
+            return [str(DomainUrn.from_string(item)) for item in v]
         return str(DomainUrn.from_string(v))
 
     def _build_rule(self) -> SearchFilterRule:
@@ -182,8 +183,11 @@ class _ContainerFilter(_BaseFilter):
         description="If true, only entities that are direct descendants of the container will be returned.",
     )
 
-    @pydantic.validator("container", each_item=True)
-    def validate_container(cls, v: str) -> str:
+    @field_validator("container", mode="before")
+    @classmethod
+    def validate_container(cls, v):
+        if isinstance(v, list):
+            return [str(ContainerUrn.from_string(item)) for item in v]
         return str(ContainerUrn.from_string(v))
 
     @classmethod
@@ -239,6 +243,110 @@ class _EnvFilter(_BaseFilter):
                 ]
             },
         ]
+
+
+class _OwnerFilter(_BaseFilter):
+    """Filter for entities owned by specific users or groups."""
+
+    owner: List[str] = pydantic.Field(
+        description="The owner to filter on. Should be user or group URNs.",
+    )
+
+    @field_validator("owner", mode="before")
+    @classmethod
+    def validate_owner(cls, v):
+        validated = []
+        for owner in v:
+            if not owner.startswith("urn:li:"):
+                raise ValueError(
+                    f"Owner must be a valid User or Group URN, got: {owner}"
+                )
+            _type = guess_entity_type(owner)
+            if _type == CorpUserUrn.ENTITY_TYPE:
+                validated.append(str(CorpUserUrn.from_string(owner)))
+            elif _type == CorpGroupUrn.ENTITY_TYPE:
+                validated.append(str(CorpGroupUrn.from_string(owner)))
+            else:
+                raise ValueError(
+                    f"Owner must be a valid User or Group URN, got: {owner}"
+                )
+        return validated
+
+    def _build_rule(self) -> SearchFilterRule:
+        return SearchFilterRule(
+            field="owners",
+            condition="EQUAL",
+            values=self.owner,
+        )
+
+    def compile(self) -> _OrFilters:
+        return [{"and": [self._build_rule()]}]
+
+
+class _GlossaryTermFilter(_BaseFilter):
+    """Filter for entities associated with specific glossary terms."""
+
+    glossary_term: List[str] = pydantic.Field(
+        description="The glossary term to filter on. Should be glossary term URNs.",
+    )
+
+    @field_validator("glossary_term", mode="before")
+    @classmethod
+    def validate_glossary_term(cls, v):
+        validated = []
+        for term in v:
+            if not term.startswith("urn:li:"):
+                raise ValueError(f"Glossary term must be a valid URN, got: {term}")
+            # Validate that it's a glossary term URN
+            _type = guess_entity_type(term)
+            if _type != "glossaryTerm":
+                raise ValueError(
+                    f"Glossary term must be a valid glossary term URN, got: {term}"
+                )
+            validated.append(term)
+        return validated
+
+    def _build_rule(self) -> SearchFilterRule:
+        return SearchFilterRule(
+            field="glossaryTerms",
+            condition="EQUAL",
+            values=self.glossary_term,
+        )
+
+    def compile(self) -> _OrFilters:
+        return [{"and": [self._build_rule()]}]
+
+
+class _TagFilter(_BaseFilter):
+    """Filter for entities associated with specific tags."""
+
+    tag: List[str] = pydantic.Field(
+        description="The tag to filter on. Should be tag URNs.",
+    )
+
+    @field_validator("tag", mode="before")
+    @classmethod
+    def validate_tag(cls, v):
+        validated = []
+        for tag in v:
+            if not tag.startswith("urn:li:"):
+                raise ValueError(f"Tag must be a valid URN, got: {tag}")
+            # Validate that it's a tag URN
+            _type = guess_entity_type(tag)
+            if _type != "tag":
+                raise ValueError(f"Tag must be a valid tag URN, got: {tag}")
+            validated.append(tag)
+        return validated
+
+    def _build_rule(self) -> SearchFilterRule:
+        return SearchFilterRule(
+            field="tags",
+            condition="EQUAL",
+            values=self.tag,
+        )
+
+    def compile(self) -> _OrFilters:
+        return [{"and": [self._build_rule()]}]
 
 
 class _CustomCondition(_BaseFilter):
@@ -337,7 +445,8 @@ class _Not(_BaseFilter):
 
     not_: "Filter" = pydantic.Field(alias="not")
 
-    @pydantic.validator("not_", pre=False)
+    @field_validator("not_", mode="after")
+    @classmethod
     def validate_not(cls, v: "Filter") -> "Filter":
         inner_filter = v.compile()
         if len(inner_filter) != 1:
@@ -399,10 +508,23 @@ def _parse_and_like_filter(value: Any) -> Any:
     return value
 
 
-if TYPE_CHECKING or not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR:
-    # The `not TYPE_CHECKING` bit is required to make the linter happy,
-    # since we currently only run mypy with pydantic v1.
-    Filter = Union[
+# Pydantic v2's "smart union" matching will automatically discriminate based on unique fields.
+# Note: We could use explicit Discriminator/Tag (available in Pydantic 2.4+) for slightly
+# better performance, but the simple union approach works well across all Pydantic v2 versions.
+
+
+def _parse_json_from_string(value: Any) -> Any:
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    else:
+        return value
+
+
+Filter = Annotated[
+    Union[
         _And,
         _Or,
         _Not,
@@ -413,68 +535,23 @@ if TYPE_CHECKING or not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR:
         _DomainFilter,
         _ContainerFilter,
         _EnvFilter,
+        _OwnerFilter,
+        _GlossaryTermFilter,
+        _TagFilter,
         _CustomCondition,
-    ]
+    ],
+    pydantic.BeforeValidator(_parse_and_like_filter),
+    pydantic.BeforeValidator(_parse_json_from_string),
+]
 
-    _And.update_forward_refs()
-    _Or.update_forward_refs()
-    _Not.update_forward_refs()
-else:
-    from pydantic import Discriminator, Tag
-
-    def _parse_json_from_string(value: Any) -> Any:
-        if isinstance(value, str):
-            try:
-                return json.loads(value)
-            except json.JSONDecodeError:
-                return value
-        else:
-            return value
-
-    # TODO: Once we're fully on pydantic 2, we can use a RootModel here.
-    # That way we'd be able to attach methods to the Filter type.
-    # e.g. replace load_filters(...) with Filter.load(...)
-    Filter = Annotated[
-        Annotated[
-            Union[
-                Annotated[_And, Tag(_And._field_discriminator())],
-                Annotated[_Or, Tag(_Or._field_discriminator())],
-                Annotated[_Not, Tag(_Not._field_discriminator())],
-                Annotated[
-                    _EntityTypeFilter, Tag(_EntityTypeFilter._field_discriminator())
-                ],
-                Annotated[
-                    _EntitySubtypeFilter,
-                    Tag(_EntitySubtypeFilter._field_discriminator()),
-                ],
-                Annotated[_StatusFilter, Tag(_StatusFilter._field_discriminator())],
-                Annotated[_PlatformFilter, Tag(_PlatformFilter._field_discriminator())],
-                Annotated[_DomainFilter, Tag(_DomainFilter._field_discriminator())],
-                Annotated[
-                    _ContainerFilter, Tag(_ContainerFilter._field_discriminator())
-                ],
-                Annotated[_EnvFilter, Tag(_EnvFilter._field_discriminator())],
-                Annotated[
-                    _CustomCondition, Tag(_CustomCondition._field_discriminator())
-                ],
-            ],
-            Discriminator(_filter_discriminator),
-        ],
-        pydantic.BeforeValidator(_parse_and_like_filter),
-        pydantic.BeforeValidator(_parse_json_from_string),
-    ]
-
-    # Required to resolve forward references to "Filter"
-    _And.model_rebuild()  # type: ignore
-    _Or.model_rebuild()  # type: ignore
-    _Not.model_rebuild()  # type: ignore
+# Required to resolve forward references to "Filter"
+_And.model_rebuild()  # type: ignore
+_Or.model_rebuild()  # type: ignore
+_Not.model_rebuild()  # type: ignore
 
 
 def load_filters(obj: Any) -> Filter:
-    if PYDANTIC_VERSION_2:
-        return pydantic.TypeAdapter(Filter).validate_python(obj)  # type: ignore
-    else:
-        return pydantic.parse_obj_as(Filter, obj)  # type: ignore
+    return pydantic.TypeAdapter(Filter).validate_python(obj)  # type: ignore
 
 
 # We need FilterDsl for two reasons:
@@ -556,6 +633,24 @@ class FilterDsl:
     @staticmethod
     def env(env: Union[str, Sequence[str]], /) -> _EnvFilter:
         return _EnvFilter(env=[env] if isinstance(env, str) else env)
+
+    @staticmethod
+    def owner(owner: Union[str, Sequence[str]], /) -> _OwnerFilter:
+        return _OwnerFilter(owner=[owner] if isinstance(owner, str) else owner)
+
+    @staticmethod
+    def glossary_term(
+        glossary_term: Union[str, Sequence[str]], /
+    ) -> _GlossaryTermFilter:
+        return _GlossaryTermFilter(
+            glossary_term=[glossary_term]
+            if isinstance(glossary_term, str)
+            else glossary_term
+        )
+
+    @staticmethod
+    def tag(tag: Union[str, Sequence[str]], /) -> _TagFilter:
+        return _TagFilter(tag=[tag] if isinstance(tag, str) else tag)
 
     @staticmethod
     def has_custom_property(key: str, value: str) -> _CustomCondition:

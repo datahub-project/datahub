@@ -1,5 +1,6 @@
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
+import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
 import bigqueryLogo from '@images/bigquerylogo.png';
 import cassandraLogo from '@images/cassandralogo.png';
 import clickhouseLogo from '@images/clickhouselogo.png';
@@ -12,34 +13,37 @@ import dremioLogo from '@images/dremiologo.png';
 import druidLogo from '@images/druidlogo.png';
 import dynamodbLogo from '@images/dynamodblogo.png';
 import elasticsearchLogo from '@images/elasticsearchlogo.png';
+import fabricOnelakeLogo from '@images/fabriconelakelogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
 import glueLogo from '@images/gluelogo.png';
-import gSheetLogo from '@images/gsheet.svg';
+import googleSheetsLogo from '@images/google-sheets-logo.png';
 import grafanaLogo from '@images/grafana.png';
 import hiveLogo from '@images/hivelogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
 import lookerLogo from '@images/lookerlogo.svg';
-import mariadbLogo from '@images/mariadblogo.png';
+import mariadbLogo from '@images/mariadblogo.svg';
 import metabaseLogo from '@images/metabaselogo.png';
 import mlflowLogo2 from '@images/mlflowlogo2.png';
 import modeLogo from '@images/modelogo.png';
 import mongodbLogo from '@images/mongodblogo.png';
 import mssqlLogo from '@images/mssqllogo.png';
 import mysqlLogo from '@images/mysqllogo-2.png';
-import neo4j from '@images/neo4j.png';
+import neo4j from '@images/neo4j.svg';
 import oktaLogo from '@images/oktalogo.png';
 import oracleLogo from '@images/oraclelogo.png';
 import postgresLogo from '@images/postgreslogo.png';
-import powerbiLogo from '@images/powerbilogo.png';
+import powerbiLogo from '@images/powerbilogo.svg';
 import presetLogo from '@images/presetlogo.svg';
 import qlikLogo from '@images/qliklogo.png';
 import redshiftLogo from '@images/redshiftlogo.png';
 import sacLogo from '@images/saclogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
+import snaplogicLogo from '@images/snaplogic.svg';
 import snowflakeLogo from '@images/snowflakelogo.png';
+import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
-import tableauLogo from '@images/tableaulogo.png';
+import tableauLogo from '@images/tableaulogo.svg';
 import trinoLogo from '@images/trinologo.png';
 import vertexAI from '@images/vertexai.png';
 import verticaLogo from '@images/verticalogo.png';
@@ -48,6 +52,8 @@ export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
 export const AZURE = 'azure-ad';
 export const AZURE_URN = `urn:li:dataPlatform:${AZURE}`;
+export const AZURE_DATA_FACTORY = 'azure-data-factory';
+export const AZURE_DATA_FACTORY_URN = `urn:li:dataPlatform:${AZURE_DATA_FACTORY}`;
 export const BIGQUERY = 'bigquery';
 export const BIGQUERY_USAGE = 'bigquery-usage';
 export const BIGQUERY_BETA = 'bigquery-beta';
@@ -150,12 +156,19 @@ export const NEO4J = 'neo4j';
 export const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
 export const VERTEX_AI = 'vertexai';
 export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
-export const GOOGLE_SHEETS = 'gsheet';
+export const SNAPLOGIC = 'snaplogic';
+export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
+export const GOOGLE_SHEETS = 'google_sheets';
 export const GOOGLE_SHEETS_URN = `urn:li:dataPlatform:${GOOGLE_SHEETS}`;
+export const FABRIC_ONELAKE = 'fabric-onelake';
+export const FABRIC_ONELAKE_URN = `urn:li:dataPlatform:${FABRIC_ONELAKE}`;
+export const STREAMLIT = 'streamlit';
+export const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
+    [AZURE_DATA_FACTORY_URN]: azureDataFactoryLogo,
     [BIGQUERY_URN]: bigqueryLogo,
     [CLICKHOUSE_URN]: clickhouseLogo,
     [COCKROACHDB_URN]: cockroachdbLogo,
@@ -200,6 +213,10 @@ export const PLATFORM_URN_TO_LOGO = {
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j,
     [VERTEXAI_URN]: vertexAI,
+    [SNAPLOGIC_URN]: snaplogicLogo,
+    [GOOGLE_SHEETS_URN]: googleSheetsLogo,
+    [FABRIC_ONELAKE_URN]: fabricOnelakeLogo,
+    [STREAMLIT_URN]: streamlitLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

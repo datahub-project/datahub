@@ -32,6 +32,7 @@ from datahub.ingestion.source.tableau.tableau_common import (
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
+    DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -178,7 +179,7 @@ def test_tableau_unsupported_csql():
     context = PipelineContext(run_id="0", pipeline_name="test_tableau")
     config_dict = default_config.copy()
     del config_dict["stateful_ingestion"]
-    config = TableauConfig.parse_obj(config_dict)
+    config = TableauConfig.model_validate(config_dict)
     config.extract_lineage_from_unsupported_custom_sql_queries = True
     config.lineage_overrides = TableauLineageOverrides(
         database_override_map={"production database": "prod"}
@@ -711,3 +712,247 @@ class TestTableauPageSizeConfig:
         config = TableauPageSizeConfig(database_table_page_size=any_page_size)
         assert config.page_size == DEFAULT_PAGE_SIZE
         assert config.effective_database_table_page_size == any_page_size
+
+
+def test_get_owner_identifier_username():
+    """Test owner identifier extraction using username."""
+    config_dict = default_config.copy()
+    config_dict["use_email_as_username"] = False
+    config = TableauConfig.model_validate(config_dict)
+
+    context = PipelineContext(run_id="test", pipeline_name="test")
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        site=SiteIdContentUrl(site_id="site1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock.MagicMock(spec=Server),
+        platform="tableau",
+    )
+
+    owner_dict = {"username": "testuser", "email": "test@example.com"}
+    result = site_source._get_owner_identifier(owner_dict)
+    assert result == "testuser"
+
+
+def test_get_owner_identifier_email():
+    """Test owner identifier extraction using email."""
+    config_dict = default_config.copy()
+    config_dict["use_email_as_username"] = True
+    config = TableauConfig.model_validate(config_dict)
+
+    context = PipelineContext(run_id="test", pipeline_name="test")
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        site=SiteIdContentUrl(site_id="site1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock.MagicMock(spec=Server),
+        platform="tableau",
+    )
+
+    owner_dict = {"username": "testuser", "email": "test@example.com"}
+    result = site_source._get_owner_identifier(owner_dict)
+    assert result == "test@example.com"
+
+
+def test_get_owner_identifier_email_fallback():
+    """Test owner identifier extraction falls back to username when email is not available."""
+    config_dict = default_config.copy()
+    config_dict["use_email_as_username"] = True
+    config = TableauConfig.model_validate(config_dict)
+
+    context = PipelineContext(run_id="test", pipeline_name="test")
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        site=SiteIdContentUrl(site_id="site1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock.MagicMock(spec=Server),
+        platform="tableau",
+    )
+
+    owner_dict = {"username": "testuser"}  # No email
+    result = site_source._get_owner_identifier(owner_dict)
+    assert result == "testuser"
+
+
+def test_get_owner_identifier_empty_dict():
+    """Test owner identifier extraction with empty owner dict."""
+    config_dict = default_config.copy()
+    config_dict["use_email_as_username"] = True
+    config = TableauConfig.model_validate(config_dict)
+
+    context = PipelineContext(run_id="test", pipeline_name="test")
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        site=SiteIdContentUrl(site_id="site1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock.MagicMock(spec=Server),
+        platform="tableau",
+    )
+
+    result = site_source._get_owner_identifier({})
+    assert result is None
+
+
+def _extract_dataset_properties(work_units):
+    for wu in work_units:
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+            if hasattr(wu.metadata, "aspect") and isinstance(
+                wu.metadata.aspect, DatasetPropertiesClass
+            ):
+                return wu.metadata.aspect
+        elif hasattr(wu.metadata, "proposedSnapshot"):
+            for aspect in wu.metadata.proposedSnapshot.aspects:
+                if isinstance(aspect, DatasetPropertiesClass):
+                    return aspect
+    return None
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.parametrize(
+    "datasource_type,datasource_name,csql_id,ds_id,project_luid,has_project_luid_patch,expected_name,workbook_data",
+    [
+        pytest.param(
+            "PublishedDatasource",
+            "My Datasource",
+            "csql-123",
+            "ds-123",
+            "project-luid-123",
+            True,
+            "My Datasource",
+            None,
+            id="with_datasource_name",
+        ),
+        pytest.param(
+            "PublishedDatasource",
+            None,
+            "csql-789",
+            "ds-789",
+            "project-luid-789",
+            True,
+            None,
+            None,
+            id="with_none_datasource_name",
+        ),
+        pytest.param(
+            "PublishedDatasource",
+            "",
+            "csql-999",
+            "ds-999",
+            "project-luid-999",
+            True,
+            None,
+            None,
+            id="with_empty_string_datasource_name",
+        ),
+        pytest.param(
+            "EmbeddedDatasource",
+            "Original Datasource Name",
+            "csql-embedded",
+            "ds-embedded",
+            None,
+            False,
+            "Original Datasource Name",
+            {
+                "id": "wb-123",
+                "name": "My Workbook",
+                "projectName": "default",
+                "luid": "wb-luid-123",
+            },
+            id="with_embedded_datasource",
+        ),
+    ],
+)
+def test_custom_sql_datasource_naming_scenarios(
+    datasource_type,
+    datasource_name,
+    csql_id,
+    ds_id,
+    project_luid,
+    has_project_luid_patch,
+    expected_name,
+    workbook_data,
+):
+    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
+    config_dict = default_config.copy()
+    del config_dict["stateful_ingestion"]
+    config = TableauConfig.model_validate(config_dict)
+
+    mock_server = mock.MagicMock(spec=Server)
+    mock_server.user_id = "test-user-id"
+    mock_server.users = mock.MagicMock()
+    mock_server.users.get_by_id = mock.MagicMock(
+        return_value=mock.MagicMock(site_role="SiteAdministratorExplorer")
+    )
+
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        platform="tableau",
+        site=SiteIdContentUrl(site_id="id1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock_server,
+    )
+
+    columns = []
+    if datasource_type:
+        datasource = {
+            "__typename": datasource_type,
+            "id": ds_id,
+            "name": datasource_name,
+        }
+        if datasource_type == "PublishedDatasource":
+            datasource["projectName"] = "default"
+            datasource["luid"] = f"ds-luid-{ds_id.split('-')[1]}"
+        elif datasource_type == "EmbeddedDatasource" and workbook_data:
+            datasource["workbook"] = workbook_data
+
+        columns = [
+            {
+                "id": "col-1",
+                "name": "column1",
+                "referencedByFields": [{"datasource": datasource}],
+            }
+        ]
+
+    custom_sql_data = [
+        {
+            "id": csql_id,
+            "name": f"Custom SQL Query {csql_id}",
+            "query": f"SELECT * FROM table{csql_id}",
+            "connectionType": "postgres",
+            "columns": columns,
+            "tables": [],
+            "database": {"name": "test_db", "connectionType": "postgres"},
+        }
+    ]
+
+    patch_connection = mock.patch.object(
+        site_source, "get_connection_objects", return_value=custom_sql_data
+    )
+    patch_browse_path = mock.patch.object(
+        site_source, "_get_project_browse_path_name", return_value="default"
+    )
+
+    if has_project_luid_patch:
+        patch_project_luid = mock.patch.object(
+            site_source,
+            "_get_datasource_project_luid",
+            return_value=project_luid,
+        )
+        with patch_connection, patch_browse_path, patch_project_luid:
+            work_units = list(site_source.emit_custom_sql_datasources())
+            dataset_properties = _extract_dataset_properties(work_units)
+    else:
+        with patch_connection, patch_browse_path:
+            work_units = list(site_source.emit_custom_sql_datasources())
+            dataset_properties = _extract_dataset_properties(work_units)
+
+    if expected_name is None:
+        assert dataset_properties is None
+    else:
+        assert dataset_properties is not None
+        assert dataset_properties.name == expected_name

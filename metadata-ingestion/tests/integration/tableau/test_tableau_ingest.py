@@ -1022,7 +1022,7 @@ def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_
         ValidationError,
         match=r".*tags_for_hidden_assets is only allowed with ingest_tags enabled.*",
     ):
-        TableauConfig.parse_obj(new_config)
+        TableauConfig.model_validate(new_config)
 
 
 @freeze_time(FROZEN_TIME)
@@ -1148,9 +1148,11 @@ def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
             mock_sdk.return_value = mock_client
 
             reporter = TableauSourceReport()
+            mock_config = mock.MagicMock()
+            mock_config.max_retries = 3  # Set max_retries for backoff calculation
             tableau_source = TableauSiteSource(
                 platform="tableau",
-                config=mock.MagicMock(),
+                config=mock_config,
                 ctx=mock.MagicMock(),
                 site=mock.MagicMock(spec=SiteItem, id="Site1", content_url="site1"),
                 server=mock_sdk.return_value,

@@ -224,3 +224,69 @@ should be dropped without considering it an exception, then add the following he
 The writes to the elasticsearch are asynchronous by default. A writer can add a custom header
 `X-DataHub-Sync-Index-Update` to the MCP `headers` with value set to `true` to enable a synchronous update of
 elasticsearch for specific MCPs that may benefit from it.
+
+## Aspect Size Validation
+
+Validates aspect sizes to protect against very large aspect sizes being created or consumed.
+
+**Debugging flags - disabled by default.** See [Environment Variables - Aspect Size Validation](../deploy/environment-vars.md#aspect-size-validation) for configuration details and usage guidance.
+
+```yaml
+datahub:
+  validation:
+    aspectSize:
+      prePatch:
+        enabled: false # Validates existing aspects from DB before patch application
+        warnSizeBytes: null # Optional: logs warning at this size without blocking (for observability)
+        maxSizeBytes: 16000000 # 16MB - same as INGESTION_MAX_SERIALIZED_STRING_LENGTH
+        oversizedRemediation: IGNORE # IGNORE (skip write, log warning) or DELETE (skip write and delete aspect)
+      postPatch:
+        enabled: false # Validates aspects after patch, before DB write
+        warnSizeBytes: null # Optional: logs warning at this size without blocking (for observability)
+        maxSizeBytes: 16000000 # 16MB - same as INGESTION_MAX_SERIALIZED_STRING_LENGTH
+        oversizedRemediation: IGNORE # IGNORE (skip write, log warning) or DELETE (skip write and delete aspect)
+```
+
+**Size Thresholds:**
+
+- `warnSizeBytes` (optional): Logs warning when exceeded but allows write to proceed. Useful for observability during gradual adoption. Should be lower than `maxSizeBytes`. If set higher than `maxSizeBytes`, writes are skipped before the warning triggers.
+- `maxSizeBytes`: Skips writes when exceeded and applies the configured remediation strategy.
+
+**Remediation Strategies:**
+
+- `IGNORE`: Logs warning, skips write, routes MCP to FailedMetadataChangeProposal topic.
+- `DELETE`: Logs warning, skips write, routes MCP to FailedMetadataChangeProposal topic, and deletes the aspect.
+
+## Change Data Capture (CDC) Mode for Generating MCLs
+
+### Overview
+
+DataHub supports an optional CDC (Change Data Capture) mode for generating MetadataChangeLogs. In CDC mode, MCLs are generated from database change events captured directly from the metadata storage layer, rather than being produced by GMS after processing MCPs. This mechanism **guarantees that MCLs are generated in the same order as database writes**, providing stronger ordering guarantees for metadata changes.
+
+### CDC vs Traditional MCL Generation
+
+**Traditional Mode (Default)**:
+
+- GMS processes MCPs and writes to the database
+- GMS immediately produces MCLs to Kafka after successful database writes
+- MCL order matches MCP processing order
+
+**CDC Mode**:
+
+- GMS processes MCPs and writes to the database (MCL emission disabled)
+- CDC system (Debezium) captures database changes as they occur
+- MCE Consumer reads CDC events and generates MCLs via EntityService
+- MCL order matches database transaction commit order
+
+### Architecture
+
+In CDC mode, the flow is:
+
+```
+MCP → GMS (write to DB, no MCL) → CDC Source → CDC Topic → MCE Consumer → MCL generation via EntityService → MCL Topics
+```
+
+For detailed configuration instructions, see:
+
+- [CDC Configuration Guide](../how/configure-cdc.md)
+- [Environment Variables Reference](../deploy/environment-vars.md#change-data-capture-cdc-configuration)

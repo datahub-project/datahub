@@ -1,0 +1,383 @@
+#import "./preview.graphql"
+#import "./fragments.graphql"
+
+query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
+    document(urn: $urn) {
+        urn
+        type
+        subType
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        settings {
+            showInGlobalContext
+        }
+        info {
+            title
+            source {
+                sourceType
+                externalUrl
+                externalId
+            }
+            status {
+                state
+            }
+            contents {
+                text
+            }
+            created {
+                time
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                    editableProperties {
+                        pictureLink
+                    }
+                }
+            }
+            lastModified {
+                time
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                    editableProperties {
+                        pictureLink
+                    }
+                }
+            }
+            relatedAssets {
+                asset {
+                    ...entityPreview
+                }
+            }
+            relatedDocuments {
+                document {
+                    ...documentPreviewFields
+                }
+            }
+            parentDocument {
+                document {
+                    ...documentPreviewFields
+                }
+            }
+            customProperties {
+                key
+                value
+            }
+        }
+        documentation {
+            ...documentationFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
+        domain {
+            ...entityDomain
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        privileges {
+            ...entityPrivileges
+        }
+        exists
+        parentDocuments @include(if: $includeParentDocuments) {
+            count
+            documents {
+                urn
+                type
+                info {
+                    title
+                }
+            }
+        }
+    }
+}
+
+fragment documentPreviewFields on Document {
+    urn
+    type
+    subType
+    info {
+        title
+        created {
+            time
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+                editableProperties {
+                    pictureLink
+                }
+            }
+        }
+        lastModified {
+            time
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+                editableProperties {
+                    pictureLink
+                }
+            }
+        }
+        parentDocument {
+            document {
+                urn
+            }
+        }
+    }
+}
+
+fragment documentSidebarFields on Document {
+    urn
+    type
+    subType
+    info {
+        title
+        status {
+            state
+        }
+        created {
+            time
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+                editableProperties {
+                    pictureLink
+                }
+            }
+        }
+        lastModified {
+            time
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+                editableProperties {
+                    pictureLink
+                }
+            }
+        }
+        parentDocument {
+            document {
+                urn
+                info {
+                    title
+                }
+            }
+        }
+    }
+}
+
+query searchDocuments($input: SearchDocumentsInput!, $includeParentDocuments: Boolean = false) {
+    searchDocuments(input: $input) {
+        start
+        count
+        total
+        documents {
+            ...documentSidebarFields
+            parentDocuments @include(if: $includeParentDocuments) {
+                count
+                documents {
+                    urn
+                    type
+                    info {
+                        title
+                    }
+                }
+            }
+        }
+        facets {
+            ...facetFields
+        }
+    }
+}
+
+mutation createDocument($input: CreateDocumentInput!) {
+    createDocument(input: $input)
+}
+
+mutation updateDocumentContents($input: UpdateDocumentContentsInput!) {
+    updateDocumentContents(input: $input)
+}
+
+mutation updateDocumentStatus($input: UpdateDocumentStatusInput!) {
+    updateDocumentStatus(input: $input)
+}
+
+mutation updateDocumentSubType($input: UpdateDocumentSubTypeInput!) {
+    updateDocumentSubType(input: $input)
+}
+
+mutation updateDocumentRelatedEntities($input: UpdateDocumentRelatedEntitiesInput!) {
+    updateDocumentRelatedEntities(input: $input)
+}
+
+mutation moveDocument($input: MoveDocumentInput!) {
+    moveDocument(input: $input)
+}
+
+mutation deleteDocument($urn: String!) {
+    deleteDocument(urn: $urn)
+}
+
+mutation updateDocumentSettings($input: UpdateDocumentSettingsInput!) {
+    updateDocumentSettings(input: $input)
+}
+
+query getDocumentChangeHistory($urn: String!, $startTimeMillis: Long, $endTimeMillis: Long, $limit: Int) {
+    document(urn: $urn) {
+        urn
+        changeHistory(startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis, limit: $limit) {
+            changeType
+            description
+            actor {
+                urn
+                type
+                info {
+                    displayName
+                    firstName
+                    lastName
+                }
+                editableProperties {
+                    pictureLink
+                }
+            }
+            timestamp
+            details {
+                key
+                value
+            }
+        }
+    }
+}
+
+fragment relatedDocumentsFields on RelatedDocumentsResult {
+    start
+    count
+    total
+    documents {
+        urn
+        type
+        info {
+            title
+            lastModified {
+                time
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                    editableProperties {
+                        pictureLink
+                    }
+                }
+            }
+        }
+    }
+}
+
+query getRelatedDocuments($urn: String!, $input: RelatedDocumentsInput!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ... on Dataset {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Dashboard {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Chart {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on DataJob {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on DataFlow {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Container {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLModel {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLModelGroup {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLPrimaryKey {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLFeature {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLFeatureTable {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on DataProduct {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Domain {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on GlossaryTerm {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on GlossaryNode {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Application {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+    }
+}

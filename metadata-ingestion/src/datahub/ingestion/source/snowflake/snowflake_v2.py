@@ -5,7 +5,6 @@ import logging
 import os
 import os.path
 import platform
-import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union
 
@@ -60,6 +59,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDataDic
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
+from datahub.ingestion.source.snowflake.snowflake_semantic_view_usage import (
+    SemanticViewUsageExtractor,
+)
 from datahub.ingestion.source.snowflake.snowflake_shares import SnowflakeSharesHandler
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeUsageExtractor,
@@ -73,6 +75,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
+    RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -207,7 +210,7 @@ class SnowflakeV2Source(
         )
         self.report.sql_aggregator = self.aggregator.report
 
-        if self.config.include_table_lineage:
+        if self.config.include_table_lineage and not self.config.use_queries_v2:
             redundant_lineage_run_skip_handler: Optional[
                 RedundantLineageRunSkipHandler
             ] = None
@@ -251,6 +254,19 @@ class SnowflakeV2Source(
                     identifiers=self.identifiers,
                     redundant_run_skip_handler=redundant_usage_run_skip_handler,
                 )
+            )
+
+        # Semantic view usage extractor (separate from main usage due to different data source)
+        self.semantic_view_usage_extractor: Optional[SemanticViewUsageExtractor] = None
+        if (
+            self.config.semantic_views.enabled
+            and self.config.semantic_views.include_usage
+        ):
+            self.semantic_view_usage_extractor = SemanticViewUsageExtractor(
+                config=config,
+                report=self.report,
+                connection=self.connection,
+                identifiers=self.identifiers,
             )
 
         self.profiling_state_handler: Optional[ProfilingHandler] = None
@@ -468,8 +484,8 @@ class SnowflakeV2Source(
 
     def _is_temp_table(self, name: str) -> bool:
         if any(
-            re.match(pattern, name, flags=re.IGNORECASE)
-            for pattern in self.config.temporary_tables_pattern
+            pattern.match(name)
+            for pattern in self.config._compiled_temporary_tables_pattern
         ):
             return True
 
@@ -556,6 +572,14 @@ class SnowflakeV2Source(
             for schema in db.schemas
             for table_name in schema.views
         ]
+        discovered_semantic_views: List[str] = [
+            self.identifiers.get_dataset_identifier(
+                semantic_view_name, schema.name, db.name
+            )
+            for db in databases
+            for schema in db.schemas
+            for semantic_view_name in schema.semantic_views
+        ]
         discovered_streams: List[str] = [
             self.identifiers.get_dataset_identifier(stream_name, schema.name, db.name)
             for db in databases
@@ -566,6 +590,7 @@ class SnowflakeV2Source(
         if (
             len(discovered_tables) == 0
             and len(discovered_views) == 0
+            and len(discovered_semantic_views) == 0
             and len(discovered_streams) == 0
         ):
             if self.config.warn_no_datasets:
@@ -579,7 +604,10 @@ class SnowflakeV2Source(
                 )
 
         self.discovered_datasets = (
-            discovered_tables + discovered_views + discovered_streams
+            discovered_tables
+            + discovered_views
+            + discovered_semantic_views
+            + discovered_streams
         )
 
         if self.config.use_queries_v2:
@@ -588,6 +616,17 @@ class SnowflakeV2Source(
 
             with self.report.new_stage(f"*: {QUERIES_EXTRACTION}"):
                 schema_resolver = self.aggregator._schema_resolver
+
+                redundant_queries_run_skip_handler: Optional[
+                    RedundantQueriesRunSkipHandler
+                ] = None
+                if self.config.enable_stateful_time_window:
+                    redundant_queries_run_skip_handler = RedundantQueriesRunSkipHandler(
+                        source=self,
+                        config=self.config,
+                        pipeline_name=self.ctx.pipeline_name,
+                        run_id=self.ctx.run_id,
+                    )
 
                 queries_extractor = SnowflakeQueriesExtractor(
                     connection=self.connection,
@@ -614,6 +653,7 @@ class SnowflakeV2Source(
                     structured_report=self.report,
                     filters=self.filters,
                     identifiers=self.identifiers,
+                    redundant_run_skip_handler=redundant_queries_run_skip_handler,
                     schema_resolver=schema_resolver,
                     discovered_tables=self.discovered_datasets,
                     graph=self.ctx.graph,
@@ -649,6 +689,15 @@ class SnowflakeV2Source(
                 yield from self.usage_extractor.get_usage_workunits(
                     self.discovered_datasets
                 )
+
+        if self.semantic_view_usage_extractor and discovered_semantic_views:
+            discovered_semantic_views_set = set(discovered_semantic_views)
+            yield from self.semantic_view_usage_extractor.get_semantic_view_usage_workunits(
+                discovered_semantic_views_set
+            )
+            yield from self.semantic_view_usage_extractor.get_semantic_view_query_workunits(
+                discovered_semantic_views_set
+            )
 
         if self.config.include_assertion_results:
             yield from SnowflakeAssertionsHandler(

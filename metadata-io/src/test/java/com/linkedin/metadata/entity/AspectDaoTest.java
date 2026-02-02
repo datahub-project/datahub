@@ -42,6 +42,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
@@ -455,6 +456,11 @@ public class AspectDaoTest {
     }
 
     @Override
+    public Integer countAspect(RestoreIndicesArgs args) {
+      return null;
+    }
+
+    @Override
     public PartitionedStream<EbeanAspectV2> streamAspectBatches(RestoreIndicesArgs args) {
       return null;
     }
@@ -465,7 +471,10 @@ public class AspectDaoTest {
     }
 
     @Override
-    public int deleteUrn(TransactionContext txContext, String urn) {
+    public int deleteUrn(
+        @Nonnull OperationContext opContext,
+        @Nullable TransactionContext txContext,
+        @Nonnull final String urn) {
       return 0;
     }
 
@@ -503,6 +512,18 @@ public class AspectDaoTest {
     public <T> Optional<T> runInTransactionWithRetry(
         Function<TransactionContext, TransactionResult<T>> block, int maxTransactionRetry) {
       return Optional.empty();
+    }
+
+    @Nonnull
+    @Override
+    public List<com.linkedin.metadata.aspect.SystemAspectValidator> getSystemAspectValidators() {
+      return java.util.Collections.emptyList();
+    }
+
+    @Nullable
+    @Override
+    public com.linkedin.metadata.config.AspectSizeValidationConfiguration getValidationConfig() {
+      return null;
     }
   }
 }

@@ -44,4 +44,20 @@ enum DataHubPageModuleType {
    * Module displaying the related terms of a given glossary term
    */
   RELATED_TERMS
+  /**
+   * Module displaying the platforms in an instance
+   */
+  PLATFORMS
+  /**
+   * Module displaying the lineage of an asset
+   */
+  LINEAGE
+  /**
+   * Module displaying the columns of a dataset
+   */
+  COLUMNS
+  /**
+   * Unknown module type - this can occur with corrupted data or rolling back to versions without new modules
+   */
+  UNKNOWN
 }

@@ -6,7 +6,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
+import com.linkedin.metadata.kafka.config.MetadataChangeEventsProcessorCondition;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
@@ -34,7 +34,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Conditional(MetadataChangeProposalProcessorCondition.class)
+@Conditional(MetadataChangeEventsProcessorCondition.class)
 @Import({RestliEntityClientFactory.class})
 @EnableKafka
 @RequiredArgsConstructor

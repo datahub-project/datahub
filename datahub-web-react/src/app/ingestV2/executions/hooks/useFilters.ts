@@ -1,11 +1,16 @@
 import { useMemo } from 'react';
 
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
-import { EXECUTOR_TYPE_FIELD, INGESTION_SOURCE_FIELD } from '@app/ingestV2/executions/components/Filters';
+import {
+    EXECUTOR_TYPE_FIELD,
+    INGESTION_SOURCE_FIELD,
+    RESULT_STATUS_FIELD,
+} from '@app/ingestV2/executions/components/Filters';
 import {
     EXECUTOR_TYPE_ALL_VALUE,
     EXECUTOR_TYPE_CLI_VALUE,
 } from '@app/ingestV2/shared/components/filters/ExecutorTypeFilter';
+import { RESULT_STATUS_ALL_VALUE } from '@app/ingestV2/shared/components/filters/ResultStatusFilter';
 
 export type FacetFilterInput = {
     field: string;
@@ -38,6 +43,15 @@ export default function useFilters(appliedFilters: Map<string, string[]>): Respo
             filters.push({
                 field: INGESTION_SOURCE_FIELD,
                 values: sourceUrns,
+            });
+            hasAppliedFilters = true;
+        }
+
+        const resultStatus = appliedFilters.get(RESULT_STATUS_FIELD)?.[0];
+        if (resultStatus && resultStatus !== RESULT_STATUS_ALL_VALUE) {
+            filters.push({
+                field: 'executionResultStatus',
+                values: [resultStatus],
             });
             hasAppliedFilters = true;
         }

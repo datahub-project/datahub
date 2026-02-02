@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -31,6 +32,11 @@ from teradatasqlalchemy.options import configure
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_user_urn,
+)
+from datahub.emitter.mcp_builder import add_owner_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -42,8 +48,9 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
-from datahub.ingestion.source.sql.sql_common import register_custom_type
+from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.two_tier_sql_source import (
@@ -51,7 +58,6 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemySource,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
@@ -67,6 +73,12 @@ from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.stats_collections import TopKDict
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# Precompiled regex pattern for case-insensitive "(not casespecific)" removal
+NOT_CASESPECIFIC_PATTERN = re.compile(r"\(not casespecific\)", re.IGNORECASE)
+
+# Teradata uses a two-tier database.table naming approach without default database prefixing
+DEFAULT_NO_DATABASE_TERADATA = None
 
 # Common excluded databases used in multiple places
 EXCLUDED_DATABASES = [
@@ -434,7 +446,7 @@ def optimized_get_view_definition(
 
 
 @dataclass
-class TeradataReport(SQLSourceReport, IngestionStageReport, BaseTimeWindowReport):
+class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # View processing metrics (actively used)
     num_views_processed: int = 0
     num_view_processing_failures: int = 0
@@ -454,6 +466,13 @@ class TeradataReport(SQLSourceReport, IngestionStageReport, BaseTimeWindowReport
     # Global metadata extraction timing (single query for all databases)
     metadata_extraction_total_sec: float = 0.0
 
+    # Lineage extraction query time range (actively used)
+    lineage_start_time: Optional[datetime] = None
+    lineage_end_time: Optional[datetime] = None
+
+    # Audit query processing statistics
+    num_audit_query_entries_processed: int = 0
+
 
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
     scheme: str = Field(default="teradatasql", description="database scheme")
@@ -468,23 +487,23 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         ),
     )
 
-    database_pattern = Field(
+    database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(deny=EXCLUDED_DATABASES),
         description="Regex patterns for databases to filter in ingestion.",
     )
-    include_table_lineage = Field(
+    include_table_lineage: bool = Field(
         default=False,
         description="Whether to include table lineage in the ingestion. "
         "This requires to have the table lineage feature enabled.",
     )
 
-    include_view_lineage = Field(
+    include_view_lineage: bool = Field(
         default=True,
         description="Whether to include view lineage in the ingestion. "
         "This requires to have the view lineage feature enabled.",
     )
 
-    include_queries = Field(
+    include_queries: bool = Field(
         default=True,
         description="Whether to generate query entities for SQL queries. "
         "Query entities provide metadata about individual SQL queries including "
@@ -535,6 +554,18 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         "Controls the level of concurrency for operations like view processing.",
     )
 
+    extract_ownership: bool = Field(
+        default=False,
+        description=(
+            "Whether to extract ownership information for tables and views based on their creator. "
+            "When enabled, the table/view creator from Teradata's system tables "
+            "will be added as an owner with DATAOWNER type. "
+            "Ownership is applied using OVERWRITE mode, meaning any existing ownership "
+            "information (including manually added or modified owners from the UI) "
+            "will be replaced. Use with caution."
+        ),
+    )
+
 
 @platform_name("Teradata")
 @config_class(TeradataConfig)
@@ -553,6 +584,10 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     "Enabled by default when stateful ingestion is turned on",
 )
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.OWNERSHIP,
+    "Optionally enabled via configuration (extract_ownership)",
+)
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(SourceCapability.LINEAGE_FINE, "Optionally enabled via configuration")
 @capability(SourceCapability.USAGE_STATS, "Optionally enabled via configuration")
@@ -698,7 +733,8 @@ SELECT
     t.CreateTimeStamp,
     t.LastAlterName,
     t.LastAlterTimeStamp,
-    t.RequestText
+    t.RequestText,
+    t.CreatorName  -- User who created the table/view, used for ownership extraction
 FROM dbc.TablesV t
 WHERE DataBaseName NOT IN ({",".join([f"'{db}'" for db in EXCLUDED_DATABASES])})
 AND t.TableKind in ('T', 'V', 'Q', 'O')
@@ -706,6 +742,8 @@ ORDER by DataBaseName, TableName;
      """.strip()
 
     _tables_cache: MutableMapping[str, List[TeradataTable]] = defaultdict(list)
+    # Cache mapping (schema, entity_name) -> creator_name for table/view ownership
+    _table_creator_cache: MutableMapping[Tuple[str, str], str] = {}
     _tables_cache_lock = Lock()  # Protect shared cache from concurrent access
     _pooled_engine: Optional[Engine] = None  # Reusable pooled engine
     _pooled_engine_lock = Lock()  # Protect engine creation
@@ -727,7 +765,8 @@ ORDER by DataBaseName, TableName;
             env=self.config.env,
             schema_resolver=self.schema_resolver,
             graph=self.ctx.graph,
-            generate_lineage=self.include_lineage,
+            generate_lineage=self.config.include_view_lineage
+            or self.config.include_table_lineage,
             generate_queries=self.config.include_queries,
             generate_usage_statistics=self.config.include_usage_statistics,
             generate_query_usage_statistics=self.config.include_usage_statistics,
@@ -846,7 +885,7 @@ ORDER by DataBaseName, TableName;
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def _init_schema_resolver(self) -> SchemaResolver:
@@ -941,6 +980,65 @@ ORDER by DataBaseName, TableName;
                     properties["view_definition"] = entry.request_text
                 break
         return description, properties, location
+
+    def _get_creator_for_entity(self, schema: str, entity_name: str) -> Optional[str]:
+        """Get creator name for a table or view."""
+        with self._tables_cache_lock:
+            return self._table_creator_cache.get((schema, entity_name))
+
+    def _emit_ownership_if_available(
+        self,
+        dataset_name: str,
+        schema: str,
+        entity_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit ownership metadata for a dataset if creator information is available."""
+        if not self.config.extract_ownership:
+            return
+
+        creator_name = self._get_creator_for_entity(schema, entity_name)
+        if creator_name:
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+            owner_urn = make_user_urn(creator_name)
+            yield from add_owner_to_entity_wu(
+                entity_type="dataset",
+                entity_urn=dataset_urn,
+                owner_urn=owner_urn,
+            )
+
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader] = None,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """Override to add ownership metadata based on table creator."""
+        yield from self._emit_ownership_if_available(dataset_name, schema, table)
+        yield from super()._process_table(
+            dataset_name, inspector, schema, table, sql_config, data_reader
+        )
+
+    def _process_view(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        sql_config: SQLCommonConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """Override to add ownership metadata based on view creator."""
+        yield from self._emit_ownership_if_available(dataset_name, schema, view)
+        yield from super()._process_view(
+            dataset_name, inspector, schema, view, sql_config
+        )
 
     def cached_loop_views(
         self,
@@ -1304,9 +1402,12 @@ ORDER by DataBaseName, TableName;
                         database_counts[table.database]["tables"] += 1
 
                     with self._tables_cache_lock:
-                        if table.database not in self._tables_cache:
-                            self._tables_cache[table.database] = []
                         self._tables_cache[table.database].append(table)
+                        creator_name = (entry.CreatorName or "").strip()
+                        if creator_name:
+                            self._table_creator_cache[(table.database, table.name)] = (
+                                creator_name
+                            )
 
                 for database, counts in database_counts.items():
                     self.report.num_database_tables_to_scan[database] = counts["tables"]
@@ -1328,6 +1429,9 @@ ORDER by DataBaseName, TableName;
         current_query_metadata = None
 
         for entry in entries:
+            # Count each audit query entry processed
+            self.report.num_audit_query_entries_processed += 1
+
             query_id = getattr(entry, "query_id", None)
             query_text = str(getattr(entry, "query_text", ""))
 
@@ -1368,15 +1472,18 @@ ORDER by DataBaseName, TableName;
         default_database = getattr(metadata_entry, "default_database", None)
 
         # Apply Teradata-specific query transformations
-        cleaned_query = full_query_text.replace("(NOT CASESPECIFIC)", "")
+        cleaned_query = NOT_CASESPECIFIC_PATTERN.sub("", full_query_text)
 
+        # For Teradata's two-tier architecture (database.table), we should not set default_db
+        # to avoid incorrect URN generation like "dbc.database.table" instead of "database.table"
+        # The SQL parser will treat database.table references correctly without default_db
         return ObservedQuery(
             query=cleaned_query,
             session_id=session_id,
             timestamp=timestamp,
             user=CorpUserUrn(user) if user else None,
-            default_db=default_database,
-            default_schema=default_database,  # Teradata uses database as schema
+            default_db=DEFAULT_NO_DATABASE_TERADATA,  # Teradata uses two-tier database.table naming without default database prefixing
+            default_schema=default_database,
         )
 
     def _convert_entry_to_observed_query(self, entry: Any) -> ObservedQuery:
@@ -1394,15 +1501,18 @@ ORDER by DataBaseName, TableName;
         default_database = getattr(entry, "default_database", None)
 
         # Apply Teradata-specific query transformations
-        cleaned_query = query_text.replace("(NOT CASESPECIFIC)", "")
+        cleaned_query = NOT_CASESPECIFIC_PATTERN.sub("", query_text)
 
+        # For Teradata's two-tier architecture (database.table), we should not set default_db
+        # to avoid incorrect URN generation like "dbc.database.table" instead of "database.table"
+        # However, we should set default_schema for unqualified table references
         return ObservedQuery(
             query=cleaned_query,
             session_id=session_id,
             timestamp=timestamp,
             user=CorpUserUrn(user) if user else None,
-            default_db=default_database,
-            default_schema=default_database,  # Teradata uses database as schema
+            default_db=DEFAULT_NO_DATABASE_TERADATA,  # Teradata uses two-tier database.table naming without default database prefixing
+            default_schema=default_database,  # Set default_schema for unqualified table references
         )
 
     def _fetch_lineage_entries_chunked(self) -> Iterable[Any]:
@@ -1422,7 +1532,7 @@ ORDER by DataBaseName, TableName;
 
                 for query_index, query in enumerate(queries, 1):
                     logger.info(
-                        f"Executing lineage query {query_index}/{len(queries)} with {cursor_type} cursor..."
+                        f"Executing lineage query {query_index}/{len(queries)} for time range {self.config.start_time} to {self.config.end_time} with {cursor_type} cursor..."
                     )
 
                     # Use helper method to try server-side cursor with fallback
@@ -1590,79 +1700,70 @@ ORDER by DataBaseName, TableName;
         else:
             return connection.execute(text(query))
 
+    def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Override to prevent parent class from generating aggregator work units during schema extraction.
+
+        We handle aggregator generation manually after populating it with audit log data.
+        """
+        # Do nothing - we'll call the parent implementation manually after populating the aggregator
+        return iter([])
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         logger.info("Starting Teradata metadata extraction")
 
-        # Add all schemas to the schema resolver
-        # Sql parser operates on lowercase urns so we need to lowercase the urns
+        # Step 1: Schema extraction first (parent class will skip aggregator generation due to our override)
         with self.report.new_stage("Schema metadata extraction"):
             yield from super().get_workunits_internal()
             logger.info("Completed schema metadata extraction")
 
-        with self.report.new_stage("Audit log extraction"):
-            yield from self._get_audit_log_mcps_with_aggregator()
+        # Step 2: Lineage extraction after schema extraction
+        # This allows lineage processing to have access to all discovered schema information
+        with self.report.new_stage("Audit log extraction and lineage processing"):
+            self._populate_aggregator_from_audit_logs()
+            # Call parent implementation directly to generate aggregator work units
+            yield from super()._generate_aggregator_workunits()
+            logger.info("Completed lineage processing")
 
-        # SqlParsingAggregator handles its own work unit generation internally
-        logger.info("Lineage processing completed by SqlParsingAggregator")
-
-    def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """Override base class to skip aggregator gen_metadata() call.
-
-        Teradata handles aggregator processing after adding audit log queries,
-        so we skip the base class call to prevent duplicate processing.
-        """
-        # Return empty iterator - Teradata will handle aggregator processing
-        # after adding audit log queries in _get_audit_log_mcps_with_aggregator()
-        return iter([])
-
-    def _get_audit_log_mcps_with_aggregator(self) -> Iterable[MetadataWorkUnit]:
+    def _populate_aggregator_from_audit_logs(self) -> None:
         """SqlParsingAggregator-based lineage extraction with enhanced capabilities."""
-        logger.info(
-            "Fetching queries from Teradata audit logs for SqlParsingAggregator"
-        )
-
-        if self.config.include_table_lineage or self.config.include_usage_statistics:
-            # Step 1: Stream query entries from database with memory-efficient processing
-            with self.report.new_stage("Fetching lineage entries from Audit Logs"):
-                queries_processed = 0
-                entries_processed = False
-
-                # Use streaming query reconstruction for memory efficiency
-                for observed_query in self._reconstruct_queries_streaming(
-                    self._fetch_lineage_entries_chunked()
-                ):
-                    entries_processed = True
-                    self.aggregator.add(observed_query)
-
-                    queries_processed += 1
-                    if queries_processed % 10000 == 0:
-                        logger.info(
-                            f"Processed {queries_processed} queries to aggregator"
-                        )
-
-                if not entries_processed:
-                    logger.info("No lineage entries found")
-                    return
-
-                logger.info(
-                    f"Completed adding {queries_processed} queries to SqlParsingAggregator"
-                )
-
-        # Step 2: Generate work units from aggregator
-        with self.report.new_stage("SqlParsingAggregator metadata generation"):
-            logger.info("Generating metadata work units from SqlParsingAggregator")
-            work_unit_count = 0
-            for mcp in self.aggregator.gen_metadata():
-                work_unit_count += 1
-                if work_unit_count % 10000 == 0:
-                    logger.info(
-                        f"Generated {work_unit_count} work units from aggregator"
-                    )
-                yield mcp.as_workunit()
+        with self.report.new_stage("Lineage extraction from Teradata audit logs"):
+            # Record the lineage query time range in the report
+            self.report.lineage_start_time = self.config.start_time
+            self.report.lineage_end_time = self.config.end_time
 
             logger.info(
-                f"Completed SqlParsingAggregator processing: {work_unit_count} work units generated"
+                f"Starting lineage extraction from Teradata audit logs (time range: {self.config.start_time} to {self.config.end_time})"
             )
+
+            if (
+                self.config.include_table_lineage
+                or self.config.include_usage_statistics
+            ):
+                # Step 1: Stream query entries from database with memory-efficient processing
+                with self.report.new_stage("Fetching lineage entries from Audit Logs"):
+                    queries_processed = 0
+
+                    # Use streaming query reconstruction for memory efficiency
+                    for observed_query in self._reconstruct_queries_streaming(
+                        self._fetch_lineage_entries_chunked()
+                    ):
+                        self.aggregator.add(observed_query)
+
+                        queries_processed += 1
+                        if queries_processed % 10000 == 0:
+                            logger.info(
+                                f"Processed {queries_processed} queries to aggregator"
+                            )
+
+                    if queries_processed == 0:
+                        logger.info("No lineage entries found")
+                        return
+
+                    logger.info(
+                        f"Completed adding {queries_processed} queries to SqlParsingAggregator"
+                    )
+
+            logger.info("Completed lineage extraction from Teradata audit logs")
 
     def close(self) -> None:
         """Clean up resources when source is closed."""

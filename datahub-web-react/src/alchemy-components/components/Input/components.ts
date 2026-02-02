@@ -70,6 +70,7 @@ export const InputField = styled.input({
 
     '&:disabled': {
         backgroundColor: colors.gray[1500],
+        cursor: 'not-allowed',
     },
 });
 
@@ -91,4 +92,9 @@ export const ErrorMessage = styled.div({
 export const WarningMessage = styled.div({
     ...defaultMessageStyles,
     color: theme.semanticTokens.colors.warning,
+});
+
+export const HelperText = styled.div({
+    ...defaultMessageStyles,
+    color: colors.gray[600],
 });

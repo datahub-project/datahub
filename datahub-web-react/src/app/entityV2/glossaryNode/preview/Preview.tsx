@@ -26,7 +26,7 @@ export const Preview = ({
     owners?: Array<Owner> | null;
     parentNodes?: ParentNodesResult | null;
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: PreviewType;
+    previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (

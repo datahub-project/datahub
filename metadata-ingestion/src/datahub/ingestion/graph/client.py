@@ -30,6 +30,7 @@ from typing_extensions import deprecated
 
 from datahub._codegen.aspect import _Aspect
 from datahub.cli import config_utils
+from datahub.cli.cli_utils import guess_frontend_url_from_gms_url
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
@@ -101,6 +102,7 @@ if TYPE_CHECKING:
     from datahub.sql_parsing.schema_resolver import (
         GraphQLSchemaMetadata,
         SchemaResolver,
+        SchemaResolverReport,
     )
     from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 
@@ -207,7 +209,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         Note: Only supported with DataHub Cloud.
         """
 
-        if not self.server_config:
+        if not hasattr(self, "server_config") or not self.server_config:
             self.test_connection()
 
         base_url = self.server_config.raw_config.get("baseUrl")
@@ -289,7 +291,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         # TODO: We should refactor out the multithreading functionality of the sink
         # into a separate class that can be used by both the sink and the graph client
         # e.g. a DatahubBulkRestEmitter that both the sink and the graph client use.
-        return DatahubRestSinkConfig(**self.config.dict(), **(extra_config or {}))
+        return DatahubRestSinkConfig(**self.config.model_dump(), **(extra_config or {}))
 
     @contextlib.contextmanager
     def make_rest_sink(
@@ -773,7 +775,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         """
 
         if isinstance(config, (ConfigModel, BaseModel)):
-            blob = config.json()
+            blob = config.model_dump_json()
         else:
             blob = json.dumps(config)
 
@@ -838,11 +840,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def _bulk_fetch_schema_info_by_filter(
         self,
         *,
-        platform: Optional[str] = None,
+        platform: Union[None, str, List[str]] = None,
         platform_instance: Optional[str] = None,
         env: Optional[str] = None,
         query: Optional[str] = None,
-        container: Optional[str] = None,
+        container: Union[None, str, List[str]] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 100,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
@@ -914,11 +916,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         self,
         *,
         entity_types: Optional[Sequence[str]] = None,
-        platform: Optional[str] = None,
+        platform: Union[None, str, List[str]] = None,
         platform_instance: Optional[str] = None,
         env: Optional[str] = None,
         query: Optional[str] = None,
-        container: Optional[str] = None,
+        container: Union[None, str, List[str]] = None,
         status: Optional[RemovedStatusFilter] = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 5000,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
@@ -1018,11 +1020,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         self,
         *,
         entity_types: Optional[List[str]] = None,
-        platform: Optional[str] = None,
+        platform: Union[None, str, List[str]] = None,
         platform_instance: Optional[str] = None,
         env: Optional[str] = None,
         query: Optional[str] = None,
-        container: Optional[str] = None,
+        container: Union[None, str, List[str]] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 5000,
         extra_and_filters: Optional[List[RawSearchFilterRule]] = None,
@@ -1542,6 +1544,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         platform_instance: Optional[str],
         env: str,
         include_graph: bool = True,
+        report: Optional["SchemaResolverReport"] = None,
     ) -> "SchemaResolver":
         from datahub.sql_parsing.schema_resolver import SchemaResolver
 
@@ -1550,6 +1553,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             platform_instance=platform_instance,
             env=env,
             graph=self if include_graph else None,
+            report=report,
         )
 
     def initialize_schema_resolver_from_datahub(
@@ -1558,10 +1562,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         platform_instance: Optional[str],
         env: str,
         batch_size: int = 100,
+        report: Optional["SchemaResolverReport"] = None,
     ) -> "SchemaResolver":
         logger.info("Initializing schema resolver")
         schema_resolver = self._make_schema_resolver(
-            platform, platform_instance, env, include_graph=False
+            platform, platform_instance, env, include_graph=False, report=report
         )
 
         logger.info(f"Fetching schemas for platform {platform}, env {env}")
@@ -1706,28 +1711,44 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def run_assertion(
         self,
         urn: str,
-        save_result: bool = True,
+        save_result: Optional[bool] = None,
         parameters: Optional[Dict[str, str]] = None,
-        async_flag: bool = False,
+        async_flag: Optional[bool] = None,
     ) -> Dict:
-        if parameters is None:
-            parameters = {}
+        """
+        Run a DataHub assertion on-demand.
+
+        Args:
+            urn: The URN of the assertion to run.
+            save_result: Whether to save the result to DataHub's backend. If not specified,
+                the backend default is True (results will be saved and visible in the UI).
+            parameters: Dynamic parameters to inject into the assertion's SQL fragment.
+            async_flag: Whether to run the assertion asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing the assertion result with type (SUCCESS/FAILURE/ERROR) and details.
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
-            mutation runAssertion($assertionUrn: String!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean!) {
+            mutation runAssertion($assertionUrn: String!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean) {
                 runAssertion(urn: $assertionUrn, saveResult: $saveResult, parameters: $parameters, async: $async) {
                     ... assertionResult
                 }
             }
         """ % (self._assertion_result_shared())
 
-        variables = {
+        variables: Dict[str, Any] = {
             "assertionUrn": urn,
-            "saveResult": save_result,
             "parameters": params,
-            "async": async_flag,
         }
+
+        if save_result is not None:
+            variables["saveResult"] = save_result
+
+        if async_flag is not None:
+            variables["async"] = async_flag
 
         res = self.execute_graphql(
             query=graph_query,
@@ -1739,17 +1760,29 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def run_assertions(
         self,
         urns: List[str],
-        save_result: bool = True,
+        save_result: Optional[bool] = None,
         parameters: Optional[Dict[str, str]] = None,
-        async_flag: bool = False,
+        async_flag: Optional[bool] = None,
     ) -> Dict:
-        if parameters is None:
-            parameters = {}
+        """
+        Run multiple DataHub assertions on-demand.
+
+        Args:
+            urns: List of assertion URNs to run.
+            save_result: Whether to save the results to DataHub's backend. If not specified,
+                the backend default is True (results will be saved and visible in the UI).
+            parameters: Dynamic parameters to inject into the assertions' SQL fragments.
+            async_flag: Whether to run the assertions asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing pass/fail/error counts and individual assertion results.
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
             %s
-            mutation runAssertions($assertionUrns: [String!]!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean!) {
+            mutation runAssertions($assertionUrns: [String!]!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean) {
                 runAssertions(urns: $assertionUrns, saveResults: $saveResult, parameters: $parameters, async: $async) {
                     passingCount
                     failingCount
@@ -1764,12 +1797,16 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             self._run_assertion_result_shared(),
         )
 
-        variables = {
+        variables: Dict[str, Any] = {
             "assertionUrns": urns,
-            "saveResult": save_result,
             "parameters": params,
-            "async": async_flag,
         }
+
+        if save_result is not None:
+            variables["saveResult"] = save_result
+
+        if async_flag is not None:
+            variables["async"] = async_flag
 
         res = self.execute_graphql(
             query=graph_query,
@@ -1783,17 +1820,31 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         urn: str,
         tag_urns: Optional[List[str]] = None,
         parameters: Optional[Dict[str, str]] = None,
-        async_flag: bool = False,
+        async_flag: Optional[bool] = None,
     ) -> Dict:
-        if tag_urns is None:
-            tag_urns = []
-        if parameters is None:
-            parameters = {}
+        """
+        Run all assertions (or tagged subset) for a data asset on-demand.
+
+        Args:
+            urn: The URN of the data asset (e.g., dataset) whose assertions to run.
+            tag_urns: Optional list of tag URNs to filter which assertions to run.
+                If not specified, all assertions for the asset will be run.
+            parameters: Dynamic parameters to inject into the assertions' SQL fragments.
+            async_flag: Whether to run the assertions asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing pass/fail/error counts and individual assertion results.
+
+        Note:
+            This method does not support the save_result parameter. Results are always
+            saved to DataHub's backend (equivalent to save_result=True).
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
             %s
-            mutation runAssertionsForAsset($assetUrn: String!, $tagUrns: [String!], $parameters: [StringMapEntryInput!], $async: Boolean!) {
+            mutation runAssertionsForAsset($assetUrn: String!, $tagUrns: [String!], $parameters: [StringMapEntryInput!], $async: Boolean) {
                 runAssertionsForAsset(urn: $assetUrn, tagUrns: $tagUrns, parameters: $parameters, async: $async) {
                     passingCount
                     failingCount
@@ -1808,12 +1859,16 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             self._run_assertion_result_shared(),
         )
 
-        variables = {
+        variables: Dict[str, Any] = {
             "assetUrn": urn,
-            "tagUrns": tag_urns,
             "parameters": params,
-            "async": async_flag,
         }
+
+        if tag_urns is not None:
+            variables["tagUrns"] = tag_urns
+
+        if async_flag is not None:
+            variables["async"] = async_flag
 
         res = self.execute_graphql(
             query=graph_query,
@@ -2070,6 +2125,202 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         )
 
         return res["reportAssertionResult"]
+
+    def _get_invite_token(self) -> str:
+        """
+        Retrieve an invite token for user creation.
+
+        Returns:
+            Invite token string
+
+        Raises:
+            OperationalError: If invite token retrieval fails
+        """
+        get_invite_token_query = """
+            query getInviteToken($input: GetInviteTokenInput!) {
+                getInviteToken(input: $input) {
+                    inviteToken
+                }
+            }
+        """
+
+        try:
+            invite_token_response = self.execute_graphql(
+                query=get_invite_token_query,
+                variables={"input": {}},
+            )
+            invite_token = invite_token_response.get("getInviteToken", {}).get(
+                "inviteToken"
+            )
+            if not invite_token:
+                raise OperationalError(
+                    "Failed to retrieve invite token. Ensure you have admin permissions.",
+                    {},
+                )
+            return invite_token
+        except Exception as e:
+            raise OperationalError(
+                f"Failed to retrieve invite token: {str(e)}", {}
+            ) from e
+
+    def _create_user_with_token(
+        self,
+        user_urn: str,
+        email: str,
+        display_name: str,
+        password: str,
+        invite_token: str,
+    ) -> None:
+        """
+        Create a user using the signup endpoint.
+
+        Args:
+            user_urn: User URN (urn:li:corpuser:{user_id})
+            email: User's email address
+            display_name: Full display name for the user
+            password: User's password
+            invite_token: Invite token for user creation
+
+        Raises:
+            OperationalError: If user creation fails
+        """
+        frontend_url = guess_frontend_url_from_gms_url(self._gms_server)
+        signup_url = f"{frontend_url}/signUp"
+        signup_payload = {
+            "userUrn": user_urn,
+            "email": email,
+            "fullName": display_name,
+            "password": password,
+            "title": "Other",
+            "inviteToken": invite_token,
+        }
+
+        logger.debug(
+            f"Creating user with URN={user_urn}, email={email} at URL: {signup_url}"
+        )
+        logger.debug(
+            f"Signup payload: {json.dumps({**signup_payload, 'password': '***'})}"
+        )
+
+        try:
+            response = self._session.post(signup_url, json=signup_payload)
+            logger.debug(f"Response status code: {response.status_code}")
+            logger.debug(f"Response headers: {dict(response.headers)}")
+            logger.debug(f"Response content length: {len(response.text)}")
+
+            response.raise_for_status()
+
+            # The /signUp endpoint returns 200 with empty body on success
+            logger.debug("User created successfully")
+
+        except HTTPError as http_err:
+            error_details = {
+                "url": signup_url,
+                "status_code": response.status_code,
+                "response_text": response.text[:500],
+            }
+            try:
+                error_json = response.json()
+                error_details["error_response"] = error_json
+                error_msg = error_json.get("message", str(http_err))
+            except JSONDecodeError:
+                error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+
+            raise OperationalError(
+                f"Failed to create user: {error_msg}",
+                error_details,
+            ) from http_err
+        except Exception as e:
+            raise OperationalError(
+                f"Failed to create user: {str(e)}",
+                {"url": signup_url, "error_type": type(e).__name__},
+            ) from e
+
+    def _assign_role_to_user(self, user_urn: str, role: str) -> None:
+        """
+        Assign a role to a user.
+
+        Args:
+            user_urn: User URN
+            role: Role to assign (Admin, Editor, or Reader)
+
+        Raises:
+            ValueError: If role is invalid
+        """
+        normalized_role = role.capitalize()
+        valid_roles = ["Admin", "Editor", "Reader"]
+        if normalized_role not in valid_roles:
+            raise ValueError(
+                f"Invalid role '{role}'. Must be one of: {', '.join(valid_roles)}"
+            )
+
+        role_urn = f"urn:li:dataHubRole:{normalized_role}"
+
+        batch_assign_role_mutation = """
+            mutation batchAssignRole($input: BatchAssignRoleInput!) {
+                batchAssignRole(input: $input)
+            }
+        """
+
+        try:
+            self.execute_graphql(
+                query=batch_assign_role_mutation,
+                variables={"input": {"roleUrn": role_urn, "actors": [user_urn]}},
+            )
+        except Exception as e:
+            logger.warning(f"Role assignment failed for user {user_urn}: {str(e)}")
+            raise
+
+    def create_native_user(
+        self,
+        user_id: str,
+        email: str,
+        display_name: str,
+        password: str,
+        role: Optional[str] = None,
+    ) -> str:
+        """
+        Create a native DataHub user with email/password authentication.
+
+        Args:
+            user_id: User identifier (will be used in the URN)
+            email: User's email address
+            display_name: Full display name for the user
+            password: User's password
+            role: Optional role to assign (Admin, Editor, or Reader)
+
+        Returns:
+            User URN of the created user (urn:li:corpuser:{user_id})
+
+        Raises:
+            OperationalError: If user creation fails
+            ValueError: If role is invalid
+        """
+        # Validate role before creating user
+        if role:
+            normalized_role = role.capitalize()
+            valid_roles = ["Admin", "Editor", "Reader"]
+            if normalized_role not in valid_roles:
+                raise ValueError(
+                    f"Invalid role '{role}'. Must be one of: {', '.join(valid_roles)}"
+                )
+
+        user_urn = f"urn:li:corpuser:{user_id}"
+
+        invite_token = self._get_invite_token()
+        self._create_user_with_token(
+            user_urn, email, display_name, password, invite_token
+        )
+
+        if role:
+            try:
+                self._assign_role_to_user(user_urn, role)
+            except Exception as e:
+                logger.warning(
+                    f"User {email} created successfully, but role assignment failed: {str(e)}"
+                )
+
+        return user_urn
 
     def close(self) -> None:
         self._make_schema_resolver.cache_clear()

@@ -5,6 +5,7 @@ import static org.testng.Assert.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datahubproject.event.exception.UnsupportedTopicException;
+import io.datahubproject.event.kafka.CheckedConsumer;
 import io.datahubproject.event.kafka.KafkaConsumerPool;
 import io.datahubproject.event.models.v1.ExternalEvents;
 import java.time.Duration;
@@ -13,6 +14,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -31,11 +33,15 @@ public class ExternalEventsServiceTest {
   @Mock private ObjectMapper objectMapper;
   private ExternalEventsService service;
   private Map<String, String> topicNames = new HashMap<>();
+  private CheckedConsumer checkedConsumer;
 
   @BeforeMethod
   public void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
-    when(consumerPool.borrowConsumer()).thenReturn(kafkaConsumer);
+    checkedConsumer =
+        new CheckedConsumer(kafkaConsumer, Duration.ofSeconds(2), Duration.ofMinutes(5), null);
+    when(consumerPool.borrowConsumer(anyLong(), any(TimeUnit.class), anyString()))
+        .thenReturn(checkedConsumer);
     topicNames.put(ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME, "CustomerSpecificTopicName");
     topicNames.put(
         ExternalEventsService.METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,

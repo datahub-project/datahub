@@ -5,6 +5,8 @@ on:
       - master
     paths:
       - "metadata-models/**"
+      - "metadata-ingestion/scripts/modeldocgen.py"
+      - "metadata-ingestion/scripts/modeldocupload.sh"
   release:
     types: [published]
 
@@ -22,7 +24,7 @@ jobs:
         id: publish
         run: |
           echo "Enable publish: ${{ github.repository == 'datahub-project/datahub' }}"
-          echo "publish=${{ github.repository == 'datahub-project/datahub' }}" >> $GITHUB_OUTPUT
+          echo "publish=${{ github.repository == 'datahub-project/datahub' }}" >> "$GITHUB_OUTPUT"
   metadata-ingestion-docgen:
     runs-on: ubuntu-latest
     needs: setup

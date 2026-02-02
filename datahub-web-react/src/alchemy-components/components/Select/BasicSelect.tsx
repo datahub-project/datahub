@@ -67,6 +67,8 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     onSearchChange,
     emptyState,
     descriptionMaxWidth,
+    dataTestId,
+    visibilityDeps,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -77,7 +79,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         isVisible,
         close: closeDropdown,
         toggle: toggleDropdown,
-    } = useSelectDropdown(false, selectRef, dropdownRef);
+    } = useSelectDropdown(false, selectRef, dropdownRef, visibilityDeps);
 
     const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values || []);
     const [tempValues, setTempValues] = useState<string[]>(values || []);
@@ -174,7 +176,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     );
 
     return (
-        <Container ref={selectRef} size={size || 'md'} width={props.width}>
+        <Container ref={selectRef} size={size || 'md'} width={props.width} $minWidth={props.minWidth}>
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
             {isVisible && (
                 <Dropdown
@@ -182,7 +184,10 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                     disabled={isDisabled}
                     placement="bottomRight"
                     dropdownRender={() => (
-                        <DropdownContainer ref={dropdownRef}>
+                        <DropdownContainer
+                            ref={dropdownRef}
+                            data-testid={dataTestId ? `${dataTestId}-dropdown` : undefined}
+                        >
                             {showSearch && (
                                 <DropdownSearchBar
                                     placeholder="Search…"
@@ -274,6 +279,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                         isOpen={isOpen}
                         onClick={handleSelectClick}
                         fontSize={size}
+                        data-testid={dataTestId ? `${dataTestId}-base` : undefined}
                         {...props}
                     >
                         <SelectLabelContainer>

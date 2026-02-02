@@ -13,17 +13,28 @@ import {
 import {
     buildOwnerEntities,
     capitalizeMonthsAndDays,
+    formatExtraArgs,
     formatTimezone,
     getAspectsBySubtypes,
     getEntitiesIngestedByTypeOrSubtype,
     getIngestionContents,
+    getIngestionSourceMutationInput,
+    getNewIngestionSourcePlaceholder,
     getOtherIngestionContents,
     getSortInput,
     getSourceStatus,
+    getStructuredReport,
     getTotalEntitiesIngested,
 } from '@app/ingestV2/source/utils';
 
-import { EntityType, ExecutionRequest, ExecutionRequestResult, IngestionSource, SortOrder } from '@types';
+import {
+    EntityType,
+    ExecutionRequest,
+    ExecutionRequestResult,
+    IngestionSource,
+    OwnershipTypeEntity,
+    SortOrder,
+} from '@types';
 
 // Mock entity registry for tests
 const mockEntityRegistry = {
@@ -566,7 +577,7 @@ describe('formatTimezone', () => {
         expect(['EST', 'EDT']).toContain(nycAbbr);
 
         const londonAbbr = formatTimezone('Europe/London');
-        expect(['GMT+1', 'BST']).toContain(londonAbbr);
+        expect(['GMT', 'BST']).toContain(londonAbbr);
 
         // Tokyo doesn't observe DST, so it's always GMT+9
         expect(formatTimezone('Asia/Tokyo')).toBe('GMT+9');
@@ -1174,6 +1185,7 @@ describe('buildOwnerEntities', () => {
                         title: '',
                     },
                 },
+                attribution: null,
                 associatedUrn: entityUrn,
                 type: 'CORP_USER',
                 ownershipType: defaultOwnerType,
@@ -1226,5 +1238,551 @@ describe('buildOwnerEntities', () => {
         expect(result[0].owner.editableProperties.displayName).toBe('Partial User');
         expect(result[0].owner.properties.displayName).toBe('');
         expect(result[0].owner.info.admins).toEqual([]);
+    });
+});
+
+describe('getStructuredReport', () => {
+    test('returns null when structured report is not available', () => {
+        const result = getStructuredReport({} as Partial<ExecutionRequestResult>);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when both source and sink reports are missing', () => {
+        const structuredReport = {
+            // No source or sink
+        };
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).toBeNull();
+    });
+
+    test('extracts errors, warnings, and infos from source report only', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    failures: [
+                        {
+                            title: 'Source Error',
+                            message: 'Failed to connect to source',
+                            context: ['connection', 'timeout'],
+                        },
+                    ],
+                    warnings: [
+                        {
+                            title: 'Source Warning',
+                            message: 'Deprecated API used',
+                            context: ['api', 'v1'],
+                        },
+                    ],
+                    infos: [
+                        {
+                            title: 'Source Info',
+                            message: 'Processing completed',
+                            context: ['summary'],
+                        },
+                    ],
+                },
+            },
+        };
+
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).not.toBeNull();
+        expect(result?.errorCount).toBe(1);
+        expect(result?.warnCount).toBe(1);
+        expect(result?.infoCount).toBe(1);
+        expect(result?.items).toHaveLength(3);
+    });
+
+    test('extracts errors, warnings, and infos from sink report only', () => {
+        const structuredReport = {
+            sink: {
+                report: {
+                    failures: [
+                        {
+                            title: 'Sink Error',
+                            message: 'Failed to write to sink',
+                            context: ['write', 'permission'],
+                        },
+                    ],
+                    warnings: [
+                        {
+                            title: 'Sink Warning',
+                            message: 'Slow write speed',
+                            context: ['performance'],
+                        },
+                    ],
+                    infos: [
+                        {
+                            title: 'Sink Info',
+                            message: 'Write completed',
+                            context: ['summary'],
+                        },
+                    ],
+                },
+            },
+        };
+
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).not.toBeNull();
+        expect(result?.errorCount).toBe(1);
+        expect(result?.warnCount).toBe(1);
+        expect(result?.infoCount).toBe(1);
+        expect(result?.items).toHaveLength(3);
+    });
+
+    test('extracts and combines errors, warnings, and infos from both source and sink reports', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    failures: [
+                        {
+                            title: 'Source Error 1',
+                            message: 'Failed to connect',
+                            context: ['connection'],
+                        },
+                        {
+                            title: 'Source Error 2',
+                            message: 'Failed to authenticate',
+                            context: ['auth'],
+                        },
+                    ],
+                    warnings: [
+                        {
+                            title: 'Source Warning',
+                            message: 'Deprecated field',
+                            context: ['field'],
+                        },
+                    ],
+                    infos: [
+                        {
+                            title: 'Source Info',
+                            message: 'Processing started',
+                            context: ['start'],
+                        },
+                    ],
+                },
+            },
+            sink: {
+                report: {
+                    failures: [
+                        {
+                            title: 'Sink Error',
+                            message: 'Write failed',
+                            context: ['write'],
+                        },
+                    ],
+                    warnings: [
+                        {
+                            title: 'Sink Warning 1',
+                            message: 'Slow write',
+                            context: ['performance'],
+                        },
+                        {
+                            title: 'Sink Warning 2',
+                            message: 'Buffer full',
+                            context: ['buffer'],
+                        },
+                    ],
+                    infos: [
+                        {
+                            title: 'Sink Info',
+                            message: 'Write completed',
+                            context: ['end'],
+                        },
+                    ],
+                },
+            },
+        };
+
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).not.toBeNull();
+        expect(result?.errorCount).toBe(3); // 2 from source + 1 from sink
+        expect(result?.warnCount).toBe(3); // 1 from source + 2 from sink
+        expect(result?.infoCount).toBe(2); // 1 from source + 1 from sink
+        expect(result?.items).toHaveLength(8);
+    });
+
+    test('handles legacy object format for failures and warnings', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    failures: {
+                        'Connection error': ['host1', 'host2'],
+                        'Authentication error': ['user1'],
+                    },
+                    warnings: {
+                        'Deprecated API': ['endpoint1'],
+                    },
+                    infos: {},
+                },
+            },
+        };
+
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).not.toBeNull();
+        expect(result?.errorCount).toBe(2);
+        expect(result?.warnCount).toBe(1);
+        expect(result?.infoCount).toBe(0);
+        expect(result?.items[0].message).toBe('Connection error');
+        expect(result?.items[0].context).toEqual(['host1', 'host2']);
+    });
+
+    test('handles mixed array and object formats', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    failures: [
+                        {
+                            title: 'Source Error',
+                            message: 'Array format error',
+                            context: ['context1'],
+                        },
+                    ],
+                    warnings: {},
+                    infos: [],
+                },
+            },
+            sink: {
+                report: {
+                    failures: {
+                        'Object format error': ['context2'],
+                    },
+                    warnings: [
+                        {
+                            title: 'Sink Warning',
+                            message: 'Array format warning',
+                            context: ['context3'],
+                        },
+                    ],
+                    infos: {},
+                },
+            },
+        };
+
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).not.toBeNull();
+        expect(result?.errorCount).toBe(2);
+        expect(result?.warnCount).toBe(1);
+        expect(result?.infoCount).toBe(0);
+        expect(result?.items).toHaveLength(3);
+    });
+
+    test('handles empty source and sink reports', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    failures: [],
+                    warnings: [],
+                    infos: [],
+                },
+            },
+            sink: {
+                report: {
+                    failures: [],
+                    warnings: [],
+                    infos: [],
+                },
+            },
+        };
+
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).not.toBeNull();
+        expect(result?.errorCount).toBe(0);
+        expect(result?.warnCount).toBe(0);
+        expect(result?.infoCount).toBe(0);
+        expect(result?.items).toHaveLength(0);
+    });
+
+    test('filters out string items from array format', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    failures: [
+                        'sampled from 100 records',
+                        {
+                            title: 'Valid Error',
+                            message: 'This should be included',
+                            context: ['context'],
+                        },
+                    ],
+                    warnings: [],
+                    infos: [],
+                },
+            },
+        };
+
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).not.toBeNull();
+        expect(result?.errorCount).toBe(1);
+        expect(result?.items).toHaveLength(1);
+        expect(result?.items[0].message).toBe('This should be included');
+    });
+});
+
+describe('formatExtraArgs', () => {
+    test('should return empty array when input is null', () => {
+        expect(formatExtraArgs(null)).toEqual([]);
+    });
+
+    test('should return empty array when input is undefined', () => {
+        expect(formatExtraArgs(undefined)).toEqual([]);
+    });
+
+    test('should return filtered and mapped array when input has valid entries', () => {
+        const input = [
+            { key: 'key1', value: 'value1' },
+            { key: 'key2', value: 'value2' },
+        ];
+        expect(formatExtraArgs(input)).toEqual(input);
+    });
+
+    test('should filter out entries with null, undefined, or empty string values', () => {
+        const input = [
+            { key: 'key1', value: 'value1' },
+            { key: 'key2', value: null },
+            { key: 'key3', value: undefined },
+            { key: 'key4', value: '' },
+            { key: 'key5', value: 'value5' },
+        ];
+        const expected = [
+            { key: 'key1', value: 'value1' },
+            { key: 'key5', value: 'value5' },
+        ];
+        expect(formatExtraArgs(input)).toEqual(expected);
+    });
+
+    test('should handle empty array input', () => {
+        expect(formatExtraArgs([])).toEqual([]);
+    });
+});
+
+describe('getNewIngestionSourcePlaceholder', () => {
+    test('should create a placeholder ingestion source with correct structure', () => {
+        const urn = 'test-urn';
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+            owners: [],
+        };
+
+        const defaultOwnershipType = {
+            urn: 'urn:li:ownershipType:TEST',
+            name: 'TEST',
+            description: 'Test ownership type',
+            type: EntityType.CustomOwnershipType,
+        } as OwnershipTypeEntity;
+
+        const result = getNewIngestionSourcePlaceholder(urn, data, defaultOwnershipType);
+
+        expect(result).toMatchObject({
+            urn: 'test-urn',
+            name: 'test-source',
+            type: 'test-type',
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+            platform: null,
+            executions: null,
+            source: null,
+            config: {
+                executorId: '',
+                recipe: '',
+                version: null,
+                debugMode: null,
+                extraArgs: null,
+            },
+            ownership: {
+                lastModified: {
+                    time: 0,
+                },
+                __typename: 'Ownership',
+            },
+            __typename: 'IngestionSource',
+        });
+    });
+
+    test('should handle data with missing optional fields', () => {
+        const urn = 'test-urn';
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            // No schedule provided
+            owners: [],
+        };
+
+        const result = getNewIngestionSourcePlaceholder(urn, data, undefined);
+
+        expect(result.schedule.interval).toBe('');
+        expect(result.schedule.timezone).toBe(null);
+    });
+});
+
+describe('getIngestionSourceMutationInput', () => {
+    test('should create mutation input with correct structure', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+                version: '1.0.0',
+                executorId: 'executor-1',
+                debugMode: true,
+                extraArgs: [{ key: 'arg1', value: 'value1' }],
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result).toEqual({
+            type: 'test-type',
+            name: 'test-source',
+            config: {
+                recipe: 'test-recipe',
+                version: '1.0.0',
+                executorId: 'executor-1',
+                debugMode: true,
+                extraArgs: [{ key: 'arg1', value: 'value1' }],
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        });
+    });
+
+    test('should use default executor ID when executorId is not provided', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+                executorId: '',
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.config.executorId).toBe('default');
+    });
+
+    test('should use undefined version when version is empty', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+                version: '', // Empty string
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.config.version).toBeUndefined();
+    });
+
+    test('should not include schedule when no schedule is provided', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            // No schedule provided
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.schedule).toBeUndefined();
+    });
+
+    test('should preserve source field when editing existing sources', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const existingSource = {
+            urn: 'test-urn',
+            name: 'test-source',
+            type: 'test-type',
+            config: { recipe: '', executorId: '' },
+            source: {
+                type: 'SYSTEM',
+            },
+        } as IngestionSource;
+
+        const result = getIngestionSourceMutationInput(data, existingSource);
+
+        expect(result.source).toEqual({ type: 'SYSTEM' });
+    });
+
+    test('should not include source field for new sources', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.source).toBeUndefined();
+    });
+
+    test('should format extraArgs using formatExtraArgs function', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+                extraArgs: [
+                    { key: 'key1', value: 'value1' },
+                    { key: 'key2', value: '' },
+                    { key: 'key3', value: '' },
+                ],
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.config.extraArgs).toEqual([{ key: 'key1', value: 'value1' }]);
     });
 });

@@ -5,6 +5,7 @@ import { useGetDomains } from '@app/homeV2/content/tabs/discovery/sections/domai
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
+import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
 import useGetDomainUtils from '@app/homeV3/modules/domains/useDomainModuleUtils';
 
@@ -12,8 +13,9 @@ import { DataHubPageModuleType } from '@types';
 
 const TopDomainsModule = (props: ModuleProps) => {
     const { user } = useUserContext();
+    const { isReloading } = useModuleContext();
 
-    const { domains, loading } = useGetDomains(user);
+    const { domains, loading } = useGetDomains(user, isReloading ? 'cache-and-network' : 'cache-first');
 
     const { renderDomainCounts, navigateToDomains } = useGetDomainUtils({ domains });
 

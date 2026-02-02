@@ -38,6 +38,17 @@ const DOMAINS_MODULE: PageModuleFragment = {
     },
 };
 
+const PLATFORMS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:platforms',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Platforms',
+        type: DataHubPageModuleType.Platforms,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export const ASSETS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:assets',
     type: EntityType.DatahubPageModule,
@@ -77,6 +88,27 @@ export const RELATED_TERMS_MODULE: PageModuleFragment = {
     properties: {
         name: 'Related Terms',
         type: DataHubPageModuleType.RelatedTerms,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const LINEAGE_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:lineage',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Lineage',
+        type: DataHubPageModuleType.Lineage,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+export const COLUMNS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:columns',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Columns',
+        type: DataHubPageModuleType.Columns,
         visibility: { scope: PageModuleScope.Global },
         params: {},
     },
@@ -221,6 +253,23 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-domains-module',
         };
 
+        const platforms = {
+            name: 'Platforms',
+            key: 'platforms',
+            label: (
+                <MenuItem
+                    description="Most used platforms in your organization"
+                    title="Platforms"
+                    icon="Database"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(PLATFORMS_MODULE);
+            },
+            'data-testid': 'add-platforms-module',
+        };
+
         const assets = {
             name: 'Assets',
             key: 'assets',
@@ -244,7 +293,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             label: (
                 <MenuItem
                     description="View the hierarchy of this asset's children"
-                    title="Children"
+                    title={entityType === EntityType.Domain ? 'Domains' : 'Contents'}
                     icon="Globe"
                     isSmallModule={false}
                 />
@@ -289,7 +338,40 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-related-terms-module',
         };
 
-        const defaultHomeModules = [yourAssets, domains];
+        const lineage = {
+            name: 'Lineage',
+            key: 'lineage',
+            label: (
+                <MenuItem
+                    description="View the lineage of an asset"
+                    title="Lineage"
+                    icon="TreeStructure"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(LINEAGE_MODULE);
+            },
+            'data-testid': 'add-lineage-module',
+        };
+        const schemaTable = {
+            name: 'Columns',
+            key: 'columns',
+            label: (
+                <MenuItem
+                    description="View the columns of this dataset"
+                    title="Columns"
+                    icon="Table"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(COLUMNS_MODULE);
+            },
+            'data-testid': 'add-columns-module',
+        };
+
+        const defaultHomeModules = [yourAssets, domains, platforms];
         // TODO: make this a function to pull out and write unit tests for
         let defaultSummaryModules = [assets];
         if (entityType === EntityType.Domain) {
@@ -298,6 +380,8 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             defaultSummaryModules = [childHierarchy];
         } else if (entityType === EntityType.GlossaryTerm) {
             defaultSummaryModules = [...defaultSummaryModules, relatedTerms];
+        } else if (entityType === EntityType.Dataset) {
+            defaultSummaryModules = [schemaTable, lineage];
         }
 
         const finalDefaultModules =

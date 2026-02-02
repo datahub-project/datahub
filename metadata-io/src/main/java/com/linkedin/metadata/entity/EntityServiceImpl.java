@@ -69,6 +69,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
+import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
@@ -120,6 +121,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
@@ -150,9 +152,7 @@ import org.apache.commons.lang3.StringUtils;
  * the highest stored version of a given aspect + 1.
  *
  * <p>Note that currently, implementations of this interface are responsible for producing Metadata
- * Change Log on ingestion using {@link #conditionallyProduceMCLAsync(OperationContext,
- * RecordTemplate, SystemMetadata, RecordTemplate, SystemMetadata, MetadataChangeProposal, Urn,
- * AuditStamp, AspectSpec)}.
+ * Change Log on ingestion using {@link #produceMCLAsync(OperationContext, MetadataChangeLog mcl)}.
  *
  * <p>TODO: Consider whether we can abstract away virtual versioning semantics to subclasses of this
  * class.
@@ -169,6 +169,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @VisibleForTesting @Getter private final EventProducer producer;
   private RetentionService<ChangeItemImpl> retentionService;
   private final Boolean alwaysEmitChangeLog;
+  private final Boolean cdcModeChangeLog;
   @Nullable @Getter private SearchIndicesService updateIndicesService;
   private final PreProcessHooks preProcessHooks;
   protected static final int MAX_KEYS_PER_QUERY = 500;
@@ -176,6 +177,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
+  private final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils;
 
   @Getter
   private final Map<Set<ThrottleType>, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
@@ -190,9 +192,29 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         aspectDao,
         producer,
         alwaysEmitChangeLog,
+        false,
         preProcessHooks,
         DEFAULT_MAX_TRANSACTION_RETRY,
-        enableBrowsePathV2);
+        enableBrowsePathV2,
+        null);
+  }
+
+  public EntityServiceImpl(
+      @Nonnull final AspectDao aspectDao,
+      @Nonnull final EventProducer producer,
+      final boolean alwaysEmitChangeLog,
+      final boolean cdcModeChangeLog,
+      final PreProcessHooks preProcessHooks,
+      final boolean enableBrowsePathV2) {
+    this(
+        aspectDao,
+        producer,
+        alwaysEmitChangeLog,
+        cdcModeChangeLog,
+        preProcessHooks,
+        DEFAULT_MAX_TRANSACTION_RETRY,
+        enableBrowsePathV2,
+        null);
   }
 
   public EntityServiceImpl(
@@ -201,14 +223,38 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       final boolean alwaysEmitChangeLog,
       final PreProcessHooks preProcessHooks,
       @Nullable final Integer retry,
-      final boolean enableBrowseV2) {
+      final boolean enableBrowsePathV2) {
+    this(
+        aspectDao,
+        producer,
+        alwaysEmitChangeLog,
+        false,
+        preProcessHooks,
+        DEFAULT_MAX_TRANSACTION_RETRY,
+        enableBrowsePathV2,
+        null);
+  }
+
+  public EntityServiceImpl(
+      @Nonnull final AspectDao aspectDao,
+      @Nonnull final EventProducer producer,
+      final boolean alwaysEmitChangeLog,
+      final boolean cdcModeChangeLog,
+      final PreProcessHooks preProcessHooks,
+      @Nullable final Integer retry,
+      final boolean enableBrowseV2,
+      @javax.annotation.Nullable
+          final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
 
     this.aspectDao = aspectDao;
     this.producer = producer;
     this.alwaysEmitChangeLog = alwaysEmitChangeLog;
+    this.cdcModeChangeLog = cdcModeChangeLog;
     this.preProcessHooks = preProcessHooks;
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
     this.enableBrowseV2 = enableBrowseV2;
+    this.metricUtils = metricUtils;
+    log.info("EntityService cdcModeChangeLog is {}", this.cdcModeChangeLog);
   }
 
   /**
@@ -220,7 +266,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    *     datastore
    * @return the system aspect to be persisted to the datastore
    */
-  static SystemAspect applyUpsert(ChangeMCP changeMCP, SystemAspect latestAspect) {
+  static SystemAspect applyUpsert(
+      ChangeMCP changeMCP,
+      SystemAspect latestAspect,
+      @Nonnull List<com.linkedin.metadata.aspect.SystemAspectValidator> systemAspectValidators,
+      @Nullable com.linkedin.metadata.config.AspectSizeValidationConfiguration validationConfig,
+      @Nullable io.datahubproject.metadata.context.OperationContext opContext) {
 
     try {
       // This is the proposed version for this MCP, it can never be 0 (even if stored with row
@@ -289,6 +340,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       } else {
         // insert
         return EbeanSystemAspect.builder()
+            .systemAspectValidators(systemAspectValidators)
+            .validationConfig(validationConfig)
+            .operationContext(opContext)
             .forInsert(
                 changeMCP.getUrn(),
                 changeMCP.getAspectName(),
@@ -867,7 +921,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(opContext),
-        true,
+        !cdcModeChangeLog,
         true);
   }
 
@@ -898,15 +952,52 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     IngestAspectsResult ingestResults = ingestAspectsToLocalDB(opContext, aspectsBatch, overwrite);
 
     // Produce MCLs & run side effects
-    List<UpdateAspectResult> mclResults =
-        emitMCL(opContext, ingestResults.getUpdateAspectResults(), emitMCL);
-    processPostCommitMCLSideEffects(
-        opContext, mclResults.stream().map(UpdateAspectResult::toMCL).collect(Collectors.toList()));
+    List<MetadataChangeLog> mcls =
+        ingestResults.getUpdateAspectResults().stream()
+            .map(UpdateAspectResult::toMCL)
+            .collect(Collectors.toList());
+
+    List<UpdateAspectResult> updateAspectResults;
+
+    List<MCLEmitResult> mclEmitResults;
+    if (!cdcModeChangeLog && emitMCL) {
+      mclEmitResults = produceMCLAsync(opContext, mcls);
+    } else {
+      // This results in pre-process being called here that may be potentially out-of-order.
+      // when the CDC record is consumed, produceMCLAsync is called in the CDC order and
+      // will result in pre-process being called again potentially overwriting this first
+      // preprocess result.
+      mclEmitResults =
+          mcls.stream()
+              .map(mcl -> Pair.of(preprocessEvent(opContext, mcl), mcl))
+              .map(
+                  preprocessResult ->
+                      MCLEmitResult.builder()
+                          .emitted(false)
+                          .processedMCL(preprocessResult.getFirst())
+                          .mclFuture(null)
+                          .metadataChangeLog(preprocessResult.getSecond())
+                          .build())
+              .collect(Collectors.toList());
+    }
+    updateAspectResults =
+        IntStream.range(0, ingestResults.getUpdateAspectResults().size())
+            .mapToObj(
+                i -> {
+                  UpdateAspectResult updateAspectResult =
+                      ingestResults.getUpdateAspectResults().get(i);
+                  MCLEmitResult mclEmitResult = mclEmitResults.get(i);
+                  return updateAspectResult.toBuilder()
+                      .mclFuture(mclEmitResult.getMclFuture())
+                      .processedMCL(mclEmitResult.isProcessedMCL())
+                      .build();
+                })
+            .collect(Collectors.toList());
 
     // Produce FailedMCPs for tracing
     produceFailedMCPs(opContext, ingestResults);
 
-    return mclResults;
+    return updateAspectResults;
   }
 
   /**
@@ -962,298 +1053,403 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return opContext.withSpan(
         "ingestAspectsToLocalDB",
         () -> {
-          if (inputBatch.containsDuplicateAspects()) {
-            log.warn("Batch contains duplicates: {}", inputBatch.duplicateAspects());
-            opContext
-                .getMetricUtils()
-                .ifPresent(
-                    metricUtils ->
-                        metricUtils.increment(EntityServiceImpl.class, "batch_with_duplicate", 1));
-          }
+          try {
+            // Clear pending deletions at start of each request to ensure fresh state
+            opContext.clearPendingDeletions();
 
-          return aspectDao
-              .runInTransactionWithRetry(
-                  (txContext) -> {
-                    // Generate default aspects within the transaction (they are re-calculated on
-                    // retry)
-                    AspectsBatch batchWithDefaults =
-                        DefaultAspectsUtil.withAdditionalChanges(
-                            opContext, inputBatch, this, enableBrowseV2);
+            if (inputBatch.containsDuplicateAspects()) {
+              log.warn("Batch contains duplicates: {}", inputBatch.duplicateAspects());
+              opContext
+                  .getMetricUtils()
+                  .ifPresent(
+                      metricUtils ->
+                          metricUtils.increment(
+                              EntityServiceImpl.class, "batch_with_duplicate", 1));
+            }
 
-                    final Map<String, Set<String>> urnAspects =
-                        batchWithDefaults.getUrnAspectsMap();
+            IngestAspectsResult result =
+                aspectDao
+                    .runInTransactionWithRetry(
+                        (txContext) -> {
+                          // Generate default aspects within the transaction (they are re-calculated
+                          // on
+                          // retry)
+                          AspectsBatch batchWithDefaults =
+                              DefaultAspectsUtil.withAdditionalChanges(
+                                  opContext, inputBatch, this, enableBrowseV2);
 
-                    // read #1
-                    // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read lock) in
-                    // order
-                    // to ensure that the aspect's version is not modified outside the transaction.
-                    // We rely on the retry mechanism if the row is modified and will re-read
-                    // (require the
-                    // lock)
+                          final Map<String, Set<String>> urnAspects =
+                              batchWithDefaults.getUrnAspectsMap();
 
-                    // Initial database state from database
-                    final Map<String, Map<String, SystemAspect>> batchAspects =
-                        aspectDao.getLatestAspects(opContext, urnAspects, true);
-                    final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
+                          // read #1
+                          // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read lock)
+                          // in
+                          // order
+                          // to ensure that the aspect's version is not modified outside the
+                          // transaction.
+                          // We rely on the retry mechanism if the row is modified and will re-read
+                          // (require the
+                          // lock)
 
-                    // read #2 (potentially)
-                    final Map<String, Map<String, Long>> nextVersions =
-                        EntityUtils.calculateNextVersions(
-                            txContext, aspectDao, batchAspects, urnAspects);
+                          // Initial database state from database
+                          final Map<String, Map<String, SystemAspect>> batchAspects =
+                              aspectDao.getLatestAspects(opContext, urnAspects, true);
+                          final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
 
-                    // 1. Convert patches to full upserts
-                    // 2. Run any entity/aspect level hooks
-                    Pair<Map<String, Set<String>>, List<ChangeMCP>> updatedItems =
-                        batchWithDefaults.toUpsertBatchItems(
-                            batchAspects, nextVersions, EntityServiceImpl::applyUpsert);
+                          // read #2 (potentially)
+                          final Map<String, Map<String, Long>> nextVersions =
+                              EntityUtils.calculateNextVersions(
+                                  txContext, aspectDao, batchAspects, urnAspects);
 
-                    // Fetch additional information if needed
-                    final List<ChangeMCP> changeMCPs;
-
-                    if (!updatedItems.getFirst().isEmpty()) {
-                      // These items are new items from side effects
-                      Map<String, Set<String>> sideEffects = updatedItems.getFirst();
-
-                      final Map<String, Map<String, Long>> updatedNextVersions;
-
-                      Map<String, Map<String, SystemAspect>> newLatestAspects =
-                          aspectDao.getLatestAspects(opContext, sideEffects, true);
-
-                      // merge
-                      updatedLatestAspects = AspectsBatch.merge(batchAspects, newLatestAspects);
-
-                      Map<String, Map<String, Long>> newNextVersions =
-                          EntityUtils.calculateNextVersions(
-                              txContext, aspectDao, updatedLatestAspects, updatedItems.getFirst());
-                      // merge
-                      updatedNextVersions = AspectsBatch.merge(nextVersions, newNextVersions);
-
-                      changeMCPs =
-                          updatedItems.getSecond().stream()
-                              .peek(
-                                  changeMCP -> {
-                                    // Add previous version to each side-effect
-                                    if (sideEffects
-                                        .getOrDefault(
-                                            changeMCP.getUrn().toString(), Collections.emptySet())
-                                        .contains(changeMCP.getAspectName())) {
-
-                                      AspectsBatch.incrementBatchVersion(
+                          // 1. Convert patches to full upserts
+                          // 2. Run any entity/aspect level hooks
+                          Pair<Map<String, Set<String>>, List<ChangeMCP>> updatedItems =
+                              batchWithDefaults.toUpsertBatchItems(
+                                  batchAspects,
+                                  nextVersions,
+                                  (changeMCP, systemAspect) ->
+                                      applyUpsert(
                                           changeMCP,
-                                          updatedLatestAspects,
-                                          updatedNextVersions,
-                                          EntityServiceImpl::applyUpsert);
-                                    }
-                                  })
-                              .collect(Collectors.toList());
-                    } else {
-                      changeMCPs = updatedItems.getSecond();
-                      updatedLatestAspects = batchAspects;
-                    }
+                                          systemAspect,
+                                          aspectDao.getSystemAspectValidators(),
+                                          aspectDao.getValidationConfig(),
+                                          opContext));
 
-                    // No changes, return
-                    if (changeMCPs.isEmpty()) {
-                      opContext
-                          .getMetricUtils()
-                          .ifPresent(
-                              metricUtils ->
-                                  metricUtils.increment(EntityServiceImpl.class, "batch_empty", 1));
-                      return TransactionResult.ingestAspectsRollback();
-                    }
+                          // Fetch additional information if needed
+                          final List<ChangeMCP> changeMCPs;
 
-                    // do final pre-commit checks with previous aspect value
-                    ValidationExceptionCollection exceptions =
-                        AspectsBatch.validatePreCommit(changeMCPs, opContext.getRetrieverContext());
+                          if (!updatedItems.getFirst().isEmpty()) {
+                            // These items are new items from side effects
+                            Map<String, Set<String>> sideEffects = updatedItems.getFirst();
 
-                    List<Pair<ChangeMCP, Set<AspectValidationException>>> failedUpsertResults =
-                        new ArrayList<>();
-                    if (exceptions.hasFatalExceptions()) {
-                      // IF this is a client request/API request we fail the `transaction batch`
-                      if (opContext.getRequestContext() != null) {
-                        opContext
-                            .getMetricUtils()
-                            .ifPresent(
-                                metricUtils ->
-                                    metricUtils.increment(
-                                        EntityServiceImpl.class,
-                                        "batch_request_validation_exception",
-                                        1));
-                        collectMetrics(opContext.getMetricUtils().orElse(null), exceptions);
-                        throw new ValidationException(exceptions);
-                      }
+                            final Map<String, Map<String, Long>> updatedNextVersions;
 
-                      opContext
-                          .getMetricUtils()
-                          .ifPresent(
-                              metricUtils ->
-                                  metricUtils.increment(
-                                      EntityServiceImpl.class,
-                                      "batch_consumer_validation_exception",
-                                      1));
-                      log.error(
-                          "mce-consumer batch exceptions: {}",
-                          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions));
-                      failedUpsertResults =
-                          exceptions
-                              .streamExceptions(changeMCPs.stream())
-                              .map(
-                                  writeItem ->
-                                      Pair.of(
-                                          writeItem,
-                                          exceptions.get(
-                                              Pair.of(
-                                                  writeItem.getUrn(), writeItem.getAspectName()))))
-                              .collect(Collectors.toList());
-                    }
+                            Map<String, Map<String, SystemAspect>> newLatestAspects =
+                                aspectDao.getLatestAspects(opContext, sideEffects, true);
 
-                    // Database Upsert successfully validated results
-                    log.info(
-                        "Ingesting aspects batch to database: {}",
-                        AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+                            // merge
+                            updatedLatestAspects =
+                                AspectsBatch.merge(batchAspects, newLatestAspects);
 
-                    List<UpdateAspectResult> upsertResults =
-                        exceptions
-                            .streamSuccessful(changeMCPs.stream())
-                            .map(
-                                writeItem -> {
+                            Map<String, Map<String, Long>> newNextVersions =
+                                EntityUtils.calculateNextVersions(
+                                    txContext,
+                                    aspectDao,
+                                    updatedLatestAspects,
+                                    updatedItems.getFirst());
+                            // merge
+                            updatedNextVersions = AspectsBatch.merge(nextVersions, newNextVersions);
 
-                                  /*
-                                    Latest aspect after possible in-memory mutation
-                                  */
-                                  final SystemAspect latestAspect =
-                                      updatedLatestAspects
-                                          .getOrDefault(writeItem.getUrn().toString(), Map.of())
-                                          .get(writeItem.getAspectName());
+                            changeMCPs =
+                                updatedItems.getSecond().stream()
+                                    .peek(
+                                        changeMCP -> {
+                                          // Add previous version to each side-effect
+                                          if (sideEffects
+                                              .getOrDefault(
+                                                  changeMCP.getUrn().toString(),
+                                                  Collections.emptySet())
+                                              .contains(changeMCP.getAspectName())) {
 
-                                  // eliminate unneeded writes within a batch if the latest aspect
-                                  // doesn't match this ChangeMCP
-                                  if (latestAspect != null
-                                      && !Objects.equals(
-                                          latestAspect.getSystemMetadata().getVersion(),
-                                          writeItem.getSystemMetadata().getVersion())) {
-                                    log.debug(
-                                        "Skipping obsolete write: urn: {} aspect: {} version: {}",
-                                        writeItem.getUrn(),
-                                        writeItem.getAspectName(),
-                                        writeItem.getSystemMetadata().getVersion());
-                                    return null;
-                                  }
+                                            AspectsBatch.incrementBatchVersion(
+                                                changeMCP,
+                                                updatedLatestAspects,
+                                                updatedNextVersions,
+                                                (mcp, sysAspect) ->
+                                                    applyUpsert(
+                                                        mcp,
+                                                        sysAspect,
+                                                        aspectDao.getSystemAspectValidators(),
+                                                        aspectDao.getValidationConfig(),
+                                                        opContext));
+                                          }
+                                        })
+                                    .collect(Collectors.toList());
+                          } else {
+                            changeMCPs = updatedItems.getSecond();
+                            updatedLatestAspects = batchAspects;
+                          }
 
-                                  /*
-                                    This condition is specifically for an older conditional write ingestAspectIfNotPresent()
-                                    overwrite is always true otherwise
-                                  */
-                                  if (overwrite
-                                      || latestAspect == null
-                                      || latestAspect.getDatabaseAspect().isEmpty()) {
-                                    return Optional.ofNullable(
-                                            ingestAspectToLocalDB(
-                                                opContext, txContext, writeItem, latestAspect))
-                                        .map(
-                                            optResult ->
-                                                optResult.toBuilder().request(writeItem).build())
-                                        .orElse(null);
-                                  }
-
-                                  return null;
-                                })
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.toList());
-
-                    if (!upsertResults.isEmpty()) {
-                      // commit upserts prior to retention or kafka send, if supported by impl
-                      if (txContext != null) {
-                        try {
-                          txContext.commitAndContinue();
-                        } catch (EntityNotFoundException e) {
-                          if (e.getMessage() != null
-                              && e.getMessage().contains("No rows updated")) {
-                            log.warn("Ignoring no rows updated condition for metadata update", e);
+                          // No changes, return
+                          if (changeMCPs.isEmpty()) {
                             opContext
                                 .getMetricUtils()
                                 .ifPresent(
                                     metricUtils ->
                                         metricUtils.increment(
-                                            EntityServiceImpl.class, "no_rows_updated", 1));
-                            return TransactionResult.rollback();
+                                            EntityServiceImpl.class, "batch_empty", 1));
+                            return TransactionResult.ingestAspectsRollback();
                           }
-                          throw e;
-                        }
-                      }
 
-                      // Retention optimization and tx
-                      if (retentionService != null) {
-                        opContext.withSpan(
-                            "retentionService",
-                            () -> {
-                              List<RetentionService.RetentionContext> retentionBatch =
-                                  upsertResults.stream()
-                                      // Only consider retention when there was a previous version
-                                      .filter(
-                                          result ->
-                                              updatedLatestAspects.containsKey(
-                                                      result.getUrn().toString())
-                                                  && updatedLatestAspects
-                                                      .get(result.getUrn().toString())
-                                                      .containsKey(
-                                                          result.getRequest().getAspectName()))
-                                      .filter(
-                                          result -> {
-                                            RecordTemplate oldAspect = result.getOldValue();
-                                            RecordTemplate newAspect = result.getNewValue();
-                                            // Apply retention policies if there was an update to
-                                            // existing
-                                            // aspect
-                                            // value
-                                            return oldAspect != newAspect
-                                                && oldAspect != null
-                                                && retentionService != null;
-                                          })
-                                      .map(
-                                          result ->
-                                              RetentionService.RetentionContext.builder()
-                                                  .urn(result.getUrn())
-                                                  .aspectName(result.getRequest().getAspectName())
-                                                  .maxVersion(Optional.of(result.getMaxVersion()))
-                                                  .build())
-                                      .collect(Collectors.toList());
-                              retentionService.applyRetentionWithPolicyDefaults(
-                                  opContext, retentionBatch);
-                            },
-                            BATCH_SIZE_ATTR,
-                            String.valueOf(upsertResults.size()));
-                      } else {
-                        log.warn("Retention service is missing!");
-                      }
-                    } else {
-                      opContext
-                          .getMetricUtils()
-                          .ifPresent(
-                              metricUtils ->
-                                  metricUtils.increment(
-                                      EntityServiceImpl.class, "batch_empty_transaction", 1));
-                      // This includes no-op batches. i.e. patch removing non-existent items
-                      log.debug("Empty transaction detected");
-                      if (txContext != null) {
-                        txContext.rollback();
-                      }
-                    }
+                          // do final pre-commit checks with previous aspect value
+                          ValidationExceptionCollection exceptions =
+                              AspectsBatch.validatePreCommit(
+                                  changeMCPs, opContext.getRetrieverContext());
 
-                    // Force flush span processing for DUE Exports
-                    Optional.ofNullable(opContext.getSystemTelemetryContext())
-                        .map(SystemTelemetryContext::getUsageSpanExporter)
-                        .ifPresent(SpanProcessor::forceFlush);
+                          List<Pair<ChangeMCP, Set<AspectValidationException>>>
+                              failedUpsertResults = new ArrayList<>();
+                          if (exceptions.hasFatalExceptions()) {
+                            // IF this is a client request/API request we fail the `transaction
+                            // batch`
+                            if (opContext.getRequestContext() != null) {
+                              opContext
+                                  .getMetricUtils()
+                                  .ifPresent(
+                                      metricUtils ->
+                                          metricUtils.increment(
+                                              EntityServiceImpl.class,
+                                              "batch_request_validation_exception",
+                                              1));
+                              collectMetrics(opContext.getMetricUtils().orElse(null), exceptions);
+                              throw new ValidationException(exceptions);
+                            }
 
-                    return TransactionResult.of(
-                        IngestAspectsResult.builder()
-                            .updateAspectResults(upsertResults)
-                            .failedUpdateAspectResults(failedUpsertResults)
-                            .build());
-                  },
-                  inputBatch,
-                  ebeanMaxTransactionRetry)
-              .stream()
-              .reduce(IngestAspectsResult.EMPTY, IngestAspectsResult::combine);
+                            opContext
+                                .getMetricUtils()
+                                .ifPresent(
+                                    metricUtils ->
+                                        metricUtils.increment(
+                                            EntityServiceImpl.class,
+                                            "batch_consumer_validation_exception",
+                                            1));
+                            log.error(
+                                "mce-consumer batch exceptions: {}",
+                                collectMetrics(
+                                    opContext.getMetricUtils().orElse(null), exceptions));
+                            failedUpsertResults =
+                                exceptions
+                                    .streamExceptions(changeMCPs.stream())
+                                    .map(
+                                        writeItem ->
+                                            Pair.of(
+                                                writeItem,
+                                                exceptions.get(
+                                                    Pair.of(
+                                                        writeItem.getUrn(),
+                                                        writeItem.getAspectName()))))
+                                    .collect(Collectors.toList());
+                          }
+
+                          // Database Upsert successfully validated results
+                          log.info(
+                              "Ingesting aspects batch to database: {}",
+                              AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+
+                          List<UpdateAspectResult> upsertResults =
+                              exceptions
+                                  .streamSuccessful(changeMCPs.stream())
+                                  .map(
+                                      writeItem -> {
+
+                                        /*
+                                          Latest aspect after possible in-memory mutation
+                                        */
+                                        final SystemAspect latestAspect =
+                                            updatedLatestAspects
+                                                .getOrDefault(
+                                                    writeItem.getUrn().toString(), Map.of())
+                                                .get(writeItem.getAspectName());
+
+                                        // eliminate unneeded writes within a batch if the latest
+                                        // aspect
+                                        // doesn't match this ChangeMCP
+                                        if (latestAspect != null
+                                            && !Objects.equals(
+                                                latestAspect.getSystemMetadata().getVersion(),
+                                                writeItem.getSystemMetadata().getVersion())) {
+                                          log.debug(
+                                              "Skipping obsolete write: urn: {} aspect: {} version: {}",
+                                              writeItem.getUrn(),
+                                              writeItem.getAspectName(),
+                                              writeItem.getSystemMetadata().getVersion());
+                                          return null;
+                                        }
+
+                                        /*
+                                          This condition is specifically for an older conditional write ingestAspectIfNotPresent()
+                                          overwrite is always true otherwise
+                                        */
+                                        if (overwrite
+                                            || latestAspect == null
+                                            || latestAspect.getDatabaseAspect().isEmpty()) {
+                                          try {
+                                            return Optional.ofNullable(
+                                                    ingestAspectToLocalDB(
+                                                        opContext,
+                                                        txContext,
+                                                        writeItem,
+                                                        latestAspect))
+                                                .map(
+                                                    optResult ->
+                                                        optResult.toBuilder()
+                                                            .request(writeItem)
+                                                            .build())
+                                                .orElse(null);
+                                          } catch (
+                                              com.linkedin.metadata.entity.validation
+                                                      .AspectSizeExceededException
+                                                  e) {
+                                            // Convert to AspectValidationException for uniform
+                                            // batch handling
+                                            AspectValidationException validationException =
+                                                AspectValidationException.forItem(
+                                                    writeItem,
+                                                    String.format(
+                                                        "Aspect size validation failed at %s: %d bytes exceeds threshold of %d bytes",
+                                                        e.getValidationPoint(),
+                                                        e.getActualSize(),
+                                                        e.getThreshold()),
+                                                    e);
+
+                                            // API requests: fail entire batch immediately
+                                            // Kafka consumers: collect exception and continue
+                                            if (opContext.getRequestContext() != null) {
+                                              ValidationExceptionCollection sizeExceptions =
+                                                  ValidationExceptionCollection.newCollection();
+                                              sizeExceptions.addException(validationException);
+                                              throw new ValidationException(sizeExceptions);
+                                            } else {
+                                              exceptions.addException(validationException);
+                                              return null; // Exclude from successful results
+                                            }
+                                          }
+                                        }
+
+                                        return null;
+                                      })
+                                  .filter(Objects::nonNull)
+                                  .collect(Collectors.toList());
+
+                          if (!upsertResults.isEmpty()) {
+                            // commit upserts prior to retention or kafka send, if supported by impl
+                            if (txContext != null) {
+                              try {
+                                txContext.commitAndContinue();
+                              } catch (EntityNotFoundException e) {
+                                if (e.getMessage() != null
+                                    && e.getMessage().contains("No rows updated")) {
+                                  log.warn(
+                                      "Ignoring no rows updated condition for metadata update", e);
+                                  opContext
+                                      .getMetricUtils()
+                                      .ifPresent(
+                                          metricUtils ->
+                                              metricUtils.increment(
+                                                  EntityServiceImpl.class, "no_rows_updated", 1));
+                                  return TransactionResult.rollback();
+                                }
+                                throw e;
+                              }
+                            }
+
+                            // Retention optimization and tx
+                            if (retentionService != null) {
+                              opContext.withSpan(
+                                  "retentionService",
+                                  () -> {
+                                    List<RetentionService.RetentionContext> retentionBatch =
+                                        upsertResults.stream()
+                                            // Only consider retention when there was a previous
+                                            // version
+                                            .filter(
+                                                upsertResult ->
+                                                    updatedLatestAspects.containsKey(
+                                                            upsertResult.getUrn().toString())
+                                                        && updatedLatestAspects
+                                                            .get(upsertResult.getUrn().toString())
+                                                            .containsKey(
+                                                                upsertResult
+                                                                    .getRequest()
+                                                                    .getAspectName()))
+                                            .filter(
+                                                upsertResult -> {
+                                                  RecordTemplate oldAspect =
+                                                      upsertResult.getOldValue();
+                                                  RecordTemplate newAspect =
+                                                      upsertResult.getNewValue();
+                                                  // Apply retention policies if there was an update
+                                                  // to
+                                                  // existing
+                                                  // aspect
+                                                  // value
+                                                  return oldAspect != newAspect
+                                                      && oldAspect != null
+                                                      && retentionService != null;
+                                                })
+                                            .map(
+                                                upsertResult ->
+                                                    RetentionService.RetentionContext.builder()
+                                                        .urn(upsertResult.getUrn())
+                                                        .aspectName(
+                                                            upsertResult
+                                                                .getRequest()
+                                                                .getAspectName())
+                                                        .maxVersion(
+                                                            Optional.of(
+                                                                upsertResult.getMaxVersion()))
+                                                        .build())
+                                            .collect(Collectors.toList());
+                                    retentionService.applyRetentionWithPolicyDefaults(
+                                        opContext, retentionBatch);
+                                  },
+                                  BATCH_SIZE_ATTR,
+                                  String.valueOf(upsertResults.size()));
+                            } else {
+                              log.warn("Retention service is missing!");
+                            }
+                          } else {
+                            opContext
+                                .getMetricUtils()
+                                .ifPresent(
+                                    metricUtils ->
+                                        metricUtils.increment(
+                                            EntityServiceImpl.class, "batch_empty_transaction", 1));
+                            // This includes no-op batches. i.e. patch removing non-existent items
+                            log.debug("Empty transaction detected");
+                            if (txContext != null) {
+                              txContext.rollback();
+                            }
+                          }
+
+                          // Force flush span processing for DUE Exports
+                          Optional.ofNullable(opContext.getSystemTelemetryContext())
+                              .map(SystemTelemetryContext::getUsageSpanExporter)
+                              .ifPresent(SpanProcessor::forceFlush);
+
+                          return TransactionResult.of(
+                              IngestAspectsResult.builder()
+                                  .updateAspectResults(upsertResults)
+                                  .failedUpdateAspectResults(failedUpsertResults)
+                                  .build());
+                        },
+                        inputBatch,
+                        ebeanMaxTransactionRetry)
+                    .stream()
+                    .reduce(IngestAspectsResult.EMPTY, IngestAspectsResult::combine);
+
+            return result;
+          } finally {
+            // Process pending deletions whether transaction succeeded or failed.
+            // For DELETE remediation, this is where actual deletion happens.
+            // Must run in finally block to ensure deletions are processed even when
+            // validation failures occur.
+            List<Object> pendingDeletionsRaw = opContext.getPendingDeletions();
+            if (!pendingDeletionsRaw.isEmpty()) {
+              // Cast to AspectDeletionRequest - all objects added by validators should be of this
+              // type
+              List<AspectDeletionRequest> pendingDeletions =
+                  pendingDeletionsRaw.stream()
+                      .filter(obj -> obj instanceof AspectDeletionRequest)
+                      .map(obj -> (AspectDeletionRequest) obj)
+                      .collect(java.util.stream.Collectors.toList());
+              if (!pendingDeletions.isEmpty()) {
+                processPendingDeletions(opContext, pendingDeletions);
+              }
+            }
+
+            // Always cleanup pending deletions to ensure fresh state for next operation
+            opContext.clearPendingDeletions();
+          }
         },
         BATCH_SIZE_ATTR,
         String.valueOf(inputBatch.getItems().size()),
@@ -1261,49 +1457,126 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         MetricUtils.name(this.getClass(), "ingestAspectsToLocalDB"));
   }
 
+  /**
+   * Processes pending aspect deletions collected during validation.
+   *
+   * <p>Called after database transaction commits to execute proper EntityService-level deletions
+   * for oversized aspects. Ensures all side effects are handled: database deletion, Elasticsearch
+   * index updates, graph edge cleanup, and consumer hook invocation.
+   *
+   * @param opContext operation context
+   * @param deletions list of deletion requests collected during validation
+   */
+  private void processPendingDeletions(
+      @Nonnull OperationContext opContext, @Nonnull List<AspectDeletionRequest> deletions) {
+
+    for (AspectDeletionRequest deletion : deletions) {
+      try {
+        log.warn(
+            "Executing system-level deletion for oversized aspect: urn={}, aspect={}, validationPoint={}, size={} bytes, threshold={} bytes",
+            deletion.getUrn(),
+            deletion.getAspectName(),
+            deletion.getValidationPoint(),
+            deletion.getAspectSize(),
+            deletion.getThreshold());
+
+        // Create new OperationContext with remediation deletion flag set
+        // This prevents circular validation when deleting oversized aspects
+        OperationContext remediationContext =
+            opContext.toBuilder()
+                .validationContext(
+                    opContext.getValidationContext().toBuilder()
+                        .isRemediationDeletion(true)
+                        .build())
+                .build(opContext.getSessionActorContext(), false);
+
+        // Call proper deletion through EntityService
+        // This handles all side effects: ES indices, graph edges, consumer hooks, system metadata
+        this.deleteAspect(
+            remediationContext,
+            deletion.getUrn().toString(),
+            deletion.getAspectName(),
+            Map.of(),
+            false);
+
+        // Emit success metric
+        if (metricUtils != null) {
+          metricUtils.incrementMicrometer("aspectSizeValidation.remediationDeletion.success", 1);
+        }
+
+      } catch (Exception e) {
+        log.error(
+            "Failed to delete oversized aspect: urn={}, aspect={}",
+            deletion.getUrn(),
+            deletion.getAspectName(),
+            e);
+
+        // Emit failure metric
+        if (metricUtils != null) {
+          metricUtils.incrementMicrometer("aspectSizeValidation.remediationDeletion.failure", 1);
+        }
+
+        // Don't throw - continue with other deletions
+        // The oversized aspect will remain in database and continue to trigger validation
+      }
+    }
+  }
+
+  public MCLEmitResult produceMCLAsync(@Nonnull OperationContext opContext, MetadataChangeLog mcl) {
+    List<MCLEmitResult> mclResults = produceMCLAsync(opContext, List.of(mcl));
+    // On failure, a Runtime exception is thrown.
+    return mclResults.get(0);
+  }
+
   @Nonnull
-  private List<UpdateAspectResult> emitMCL(
-      @Nonnull OperationContext opContext, List<UpdateAspectResult> sqlResults, boolean emitMCL) {
+  public List<MCLEmitResult> produceMCLAsync(
+      @Nonnull OperationContext opContext, List<MetadataChangeLog> mcls) {
 
     return opContext.withSpan(
-        "emitMCL",
+        "produceMCLAsync",
         () -> {
-          List<UpdateAspectResult> withEmitMCL =
-              sqlResults.stream()
-                  .map(result -> emitMCL ? conditionallyProduceMCLAsync(opContext, result) : result)
-                  .collect(Collectors.toList());
+          List<MCLEmitResult> mclResults = conditionallyProduceMCLAsync(opContext, mcls);
 
-          // join futures messages, capture error state
-          List<Pair<Boolean, UpdateAspectResult>> statusPairs =
-              withEmitMCL.stream()
-                  .filter(result -> result.getMclFuture() != null)
-                  .map(
-                      result -> {
-                        try {
-                          result.getMclFuture().get();
-                          return Pair.of(true, result);
-                        } catch (InterruptedException | ExecutionException e) {
-                          return Pair.of(false, result);
-                        }
+          // This is now a common function and called from timeseries MCLs as well as versioned
+          // MCLs. postCommitSideEffects are not applicable for timeseries MCLs. Calling this
+          // here also enables  side effects to be executed for messages that were published
+          // even if a failure interrupts the flow.
+          processPostCommitMCLSideEffects(
+              opContext,
+              mclResults.stream()
+                  .filter(
+                      result -> result.getMclFuture() != null) // Only those that actually got sent
+                  .filter(
+                      result -> { // only versioned MCLs
+                        MetadataChangeLog mcl = result.getMetadataChangeLog();
+                        return !opContext
+                            .getEntityRegistry()
+                            .getEntitySpec(mcl.getEntityType())
+                            .getAspectSpec(mcl.getAspectName())
+                            .isTimeseries();
                       })
+                  .map(MCLEmitResult::getMetadataChangeLog)
+                  .collect(Collectors.toList()));
+          // join futures messages, capture error state
+          List<MCLEmitResult> failedMCLs =
+              mclResults.stream()
+                  .filter(result -> result.isEmitted() && !result.isProduced())
                   .collect(Collectors.toList());
 
-          if (statusPairs.stream().anyMatch(p -> !p.getFirst())) {
+          if (!failedMCLs.isEmpty()) {
             log.error(
                 "Failed to produce MCLs: {}",
-                statusPairs.stream()
-                    .filter(p -> !p.getFirst())
-                    .map(Pair::getValue)
-                    .map(v -> v.getRequest().toString())
+                failedMCLs.stream()
+                    .map(result -> result.getMetadataChangeLog().getEntityUrn())
                     .collect(Collectors.toList()));
             // TODO restoreIndices?
             throw new RuntimeException("Failed to produce MCLs");
           }
 
-          return withEmitMCL;
+          return mclResults;
         },
         BATCH_SIZE_ATTR,
-        String.valueOf(sqlResults.size()));
+        String.valueOf(mcls.size()));
   }
 
   /**
@@ -1478,7 +1751,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           }
 
           // Emit timeseries MCLs
-          List<Pair<MCPItem, Optional<Pair<Future<?>, Boolean>>>> timeseriesResults =
+          List<Pair<MCPItem, MetadataChangeLog>> timeseriesMCLs =
               aspectsBatch.getItems().stream()
                   .filter(
                       item -> item.getAspectSpec() != null && item.getAspectSpec().isTimeseries())
@@ -1487,33 +1760,31 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       item ->
                           Pair.of(
                               item,
-                              conditionallyProduceMCLAsync(
-                                  opContext,
-                                  null,
-                                  null,
+                              constructMCL(
+                                  item.getMetadataChangeProposal(),
+                                  urnToEntityName(item.getUrn()),
+                                  item.getUrn(),
+                                  item.getAspectSpec().getName(),
+                                  item.getAuditStamp(),
                                   item.getRecordTemplate(),
                                   item.getSystemMetadata(),
-                                  item.getMetadataChangeProposal(),
-                                  item.getUrn(),
-                                  item.getAuditStamp(),
-                                  item.getAspectSpec())))
+                                  null,
+                                  null)))
+                  .collect(Collectors.toList());
+
+          List<Pair<MCPItem, MCLEmitResult>> timeseriesResults =
+              timeseriesMCLs.stream()
+                  .map(
+                      pair ->
+                          Pair.of(pair.getFirst(), produceMCLAsync(opContext, pair.getSecond())))
                   .collect(Collectors.toList());
 
           return timeseriesResults.stream()
+              .filter(pair -> pair.getSecond().isEmitted())
               .map(
-                  result -> {
-                    MCPItem item = result.getFirst();
-                    Optional<Pair<Future<?>, Boolean>> emissionStatus = result.getSecond();
-
-                    emissionStatus.ifPresent(
-                        status -> {
-                          try {
-                            status.getFirst().get();
-                          } catch (InterruptedException | ExecutionException e) {
-                            throw new RuntimeException(e);
-                          }
-                        });
-
+                  pair -> {
+                    MCPItem item = pair.getFirst();
+                    MCLEmitResult mclEmitResult = pair.getSecond();
                     return IngestResult.builder()
                         .urn(item.getUrn())
                         .request(item)
@@ -1524,9 +1795,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                 .auditStamp(item.getAuditStamp())
                                 .newSystemMetadata(item.getSystemMetadata())
                                 .build())
-                        .publishedMCL(
-                            emissionStatus.map(status -> status.getFirst() != null).orElse(false))
-                        .processedMCL(emissionStatus.map(Pair::getSecond).orElse(false))
+                        .publishedMCL(mclEmitResult.isEmitted())
+                        .processedMCL(mclEmitResult.isProcessedMCL())
                         .build();
                   });
         },
@@ -1666,7 +1936,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return result.toString();
   }
 
-  private boolean preprocessEvent(
+  boolean preprocessEvent(
       @Nonnull OperationContext opContext, MetadataChangeLog metadataChangeLog) {
     // Deletes cannot rely on System Metadata being passed through so can't always be determined by
     // system metadata,
@@ -1695,6 +1965,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public Integer getCountAspect(
       @Nonnull OperationContext opContext, @Nonnull String aspectName, @Nullable String urnLike) {
     return aspectDao.countAspect(aspectName, urnLike);
+  }
+
+  @Override
+  public Integer countAspect(@Nonnull RestoreIndicesArgs args, @Nonnull Consumer<String> logger) {
+    logger.accept(String.format("Args are %s", args));
+    return aspectDao.countAspect(args);
   }
 
   @Nonnull
@@ -2046,6 +2322,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           boolean preprocessed = preprocessEvent(opContext, metadataChangeLog);
           Future<?> future =
               producer.produceMetadataChangeLog(opContext, urn, aspectSpec, metadataChangeLog);
+          // TODO Is this trace event ID correct when called in CDC mode?
           Span.current()
               .addEvent(UPDATE_ASPECT_EVENT, mapEventAttributes(metadataChangeLog, opContext));
           return Pair.of(future, preprocessed);
@@ -2161,33 +2438,32 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         || ChangeType.UPDATE.equals(changeType);
   }
 
-  public Optional<Pair<Future<?>, Boolean>> conditionallyProduceMCLAsync(
+  public List<MCLEmitResult> conditionallyProduceMCLAsync(
+      @Nonnull OperationContext opContext, List<MetadataChangeLog> mcls) {
+    return mcls.stream()
+        .map(
+            mcl -> {
+              Urn entityUrn = mcl.getEntityUrn();
+              AspectSpec aspectSpec =
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec(mcl.getEntityType())
+                      .getAspectSpec(mcl.getAspectName());
+              return conditionallyProduceMCLAsync(opContext, aspectSpec, mcl);
+            })
+        .collect(Collectors.toList());
+  }
+
+  public MCLEmitResult conditionallyProduceMCLAsync(
       @Nonnull OperationContext opContext,
-      @Nullable RecordTemplate oldAspect,
-      @Nullable SystemMetadata oldSystemMetadata,
-      RecordTemplate newAspect,
-      SystemMetadata newSystemMetadata,
-      @Nullable MetadataChangeProposal mcp,
-      Urn entityUrn,
-      AuditStamp auditStamp,
-      AspectSpec aspectSpec) {
-    boolean isNoOp =
-        SystemMetadataUtils.isNoOp(newSystemMetadata) || Objects.equals(oldAspect, newAspect);
+      AspectSpec aspectSpec,
+      MetadataChangeLog metadataChangeLog) {
+    SystemMetadata newSystemMetadata = metadataChangeLog.getSystemMetadata();
+    Urn entityUrn = metadataChangeLog.getEntityUrn();
+
+    boolean isNoOp = isNoOp(aspectSpec, metadataChangeLog);
     if (!isNoOp || alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
       log.info("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
-
-      final MetadataChangeLog metadataChangeLog =
-          constructMCL(
-              mcp,
-              urnToEntityName(entityUrn),
-              entityUrn,
-              isNoOp ? ChangeType.RESTATE : ChangeType.UPSERT,
-              aspectSpec.getName(),
-              auditStamp,
-              newAspect,
-              newSystemMetadata,
-              oldAspect,
-              oldSystemMetadata);
 
       log.debug("Serialized MCL event: {}", metadataChangeLog);
       Pair<Future<?>, Boolean> emissionStatus =
@@ -2205,39 +2481,37 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         }
       }
 
-      return emissionStatus.getFirst() != null ? Optional.of(emissionStatus) : Optional.empty();
+      return MCLEmitResult.builder()
+          .metadataChangeLog(metadataChangeLog)
+          .mclFuture(emissionStatus.getFirst())
+          .processedMCL(emissionStatus.getSecond())
+          .emitted(emissionStatus.getFirst() != null)
+          .build();
     } else {
       log.info(
           "Skipped producing MCL for ingested aspect {}, urn {}. Aspect has not changed.",
           aspectSpec.getName(),
           entityUrn);
-      return Optional.empty();
+      return MCLEmitResult.builder().metadataChangeLog(metadataChangeLog).emitted(false).build();
     }
   }
 
-  private UpdateAspectResult conditionallyProduceMCLAsync(
-      @Nonnull OperationContext opContext, UpdateAspectResult result) {
-    ChangeMCP request = result.getRequest();
-    Optional<Pair<Future<?>, Boolean>> emissionStatus =
-        conditionallyProduceMCLAsync(
-            opContext,
-            result.getOldValue(),
-            result.getOldSystemMetadata(),
-            result.getNewValue(),
-            result.getNewSystemMetadata(),
-            request.getMetadataChangeProposal(),
-            result.getUrn(),
-            result.getAuditStamp(),
-            request.getAspectSpec());
+  private static boolean isNoOp(AspectSpec aspectSpec, MetadataChangeLog mcl) {
 
-    return emissionStatus
-        .map(
-            status ->
-                result.toBuilder()
-                    .mclFuture(status.getFirst())
-                    .processedMCL(status.getSecond())
-                    .build())
-        .orElse(result);
+    RecordTemplate oldAspect =
+        mcl.getPreviousAspectValue() != null
+            ? GenericRecordUtils.deserializeAspect(
+                mcl.getPreviousAspectValue().getValue(),
+                mcl.getPreviousAspectValue().getContentType(),
+                aspectSpec)
+            : null;
+    RecordTemplate newAspect =
+        mcl.getAspect() != null
+            ? GenericRecordUtils.deserializeAspect(
+                mcl.getAspect().getValue(), mcl.getAspect().getContentType(), aspectSpec)
+            : null;
+    return SystemMetadataUtils.isNoOp(mcl.getSystemMetadata())
+        || Objects.equals(newAspect, oldAspect);
   }
 
   public void produceFailedMCPs(
@@ -2473,20 +2747,24 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     rowsDeletedFromEntityDeletion.addAndGet(result.additionalRowsAffected);
                     removedAspects.add(aspectToRemove);
                     removedAspectResults.add(result);
-                    return alwaysProduceMCLAsync(
-                            opContext,
-                            result.getUrn(),
-                            result.getEntityName(),
-                            result.getAspectName(),
-                            aspectSpec.get(),
-                            result.getOldValue(),
-                            result.getNewValue(),
-                            result.getOldSystemMetadata(),
-                            result.getNewSystemMetadata(),
-                            // TODO: use properly attributed audit stamp.
-                            createSystemAuditStamp(),
-                            result.getChangeType())
-                        .getFirst();
+                    if (!cdcModeChangeLog) {
+                      return alwaysProduceMCLAsync(
+                              opContext,
+                              result.getUrn(),
+                              result.getEntityName(),
+                              result.getAspectName(),
+                              aspectSpec.get(),
+                              result.getOldValue(),
+                              result.getNewValue(),
+                              result.getOldSystemMetadata(),
+                              result.getNewSystemMetadata(),
+                              // TODO: use properly attributed audit stamp.
+                              createSystemAuditStamp(),
+                              result.getChangeType())
+                          .getFirst();
+                    } else {
+                      return null; // CDC Consumer will emit the MCL. Nothing to wait on here.
+                    }
                   }
 
                   return null;
@@ -2518,26 +2796,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     String keyAspectName = opContext.getKeyAspectName(urn);
 
-    SystemAspect latestKey = null;
-    try {
-      latestKey = aspectDao.getLatestAspect(opContext, urn.toString(), keyAspectName, false);
-    } catch (EntityNotFoundException e) {
-      log.warn("Entity to delete does not exist. {}", urn);
-    }
-    if (latestKey == null || latestKey.getSystemMetadata() == null) {
-      return new RollbackRunResult(
-          removedAspects, rowsDeletedFromEntityDeletion, removedAspectResults);
-    }
-
-    SystemMetadata latestKeySystemMetadata = latestKey.getSystemMetadata();
-
     RollbackResult result =
         deleteAspectWithoutMCL(
-            opContext,
-            urn.toString(),
-            keyAspectName,
-            Collections.singletonMap("runId", latestKeySystemMetadata.getRunId()),
-            true);
+            opContext, urn.toString(), keyAspectName, Collections.emptyMap(), true);
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();
@@ -2545,25 +2806,34 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       summary.setKeyAspect(true);
       summary.setAspectName(keyAspectName);
       summary.setVersion(0);
-      summary.setTimestamp(latestKey.getCreatedOn().getTime());
+      long aspectTime =
+          result.getOldSystemMetadata() != null
+                  && result.getOldSystemMetadata().getAspectCreated() != null
+              ? result.getOldSystemMetadata().getAspectCreated().getTime()
+              : System.currentTimeMillis();
+      summary.setTimestamp(aspectTime);
 
       rowsDeletedFromEntityDeletion = result.additionalRowsAffected;
       removedAspects.add(summary);
       removedAspectResults.add(result);
-      Future<?> future =
-          alwaysProduceMCLAsync(
-                  opContext,
-                  result.getUrn(),
-                  result.getEntityName(),
-                  result.getAspectName(),
-                  keySpec,
-                  result.getOldValue(),
-                  result.getNewValue(),
-                  result.getOldSystemMetadata(),
-                  result.getNewSystemMetadata(),
-                  opContext.getAuditStamp(),
-                  result.getChangeType())
-              .getFirst();
+
+      Future<?> future = null;
+      if (!cdcModeChangeLog) {
+        future =
+            alwaysProduceMCLAsync(
+                    opContext,
+                    result.getUrn(),
+                    result.getEntityName(),
+                    result.getAspectName(),
+                    keySpec,
+                    result.getOldValue(),
+                    result.getNewValue(),
+                    result.getOldSystemMetadata(),
+                    result.getNewSystemMetadata(),
+                    opContext.getAuditStamp(),
+                    result.getChangeType())
+                .getFirst();
+      }
 
       if (future != null) {
         try {
@@ -2788,7 +3058,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     if (isKeyAspect) {
                       if (hardDelete) {
                         // If this is the key aspect, delete the entity entirely.
-                        additionalRowsDeleted = aspectDao.deleteUrn(txContext, urn);
+                        // If Using CDCs, need to ensure key aspect is the deleted last.
+                        additionalRowsDeleted = aspectDao.deleteUrn(opContext, txContext, urn);
                       } else if (deleteItem
                           .getEntitySpec()
                           .hasAspect(Constants.STATUS_ASPECT_NAME)) {
@@ -2967,7 +3238,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull final ChangeMCP writeItem,
       @Nullable SystemAspect latestAspect) {
 
-    SystemAspect upsertAspect = applyUpsert(writeItem, latestAspect);
+    SystemAspect upsertAspect =
+        applyUpsert(
+            writeItem,
+            latestAspect,
+            aspectDao.getSystemAspectValidators(),
+            aspectDao.getValidationConfig(),
+            opContext);
 
     // save to database
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =

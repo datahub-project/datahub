@@ -6,18 +6,24 @@ import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJEC
 import static com.linkedin.metadata.query.filter.Condition.ANCESTORS_INCL;
 import static com.linkedin.metadata.query.filter.Condition.DESCENDANTS_INCL;
 import static com.linkedin.metadata.query.filter.Condition.RELATED_INCL;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.SUBFIELDS;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.SUBFIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.opensearch.core.rest.RestStatus.TOO_MANY_REQUESTS;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.MapDataSchema;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.Condition;
@@ -26,33 +32,42 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.CreatePitRequest;
 import org.opensearch.action.search.CreatePitResponse;
 import org.opensearch.action.search.DeletePitRequest;
 import org.opensearch.action.search.DeletePitResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.Response;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -71,19 +86,32 @@ import org.opensearch.search.suggest.term.TermSuggestionBuilder;
 /** TODO: Add more robust unit tests for this critical class. */
 @Slf4j
 public class ESUtils {
+
   private static final String DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD = "urn";
   public static final String KEYWORD_ANALYZER = "keyword";
   public static final String KEYWORD_SUFFIX = ".keyword";
   public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
   public static final String HEADER_VALUE_DELIMITER = "|";
-  private static final String REMOVED = "removed";
+  public static final String REMOVED = "removed";
+  public static final String ALIAS_FIELD_TYPE = "alias";
+  public static final String TYPE = "type";
+  public static final String KEYWORD = "keyword";
+  public static final String FIELDS = "fields";
+  public static final String SYSTEM_CREATED_FIELD = "systemCreated";
+  public static final String COPY_TO = "copy_to";
+  public static final String INDEX = "index";
+  public static final String PATH = "path";
+  public static final String PROPERTIES = "properties";
 
   // Field types
   public static final String KEYWORD_FIELD_TYPE = "keyword";
   public static final String BOOLEAN_FIELD_TYPE = "boolean";
   public static final String DATE_FIELD_TYPE = "date";
   public static final String DOUBLE_FIELD_TYPE = "double";
+  public static final String FLOAT_FIELD_TYPE = "float";
+  public static final String INTEGER_FIELD_TYPE = "integer";
   public static final String LONG_FIELD_TYPE = "long";
+  public static final String SHORT_FIELD_TYPE = "short";
   public static final String OBJECT_FIELD_TYPE = "object";
   public static final String TEXT_FIELD_TYPE = "text";
   public static final String TOKEN_COUNT_FIELD_TYPE = "token_count";
@@ -144,6 +172,221 @@ public class ESUtils {
   private static final String ELASTICSEARCH_REGEXP_RESERVED_CHARACTERS = "?+*|{}[]()#@&<>~";
 
   private ESUtils() {}
+
+  /**
+   * Builds a map of field names to their types based on entity registry. This method extracts field
+   * types from searchable annotations with fallback to ES mappings for all entities in the
+   * registry.
+   *
+   * @param mappingsBuilder mappings builder instance to use for extracting field types
+   * @param entityRegistry entity registry to extract field types from
+   * @return map of field names to their searchable field types
+   */
+  public static Map<String, Set<SearchableAnnotation.FieldType>> buildSearchableFieldTypes(
+      @Nonnull EntityRegistry entityRegistry, @Nonnull MappingsBuilder mappingsBuilder) {
+    List<EntitySpec> entitySpecs =
+        entityRegistry.getEntitySpecs().values().stream().collect(Collectors.toList());
+    return buildSearchableFieldTypes(mappingsBuilder, entityRegistry, entitySpecs);
+  }
+
+  /**
+   * Builds a map of field names to their types based on entity specs. This method extracts field
+   * types from searchable annotations with fallback to ES mappings.
+   *
+   * @param mappingsBuilder mappings builder instance to use for extracting field types
+   * @param entityRegistry entity registry for looking up mappings
+   * @param entitySpecs list of entity specs to extract field types from
+   * @return map of field names to their searchable field types
+   */
+  public static Map<String, Set<SearchableAnnotation.FieldType>> buildSearchableFieldTypes(
+      @Nonnull MappingsBuilder mappingsBuilder,
+      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull List<EntitySpec> entitySpecs) {
+    return entitySpecs.stream()
+        .flatMap(
+            (EntitySpec entitySpec) -> {
+              Map<String, Set<SearchableAnnotation.FieldType>> annotationFieldTypes =
+                  entitySpec.getSearchableFieldTypes();
+
+              // fallback to mappings
+              @SuppressWarnings("unchecked")
+              Map<String, Map<String, Object>> rawMappingTypes =
+                  ((Map<String, Object>)
+                          mappingsBuilder
+                              .getIndexMappings(entityRegistry, entitySpec)
+                              .getOrDefault("properties", Map.<String, Object>of()))
+                      .entrySet().stream()
+                          .filter(
+                              entry ->
+                                  !annotationFieldTypes.containsKey(entry.getKey())
+                                      && ((Map<String, Object>) entry.getValue()).containsKey(TYPE))
+                          .collect(
+                              Collectors.toMap(
+                                  Map.Entry::getKey, e -> (Map<String, Object>) e.getValue()));
+
+              Map<String, Set<SearchableAnnotation.FieldType>> mappingFieldTypes =
+                  rawMappingTypes.entrySet().stream()
+                      .map(
+                          entry -> Map.entry(entry.getKey(), entry.getValue().get(TYPE).toString()))
+                      .map(
+                          entry ->
+                              Map.entry(
+                                  entry.getKey(),
+                                  fallbackMappingToAnnotation(entry.getValue()).stream()
+                                      .collect(Collectors.toSet())))
+                      .filter(entry -> !entry.getValue().isEmpty())
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+              // aliases - pull from annotations
+              Map<String, Set<SearchableAnnotation.FieldType>> aliasFieldTypes =
+                  rawMappingTypes.entrySet().stream()
+                      .filter(
+                          entry -> ALIAS_FIELD_TYPE.equals(entry.getValue().get(TYPE).toString()))
+                      .map(
+                          entry ->
+                              Map.entry(
+                                  entry.getKey(),
+                                  annotationFieldTypes.getOrDefault(
+                                      entry.getValue().get(PATH).toString(),
+                                      Collections.emptySet())))
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+              List<SearchableFieldSpec> objectFieldSpec =
+                  entitySpec.getSearchableFieldSpecs().stream()
+                      .filter(
+                          searchableFieldSpec ->
+                              searchableFieldSpec.getSearchableAnnotation().getFieldType()
+                                  == SearchableAnnotation.FieldType.OBJECT)
+                      .collect(Collectors.toList());
+
+              Map<String, Set<SearchableAnnotation.FieldType>> objectFieldTypes = new HashMap<>();
+
+              objectFieldSpec.forEach(
+                  fieldSpec -> {
+                    String fieldName = fieldSpec.getSearchableAnnotation().getFieldName();
+                    DataSchema.Type dataType =
+                        ((MapDataSchema) fieldSpec.getPegasusSchema()).getValues().getType();
+
+                    Set<SearchableAnnotation.FieldType> fieldType;
+
+                    switch (dataType) {
+                      case BOOLEAN:
+                        fieldType = Set.of(SearchableAnnotation.FieldType.BOOLEAN);
+                        break;
+                      case INT:
+                        fieldType = Set.of(SearchableAnnotation.FieldType.COUNT);
+                        break;
+                      case DOUBLE:
+                      case LONG:
+                      case FLOAT:
+                        fieldType = Set.of(SearchableAnnotation.FieldType.DOUBLE);
+                        break;
+                      default:
+                        fieldType = Set.of(SearchableAnnotation.FieldType.TEXT);
+                        break;
+                    }
+                    objectFieldTypes.put(fieldName, fieldType);
+                    annotationFieldTypes.remove(fieldName);
+                  });
+
+              return Stream.<Map.Entry<String, Set<SearchableAnnotation.FieldType>>>concat(
+                  Stream.concat(
+                      objectFieldTypes.entrySet().stream(),
+                      annotationFieldTypes.entrySet().stream()),
+                  Stream.concat(
+                      mappingFieldTypes.entrySet().stream(), aliasFieldTypes.entrySet().stream()));
+            })
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                (set1, set2) -> {
+                  Set<SearchableAnnotation.FieldType> merged = new HashSet<>(set1);
+                  merged.addAll(set2);
+                  return merged;
+                }));
+  }
+
+  /**
+   * Builds a map of PathSpec to field paths based on entity registry. This method aggregates field
+   * paths from all entity specs using the existing EntitySpec.getSearchableFieldPathMap() method.
+   *
+   * @param entityRegistry entity registry to extract field paths from
+   * @return map of PathSpec to their field paths
+   */
+  public static Map<PathSpec, String> buildSearchableFieldPaths(
+      @Nonnull EntityRegistry entityRegistry) {
+    Map<PathSpec, String> searchableFieldPaths = new HashMap<>();
+
+    // Use the existing EntitySpec.getSearchableFieldPathMap() method for each entity
+    for (EntitySpec entitySpec : entityRegistry.getEntitySpecs().values()) {
+      searchableFieldPaths.putAll(entitySpec.getSearchableFieldPathMap());
+    }
+
+    return searchableFieldPaths;
+  }
+
+  private static Set<SearchableAnnotation.FieldType> fallbackMappingToAnnotation(
+      @Nonnull String mappingType) {
+    switch (mappingType) {
+      case KEYWORD_FIELD_TYPE:
+        return Set.of(SearchableAnnotation.FieldType.KEYWORD);
+      case DATE_FIELD_TYPE:
+        return Set.of(SearchableAnnotation.FieldType.DATETIME);
+      case OBJECT_FIELD_TYPE:
+        return Set.of(SearchableAnnotation.FieldType.OBJECT);
+    }
+    return Collections.emptySet();
+  }
+
+  /**
+   * Builds a filter query as a Map suitable for low-level REST clients.
+   *
+   * <p>This method takes a Filter object and transforms it into an optimized OpenSearch query,
+   * including rewrites and optimizations, while returning a Map for use with the Low-Level client.
+   *
+   * <p>Output shape is ensured to have a top-level {@code bool} object. If the optimized query is
+   * not a bool, it will be wrapped as {"bool": {"filter": [ <query> ]}}.
+   *
+   * <p><b>Important:</b> Field types must be properly specified in searchableFieldTypes for numeric
+   * fields to ensure correct value serialization. Without field type specification, numeric values
+   * in range queries will remain as strings, leading to incorrect comparisons (e.g., "9" > "15").
+   *
+   * <p>Note: minimumShouldMatch is always serialized as a string by OpenSearch/Elasticsearch (e.g.,
+   * "1" instead of 1) because it supports both absolute numbers and percentages.
+   */
+  @Nonnull
+  public static Map<String, Object> buildFilterMap(
+      @Nullable Filter filter,
+      boolean isTimeseries,
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+    QueryBuilder qb =
+        ESUtils.buildFilterQuery(
+            filter, isTimeseries, searchableFieldTypes, opContext, queryFilterRewriteChain);
+
+    // Optimize and preserve filtering semantics (considerScore=false for filters)
+    qb = ESUtils.queryOptimize(qb, false);
+
+    boolean wrapAsBool = !(qb instanceof BoolQueryBuilder);
+
+    try {
+      // If not a bool, wrap under a bool.filter using a QueryBuilder to avoid manual JSON mistakes
+      QueryBuilder topQuery = wrapAsBool ? QueryBuilders.boolQuery().filter(qb) : qb;
+
+      XContentBuilder builder = XContentFactory.jsonBuilder();
+      topQuery.toXContent(builder, ToXContent.EMPTY_PARAMS);
+
+      Map<String, Object> top =
+          XContentHelper.convertToMap(JsonXContent.jsonXContent, builder.toString(), true);
+
+      // If the serialized content already has top-level bool, return as-is, else wrap
+      return top.containsKey("bool") ? top : Map.of("bool", top);
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to serialize filter query to Map", e);
+    }
+  }
 
   /**
    * Constructs the filter query given filter map.
@@ -371,12 +614,13 @@ public class ESUtils {
    */
   public static void buildSortOrder(
       @Nonnull SearchSourceBuilder searchSourceBuilder,
-      @Nonnull List<SortCriterion> sortCriteria,
+      @Nullable List<SortCriterion> sortCriteria,
       List<EntitySpec> entitySpecs,
       boolean enableDefaultSort) {
     if (sortCriteria.isEmpty() && enableDefaultSort) {
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
     } else {
+      sortCriteria = sortCriteria != null ? sortCriteria : Collections.emptyList();
       for (SortCriterion sortCriterion : sortCriteria) {
         Optional<SearchableAnnotation.FieldType> fieldTypeForDefault = Optional.empty();
         for (EntitySpec entitySpec : entitySpecs) {
@@ -410,6 +654,12 @@ public class ESUtils {
           if (esFieldtype != null) {
             sortBuilder.unmappedType(esFieldtype);
           }
+        }
+
+        // How missing value in documents should be treated in sorting.
+        Object missingValue = sortCriterion.data().get("missingValue");
+        if ("_last".equals(missingValue) || "_first".equals(missingValue)) {
+          sortBuilder.missing(missingValue);
         }
         searchSourceBuilder.sort(sortBuilder);
       }
@@ -698,7 +948,6 @@ public class ESUtils {
       @Nullable String queryName,
       final boolean isTimeseries,
       @Nonnull AspectRetriever aspectRetriever) {
-
     return buildWildcardQueryWithMultipleValues(
         fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s*");
   }
@@ -709,7 +958,6 @@ public class ESUtils {
       @Nullable String queryName,
       final boolean isTimeseries,
       @Nonnull AspectRetriever aspectRetriever) {
-
     return buildWildcardQueryWithMultipleValues(
         fieldName, criterion, isTimeseries, queryName, aspectRetriever, "%s*");
   }
@@ -720,7 +968,6 @@ public class ESUtils {
       @Nullable String queryName,
       final boolean isTimeseries,
       @Nonnull AspectRetriever aspectRetriever) {
-
     return buildWildcardQueryWithMultipleValues(
         fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s");
   }
@@ -784,6 +1031,9 @@ public class ESUtils {
                               toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
                               value.trim())
                           .caseInsensitive(true)));
+      if (!boolQuery.should().isEmpty()) {
+        boolQuery.minimumShouldMatch(1);
+      }
       return boolQuery;
     }
 
@@ -798,7 +1048,6 @@ public class ESUtils {
       String fieldName,
       @Nonnull final Criterion criterion,
       @Nullable AspectRetriever aspectRetriever) {
-
     final Set<String> finalFieldTypes;
     if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
       // use criterion field here for structured props since fieldName has dots replaced with
@@ -814,9 +1063,16 @@ public class ESUtils {
     }
 
     if (finalFieldTypes.size() > 1) {
+      String fieldType =
+          fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)
+              ? "structured property"
+              : "regular field";
       log.warn(
-          "Multiple field types for field name {}, determining best fit for set: {}",
+          "Multiple field types for {} '{}' (criterion: {}, values: {}), determining best fit for set: {}",
+          fieldType,
           fieldName,
+          criterion.getField(),
+          criterion.getValues(),
           finalFieldTypes);
     }
     return finalFieldTypes;
@@ -867,6 +1123,7 @@ public class ESUtils {
   @Nonnull
   public static BoolQueryBuilder applyDefaultSearchFilters(
       @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
       @Nullable Filter filter,
       @Nonnull BoolQueryBuilder filterQuery) {
     // filter soft deleted entities by default
@@ -1102,7 +1359,6 @@ public class ESUtils {
             && nestedBool.should().isEmpty()
             && nestedBool.mustNot().isEmpty()
             && !nestedBool.filter().isEmpty()) {
-
           // Mark for removal
           filtersToRemove.add(filter);
 
@@ -1201,33 +1457,33 @@ public class ESUtils {
   }
 
   public static @Nonnull String computePointInTime(
-      String scrollId,
-      String keepAlive,
-      String elasticSearchImpl,
-      RestHighLevelClient client,
-      String... indexArray) {
+      String scrollId, String keepAlive, SearchClientShim<?> client, String... indexArray) {
     if (scrollId != null) {
       SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
       if (System.currentTimeMillis() + 10000 <= searchAfterWrapper.getExpirationTime()) {
         return searchAfterWrapper.getPitId();
       }
     }
-    if (ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH.equalsIgnoreCase(elasticSearchImpl)) {
-      return createPointInTimeElasticSearch(client, indexArray, keepAlive);
-    } else if (ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH.equalsIgnoreCase(elasticSearchImpl)) {
-      return createPointInTimeOpenSearch(client, indexArray, keepAlive);
+    switch (client.getEngineType()) {
+      case ELASTICSEARCH_7:
+        return createPointInTimeElasticSearch(client, indexArray, keepAlive);
+      case ELASTICSEARCH_8:
+      case OPENSEARCH_2:
+      case ELASTICSEARCH_9:
+        return createPointInTimeOpenSearch(client, indexArray, keepAlive);
+      default:
+        log.warn("Unsupported elasticsearch implementation: {}", client.getEngineType());
+        throw new IllegalStateException("Unsupported elasticsearch implementation.");
     }
-    log.warn("Unsupported elasticsearch implementation: {}", elasticSearchImpl);
-    throw new IllegalStateException("Unsupported elasticsearch implementation.");
   }
 
   private static @Nonnull String createPointInTimeElasticSearch(
-      RestHighLevelClient client, String[] indexArray, String keepAlive) {
+      SearchClientShim<?> client, String[] indexArray, String keepAlive) {
     String endPoint = String.join(",", indexArray) + "/_pit";
     Request request = new Request("POST", endPoint);
     request.addParameter("keep_alive", keepAlive);
     try {
-      Response response = client.getLowLevelClient().performRequest(request);
+      RawResponse response = client.performLowLevelRequest(request);
       Map<String, Object> mappedResponse =
           OBJECT_MAPPER.readValue(response.getEntity().getContent(), new TypeReference<>() {});
       return (String) mappedResponse.get("id");
@@ -1238,12 +1494,26 @@ public class ESUtils {
   }
 
   private static @Nonnull String createPointInTimeOpenSearch(
-      RestHighLevelClient client, String[] indexArray, String keepAlive) {
+      SearchClientShim<?> client, String[] indexArray, String keepAlive) {
     try {
       CreatePitRequest request =
           new CreatePitRequest(TimeValue.parseTimeValue(keepAlive, "keepAlive"), false, indexArray);
       CreatePitResponse response = client.createPit(request, RequestOptions.DEFAULT);
       return response.getId();
+    } catch (OpenSearchStatusException ose) {
+      if (TOO_MANY_REQUESTS.equals(ose.status())) {
+        APIThrottleException throttleException =
+            new APIThrottleException(
+                TimeValue.parseTimeValue(keepAlive, "keepAlive").millis(),
+                "Too many point in times created, retry after keep alive has expired.");
+        try {
+          throttleException.initCause(ose);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+          // Do nothing, can't fill in cause
+        }
+        throw throttleException;
+      }
+      throw ose;
     } catch (IOException e) {
       log.warn("Failed to generate PointInTime Identifier:", e);
       throw new IllegalStateException("Failed to generate PointInTime Identifier.", e);
@@ -1256,38 +1526,45 @@ public class ESUtils {
    *
    * @param client The OpenSearch client
    * @param pitId The PIT ID to clean up
-   * @param elasticSearchImpl The implementation type (elasticsearch or opensearch)
    * @param context Optional context for logging (e.g., "slice 0", "search request")
    */
-  public static void cleanupPointInTime(
-      RestHighLevelClient client, String pitId, String elasticSearchImpl, String context) {
+  public static void cleanupPointInTime(SearchClientShim<?> client, String pitId, String context) {
     if (pitId == null) {
       return;
     }
 
     try {
-      if (ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH.equalsIgnoreCase(elasticSearchImpl)) {
-        DeletePitRequest deletePitRequest = new DeletePitRequest(pitId);
-        DeletePitResponse deletePitResponse =
-            client.deletePit(deletePitRequest, RequestOptions.DEFAULT);
-        // DeletePitResponse doesn't have isAcknowledged(), but if we get here without exception, it
-        // succeeded
-        log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
-      } else if (ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH.equalsIgnoreCase(elasticSearchImpl)) {
-        // For Elasticsearch, use the low-level client to delete PIT
-        String endPoint = "/_pit";
-        Request request = new Request("DELETE", endPoint);
-        request.setJsonEntity("{\"id\":\"" + pitId + "\"}");
-        Response response = client.getLowLevelClient().performRequest(request);
-        if (response.getStatusLine().getStatusCode() == 200) {
-          log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
-        } else {
-          log.warn(
-              "Failed to clean up PIT {} for {}: HTTP {}",
-              pitId,
-              context,
-              response.getStatusLine().getStatusCode());
-        }
+      switch (client.getEngineType()) {
+        case OPENSEARCH_2:
+        case ELASTICSEARCH_8:
+        case ELASTICSEARCH_9:
+          {
+            DeletePitRequest deletePitRequest = new DeletePitRequest(pitId);
+            DeletePitResponse deletePitResponse =
+                client.deletePit(deletePitRequest, RequestOptions.DEFAULT);
+            // DeletePitResponse doesn't have isAcknowledged(), but if we get here without
+            // exception, it
+            // succeeded
+            log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
+            break;
+          }
+        case ELASTICSEARCH_7:
+          {
+            // For Elasticsearch, use the low-level client to delete PIT
+            String endPoint = "/_pit";
+            Request request = new Request("DELETE", endPoint);
+            request.setJsonEntity("{\"id\":\"" + pitId + "\"}");
+            RawResponse response = client.performLowLevelRequest(request);
+            if (response.getStatusLine().getStatusCode() == 200) {
+              log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
+            } else {
+              log.warn(
+                  "Failed to clean up PIT {} for {}: HTTP {}",
+                  pitId,
+                  context,
+                  response.getStatusLine().getStatusCode());
+            }
+          }
       }
     } catch (Exception e) {
       log.warn("Error cleaning up PIT {} for {}: {}", pitId, context, e.getMessage());

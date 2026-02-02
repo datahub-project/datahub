@@ -1,8 +1,15 @@
+from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import (
+    MetadataChangeProposalWrapper,
+    MetadataWorkUnit,
+)
 from datahub.ingestion.source.sql.teradata import (
     TeradataConfig,
     TeradataSource,
@@ -12,6 +19,16 @@ from datahub.ingestion.source.sql.teradata import (
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
+
+
+@pytest.fixture(autouse=True)
+def isolate_teradata_caches(monkeypatch):
+    """Isolate TeradataSource class-level caches for each test.
+
+    Creates fresh cache instances before each test to prevent cross-contamination.
+    """
+    monkeypatch.setattr(TeradataSource, "_tables_cache", defaultdict(list))
+    monkeypatch.setattr(TeradataSource, "_table_creator_cache", {})
 
 
 def _base_config() -> Dict[str, Any]:
@@ -26,13 +43,50 @@ def _base_config() -> Dict[str, Any]:
     }
 
 
+def _create_mock_table_entry(database, table, creator_name=None, **kwargs):
+    """Helper to create mock table entries with consistent structure."""
+    mock_entry = MagicMock()
+    mock_entry.DataBaseName = MagicMock(strip=MagicMock(return_value=database))
+    mock_entry.name = MagicMock(strip=MagicMock(return_value=table))
+    mock_entry.description = kwargs.get("description")
+    mock_entry.object_type = kwargs.get("object_type", "Table")
+    mock_entry.CreateTimeStamp = kwargs.get("create_time", datetime(2024, 1, 1))
+    mock_entry.LastAlterName = kwargs.get("alter_name")
+    mock_entry.LastAlterTimeStamp = kwargs.get("alter_time")
+    mock_entry.RequestText = kwargs.get("request_text")
+    mock_entry.CreatorName = (
+        MagicMock(strip=MagicMock(return_value=creator_name)) if creator_name else None
+    )
+
+    return mock_entry
+
+
+def _create_source(extract_ownership=False):
+    """Helper to create TeradataSource with mocked dependencies."""
+    config = TeradataConfig.model_validate(
+        {
+            **_base_config(),
+            "extract_ownership": extract_ownership,
+        }
+    )
+
+    with patch(
+        "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+    ) as mock_class:
+        mock_class.return_value = MagicMock()
+        with patch(
+            "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+        ):
+            return TeradataSource(config, PipelineContext(run_id="test"))
+
+
 class TestTeradataConfig:
     """Test configuration validation and initialization."""
 
     def test_valid_config(self):
         """Test that valid configuration is accepted."""
         config_dict = _base_config()
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         assert config.host_port == "localhost:1025"
         assert config.include_table_lineage is True
@@ -45,13 +99,13 @@ class TestTeradataConfig:
             **_base_config(),
             "max_workers": 8,
         }
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
         assert config.max_workers == 8
 
     def test_max_workers_default(self):
         """Test max_workers defaults to 10."""
         config_dict = _base_config()
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
         assert config.max_workers == 10
 
     def test_max_workers_custom_value(self):
@@ -60,14 +114,121 @@ class TestTeradataConfig:
             **_base_config(),
             "max_workers": 5,
         }
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
         assert config.max_workers == 5
 
     def test_include_queries_default(self):
         """Test include_queries defaults to True."""
         config_dict = _base_config()
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
         assert config.include_queries is True
+
+    def test_time_window_defaults_applied(self):
+        """Test that BaseTimeWindowConfig defaults are automatically applied."""
+        config_dict = {
+            "username": "test_user",
+            "password": "test_password",
+            "host_port": "localhost:1025",
+            "include_table_lineage": True,
+            "include_usage_statistics": True,
+        }
+
+        config = TeradataConfig.model_validate(config_dict)
+
+        assert config.start_time is not None
+        assert config.end_time is not None
+        assert isinstance(config.start_time, datetime)
+        assert isinstance(config.end_time, datetime)
+        assert config.end_time > config.start_time
+
+    def test_incremental_lineage_config_support(self):
+        """Test that incremental_lineage configuration parameter is supported."""
+        config_dict = {
+            "username": "test_user",
+            "password": "test_password",
+            "host_port": "localhost:1025",
+            "include_table_lineage": True,
+            "include_usage_statistics": True,
+            "incremental_lineage": True,
+        }
+
+        config = TeradataConfig.model_validate(config_dict)
+
+        assert hasattr(config, "incremental_lineage")
+        assert config.incremental_lineage is True
+
+        config_dict_false = {
+            **_base_config(),
+            "incremental_lineage": False,
+        }
+        config_false = TeradataConfig.model_validate(config_dict_false)
+        assert config_false.incremental_lineage is False
+
+        config_default = TeradataConfig.model_validate(_base_config())
+        assert config_default.incremental_lineage is False
+
+    def test_config_inheritance_chain(self):
+        """Test that TeradataConfig properly inherits from all required base classes."""
+        config_dict = {
+            "username": "test_user",
+            "password": "test_password",
+            "host_port": "localhost:1025",
+            "incremental_lineage": True,
+        }
+
+        config = TeradataConfig.model_validate(config_dict)
+
+        # Verify inheritance from BaseTimeWindowConfig
+        assert hasattr(config, "start_time")
+        assert hasattr(config, "end_time")
+        assert hasattr(config, "bucket_duration")
+
+        # Verify inheritance from BaseTeradataConfig
+        assert hasattr(config, "scheme")
+
+        # Verify inheritance from TwoTierSQLAlchemyConfig
+        assert hasattr(config, "host_port")
+
+    def test_user_original_recipe_compatibility(self):
+        """Test that a user's original recipe configuration is parsed correctly."""
+        user_recipe_config = {
+            "host_port": "vmvantage1720:1025",
+            "username": "dbc",
+            "password": "dbc",
+            "include_table_lineage": True,
+            "include_usage_statistics": True,
+            "incremental_lineage": True,
+            "stateful_ingestion": {"enabled": True, "fail_safe_threshold": 90},
+        }
+
+        config = TeradataConfig.model_validate(user_recipe_config)
+
+        assert config.host_port == "vmvantage1720:1025"
+        assert config.username == "dbc"
+        assert config.include_table_lineage is True
+        assert config.include_usage_statistics is True
+        assert config.incremental_lineage is True
+        assert config.start_time is not None
+        assert config.end_time is not None
+        assert config.start_time < config.end_time
+        assert config.stateful_ingestion is not None
+        assert config.stateful_ingestion.enabled is True
+        assert config.stateful_ingestion.fail_safe_threshold == 90
+
+    @pytest.mark.parametrize(
+        "override, expected",
+        [
+            ({}, False),
+            ({"extract_ownership": True}, True),
+            ({"extract_ownership": False}, False),
+        ],
+    )
+    def test_extract_ownership_config(
+        self, override: Dict[str, Any], expected: bool
+    ) -> None:
+        config_dict = {**_base_config(), **override}
+        config = TeradataConfig.model_validate(config_dict)
+        assert config.extract_ownership is expected
 
 
 class TestTeradataSource:
@@ -76,7 +237,7 @@ class TestTeradataSource:
     @patch("datahub.ingestion.source.sql.teradata.create_engine")
     def test_source_initialization(self, mock_create_engine):
         """Test source initializes correctly."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
         ctx = PipelineContext(run_id="test")
 
         # Mock the engine creation
@@ -115,7 +276,7 @@ class TestTeradataSource:
         mock_engine.connect.return_value.__enter__.return_value = mock_connection
         mock_create_engine.return_value = mock_engine
 
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -139,7 +300,7 @@ class TestTeradataSource:
 
     def test_cache_tables_and_views_thread_safety(self):
         """Test that cache operations are thread-safe."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -153,16 +314,10 @@ class TestTeradataSource:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Mock engine and query results
-            mock_entry = MagicMock()
-            mock_entry.DataBaseName = "test_db"
-            mock_entry.name = "test_table"
-            mock_entry.description = "Test table"
-            mock_entry.object_type = "Table"
-            mock_entry.CreateTimeStamp = None
-            mock_entry.LastAlterName = None
-            mock_entry.LastAlterTimeStamp = None
-            mock_entry.RequestText = None
+            # Use helper function for consistent mocking
+            mock_entry = _create_mock_table_entry(
+                "test_db", "test_table", description="Test table"
+            )
 
             with patch.object(source, "get_metadata_engine") as mock_get_engine:
                 mock_engine = MagicMock()
@@ -182,7 +337,7 @@ class TestTeradataSource:
 
     def test_convert_entry_to_observed_query(self):
         """Test conversion of database entries to ObservedQuery objects."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -213,12 +368,14 @@ class TestTeradataSource:
             assert observed_query.session_id == "session123"
             assert observed_query.timestamp == "2024-01-01 10:00:00"
             assert isinstance(observed_query.user, CorpUserUrn)
-            assert observed_query.default_db == "test_db"
+            assert (
+                observed_query.default_db is None
+            )  # Fixed for Teradata two-tier architecture
             assert observed_query.default_schema == "test_db"
 
     def test_convert_entry_to_observed_query_with_none_user(self):
         """Test ObservedQuery conversion handles None user correctly."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -245,7 +402,7 @@ class TestTeradataSource:
 
     def test_check_historical_table_exists_success(self):
         """Test historical table check when table exists."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -272,7 +429,7 @@ class TestTeradataSource:
 
     def test_check_historical_table_exists_failure(self):
         """Test historical table check when table doesn't exist."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -300,7 +457,7 @@ class TestTeradataSource:
 
     def test_close_cleanup(self):
         """Test that close() properly cleans up resources."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -324,6 +481,45 @@ class TestTeradataSource:
 
                 mock_aggregator.close.assert_called_once()
                 mock_super_close.assert_called_once()
+
+    def test_make_lineage_queries_with_time_defaults(self):
+        """Test that _make_lineage_queries works with automatic time defaults."""
+        config_dict = {
+            "username": "test_user",
+            "password": "test_password",
+            "host_port": "localhost:1025",
+            "include_table_lineage": True,
+            "include_usage_statistics": True,
+        }
+
+        config = TeradataConfig.model_validate(config_dict)
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            with patch.object(
+                source, "_check_historical_table_exists", return_value=False
+            ):
+                queries = source._make_lineage_queries()
+
+            assert len(queries) > 0
+            query = queries[0]
+            assert "TIMESTAMP" in query
+            assert "None" not in query
+
+            import re
+
+            timestamp_pattern = r"TIMESTAMP '[^']+'"
+            matches = re.findall(timestamp_pattern, query)
+            assert len(matches) >= 2
 
 
 class TestSQLInjectionSafety:
@@ -369,7 +565,7 @@ class TestMemoryEfficiency:
 
     def test_fetch_lineage_entries_chunked_streaming(self):
         """Test that lineage entries are processed in streaming fashion."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -403,7 +599,7 @@ class TestMemoryEfficiency:
                 mock_aggregator.gen_metadata.return_value = []
 
                 # Process entries
-                list(source._get_audit_log_mcps_with_aggregator())
+                source._populate_aggregator_from_audit_logs()
 
                 # Verify aggregator.add was called for each entry (streaming)
                 assert mock_aggregator.add.call_count == 5
@@ -414,7 +610,7 @@ class TestConcurrencySupport:
 
     def test_tables_cache_thread_safety(self):
         """Test that tables cache operations are thread-safe."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -437,7 +633,7 @@ class TestConcurrencySupport:
 
     def test_cached_loop_tables_safe_access(self):
         """Test cached_loop_tables uses safe cache access."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -486,7 +682,7 @@ class TestStageTracking:
 
     def test_stage_tracking_in_cache_operation(self):
         """Test that table caching uses stage tracking."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         # Create source without mocking to test the actual stage tracking during init
         with (
@@ -502,7 +698,7 @@ class TestStageTracking:
 
     def test_stage_tracking_in_aggregator_processing(self):
         """Test that aggregator processing uses stage tracking."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -528,7 +724,7 @@ class TestStageTracking:
                 ):
                     mock_aggregator.gen_metadata.return_value = []
 
-                    list(source._get_audit_log_mcps_with_aggregator())
+                    source._populate_aggregator_from_audit_logs()
 
                     # Should have called new_stage for query processing and metadata generation
                     # The actual implementation uses new_stage for "Fetching queries" and "Generating metadata"
@@ -540,7 +736,7 @@ class TestErrorHandling:
 
     def test_empty_lineage_entries(self):
         """Test handling of empty lineage entries."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -558,12 +754,12 @@ class TestErrorHandling:
                 source, "_fetch_lineage_entries_chunked", return_value=[]
             ):
                 mock_aggregator.gen_metadata.return_value = []
-                result = list(source._get_audit_log_mcps_with_aggregator())
-                assert result == []
+                source._populate_aggregator_from_audit_logs()
+                # Method doesn't return a value, just populates the aggregator
 
     def test_malformed_query_entry(self):
         """Test handling of malformed query entries."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -599,7 +795,7 @@ class TestLineageQuerySeparation:
 
     def test_make_lineage_queries_current_only(self):
         """Test that only current query is returned when historical lineage is disabled."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": False,
@@ -629,7 +825,7 @@ class TestLineageQuerySeparation:
 
     def test_make_lineage_queries_with_historical_available(self):
         """Test that UNION query is returned when historical lineage is enabled and table exists."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": True,
@@ -669,7 +865,7 @@ class TestLineageQuerySeparation:
 
     def test_make_lineage_queries_with_historical_unavailable(self):
         """Test that only current query is returned when historical lineage is enabled but table doesn't exist."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": True,
@@ -700,7 +896,7 @@ class TestLineageQuerySeparation:
 
     def test_make_lineage_queries_with_database_filter(self):
         """Test that database filters are correctly applied to UNION query."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": True,
@@ -735,7 +931,7 @@ class TestLineageQuerySeparation:
 
     def test_fetch_lineage_entries_chunked_multiple_queries(self):
         """Test that _fetch_lineage_entries_chunked handles multiple queries correctly."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": True,
@@ -798,7 +994,7 @@ class TestLineageQuerySeparation:
 
     def test_fetch_lineage_entries_chunked_single_query(self):
         """Test that _fetch_lineage_entries_chunked handles single query correctly."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": False,
@@ -851,7 +1047,7 @@ class TestLineageQuerySeparation:
 
     def test_fetch_lineage_entries_chunked_batch_processing(self):
         """Test that batch processing works correctly with configurable batch size."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": False,
@@ -912,7 +1108,7 @@ class TestLineageQuerySeparation:
 
     def test_end_to_end_separate_queries_integration(self):
         """Test end-to-end integration of separate queries in the aggregator flow."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": True,
@@ -958,7 +1154,7 @@ class TestLineageQuerySeparation:
                 mock_aggregator.gen_metadata.return_value = []
 
                 # Execute the aggregator flow
-                list(source._get_audit_log_mcps_with_aggregator())
+                source._populate_aggregator_from_audit_logs()
 
                 # Verify both entries were added to aggregator
                 assert mock_aggregator.add.call_count == 2
@@ -979,7 +1175,7 @@ class TestLineageQuerySeparation:
 
     def test_query_logging_and_progress_tracking(self):
         """Test that proper logging occurs when processing multiple queries."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": True,
@@ -1053,7 +1249,7 @@ class TestQueryConstruction:
 
     def test_current_query_construction(self):
         """Test that the current query is constructed correctly."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "start_time": "2024-01-01T00:00:00Z",
@@ -1085,7 +1281,7 @@ class TestQueryConstruction:
 
     def test_historical_query_construction(self):
         """Test that the UNION query contains historical data correctly."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": True,
@@ -1127,7 +1323,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_single_row_queries(self):
         """Test streaming reconstruction with single-row queries."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1168,7 +1364,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_multi_row_queries(self):
         """Test streaming reconstruction with multi-row queries."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1220,7 +1416,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_mixed_queries(self):
         """Test streaming reconstruction with mixed single and multi-row queries."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1278,7 +1474,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_empty_entries(self):
         """Test streaming reconstruction with empty entries."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1298,7 +1494,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_teradata_specific_transformations(self):
         """Test that Teradata-specific transformations are applied."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1330,7 +1526,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_metadata_preservation(self):
         """Test that all metadata fields are preserved correctly."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1367,13 +1563,13 @@ class TestStreamingQueryReconstruction:
             assert query.timestamp == "2024-01-01 10:00:00"
             assert isinstance(query.user, CorpUserUrn)
             assert str(query.user) == "urn:li:corpuser:test_user"
-            assert query.default_db == "test_db"
+            assert query.default_db is None  # Fixed for Teradata two-tier architecture
             assert query.default_schema == "test_db"  # Teradata uses database as schema
             assert query.session_id == "session123"
 
     def test_reconstruct_queries_streaming_with_none_user(self):
         """Test streaming reconstruction handles None user correctly."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1401,7 +1597,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_empty_query_text(self):
         """Test streaming reconstruction handles empty query text correctly."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1431,7 +1627,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_space_joining_behavior(self):
         """Test that query parts are joined directly without adding spaces."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1494,3 +1690,208 @@ class TestStreamingQueryReconstruction:
         entry.default_database = default_database
         entry.session_id = session_id or f"session_{query_id}"
         return entry
+
+
+class TestOwnershipExtraction:
+    """Test ownership extraction functionality."""
+
+    def test_table_creator_cache_population(self):
+        """Test that _table_creator_cache is populated during cache_tables_and_views."""
+        source = _create_source()
+        mock_entry = _create_mock_table_entry(
+            "test_db",
+            "test_table",
+            creator_name="creator_user",
+            description="test comment",
+            alter_name="test_user",
+            alter_time=datetime(2024, 1, 2),
+        )
+
+        with patch.object(source, "get_metadata_engine") as mock_get_engine:
+            mock_engine = MagicMock()
+            mock_engine.execute.return_value = [mock_entry]
+            mock_get_engine.return_value = mock_engine
+
+            source.cache_tables_and_views()
+
+            assert ("test_db", "test_table") in source._table_creator_cache
+            assert (
+                source._table_creator_cache[("test_db", "test_table")] == "creator_user"
+            )
+
+    def test_table_creator_cache_handles_none_creator(self):
+        """Test that _table_creator_cache handles None creator gracefully."""
+        source = _create_source()
+        mock_entry = _create_mock_table_entry(
+            "test_db2", "test_table2", creator_name=None
+        )
+
+        with patch.object(source, "get_metadata_engine") as mock_get_engine:
+            mock_engine = MagicMock()
+            mock_engine.execute.return_value = [mock_entry]
+            mock_get_engine.return_value = mock_engine
+
+            source.cache_tables_and_views()
+
+            assert ("test_db2", "test_table2") not in source._table_creator_cache
+
+    def test_get_creator_for_entity_returns_creator(self):
+        """Test that _get_creator_for_entity returns creator when available."""
+        source = _create_source()
+        source._table_creator_cache[("test_db", "test_table")] = "creator_user"
+
+        result = source._get_creator_for_entity("test_db", "test_table")
+
+        assert result == "creator_user"
+
+    def test_get_creator_for_entity_returns_none_when_not_found(self):
+        """Test that _get_creator_for_entity returns None when entity not in cache."""
+        source = _create_source()
+
+        result = source._get_creator_for_entity("test_db", "nonexistent_table")
+
+        assert result is None
+
+    @pytest.mark.parametrize(
+        "extract_ownership,has_creator,expected_work_units",
+        [
+            (True, True, True),  # Ownership enabled + creator available = emit
+            (True, False, False),  # Ownership enabled + no creator = no emit
+            (False, True, False),  # Ownership disabled + creator available = no emit
+        ],
+    )
+    def test_emit_ownership_scenarios(
+        self, extract_ownership, has_creator, expected_work_units
+    ):
+        """Test various scenarios for _emit_ownership_if_available."""
+        source = _create_source(extract_ownership=extract_ownership)
+
+        if has_creator:
+            source._table_creator_cache[("test_db", "test_table")] = "creator_user"
+
+        work_units = list(
+            source._emit_ownership_if_available(
+                "test_db.test_table", "test_db", "test_table"
+            )
+        )
+
+        if expected_work_units:
+            assert len(work_units) > 0
+        else:
+            assert len(work_units) == 0
+
+    @pytest.mark.parametrize(
+        "entity_type,parent_method",
+        [
+            (
+                "table",
+                "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource._process_table",
+            ),
+            (
+                "view",
+                "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource._process_view",
+            ),
+        ],
+    )
+    def test_process_entity_emits_ownership_work_units(
+        self, entity_type, parent_method
+    ):
+        """Test that _process_table and _process_view emit ownership work units when configured."""
+        source = _create_source(extract_ownership=True)
+        entity_name = f"test_{entity_type}"
+        source._table_creator_cache[("test_db", entity_name)] = "creator_user"
+
+        mock_inspector = MagicMock()
+        mock_sql_config = MagicMock()
+
+        with patch(parent_method, return_value=iter([])):
+            process_method = getattr(source, f"_process_{entity_type}")
+            work_units = list(
+                process_method(
+                    f"test_db.{entity_name}",
+                    mock_inspector,
+                    "test_db",
+                    entity_name,
+                    mock_sql_config,
+                )
+            )
+
+            assert len(work_units) == 1
+
+            wu = work_units[0]
+            assert isinstance(wu, MetadataWorkUnit)
+            assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            assert wu.metadata.aspectName == "ownership"
+
+    def test_emit_ownership_early_return(self):
+        """Test that _emit_ownership_if_available returns early when extract_ownership is False."""
+        source = _create_source(extract_ownership=False)
+        # Populate cache to ensure early return happens before creator check
+        source._table_creator_cache[("test_db", "test_table")] = "creator_user"
+
+        work_units = list(
+            source._emit_ownership_if_available(
+                "test_db.test_table", "test_db", "test_table"
+            )
+        )
+        assert len(work_units) == 0
+
+    def test_table_creator_cache_population_with_creator(self):
+        """Test that cache is populated when CreatorName is not None."""
+        source = _create_source()
+
+        # Create entries with and without creator
+        entry_with_creator = _create_mock_table_entry(
+            "db1", "table_with_creator", creator_name="user1"
+        )
+        entry_without_creator = _create_mock_table_entry(
+            "db1", "table_without_creator", creator_name=None
+        )
+
+        with patch.object(source, "get_metadata_engine") as mock_get_engine:
+            mock_engine = MagicMock()
+            mock_engine.execute.return_value = [
+                entry_with_creator,
+                entry_without_creator,
+            ]
+            mock_get_engine.return_value = mock_engine
+
+            source.cache_tables_and_views()
+
+            # Only entry with creator should be in cache
+            assert ("db1", "table_with_creator") in source._table_creator_cache
+            assert source._table_creator_cache[("db1", "table_with_creator")] == "user1"
+            assert ("db1", "table_without_creator") not in source._table_creator_cache
+
+    def test_get_creator_returns_from_cache(self):
+        """Test that _get_creator_for_entity returns value from cache when present."""
+        source = _create_source()
+
+        # Manually populate cache
+        source._table_creator_cache[("schema1", "entity1")] = "owner1"
+        source._table_creator_cache[("schema2", "entity2")] = "owner2"
+
+        # Test retrieval
+        result1 = source._get_creator_for_entity("schema1", "entity1")
+        result2 = source._get_creator_for_entity("schema2", "entity2")
+        result3 = source._get_creator_for_entity("schema3", "entity3")
+
+        assert result1 == "owner1"
+        assert result2 == "owner2"
+        assert result3 is None
+
+    def test_emit_ownership_creates_user_urn(self):
+        """Test that _emit_ownership_if_available creates correct user URN."""
+        source = _create_source(extract_ownership=True)
+        source._table_creator_cache[("test_db", "test_table")] = "test_creator"
+
+        work_units = list(
+            source._emit_ownership_if_available(
+                "test_db.test_table", "test_db", "test_table"
+            )
+        )
+
+        assert len(work_units) == 1
+        # The work unit should contain ownership with user URN
+        # Verify by checking the work unit was created (indicates make_user_urn was called)
+        assert isinstance(work_units[0], MetadataWorkUnit)

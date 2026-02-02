@@ -43,6 +43,7 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
 import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
 import QueriesTab from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesTab';
 import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
@@ -54,13 +55,15 @@ import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTab } from '@app/entityV2/shared/types';
 import {
     SidebarTitleActionType,
-    getDataProduct,
     getDatasetLastUpdatedMs,
     getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowDatasetSummaryPage } from '@app/entityV2/summary/useShowDatasetSummaryPage';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '@app/searchV2/matches/matchedFieldPathsRenderer';
@@ -78,7 +81,6 @@ const SUBTYPES = {
 };
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.RAISE_INCIDENT,
@@ -149,133 +151,7 @@ export class DatasetEntity implements Entity<Dataset> {
             subHeader={{
                 component: DatasetStatsSummarySubHeader,
             }}
-            tabs={[
-                {
-                    name: 'Columns',
-                    component: SchemaTab,
-                    icon: LayoutOutlined,
-                    getCount: useGetColumnTabCount,
-                },
-                {
-                    name: 'View Definition',
-                    component: ViewDefinitionTab,
-                    icon: CodeOutlined,
-                    display: {
-                        visible: (_, dataset: GetDatasetQuery) =>
-                            !!dataset?.dataset?.viewProperties?.logic ||
-                            !!dataset?.dataset?.subTypes?.typeNames
-                                ?.map((t) => t.toLocaleLowerCase())
-                                .includes(SUBTYPES.VIEW.toLocaleLowerCase()),
-                        enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.viewProperties?.logic,
-                    },
-                },
-                {
-                    name: 'Documentation',
-                    component: DocumentationTab,
-                    icon: FileOutlined,
-                },
-                {
-                    name: 'Preview',
-                    component: EmbedTab,
-                    icon: EyeOutlined,
-                    display: {
-                        visible: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.embed?.renderUrl,
-                        enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.embed?.renderUrl,
-                    },
-                },
-                {
-                    name: 'Lineage',
-                    component: LineageTab,
-                    icon: PartitionOutlined,
-                },
-                {
-                    name: 'Access',
-                    component: AccessManagement,
-                    icon: UnlockOutlined,
-                    display: {
-                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
-                        enabled: (_, _2) => true,
-                    },
-                },
-                {
-                    name: 'Properties',
-                    component: PropertiesTab,
-                    icon: UnorderedListOutlined,
-                    getCount: (_, dataset: GetDatasetQuery) => {
-                        const customPropertiesCount = dataset?.dataset?.properties?.customProperties?.length || 0;
-                        const structuredPropertiesCount =
-                            dataset?.dataset?.structuredProperties?.properties?.length || 0;
-                        const propertiesCount = customPropertiesCount + structuredPropertiesCount;
-                        return propertiesCount;
-                    },
-                },
-                {
-                    name: 'Queries',
-                    component: QueriesTab,
-                    icon: ConsoleSqlOutlined,
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, _2) => true,
-                    },
-                },
-                {
-                    name: 'Stats',
-                    component: StatsTabWrapper,
-                    icon: FundOutlined,
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
-                            (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
-                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0 ||
-                            (dataset?.dataset?.operations?.length || 0) > 0,
-                    },
-                },
-                {
-                    name: QUALITY_TAB_NAME,
-                    component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
-                    icon: CheckCircleOutlined,
-                },
-                {
-                    name: GOVERNANCE_TAB_NAME,
-                    icon: () => (
-                        <span
-                            style={{
-                                marginRight: 6,
-                                verticalAlign: '-0.2em',
-                            }}
-                        >
-                            <GovernMenuIcon width={16} height={16} fill="currentColor" />
-                        </span>
-                    ),
-                    component: GovernanceTab,
-                    getCount: (_, dataset) => {
-                        const passingTests = dataset?.dataset?.testResults?.passing || [];
-                        const failingTests = dataset?.dataset?.testResults?.failing || [];
-                        return passingTests.length + failingTests.length;
-                    },
-                },
-                {
-                    name: 'Runs', // TODO: Rename this to DatasetRunsTab.
-                    component: OperationsTab,
-                    display: {
-                        visible: (_, dataset: GetDatasetQuery) => {
-                            return (dataset?.dataset?.runs?.total || 0) > 0;
-                        },
-                        enabled: (_, dataset: GetDatasetQuery) => {
-                            return (dataset?.dataset?.runs?.total || 0) > 0;
-                        },
-                    },
-                },
-                {
-                    name: 'Incidents',
-                    icon: WarningOutlined,
-                    component: IncidentTab,
-                    getCount: (_, dataset) => {
-                        return dataset?.dataset?.activeIncidents?.total;
-                    },
-                },
-            ]}
+            tabs={this.getProfileTabs()}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
@@ -379,6 +255,149 @@ export class DatasetEntity implements Entity<Dataset> {
         };
     };
 
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowDatasetSummaryPage();
+        return [
+            ...(showSummaryTab
+                ? [
+                      {
+                          name: 'Summary',
+                          component: SummaryTab,
+                          icon: SUMMARY_TAB_ICON,
+                      },
+                  ]
+                : []),
+            {
+                name: 'Columns',
+                component: SchemaTab,
+                icon: LayoutOutlined,
+                getCount: useGetColumnTabCount,
+            },
+            {
+                name: 'View Definition',
+                component: ViewDefinitionTab,
+                icon: CodeOutlined,
+                display: {
+                    visible: (_, dataset: GetDatasetQuery) =>
+                        !!dataset?.dataset?.viewProperties?.logic ||
+                        !!dataset?.dataset?.subTypes?.typeNames
+                            ?.map((t) => t.toLocaleLowerCase())
+                            .includes(SUBTYPES.VIEW.toLocaleLowerCase()),
+                    enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.viewProperties?.logic,
+                },
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: 'Documentation',
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
+                : []),
+            {
+                name: 'Preview',
+                component: EmbedTab,
+                icon: EyeOutlined,
+                display: {
+                    visible: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.embed?.renderUrl,
+                    enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.embed?.renderUrl,
+                },
+            },
+            {
+                name: 'Lineage',
+                component: LineageTab,
+                icon: PartitionOutlined,
+            },
+            {
+                name: 'Access',
+                component: AccessManagement,
+                icon: UnlockOutlined,
+                display: {
+                    visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
+                    enabled: (_, _2) => true,
+                },
+            },
+            {
+                name: 'Properties',
+                component: PropertiesTab,
+                icon: UnorderedListOutlined,
+                getCount: (_, dataset: GetDatasetQuery) => {
+                    const customPropertiesCount = dataset?.dataset?.properties?.customProperties?.length || 0;
+                    const structuredPropertiesCount = dataset?.dataset?.structuredProperties?.properties?.length || 0;
+                    const propertiesCount = customPropertiesCount + structuredPropertiesCount;
+                    return propertiesCount;
+                },
+            },
+            {
+                name: 'Queries',
+                component: QueriesTab,
+                icon: ConsoleSqlOutlined,
+                display: {
+                    visible: (_, _1) => true,
+                    enabled: (_, _2) => true,
+                },
+            },
+            {
+                name: 'Stats',
+                component: StatsTabWrapper,
+                icon: FundOutlined,
+                display: {
+                    visible: (_, _1) => true,
+                    enabled: (_, dataset: GetDatasetQuery) =>
+                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
+                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
+                        (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0 ||
+                        (dataset?.dataset?.operations?.length || 0) > 0,
+                },
+            },
+            {
+                name: QUALITY_TAB_NAME,
+                component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
+                icon: CheckCircleOutlined,
+            },
+            {
+                name: GOVERNANCE_TAB_NAME,
+                icon: () => (
+                    <span
+                        style={{
+                            marginRight: 6,
+                            verticalAlign: '-0.2em',
+                        }}
+                    >
+                        <GovernMenuIcon width={16} height={16} fill="currentColor" />
+                    </span>
+                ),
+                component: GovernanceTab,
+                getCount: (_, dataset) => {
+                    const passingTests = dataset?.dataset?.testResults?.passing || [];
+                    const failingTests = dataset?.dataset?.testResults?.failing || [];
+                    return passingTests.length + failingTests.length;
+                },
+            },
+            {
+                name: 'Runs', // TODO: Rename this to DatasetRunsTab.
+                component: OperationsTab,
+                display: {
+                    visible: (_, dataset: GetDatasetQuery) => {
+                        return (dataset?.dataset?.runs?.total || 0) > 0;
+                    },
+                    enabled: (_, dataset: GetDatasetQuery) => {
+                        return (dataset?.dataset?.runs?.total || 0) > 0;
+                    },
+                },
+            },
+            {
+                name: 'Incidents',
+                icon: WarningOutlined,
+                component: IncidentTab,
+                getCount: (_, dataset) => {
+                    return dataset?.dataset?.activeIncidents?.total;
+                },
+            },
+        ];
+    };
+
     renderPreview = (previewType: PreviewType, data: Dataset) => {
         const genericProperties = this.getGenericEntityProperties(data);
         const platformNames = genericProperties?.siblingPlatforms?.map(
@@ -402,8 +421,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 container={data.container}
                 externalUrl={data.properties?.externalUrl}
                 health={data.health}
@@ -439,8 +456,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformLogos={genericProperties?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 glossaryTerms={data.glossaryTerms}
                 subtype={getFirstSubType(data)}
@@ -462,6 +477,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -489,7 +505,7 @@ export class DatasetEntity implements Entity<Dataset> {
     };
 
     displayName = (data: Dataset) => {
-        return data?.properties?.name || data.name || data.urn;
+        return data?.editableProperties?.name || data?.properties?.name || data.name || data.urn;
     };
 
     platformLogoUrl = (data: Dataset) => {
@@ -518,6 +534,7 @@ export class DatasetEntity implements Entity<Dataset> {
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
         ]);
     };
 

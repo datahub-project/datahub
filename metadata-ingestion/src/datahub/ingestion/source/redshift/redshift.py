@@ -6,7 +6,6 @@ from typing import Dict, Iterable, List, Optional, Type, Union
 import humanfriendly
 
 # These imports verify that the dependencies are available.
-import pydantic
 import redshift_connector
 
 from datahub.configuration.common import AllowDenyPattern
@@ -89,8 +88,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
-    PROFILING,
     USAGE_EXTRACTION_INGESTION,
+    IngestionHighStage,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes, TimeStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -233,10 +232,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
-            RedshiftConfig.Config.extra = (
-                pydantic.Extra.allow
-            )  # we are okay with extra fields during this stage
-            config = RedshiftConfig.parse_obj(config_dict)
+            # We are okay with extra fields during this stage
+            config = RedshiftConfig.parse_obj_allow_extras(config_dict)
             # source = RedshiftSource(config, report)
             connection: redshift_connector.Connection = (
                 RedshiftSource.get_redshift_connection(config)
@@ -316,7 +313,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = RedshiftConfig.parse_obj(config_dict)
+        config = RedshiftConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod
@@ -430,11 +427,26 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.process_schemas(connection, database)
             )
 
-            with self.report.new_stage(LINEAGE_EXTRACTION):
-                yield from self.extract_lineage_v2(
-                    connection=connection,
-                    database=database,
-                    lineage_extractor=lineage_extractor,
+            # Only extract lineage if at least one lineage flag is enabled.
+            # This addresses a regression introduced in PR #14580 where lineage v1 removal
+            # inadvertently caused lineage extraction to run even when all flags were disabled.
+            if (
+                self.config.include_table_lineage
+                or self.config.include_view_lineage
+                or self.config.include_copy_lineage
+                or self.config.include_unload_lineage
+                or self.config.include_share_lineage
+                or self.config.include_table_rename_lineage
+            ):
+                with self.report.new_stage(LINEAGE_EXTRACTION):
+                    yield from self.extract_lineage_v2(
+                        connection=connection,
+                        database=database,
+                        lineage_extractor=lineage_extractor,
+                    )
+            else:
+                logger.info(
+                    "Skipping lineage extraction - all lineage flags are disabled"
                 )
 
         all_tables = self.get_all_tables()
@@ -446,7 +458,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         if self.config.is_profiling_enabled():
-            with self.report.new_stage(PROFILING):
+            with self.report.new_high_stage(IngestionHighStage.PROFILING):
                 profiler = RedshiftProfiler(
                     config=self.config,
                     report=self.report,

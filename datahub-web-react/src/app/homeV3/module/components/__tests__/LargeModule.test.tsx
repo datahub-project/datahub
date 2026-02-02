@@ -90,7 +90,7 @@ describe('LargeModule', () => {
 
     const defaultProps = {
         module: mockModule,
-        children: <div data-testid="module-content">Module Content</div>,
+        children: <div data-testid="module-inner-content">Module Content</div>,
         position: { rowIndex: 0, moduleIndex: 0 },
     };
 
@@ -98,16 +98,25 @@ describe('LargeModule', () => {
         render(<LargeModule {...defaultProps} />);
 
         expect(screen.getByTestId('module-name')).toHaveTextContent('Test Module');
-        expect(screen.getByTestId('module-content')).toBeInTheDocument();
+        expect(screen.getByTestId('module-inner-content')).toBeInTheDocument();
     });
 
-    it('should render view all button when onClickViewAll is provided', () => {
+    it('should render view all button with default text when onClickViewAll is provided and viewAllText is not provided', () => {
         const mockOnClickViewAll = vi.fn();
         render(<LargeModule {...defaultProps} onClickViewAll={mockOnClickViewAll} />);
 
         const viewAllButton = screen.getByTestId('view-all');
         expect(viewAllButton).toBeInTheDocument();
         expect(viewAllButton).toHaveTextContent('View all');
+    });
+
+    it('should render view all button with custom text when onClickViewAll and viewAllText are provided', () => {
+        const mockOnClickViewAll = vi.fn();
+        render(<LargeModule {...defaultProps} onClickViewAll={mockOnClickViewAll} viewAllText="View in Columns" />);
+
+        const viewAllButton = screen.getByTestId('view-all');
+        expect(viewAllButton).toBeInTheDocument();
+        expect(viewAllButton).toHaveTextContent('View in Columns');
     });
 
     it('should not render view all button when onClickViewAll is not provided', () => {
@@ -130,20 +139,20 @@ describe('LargeModule', () => {
         render(<LargeModule {...defaultProps} loading />);
 
         expect(screen.getByTestId('loader')).toBeInTheDocument();
-        expect(screen.queryByTestId('module-content')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('module-inner-content')).not.toBeInTheDocument();
     });
 
     it('should render children when loading is false', () => {
         render(<LargeModule {...defaultProps} loading={false} />);
 
-        expect(screen.getByTestId('module-content')).toBeInTheDocument();
+        expect(screen.getByTestId('module-inner-content')).toBeInTheDocument();
         expect(screen.queryByTestId('loader')).not.toBeInTheDocument();
     });
 
     it('should render children when loading is not provided', () => {
         render(<LargeModule {...defaultProps} />);
 
-        expect(screen.getByTestId('module-content')).toBeInTheDocument();
+        expect(screen.getByTestId('module-inner-content')).toBeInTheDocument();
         expect(screen.queryByTestId('loader')).not.toBeInTheDocument();
     });
 

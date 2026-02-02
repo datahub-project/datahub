@@ -6,9 +6,11 @@ from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.document import Document
 from datahub.sdk.entity import Entity
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup
+from datahub.sdk.tag import Tag
 
 # Base entity classes that don't have circular dependencies
 # Those that do are imported in the EntityClient where needed
@@ -16,12 +18,14 @@ from datahub.sdk.mlmodelgroup import MLModelGroup
 ENTITY_CLASSES_LIST: List[Type[Entity]] = [
     Container,
     Dataset,
+    Document,
     MLModel,
     MLModelGroup,
     DataFlow,
     DataJob,
     Dashboard,
     Chart,
+    Tag,
 ]
 
 # Create the mapping of entity types to classes

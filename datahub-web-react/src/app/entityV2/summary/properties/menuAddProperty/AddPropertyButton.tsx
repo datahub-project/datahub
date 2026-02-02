@@ -25,6 +25,11 @@ export default function AddPropertyButton() {
 
     const menuItems = useAddPropertyMenuItems(onAddProperty);
 
+    // Hide button if there are no properties available to add
+    if (menuItems.length === 0) {
+        return null;
+    }
+
     return (
         <Menu open={isOpened} onOpenChange={(open) => setIsOpened(open)} items={menuItems} trigger={['click']}>
             <StyledButton
@@ -33,6 +38,7 @@ export default function AddPropertyButton() {
                 size="xl"
                 isCircle
                 icon={{ icon: 'Plus', source: 'phosphor', color: 'gray', size: '2xl' }}
+                data-testid="add-property-button"
             />
         </Menu>
     );

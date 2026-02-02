@@ -68,7 +68,11 @@ class CheckpointStateBase(ConfigModel):
 
     @staticmethod
     def _to_bytes_utf8(model: ConfigModel) -> bytes:
-        return model.json(exclude={"version", "serde"}).encode("utf-8")
+        pydantic_json = model.model_dump_json(exclude={"version", "serde"})
+        # We decode and re-encode so that Python's default whitespace is included.
+        # This is purely to keep tests consistent as we migrate to pydantic v2,
+        # and can be removed once we're fully migrated.
+        return json.dumps(json.loads(pydantic_json)).encode("utf-8")
 
     @staticmethod
     def _to_bytes_base85_json(
@@ -159,7 +163,7 @@ class Checkpoint(Generic[StateType]):
         )
         state_as_dict["version"] = checkpoint_aspect.state.formatVersion
         state_as_dict["serde"] = checkpoint_aspect.state.serde
-        return state_class.parse_obj(state_as_dict)
+        return state_class.model_validate(state_as_dict)
 
     @staticmethod
     def _from_base85_json_bytes(
@@ -175,7 +179,7 @@ class Checkpoint(Generic[StateType]):
         state_as_dict = json.loads(state_uncompressed.decode("utf-8"))
         state_as_dict["version"] = checkpoint_aspect.state.formatVersion
         state_as_dict["serde"] = checkpoint_aspect.state.serde
-        return state_class.parse_obj(state_as_dict)
+        return state_class.model_validate(state_as_dict)
 
     def to_checkpoint_aspect(
         self, max_allowed_state_size: int

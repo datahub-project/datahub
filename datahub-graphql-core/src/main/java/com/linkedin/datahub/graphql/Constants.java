@@ -14,6 +14,7 @@ public class Constants {
   public static final String GMS_SCHEMA_FILE = "entity.graphql";
   public static final String SEARCH_SCHEMA_FILE = "search.graphql";
   public static final String APP_SCHEMA_FILE = "app.graphql";
+  public static final String APP_SEMANTIC_SCHEMA_FILE = "app.semantic.graphql";
   public static final String AUTH_SCHEMA_FILE = "auth.graphql";
   public static final String ANALYTICS_SCHEMA_FILE = "analytics.graphql";
   public static final String RECOMMENDATIONS_SCHEMA_FILE = "recommendation.graphql";
@@ -34,10 +35,14 @@ public class Constants {
   public static final String TIMESERIES_SCHEMA_FILE = "timeseries.graphql";
   public static final String LOGICAL_SCHEMA_FILE = "logical.graphql";
   public static final String SETTINGS_SCHEMA_FILE = "settings.graphql";
+  public static final String FILES_SCHEMA_FILE = "files.graphql";
+  public static final String DOCUMENTS_SCHEMA_FILE = "documents.graphql";
+  public static final String RUNS_SCHEMA_FILE = "runs.graphql";
 
   public static final String QUERY_SCHEMA_FILE = "query.graphql";
   public static final String TEMPLATE_SCHEMA_FILE = "template.graphql";
   public static final String MODULE_SCHEMA_FILE = "module.graphql";
+  public static final String PATCH_SCHEMA_FILE = "patch.graphql";
   public static final String BROWSE_PATH_DELIMITER = "/";
   public static final String BROWSE_PATH_V2_DELIMITER = "␟";
   public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";

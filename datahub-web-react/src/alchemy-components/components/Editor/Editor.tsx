@@ -10,6 +10,7 @@ import {
     CodeExtension,
     DropCursorExtension,
     FontSizeExtension,
+    GapCursorExtension,
     HardBreakExtension,
     HeadingExtension,
     HistoryExtension,
@@ -27,6 +28,7 @@ import {
 
 import { EditorContainer, EditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
+import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
 import { DataHubMentionsExtension } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
@@ -35,22 +37,26 @@ import { CodeBlockToolbar } from '@components/components/Editor/toolbar/CodeBloc
 import { FloatingToolbar } from '@components/components/Editor/toolbar/FloatingToolbar';
 import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMenu';
 import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
+import { EditorProps } from '@components/components/Editor/types';
+import { colors } from '@components/theme';
 
 import { notEmpty } from '@app/entityV2/shared/utils';
 
-type EditorProps = {
-    readOnly?: boolean;
-    content?: string;
-    onChange?: (md: string) => void;
-    className?: string;
-    doNotFocus?: boolean;
-    placeholder?: string;
-    hideHighlightToolbar?: boolean;
-    toolbarStyles?: React.CSSProperties;
-};
-
 export const Editor = forwardRef((props: EditorProps, ref) => {
-    const { content, readOnly, onChange, className, placeholder, hideHighlightToolbar, toolbarStyles } = props;
+    const {
+        content,
+        readOnly,
+        onChange,
+        className,
+        placeholder,
+        hideHighlightToolbar,
+        toolbarStyles,
+        dataTestId,
+        onKeyDown,
+        hideBorder,
+        uploadFileProps,
+        fixedBottomToolbar,
+    } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -59,11 +65,18 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new CodeBlockExtension({ syntaxTheme: 'base16_ateliersulphurpool_light' }),
             new CodeExtension(),
             new DataHubMentionsExtension({}),
-            new DropCursorExtension({}),
+            new DropCursorExtension({
+                color: colors.primary[100],
+                width: 2,
+            }),
             new HardBreakExtension(),
             new HeadingExtension({}),
             new HistoryExtension({}),
             new HorizontalRuleExtension({}),
+            new FileDragDropExtension({
+                uploadFileProps,
+            }),
+            new GapCursorExtension(), // required to allow cursor placement next to non-editable inline elements
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),
@@ -95,7 +108,14 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     }, [readOnly, content]);
 
     return (
-        <EditorContainer className={className}>
+        <EditorContainer
+            className={className}
+            data-testid={dataTestId}
+            $readOnly={readOnly}
+            onKeyDown={onKeyDown}
+            $hideBorder={hideBorder}
+            $fixedBottomToolbar={fixedBottomToolbar}
+        >
             <ThemeProvider theme={EditorTheme}>
                 <Remirror
                     classNames={['ant-typography']}
@@ -106,7 +126,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                 >
                     {!readOnly && (
                         <>
-                            <Toolbar styles={toolbarStyles} />
+                            <Toolbar styles={toolbarStyles} fixedBottom={fixedBottomToolbar} />
                             <CodeBlockToolbar />
                             {!hideHighlightToolbar && <FloatingToolbar />}
                             <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />

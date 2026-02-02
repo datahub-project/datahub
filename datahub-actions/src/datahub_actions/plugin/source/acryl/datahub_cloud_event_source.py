@@ -4,6 +4,8 @@ import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union, cast
 
+from pydantic import Field
+
 from datahub.configuration import ConfigModel
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.client import DataHubGraph
@@ -14,8 +16,10 @@ from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import (
     ENTITY_CHANGE_EVENT_V1_TYPE,
     METADATA_CHANGE_LOG_EVENT_V1_TYPE,
+    RELATIONSHIP_CHANGE_EVENT_V1_TYPE,
     EntityChangeEvent,
     MetadataChangeLogEvent,
+    RelationshipChangeEvent,
 )
 
 # May or may not need these.
@@ -25,6 +29,7 @@ from datahub_actions.plugin.source.acryl.constants import (
     METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
     METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
     PLATFORM_EVENT_TOPIC_NAME,
+    RELATIONSHIP_CHANGE_EVENT_NAME,
 )
 from datahub_actions.plugin.source.acryl.datahub_cloud_events_ack_manager import (
     AckManager,
@@ -56,9 +61,12 @@ def build_metadata_change_log_event(msg: ExternalEvent) -> MetadataChangeLogEven
 
 class DataHubEventsSourceConfig(ConfigModel):
     topics: Union[str, List[str]] = PLATFORM_EVENT_TOPIC_NAME
-    consumer_id: Optional[str] = None  # Used to store offset for the consumer.
-    lookback_days: Optional[int] = None
+    consumer_id: Optional[str] = Field(
+        default=None, description="Used to store offset for the consumer."
+    )
+    lookback_days: Optional[int] = Field(default=None)
     reset_offsets: Optional[bool] = False
+    infinite_retry: Optional[bool] = False
 
     # Time and Exit Conditions.
     kill_after_idle_timeout: bool = False
@@ -103,6 +111,7 @@ class DataHubEventSource(EventSource):
             graph=self.ctx.graph.graph,
             lookback_days=self.source_config.lookback_days,
             reset_offsets=self.source_config.reset_offsets,
+            infinite_retry=self.source_config.infinite_retry,
         )
 
         self.ack_manager = AckManager()
@@ -117,6 +126,7 @@ class DataHubEventSource(EventSource):
         graph: DataHubGraph,
         lookback_days: Optional[int],
         reset_offsets: Optional[bool],
+        infinite_retry: Optional[bool],
     ) -> Dict[str, DataHubEventsConsumer]:
         """
         Initialize DataHub consumers for each topic with appropriate consumer IDs.
@@ -153,6 +163,7 @@ class DataHubEventSource(EventSource):
                 consumer_id=topic_consumer_id,
                 lookback_days=lookback_days,
                 reset_offsets=reset_offsets,
+                infinite_retry=infinite_retry,
             )
 
         return topic_consumers
@@ -261,8 +272,11 @@ class DataHubEventSource(EventSource):
             post_json_transform(value["payload"])
         )
         if ENTITY_CHANGE_EVENT_NAME == value["name"]:
-            event = build_entity_change_event(payload)
-            yield EventEnvelope(ENTITY_CHANGE_EVENT_V1_TYPE, event, {})
+            ece = build_entity_change_event(payload)
+            yield EventEnvelope(ENTITY_CHANGE_EVENT_V1_TYPE, ece, {})
+        elif RELATIONSHIP_CHANGE_EVENT_NAME == value["name"]:
+            rce = RelationshipChangeEvent.from_json(payload.get("value"))
+            yield EventEnvelope(RELATIONSHIP_CHANGE_EVENT_V1_TYPE, rce, {})
 
     @staticmethod
     def handle_mcl(msg: ExternalEvent) -> Iterable[EventEnvelope]:

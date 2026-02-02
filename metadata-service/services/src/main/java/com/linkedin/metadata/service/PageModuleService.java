@@ -41,7 +41,10 @@ public class PageModuleService {
           "urn:li:dataHubPageModule:assets",
           "urn:li:dataHubPageModule:child_hierarchy",
           "urn:li:dataHubPageModule:data_products",
-          "urn:li:dataHubPageModule:related_terms");
+          "urn:li:dataHubPageModule:related_terms",
+          "urn:li:dataHubPageModule:platforms",
+          "urn:li:dataHubPageModule:lineage",
+          "urn:li:dataHubPageModule:columns");
 
   public PageModuleService(@Nonnull EntityClient entityClient) {
     this.entityClient = entityClient;

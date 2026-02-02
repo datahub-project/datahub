@@ -12,6 +12,7 @@ import useGetResetTokenFromUrlParams from '@app/auth/useGetResetTokenFromUrlPara
 import { Message } from '@app/shared/Message';
 import { useAppConfig } from '@app/useAppConfig';
 import { PageRoutes } from '@conf/Global';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 type FormValues = {
     email: string;
@@ -72,7 +73,7 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                     resetToken,
                 }),
             };
-            fetch('/resetNativeUserCredentials', requestOptions)
+            fetch(resolveRuntimePath('/resetNativeUserCredentials'), requestOptions)
                 .then(async (response) => {
                     if (!response.ok) {
                         const data = await response.json();
@@ -168,6 +169,7 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                                         htmlType="submit"
                                         className={styles.login_button}
                                         disabled={!formIsComplete}
+                                        data-testid="reset-password"
                                     >
                                         Reset credentials
                                     </Button>

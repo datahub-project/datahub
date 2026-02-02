@@ -24,7 +24,7 @@ source venv/bin/activate         # activate the environment
 Once inside the virtual environment, install `datahub` using the following commands
 
 ```shell
-# Requires Python 3.9+
+# Requires Python 3.10+
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
 # validate that the install was successful
@@ -67,6 +67,7 @@ Commands:
   exists        A group of commands to check existence of entities in DataHub.
   forms         A group of commands to interact with forms in DataHub.
   get           A group of commands to get metadata from DataHub.
+  graphql       Execute GraphQL queries and mutations against DataHub.
   group         A group of commands to interact with the Group entity in DataHub.
   ingest        Ingest metadata into DataHub.
   init          Configure which datahub instance to connect to
@@ -87,6 +88,27 @@ We've ordered them roughly in the order we expect you to interact with these com
 ### docker
 
 The `docker` command allows you to start up a local DataHub instance using `datahub docker quickstart`. You can also check if the docker cluster is healthy using `datahub docker check`.
+
+### version
+
+The `version` command allows you to get version number of CLI that you are using.
+
+```console
+datahub version
+DataHub CLI version: 1.2.0.9
+Models: bundled
+Python version: 3.11.11 (main, Mar 17 2025, 21:33:08) [Clang 20.1.0 ]
+```
+
+You can pass `--include-server` flag to include server information too. This is helpful to share cli and server version at once for debugging purposes. This does require `datahub init` to be run before that so there is a server that CLI is able to connect to.
+
+```console
+datahub version --include-server
+DataHub CLI version: 1.2.0.9
+Models: bundled
+Python version: 3.11.11 (main, Mar 17 2025, 21:33:08) [Clang 20.1.0 ]
+Server config: {'models': {}, 'managedIngestion': {'defaultCliVersion': '1.2.0.9', 'enabled': True}, 'timeZone': 'GMT', 'datasetUrnNameCasing': False, 'datahub': {'serverEnv': 'cloud', 'serverType': 'prod'}, 'baseUrl': 'https://xyz.acryl.io', 'patchCapable': True, 'versions': {'acryldata/datahub': {'version': 'v0.3.14rc0', 'commit': '464d94926bb21a596f3d9d81164b272c74872ce7'}}, 'statefulIngestionCapable': True, 'remoteExecutorBackend': {'revision': 2}, 'supportsImpactAnalysis': True, 'telemetry': {'enabledCli': False, 'enabledMixpanel': False, 'enabledServer': True, 'enabledIngestion': True}, 'retention': 'true', 'noCode': 'true'}
+```
 
 ### ingest
 
@@ -183,6 +205,112 @@ failure_log:
     filename: ./path/to/failure.json
 ```
 
+#### ingest --record (Beta)
+
+:::note Beta Feature
+Recording and replay is currently in beta. The feature is stable for debugging purposes but the archive format may change in future releases.
+:::
+
+The `--record` option enables recording of all HTTP requests and database queries during ingestion. This creates an encrypted archive that can be replayed offline for debugging.
+
+```shell
+# Record an ingestion run with password protection
+datahub ingest -c ./recipe.yaml --record --record-password mysecret
+
+# Record to a specific local directory
+export INGESTION_ARTIFACT_DIR=/path/to/recordings
+datahub ingest -c ./recipe.yaml --record --record-password mysecret --no-s3-upload
+
+# Record and upload directly to S3
+datahub ingest -c ./recipe.yaml --record --record-password mysecret \
+    --record-output-path s3://my-bucket/recordings/my-run.zip
+```
+
+Recording options:
+
+| Option                  | Description                                                                                                |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--record`              | Enable recording of the ingestion run                                                                      |
+| `--record-password`     | Password for encrypting the archive. Can also be set via `DATAHUB_RECORDING_PASSWORD` environment variable |
+| `--record-output-path`  | Path to save the recording archive. Use local path or S3 URL (`s3://bucket/path/file.zip`)                 |
+| `--no-s3-upload`        | Disable S3 upload (save locally only)                                                                      |
+| `--no-secret-redaction` | Keep actual credentials in recording (use with caution, for local debugging only)                          |
+
+The recording creates an encrypted ZIP archive containing HTTP cassettes, database query recordings, and a redacted recipe. This archive can be replayed using `datahub ingest replay`.
+
+**Installation:** Recording requires the `debug-recording` plugin:
+
+```shell
+pip install 'acryl-datahub[debug-recording]'
+```
+
+➡️ [Learn more about recording and debugging ingestion](./how/debug-ingestion-recording.md)
+
+### ingest replay (Beta)
+
+The `ingest replay` command replays a recorded ingestion run for debugging. This allows you to reproduce issues in an air-gapped environment without network access.
+
+```shell
+# Replay from local file
+datahub ingest replay ./recording.zip --password mysecret
+
+# Replay from S3
+datahub ingest replay s3://bucket/recordings/run-id.zip --password mysecret
+
+# Replay with live sink (emit to real DataHub instance)
+datahub ingest replay ./recording.zip --password mysecret --live-sink --server http://localhost:8080
+```
+
+Replay options:
+
+| Option        | Description                                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--password`  | Password for decrypting the archive. Can also be set via `DATAHUB_RECORDING_PASSWORD` environment variable |
+| `--live-sink` | Emit to real GMS server instead of using recorded responses                                                |
+| `--server`    | GMS server URL when using `--live-sink`                                                                    |
+| `--report-to` | Path to write the report file                                                                              |
+
+### recording (Beta)
+
+The `recording` command group provides utilities for working with recording archives.
+
+```shell
+# View archive metadata
+datahub recording info recording.zip --password mysecret
+
+# Extract archive contents
+datahub recording extract recording.zip --password mysecret --output-dir ./extracted
+
+# List archive contents
+datahub recording list recording.zip --password mysecret
+```
+
+#### recording info
+
+Display metadata about a recording archive including run ID, source type, creation time, and whether an exception was captured.
+
+```shell
+datahub recording info recording.zip --password mysecret
+```
+
+Use `--json` for machine-readable output.
+
+#### recording extract
+
+Extract a recording archive to inspect its contents:
+
+```shell
+datahub recording extract recording.zip --password mysecret --output-dir ./extracted
+```
+
+#### recording list
+
+List the files contained in a recording archive:
+
+```shell
+datahub recording list recording.zip --password mysecret
+```
+
 ### ingest deploy
 
 The `ingest deploy` command instructs the cli to upload an ingestion recipe to DataHub to be run by DataHub's [UI Ingestion](./ui-ingestion.md).
@@ -212,6 +340,8 @@ Options:
   --time-zone TEXT    Timezone for the schedule in 'America/New_York' format. Uses UTC by default.
   --debug BOOLEAN     Should we debug.
   --extra-pip TEXT    Extra pip packages. e.g. ["memray"]
+  --extra-env TEXT    Environment variables as comma-separated KEY=VALUE pairs.
+                      e.g. "VAR1=value1,VAR2=value2"
 ```
 
 #### Examples
@@ -232,6 +362,12 @@ datahub ingest deploy --name "Remote Snowflake Integration" --executor-id "remot
 
 ```shell
 datahub ingest deploy --urn "urn:li:dataHubIngestionSource:deploy-12345678" --schedule "0 6 * * *" -c updated_recipe.yaml
+```
+
+**Deploy with environment variables:**
+
+```shell
+datahub ingest deploy --name "Snowflake Integration" --extra-env "SNOWFLAKE_WAREHOUSE=COMPUTE_WH,SNOWFLAKE_ROLE=ANALYST" -c recipe.yaml
 ```
 
 By default, the ingestion recipe's identifier is generated by hashing the name.
@@ -265,7 +401,7 @@ For more information on setting up remote executors, see the [Remote Executor Se
 
 #### Using deployment section
 
-As an alternative to configuring settings from the CLI, all of these settings can also be set in the `deployment` field of the recipe.
+As an alternative to configuring settings from the CLI, they can also be set in the `deployment` field of the recipe.
 
 ```yml
 # deployment_recipe.yml
@@ -275,6 +411,8 @@ deployment:
   time_zone: "Europe/London"
   executor_id: "remote-executor-pool-1" # Optional: specify remote executor
   cli_version: "0.15.0.1" # Optional: specify CLI version
+  extra_pip: '["polars==1.35.2"]'
+  extra_env: "VAR1=value1,VAR2=value2"
 
 source: ...
 ```
@@ -287,7 +425,7 @@ CLI options will override corresponding values in the deployment section.
 
 #### Deployment Configuration Options
 
-All deployment options that can be specified via CLI flags can also be configured in the `deployment` section:
+These deployment options that can be specified via CLI flags can also be configured in the `deployment` section:
 
 | Field         | CLI Option      | Description                     | Default            |
 | ------------- | --------------- | ------------------------------- | ------------------ |
@@ -296,6 +434,8 @@ All deployment options that can be specified via CLI flags can also be configure
 | `time_zone`   | `--time-zone`   | Timezone for scheduled runs     | `"UTC"`            |
 | `executor_id` | `--executor-id` | Target executor for ingestion   | `"default"`        |
 | `cli_version` | `--cli-version` | CLI version for ingestion       | Server default     |
+| `extra_pip`   | `--extra-pip`   | Extra pip packages              | None               |
+| `extra_env`   | `--extra-env`   | Extra environment variables     | None               |
 
 #### Batch Deployment
 
@@ -332,6 +472,8 @@ Enter your DataHub host [http://localhost:8080]: https://<your-instance-id>.acry
 Enter your DataHub access token []: <token generated from https://<your-instance-id>.acryl.io/settings/tokens>
 ```
 
+You can pass `--use-password` flag to use user/password to generate the token automatically.
+
 #### Environment variables supported
 
 The environment variables listed below take precedence over the DataHub CLI config created through the `init` command.
@@ -348,6 +490,8 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `DATAHUB_VERSION` (default `head`) - Set to a specific version to run quickstart with the particular version of docker images.
 - `ACTIONS_VERSION` (default `head`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
 - `DATAHUB_ACTIONS_IMAGE` (default `acryldata/datahub-actions`) - Set to `-slim` to run a slimmer actions container without pyspark/deequ features.
+- `DATAHUB_RECORDING_PASSWORD` - Password for encrypting/decrypting recording archives. Used by `--record` and `--replay` commands.
+- `INGESTION_ARTIFACT_DIR` - Directory to save recordings when S3 upload is disabled. If not set, recordings are saved to a temp directory.
 
 ```shell
 DATAHUB_SKIP_CONFIG=false
@@ -472,6 +616,44 @@ $ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,
 }
 ```
 
+### graphql
+
+The `graphql` command allows you to execute GraphQL queries and mutations against DataHub's GraphQL API. This provides full access to DataHub's metadata through its native GraphQL interface.
+
+```shell
+# Execute a GraphQL query
+datahub graphql --query "query { me { username } }"
+
+# Use named operations from DataHub's schema
+datahub graphql --operation searchAcrossEntities --variables '{"input": {"query": "users"}}'
+
+# List available operations
+datahub graphql --list-operations
+
+# Get help for a specific operation
+datahub graphql --describe searchAcrossEntities
+
+# Explore types recursively
+datahub graphql --describe SearchInput --recurse
+
+# Load queries and variables from files
+datahub graphql --query ./search-tags.graphql --variables ./search-params.json
+
+# Get JSON output for LLM integration
+datahub graphql --list-operations --format json
+```
+
+The GraphQL command supports both raw GraphQL queries/mutations and operation-based execution using DataHub's introspected schema. It automatically detects whether `--query` and `--variables` arguments are file paths or literal content, enabling seamless use of both inline GraphQL and file-based queries.
+
+Key features:
+
+- **Schema discovery**: List and describe all available operations and types
+- **File support**: Load queries and variables from `.graphql` and `.json` files
+- **LLM-friendly output**: JSON format with complete type information
+- **Recursive exploration**: Deep-dive into complex GraphQL types
+
+➡️ [Learn more about the GraphQL command](./cli-commands/graphql.md)
+
 ### put
 
 The `put` group of commands allows you to write metadata into DataHub. This is a flexible way for you to issue edits to metadata from the command line.
@@ -550,9 +732,11 @@ datahub dataset upsert -f dataset.yaml
 
 ### user (User Entity)
 
-The `user` command allows you to interact with the User entity.
-It currently supports the `upsert` operation, which can be used to create a new user or update an existing one.
-For detailed information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/owners.md#upsert-users).
+The `user` command allows you to interact with the User entity in DataHub. It supports two main operations:
+
+#### upsert
+
+Create or update users from a YAML file. For detailed information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/owners.md#upsert-users).
 
 ```shell
 datahub user upsert -f users.yaml
@@ -575,6 +759,32 @@ An example of `users.yaml` would look like as in [bar.user.dhub.yaml](https://gi
   description: "The DataHub Project"
   picture_link: "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/datahub-logo-color-stable.svg"
 ```
+
+#### add
+
+Create a native DataHub user with email/password authentication. This command creates users who can log in directly to DataHub using their email and password.
+
+```shell
+# Create a user with a role
+datahub user add --email user@example.com --display-name "John Doe" --password --role Admin
+
+# Create a user without a role
+datahub user add --email user@example.com --display-name "Jane Smith" --password
+```
+
+**Options:**
+
+- `--email` (required): User's email address, which will be used as their login ID
+- `--display-name` (required): User's full display name
+- `--password` (required): Flag to prompt for password input (password will be hidden during entry)
+- `--role` (optional): Role to assign to the user. Valid values are `Admin`, `Editor`, or `Reader` (case-insensitive)
+
+**Notes:**
+
+- The command will check if a user with the specified email already exists and exit if found
+- Passwords are entered securely via a hidden prompt and require confirmation
+- If role assignment fails, the user will still be created but without the role
+- Requires admin permissions to execute
 
 ### group (Group Entity)
 
@@ -874,7 +1084,7 @@ Please see our [Integrations page](https://docs.datahub.com/integrations) if you
 | [kafka-connect](./generated/ingestion/sources/kafka-connect.md)                                | `pip install 'acryl-datahub[kafka-connect]'`               | Kafka connect source                    |
 | [ldap](./generated/ingestion/sources/ldap.md)                                                  | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                             |
 | [looker](./generated/ingestion/sources/looker.md)                                              | `pip install 'acryl-datahub[looker]'`                      | Looker source                           |
-| [lookml](./generated/ingestion/sources/looker.md#module-lookml)                                | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+     |
+| [lookml](./generated/ingestion/sources/looker.md#module-lookml)                                | `pip install 'acryl-datahub[lookml]'`                      | LookML source                           |
 | [metabase](./generated/ingestion/sources/metabase.md)                                          | `pip install 'acryl-datahub[metabase]'`                    | Metabase source                         |
 | [mode](./generated/ingestion/sources/mode.md)                                                  | `pip install 'acryl-datahub[mode]'`                        | Mode Analytics source                   |
 | [mongodb](./generated/ingestion/sources/mongodb.md)                                            | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                          |
@@ -897,6 +1107,12 @@ Please see our [Integrations page](https://docs.datahub.com/integrations) if you
 | [nifi](./generated/ingestion/sources/nifi.md)                                                  | `pip install 'acryl-datahub[nifi]'`                        | NiFi source                             |
 | [powerbi](./generated/ingestion/sources/powerbi.md#module-powerbi)                             | `pip install 'acryl-datahub[powerbi]'`                     | Microsoft Power BI source               |
 | [powerbi-report-server](./generated/ingestion/sources/powerbi.md#module-powerbi-report-server) | `pip install 'acryl-datahub[powerbi-report-server]'`       | Microsoft Power BI Report Server source |
+
+### Debug/Utility Plugins
+
+| Plugin Name     | Install Command                                | Provides                                              |
+| --------------- | ---------------------------------------------- | ----------------------------------------------------- |
+| debug-recording | `pip install 'acryl-datahub[debug-recording]'` | Record and replay ingestion runs for debugging (Beta) |
 
 ### Sinks
 

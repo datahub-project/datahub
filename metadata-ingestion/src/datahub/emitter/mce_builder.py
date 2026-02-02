@@ -3,7 +3,6 @@
 import hashlib
 import json
 import logging
-import os
 import re
 import time
 from datetime import datetime, timezone
@@ -26,6 +25,7 @@ import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 from typing_extensions import assert_never
 
+from datahub.configuration.env_vars import get_dataset_urn_to_lower
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.schema_classes import (
     AssertionKeyClass,
@@ -72,9 +72,7 @@ ALL_ENV_TYPES: Set[str] = set(get_enum_options(FabricTypeClass))
 
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
-DATASET_URN_TO_LOWER: bool = (
-    os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false") == "true"
-)
+DATASET_URN_TO_LOWER: bool = get_dataset_urn_to_lower() == "true"
 
 if TYPE_CHECKING:
     from datahub.emitter.mcp_builder import DatahubKey
@@ -374,6 +372,12 @@ def make_domain_urn(domain: str) -> str:
     if domain.startswith("urn:li:domain:"):
         return domain
     return f"urn:li:domain:{domain}"
+
+
+def make_data_product_urn(data_product_id: str) -> str:
+    if data_product_id.startswith("urn:li:dataProduct:"):
+        return data_product_id
+    return f"urn:li:dataProduct:{data_product_id}"
 
 
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:

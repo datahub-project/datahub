@@ -7,6 +7,7 @@ import { Tooltip } from '@components/components/Tooltip';
 
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import { colors } from '@src/alchemy-components/theme';
+import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 const ScrollableTabsContainer = styled.div<{ $maxHeight?: string }>`
     max-height: ${({ $maxHeight }) => $maxHeight || '100%'};
@@ -34,7 +35,6 @@ const StyledTabsPrimary = styled(AntTabs)<{
         return '';
     }}
     ${({ $scrollable }) => !$scrollable && 'overflow: hidden;'}
-
     .ant-tabs-tab {
         padding: 8px 0;
         font-size: 14px;
@@ -53,7 +53,6 @@ const StyledTabsPrimary = styled(AntTabs)<{
                 margin-left: 16px;
             }
         `}
-
     ${({ $hideTabsHeader }) =>
         $hideTabsHeader &&
         `
@@ -61,7 +60,6 @@ const StyledTabsPrimary = styled(AntTabs)<{
                 display: none;
             }
         `}
-
     ${({ $stickyHeader }) =>
         $stickyHeader &&
         `
@@ -72,7 +70,6 @@ const StyledTabsPrimary = styled(AntTabs)<{
                 background-color: white;
             }
         `}
-
     .ant-tabs-tab-active .ant-tabs-tab-btn {
         color: ${(props) => props.theme.styles['primary-color']};
         font-weight: 600;
@@ -134,7 +131,6 @@ const StyledTabsSecondary = styled(AntTabs)<{
                 margin-left: 8px;
             }
         `}
-
     ${({ $hideTabsHeader }) =>
         $hideTabsHeader &&
         `
@@ -142,7 +138,6 @@ const StyledTabsSecondary = styled(AntTabs)<{
                 display: none;
             }
         `}
-
     .ant-tabs-tab-active {
         background-color: ${(props) => props.theme.styles['primary-color-light']}80;
     }
@@ -167,6 +162,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
     .ant-tabs-nav {
         margin-bottom: ${(props) => props.$navMarginBottom ?? 0}px;
         margin-top: ${(props) => props.$navMarginTop ?? 0}px;
+
         &::before {
             display: none;
         }
@@ -238,6 +234,7 @@ export interface Props {
     tabs: Tab[];
     selectedTab?: string;
     onChange?: (selectedTabKey: string) => void;
+    onTabClick?: (activeKey: string, e: React.KeyboardEvent | React.MouseEvent) => void;
     urlMap?: Record<string, string>;
     onUrlChange?: (url: string) => void;
     defaultTab?: string;
@@ -253,16 +250,18 @@ export interface Props {
     scrollToTopOnChange?: boolean;
     maxHeight?: string;
     stickyHeader?: boolean;
+    destroyInactiveTabPane?: boolean;
 }
 
 export function Tabs({
     tabs,
     selectedTab,
     onChange,
+    onTabClick,
     urlMap,
     onUrlChange = (url) => window.history.replaceState({}, '', url),
     defaultTab,
-    getCurrentUrl = () => window.location.pathname,
+    getCurrentUrl = () => removeRuntimePath(window.location.pathname),
     secondary,
     styleOptions,
     addPaddingLeft,
@@ -270,8 +269,8 @@ export function Tabs({
     scrollToTopOnChange = false,
     maxHeight = '100%',
     stickyHeader = false,
+    destroyInactiveTabPane,
 }: Props) {
-    const { TabPane } = AntTabs;
     const tabsContainerRef = useRef<HTMLDivElement>(null);
 
     // Scroll to top when selectedTab changes if scrollToTopOnChange is enabled
@@ -308,15 +307,28 @@ export function Tabs({
 
     const StyledTabs = secondary ? StyledTabsSecondary : StyledTabsPrimary;
 
+    const items = tabs.map((tab) => ({
+        key: tab.key,
+        label: <TabView tab={tab} />,
+        disabled: tab.disabled,
+        children: (
+            <ErrorBoundary resetKeys={[tab.key]} variant="tab">
+                {tab.component}
+            </ErrorBoundary>
+        ),
+    }));
     const tabsContent = (
         <StyledTabs
             activeKey={selectedTab}
+            items={items}
             onChange={(key) => {
                 if (onChange) onChange(key);
                 if (urlMap && onUrlChange && urlMap[key]) {
                     onUrlChange(urlMap[key]);
                 }
             }}
+            onTabClick={onTabClick}
+            destroyInactiveTabPane={destroyInactiveTabPane}
             $navMarginBottom={styleOptions?.navMarginBottom}
             $navMarginTop={styleOptions?.navMarginTop}
             $containerHeight={styleOptions?.containerHeight}
@@ -324,17 +336,7 @@ export function Tabs({
             $hideTabsHeader={!!hideTabsHeader}
             $scrollable={scrollToTopOnChange}
             $stickyHeader={stickyHeader}
-        >
-            {tabs.map((tab) => {
-                return (
-                    <TabPane tab={<TabView tab={tab} />} key={tab.key} disabled={tab.disabled}>
-                        <ErrorBoundary resetKeys={[tab.key]} variant="tab">
-                            {tab.component}
-                        </ErrorBoundary>
-                    </TabPane>
-                );
-            })}
-        </StyledTabs>
+        />
     );
 
     if (scrollToTopOnChange) {

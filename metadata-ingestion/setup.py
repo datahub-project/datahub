@@ -15,56 +15,55 @@ _self_pin = (
 
 base_requirements = {
     # Our min version of typing_extensions is somewhat constrained by Airflow.
-    "typing_extensions>=4.5.0",
+    "typing_extensions>=4.8.0,<5.0.0",
     # Actual dependencies.
-    "typing-inspect",
-    # pydantic 1.8.2 is incompatible with mypy 0.910.
-    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
-    "pydantic>=1.10.0,!=1.10.3",
-    "mixpanel>=4.9.0,<=4.10.1",
+    "typing-inspect<0.10.0",
+    "pydantic>=2.4.0,<3.0.0",
+    # 2.41.3 https://github.com/pydantic/pydantic-core/issues/1841
+    "pydantic_core!=2.41.3,<3.0.0",
+    "mixpanel>=4.9.0,<6.0.0",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
-    "sentry-sdk>=1.33.1",
+    # Note: jaraco.context>=6.1.0 is required for security (GHSA-58pv-8j8x-9vj2: Path traversal
+    # vulnerability), but Airflow 2.x constraints pin jaraco.context to older versions (e.g., 5.3.0).
+    # This constraint is NOT included here to maintain Airflow compatibility.
+    # Security is enforced for Docker image builds via docker/snippets/ingestion/constraints.txt.
+    "sentry-sdk>=1.33.1,<3.0.0",
 }
 
 framework_common = {
     # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
-    "click>=7.1.2, !=8.2.0",
-    "click-default-group",
-    "PyYAML",
-    "toml>=0.10.0",
+    "click>=7.1.2,!=8.2.0,<9.0.0",
+    "click-default-group<2.0.0",
+    "PyYAML<7.0.0",
+    "toml>=0.10.0,<=0.10.2",
     # In Python 3.10+, importlib_metadata is included in the standard library.
-    "importlib_metadata>=4.0.0; python_version < '3.10'",
-    "docker",
-    "expandvars>=0.6.5",
+    "importlib_metadata>=4.0.0,<9.0.0; python_version < '3.10'",
+    "docker<8.0.0",
+    "expandvars>=0.6.5,<2.0.0",
     "avro-gen3==0.7.16",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     # avro has historically made breaking changes, so we have a cautious upper bound.
     "avro>=1.11.3,<1.13",
-    "python-dateutil>=2.8.0",
-    "tabulate",
-    "progressbar2",
-    "psutil>=5.8.0",
-    "Deprecated",
-    "humanfriendly",
-    "packaging",
+    "python-dateutil>=2.8.0,<3.0.0",
+    "tabulate<0.10.0",
+    "progressbar2<5.0.0",
+    "psutil>=5.8.0,<8.0.0",
+    "Deprecated<2.0.0",
+    "humanfriendly<11.0.0",
+    "packaging<26.0.0",
     "aiohttp<4",
-    "cached_property",
-    "ijson",
-    "click-spinner",
-    "requests_file",
-    "jsonref",
-    "jsonschema",
-    "ruamel.yaml",
+    "cached_property<3.0.0",
+    "ijson<4.0.0",
+    "click-spinner<0.2.0",
+    "requests_file<4.0.0",
+    "jsonref<2.0.0",
+    "jsonschema<5.0.0",
+    # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
+    # which is not available as wheel.
+    "ruamel.yaml<0.19.0",
 }
 
-pydantic_no_v2 = {
-    # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
-    # Tags sources that require the pydantic v2 API.
-    "pydantic<2",
-}
-
-rest_common = {"requests", "requests_file"}
+rest_common = {"requests<3.0.0", "requests_file<4.0.0"}
 
 kafka_common = {
     # Note that confluent_kafka 1.9.0 introduced a hard compatibility break, and
@@ -76,41 +75,44 @@ kafka_common = {
     # and no prebuilt wheels.
     # See https://github.com/confluentinc/confluent-kafka-python/issues/1927
     # RegisteredSchema#guid is being used and was introduced in 2.10.1 https://github.com/confluentinc/confluent-kafka-python/pull/1978
-    "confluent_kafka[schemaregistry,avro]>=2.10.1",
+    # 2.13.0 introduced some breaking changes that require some development
+    "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
     # fastavro for serialization. We do not use confluent_kafka[avro], since it
     # is incompatible with its own dep on avro-python3.
-    "fastavro>=1.2.0",
+    "fastavro>=1.2.0,<2.0.0",
 }
 
 kafka_protobuf = {
-    "networkx>=2.6.2",
+    "networkx>=2.6.2,<4.0.0",
     # Required to generate protobuf python modules from the schema downloaded from the schema registry
     # NOTE: potential conflict with feast also depending on grpcio
-    "grpcio>=1.44.0,<2",
-    "grpcio-tools>=1.44.0,<2",
+    "grpcio>=1.44.0,<2.0.0",
+    # Note: grpcio-tools>=1.63 requires protobuf>=5, but google-cloud-* requires protobuf<5
+    # So grpcio-tools is constrained to <1.63.0 automatically
+    "grpcio-tools>=1.44.0,<2.0.0",
 }
 
 usage_common = {
-    "sqlparse",
+    "sqlparse<0.6.0",
 }
 
 sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
     # but not longer do.
-    "sqlglot[rs]==27.12.0",
+    "sqlglot[rs]==27.27.0",
     "patchy==2.8.0",
 }
 
 classification_lib = {
     "acryl-datahub-classify==0.0.11",
-    # schwifty is needed for the classify plugin
-    "schwifty",
+    # schwifty is needed for the classify plugin (year-based versioning)
+    "schwifty<2026.0.0",
     # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
-    # we need pip to be available.
+    # we need pip to be available (no upper bound - system tool).
     "pip",
     # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
     # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
@@ -120,11 +122,17 @@ classification_lib = {
 
 dbt_common = {
     *sqlglot_lib,
-    "more_itertools",
+    "more-itertools<11.0.0",
 }
 
 cachetools_lib = {
-    "cachetools",
+    "cachetools<6.0.0",
+}
+
+# Skip pyarrow 0.14.0-14.0.0 due to CVE-2023-47248: https://avd.aquasec.com/nvd/cve-2023-47248
+# Note: feast<=0.47.0 (constrained by numpy<2) requires pyarrow<18.1.0, resolved automatically
+pyarrow_common = {
+    "pyarrow>14.0.0,<23.0.0",
 }
 
 great_expectations_lib = {
@@ -141,13 +149,13 @@ great_expectations_lib = {
     #    This was derived from work done by @jskrzypek in
     #    https://github.com/datahub-project/datahub/issues/8115#issuecomment-2264219783
     "acryl-great-expectations==0.15.50.1",
-    "jupyter_server>=2.14.1",  # CVE-2024-35178
+    "jupyter_server>=2.14.1,<3.0.0",  # CVE-2024-35178
 }
 
 sqlalchemy_lib = {
     # Required for all SQL sources.
-    # This is temporary lower bound that we're open to loosening/tightening as requirements show up
-    "sqlalchemy>=1.4.39, <2",
+    # Multiple packages require <2: sqlalchemy-redshift, databricks-sql-connector, great-expectations
+    "sqlalchemy>=1.4.39,<2",
 }
 sql_common = (
     {
@@ -155,12 +163,12 @@ sql_common = (
         # Required for SQL profiling.
         *great_expectations_lib,
         # scipy version restricted to reduce backtracking, used by great-expectations,
-        "scipy>=1.7.2",
+        "scipy>=1.7.2,<2.0.0",
         # GE added handling for higher version of jinja2
         # https://github.com/great-expectations/great_expectations/pull/5382/files
         # datahub does not depend on traitlets directly but great expectations does.
         # https://github.com/ipython/traitlets/issues/741
-        "traitlets!=5.2.2",
+        "traitlets!=5.2.2,<6.0.0",
         # GE depends on IPython - we have no direct dependency on it.
         # IPython 8.22.0 added a dependency on traitlets 5.13.x, but only declared a
         # version requirement of traitlets>5.
@@ -169,8 +177,8 @@ sql_common = (
         # which first appeared in IPython 8.22.1.
         # As such, we just need to avoid that version in order to get the
         # dependencies that we need. IPython probably should've yanked 8.22.0.
-        "IPython!=8.22.0",
-        "greenlet",
+        "IPython!=8.22.0,<9.0.0",
+        "greenlet<4.0.0",
         *cachetools_lib,
     }
     | usage_common
@@ -180,42 +188,49 @@ sql_common = (
 
 aws_common = {
     # AWS Python SDK
-    "boto3",
+    # Minimum 1.35.0 required for S3 ListBuckets Prefix parameter support (added October 2024)
+    "boto3>=1.35.0,<2.0.0",
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
+    # Known vulnerability: urllib3 has CVEs (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441)
+    # fixed in urllib3>=2.6.0, but botocore requires urllib3<1.27 and does not yet support 2.x.
+    # This is blocked by upstream: https://github.com/boto/botocore/issues/3499
+    # Pin to latest 1.26.x until botocore adds urllib3 2.x support.
+    "urllib3>=1.26.20,<1.27",
+    "botocore!=1.23.0,<2.0.0",
 }
 
 path_spec_common = {
-    "parse>=1.19.0",
-    "wcmatch",
+    "parse>=1.19.0,<2.0.0",
+    "wcmatch<11.0.0",
 }
 
 looker_common = {
     # Looker Python SDK
-    "looker-sdk>=23.0.0",
+    "looker-sdk>=23.0.0,<26.0.0",
     # This version of lkml contains a fix for parsing lists in
     # LookML files with spaces between an item and the following comma.
     # See https://github.com/joshtemple/lkml/issues/73.
-    "lkml>=1.3.4",
+    "lkml>=1.3.4,<2.0.0",
     *sqlglot_lib,
-    "GitPython>2",
+    "GitPython>2,<4.0.0",
     # python-liquid 2 includes a bunch of breaking changes.
     # See https://jg-rp.github.io/liquid/migration/
     # Eventually we should fully upgrade to v2, but that will require
     # us to drop Python 3.8 support first.
     "python-liquid<2",
-    "deepmerge>=1.1.1",
+    "deepmerge>=1.1.1,<3.0.0",
 }
 
 bigquery_common = {
     # Google cloud logging library
     "google-cloud-logging<=3.5.0",
-    "google-cloud-bigquery",
-    "google-cloud-datacatalog>=1.5.0",
-    "google-cloud-resource-manager",
-    "more-itertools>=8.12.0",
-    "sqlalchemy-bigquery>=1.4.1",
+    "google-cloud-bigquery<4.0.0",
+    "google-cloud-datacatalog>=1.5.0,<4.0.0",
+    "google-cloud-resource-manager<2.0.0",
+    "more-itertools>=8.12.0,<11.0.0",
+    "sqlalchemy-bigquery>=1.4.1,<2.0.0",
     *path_spec_common,
 }
 
@@ -228,11 +243,20 @@ clickhouse_common = {
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
+dataplex_common = {
+    "google-cloud-dataplex<3.0.0",
+    # Pinned to 0.2.2 because 0.3.0 changed the import path from
+    # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
+    # which breaks existing code using the old import path
+    "google-cloud-datacatalog-lineage==0.2.2",
+    "tenacity>=8.0.1,<9.0.0",
+}
+
 redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
-    "sqlalchemy-redshift>=0.8.3",
-    "GeoAlchemy2",
-    "redshift-connector>=2.1.5",
+    "sqlalchemy-redshift>=0.8.3,<=0.8.14",
+    "GeoAlchemy2<0.19.0",
+    "redshift-connector>=2.1.5,<3.0.0",
     *path_spec_common,
 }
 
@@ -255,16 +279,17 @@ snowflake_common = {
     #
     # As of May 2025, snowflake-sqlalchemy is in maintenance mode. I have commented on the
     # above issue and we are pinning to a safe version.
-    "snowflake-sqlalchemy>=1.4.3, <1.7.4",
-    "snowflake-connector-python>=3.4.0",
-    "pandas",
-    "cryptography",
-    "msal",
+    "snowflake-sqlalchemy>=1.4.3,<1.7.4",
+    "snowflake-connector-python>=3.4.0,<4.0.0",
+    "pandas<3.0.0",
+    "cryptography<47.0.0",
+    "msal<2.0.0",
     *cachetools_lib,
+    *classification_lib,
 }
 
 trino = {
-    "trino[sqlalchemy]>=0.308",
+    "trino[sqlalchemy]>=0.308,<=0.336.0",
 }
 
 pyhive_common = {
@@ -276,7 +301,8 @@ pyhive_common = {
     # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
     # - 0.6.15 adds support for thrift > 0.14 (cherry-picked from https://github.com/apache/thrift/pull/2491)
     # - 0.6.16 fixes a regression in 0.6.15 (https://github.com/acryldata/PyHive/pull/9)
-    "acryl-pyhive[hive-pure-sasl]==0.6.16",
+    # - 0.6.17 fixes the 'HTTPMessage' object has no attribute 'pop' error
+    "acryl-pyhive[hive-pure-sasl]==0.6.17",
     # As per https://github.com/datahub-project/datahub/issues/8405
     # and https://github.com/dropbox/PyHive/issues/417, version 0.14.0
     # of thrift broke PyHive's hive+http transport.
@@ -286,42 +312,50 @@ pyhive_common = {
 }
 
 microsoft_common = {
-    "msal>=1.31.1",
+    "msal>=1.31.1,<2.0.0",
 }
 
 iceberg_common = {
-    # Iceberg Python SDK
-    # Kept at 0.4.0 due to higher versions requiring pydantic>2, as soon as we are fine with it, bump this dependency
-    # The limitation <=0.6.1 is set temporarily, as >0.4 allows for using pydantic 2, but versions >0.6.1 use different
-    # parameters for configuring credentials, i.e. for Glue catalogs, for details, see:
-    # https://github.com/apache/iceberg-python/compare/pyiceberg-0.6.1...pyiceberg-0.7.0#diff-497e037708cc64870c6ba9372f6064a69ca1e74d65d6195dcee5a44851e8b47dR283
-    # this would cause existing recipes to start failing in some cases
-    "pyiceberg>=0.4.0,<=0.6.1",
+    # PyIceberg dependency restrictions history:
+    # - From v0.4.0, pydantic v2 is required.
+    # - From v0.8.0, there have been changes to the catalog connection configuration details -
+    # especially for AWS-based catalogs and warehouses, the properties `profile_name`, `region_name`,
+    # `aws_access_key_id`, `aws_secret_access_key`, and `aws_session_token` were deprecated and removed in version
+    # 0.8.0.
+    # - Versions 0.7.0 - 0.8.1 use variable DEPRECATED_BOTOCORE_SESSION instead of BOTOCORE_SESSION, the latter is
+    #   expected by the connector
+    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0,<=0.10.0",
+    # Pin pydantic due to incompatibility with pyiceberg 0.9.1.
+    # pyiceberg 0.9.1 requires pydantic>=2.0,<2.12
+    "pydantic<2.12",
     *cachetools_lib,
 }
 
 mssql_common = {
-    "sqlalchemy-pytds>=0.3",
-    "pyOpenSSL",
+    # Note: sqlalchemy-pytds>=1.0 requires SQLAlchemy>=2, so constrained to 0.x automatically
+    "sqlalchemy-pytds>=0.3,<2.0.0",
+    "pyOpenSSL<26.0.0",
 }
 
 postgres_common = {
-    "psycopg2-binary",
-    "GeoAlchemy2",
+    "psycopg2-binary<3.0.0",
+    "GeoAlchemy2<0.19.0",
 }
 
 s3_base = {
     *aws_common,
-    "more-itertools>=8.12.0",
-    "parse>=1.19.0",
-    "pyarrow>=6.0.1",
-    "tableschema>=1.20.2",
+    "more-itertools>=8.12.0,<11.0.0",
+    "parse>=1.19.0,<2.0.0",
+    *pyarrow_common,
+    "tableschema>=1.20.2,<2.0.0",
     # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
-    "ujson>=5.2.0",
-    "smart-open[s3]>=5.2.1",
+    "ujson>=5.2.0,<6.0.0",
+    "smart-open[s3]>=5.2.1,<8.0.0",
     # moto 5.0.0 drops support for Python 3.7
     "moto[s3]<5.0.0",
     *path_spec_common,
+    # cachetools is used by operation_config which is imported by profiling config
+    *cachetools_lib,
 }
 
 threading_timeout_common = {
@@ -332,21 +366,26 @@ threading_timeout_common = {
 }
 
 abs_base = {
-    "azure-core>=1.31.0",
-    "azure-identity>=1.21.0",
-    "azure-storage-blob>=12.19.0",
-    "azure-storage-file-datalake>=12.14.0",
-    "more-itertools>=8.12.0",
-    "pyarrow>=6.0.1",
-    "smart-open[azure]>=5.2.1",
-    "tableschema>=1.20.2",
-    "ujson>=5.2.0",
+    "azure-core>=1.31.0,<2.0.0",
+    "azure-identity>=1.21.0,<2.0.0",
+    "azure-storage-blob>=12.19.0,<13.0.0",
+    "azure-storage-file-datalake>=12.14.0,<13.0.0",
+    "more-itertools>=8.12.0,<11.0.0",
+    *pyarrow_common,
+    "smart-open[azure]>=5.2.1,<8.0.0",
+    "tableschema>=1.20.2,<2.0.0",
+    "ujson>=5.2.0,<6.0.0",
     *path_spec_common,
 }
 
+azure_data_factory = {
+    "azure-identity>=1.21.0,<2.0.0",
+    "azure-mgmt-datafactory>=9.0.0,<10.0.0",
+}
+
 data_lake_profiling = {
-    "pydeequ>=1.1.0",
-    "pyspark~=3.5.6",
+    "pydeequ>=1.1.0,<2.0.0",
+    "pyspark~=3.5.6,<4.0.0",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
@@ -360,42 +399,68 @@ delta_lake = {
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
 }
 
-powerbi_report_server = {"requests", "requests_ntlm"}
+powerbi_report_server = {"requests<3.0.0", "requests_ntlm<2.0.0"}
 
 slack = {
     "slack-sdk==3.18.1",
-    "tenacity>=8.0.1",
+    "tenacity>=8.0.1,<9.0.0",
 }
 
-databricks = {
+databricks_common = {
     # 0.1.11 appears to have authentication issues with azure databricks
     # 0.22.0 has support for `include_browse` in metadata list apis
-    "databricks-sdk>=0.30.0",
-    "pyspark~=3.5.6",
-    "requests",
+    "databricks-sdk>=0.30.0,<1.0.0",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
     # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
     # in src/datahub/ingestion/source/unity/proxy.py (_patch_databricks_sql_proxy_auth)
     # as the fix was included natively in 3.0.0 via https://github.com/databricks/databricks-sql-python/pull/354
     "databricks-sql-connector>=2.8.0,<3.0.0",
+}
+
+databricks = {
+    "pyspark~=3.5.6,<4.0.0",
+    "requests<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0
     "pandas<2.2.0",
 }
 
-mysql = {"pymysql>=1.0.2"}
+mysql = {"pymysql>=1.0.2,<2.0.0"}
 
 sac = {
-    "requests",
-    "pyodata>=1.11.1",
-    "Authlib",
+    "requests<3.0.0",
+    "pyodata>=1.11.1,<2.0.0",
+    "Authlib<2.0.0",
 }
 
 superset_common = {
-    "requests",
+    "requests<3.0.0",
     *sqlglot_lib,
 }
+
+embedding_common = {
+    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI)
+    "litellm==1.80.5",
+    # AWS SDK for Bedrock embedding support
+    *aws_common,
+}
+
+unstructured_lib = {
+    # Unstructured.io core library for document partitioning with markdown support
+    "unstructured[md]==0.18.24",
+    # Unstructured ingest framework for pipeline orchestration
+    "unstructured-ingest==0.7.2",
+    # JSONPath for custom property extraction
+    "jsonpath-ng==1.7.0",
+    # Embedding support for semantic search
+    *embedding_common,
+}
+
+notion_common = {
+    # Notion-specific connector adds notion-client and related dependencies
+    "unstructured-ingest[notion]==0.7.2",
+} | unstructured_lib
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
@@ -403,23 +468,24 @@ plugins: Dict[str, Set[str]] = {
     "datahub-kafka": {
         # At some moment, we decoupled from using here kafka_common
         # That's becuase kafka_common has more strict lower bound versions that conflict with airflow depedency constraints
-        "confluent_kafka[schemaregistry,avro]>=1.9.0, != 2.8.1",
-        "fastavro>=1.2.0",
+        "confluent_kafka[schemaregistry,avro]>=1.9.0,!= 2.8.1,<3.0.0",
+        "fastavro>=1.2.0,<2.0.0",
     },
     "datahub-rest": rest_common,
-    "sync-file-emitter": {"filelock"},
+    "sync-file-emitter": {"filelock<4.0.0"},
     "datahub-lite": {
-        "duckdb>=1.0.0",
-        "fastapi",
-        "uvicorn",
+        "duckdb>=1.0.0,<2.0.0",
+        "fastapi<0.129.0",
+        "uvicorn<0.41.0",
     },
     # Integrations.
     "airflow": {
         f"acryl-datahub-airflow-plugin{_self_pin}",
     },
     "circuit-breaker": {
-        "gql>=3.3.0",
-        "gql[requests]>=3.3.0",
+        # In gql v4, the execute() method's signature changed. Since we've updated
+        # our code to use the new signature, we need to pin to gql v4.
+        "gql[requests]>=4.0.0",
     },
     # TODO: Eventually we should reorganize our imports so that this depends on sqlalchemy_lib
     # but not the full sql_common.
@@ -438,38 +504,67 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/jd/tenacity/issues/471
     | {
         "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
-        "sqlalchemy-bigquery>=1.4.1",
-        "tenacity!=8.4.0",
+        "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+        "tenacity!=8.4.0,<9.0.0",
     },
     "azure-ad": set(),
+    "azure-data-factory": azure_data_factory,
+    "fabric-onelake": {
+        "sqlalchemy>=1.4,<3.0",
+        "pyodbc>=4.0,<5.0",
+        # upper bound added to pass check-python-deps.yml github workflow
+        "azure-identity>=1.21.0,<2.0",
+        # upper bound added to pass check-python-deps.yml github workflow
+        "requests>=2.28.0,<3.0",
+    },
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib
     | classification_lib
     | {
+        # Pinned to 0.2.2 because 0.3.0 changed the import path from
+        # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
+        # which breaks existing code using the old import path
         "google-cloud-datacatalog-lineage==0.2.2",
     },
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
-    "cockroachdb": sql_common | postgres_common | {"sqlalchemy-cockroachdb<2.0.0"},
+    "cockroachdb": sql_common
+    | postgres_common
+    | aws_common
+    | {"sqlalchemy-cockroachdb<2.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
+    "dataplex": dataplex_common,
     "delta-lake": {*data_lake_profiling, *delta_lake},
-    "dbt": {"requests"} | dbt_common | aws_common,
-    "dbt-cloud": {"requests"} | dbt_common,
-    "dremio": {"requests"} | sql_common,
-    "druid": sql_common | {"pydruid>=0.6.2"},
+    "db2": {
+        # The underlying ibm_db library and Db2 clidriver don't work on Linux ARM
+        "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
+        "pyodbc<6.0.0",
+        *sql_common,
+    },
+    "dbt": {"requests<3.0.0"} | dbt_common | aws_common,
+    "dbt-cloud": {"requests<3.0.0"} | dbt_common,
+    "dremio": {"requests<3.0.0"} | sql_common,
+    "druid": sql_common | {"pydruid>=0.6.2,<=0.6.9"},
     "dynamodb": aws_common | classification_lib,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
-    "excel": {"openpyxl>=3.1.5", "pandas", *aws_common, *abs_base, *cachetools_lib, *data_lake_profiling},
+    "excel": {
+        "openpyxl>=3.1.5,<4.0.0",
+        "pandas<3.0.0",
+        *aws_common,
+        *abs_base,
+        *cachetools_lib,
+        *data_lake_profiling,
+    },
     "cassandra": {
-        "cassandra-driver>=3.28.0",
+        "cassandra-driver>=3.28.0,<4.0.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
@@ -477,41 +572,45 @@ plugins: Dict[str, Set[str]] = {
         *cachetools_lib,
     },
     "feast": {
+        # Note: feast>=0.48 requires numpy>=2, so numpy<2 below constrains feast to <=0.47.0 automatically
         "feast>=0.34.0,<1",
-        "flask-openid>=1.3.0",
+        "flask-openid>=1.3.0,<2.0.0",
         "dask[dataframe]<2024.7.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
         "numpy<2",
     },
-    "grafana": {"requests", *sqlglot_lib},
+    "grafana": {"requests<3.0.0", *sqlglot_lib},
     "glue": aws_common | cachetools_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
     | {
-        "sqlalchemy-hana>=0.5.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
-        "hdbcli>=2.11.20; platform_machine != 'aarch64' and platform_machine != 'arm64'",
+        # Note: sqlalchemy-hana>=4.0 requires SQLAlchemy>=2, so constrained to 3.x automatically
+        "sqlalchemy-hana>=0.5.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
+        "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     },
     "hive": sql_common
     | pyhive_common
     | {
-        "databricks-dbapi",
+        "databricks-dbapi<0.7.0",
         *great_expectations_lib,
     },
     # keep in sync with presto-on-hive until presto-on-hive will be removed
+    # Supports both SQL (psycopg2/pymysql) and Thrift (pymetastore) connection types
+    # kerberos is required for GSSAPI auth (pure-sasl delegates to it)
     "hive-metastore": sql_common
     | pyhive_common
-    | {"psycopg2-binary", "pymysql>=1.0.2"},
+    | {"psycopg2-binary<3.0.0", "pymysql>=1.0.2,<2.0.0", "pymetastore>=0.4.2,<1.0.0", "tenacity>=8.0.1,<9.0.0", "kerberos>=1.3.0,<2.0.0"},
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
-    "json-schema": set(),
+    "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
-    "kafka-connect": sql_common | {"requests", "JPype1"},
-    "ldap": {"python-ldap>=2.4"},
+    "kafka-connect": sql_common | {"requests<3.0.0", "JPype1<2.0.0"},
+    "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
-    "metabase": {"requests"} | sqlglot_lib,
+    "metabase": {"requests<3.0.0"} | sqlglot_lib,
     "mlflow": {
         "mlflow-skinny>=2.3.0,<2.21.0",
         # Pinned to avoid the breaking change introduced in MLflow 2.21.0 where search_registered_models injects an implicit filter
@@ -521,24 +620,25 @@ plugins: Dict[str, Set[str]] = {
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
         "setuptools",
     },
-    "datahub-debug": {"dnspython==2.7.0", "requests"},
-    "mode": {"requests", "python-liquid", "tenacity>=8.0.1"} | sqlglot_lib,
-    "mongodb": {"pymongo[srv]>=3.11", "packaging"},
+    "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
+    "datahub-documents": unstructured_lib,
+    "mode": {"requests<3.0.0", "python-liquid<2", "tenacity>=8.0.1,<9.0.0"} | sqlglot_lib,
+    "mongodb": {"pymongo>=4.8.0,<5.0.0", "packaging<26.0.0"},
     "mssql": sql_common | mssql_common,
-    "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
-    "mysql": sql_common | mysql,
+    "mssql-odbc": sql_common | mssql_common | {"pyodbc<6.0.0"},
+    "mysql": sql_common | mysql | aws_common,
     # mariadb should have same dependency as mysql
-    "mariadb": sql_common | mysql,
-    "okta": {"okta~=1.7.0", "nest-asyncio"},
-    "oracle": sql_common | {"oracledb"},
-    "postgres": sql_common | postgres_common,
+    "mariadb": sql_common | mysql | aws_common,
+    "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0"},
+    "oracle": sql_common | {"oracledb<4.0.0"},
+    "postgres": sql_common | postgres_common | aws_common,
     "presto": sql_common | pyhive_common | trino,
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
     "presto-on-hive": sql_common
     | pyhive_common
-    | {"psycopg2-binary", "pymysql>=1.0.2"},
-    "pulsar": {"requests"},
-    "redash": {"redash-toolbelt", "sql-metadata"} | sqlglot_lib,
+    | {"psycopg2-binary<3.0.0", "pymysql>=1.0.2,<2.0.0"},
+    "pulsar": {"requests<3.0.0"},
+    "redash": {"redash-toolbelt<0.2.0", "sql-metadata<3.0.0"} | sqlglot_lib,
     "redshift": sql_common
     | redshift_common
     | usage_common
@@ -546,21 +646,26 @@ plugins: Dict[str, Set[str]] = {
     | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
     | cachetools_lib,
+    # S3 includes PySpark by default for profiling support (backward compatible)
+    # Standard installation: pip install 'acryl-datahub[s3]' (with PySpark)
+    # Lightweight installation: pip install 'acryl-datahub[s3-slim]' (no PySpark, no profiling)
     "s3": {*s3_base, *data_lake_profiling},
-    "gcs": {*s3_base, *data_lake_profiling, "smart-open[gcs]>=5.2.1"},
+    "s3-slim": {*s3_base},
+    "gcs": {*s3_base, *data_lake_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
     "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
-    "salesforce": {"simple-salesforce", *cachetools_lib},
+    "salesforce": {"simple-salesforce<2.0.0", *cachetools_lib},
     "snowflake": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-slim": snowflake_common,
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
-    "sql-queries": usage_common | sqlglot_lib,
+    "sql-queries": usage_common | sqlglot_lib | aws_common | {"smart-open[s3]>=5.2.1,<8.0.0"},
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
-    "tableau": {"tableauserverclient>=0.24.0"} | sqlglot_lib,
+    # Note: tableauserverclient>=0.27 requires urllib3>=2, but elasticsearch requires urllib3<2
+    "tableau": {"tableauserverclient>=0.24.0,<0.27"} | sqlglot_lib,
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
@@ -571,24 +676,18 @@ plugins: Dict[str, Set[str]] = {
     },
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
-    "nifi": {"requests", "packaging", "requests-gssapi"},
+    "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
     "powerbi": (
         microsoft_common
-        | {"lark[regex]==1.1.4", "sqlparse", "more-itertools"}
+        | {"lark[regex]==1.1.4", "sqlparse<1.0.0", "more-itertools<11.0.0"}
         | sqlglot_lib
         | threading_timeout_common
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
-    "unity-catalog": databricks | sql_common,
+    "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
-    "databricks": databricks | sql_common,
-    "fivetran": snowflake_common | bigquery_common | sqlalchemy_lib | sqlglot_lib,
-    "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
-    "sigma": sqlglot_lib | {"requests"},
-    "sac": sac,
-    "neo4j": {"pandas", "neo4j"},
-    "vertexai": {"google-cloud-aiplatform>=1.80.0"},
+    "databricks": databricks_common | databricks | sql_common,
     "google-sheets": {
         "google-auth>=2.15.0",
         "google-api-python-client>=2.70.0",
@@ -599,6 +698,34 @@ plugins: Dict[str, Set[str]] = {
         # Constraint needed for compatibility with databricks-sql-connector
         "pandas<2.2.0",
         },
+    "notion": notion_common,
+    "unstructured": unstructured_lib,
+    "fivetran": snowflake_common
+    | bigquery_common
+    | databricks_common
+    | sqlalchemy_lib
+    | sqlglot_lib,
+    "snaplogic": set(),
+    "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
+    "sigma": sqlglot_lib | {"requests<3.0.0"},
+    "sac": sac,
+    "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
+    "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
+    # Debug/utility plugins
+    "debug-recording": {
+        # VCR.py for HTTP recording - industry standard
+        # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError)
+        "vcrpy>=8.0.0,<9.0",
+        # responses library for HTTP replay - better compatibility with custom SDK transports
+        # (e.g., Looker SDK) that break with VCR's urllib3 patching
+        "responses>=0.25.0,<1.0",
+        # AES-256 encrypted zip files
+        "pyzipper>=0.3.6,<1.0",
+        # Note: This plugin uses lazy imports to avoid requiring optional dependencies
+        # (e.g., sqlalchemy) when recording is not used. Dependencies like sqlalchemy
+        # are expected to be provided by the source connector itself when needed.
+        # The plugin is designed to be installed alongside source connectors, not standalone.
+    },
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -618,51 +745,53 @@ all_exclude_plugins: Set[str] = {
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
+    # Debug recording is an optional debugging tool.
+    "debug-recording",
 }
 
 mypy_stubs = {
-    "types-dataclasses",
-    "types-six",
-    "types-python-dateutil",
+    "types-dataclasses<0.7.0",
+    "types-six<2.0.0",
+    "types-python-dateutil<3.0.0",
     # We need to avoid 2.31.0.5 and 2.31.0.4 due to
     # https://github.com/python/typeshed/issues/10764. Once that
     # issue is resolved, we can remove the upper bound and change it
     # to a != constraint.
     # We have a PR up to fix the underlying issue: https://github.com/python/typeshed/pull/10776.
     "types-requests>=2.28.11.6,<=2.31.0.3",
-    "types-toml",
-    "types-PyMySQL",
-    "types-PyYAML",
-    "types-cachetools",
+    "types-toml<0.11.0",
+    "types-PyMySQL<2.0.0",
+    "types-PyYAML<7.0.0",
+    "types-cachetools<7.0.0",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
     # The boto3-stubs package seems to have regularly breaking minor releases,
     # we pin to a specific version to avoid this.
     "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.40.0",
-    "types-tabulate",
+    "types-tabulate<0.10.0",
     # avrogen package requires this
-    "types-pytz",
-    "types-pyOpenSSL",
-    "types-click-spinner>=0.1.13.1",
-    "types-ujson>=5.2.0",
-    "types-Deprecated",
-    "types-protobuf>=4.21.0.1",
-    "sqlalchemy2-stubs",
+    "types-pytz<2026.0.0",
+    "types-pyOpenSSL<26.0.0",
+    "types-click-spinner>=0.1.13.1,<=0.1.13.20250809",
+    "types-ujson>=5.2.0,<6.0.0",
+    "types-Deprecated<2.0.0",
+    "types-protobuf>=4.21.0.1,<7.0.0",
+    "sqlalchemy2-stubs<0.1.0",
 }
 
 
 test_api_requirements = {
-    "pytest>=6.2.2",
-    "pytest-timeout",
+    "pytest>=6.2.2,<10.0.0",
+    "pytest-timeout<3.0.0",
     # Missing numpy requirement in 8.0.0
-    "deepdiff!=8.0.0",
-    "orderly-set!=5.4.0",  # 5.4.0 uses invalid types on older Python versions
-    "PyYAML",
-    "pytest-docker>=1.1.0",
+    "deepdiff!=8.0.0,<9.0.0",
+    "orderly-set!=5.4.0,<6.0.0",  # 5.4.0 uses invalid types on older Python versions
+    "PyYAML<7.0.0",
+    "pytest-docker>=1.1.0,<4.0.0",
 }
 
 debug_requirements = {
-    "memray",
+    "memray<2.0.0",
 }
 
 lint_requirements = {
@@ -679,16 +808,17 @@ base_dev_requirements = {
     *s3_base,
     *lint_requirements,
     *test_api_requirements,
-    "coverage>=5.1",
-    "faker>=18.4.0",
-    "pytest-asyncio>=0.16.0",
-    "pytest-cov>=2.8.1",
-    "pytest-random-order~=1.1.0",
-    "requests-mock",
-    "freezegun",
-    "jsonpickle",
-    "build",
-    "twine",
+    "coverage>=5.1,<8.0.0",
+    "faker>=18.4.0,<41.0.0",
+    "pytest-asyncio>=0.16.0,<2.0.0",
+    "pytest-cov>=2.8.1,<8.0.0",
+    "pytest-random-order~=1.1.0,<2.0.0",
+    "requests-mock<2.0.0",
+    "freezegun<2.0.0",  # TODO: fully remove and use time-machine
+    "time-machine<4.0.0",  # better Pydantic v2 compatibility
+    "jsonpickle<5.0.0",
+    "build<2.0.0",
+    "twine<7.0.0",
     *list(
         dependency
         for plugin in [
@@ -698,6 +828,9 @@ base_dev_requirements = {
             "clickhouse",
             "clickhouse-usage",
             "cockroachdb",
+            # Note: datahub-documents removed from dev deps due to Python 3.10+ requirement
+            # It's available as a separate extra and in the docs extra for doc generation
+            "dataplex",
             "delta-lake",
             "dremio",
             "druid",
@@ -706,6 +839,7 @@ base_dev_requirements = {
             "iceberg",
             "iceberg-catalog",
             "mlflow",
+            "mongodb",
             "json-schema",
             "ldap",
             "looker",
@@ -724,6 +858,7 @@ base_dev_requirements = {
             "redshift",
             "s3",
             "snowflake",
+            "snaplogic",
             "slack",
             "tableau",
             "teradata",
@@ -751,11 +886,19 @@ base_dev_requirements = {
         if plugin
         for dependency in plugins[plugin]
     ),
-    *pydantic_no_v2,
 }
 
 dev_requirements = {
     *base_dev_requirements,
+    # Include unstructured for testing datahub-documents source
+    *unstructured_lib,
+}
+
+# Documentation generation requirements
+# Includes datahub-documents which requires Python 3.10+ (due to unstructured library)
+docs_requirements = {
+    *base_dev_requirements,
+    *plugins["datahub-documents"],
 }
 
 full_test_dev_requirements = {
@@ -763,19 +906,23 @@ full_test_dev_requirements = {
         dependency
         for plugin in [
             "athena",
+            "azure-data-factory",
+            "fabric-onelake",
             "circuit-breaker",
             "clickhouse",
+            "db2",
+            "debug-recording",
             "delta-lake",
             "druid",
             "excel",
             "feast",
             "hana",
             "hive",
+            "hive-metastore",
             "iceberg",
             "iceberg-catalog",
             "kafka-connect",
             "ldap",
-            "mongodb",
             "slack",
             "mssql",
             "mssql-odbc",
@@ -800,6 +947,8 @@ entry_points = {
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
+        "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
+        "fabric-onelake = datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
@@ -807,6 +956,7 @@ entry_points = {
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
+        "db2 = datahub.ingestion.source.sql.db2:Db2Source",
         "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",
         "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
         "dremio = datahub.ingestion.source.dremio.dremio_source:DremioSource",
@@ -819,8 +969,8 @@ entry_points = {
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
-        "hive = datahub.ingestion.source.sql.hive:HiveSource",
-        "hive-metastore = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
+        "hive = datahub.ingestion.source.sql.hive.hive_source:HiveSource",
+        "hive-metastore = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
@@ -829,10 +979,12 @@ entry_points = {
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
         "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",
         "datahub-debug = datahub.ingestion.source.debug.datahub_debug:DataHubDebugSource",
+        "datahub-documents = datahub.ingestion.source.datahub_documents.datahub_documents_source:DataHubDocumentsSource",
         "datahub-apply = datahub.ingestion.source.apply.datahub_apply:DataHubApplySource",
         "datahub-mock-data = datahub.ingestion.source.mock_data.datahub_mock_data:DataHubMockDataSource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
+        "dataplex = datahub.ingestion.source.dataplex.dataplex:DataplexSource",
         "mlflow = datahub.ingestion.source.mlflow:MLflowSource",
         "mode = datahub.ingestion.source.mode:ModeSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
@@ -863,14 +1015,16 @@ entry_points = {
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto = datahub.ingestion.source.sql.presto:PrestoSource",
         # This is only here for backward compatibility. Use the `hive-metastore` source instead.
-        "presto-on-hive = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
+        "presto-on-hive = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
+        "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
+        "snaplogic = datahub.ingestion.source.snaplogic.snaplogic:SnaplogicSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
         "sac = datahub.ingestion.source.sac.sac:SACSource",
@@ -885,6 +1039,7 @@ entry_points = {
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",
         "mark_dataset_status = datahub.ingestion.transformer.mark_dataset_status:MarkDatasetStatus",
         "set_dataset_browse_path = datahub.ingestion.transformer.add_dataset_browse_path:AddDatasetBrowsePathTransformer",
+        "set_browse_path = datahub.ingestion.transformer.set_browse_path:SetBrowsePathTransformer",
         "add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:AddDatasetOwnership",
         "simple_add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:SimpleAddDatasetOwnership",
         "pattern_add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:PatternAddDatasetOwnership",
@@ -911,6 +1066,7 @@ entry_points = {
         "pattern_cleanup_dataset_usage_user = datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user:PatternCleanupDatasetUsageUser",
         "domain_mapping_based_on_tags = datahub.ingestion.transformer.dataset_domain_based_on_tags:DatasetTagDomainMapper",
         "tags_to_term = datahub.ingestion.transformer.tags_to_terms:TagsToTermMapper",
+        "tags_to_structured_properties = datahub.ingestion.transformer.tags_to_structured_properties:TagsToStructuredPropertiesTransformer",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
@@ -973,7 +1129,7 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={
@@ -989,47 +1145,25 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
     extras_require={
         "base": list(framework_common),
         **{
-            plugin: list(
-                framework_common
-                | (
-                    # While pydantic v2 support is experimental, require that all plugins
-                    # continue to use v1. This will ensure that no ingestion recipes break.
-                    pydantic_no_v2
-                    if plugin
-                    not in {
-                        "airflow",
-                        "datahub-rest",
-                        "datahub-kafka",
-                        "sync-file-emitter",
-                        "sql-parser",
-                        # Some sources have been manually tested for compatibility with pydantic v2.
-                        "iceberg",
-                        "feast",
-                        "bigquery-slim",
-                        "snowflake-slim",
-                        "mysql",  # tested in smoke-test
-                    }
-                    else set()
-                )
-                | dependencies
-            )
+            plugin: list(framework_common | dependencies)
             for (plugin, dependencies) in plugins.items()
         },
         "all": list(
             framework_common.union(
-                pydantic_no_v2,
                 *[
                     requirements
                     for plugin, requirements in plugins.items()
                     if plugin not in all_exclude_plugins
-                ],
+                ]
             )
         ),
         "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
+        "docs": list(docs_requirements),  # For documentation generation (requires Python 3.10+)
         "lint": list(lint_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
         "debug": list(debug_requirements),
     },
 )
+

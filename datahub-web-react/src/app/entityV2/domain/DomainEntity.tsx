@@ -212,6 +212,7 @@ export class DomainEntity implements Entity<Domain> {
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -236,6 +237,6 @@ export class DomainEntity implements Entity<Domain> {
 
     supportedCapabilities = () => {
         // TODO.. Determine whether SOFT_DELETE should go into here.
-        return new Set([EntityCapabilityType.OWNERS]);
+        return new Set([EntityCapabilityType.OWNERS, EntityCapabilityType.RELATED_DOCUMENTS]);
     };
 }

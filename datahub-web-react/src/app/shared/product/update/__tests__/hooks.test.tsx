@@ -4,12 +4,7 @@ import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import * as useUserContextModule from '@app/context/useUserContext';
-import {
-    useGetLatestProductAnnouncementData,
-    useIsProductAnnouncementEnabled,
-    useIsProductAnnouncementVisible,
-} from '@app/shared/product/update/hooks';
-import { latestUpdate } from '@app/shared/product/update/latestUpdate';
+import { useIsProductAnnouncementEnabled, useIsProductAnnouncementVisible } from '@app/shared/product/update/hooks';
 import * as useAppConfigModule from '@app/useAppConfig';
 
 import { BatchGetStepStatesDocument } from '@graphql/step.generated';
@@ -109,22 +104,21 @@ describe('product update hooks', () => {
         });
     });
 
-    describe('useGetLatestProductAnnouncementData', () => {
-        it('returns latest update object', () => {
-            const { result } = renderHook(() => useGetLatestProductAnnouncementData());
-            expect(result.current).toBe(latestUpdate);
-        });
-    });
-
     describe('useIsProductAnnouncementVisible', () => {
         beforeEach(() => {
             vi.spyOn(useUserContextModule, 'useUserContext').mockReturnValue({
                 user: { urn: 'urn:li:user:123' },
             } as any);
+            // Mock localStorage to indicate welcome modal has been seen
+            localStorage.setItem('skipWelcomeModal', 'true');
+        });
+
+        afterEach(() => {
+            localStorage.clear();
         });
 
         it('returns visible=false when step state exists', async () => {
-            const { result } = renderHook(() => useIsProductAnnouncementVisible(TEST_UPDATE), {
+            const { result } = renderHook(() => useIsProductAnnouncementVisible(TEST_UPDATE.id), {
                 wrapper: ({ children }) => (
                     <MockedProvider mocks={[BATCH_GET_STEP_STATES_MOCK_PRESENT]} addTypename={false}>
                         {children}
@@ -138,7 +132,7 @@ describe('product update hooks', () => {
         });
 
         it('returns visible=true when step state does not exist', async () => {
-            const { result } = renderHook(() => useIsProductAnnouncementVisible(TEST_UPDATE), {
+            const { result } = renderHook(() => useIsProductAnnouncementVisible(TEST_UPDATE.id), {
                 wrapper: ({ children }) => (
                     <MockedProvider mocks={[BATCH_GET_STEP_STATES_MOCK_NOT_PRESENT]} addTypename={false}>
                         {children}
@@ -152,7 +146,7 @@ describe('product update hooks', () => {
         });
 
         it('returns visible=false when query is loading', () => {
-            const { result } = renderHook(() => useIsProductAnnouncementVisible(TEST_UPDATE), {
+            const { result } = renderHook(() => useIsProductAnnouncementVisible(TEST_UPDATE.id), {
                 wrapper: ({ children }) => (
                     <MockedProvider mocks={[BATCH_GET_STEP_STATES_MOCK_LOADING]} addTypename={false}>
                         {children}
@@ -161,6 +155,27 @@ describe('product update hooks', () => {
             });
 
             expect(result.current.visible).toBe(false);
+        });
+
+        it('returns visible=false when welcome modal has not been seen', async () => {
+            // Clear localStorage to simulate welcome modal not seen
+            localStorage.clear();
+
+            const { result } = renderHook(() => useIsProductAnnouncementVisible(TEST_UPDATE.id), {
+                wrapper: ({ children }) => (
+                    <MockedProvider mocks={[BATCH_GET_STEP_STATES_MOCK_NOT_PRESENT]} addTypename={false}>
+                        {children}
+                    </MockedProvider>
+                ),
+            });
+
+            // Should be false immediately since welcome modal hasn't been seen
+            expect(result.current.visible).toBe(false);
+
+            // Should still be false after query completes
+            await waitFor(() => {
+                expect(result.current.visible).toBe(false);
+            });
         });
     });
 });

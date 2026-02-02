@@ -25,6 +25,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -138,10 +139,20 @@ public class SchemaRegistryController
           .getSchemaForTopicAndVersion(topicName, latestVersion)
           .map(
               schema -> {
+                Optional<Integer> schemaIdOpt =
+                    _schemaRegistryService.getSchemaIdForTopicAndVersion(topicName, latestVersion);
+                if (!schemaIdOpt.isPresent()) {
+                  log.error(
+                      "[SubjectsApi] getSchemaByVersion couldn't find schema ID for topic {} latest version {}.",
+                      topicName,
+                      latestVersion);
+                  return new ResponseEntity<Schema>(HttpStatus.NOT_FOUND);
+                }
+
                 Schema result = new Schema();
                 result.setSubject(subject);
                 result.setVersion(latestVersion);
-                result.setId(_schemaRegistryService.getSchemaIdForTopic(topicName).get());
+                result.setId(schemaIdOpt.get());
                 result.setSchema(schema.toString());
                 return new ResponseEntity<>(result, HttpStatus.OK);
               })
@@ -172,10 +183,20 @@ public class SchemaRegistryController
           .getSchemaForTopicAndVersion(topicName, versionNumber)
           .map(
               schema -> {
+                Optional<Integer> schemaIdOpt =
+                    _schemaRegistryService.getSchemaIdForTopicAndVersion(topicName, versionNumber);
+                if (!schemaIdOpt.isPresent()) {
+                  log.error(
+                      "[SubjectsApi] getSchemaByVersion couldn't find schema ID for topic {} version {}.",
+                      topicName,
+                      version);
+                  return new ResponseEntity<Schema>(HttpStatus.NOT_FOUND);
+                }
+
                 Schema result = new Schema();
                 result.setSubject(subject);
                 result.setVersion(versionNumber);
-                result.setId(_schemaRegistryService.getSchemaIdForTopic(topicName).get());
+                result.setId(schemaIdOpt.get());
                 result.setSchema(schema.toString());
                 return new ResponseEntity<>(result, HttpStatus.OK);
               })
@@ -669,39 +690,44 @@ public class SchemaRegistryController
                 })
             .collect(Collectors.toList());
 
-    // Convert subjects to Schema objects
-    List<Schema> schemas =
-        subjects.stream()
-            .map(
-                subject -> {
-                  String topicName = subject.replaceFirst("-value", "");
-                  Optional<Integer> schemaId =
-                      _schemaRegistryService.getSchemaIdForTopic(topicName);
-                  Optional<org.apache.avro.Schema> schema =
-                      _schemaRegistryService.getSchemaForTopic(topicName);
+    // Convert subjects to Schema objects - return all versions for each subject
+    List<Schema> schemas = new ArrayList<>();
 
-                  if (schemaId.isPresent() && schema.isPresent()) {
-                    Schema result = new Schema();
-                    result.setSubject(subject);
-                    result.setId(schemaId.get());
-                    result.setSchema(schema.get().toString());
+    for (String subject : subjects) {
+      String topicName = subject.replaceFirst("-value", "");
 
-                    // Set version based on latestOnly flag
-                    if (Boolean.TRUE.equals(latestOnly)) {
-                      Optional<Integer> latestVersion =
-                          _schemaRegistryService.getLatestSchemaVersionForTopic(topicName);
-                      latestVersion.ifPresent(result::setVersion);
-                    } else {
-                      // For now, set version to 1 if not latestOnly
-                      result.setVersion(1);
-                    }
+      // Get all supported versions for this topic
+      Optional<List<Integer>> supportedVersionsOpt =
+          _schemaRegistryService.getSupportedSchemaVersionsForTopic(topicName);
 
-                    return result;
-                  }
-                  return null;
-                })
-            .filter(schema -> schema != null)
-            .collect(Collectors.toList());
+      if (supportedVersionsOpt.isPresent()) {
+        List<Integer> supportedVersions = supportedVersionsOpt.get();
+
+        // If latestOnly is true, only return the latest version
+        if (Boolean.TRUE.equals(latestOnly)) {
+          int latestVersion =
+              supportedVersions.stream().mapToInt(Integer::intValue).max().orElse(1);
+          supportedVersions = List.of(latestVersion);
+        }
+
+        // Create a Schema object for each version
+        for (Integer version : supportedVersions) {
+          Optional<Integer> schemaIdOpt =
+              _schemaRegistryService.getSchemaIdForTopicAndVersion(topicName, version);
+          Optional<org.apache.avro.Schema> schemaOpt =
+              _schemaRegistryService.getSchemaForTopicAndVersion(topicName, version);
+
+          if (schemaIdOpt.isPresent() && schemaOpt.isPresent()) {
+            Schema result = new Schema();
+            result.setSubject(subject);
+            result.setId(schemaIdOpt.get());
+            result.setVersion(version);
+            result.setSchema(schemaOpt.get().toString());
+            schemas.add(result);
+          }
+        }
+      }
+    }
 
     // Apply offset and limit if provided
     if (offset != null && offset > 0 && offset < schemas.size()) {

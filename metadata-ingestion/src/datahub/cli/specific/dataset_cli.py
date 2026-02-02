@@ -55,7 +55,7 @@ def get(urn: str, to_file: str) -> None:
         if graph.exists(urn):
             dataset: Dataset = Dataset.from_datahub(graph=graph, urn=urn)
             click.secho(
-                f"{json.dumps(dataset.dict(exclude_unset=True, exclude_none=True), indent=2)}"
+                f"{json.dumps(dataset.model_dump(exclude_unset=True, exclude_none=True), indent=2)}"
             )
             if to_file:
                 dataset.to_yaml(Path(to_file))
@@ -209,7 +209,7 @@ def sync(file: str, to_datahub: bool, dry_run: bool) -> None:
                     )
                 except Exception as e:
                     click.secho(
-                        f"{dry_run_prefix}Update failed for id {id}. due to {e}",
+                        f"{dry_run_prefix}Update failed for id {dataset.urn}. due to {e}",
                         fg="red",
                     )
                     failures.append(dataset.urn)

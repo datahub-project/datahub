@@ -7,7 +7,16 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from json import JSONDecodeError
-from typing import Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
+from typing import (
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 import dateutil.parser as dp
 import psutil
@@ -17,14 +26,14 @@ import sqlglot
 import tenacity
 import yaml
 from liquid import Template, Undefined
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import ConnectionError
 from requests.models import HTTPBasicAuth, HTTPError
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
 )
@@ -200,17 +209,22 @@ class ModeConfig(
         default=True, description="Tag measures and dimensions in the schema"
     )
 
-    items_per_page: int = Field(
-        default=DEFAULT_API_ITEMS_PER_PAGE,
+    items_per_page: HiddenFromDocs[int] = Field(
+        DEFAULT_API_ITEMS_PER_PAGE,
         description="Number of items per page for paginated API requests.",
-        hidden_from_docs=True,
     )
 
-    @validator("connect_uri")
+    exclude_archived: bool = Field(
+        default=False, description="Exclude archived reports"
+    )
+
+    @field_validator("connect_uri", mode="after")
+    @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
-    @validator("items_per_page")
+    @field_validator("items_per_page", mode="after")
+    @classmethod
     def validate_items_per_page(cls, v):
         if 1 <= v <= DEFAULT_API_ITEMS_PER_PAGE:
             return v
@@ -1465,6 +1479,15 @@ class ModeSource(StatefulIngestionSourceBase):
                     logger.debug(
                         f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
                     )
+                    if self.config.exclude_archived:
+                        logger.debug(
+                            f"Excluding archived reports since exclude_archived: {self.config.exclude_archived}"
+                        )
+                        reports_page = [
+                            report
+                            for report in reports_page
+                            if not report.get("archived", False)
+                        ]
                     yield reports_page
         except ModeRequestError as e:
             if isinstance(e, HTTPError) and e.response.status_code == 404:
@@ -1803,7 +1826,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ModeSource":
-        config: ModeConfig = ModeConfig.parse_obj(config_dict)
+        config: ModeConfig = ModeConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

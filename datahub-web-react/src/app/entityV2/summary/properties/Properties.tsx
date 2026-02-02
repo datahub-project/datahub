@@ -7,7 +7,7 @@ import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext'
 
 const Container = styled.div`
     display: flex;
-    gap: 16px;
+    gap: 24px;
     flex-wrap: wrap;
     align-items: center;
 `;
@@ -26,7 +26,7 @@ export default function Properties() {
     );
 
     return (
-        <Container>
+        <Container data-testid="properties-section">
             {propertyItems.map((propertyItem) => (
                 <PropertyRenderer
                     property={propertyItem.property}

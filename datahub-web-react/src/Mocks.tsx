@@ -233,7 +233,7 @@ export const dataPlatformInstance = {
         urn: 'urn:li:dataPlatform:clickhouse',
         properties: {
             displayName: 'ClickHouse',
-            logoUrl: '/assets/platforms/clickhouselogo.png',
+            logoUrl: 'assets/platforms/clickhouselogo.png',
         },
     },
 };
@@ -315,6 +315,13 @@ export const dataset1 = {
     institutionalMemory: {
         elements: [
             {
+                actor: {
+                    ...user1,
+                },
+                author: {
+                    ...user1,
+                },
+                label: 'This only points to Google',
                 url: 'https://www.google.com',
                 description: 'This only points to Google',
                 created: {
@@ -340,7 +347,7 @@ export const dataset1 = {
         },
     ],
     domain: null,
-    application: null,
+    applications: null,
     container: null,
     health: [],
     assertions: null,
@@ -353,6 +360,7 @@ export const dataset1 = {
     structuredProperties: null,
     forms: null,
     activeIncidents: null,
+    settings: null,
 };
 
 export const dataset2 = {
@@ -439,7 +447,7 @@ export const dataset2 = {
         },
     ],
     domain: null,
-    application: null,
+    applications: null,
     container: null,
     health: [],
     assertions: null,
@@ -453,6 +461,7 @@ export const dataset2 = {
     structuredProperties: null,
     forms: null,
     activeIncidents: null,
+    settings: null,
 };
 
 export const dataset3 = {
@@ -621,12 +630,16 @@ export const dataset3 = {
                     urn: 'urn:li:corpuser:datahub',
                     username: 'datahub',
                     type: EntityType.CorpUser,
+                    properties: null,
+                    info: null,
                 },
                 actor: {
                     __typename: 'CorpUser',
                     urn: 'urn:li:corpuser:datahub',
                     username: 'datahub',
                     type: EntityType.CorpUser,
+                    properties: null,
+                    info: null,
                 },
                 description: 'This only points to Google',
                 label: 'This only points to Google',
@@ -636,6 +649,10 @@ export const dataset3 = {
                     time: 1612396473001,
                 },
                 associatedUrn: 'urn:li:dataset:3',
+                settings: {
+                    showInAssetPreview: false,
+                    __typename: 'InstitutionalMemoryMetadataSettings',
+                },
             },
         ],
     },
@@ -685,7 +702,7 @@ export const dataset3 = {
         },
     ],
     domain: null,
-    application: null,
+    applications: null,
     container: null,
     lineage: null,
     relationships: null,
@@ -710,6 +727,7 @@ export const dataset3 = {
     upstream: null,
     downstream: null,
     versionProperties: null,
+    settings: null,
 } as Dataset;
 
 export const dataset3WithSchema = {
@@ -1431,7 +1449,7 @@ export const dataFlow1 = {
         },
     },
     domain: null,
-    application: null,
+    applications: null,
     deprecation: null,
     autoRenderAspects: [],
     activeIncidents: null,
@@ -1522,7 +1540,7 @@ export const dataJob1 = {
         ],
     },
     domain: null,
-    application: null,
+    applications: null,
     status: null,
     deprecation: null,
     autoRenderAspects: [],
@@ -1697,7 +1715,7 @@ export const dataJob2 = {
         ],
     },
     domain: null,
-    application: null,
+    applications: null,
     upstream: null,
     downstream: null,
     deprecation: null,
@@ -1774,7 +1792,7 @@ export const dataJob3 = {
         ],
     },
     domain: null,
-    application: null,
+    applications: null,
     upstream: null,
     downstream: null,
     status: null,
@@ -2016,7 +2034,7 @@ export const recommendationModules = [
 ];
 
 /*
-    Define mock data to be returned by Apollo MockProvider. 
+    Define mock data to be returned by Apollo MockProvider.
 */
 export const mocks = [
     {
@@ -3778,6 +3796,7 @@ export const mocks = [
                         manageApplications: true,
                         manageFeatures: true,
                         manageHomePageTemplates: true,
+                        manageDocuments: true,
                     },
                 },
             },
@@ -4042,6 +4061,7 @@ export const platformPrivileges: PlatformPrivileges = {
     viewAnalytics: true,
     managePolicies: true,
     manageIdentities: true,
+    manageServiceAccounts: true,
     generatePersonalAccessTokens: true,
     manageDomains: true,
     manageIngestion: true,
@@ -4060,6 +4080,7 @@ export const platformPrivileges: PlatformPrivileges = {
     manageGlobalAnnouncements: true,
     createBusinessAttributes: true,
     manageBusinessAttributes: true,
+    manageDocuments: true,
     manageStructuredProperties: true,
     viewStructuredPropertiesPage: true,
     manageApplications: true,

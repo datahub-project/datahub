@@ -211,6 +211,7 @@ export class ApplicationEntity implements Entity<Application> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
