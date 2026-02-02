@@ -182,10 +182,13 @@ class HierarchyConfig(ConfigModel):
     """Hierarchy configuration."""
 
     enabled: bool = Field(default=True, description="Enable parent-child relationships")
-    parent_strategy: Literal["folder", "none", "custom", "notion"] = Field(
-        default="folder",
-        description="Parent document creation strategy. "
-        "'notion' extracts parent from Notion API metadata",
+    parent_strategy: Literal["folder", "none", "custom", "notion", "confluence"] = (
+        Field(
+            default="folder",
+            description="Parent document creation strategy. "
+            "'notion' extracts parent from Notion API metadata. "
+            "'confluence' extracts parent from Confluence page ancestors.",
+        )
     )
     folder_mapping: FolderMappingConfig = Field(
         default_factory=FolderMappingConfig, description="Folder mapping configuration"
