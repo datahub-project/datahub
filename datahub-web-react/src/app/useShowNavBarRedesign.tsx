@@ -31,7 +31,11 @@ function setThemeV2LocalStorage(isNavBarRedesignEnabled: boolean) {
 const NAV_BAR_REDESIGN_STATUS_KEY = 'isNavBarRedesignEnabled';
 
 function loadFromLocalStorage(): boolean {
-    return localStorage.getItem(NAV_BAR_REDESIGN_STATUS_KEY) === 'true';
+    const localStorageItem = localStorage.getItem(NAV_BAR_REDESIGN_STATUS_KEY);
+    if (localStorageItem === null) {
+        return true;
+    }
+    return localStorageItem === 'true';
 }
 
 function saveToLocalStorage(isNavBarRedesignEnabled: boolean) {
