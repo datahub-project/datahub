@@ -1190,6 +1190,26 @@ class SupersetSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
+    def _apply_database_alias_to_urn(self, urn: str) -> str:
+        """Apply database_alias mapping to transform database names in URNs.
+
+        For example, if database_alias = {"ClickHouse Cloud": "fingerprint"},
+        transforms: urn:li:dataset:(...,clickhouse cloud.schema.table,...)
+        to: urn:li:dataset:(...,fingerprint.schema.table,...)
+        """
+        if not self.config.database_alias:
+            return urn
+
+        # Parse URN to extract dataset name
+        # URN format: urn:li:dataset:(urn:li:dataPlatform:platform,name,env)
+        for old_db, new_db in self.config.database_alias.items():
+            # Try both original case and lowercase versions
+            old_db_lower = old_db.lower()
+            # Replace at start of dataset name (after the comma following platform)
+            urn = urn.replace(f",{old_db}.", f",{new_db}.")
+            urn = urn.replace(f",{old_db_lower}.", f",{new_db}.")
+        return urn
+
     def generate_virtual_dataset_lineage(
         self,
         parsed_query_object: SqlParsingResult,
@@ -1210,7 +1230,10 @@ class SupersetSource(StatefulIngestionSourceBase):
                 else []
             )
             upstreams = [
-                make_schema_field_urn(column_ref.table, column_ref.column)
+                make_schema_field_urn(
+                    self._apply_database_alias_to_urn(column_ref.table),
+                    column_ref.column,
+                )
                 for column_ref in cll_info.upstreams
             ]
             fine_grained_lineages.append(
@@ -1222,13 +1245,19 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
             )
 
+        # Apply database_alias to transform database names in URNs
+        transformed_in_tables = [
+            self._apply_database_alias_to_urn(urn)
+            for urn in parsed_query_object.in_tables
+        ]
+
         upstream_lineage = UpstreamLineageClass(
             upstreams=[
                 UpstreamClass(
                     type=DatasetLineageTypeClass.TRANSFORMED,
                     dataset=input_table_urn,
                 )
-                for input_table_urn in parsed_query_object.in_tables
+                for input_table_urn in transformed_in_tables
             ],
             fineGrainedLineages=fine_grained_lineages,
         )
@@ -1313,6 +1342,10 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         upstream_warehouse_db_name = (
             dataset_response.get("result", {}).get("database", {}).get("database_name")
+        )
+        # Apply database_alias mapping to match URNs constructed elsewhere
+        upstream_warehouse_db_name = self.config.database_alias.get(
+            upstream_warehouse_db_name, upstream_warehouse_db_name
         )
 
         # if we have rendered sql, we always use that and defualt back to regular sql
