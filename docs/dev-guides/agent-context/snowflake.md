@@ -38,7 +38,12 @@ In this version you will need to execute 5 SQL files in your snowflake UI as a n
 
 -- 5. Create Cortex Agent
 @04_cortex_agent.sql;
+
 ```
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/snowflake/snowflake-sql.png"/>
+</p>
 
 #### Execute SQL for Snowflake directly
 
@@ -66,13 +71,25 @@ datahub agent create snowflake \
 
 This will automatically execute the commands in your Snowflake environment and output the results. This workflow is recommended for a hands off default experience.
 
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/snowflake/snowflake-execute-generator.png"/>
+</p>
+
 ### 2) Configure Snowflake agent in the UI
 
 Additional configuration canb e done via the snowflake UI if necessary such as prompt tweaking or other settings.
 
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/snowflake/snowflake-cortex-agent.png"/>
+</p>
+
 ### 3) Use Snowflake Intelligence to access Datahub
 
 Open [Snowflake Intelligence](https://ai.snowflake.com/) and select the Datahub Agent.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/snowflake/snowflake-intellgence.png"/>
+</p>
 
 ## Updating UDFs
 
