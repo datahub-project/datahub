@@ -92,7 +92,7 @@ ENV UV_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 # Allow uv to find best version from any index (needed when packages exist on both PyPI and Cloudsmith)
 ENV UV_INDEX_STRATEGY=unsafe-best-match
 # Also configure pip globally inside the image so tools without env still use the mirror
-RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
+RUN if [ -n "${PIP_MIRROR_URL}" ] && [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
     if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
 
 USER datahub
@@ -1013,6 +1013,7 @@ COPY --chown=datahub ./datahub-integrations-service /datahub-integrations-servic
 COPY --chown=datahub ./docker/datahub-executor/start.sh /start_datahub_executor.sh
 COPY --chown=datahub ./docker/datahub-executor/health_status.py /health_status
 COPY --chown=datahub ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+COPY ./docker/datahub-executor/remove_package_keys.py /usr/local/bin/remove_package_keys.py
 RUN chmod a+x /start_datahub_executor.sh && chmod a+x /health_status
 
 # Copy build info from builder
@@ -1020,6 +1021,10 @@ COPY --from=venv-builder-wolfi /build_info.json /build_info.json
 
 # Temporarily symlink acryl cloud package for backward compatibility
 RUN ln -sv /metadata-ingestion-modules/acryl-cloud /acryl-cloud
+
+# Remove test/mock private keys from packages to reduce security scanner noise
+# Uses future-proof script that scans for key patterns and private key content
+RUN python /usr/local/bin/remove_package_keys.py
 
 USER datahub
 WORKDIR /datahub-executor
@@ -1056,6 +1061,7 @@ COPY --chown=datahub ./datahub-integrations-service /datahub-integrations-servic
 COPY --chown=datahub ./docker/datahub-executor/start.sh /start_datahub_executor.sh
 COPY --chown=datahub ./docker/datahub-executor/health_status.py /health_status
 COPY --chown=datahub ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+COPY ./docker/datahub-executor/remove_package_keys.py /usr/local/bin/remove_package_keys.py
 RUN chmod a+x /start_datahub_executor.sh && chmod a+x /health_status
 
 # Copy build info from builder
@@ -1063,6 +1069,10 @@ COPY --from=venv-builder-locked-wolfi /build_info.json /build_info.json
 
 # Temporarily symlink acryl cloud package for backward compatibility
 RUN ln -sv /metadata-ingestion-modules/acryl-cloud /acryl-cloud
+
+# Remove test/mock private keys from packages to reduce security scanner noise
+# Uses future-proof script that scans for key patterns and private key content
+RUN python /usr/local/bin/remove_package_keys.py
 
 # Block network access to PyPI - locked variant only uses bundled venvs
 ENV UV_DEFAULT_INDEX=http://127.0.0.1:1/simple
@@ -1305,6 +1315,7 @@ COPY --chown=nonroot:nonroot ./datahub-integrations-service /datahub-integration
 COPY --chown=nonroot:nonroot ./docker/datahub-executor/start.sh /start_datahub_executor.sh
 COPY --chown=nonroot:nonroot ./docker/datahub-executor/health_status.py /health_status
 COPY --chown=nonroot:nonroot ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+COPY --chown=nonroot:nonroot ./docker/datahub-executor/remove_package_keys.py /usr/local/bin/remove_package_keys.py
 
 # Copy build info from builder
 COPY --from=venv-builder-distroless /build_info.json /build_info.json
@@ -1319,6 +1330,10 @@ ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
 
 # Set shell to busybox sh for variable expansion in CMD
 SHELL ["/busybox/sh", "-c"]
+
+# Remove test/mock private keys from packages to reduce security scanner noise
+# Uses future-proof script that scans for key patterns and private key content
+RUN ["python", "/usr/local/bin/remove_package_keys.py"]
 
 USER nonroot
 WORKDIR /datahub-executor
@@ -1367,6 +1382,7 @@ COPY --chown=nonroot:nonroot ./datahub-integrations-service /datahub-integration
 COPY --chown=nonroot:nonroot ./docker/datahub-executor/start.sh /start_datahub_executor.sh
 COPY --chown=nonroot:nonroot ./docker/datahub-executor/health_status.py /health_status
 COPY --chown=nonroot:nonroot ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+COPY --chown=nonroot:nonroot ./docker/datahub-executor/remove_package_keys.py /usr/local/bin/remove_package_keys.py
 
 # Copy build info from builder
 COPY --from=venv-builder-locked-distroless /build_info.json /build_info.json
@@ -1384,6 +1400,10 @@ ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
 # Set shell to busybox sh for variable expansion in CMD
 SHELL ["/busybox/sh", "-c"]
+
+# Remove test/mock private keys from packages to reduce security scanner noise
+# Uses future-proof script that scans for key patterns and private key content
+RUN ["python", "/usr/local/bin/remove_package_keys.py"]
 
 USER nonroot
 WORKDIR /datahub-executor
