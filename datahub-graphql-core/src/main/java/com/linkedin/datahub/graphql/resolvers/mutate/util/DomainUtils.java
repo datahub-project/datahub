@@ -157,7 +157,10 @@ public class DomainUtils {
                 Constants.DOMAINS_ASPECT_NAME,
                 entityService,
                 new Domains());
-    final java.util.Set<Urn> existingDomains = new java.util.HashSet<>(domains.getDomains());
+    final java.util.Set<Urn> existingDomains =
+        domains.hasDomains()
+            ? new java.util.HashSet<>(domains.getDomains())
+            : new java.util.HashSet<>();
     existingDomains.addAll(domainUrns);
     domains.setDomains(new UrnArray(existingDomains));
     return buildMetadataChangeProposalWithUrn(
@@ -181,9 +184,11 @@ public class DomainUtils {
     final java.util.Set<Urn> domainsToRemove = new java.util.HashSet<>(domainUrns);
     final UrnArray remainingDomains =
         new UrnArray(
-            domains.getDomains().stream()
-                .filter(domainUrn -> !domainsToRemove.contains(domainUrn))
-                .collect(Collectors.toList()));
+            domains.hasDomains()
+                ? domains.getDomains().stream()
+                    .filter(domainUrn -> !domainsToRemove.contains(domainUrn))
+                    .collect(Collectors.toList())
+                : Collections.emptyList());
     domains.setDomains(remainingDomains);
     return buildMetadataChangeProposalWithUrn(
         UrnUtils.getUrn(resource.getResourceUrn()), Constants.DOMAINS_ASPECT_NAME, domains);
