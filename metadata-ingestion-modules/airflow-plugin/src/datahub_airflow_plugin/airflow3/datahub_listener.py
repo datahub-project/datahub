@@ -627,14 +627,18 @@ class DataHubListener:
 
                 # Translate OpenLineage datasets to DataHub URNs
                 for ol_dataset in operator_lineage.inputs:
-                    urn = translate_ol_to_datahub_urn(ol_dataset)
+                    urn = translate_ol_to_datahub_urn(
+                        ol_dataset, env=self.config.cluster
+                    )
                     input_urns.append(urn)
                     logger.debug(
                         f"  Input: {ol_dataset.namespace}/{ol_dataset.name} -> {urn}"
                     )
 
                 for ol_dataset in operator_lineage.outputs:
-                    urn = translate_ol_to_datahub_urn(ol_dataset)
+                    urn = translate_ol_to_datahub_urn(
+                        ol_dataset, env=self.config.cluster
+                    )
                     output_urns.append(urn)
                     logger.debug(
                         f"  Output: {ol_dataset.namespace}/{ol_dataset.name} -> {urn}"

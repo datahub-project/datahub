@@ -109,13 +109,19 @@ def _enhance_bigquery_lineage_with_sql_parsing(
         listener = get_airflow_plugin_listener()
         graph = listener.graph if listener else None
 
+        env = (
+            listener.config.cluster
+            if (listener and listener.config)
+            else builder.DEFAULT_ENV
+        )
+
         # Use DataHub's SQL parser with rendered SQL
         sql_parsing_result = create_lineage_sql_parsed_result(
             query=rendered_sql,
             graph=graph,
             platform=platform,
             platform_instance=None,
-            env=builder.DEFAULT_ENV,
+            env=env,
             default_db=default_database,
             default_schema=None,
         )
@@ -139,7 +145,7 @@ def _enhance_bigquery_lineage_with_sql_parsing(
                 destination_table_urn = builder.make_dataset_urn(
                     platform="bigquery",
                     name=f"{project_id}.{dataset_id}.{table_id}",
-                    env=builder.DEFAULT_ENV,
+                    env=env,
                 )
                 # Add to output tables if not already present
                 if destination_table_urn not in sql_parsing_result.out_tables:
