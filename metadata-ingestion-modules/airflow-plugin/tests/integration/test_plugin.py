@@ -280,6 +280,7 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
     multiple_connections: bool,
     platform_instance: Optional[str],
     enable_datajob_lineage: bool,
+    cluster: Optional[str] = None,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -448,6 +449,9 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
 
     if platform_instance:
         environment["AIRFLOW__DATAHUB__PLATFORM_INSTANCE"] = platform_instance
+
+    if cluster:
+        environment["AIRFLOW__DATAHUB__CLUSTER"] = cluster
 
     if multiple_connections:
         environment[f"AIRFLOW_CONN_{datahub_connection_name_2.upper()}"] = Connection(
@@ -753,6 +757,7 @@ class DagTestCase:
     multiple_connections: bool = False
     platform_instance: Optional[str] = None
     enable_datajob_lineage: bool = True
+    cluster: Optional[str] = None
 
     # used to identify the test case in the golden file when same DAG is used in multiple tests
     test_variant: Optional[str] = None
@@ -788,6 +793,9 @@ test_cases_airflow2 = [
     DagTestCase("datahub_emitter_operator_jinja_template_dag", v2_only=True),
     DagTestCase("athena_operator", v2_only=True),
     DagTestCase("bigquery_insert_job_operator", v2_only=True),
+    DagTestCase(
+        "bigquery_insert_job_operator_dev_cluster", v2_only=True, cluster="DEV"
+    ),
     DagTestCase("teradata_operator", v2_only=True),
 ]
 
@@ -818,6 +826,7 @@ test_cases_airflow3 = [
     DagTestCase("datahub_emitter_operator_jinja_template_dag"),
     DagTestCase("athena_operator"),
     DagTestCase("bigquery_insert_job_operator"),
+    DagTestCase("bigquery_insert_job_operator_dev_cluster", cluster="DEV"),
     DagTestCase("teradata_operator"),
 ]
 
@@ -952,6 +961,7 @@ def test_airflow_plugin(
         multiple_connections=test_case.multiple_connections,
         platform_instance=test_case.platform_instance,
         enable_datajob_lineage=test_case.enable_datajob_lineage,
+        cluster=test_case.cluster,
     ) as airflow_instance:
         print(f"Running DAG {dag_id}...")
         _wait_for_dag_to_load(airflow_instance, dag_id)
@@ -1067,6 +1077,7 @@ if __name__ == "__main__":
         multiple_connections=False,
         platform_instance=None,
         enable_datajob_lineage=True,
+        cluster=None,
     ) as airflow_instance:
         # input("Press enter to exit...")
         print("quitting airflow")
