@@ -23,6 +23,7 @@ import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapp
 import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainsAssociationsMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -107,7 +108,8 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
                     GlossaryTermsMapper.map(context, new GlossaryTerms(data), entityUrn));
               } else if (DOMAINS_ASPECT_NAME.equals(name)) {
                 final Domains domains = new Domains(data);
-                // Currently we only take the first domain if it exists.
+                result.setDomainsAssociations(
+                    DomainsAssociationsMapper.map(context, domains, entityUrn));
                 result.setDomain(
                     DomainAssociationMapper.map(context, domains, entityUrn.toString()));
               } else if (DEPRECATION_ASPECT_NAME.equals(name)) {

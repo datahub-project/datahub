@@ -91,6 +91,35 @@ public class DomainUtils {
     EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
 
+  public static void addDomainsToResources(
+      @Nonnull OperationContext opContext,
+      List<Urn> domainUrns,
+      List<ResourceRefInput> resources,
+      Urn actor,
+      EntityService<?> entityService)
+      throws Exception {
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+    for (ResourceRefInput resource : resources) {
+      changes.add(buildAddDomainsProposal(opContext, domainUrns, resource, actor, entityService));
+    }
+    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
+  }
+
+  public static void removeDomainsFromResources(
+      @Nonnull OperationContext opContext,
+      List<Urn> domainUrns,
+      List<ResourceRefInput> resources,
+      Urn actor,
+      EntityService<?> entityService)
+      throws Exception {
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+    for (ResourceRefInput resource : resources) {
+      changes.add(
+          buildRemoveDomainsProposal(opContext, domainUrns, resource, actor, entityService));
+    }
+    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
+  }
+
   private static MetadataChangeProposal buildSetDomainProposal(
       @Nonnull OperationContext opContext,
       @Nullable Urn domainUrn,
@@ -110,6 +139,52 @@ public class DomainUtils {
       newDomains.add(domainUrn);
     }
     domains.setDomains(newDomains);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()), Constants.DOMAINS_ASPECT_NAME, domains);
+  }
+
+  private static MetadataChangeProposal buildAddDomainsProposal(
+      @Nonnull OperationContext opContext,
+      List<Urn> domainUrns,
+      ResourceRefInput resource,
+      Urn actor,
+      EntityService<?> entityService) {
+    Domains domains =
+        (Domains)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resource.getResourceUrn(),
+                Constants.DOMAINS_ASPECT_NAME,
+                entityService,
+                new Domains());
+    final java.util.Set<Urn> existingDomains = new java.util.HashSet<>(domains.getDomains());
+    existingDomains.addAll(domainUrns);
+    domains.setDomains(new UrnArray(existingDomains));
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()), Constants.DOMAINS_ASPECT_NAME, domains);
+  }
+
+  private static MetadataChangeProposal buildRemoveDomainsProposal(
+      @Nonnull OperationContext opContext,
+      List<Urn> domainUrns,
+      ResourceRefInput resource,
+      Urn actor,
+      EntityService<?> entityService) {
+    Domains domains =
+        (Domains)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resource.getResourceUrn(),
+                Constants.DOMAINS_ASPECT_NAME,
+                entityService,
+                new Domains());
+    final java.util.Set<Urn> domainsToRemove = new java.util.HashSet<>(domainUrns);
+    final UrnArray remainingDomains =
+        new UrnArray(
+            domains.getDomains().stream()
+                .filter(domainUrn -> !domainsToRemove.contains(domainUrn))
+                .collect(Collectors.toList()));
+    domains.setDomains(remainingDomains);
     return buildMetadataChangeProposalWithUrn(
         UrnUtils.getUrn(resource.getResourceUrn()), Constants.DOMAINS_ASPECT_NAME, domains);
   }

@@ -28,6 +28,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainsAssociationsMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -74,9 +75,18 @@ public class ApplicationMapper implements ModelMapper<EntityResponse, Applicatio
                 GlossaryTermsMapper.map(context, new GlossaryTerms(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         DOMAINS_ASPECT_NAME,
-        (application, dataMap) ->
-            application.setDomain(
-                DomainAssociationMapper.map(context, new Domains(dataMap), application.getUrn())));
+        (application, dataMap) -> {
+          final Domains domains = new Domains(dataMap);
+          try {
+            final Urn applicationUrn = Urn.createFromString(application.getUrn());
+            application.setDomainsAssociations(
+                DomainsAssociationsMapper.map(context, domains, applicationUrn));
+          } catch (Exception e) {
+            // If URN parsing fails, skip domainsAssociations
+          }
+          application.setDomain(
+              DomainAssociationMapper.map(context, domains, application.getUrn()));
+        });
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (application, dataMap) ->

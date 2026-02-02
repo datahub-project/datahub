@@ -34,6 +34,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainsAssociationsMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -90,9 +91,18 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
                 GlossaryTermsMapper.map(context, new GlossaryTerms(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         DOMAINS_ASPECT_NAME,
-        (dataProduct, dataMap) ->
-            dataProduct.setDomain(
-                DomainAssociationMapper.map(context, new Domains(dataMap), dataProduct.getUrn())));
+        (dataProduct, dataMap) -> {
+          final Domains domains = new Domains(dataMap);
+          try {
+            final Urn dataProductUrn = Urn.createFromString(dataProduct.getUrn());
+            dataProduct.setDomainsAssociations(
+                DomainsAssociationsMapper.map(context, domains, dataProductUrn));
+          } catch (Exception e) {
+            // If URN parsing fails, skip domainsAssociations
+          }
+          dataProduct.setDomain(
+              DomainAssociationMapper.map(context, domains, dataProduct.getUrn()));
+        });
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (dataProduct, dataMap) ->

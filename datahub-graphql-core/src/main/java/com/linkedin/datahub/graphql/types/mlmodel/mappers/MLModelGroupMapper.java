@@ -28,6 +28,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainsAssociationsMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -168,7 +169,12 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
       @Nonnull MLModelGroup entity,
       @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
-    // Currently we only take the first domain if it exists.
+    try {
+      final Urn entityUrn = Urn.createFromString(entity.getUrn());
+      entity.setDomainsAssociations(DomainsAssociationsMapper.map(context, domains, entityUrn));
+    } catch (Exception e) {
+      // If URN parsing fails, skip domainsAssociations
+    }
     entity.setDomain(DomainAssociationMapper.map(context, domains, entity.getUrn()));
   }
 

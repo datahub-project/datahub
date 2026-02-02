@@ -23,6 +23,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainsAssociationsMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -141,6 +142,13 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
       @Nonnull GlossaryTerm glossaryTerm,
       @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
+    try {
+      final Urn entityUrn = Urn.createFromString(glossaryTerm.getUrn());
+      glossaryTerm.setDomainsAssociations(
+          DomainsAssociationsMapper.map(context, domains, entityUrn));
+    } catch (Exception e) {
+      // If URN parsing fails, skip domainsAssociations
+    }
     glossaryTerm.setDomain(DomainAssociationMapper.map(context, domains, glossaryTerm.getUrn()));
   }
 

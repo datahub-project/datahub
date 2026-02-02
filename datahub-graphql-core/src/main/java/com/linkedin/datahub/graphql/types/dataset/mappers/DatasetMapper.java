@@ -47,6 +47,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainsAssociationsMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -322,6 +323,12 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
   private static void mapDomains(
       @Nullable final QueryContext context, @Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
+    try {
+      final Urn datasetUrn = Urn.createFromString(dataset.getUrn());
+      dataset.setDomainsAssociations(DomainsAssociationsMapper.map(context, domains, datasetUrn));
+    } catch (Exception e) {
+      // If URN parsing fails, skip domainsAssociations
+    }
     dataset.setDomain(DomainAssociationMapper.map(context, domains, dataset.getUrn()));
   }
 
