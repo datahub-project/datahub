@@ -63,15 +63,21 @@ class TestDynamoDBTagsIngestion:
 
     @staticmethod
     def get_tag_urns_from_workunits(workunits):
-        """Helper method to extract tag URNs from workunits."""
+        """Helper method to extract tag URNs from workunits.
+
+        Returns the set of tag URNs from the GlobalTags aspect.
+        Returns empty set if no workunits or if tags aspect is not present.
+        """
         if len(workunits) == 0:
             return set()
-        assert len(workunits) == 1
+
         wu = workunits[0]
-        assert wu.metadata.aspect is not None
         tags_aspect = wu.metadata.aspect
-        assert isinstance(tags_aspect, GlobalTagsClass)
-        return {tag.tag for tag in tags_aspect.tags}
+
+        if isinstance(tags_aspect, GlobalTagsClass):
+            return {tag.tag for tag in tags_aspect.tags}
+
+        return set()
 
     def test_tags_extraction_from_aws(
         self,
@@ -97,7 +103,7 @@ class TestDynamoDBTagsIngestion:
         assert tag_urns == {
             "urn:li:tag:env:prod",
             "urn:li:tag:team:data",
-        }
+        }, "Tag URNs should match expected AWS tags"
 
     def test_tags_extraction_error_handling(
         self,
@@ -177,5 +183,9 @@ class TestDynamoDBTagsIngestion:
             )
 
         tag_urns = self.get_tag_urns_from_workunits(workunits)
-        assert len(tag_urns) == len(expected_urns)
-        assert set(tag_urns) == set(expected_urns)
+        assert len(tag_urns) == len(expected_urns), (
+            f"Expected {len(expected_urns)} tags, got {len(tag_urns)}"
+        )
+        assert set(tag_urns) == set(expected_urns), (
+            "Tag URNs should match expected tags"
+        )

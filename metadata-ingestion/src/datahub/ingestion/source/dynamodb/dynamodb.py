@@ -200,7 +200,6 @@ class DynamoDBSource(StatefulIngestionSourceBase):
 
     def __init__(self, ctx: PipelineContext, config: DynamoDBConfig, platform: str):
         super().__init__(config, ctx)
-        self.ctx = ctx
         self.config = config
         self.report = DynamoDBSourceReport()
         self.platform = platform
@@ -637,6 +636,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 if tag_dict.get("Value")
                 else f"{tag_dict['Key']}"
                 for tag_dict in aws_tags_kv
+                if tag_dict.get("Key")
             ]
 
             # Emit tags as a work unit (even if empty to remove existing tags)
@@ -647,8 +647,9 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             )
 
         except Exception as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="DynamoDB Tags",
-                message="Failed to extract tags for table.",
+                message="Failed to extract tags for table. This may be due to missing 'dynamodb:ListTagsOfResource' IAM permission.",
                 context=f"dataset_urn: {dataset_urn}; error={e}",
+                exc=e,
             )
