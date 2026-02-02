@@ -136,6 +136,16 @@ class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     data_source_platform: str = pydantic.Field(
         description="A chart's data sources platform name.",
     )
+    default_db: Optional[str] = pydantic.Field(
+        default=None,
+        description="Default database name to use when parsing SQL queries. "
+        "Used to generate fully qualified table URNs (e.g., 'prod' for 'prod.public.table').",
+    )
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
+        description="Default schema name to use when parsing SQL queries. "
+        "Used to generate fully qualified table URNs (e.g., 'public' for 'prod.public.table').",
+    )
 
 
 class SigmaSourceConfig(
@@ -172,6 +182,11 @@ class SigmaSourceConfig(
     chart_sources_platform_mapping: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
         description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.",
+    )
+    sql_parsing_threads: int = pydantic.Field(
+        default=10,
+        description="Number of parallel threads for SQL parsing. "
+        "Increase for faster lineage extraction when using chart_sources_platform_mapping.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Sigma Stateful Ingestion Config."

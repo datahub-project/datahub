@@ -1,5 +1,7 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
@@ -86,11 +88,27 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TagAssociationClass,
 )
-from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
+)
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SqlParsingTask:
+    """Task for parallel SQL parsing."""
+
+    element_id: str
+    query: str
+    platform: str
+    env: str
+    platform_instance: Optional[str]
+    default_db: Optional[str]
+    default_schema: Optional[str]
 
 
 @platform_name("Sigma")
@@ -128,6 +146,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.reporter = SigmaSourceReport()
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
+        # Cache for SQL parsing results: element_id -> SqlParsingResult
+        self._sql_parsing_cache: Dict[str, SqlParsingResult] = {}
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
@@ -365,6 +385,78 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dashboard_urn, aspect=dashboard_info_cls
         ).as_workunit()
 
+    def _parse_sql_task(self, task: SqlParsingTask) -> Tuple[str, SqlParsingResult]:
+        """Parse a single SQL query and return (element_id, result)."""
+        try:
+            result = create_lineage_sql_parsed_result(
+                query=task.query.strip(),
+                default_db=task.default_db,
+                default_schema=task.default_schema,
+                platform=task.platform,
+                env=task.env,
+                platform_instance=task.platform_instance,
+            )
+            return (task.element_id, result)
+        except Exception as e:
+            logger.debug(f"Unable to parse query for element {task.element_id}: {e}")
+            return (task.element_id, SqlParsingResult.make_from_error(e))
+
+    def _collect_sql_parsing_tasks(
+        self, workbooks: List[Workbook]
+    ) -> List[SqlParsingTask]:
+        """Collect all SQL parsing tasks from workbooks."""
+        tasks: List[SqlParsingTask] = []
+        for workbook in workbooks:
+            for page in workbook.pages:
+                for element in page.elements:
+                    if not element.query:
+                        continue
+                    full_path = f"{workbook.path}/{workbook.name}/{element.name}"
+                    platform_details = self._get_element_data_source_platform_details(
+                        full_path
+                    )
+                    if platform_details:
+                        tasks.append(
+                            SqlParsingTask(
+                                element_id=element.elementId,
+                                query=element.query,
+                                platform=platform_details.data_source_platform,
+                                env=platform_details.env,
+                                platform_instance=platform_details.platform_instance,
+                                default_db=platform_details.default_db,
+                                default_schema=platform_details.default_schema,
+                            )
+                        )
+        return tasks
+
+    def _parse_sql_in_parallel(self, workbooks: List[Workbook]) -> None:
+        """Pre-parse all SQL queries in parallel and cache results."""
+        if not self.config.chart_sources_platform_mapping:
+            return
+
+        tasks = self._collect_sql_parsing_tasks(workbooks)
+        if not tasks:
+            return
+
+        num_threads = min(self.config.sql_parsing_threads, len(tasks))
+        logger.info(
+            f"Parsing SQL for {len(tasks)} elements using {num_threads} threads"
+        )
+
+        completed = 0
+        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+            futures = {
+                executor.submit(self._parse_sql_task, task): task for task in tasks
+            }
+            for future in as_completed(futures):
+                element_id, result = future.result()
+                self._sql_parsing_cache[element_id] = result
+                completed += 1
+                if completed % 500 == 0:
+                    logger.info(f"SQL parsing progress: {completed}/{len(tasks)}")
+
+        logger.info(f"SQL parsing complete: {len(self._sql_parsing_cache)} elements")
+
     def _get_element_data_source_platform_details(
         self, full_path: str
     ) -> Optional[PlatformDetail]:
@@ -396,21 +488,29 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         inputs: Dict[str, List[str]] = {}
         sql_parser_in_tables: List[str] = []
 
-        data_source_platform_details = self._get_element_data_source_platform_details(
-            f"{workbook.path}/{workbook.name}/{element.name}"
-        )
-
-        if element.query and data_source_platform_details:
-            try:
-                sql_parser_in_tables = create_lineage_sql_parsed_result(
-                    query=element.query.strip(),
-                    default_db=None,
-                    platform=data_source_platform_details.data_source_platform,
-                    env=data_source_platform_details.env,
-                    platform_instance=data_source_platform_details.platform_instance,
-                ).in_tables
-            except Exception:
-                logging.debug(f"Unable to parse query of element {element.name}")
+        # Check cache first (populated by parallel parsing)
+        if element.elementId in self._sql_parsing_cache:
+            cached_result = self._sql_parsing_cache[element.elementId]
+            sql_parser_in_tables = cached_result.in_tables
+        elif element.query:
+            # Fallback to direct parsing if not in cache
+            data_source_platform_details = (
+                self._get_element_data_source_platform_details(
+                    f"{workbook.path}/{workbook.name}/{element.name}"
+                )
+            )
+            if data_source_platform_details:
+                try:
+                    sql_parser_in_tables = create_lineage_sql_parsed_result(
+                        query=element.query.strip(),
+                        default_db=data_source_platform_details.default_db,
+                        default_schema=data_source_platform_details.default_schema,
+                        platform=data_source_platform_details.data_source_platform,
+                        env=data_source_platform_details.env,
+                        platform_instance=data_source_platform_details.platform_instance,
+                    ).in_tables
+                except Exception:
+                    logger.debug(f"Unable to parse query of element {element.name}")
 
         # Add sigma dataset as input of element if present
         # and its matched sql parser in_table as its upsteam dataset
@@ -671,7 +771,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         for dataset in self.sigma_api.get_sigma_datasets():
             yield from self._gen_dataset_workunit(dataset)
-        for workbook in self.sigma_api.get_sigma_workbooks():
+
+        # Collect all workbooks first to enable parallel SQL parsing
+        workbooks = list(self.sigma_api.get_sigma_workbooks())
+
+        # Pre-parse SQL in parallel for all elements
+        self._parse_sql_in_parallel(workbooks)
+
+        for workbook in workbooks:
             yield from self._gen_workbook_workunit(workbook)
 
         for workspace in self._get_allowed_workspaces():
