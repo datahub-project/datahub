@@ -172,7 +172,7 @@ class TestResolveTableBatching:
         mock_graph.get_entities.assert_not_called()
 
     def test_fallback_on_batch_error(self, schema_resolver, mock_graph):
-        mock_graph.get_entities.side_effect = Exception("Batch fetch failed")
+        mock_graph.get_entities.side_effect = ConnectionError("Network error")
         mock_graph.get_aspect.return_value = create_mock_schema([("col1", "string")])
 
         table = _TableName(database="db", db_schema="schema", table="table")
@@ -182,6 +182,14 @@ class TestResolveTableBatching:
         assert "col1" in schema_info
         assert mock_graph.get_entities.call_count == 1
         assert mock_graph.get_aspect.call_count >= 1
+
+    def test_unexpected_errors_propagate(self, schema_resolver, mock_graph):
+        mock_graph.get_entities.side_effect = ValueError("Unexpected bug")
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+
+        with pytest.raises(ValueError, match="Unexpected bug"):
+            schema_resolver.resolve_table(table)
 
     def test_handles_not_found(self, schema_resolver, mock_graph):
         mock_graph.get_entities.return_value = {}

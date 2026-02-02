@@ -187,10 +187,10 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
                         self.add_schema_metadata_from_fetch(fetch_urn, schema_metadata)
 
-                except Exception as e:
+                except (TimeoutError, ConnectionError, OSError) as e:
                     logger.warning(
-                        f"Failed to batch fetch schemas for {urns_to_fetch}: {e}. "
-                        f"Falling back to individual fetches.",
+                        f"Batch fetch failed due to network issue: {e}. "
+                        f"Falling back to individual fetches for {len(urns_to_fetch)} URNs.",
                         exc_info=True,
                     )
                     for fetch_urn in urns_to_fetch:
@@ -218,10 +218,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         return self._schema_cache.get(urn) is not None
 
     def _track_cache_hit(self) -> None:
+        """Track a cache hit in the report if reporting is enabled."""
         if self.report is not None:
             self.report.num_schema_cache_hits += 1
 
     def _track_cache_miss(self) -> None:
+        """Track a cache miss in the report if reporting is enabled."""
         if self.report is not None:
             self.report.num_schema_cache_misses += 1
 
@@ -244,8 +246,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def add_schema_metadata(
         self, urn: str, schema_metadata: SchemaMetadataClass
     ) -> None:
-        """
-        Add schema metadata from ingestion source.
+        """Add schema metadata from ingestion source.
 
         Ingestion-provided schemas ALWAYS take precedence and overwrite any cached
         schemas (from DataHub or previous runs) because they are fresh from the source.
@@ -256,7 +257,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def add_schema_metadata_from_fetch(
         self, urn: str, schema_metadata: Optional[SchemaMetadataClass]
     ) -> bool:
-        """Cache schema from DataHub API fetch if not already present (ingestion schemas take precedence)."""
+        """Cache schema from DataHub API fetch if not already present.
+
+        Respects cache precedence: ingestion schemas take precedence over fetched schemas.
+
+        Returns:
+            True if schema was cached (new entry), False if skipped (already cached from ingestion).
+        """
         if urn in self._schema_cache:
             existing = self._schema_cache[urn]
             if existing is not None:
