@@ -1,8 +1,8 @@
 # Snowflake
 
-Snowflake context connector allows creating [Snowflake Cortex Intelligence](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-intelligence) agents with UDFs that can access Datahub Context.
+Snowflake context connector allows creating [Snowflake Intelligence](https://www.snowflake.com/en/developers/guides/getting-started-with-snowflake-intelligence) agents with UDFs that can access Datahub Context. This guide and agent create tool will create an end to end experience for setting up a Snowflake Intelligence agent that can be used in Snowflake Intelligence.
 
-## Setup Steps
+## Setup
 
 ### 1) Generate or Execute SQL for creating Snowflake Agent
 
@@ -21,7 +21,7 @@ datahub agent create snowflake \
   --enable-mutations
 ```
 
-In this version you will need to execute 5 SQL files in your snowflake UI as a notebook. This is recommended for advanced workflows
+In this version you will need to execute 5 SQL files in your snowflake UI as a notebook. This is recommended for advanced workflows or if you want to make changes to the configuration before publishing.
 
 ```sql
 -- 1. Set up configuration and secrets
@@ -42,7 +42,12 @@ In this version you will need to execute 5 SQL files in your snowflake UI as a n
 
 #### Execute SQL for Snowflake directly
 
-Add `--execute` and `--sf-password` to automatically run the generated scripts:
+Add `--execute` to automatically execute the SQL as your Snowflake user.
+
+Authentication:
+
+- Use `--sf-password` to automatically run the generated scripts with your password or PAT.
+- SSO support using an external browser with `--sf-authenticator externalBrowser`.
 
 ```bash
 datahub agent create snowflake \
@@ -59,13 +64,25 @@ datahub agent create snowflake \
   --execute
 ```
 
-This version will automatically execute the commands in your Snowflake environment.
+This will automatically execute the commands in your Snowflake environment and output the results. This workflow is recommended for a hands off default experience.
 
 ### 2) Configure Snowflake agent in the UI
 
 Additional configuration canb e done via the snowflake UI if necessary such as prompt tweaking or other settings.
 
-### 3) Use Snowflake Cortex to access Datahub
+### 3) Use Snowflake Intelligence to access Datahub
+
+Open [Snowflake Intelligence](https://ai.snowflake.com/) and select the Datahub Agent.
+
+## Updating UDFs
+
+Re-run the SQL generators and apply the new UDFs and cortex agent upates.
+
+-- 1. Create updated DataHub UDFs
+@02_datahub_udfs.sql;
+
+-- 2. Create updated Cortex Agent
+@04_cortex_agent.sql;
 
 ## Agent Context
 
