@@ -2320,6 +2320,14 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
         ),
         r")\1\2 on \3",
     ),
+    # UNI on ALL -> UNION ALL (truncated UNION in Redshift query logs)
+    # Redshift truncates queries at ~4000 chars, sometimes cutting "UNION" to "UNI"
+    (re.compile(r"\bUNI\s+on\s+ALL\b", re.IGNORECASE), "UNION ALL"),
+    # on ON -> on (double ON from malformed SQL: ") c on ON con.id")
+    (re.compile(r"\bon\s+ON\b", re.IGNORECASE), "on"),
+    # <identifier>from " -> <identifier> from " (missing space before FROM after alias)
+    # e.g., "cast_181from "public"" -> "cast_181 from "public""
+    (re.compile(r"([a-z0-9_])from\s*\"", re.IGNORECASE), r"\1 from \""),
 ]
 
 
