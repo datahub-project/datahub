@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional
 
 from pydantic import ValidationError
@@ -148,6 +148,38 @@ class MatillionSource(StatefulIngestionSourceBase):
 
         self.lineage_start_time: Optional[datetime] = None
         self.lineage_end_time: Optional[datetime] = None
+
+    @staticmethod
+    def _parse_iso_timestamp(timestamp_str: str) -> datetime:
+        """
+        Parse ISO format timestamp, handling irregular microsecond precision.
+
+        Matillion API sometimes returns timestamps with non-standard microsecond
+        precision (e.g., 5 digits instead of 6), which causes fromisoformat() to fail.
+        This method normalizes such timestamps before parsing.
+        """
+        # Replace 'Z' with '+00:00' for timezone-aware parsing
+        normalized = timestamp_str.replace("Z", "+00:00")
+
+        # Handle microseconds with non-standard precision
+        # ISO 8601 expects exactly 6 digits for microseconds, but Matillion API
+        # sometimes returns timestamps like "2026-02-02T22:53:51.41235+00:00" (5 digits)
+        if "." in normalized and "+" in normalized:
+            parts = normalized.split(".")
+            if len(parts) == 2:
+                microseconds_and_tz = parts[1]
+                # Split microseconds from timezone
+                if "+" in microseconds_and_tz:
+                    microseconds, tz = microseconds_and_tz.split("+")
+                    # Pad or truncate microseconds to exactly 6 digits
+                    microseconds = microseconds.ljust(6, "0")[:6]
+                    normalized = f"{parts[0]}.{microseconds}+{tz}"
+                elif "-" in microseconds_and_tz:
+                    microseconds, tz = microseconds_and_tz.rsplit("-", 1)
+                    microseconds = microseconds.ljust(6, "0")[:6]
+                    normalized = f"{parts[0]}.{microseconds}-{tz}"
+
+        return datetime.fromisoformat(normalized)
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "MatillionSource":
@@ -960,17 +992,18 @@ class MatillionSource(StatefulIngestionSourceBase):
                 started_at_str = result.get("startedAt")
                 if started_at_str:
                     try:
-                        started_at = datetime.fromisoformat(
-                            started_at_str.replace("Z", "+00:00")
-                        )
+                        started_at = self._parse_iso_timestamp(started_at_str)
                         if earliest_start is None or started_at < earliest_start:
                             earliest_start = started_at
                     except (ValueError, AttributeError):
                         continue
 
+            # Use timezone-aware datetime.min to match timezone-aware timestamps from API
             step_timings.append(
                 StepTiming(
-                    step_name=step_name, timestamp=earliest_start or datetime.min
+                    step_name=step_name,
+                    timestamp=earliest_start
+                    or datetime.min.replace(tzinfo=timezone.utc),
                 )
             )
 
@@ -1020,6 +1053,22 @@ class MatillionSource(StatefulIngestionSourceBase):
             except (KeyError, ValueError, IndexError) as e:
                 logger.debug(f"Failed to parse lineage event for {pipeline.name}: {e}")
 
+        # Log summary of lineage extraction for this pipeline
+        if pipeline_inputs or pipeline_outputs:
+            logger.info(
+                f"Extracted lineage for pipeline '{pipeline.name}': "
+                f"{len(pipeline_inputs)} input datasets, {len(pipeline_outputs)} output datasets"
+            )
+            if pipeline_inputs:
+                logger.debug(f"  Input datasets: {pipeline_inputs}")
+            if pipeline_outputs:
+                logger.debug(f"  Output datasets: {pipeline_outputs}")
+        else:
+            logger.debug(
+                f"No lineage datasets extracted for pipeline '{pipeline.name}' "
+                f"from {len(all_events)} OpenLineage events"
+            )
+
         # Store pipeline-level inputs/outputs; will be filtered by step position later
         # (first step gets inputs, last step gets outputs, middle steps get neither)
         for step_name in steps_by_name:
@@ -1052,10 +1101,20 @@ class MatillionSource(StatefulIngestionSourceBase):
             # First step gets pipeline inputs
             if step_idx == 0:
                 input_datasets.extend(step_lineage.input_urns)
+                if step_lineage.input_urns:
+                    logger.debug(
+                        f"Assigning {len(step_lineage.input_urns)} input datasets to first step '{step_name}' "
+                        f"in pipeline {pipeline_name}: {step_lineage.input_urns[:3]}{'...' if len(step_lineage.input_urns) > 3 else ''}"
+                    )
 
             # Last step gets pipeline outputs
             if step_idx == len(step_order) - 1:
                 output_datasets.extend(step_lineage.output_urns)
+                if step_lineage.output_urns:
+                    logger.debug(
+                        f"Assigning {len(step_lineage.output_urns)} output datasets to last step '{step_name}' "
+                        f"in pipeline {pipeline_name}: {step_lineage.output_urns[:3]}{'...' if len(step_lineage.output_urns) > 3 else ''}"
+                    )
 
         if step_idx > 0:
             prev_step_name = step_order[step_idx - 1]
@@ -1162,9 +1221,16 @@ class MatillionSource(StatefulIngestionSourceBase):
                         ).as_workunit()
 
                         emitted_datasets.add(output_urn)
+                        upstream_urns = [u.dataset for u in upstream_lineage.upstreams]
+                        logger.info(f"Emitted lineage for output dataset: {output_urn}")
                         logger.debug(
-                            f"Emitted lineage for {output_urn} with {len(upstream_lineage.upstreams)} upstreams"
+                            f"  Upstream datasets ({len(upstream_urns)}): "
+                            f"{upstream_urns[:5]}{'...' if len(upstream_urns) > 5 else ''}"
                         )
+                        if upstream_lineage.fineGrainedLineages:
+                            logger.debug(
+                                f"  Column-level lineage: {len(upstream_lineage.fineGrainedLineages)} transformations"
+                            )
 
             except (KeyError, ValueError, IndexError) as e:
                 logger.warning(
@@ -1192,9 +1258,7 @@ class MatillionSource(StatefulIngestionSourceBase):
         created_timestamp = 0
         if started_at_str:
             try:
-                started_at = datetime.fromisoformat(
-                    started_at_str.replace("Z", "+00:00")
-                )
+                started_at = self._parse_iso_timestamp(started_at_str)
                 created_timestamp = int(started_at.timestamp() * 1000)
             except (ValueError, AttributeError):
                 pass
@@ -1288,7 +1352,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             return
 
         try:
-            finished_at = datetime.fromisoformat(finished_at_str.replace("Z", "+00:00"))
+            finished_at = self._parse_iso_timestamp(finished_at_str)
             finished_timestamp = int(finished_at.timestamp() * 1000)
 
             result_type = MATILLION_TO_DATAHUB_RESULT_TYPE.get(

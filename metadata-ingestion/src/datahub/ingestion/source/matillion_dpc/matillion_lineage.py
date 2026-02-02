@@ -75,15 +75,21 @@ class OpenLineageParser:
         if matching_prefix:
             mapping = self.namespace_to_platform_instance[matching_prefix]
             if isinstance(mapping, NamespacePlatformMapping):
-                return MatillionPlatformInstanceInfo(
+                info = MatillionPlatformInstanceInfo(
                     platform_instance=mapping.platform_instance,
                     env=mapping.env or self.default_env,
                     database=mapping.database,
                     default_schema=mapping.default_schema,
                     convert_urns_to_lowercase=mapping.convert_urns_to_lowercase,
                 )
+                logger.debug(
+                    f"Matched namespace '{namespace}' to config prefix '{matching_prefix}': "
+                    f"platform_instance={info.platform_instance}, env={info.env}, "
+                    f"convert_urns_to_lowercase={info.convert_urns_to_lowercase}"
+                )
+                return info
             else:
-                return MatillionPlatformInstanceInfo(
+                info = MatillionPlatformInstanceInfo(
                     platform_instance=mapping.get("platform_instance"),
                     env=mapping.get("env", self.default_env),
                     database=mapping.get("database"),
@@ -93,7 +99,17 @@ class OpenLineageParser:
                         mapping.get("convert_urns_to_lowercase", False)
                     ),
                 )
+                logger.debug(
+                    f"Matched namespace '{namespace}' to config prefix '{matching_prefix}': "
+                    f"platform_instance={info.platform_instance}, env={info.env}, "
+                    f"convert_urns_to_lowercase={info.convert_urns_to_lowercase}"
+                )
+                return info
 
+        logger.debug(
+            f"No namespace mapping found for '{namespace}'. Using default env={self.default_env}. "
+            f"Configured prefixes: {list(self.namespace_to_platform_instance.keys())}"
+        )
         return MatillionPlatformInstanceInfo(env=self.default_env)
 
     def _extract_dataset_info(
@@ -121,16 +137,28 @@ class OpenLineageParser:
                 info.default_schema,
             )
 
+            original_name = normalized_name
             if info.convert_urns_to_lowercase:
                 normalized_name = normalized_name.lower()
+                logger.debug(
+                    f"Applied lowercase conversion: '{original_name}' -> '{normalized_name}' "
+                    f"(platform={platform}, namespace={namespace})"
+                )
 
-            return MatillionDatasetInfo(
+            dataset_info = MatillionDatasetInfo(
                 platform=platform,
                 name=normalized_name,
                 namespace=namespace,
                 platform_instance=info.platform_instance,
                 env=info.env,
             )
+
+            logger.debug(
+                f"Extracted {event_type} dataset: platform={platform}, name={normalized_name}, "
+                f"platform_instance={info.platform_instance}, env={info.env}"
+            )
+
+            return dataset_info
         except (KeyError, ValueError, AttributeError) as e:
             logger.info(
                 f"Skipping {event_type} dataset {namespace}/{name} due to parsing error: {e}"
