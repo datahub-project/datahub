@@ -551,7 +551,7 @@ def _table_level_lineage(
     # Generate table-level lineage.
     # ClickHouse-specific: For CREATE MATERIALIZED VIEW ... TO target_table,
     # the actual output is the TO table, not the view itself.
-    clickhouse_to_tables = set()
+    clickhouse_to_tables: OrderedSet[_TableName] = OrderedSet()
     if is_dialect_instance(dialect, "clickhouse"):
         clickhouse_to_tables = _extract_table_names(
             (
