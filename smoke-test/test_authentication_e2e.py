@@ -195,6 +195,25 @@ def test_graphql_endpoint_valid_token(auth_session):
     logger.info(f"✅ GraphQL with valid session: {response.status_code}")
 
 
+def test_graphql_endpoint_via_frontend_uses_gzip(auth_session):
+    """GraphQL via frontend proxy should return gzip-compressed responses (GzipFilter)."""
+    query = {"query": "{ me { corpUser { username } } }"}
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql",
+        json=query,
+        headers={"Accept-Encoding": "gzip"},
+    )
+    assert response.status_code == 200, f"GraphQL request failed: {response.text[:200]}"
+    data = response.json()
+    assert data.get("data") is not None, f"GraphQL response missing data: {data}"
+    encoding = response.headers.get("Content-Encoding", "").strip().lower()
+    assert encoding == "gzip", (
+        f"Expected Content-Encoding: gzip from frontend proxy (GraphQL should be buffered "
+        f"so GzipFilter compresses it), got: {encoding!r}"
+    )
+    logger.info("✅ GraphQL via frontend uses gzip compression")
+
+
 @pytest.mark.parametrize(
     "endpoint,method",
     [
