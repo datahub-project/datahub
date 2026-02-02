@@ -33,8 +33,6 @@ from datahub.metadata.urns import (
 )
 from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.sql_parsing.schema_resolver import (
-    DEFAULT_SCHEMA_FETCH_BATCH_SIZE,
-    BatchSchemaFetcher,
     SchemaResolver,
     SchemaResolverInterface,
     _SchemaResolverWithExtras,
@@ -486,14 +484,6 @@ class SqlParsingAggregator(Closeable):
             logger.info("Skipping join processing in column-level lineage")
         else:
             logger.info("Processing join clauses in column-level lineage")
-
-        # Set up batch schema fetcher for lazy-loading schema resolvers
-        if graph is not None and self._need_schemas:
-            batch_fetcher = BatchSchemaFetcher(
-                graph=graph,
-                batch_size=DEFAULT_SCHEMA_FETCH_BATCH_SIZE,
-            )
-            self._schema_resolver.batch_fetcher = batch_fetcher
 
         # Initialize internal data structures.
         # This leans pretty heavily on the our query fingerprinting capabilities.
