@@ -11,7 +11,7 @@ import {
 } from '@app/identity/ManageUsersAndGroups.components';
 import { GroupList } from '@app/identity/group/GroupList';
 import InviteUsersModal from '@app/identity/user/InviteUsersModal';
-import { UserAndGroupList } from '@app/identity/user/UserAndGroupList';
+import { UserList } from '@app/identity/user/UserListV2';
 import { markRecommendedUsersAsSeen } from '@app/identity/user/recommendedUsersLocalStorage';
 import { checkIsSsoEnabled } from '@app/settingsV2/platform/sso/utils';
 import { AlchemyRoutedTabs } from '@app/shared/AlchemyRoutedTabs';
@@ -75,7 +75,7 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
             {
                 name: TabType.Users,
                 path: TabType.Users.toLocaleLowerCase(),
-                content: <UserAndGroupList hasSsoBanner={!isSsoEnabled} />,
+                content: <UserList />,
                 tabType: TabType.Users,
                 customTitle: <TabTitleWithCount name={TabType.Users} count={userCount} />,
                 display: {
