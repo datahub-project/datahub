@@ -177,7 +177,7 @@ class SnowflakeTable(BaseTable):
     is_dynamic: bool = False
     is_iceberg: bool = False
     is_hybrid: bool = False
-    retention_time: Optional[int] = None  # DATA_RETENTION_TIME_IN_DAYS
+    retention_time: Optional[int] = None  # number of days
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.TABLE
