@@ -299,6 +299,11 @@ class SigmaAPI:
                     f"Lineage metadata not accessible for element {element.name} of workbook '{workbook.name}'"
                 )
                 return upstream_sources
+            if response.status_code == 400:
+                logger.debug(
+                    f"Lineage not supported for element {element.name} of workbook '{workbook.name}' (400 Bad Request)"
+                )
+                return upstream_sources
 
             response.raise_for_status()
             response_dict = response.json()
