@@ -617,4 +617,24 @@ public class MLModelGroupTest {
     modelGroup.setMode(datahub.client.v2.config.DataHubClientConfigV2.OperationMode.INGESTION);
     assertTrue("Should be in ingestion mode", modelGroup.isIngestionMode());
   }
+
+  @Test
+  public void testMLModelGroupGetDefaultAspects() {
+    MLModelGroup modelGroup =
+        MLModelGroup.builder().platform("mlflow").groupId("model-group").build();
+
+    List<?> aspects = modelGroup.getDefaultAspects();
+    assertNotNull(aspects);
+    assertFalse("Default aspects should not be empty", aspects.isEmpty());
+    assertTrue(
+        "Should include MLModelGroupProperties",
+        aspects.contains(com.linkedin.ml.metadata.MLModelGroupProperties.class));
+    assertTrue("Should include Ownership", aspects.contains(com.linkedin.common.Ownership.class));
+    try {
+      ((List) aspects).clear();
+      fail("getDefaultAspects() should return an immutable list");
+    } catch (UnsupportedOperationException expected) {
+      // expected
+    }
+  }
 }

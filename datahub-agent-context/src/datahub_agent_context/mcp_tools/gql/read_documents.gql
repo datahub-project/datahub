@@ -1,0 +1,16 @@
+# GraphQL query for fetching document content by URNs
+# Used by grep_documents to search within document content
+
+query documentContent($urns: [String!]!) {
+  entities(urns: $urns) {
+    urn
+    ... on Document {
+      info {
+        title
+        contents {
+          text
+        }
+      }
+    }
+  }
+}

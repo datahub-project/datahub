@@ -12,6 +12,7 @@ import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -36,29 +37,34 @@ public class AssertionUtils {
    * validators and consistency checks to verify that the correct sub-property is populated.
    */
   public static final Map<AssertionType, Function<AssertionInfo, Boolean>>
-      ASSERTION_TYPE_SUB_PROPERTY_CHECKS =
-          Collections.unmodifiableMap(
-              Map.of(
-                  AssertionType.DATASET,
-                      info ->
-                          isValidSubProperty(info.hasDatasetAssertion(), info::getDatasetAssertion),
-                  AssertionType.FRESHNESS,
-                      info ->
-                          isValidSubProperty(
-                              info.hasFreshnessAssertion(), info::getFreshnessAssertion),
-                  AssertionType.VOLUME,
-                      info ->
-                          isValidSubProperty(info.hasVolumeAssertion(), info::getVolumeAssertion),
-                  AssertionType.SQL,
-                      info -> isValidSubProperty(info.hasSqlAssertion(), info::getSqlAssertion),
-                  AssertionType.FIELD,
-                      info -> isValidSubProperty(info.hasFieldAssertion(), info::getFieldAssertion),
-                  AssertionType.DATA_SCHEMA,
-                      info ->
-                          isValidSubProperty(info.hasSchemaAssertion(), info::getSchemaAssertion),
-                  AssertionType.CUSTOM,
-                      info ->
-                          isValidSubProperty(info.hasCustomAssertion(), info::getCustomAssertion)));
+      ASSERTION_TYPE_SUB_PROPERTY_CHECKS = createAssertionTypeSubPropertyChecks();
+
+  private static Map<AssertionType, Function<AssertionInfo, Boolean>>
+      createAssertionTypeSubPropertyChecks() {
+    Map<AssertionType, Function<AssertionInfo, Boolean>> map = new HashMap<>();
+    map.put(
+        AssertionType.DATASET,
+        info -> isValidSubProperty(info.hasDatasetAssertion(), info::getDatasetAssertion));
+    map.put(
+        AssertionType.FRESHNESS,
+        info -> isValidSubProperty(info.hasFreshnessAssertion(), info::getFreshnessAssertion));
+    map.put(
+        AssertionType.VOLUME,
+        info -> isValidSubProperty(info.hasVolumeAssertion(), info::getVolumeAssertion));
+    map.put(
+        AssertionType.SQL,
+        info -> isValidSubProperty(info.hasSqlAssertion(), info::getSqlAssertion));
+    map.put(
+        AssertionType.FIELD,
+        info -> isValidSubProperty(info.hasFieldAssertion(), info::getFieldAssertion));
+    map.put(
+        AssertionType.DATA_SCHEMA,
+        info -> isValidSubProperty(info.hasSchemaAssertion(), info::getSchemaAssertion));
+    map.put(
+        AssertionType.CUSTOM,
+        info -> isValidSubProperty(info.hasCustomAssertion(), info::getCustomAssertion));
+    return Collections.unmodifiableMap(map);
+  }
 
   /**
    * Check if a sub-property is valid (present and non-empty).
