@@ -1627,14 +1627,15 @@ def _try_extract_select(
             statement.expression
         )  # Get the SELECT expression from the INSERT
 
-        # MSSQL-specific: Map INSERT column names to SELECT column names
+        # Map INSERT column names to SELECT column names for MSSQL and Redshift
         # This fixes column lineage when INSERT columns != SELECT columns
         # Example: INSERT INTO t (col_a) SELECT col_b FROM src
         #   Should create: downstream=col_a, upstream=col_b
         #   Without fix:   downstream=col_b, upstream=col_b (WRONG!)
+        # For Redshift: AWS DMS uses generic col1, col2, etc. in staging tables
         if (
             dialect
-            and is_dialect_instance(dialect, "tsql")
+            and is_dialect_instance(dialect, ["tsql", "redshift"])
             and statement.this
             and hasattr(statement.this, "expressions")
             and statement.this.expressions
