@@ -46,35 +46,35 @@ pip install datahub-agent-context
 These tools are designed to be used with an AI agent and have the responses passed directly to an LLM, so the return schema is a simple dict, but they can be used independently if desired.
 
 ```python
-from datahub.ingestion.graph.client import DataHubGraph
+from datahub.sdk.main_client import DataHubClient
+from datahub_agent_context.context import DataHubContext
 from datahub_agent_context.mcp_tools.search import search
 from datahub_agent_context.mcp_tools.entities import get_entities
 
-# Initialize DataHub graph client
-graph = DataHubGraph(config={"server": "http://localhost:8080", "token": "YOUR_TOKEN"})
+# Initialize DataHub client from environment (or specify server/token)
+client = DataHubClient.from_env()
+# Or: client = DataHubClient(server="http://localhost:8080", token="YOUR_TOKEN")
 
-# Search for datasets
-results = search(
-    graph=graph,
-    query="user_data",
-    filters={"entity_type": ["dataset"]},
-    num_results=10
-)
+# Use DataHubContext to set up the graph for tool calls
+with DataHubContext(client.graph):
+    # Search for datasets
+    results = search(
+        query="user_data",
+        filters={"entity_type": ["dataset"]},
+        num_results=10
+    )
 
-print(f"Found {len(results['searchResults'])} datasets")
-for result in results["searchResults"]:
-    print(f"- {result['entity']['name']} ({result['entity']['urn']})")
+    print(f"Found {len(results['searchResults'])} datasets")
+    for result in results["searchResults"]:
+        print(f"- {result['entity']['name']} ({result['entity']['urn']})")
 
-# Get detailed entity information
-entity_urns = [result["entity"]["urn"] for result in results["searchResults"]]
-entities = get_entities(
-    graph=graph,
-    urns=entity_urns
-)
+    # Get detailed entity information
+    entity_urns = [result["entity"]["urn"] for result in results["searchResults"]]
+    entities = get_entities(urns=entity_urns)
 
-print(f"\nDetailed info for {len(entities['entities'])} entities:")
-for entity in entities["entities"]:
-    print(f"- {entity['urn']}: {entity.get('properties', {}).get('description', 'No description')}")
+    print(f"\nDetailed info for {len(entities['entities'])} entities:")
+    for entity in entities["entities"]:
+        print(f"- {entity['urn']}: {entity.get('properties', {}).get('description', 'No description')}")
 ```
 
 ## Key Concepts (Glossary)
