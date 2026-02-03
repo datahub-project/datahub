@@ -8,8 +8,9 @@ def generate_cortex_agent_sql(
     sf_warehouse: str | None,
     sf_database: str | None,
     sf_schema: str | None,
+    include_mutations: bool = True,
 ) -> str:
-    """Generate Cortex Agent SQL that uses configuration variables with all DataHub tools.
+    """Generate Cortex Agent SQL that uses configuration variables with DataHub tools.
 
     Args:
         agent_name: Agent name
@@ -18,55 +19,28 @@ def generate_cortex_agent_sql(
         sf_warehouse: Snowflake warehouse name (uses placeholder if None)
         sf_database: Snowflake database name (uses placeholder if None)
         sf_schema: Snowflake schema name (uses placeholder if None)
+        include_mutations: Whether to include mutation/write tools (default: True)
     """
     # Use placeholders for None values - these will be set via SQL variables at runtime
     warehouse = sf_warehouse or "MY_WAREHOUSE"
     database = sf_database or "MY_DATABASE"
     schema = sf_schema or "MY_SCHEMA"
-    return f"""-- ============================================================================
--- Step 4: Create Cortex Agent with DataHub Tools
--- ============================================================================
--- This creates a Snowflake Cortex Agent that uses DataHub metadata
--- to generate accurate SQL queries and manage metadata
---
--- Prerequisites:
--- - Run 00_configuration.sql first to set variables
--- - Run 01_network_rules.sql to set up network access
--- - Run 02_datahub_udfs.sql to create DataHub UDFs (all 20 tools)
--- - Run 03_stored_procedure.sql to create EXECUTE_DYNAMIC_SQL
--- ============================================================================
 
-USE DATABASE IDENTIFIER($SF_DATABASE);
-USE SCHEMA IDENTIFIER($SF_SCHEMA);
-USE WAREHOUSE IDENTIFIER($SF_WAREHOUSE);
-
-CREATE OR REPLACE AGENT {agent_name}
-  COMMENT = 'Agent that uses DataHub metadata for SQL generation and metadata management'
-  PROFILE = '{{"display_name": "{agent_display_name}", "color": "{agent_color}"}}'
-  FROM SPECIFICATION
-  $$
-  models:
-    orchestration: auto
-
-  orchestration:
-    budget:
-      seconds: 60
-      tokens: 32000
-
-  instructions:
-    response: |
-      You are a comprehensive data assistant with access to DataHub metadata.
-      You can help users:
-      1. Find and query data (search, schema exploration, SQL generation)
+    # Build instructions based on whether mutations are enabled
+    if include_mutations:
+        capabilities = """1. Find and query data (search, schema exploration, SQL generation)
       2. Understand data lineage and relationships
       3. Manage metadata (tags, descriptions, owners, domains, glossary terms)
-      4. Search documentation and runbooks
+      4. Search documentation and runbooks"""
 
-      Always use DataHub tools before generating SQL to ensure accuracy.
-      When managing metadata, confirm changes with the user first.
+        system_capabilities = """- Search and discovery (search_datahub, search_documents)
+      - Schema exploration (get_entities, list_schema_fields)
+      - Lineage analysis (get_lineage, get_lineage_paths_between)
+      - Query patterns (get_dataset_queries)
+      - Metadata management (tags, descriptions, owners, domains, glossary terms)
+      - User information (get_me)"""
 
-    orchestration: |
-      For data queries:
+        orchestration_guidance = """For data queries:
       1. Use search_datahub to find relevant datasets
       2. Use get_entities or list_schema_fields for schema details
       3. Generate SQL based on actual schema
@@ -79,183 +53,38 @@ CREATE OR REPLACE AGENT {agent_name}
       For metadata management:
       1. Search for entities first to get URNs
       2. Use appropriate tools (add_tags, update_description, etc.)
-      3. Confirm changes were successful
+      3. Confirm changes were successful"""
 
-    system: |
-      You have comprehensive access to DataHub including:
-      - Search and discovery (search_datahub, search_documents)
+        metadata_note = """Always use DataHub tools before generating SQL to ensure accuracy.
+      When managing metadata, confirm changes with the user first."""
+    else:
+        capabilities = """1. Find and query data (search, schema exploration, SQL generation)
+      2. Understand data lineage and relationships
+      3. Search documentation and runbooks"""
+
+        system_capabilities = """- Search and discovery (search_datahub, search_documents)
       - Schema exploration (get_entities, list_schema_fields)
       - Lineage analysis (get_lineage, get_lineage_paths_between)
       - Query patterns (get_dataset_queries)
-      - Metadata management (tags, descriptions, owners, domains, glossary terms)
-      - User information (get_me)
+      - User information (get_me)"""
 
-    sample_questions:
-      - question: "What tables contain customer data?"
-        answer: "I'll search DataHub for datasets related to customer data."
-      - question: "Show me the lineage for the sales_monthly table"
-        answer: "I'll retrieve the lineage information for the sales_monthly table."
-      - question: "Tag all PII datasets in the finance domain"
-        answer: "I'll search for datasets in the finance domain and add PII tags to them."
-      - question: "What queries use the users table?"
-        answer: "I'll retrieve the SQL queries that reference the users table."
-      - question: "Add a description to the revenue column"
-        answer: "I'll update the description for the revenue column."
-      - question: "Who owns the analytics datasets?"
-        answer: "I'll search for analytics datasets and show their ownership information."
+        orchestration_guidance = """For data queries:
+      1. Use search_datahub to find relevant datasets
+      2. Use get_entities or list_schema_fields for schema details
+      3. Generate SQL based on actual schema
+      4. Execute using SqlExecutor
 
-  tools:
-    # Core Search & Discovery Tools
-    - tool_spec:
-        type: "generic"
-        name: "search_datahub"
-        description: "Search DataHub for entities (datasets, dashboards, etc.). Use /q prefix for structured queries. Returns URNs, names, descriptions, and metadata."
-        input_schema:
-          type: "object"
-          properties:
-            search_query:
-              type: "string"
-              description: "Search query (e.g., 'customer', '/q user+transaction')"
-            entity_type:
-              type: "string"
-              description: "Entity type filter (e.g., 'dataset', 'tag', etc.). Default: null (all entity types)"
-          required: [search_query, entity_type]
+      For lineage questions:
+      1. Use get_lineage to explore upstream/downstream dependencies
+      2. Use get_lineage_paths_between for detailed transformation chains"""
 
-    - tool_spec:
-        type: "generic"
-        name: "get_entities"
-        description: "Get detailed entity information including schema, tags, owners, lineage summary. Use URN from search results."
-        input_schema:
-          type: "object"
-          properties:
-            entity_urn:
-              type: "string"
-              description: "Entity URN from search results"
-          required: [entity_urn]
+        metadata_note = (
+            "Always use DataHub tools before generating SQL to ensure accuracy."
+        )
 
-    - tool_spec:
-        type: "generic"
-        name: "list_schema_fields"
-        description: "List schema fields with filtering and pagination. Useful for large schemas or finding specific columns."
-        input_schema:
-          type: "object"
-          properties:
-            dataset_urn:
-              type: "string"
-              description: "Dataset URN"
-            keywords:
-              type: "string"
-              description: "Keywords to filter fields (single string or JSON array). Default: null (no filtering)"
-            limit:
-              type: "number"
-              description: "Max fields to return. Default: 100"
-          required: [dataset_urn, keywords, limit]
-
-    # Lineage Tools
-    - tool_spec:
-        type: "generic"
-        name: "get_lineage"
-        description: "Get upstream or downstream lineage for entities or columns. Returns lineage graph with metadata."
-        input_schema:
-          type: "object"
-          properties:
-            urn:
-              type: "string"
-              description: "Entity URN"
-            column_name:
-              type: "string"
-              description: "Column name for column-level lineage. Default: null (entity-level lineage)"
-            upstream:
-              type: "number"
-              description: "1 for upstream, 0 for downstream. Default: 1"
-            max_hops:
-              type: "number"
-              description: "Max hops (1-3+). Default: 1"
-            max_results:
-              type: "number"
-              description: "Max results. Default: 30"
-          required: [urn, column_name, upstream, max_hops, max_results]
-
-    - tool_spec:
-        type: "generic"
-        name: "get_lineage_paths_between"
-        description: "Get detailed transformation paths between two entities/columns. Shows intermediate steps and queries."
-        input_schema:
-          type: "object"
-          properties:
-            source_urn:
-              type: "string"
-              description: "Source dataset URN"
-            target_urn:
-              type: "string"
-              description: "Target dataset URN"
-            source_column:
-              type: "string"
-              description: "Source column name. Default: null (dataset-level lineage)"
-            target_column:
-              type: "string"
-              description: "Target column name. Default: null (dataset-level lineage)"
-          required: [source_urn, target_urn, source_column, target_column]
-
-    # Query Analysis Tools
-    - tool_spec:
-        type: "generic"
-        name: "get_dataset_queries"
-        description: "Get SQL queries that use a dataset/column. Filter by MANUAL (user queries) or SYSTEM (BI tools)."
-        input_schema:
-          type: "object"
-          properties:
-            urn:
-              type: "string"
-              description: "Dataset URN"
-            column_name:
-              type: "string"
-              description: "Column name to filter queries. Default: null (queries for all columns)"
-            source:
-              type: "string"
-              description: "'MANUAL', 'SYSTEM', or null for both. Default: null"
-            count:
-              type: "number"
-              description: "Number of queries. Default: 10"
-          required: [urn, column_name, source, count]
-
-    # Document Search Tools
-    - tool_spec:
-        type: "generic"
-        name: "search_documents"
-        description: "Search organization documents (runbooks, FAQs, knowledge articles from Notion, Confluence, etc.)."
-        input_schema:
-          type: "object"
-          properties:
-            search_query:
-              type: "string"
-              description: "Search query"
-            num_results:
-              type: "number"
-              description: "Max results. Default: 10"
-          required: [search_query, num_results]
-
-    - tool_spec:
-        type: "generic"
-        name: "grep_documents"
-        description: "Search within document content using regex patterns. Use after search_documents to find specific content."
-        input_schema:
-          type: "object"
-          properties:
-            urns:
-              type: "string"
-              description: "JSON array of document URNs"
-            pattern:
-              type: "string"
-              description: "Regex pattern to search for"
-            context_chars:
-              type: "number"
-              description: "Context characters. Default: 200"
-            max_matches_per_doc:
-              type: "number"
-              description: "Max matches per document. Default: 5"
-          required: [urns, pattern, context_chars, max_matches_per_doc]
-
+    # Build mutation tools section if enabled
+    mutation_tools = (
+        """
     # Tag Management Tools
     - tool_spec:
         type: "generic"
@@ -453,90 +282,14 @@ CREATE OR REPLACE AGENT {agent_name}
               type: "string"
               description: "JSON array of column names. Default: null (entity-level structured properties)"
           required: [property_urns, entity_urns, column_paths]
+"""
+        if include_mutations
+        else ""
+    )
 
-    # User Info
-    - tool_spec:
-        type: "generic"
-        name: "get_me"
-        description: "Get information about the authenticated user (profile, groups, privileges). This tool takes no parameters."
-        input_schema:
-          type: "object"
-          properties: {{}}
-
-    # SQL Executor
-    - tool_spec:
-        type: "generic"
-        name: "SqlExecutor"
-        description: "Execute SELECT SQL queries and return results. Use after generating SQL from DataHub metadata."
-        input_schema:
-          type: "object"
-          properties:
-            SQL_TEXT:
-              type: "string"
-              description: "SELECT SQL query (must start with SELECT)"
-          required: [SQL_TEXT]
-
-  tool_resources:
-    # Search & Discovery
-    search_datahub:
-      type: "function"
-      execution_environment:
-        type: "warehouse"
-        warehouse: {warehouse}
-      identifier: {database}.{schema}.SEARCH_DATAHUB
-
-    get_entities:
-      type: "function"
-      execution_environment:
-        type: "warehouse"
-        warehouse: {warehouse}
-      identifier: {database}.{schema}.GET_ENTITIES
-
-    list_schema_fields:
-      type: "function"
-      execution_environment:
-        type: "warehouse"
-        warehouse: {warehouse}
-      identifier: {database}.{schema}.LIST_SCHEMA_FIELDS
-
-    # Lineage
-    get_lineage:
-      type: "function"
-      execution_environment:
-        type: "warehouse"
-        warehouse: {warehouse}
-      identifier: {database}.{schema}.GET_LINEAGE
-
-    get_lineage_paths_between:
-      type: "function"
-      execution_environment:
-        type: "warehouse"
-        warehouse: {warehouse}
-      identifier: {database}.{schema}.GET_LINEAGE_PATHS_BETWEEN
-
-    # Query Analysis
-    get_dataset_queries:
-      type: "function"
-      execution_environment:
-        type: "warehouse"
-        warehouse: {warehouse}
-      identifier: {database}.{schema}.GET_DATASET_QUERIES
-
-    # Documents
-    search_documents:
-      type: "function"
-      execution_environment:
-        type: "warehouse"
-        warehouse: {warehouse}
-      identifier: {database}.{schema}.SEARCH_DOCUMENTS
-
-    grep_documents:
-      type: "function"
-      execution_environment:
-        type: "warehouse"
-        warehouse: {warehouse}
-      identifier: {database}.{schema}.GREP_DOCUMENTS
-
+    # Build mutation tool resources section if enabled
+    mutation_tool_resources = (
+        f"""
     # Tags
     add_tags:
       type: "function"
@@ -619,7 +372,329 @@ CREATE OR REPLACE AGENT {agent_name}
         type: "warehouse"
         warehouse: {warehouse}
       identifier: {database}.{schema}.REMOVE_STRUCTURED_PROPERTIES
+"""
+        if include_mutations
+        else ""
+    )
 
+    tool_count_note = (
+        "20 tools (read + write)" if include_mutations else "9 tools (read-only)"
+    )
+    query_description = " and manage metadata" if include_mutations else ""
+    comment_suffix = " and metadata management" if include_mutations else ""
+
+    # Build sample questions based on whether mutations are enabled
+    sample_questions_with_mutations = '''
+      - question: "What tables contain customer data?"
+        answer: "I'll search DataHub for datasets related to customer data."
+      - question: "Show me the lineage for the sales_monthly table"
+        answer: "I'll retrieve the lineage information for the sales_monthly table."
+      - question: "Tag all PII datasets in the finance domain"
+        answer: "I'll search for datasets in the finance domain and add PII tags to them."
+      - question: "What queries use the users table?"
+        answer: "I'll retrieve the SQL queries that reference the users table."
+      - question: "Add a description to the revenue column"
+        answer: "I'll update the description for the revenue column."
+      - question: "Who owns the analytics datasets?"
+        answer: "I'll search for analytics datasets and show their ownership information."'''
+
+    sample_questions_readonly = '''
+      - question: "What tables contain customer data?"
+        answer: "I'll search DataHub for datasets related to customer data."
+      - question: "Show me the lineage for the sales_monthly table"
+        answer: "I'll retrieve the lineage information for the sales_monthly table."
+      - question: "What queries use the users table?"
+        answer: "I'll retrieve the SQL queries that reference the users table."
+      - question: "Who owns the analytics datasets?"
+        answer: "I'll search for analytics datasets and show their ownership information."'''
+
+    sample_questions = (
+        sample_questions_with_mutations
+        if include_mutations
+        else sample_questions_readonly
+    )
+    return f"""-- ============================================================================
+-- Step 4: Create Cortex Agent with DataHub Tools
+-- ============================================================================
+-- This creates a Snowflake Cortex Agent that uses DataHub metadata
+-- to generate accurate SQL queries{query_description}
+--
+-- Prerequisites:
+-- - Run 00_configuration.sql first to set variables
+-- - Run 01_network_rules.sql to set up network access
+-- - Run 02_datahub_udfs.sql to create DataHub UDFs ({tool_count_note})
+-- - Run 03_stored_procedure.sql to create EXECUTE_DYNAMIC_SQL
+-- ============================================================================
+
+USE DATABASE IDENTIFIER($SF_DATABASE);
+USE SCHEMA IDENTIFIER($SF_SCHEMA);
+USE WAREHOUSE IDENTIFIER($SF_WAREHOUSE);
+
+CREATE OR REPLACE AGENT {agent_name}
+  COMMENT = 'Agent that uses DataHub metadata for SQL generation{comment_suffix}'
+  PROFILE = '{{"display_name": "{agent_display_name}", "color": "{agent_color}"}}'
+  FROM SPECIFICATION
+  $$
+  models:
+    orchestration: auto
+
+  orchestration:
+    budget:
+      seconds: 60
+      tokens: 32000
+
+  instructions:
+    response: |
+      You are a comprehensive data assistant with access to DataHub metadata.
+      You can help users:
+      {capabilities}
+
+      {metadata_note}
+
+    orchestration: |
+      {orchestration_guidance}
+
+    system: |
+      You have comprehensive access to DataHub including:
+      {system_capabilities}
+
+    sample_questions:{sample_questions}
+
+  tools:
+    # Core Search & Discovery Tools
+    - tool_spec:
+        type: "generic"
+        name: "search_datahub"
+        description: "Search DataHub for entities (datasets, dashboards, etc.). Use /q prefix for structured queries. Returns URNs, names, descriptions, and metadata."
+        input_schema:
+          type: "object"
+          properties:
+            search_query:
+              type: "string"
+              description: "Search query (e.g., 'customer', '/q user+transaction')"
+            entity_type:
+              type: "string"
+              description: "Entity type filter (e.g., 'dataset', 'tag', etc.). Default: null (all entity types)"
+          required: [search_query, entity_type]
+
+    - tool_spec:
+        type: "generic"
+        name: "get_entities"
+        description: "Get detailed entity information including schema, tags, owners, lineage summary. Use URN from search results."
+        input_schema:
+          type: "object"
+          properties:
+            entity_urn:
+              type: "string"
+              description: "Entity URN from search results"
+          required: [entity_urn]
+
+    - tool_spec:
+        type: "generic"
+        name: "list_schema_fields"
+        description: "List schema fields with filtering and pagination. Useful for large schemas or finding specific columns."
+        input_schema:
+          type: "object"
+          properties:
+            dataset_urn:
+              type: "string"
+              description: "Dataset URN"
+            keywords:
+              type: "string"
+              description: "Keywords to filter fields (single string or JSON array). Default: null (no filtering)"
+            limit:
+              type: "number"
+              description: "Max fields to return. Default: 100"
+          required: [dataset_urn, keywords, limit]
+
+    # Lineage Tools
+    - tool_spec:
+        type: "generic"
+        name: "get_lineage"
+        description: "Get upstream or downstream lineage for entities or columns. Returns lineage graph with metadata."
+        input_schema:
+          type: "object"
+          properties:
+            urn:
+              type: "string"
+              description: "Entity URN"
+            column_name:
+              type: "string"
+              description: "Column name for column-level lineage. Default: null (entity-level lineage)"
+            upstream:
+              type: "number"
+              description: "1 for upstream, 0 for downstream. Default: 1"
+            max_hops:
+              type: "number"
+              description: "Max hops (1-3+). Default: 1"
+            max_results:
+              type: "number"
+              description: "Max results. Default: 30"
+          required: [urn, column_name, upstream, max_hops, max_results]
+
+    - tool_spec:
+        type: "generic"
+        name: "get_lineage_paths_between"
+        description: "Get detailed transformation paths between two entities/columns. Shows intermediate steps and queries."
+        input_schema:
+          type: "object"
+          properties:
+            source_urn:
+              type: "string"
+              description: "Source dataset URN"
+            target_urn:
+              type: "string"
+              description: "Target dataset URN"
+            source_column:
+              type: "string"
+              description: "Source column name. Default: null (dataset-level lineage)"
+            target_column:
+              type: "string"
+              description: "Target column name. Default: null (dataset-level lineage)"
+          required: [source_urn, target_urn, source_column, target_column]
+
+    # Query Analysis Tools
+    - tool_spec:
+        type: "generic"
+        name: "get_dataset_queries"
+        description: "Get SQL queries that use a dataset/column. Filter by MANUAL (user queries) or SYSTEM (BI tools)."
+        input_schema:
+          type: "object"
+          properties:
+            urn:
+              type: "string"
+              description: "Dataset URN"
+            column_name:
+              type: "string"
+              description: "Column name to filter queries. Default: null (queries for all columns)"
+            source:
+              type: "string"
+              description: "'MANUAL', 'SYSTEM', or null for both. Default: null"
+            count:
+              type: "number"
+              description: "Number of queries. Default: 10"
+          required: [urn, column_name, source, count]
+
+    # Document Search Tools
+    - tool_spec:
+        type: "generic"
+        name: "search_documents"
+        description: "Search organization documents (runbooks, FAQs, knowledge articles from Notion, Confluence, etc.)."
+        input_schema:
+          type: "object"
+          properties:
+            search_query:
+              type: "string"
+              description: "Search query"
+            num_results:
+              type: "number"
+              description: "Max results. Default: 10"
+          required: [search_query, num_results]
+
+    - tool_spec:
+        type: "generic"
+        name: "grep_documents"
+        description: "Search within document content using regex patterns. Use after search_documents to find specific content."
+        input_schema:
+          type: "object"
+          properties:
+            urns:
+              type: "string"
+              description: "JSON array of document URNs"
+            pattern:
+              type: "string"
+              description: "Regex pattern to search for"
+            context_chars:
+              type: "number"
+              description: "Context characters. Default: 200"
+            max_matches_per_doc:
+              type: "number"
+              description: "Max matches per document. Default: 5"
+          required: [urns, pattern, context_chars, max_matches_per_doc]
+{mutation_tools}
+    # User Info
+    - tool_spec:
+        type: "generic"
+        name: "get_me"
+        description: "Get information about the authenticated user (profile, groups, privileges). This tool takes no parameters."
+        input_schema:
+          type: "object"
+          properties: {{}}
+
+    # SQL Executor
+    - tool_spec:
+        type: "generic"
+        name: "SqlExecutor"
+        description: "Execute SELECT SQL queries and return results. Use after generating SQL from DataHub metadata."
+        input_schema:
+          type: "object"
+          properties:
+            SQL_TEXT:
+              type: "string"
+              description: "SELECT SQL query (must start with SELECT)"
+          required: [SQL_TEXT]
+
+  tool_resources:
+    # Search & Discovery
+    search_datahub:
+      type: "function"
+      execution_environment:
+        type: "warehouse"
+        warehouse: {warehouse}
+      identifier: {database}.{schema}.SEARCH_DATAHUB
+
+    get_entities:
+      type: "function"
+      execution_environment:
+        type: "warehouse"
+        warehouse: {warehouse}
+      identifier: {database}.{schema}.GET_ENTITIES
+
+    list_schema_fields:
+      type: "function"
+      execution_environment:
+        type: "warehouse"
+        warehouse: {warehouse}
+      identifier: {database}.{schema}.LIST_SCHEMA_FIELDS
+
+    # Lineage
+    get_lineage:
+      type: "function"
+      execution_environment:
+        type: "warehouse"
+        warehouse: {warehouse}
+      identifier: {database}.{schema}.GET_LINEAGE
+
+    get_lineage_paths_between:
+      type: "function"
+      execution_environment:
+        type: "warehouse"
+        warehouse: {warehouse}
+      identifier: {database}.{schema}.GET_LINEAGE_PATHS_BETWEEN
+
+    # Query Analysis
+    get_dataset_queries:
+      type: "function"
+      execution_environment:
+        type: "warehouse"
+        warehouse: {warehouse}
+      identifier: {database}.{schema}.GET_DATASET_QUERIES
+
+    # Documents
+    search_documents:
+      type: "function"
+      execution_environment:
+        type: "warehouse"
+        warehouse: {warehouse}
+      identifier: {database}.{schema}.SEARCH_DOCUMENTS
+
+    grep_documents:
+      type: "function"
+      execution_environment:
+        type: "warehouse"
+        warehouse: {warehouse}
+      identifier: {database}.{schema}.GREP_DOCUMENTS
+{mutation_tool_resources}
     # User Info
     get_me:
       type: "function"
@@ -644,7 +719,7 @@ GRANT USAGE ON AGENT {agent_name} TO ROLE IDENTIFIER($SF_ROLE);
 DESCRIBE AGENT {agent_name};
 
 SELECT
-    'Agent created successfully with all 20 DataHub tools!' AS status,
+    'Agent created successfully with {"20 DataHub tools (read + write)" if include_mutations else "9 DataHub tools (read-only)"}!' AS status,
     '{agent_name}' AS agent_name,
-    'You can now use this agent in Snowflake Intelligence UI for SQL generation and metadata management' AS next_steps;
+    'You can now use this agent in Snowflake Intelligence UI for {"SQL generation and metadata management" if include_mutations else "SQL generation and metadata exploration"}' AS next_steps;
 """

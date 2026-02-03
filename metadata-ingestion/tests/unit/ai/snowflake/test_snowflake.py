@@ -10,9 +10,350 @@ from datahub.ai.snowflake.generators import (
     generate_stored_procedure_sql,
 )
 from datahub.ai.snowflake.snowflake import (
+    build_connection_params,
     create_snowflake_agent,
     execute_sql_in_snowflake,
+    execute_sql_scripts_in_snowflake,
+    extract_domain_from_url,
+    generate_all_sql_scripts,
+    write_sql_files_to_disk,
 )
+
+
+class TestExtractDomainFromUrl:
+    """Tests for extract_domain_from_url function."""
+
+    def test_extract_domain_https(self) -> None:
+        """Test extracting domain from HTTPS URL."""
+        assert extract_domain_from_url("https://test.acryl.io") == "test.acryl.io"
+
+    def test_extract_domain_http(self) -> None:
+        """Test extracting domain from HTTP URL."""
+        assert extract_domain_from_url("http://test.acryl.io") == "test.acryl.io"
+
+    def test_extract_domain_with_path(self) -> None:
+        """Test extracting domain from URL with path."""
+        assert (
+            extract_domain_from_url("https://test.acryl.io/some/path")
+            == "test.acryl.io"
+        )
+
+    def test_extract_domain_with_port(self) -> None:
+        """Test extracting domain from URL with port."""
+        assert extract_domain_from_url("https://localhost:8080") == "localhost:8080"
+
+    def test_extract_domain_no_protocol(self) -> None:
+        """Test extracting domain from URL without protocol raises error."""
+        import pytest
+
+        with pytest.raises(ValueError, match="must start with http:// or https://"):
+            extract_domain_from_url("example.com")
+
+    def test_extract_domain_empty_string(self) -> None:
+        """Test that empty string raises ValueError."""
+        import pytest
+
+        with pytest.raises(ValueError, match="must be a non-empty string"):
+            extract_domain_from_url("")
+
+    def test_extract_domain_whitespace_only(self) -> None:
+        """Test that whitespace-only string raises ValueError."""
+        import pytest
+
+        with pytest.raises(ValueError, match="must start with http:// or https://"):
+            extract_domain_from_url("   ")
+
+    def test_extract_domain_none_value(self) -> None:
+        """Test that None value raises ValueError."""
+        import pytest
+
+        with pytest.raises(ValueError, match="must be a non-empty string"):
+            extract_domain_from_url(None)  # type: ignore
+
+    def test_extract_domain_invalid_no_domain(self) -> None:
+        """Test that URL with no domain raises ValueError."""
+        import pytest
+
+        with pytest.raises(ValueError, match="Could not extract domain"):
+            extract_domain_from_url("https://")
+
+    def test_extract_domain_invalid_no_dot(self) -> None:
+        """Test that domain without dot (except localhost) raises ValueError."""
+        import pytest
+
+        with pytest.raises(ValueError, match="Invalid domain format"):
+            extract_domain_from_url("https://invaliddomain")
+
+    def test_extract_domain_localhost(self) -> None:
+        """Test that localhost is accepted without dots."""
+        assert extract_domain_from_url("http://localhost") == "localhost"
+        assert extract_domain_from_url("http://localhost:8080") == "localhost:8080"
+
+    def test_extract_domain_with_leading_trailing_whitespace(self) -> None:
+        """Test that leading/trailing whitespace is handled."""
+        assert extract_domain_from_url("  https://test.acryl.io  ") == "test.acryl.io"
+
+
+class TestBuildConnectionParams:
+    """Tests for build_connection_params function."""
+
+    def test_build_connection_params_password_auth(self) -> None:
+        """Test building connection params for password authentication."""
+        params = build_connection_params(
+            sf_account="test_account",
+            sf_user="test_user",
+            sf_role="test_role",
+            sf_warehouse="test_warehouse",
+            sf_password="test_password",
+            sf_authenticator="snowflake",
+        )
+
+        assert params == {
+            "account": "test_account",
+            "user": "test_user",
+            "role": "test_role",
+            "warehouse": "test_warehouse",
+            "password": "test_password",
+        }
+
+    def test_build_connection_params_externalbrowser_auth(self) -> None:
+        """Test building connection params for SSO authentication."""
+        params = build_connection_params(
+            sf_account="test_account",
+            sf_user="test_user",
+            sf_role="test_role",
+            sf_warehouse="test_warehouse",
+            sf_password=None,
+            sf_authenticator="externalbrowser",
+        )
+
+        assert params == {
+            "account": "test_account",
+            "user": "test_user",
+            "role": "test_role",
+            "warehouse": "test_warehouse",
+            "authenticator": "externalbrowser",
+        }
+
+    def test_build_connection_params_oauth_auth(self) -> None:
+        """Test building connection params for OAuth authentication."""
+        params = build_connection_params(
+            sf_account="test_account",
+            sf_user="test_user",
+            sf_role="test_role",
+            sf_warehouse="test_warehouse",
+            sf_password=None,
+            sf_authenticator="oauth",
+        )
+
+        assert params == {
+            "account": "test_account",
+            "user": "test_user",
+            "role": "test_role",
+            "warehouse": "test_warehouse",
+            "authenticator": "oauth",
+        }
+
+    def test_build_connection_params_omits_none_values(self) -> None:
+        """Test that None values are omitted from connection params."""
+        params = build_connection_params(
+            sf_account=None,
+            sf_user="test_user",
+            sf_role=None,
+            sf_warehouse="test_warehouse",
+            sf_password="test_password",
+            sf_authenticator="snowflake",
+        )
+
+        assert params == {
+            "user": "test_user",
+            "warehouse": "test_warehouse",
+            "password": "test_password",
+        }
+        assert "account" not in params
+        assert "role" not in params
+
+    def test_build_connection_params_password_auth_without_password(self) -> None:
+        """Test password auth without password (edge case)."""
+        params = build_connection_params(
+            sf_account="test_account",
+            sf_user="test_user",
+            sf_role="test_role",
+            sf_warehouse="test_warehouse",
+            sf_password=None,
+            sf_authenticator="snowflake",
+        )
+
+        assert "password" not in params
+
+
+class TestGenerateAllSqlScripts:
+    """Tests for generate_all_sql_scripts function."""
+
+    def test_generate_all_sql_scripts_returns_five_scripts(self) -> None:
+        """Test that all five SQL scripts are generated."""
+        scripts = generate_all_sql_scripts(
+            sf_account="test_account",
+            sf_user="test_user",
+            sf_role="test_role",
+            sf_warehouse="test_warehouse",
+            sf_database="test_db",
+            sf_schema="test_schema",
+            datahub_url="https://test.acryl.io",
+            datahub_token="test_token",
+            agent_name="TEST_AGENT",
+            agent_display_name="Test Agent",
+            agent_color="blue",
+            enable_mutations=True,
+            execute_mode=False,
+        )
+
+        assert len(scripts) == 5
+        script_names = [name for name, _ in scripts]
+        assert script_names == [
+            "00_configuration.sql",
+            "01_network_rules.sql",
+            "02_datahub_udfs.sql",
+            "03_stored_procedure.sql",
+            "04_cortex_agent.sql",
+        ]
+
+    def test_generate_all_sql_scripts_content_not_empty(self) -> None:
+        """Test that generated scripts have content."""
+        scripts = generate_all_sql_scripts(
+            sf_account="test_account",
+            sf_user="test_user",
+            sf_role="test_role",
+            sf_warehouse="test_warehouse",
+            sf_database="test_db",
+            sf_schema="test_schema",
+            datahub_url="https://test.acryl.io",
+            datahub_token="test_token",
+            agent_name="TEST_AGENT",
+            agent_display_name="Test Agent",
+            agent_color="blue",
+            enable_mutations=True,
+            execute_mode=False,
+        )
+
+        for script_name, script_content in scripts:
+            assert len(script_content) > 0, f"{script_name} should have content"
+
+    def test_generate_all_sql_scripts_execute_mode(self) -> None:
+        """Test that execute mode affects configuration SQL."""
+        scripts = generate_all_sql_scripts(
+            sf_account="test_account",
+            sf_user="test_user",
+            sf_role="test_role",
+            sf_warehouse="test_warehouse",
+            sf_database="test_db",
+            sf_schema="test_schema",
+            datahub_url="https://test.acryl.io",
+            datahub_token="test_token",
+            agent_name="TEST_AGENT",
+            agent_display_name="Test Agent",
+            agent_color="blue",
+            enable_mutations=True,
+            execute_mode=True,
+        )
+
+        config_sql = scripts[0][1]
+        assert "test_token" in config_sql
+
+    def test_generate_all_sql_scripts_with_mutations(self) -> None:
+        """Test that mutations setting affects UDF generation."""
+        scripts_with_mutations = generate_all_sql_scripts(
+            sf_account="test_account",
+            sf_user="test_user",
+            sf_role="test_role",
+            sf_warehouse="test_warehouse",
+            sf_database="test_db",
+            sf_schema="test_schema",
+            datahub_url="https://test.acryl.io",
+            datahub_token="test_token",
+            agent_name="TEST_AGENT",
+            agent_display_name="Test Agent",
+            agent_color="blue",
+            enable_mutations=True,
+            execute_mode=False,
+        )
+
+        scripts_without_mutations = generate_all_sql_scripts(
+            sf_account="test_account",
+            sf_user="test_user",
+            sf_role="test_role",
+            sf_warehouse="test_warehouse",
+            sf_database="test_db",
+            sf_schema="test_schema",
+            datahub_url="https://test.acryl.io",
+            datahub_token="test_token",
+            agent_name="TEST_AGENT",
+            agent_display_name="Test Agent",
+            agent_color="blue",
+            enable_mutations=False,
+            execute_mode=False,
+        )
+
+        udfs_with = scripts_with_mutations[2][1]
+        udfs_without = scripts_without_mutations[2][1]
+
+        assert "ADD_TAGS" in udfs_with
+        assert "ADD_TAGS" not in udfs_without
+
+
+class TestWriteSqlFilesToDisk:
+    """Tests for write_sql_files_to_disk function."""
+
+    def test_write_sql_files_to_disk(self, tmp_path: Path) -> None:
+        """Test writing SQL files to disk."""
+        scripts = [
+            ("00_test.sql", "SELECT 1;"),
+            ("01_test.sql", "SELECT 2;"),
+        ]
+
+        write_sql_files_to_disk(tmp_path, scripts, enable_mutations=True)
+
+        assert (tmp_path / "00_test.sql").exists()
+        assert (tmp_path / "01_test.sql").exists()
+        assert (tmp_path / "00_test.sql").read_text() == "SELECT 1;"
+        assert (tmp_path / "01_test.sql").read_text() == "SELECT 2;"
+
+
+class TestExecuteSqlScriptsInSnowflake:
+    """Tests for execute_sql_scripts_in_snowflake function."""
+
+    def test_execute_sql_scripts_success(self) -> None:
+        """Test successful execution of all scripts."""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.description = None
+        mock_conn.execute_string.return_value = [mock_cursor]
+
+        scripts = [
+            ("00_test.sql", "SELECT 1;"),
+            ("01_test.sql", "SELECT 2;"),
+        ]
+
+        result = execute_sql_scripts_in_snowflake(mock_conn, scripts)
+
+        assert result is True
+        assert mock_conn.execute_string.call_count == 2
+
+    def test_execute_sql_scripts_failure_stops_execution(self) -> None:
+        """Test that script execution stops on first failure."""
+        mock_conn = Mock()
+        mock_conn.execute_string.side_effect = Exception("SQL execution failed")
+
+        scripts = [
+            ("00_test.sql", "SELECT 1;"),
+            ("01_test.sql", "SELECT 2;"),
+            ("02_test.sql", "SELECT 3;"),
+        ]
+
+        result = execute_sql_scripts_in_snowflake(mock_conn, scripts)
+
+        assert result is False
+        assert mock_conn.execute_string.call_count == 1
 
 
 class TestExecuteSqlInSnowflake:
@@ -89,10 +430,10 @@ class TestGenerateConfigurationSql:
             sf_schema="test_schema",
             datahub_url="https://test.acryl.io",
             datahub_token="test_token",
-            datahub_ips="('1.2.3.4')",
             agent_name="TEST_AGENT",
             agent_display_name="Test Agent",
             agent_color="blue",
+            execute=True,  # Include actual token in SQL
         )
 
         assert "SET SF_ACCOUNT = 'test_account';" in result
@@ -122,10 +463,10 @@ class TestGenerateConfigurationSql:
             sf_schema="test",
             datahub_url="https://example.com",
             datahub_token="secret_token_123",
-            datahub_ips="('1.1.1.1')",
             agent_name="AGENT",
             agent_display_name="Agent",
             agent_color="blue",
+            execute=True,  # Include actual token in SQL
         )
 
         assert "CREATE OR REPLACE SECRET datahub_url" in result
@@ -279,6 +620,29 @@ class TestGenerateCortexAgentSql:
         assert "warehouse: test_warehouse" in result
         assert "identifier: test_db.test_schema.SEARCH_DATAHUB" in result
         assert "GRANT USAGE ON AGENT AGENT TO ROLE IDENTIFIER($SF_ROLE);" in result
+
+    def test_generate_cortex_agent_mutation_tools_use_variables(self) -> None:
+        """Test that mutation tool resources correctly use warehouse/db/schema variables."""
+        result = generate_cortex_agent_sql(
+            agent_name="AGENT",
+            agent_display_name="Agent",
+            agent_color="blue",
+            sf_warehouse="test_warehouse",
+            sf_database="test_db",
+            sf_schema="test_schema",
+            include_mutations=True,
+        )
+
+        # Verify mutation tools use the provided variables, not template placeholders
+        assert "warehouse: test_warehouse" in result
+        assert "identifier: test_db.test_schema.ADD_TAGS" in result
+        assert "identifier: test_db.test_schema.REMOVE_TAGS" in result
+        assert "identifier: test_db.test_schema.UPDATE_DESCRIPTION" in result
+
+        # Ensure no unresolved template placeholders remain
+        assert "{warehouse}" not in result
+        assert "{database}" not in result
+        assert "{schema}" not in result
 
 
 class TestCreateSnowflakeAgent:

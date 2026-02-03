@@ -3,9 +3,64 @@
 from pathlib import Path
 
 from datahub.ai.snowflake.generate_udfs import (
+    extract_function_signature,
     generate_all_udfs,
     generate_datahub_udfs_sql,
 )
+
+
+class TestExtractFunctionSignature:
+    """Tests for extract_function_signature function."""
+
+    def test_extract_no_parameters(self) -> None:
+        """Test extracting signature from function with no parameters."""
+        sql = """CREATE OR REPLACE FUNCTION GET_ME()
+RETURNS VARIANT
+LANGUAGE PYTHON"""
+        assert extract_function_signature(sql) == ""
+
+    def test_extract_single_parameter(self) -> None:
+        """Test extracting signature from function with one parameter."""
+        sql = """CREATE OR REPLACE FUNCTION GET_ENTITIES(entity_urn STRING)
+RETURNS VARIANT
+LANGUAGE PYTHON"""
+        assert extract_function_signature(sql) == "STRING"
+
+    def test_extract_multiple_parameters(self) -> None:
+        """Test extracting signature from function with multiple parameters."""
+        sql = """CREATE OR REPLACE FUNCTION SEARCH_DATAHUB(search_query STRING, entity_type STRING)
+RETURNS VARIANT
+LANGUAGE PYTHON"""
+        assert extract_function_signature(sql) == "STRING, STRING"
+
+    def test_extract_mixed_parameter_types(self) -> None:
+        """Test extracting signature with mixed types."""
+        sql = """CREATE OR REPLACE FUNCTION SEARCH_DOCUMENTS(query STRING, num_results NUMBER)
+RETURNS VARIANT
+LANGUAGE PYTHON"""
+        assert extract_function_signature(sql) == "STRING, NUMBER"
+
+    def test_extract_multiline_parameters(self) -> None:
+        """Test extracting signature from multiline parameter list."""
+        sql = """CREATE OR REPLACE FUNCTION UPDATE_DESCRIPTION(
+    entity_urn STRING,
+    column_name STRING,
+    description STRING,
+    mode STRING
+)
+RETURNS VARIANT
+LANGUAGE PYTHON"""
+        assert extract_function_signature(sql) == "STRING, STRING, STRING, STRING"
+
+    def test_extract_from_real_udf(self) -> None:
+        """Test extracting signature from a real UDF."""
+        udfs = generate_all_udfs(include_mutations=True)
+
+        # Test a few real UDFs
+        assert extract_function_signature(udfs["GET_ME"]) == ""
+        assert extract_function_signature(udfs["GET_ENTITIES"]) == "STRING"
+        assert extract_function_signature(udfs["SEARCH_DATAHUB"]) == "STRING, STRING"
+        assert extract_function_signature(udfs["ADD_TAGS"]) == "STRING, STRING, STRING"
 
 
 class TestGenerateAllUdfs:

@@ -51,11 +51,6 @@ def create() -> None:
 @click.option("--datahub-url", required=True, help="DataHub instance URL")
 @click.option("--datahub-token", required=True, help="DataHub Personal Access Token")
 @click.option(
-    "--datahub-ips",
-    default="()",
-    help="DataHub IP addresses for network rule",
-)
-@click.option(
     "--agent-name", default="DATAHUB_SQL_AGENT", help="Agent name in Snowflake"
 )
 @click.option(
@@ -104,7 +99,6 @@ def create_snowflake(
     sf_schema: str | None,
     datahub_url: str,
     datahub_token: str,
-    datahub_ips: str,
     agent_name: str,
     agent_display_name: str,
     agent_color: str,
@@ -134,9 +128,7 @@ def create_snowflake(
         # Execute with SSO authentication (browser-based)
         $ datahub agent create snowflake --execute --sf-authenticator=externalbrowser ...
     """
-    from datahub.ai.snowflake.snowflake import (
-        create_snowflake_agent,  # type: ignore[import-not-found]
-    )
+    from datahub.ai.snowflake.snowflake import create_snowflake_agent
 
     ctx = click.get_current_context()
     ctx.invoke(
@@ -149,7 +141,6 @@ def create_snowflake(
         sf_schema=sf_schema,
         datahub_url=datahub_url,
         datahub_token=datahub_token,
-        datahub_ips=datahub_ips,
         agent_name=agent_name,
         agent_display_name=agent_display_name,
         agent_color=agent_color,

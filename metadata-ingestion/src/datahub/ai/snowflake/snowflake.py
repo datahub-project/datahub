@@ -18,6 +18,217 @@ from datahub.ai.snowflake.generators import (
 logger = logging.getLogger(__name__)
 
 
+def extract_domain_from_url(datahub_url: str) -> str:
+    """Extract domain from DataHub URL for network rules.
+
+    Args:
+        datahub_url: DataHub instance URL (e.g., https://example.datahubproject.io)
+
+    Returns:
+        Domain without protocol or path (e.g., example.datahubproject.io)
+
+    Raises:
+        ValueError: If the URL is invalid or missing required components
+    """
+    if not datahub_url or not isinstance(datahub_url, str):
+        raise ValueError("DataHub URL must be a non-empty string")
+
+    # Strip whitespace
+    datahub_url = datahub_url.strip()
+
+    # Check if URL has a protocol
+    if not datahub_url.startswith(("http://", "https://")):
+        raise ValueError(
+            f"DataHub URL must start with http:// or https://, got: {datahub_url}"
+        )
+
+    # Extract domain
+    domain = datahub_url.replace("https://", "").replace("http://", "")
+    domain = domain.split("/")[0]
+
+    # Validate domain is not empty and has valid characters
+    if not domain:
+        raise ValueError(f"Could not extract domain from URL: {datahub_url}")
+
+    # Basic domain validation - must have at least one dot or be localhost
+    if "." not in domain and not domain.startswith("localhost"):
+        raise ValueError(
+            f"Invalid domain format (must contain at least one dot or be localhost): {domain}"
+        )
+
+    return domain
+
+
+def build_connection_params(
+    sf_account: str | None,
+    sf_user: str | None,
+    sf_role: str | None,
+    sf_warehouse: str | None,
+    sf_password: str | None,
+    sf_authenticator: str,
+) -> dict[str, Any]:
+    """Build Snowflake connection parameters based on authentication type.
+
+    Args:
+        sf_account: Snowflake account identifier
+        sf_user: Snowflake user name
+        sf_role: Snowflake role
+        sf_warehouse: Snowflake warehouse name
+        sf_password: Snowflake password (for password auth)
+        sf_authenticator: Authentication method (snowflake, externalbrowser, oauth)
+
+    Returns:
+        Dictionary of connection parameters for snowflake.connector.connect()
+    """
+    connection_params: dict[str, Any] = {}
+
+    if sf_user:
+        connection_params["user"] = sf_user
+    if sf_account:
+        connection_params["account"] = sf_account
+    if sf_role:
+        connection_params["role"] = sf_role
+    if sf_warehouse:
+        connection_params["warehouse"] = sf_warehouse
+
+    if sf_authenticator == "snowflake":
+        if sf_password:
+            connection_params["password"] = sf_password
+    elif sf_authenticator == "externalbrowser":
+        connection_params["authenticator"] = "externalbrowser"
+    elif sf_authenticator == "oauth":
+        connection_params["authenticator"] = "oauth"
+
+    return connection_params
+
+
+def generate_all_sql_scripts(
+    sf_account: str | None,
+    sf_user: str | None,
+    sf_role: str | None,
+    sf_warehouse: str | None,
+    sf_database: str | None,
+    sf_schema: str | None,
+    datahub_url: str,
+    datahub_token: str,
+    agent_name: str,
+    agent_display_name: str,
+    agent_color: str,
+    enable_mutations: bool,
+    execute_mode: bool,
+) -> list[tuple[str, str]]:
+    """Generate all SQL scripts for Snowflake agent setup.
+
+    Args:
+        sf_account: Snowflake account identifier
+        sf_user: Snowflake user name
+        sf_role: Snowflake role
+        sf_warehouse: Snowflake warehouse name
+        sf_database: Snowflake database name
+        sf_schema: Snowflake schema name
+        datahub_url: DataHub instance URL
+        datahub_token: DataHub Personal Access Token
+        agent_name: Agent name in Snowflake
+        agent_display_name: Agent display name in Snowflake UI
+        agent_color: Agent color in Snowflake UI
+        enable_mutations: Include mutation/write tools
+        execute_mode: Whether to include actual tokens in SQL (for execution)
+
+    Returns:
+        List of (script_name, script_content) tuples in execution order
+    """
+    config_sql = generate_configuration_sql(
+        sf_account=sf_account,
+        sf_user=sf_user,
+        sf_role=sf_role,
+        sf_warehouse=sf_warehouse,
+        sf_database=sf_database,
+        sf_schema=sf_schema,
+        datahub_url=datahub_url,
+        datahub_token=datahub_token,
+        agent_name=agent_name,
+        agent_display_name=agent_display_name,
+        agent_color=agent_color,
+        execute=execute_mode,
+    )
+
+    datahub_domain = extract_domain_from_url(datahub_url)
+    network_rules_sql = generate_network_rules_sql(datahub_domain)
+
+    datahub_udfs_sql = generate_datahub_udfs_sql(include_mutations=enable_mutations)
+
+    stored_proc_sql = generate_stored_procedure_sql()
+
+    cortex_agent_sql = generate_cortex_agent_sql(
+        agent_name=agent_name,
+        agent_display_name=agent_display_name,
+        agent_color=agent_color,
+        sf_warehouse=sf_warehouse,
+        sf_database=sf_database,
+        sf_schema=sf_schema,
+        include_mutations=enable_mutations,
+    )
+
+    return [
+        ("00_configuration.sql", config_sql),
+        ("01_network_rules.sql", network_rules_sql),
+        ("02_datahub_udfs.sql", datahub_udfs_sql),
+        ("03_stored_procedure.sql", stored_proc_sql),
+        ("04_cortex_agent.sql", cortex_agent_sql),
+    ]
+
+
+def write_sql_files_to_disk(
+    output_path: Path,
+    scripts: list[tuple[str, str]],
+    enable_mutations: bool,
+) -> None:
+    """Write generated SQL scripts to disk.
+
+    Args:
+        output_path: Directory to write SQL files to
+        scripts: List of (script_name, script_content) tuples
+        enable_mutations: Whether mutations are enabled (for messaging)
+    """
+    for script_name, script_content in scripts:
+        file_path = output_path / script_name
+        file_path.write_text(script_content)
+
+        if script_name == "02_datahub_udfs.sql":
+            udf_count = len(generate_all_udfs(include_mutations=enable_mutations))
+            mutation_note = " (read + write)" if enable_mutations else " (read-only)"
+            click.echo(f"✓ Generated {file_path} - {udf_count} UDFs{mutation_note}")
+        else:
+            click.echo(f"✓ Generated {file_path}")
+
+
+def execute_sql_scripts_in_snowflake(
+    connection: Any,
+    scripts: list[tuple[str, str]],
+) -> bool:
+    """Execute a list of SQL scripts in Snowflake in order.
+
+    Args:
+        connection: Snowflake connection object
+        scripts: List of (script_name, script_content) tuples to execute
+
+    Returns:
+        True if all scripts executed successfully, False otherwise
+    """
+    all_success = True
+    for script_name, script_content in scripts:
+        click.echo(f"\n📝 Executing {script_name}...")
+        success = execute_sql_in_snowflake(connection, script_content, script_name)
+        if success:
+            click.echo(f"  ✓ {script_name} completed successfully")
+        else:
+            click.echo(f"  ✗ {script_name} failed", err=True)
+            all_success = False
+            break
+
+    return all_success
+
+
 def execute_sql_in_snowflake(
     connection: Any,
     sql_content: str,
@@ -41,7 +252,6 @@ def execute_sql_in_snowflake(
         click.echo(f"  Executing {script_name}...")
 
         statement_count = 0
-        error_count = 0
 
         # execute_string returns a list of cursors
         cursors = connection.execute_string(sql_content, remove_comments=True)
@@ -62,10 +272,6 @@ def execute_sql_in_snowflake(
                     logger.debug(f"No results for statement {statement_count}: {e}")
 
             cursor.close()
-
-        if error_count > 0:
-            click.echo(f"  ⚠️  Completed with {error_count} error(s)", err=True)
-            return False
 
         click.echo(f"  ✓ Executed {statement_count} statement(s) successfully")
         return True
@@ -190,11 +396,6 @@ def auto_detect_snowflake_params(
 @click.option("--datahub-url", required=True, help="DataHub instance URL")
 @click.option("--datahub-token", required=True, help="DataHub Personal Access Token")
 @click.option(
-    "--datahub-ips",
-    default="('52.7.66.10', '44.217.146.124', '34.193.80.100')",
-    help="DataHub IP addresses for network rule",
-)
-@click.option(
     "--agent-name", default="DATAHUB_SQL_AGENT", help="Agent name in Snowflake"
 )
 @click.option(
@@ -243,7 +444,6 @@ def create_snowflake_agent(
     sf_schema: str | None,
     datahub_url: str,
     datahub_token: str,
-    datahub_ips: str,
     agent_name: str,
     agent_display_name: str,
     agent_color: str,
@@ -266,7 +466,8 @@ def create_snowflake_agent(
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    config_sql = generate_configuration_sql(
+    # Generate all SQL scripts for file output (without token exposure)
+    scripts = generate_all_sql_scripts(
         sf_account=sf_account,
         sf_user=sf_user,
         sf_role=sf_role,
@@ -275,236 +476,186 @@ def create_snowflake_agent(
         sf_schema=sf_schema,
         datahub_url=datahub_url,
         datahub_token=datahub_token,
-        datahub_ips=datahub_ips,
         agent_name=agent_name,
         agent_display_name=agent_display_name,
         agent_color=agent_color,
+        enable_mutations=enable_mutations,
+        execute_mode=False,
     )
 
-    (output_path / "00_configuration.sql").write_text(config_sql)
-    click.echo(f"✓ Generated {output_path / '00_configuration.sql'}")
-
-    # Extract domain from DataHub URL for network rules
-    datahub_domain = datahub_url.replace("https://", "").replace("http://", "")
-    datahub_domain = datahub_domain.split("/")[0]
-
-    network_rules_sql = generate_network_rules_sql(datahub_domain)
-    (output_path / "01_network_rules.sql").write_text(network_rules_sql)
-    click.echo(f"✓ Generated {output_path / '01_network_rules.sql'}")
-
-    # Generate UDFs using datahub-agent-context package
-    datahub_udfs_sql = generate_datahub_udfs_sql(include_mutations=enable_mutations)
-    (output_path / "02_datahub_udfs.sql").write_text(datahub_udfs_sql)
-    udf_count = len(generate_all_udfs(include_mutations=enable_mutations))
-    mutation_note = " (read + write)" if enable_mutations else " (read-only)"
-    click.echo(
-        f"✓ Generated {output_path / '02_datahub_udfs.sql'} - {udf_count} UDFs{mutation_note}"
-    )
-
-    stored_proc_sql = generate_stored_procedure_sql()
-    (output_path / "03_stored_procedure.sql").write_text(stored_proc_sql)
-    click.echo(f"✓ Generated {output_path / '03_stored_procedure.sql'}")
-
-    cortex_agent_sql = generate_cortex_agent_sql(
-        agent_name=agent_name,
-        agent_display_name=agent_display_name,
-        agent_color=agent_color,
-        sf_warehouse=sf_warehouse,
-        sf_database=sf_database,
-        sf_schema=sf_schema,
-    )
-    (output_path / "04_cortex_agent.sql").write_text(cortex_agent_sql)
-    click.echo(f"✓ Generated {output_path / '04_cortex_agent.sql'}")
-
+    # Write scripts to disk
+    write_sql_files_to_disk(output_path, scripts, enable_mutations)
     click.echo(f"\n✅ Snowflake agent setup files generated in: {output_path}")
 
     # Execute SQL scripts if --execute flag is set
     if execute:
-        # Validate authentication requirements
-        if sf_authenticator == "snowflake" and not sf_password:
-            click.echo(
-                "\n✗ Error: --sf-password is required when using --execute with password authentication (--sf-authenticator=snowflake)",
-                err=True,
-            )
-            logger.error("Password required for snowflake authenticator")
-            return
-
-        click.echo("\n🔄 Connecting to Snowflake and executing setup scripts...")
-        if sf_authenticator == "externalbrowser":
-            click.echo(
-                "  Using SSO authentication - your browser will open for authentication..."
-            )
-
-        try:
-            import snowflake.connector
-        except ImportError:
-            click.echo(
-                "\n✗ Error: snowflake-connector-python package is not installed",
-                err=True,
-            )
-            click.echo(
-                "Install it with: pip install snowflake-connector-python", err=True
-            )
-            logger.error("snowflake-connector-python not installed")
-            return
-
-        try:
-            # Connect to Snowflake
-            click.echo("  Connecting to Snowflake...")
-
-            # Build connection parameters based on authenticator type
-            # Only include non-None values in connection params
-            connection_params: dict[str, Any] = {}
-            if sf_user:
-                connection_params["user"] = sf_user
-            if sf_account:
-                connection_params["account"] = sf_account
-            if sf_role:
-                connection_params["role"] = sf_role
-            if sf_warehouse:
-                connection_params["warehouse"] = sf_warehouse
-
-            if sf_authenticator == "snowflake":
-                # Standard password authentication
-                if sf_password:
-                    connection_params["password"] = sf_password
-            elif sf_authenticator == "externalbrowser":
-                # SSO via external browser
-                connection_params["authenticator"] = "externalbrowser"
-            elif sf_authenticator == "oauth":
-                # OAuth token-based (token would need to be provided separately)
-                connection_params["authenticator"] = "oauth"
-                # Note: For OAuth, token would typically be passed via environment or separate parameter
-                click.echo(
-                    "  Note: OAuth authentication requires additional token configuration",
-                    err=True,
-                )
-
-            conn = snowflake.connector.connect(**connection_params)
-            click.echo("  ✓ Connected successfully")
-
-            # Auto-detect values from the Snowflake connection if not provided
-            try:
-                (
-                    sf_account,
-                    sf_user,
-                    sf_role,
-                    sf_warehouse,
-                    sf_database,
-                    sf_schema,
-                ) = auto_detect_snowflake_params(
-                    conn,
-                    sf_account,
-                    sf_user,
-                    sf_role,
-                    sf_warehouse,
-                    sf_database,
-                    sf_schema,
-                )
-            except ValueError as e:
-                click.echo(f"  ✗ Error: {e}", err=True)
-                conn.close()
-                return
-
-            # Regenerate SQL with the detected values for execute mode
-            config_sql = generate_configuration_sql(
-                sf_account=sf_account,
-                sf_user=sf_user,
-                sf_role=sf_role,
-                sf_warehouse=sf_warehouse,
-                sf_database=sf_database,
-                sf_schema=sf_schema,
-                datahub_url=datahub_url,
-                datahub_token=datahub_token,
-                datahub_ips=datahub_ips,
-                agent_name=agent_name,
-                agent_display_name=agent_display_name,
-                agent_color=agent_color,
-            )
-
-            # Extract domain from DataHub URL for network rules
-            datahub_domain = (
-                datahub_url.replace("https://", "").replace("http://", "").split("/")[0]
-            )
-
-            network_rules_sql = generate_network_rules_sql(datahub_domain)
-            datahub_udfs_sql = generate_datahub_udfs_sql(
-                include_mutations=enable_mutations
-            )
-            stored_proc_sql = generate_stored_procedure_sql()
-            cortex_agent_sql = generate_cortex_agent_sql(
-                agent_name=agent_name,
-                agent_display_name=agent_display_name,
-                agent_color=agent_color,
-                sf_warehouse=sf_warehouse,
-                sf_database=sf_database,
-                sf_schema=sf_schema,
-            )
-
-            # Execute scripts in order
-            scripts = [
-                ("00_configuration.sql", config_sql),
-                ("01_network_rules.sql", network_rules_sql),
-                ("02_datahub_udfs.sql", datahub_udfs_sql),
-                ("03_stored_procedure.sql", stored_proc_sql),
-                ("04_cortex_agent.sql", cortex_agent_sql),
-            ]
-
-            all_success = True
-            for script_name, script_content in scripts:
-                click.echo(f"\n📝 Executing {script_name}...")
-                success = execute_sql_in_snowflake(conn, script_content, script_name)
-                if success:
-                    click.echo(f"  ✓ {script_name} completed successfully")
-                else:
-                    click.echo(f"  ✗ {script_name} failed", err=True)
-                    all_success = False
-                    break
-
-            conn.close()
-
-            if all_success:
-                click.echo("\n✅ All scripts executed successfully!")
-                click.echo(
-                    f"\nYour DataHub agent '{agent_name}' is now ready to use in Snowflake Intelligence UI"
-                )
-            else:
-                click.echo(
-                    "\n⚠️  Some scripts failed. Check the errors above and review the generated SQL files.",
-                    err=True,
-                )
-
-        except Exception as e:
-            click.echo(f"\n✗ Error connecting to Snowflake: {e}", err=True)
-            logger.error(f"Snowflake connection error: {e}")
-            click.echo(
-                "\nYou can still manually run the generated SQL files in Snowflake."
-            )
-
+        _execute_mode(
+            sf_account=sf_account,
+            sf_user=sf_user,
+            sf_role=sf_role,
+            sf_warehouse=sf_warehouse,
+            sf_database=sf_database,
+            sf_schema=sf_schema,
+            datahub_url=datahub_url,
+            datahub_token=datahub_token,
+            agent_name=agent_name,
+            agent_display_name=agent_display_name,
+            agent_color=agent_color,
+            sf_password=sf_password,
+            sf_authenticator=sf_authenticator,
+            enable_mutations=enable_mutations,
+        )
     else:
-        # Non-execute mode - just show instructions
-        click.echo("\nNext steps:")
-        click.echo("1. Review the generated SQL files")
-        click.echo("2. Run them in order:")
-        click.echo("   a. 00_configuration.sql - Set up configuration variables")
-        click.echo(
-            "   b. 01_network_rules.sql - Create network rules and access integration"
-        )
-        click.echo("   c. 02_datahub_udfs.sql - Create DataHub API UDFs")
-        click.echo("   d. 03_stored_procedure.sql - Create SQL execution procedure")
-        click.echo("   e. 04_cortex_agent.sql - Create the Cortex Agent")
-        click.echo("3. Test your agent in Snowflake Intelligence UI")
-        click.echo(
-            "\nNote: The UDFs use Snowflake secrets for secure credential storage."
-        )
-        click.echo(
-            "\nTip: Use --execute flag to automatically run these scripts in Snowflake"
-        )
-        click.echo(
-            "     For SSO authentication, use: --execute --sf-authenticator=externalbrowser"
-        )
+        _show_manual_instructions()
 
     logger.info(f"Snowflake agent setup files generated in: {output_path}")
+
+
+def _execute_mode(
+    sf_account: str | None,
+    sf_user: str | None,
+    sf_role: str | None,
+    sf_warehouse: str | None,
+    sf_database: str | None,
+    sf_schema: str | None,
+    datahub_url: str,
+    datahub_token: str,
+    agent_name: str,
+    agent_display_name: str,
+    agent_color: str,
+    sf_password: str | None,
+    sf_authenticator: str,
+    enable_mutations: bool,
+) -> None:
+    """Execute SQL scripts directly in Snowflake."""
+    if sf_authenticator == "snowflake" and not sf_password:
+        click.echo(
+            "\n✗ Error: --sf-password is required when using --execute with password authentication (--sf-authenticator=snowflake)",
+            err=True,
+        )
+        logger.error("Password required for snowflake authenticator")
+        return
+
+    click.echo("\n🔄 Connecting to Snowflake and executing setup scripts...")
+    if sf_authenticator == "externalbrowser":
+        click.echo(
+            "  Using SSO authentication - your browser will open for authentication..."
+        )
+
+    try:
+        import snowflake.connector
+    except ImportError:
+        click.echo(
+            "\n✗ Error: snowflake-connector-python package is not installed",
+            err=True,
+        )
+        click.echo("Install it with: pip install snowflake-connector-python", err=True)
+        logger.error("snowflake-connector-python not installed")
+        return
+
+    try:
+        click.echo("  Connecting to Snowflake...")
+
+        connection_params = build_connection_params(
+            sf_account=sf_account,
+            sf_user=sf_user,
+            sf_role=sf_role,
+            sf_warehouse=sf_warehouse,
+            sf_password=sf_password,
+            sf_authenticator=sf_authenticator,
+        )
+
+        if sf_authenticator == "oauth":
+            click.echo(
+                "  Note: OAuth authentication requires additional token configuration",
+                err=True,
+            )
+
+        conn = snowflake.connector.connect(**connection_params)
+        click.echo("  ✓ Connected successfully")
+
+        # Auto-detect values from the Snowflake connection if not provided
+        try:
+            (
+                sf_account,
+                sf_user,
+                sf_role,
+                sf_warehouse,
+                sf_database,
+                sf_schema,
+            ) = auto_detect_snowflake_params(
+                conn,
+                sf_account,
+                sf_user,
+                sf_role,
+                sf_warehouse,
+                sf_database,
+                sf_schema,
+            )
+        except ValueError as e:
+            click.echo(f"  ✗ Error: {e}", err=True)
+            conn.close()
+            return
+
+        # Regenerate SQL with the detected values for execute mode (with actual token)
+        scripts = generate_all_sql_scripts(
+            sf_account=sf_account,
+            sf_user=sf_user,
+            sf_role=sf_role,
+            sf_warehouse=sf_warehouse,
+            sf_database=sf_database,
+            sf_schema=sf_schema,
+            datahub_url=datahub_url,
+            datahub_token=datahub_token,
+            agent_name=agent_name,
+            agent_display_name=agent_display_name,
+            agent_color=agent_color,
+            enable_mutations=enable_mutations,
+            execute_mode=True,
+        )
+
+        # Execute scripts in order
+        all_success = execute_sql_scripts_in_snowflake(conn, scripts)
+
+        conn.close()
+
+        if all_success:
+            click.echo("\n✅ All scripts executed successfully!")
+            click.echo(
+                f"\nYour DataHub agent '{agent_name}' is now ready to use in Snowflake Intelligence UI"
+            )
+        else:
+            click.echo(
+                "\n⚠️  Some scripts failed. Check the errors above and review the generated SQL files.",
+                err=True,
+            )
+
+    except Exception as e:
+        click.echo(f"\n✗ Error connecting to Snowflake: {e}", err=True)
+        logger.error(f"Snowflake connection error: {e}")
+        click.echo("\nYou can still manually run the generated SQL files in Snowflake.")
+
+
+def _show_manual_instructions() -> None:
+    """Show manual execution instructions for non-execute mode."""
+    click.echo("\nNext steps:")
+    click.echo("1. Review the generated SQL files")
+    click.echo("2. Run them in order:")
+    click.echo("   a. 00_configuration.sql - Set up configuration variables")
+    click.echo(
+        "   b. 01_network_rules.sql - Create network rules and access integration"
+    )
+    click.echo("   c. 02_datahub_udfs.sql - Create DataHub API UDFs")
+    click.echo("   d. 03_stored_procedure.sql - Create SQL execution procedure")
+    click.echo("   e. 04_cortex_agent.sql - Create the Cortex Agent")
+    click.echo("3. Test your agent in Snowflake Intelligence UI")
+    click.echo("\nNote: The UDFs use Snowflake secrets for secure credential storage.")
+    click.echo(
+        "\nTip: Use --execute flag to automatically run these scripts in Snowflake"
+    )
+    click.echo(
+        "     For SSO authentication, use: --execute --sf-authenticator=externalbrowser"
+    )
 
 
 if __name__ == "__main__":

@@ -74,26 +74,25 @@ This will open your browser for SSO authentication. Ideal for organizations usin
 
 ## Options
 
-| Option                  | Description                                                                                      | Default                                             |
-| ----------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
-| `--sf-account`          | Snowflake account identifier                                                                     | Required                                            |
-| `--sf-user`             | Snowflake user name                                                                              | Required                                            |
-| `--sf-role`             | Snowflake role                                                                                   | Required                                            |
-| `--sf-warehouse`        | Snowflake warehouse name                                                                         | Required                                            |
-| `--sf-database`         | Snowflake database name                                                                          | Required                                            |
-| `--sf-schema`           | Snowflake schema name                                                                            | Required                                            |
-| `--datahub-url`         | DataHub instance URL                                                                             | Required                                            |
-| `--datahub-token`       | DataHub Personal Access Token                                                                    | Required                                            |
-| `--datahub-ips`         | DataHub IP addresses for network rule                                                            | `('52.7.66.10', '44.217.146.124', '34.193.80.100')` |
-| `--agent-name`          | Agent name in Snowflake                                                                          | `DATAHUB_SQL_AGENT`                                 |
-| `--agent-display-name`  | Agent display name in UI                                                                         | `DataHub SQL Assistant`                             |
-| `--agent-color`         | Agent color in UI                                                                                | `blue`                                              |
-| `--output-dir`          | Output directory for SQL files                                                                   | `./snowflake_setup`                                 |
-| `--enable-mutations`    | Include mutation/write tools (tags, descriptions, owners, etc.)                                  | `True` (enabled)                                    |
-| `--no-enable-mutations` | Disable mutation tools (read-only mode with 9 UDFs instead of 20)                                | N/A                                                 |
-| `--execute`             | Execute scripts directly                                                                         | `False`                                             |
-| `--sf-password`         | Snowflake password (required if --execute is used with `snowflake` authenticator)                | None                                                |
-| `--sf-authenticator`    | Authentication method: `snowflake` (password), `externalbrowser` (SSO), or `oauth` (token-based) | `snowflake`                                         |
+| Option                  | Description                                                                                      | Default                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------ | ----------------------- |
+| `--sf-account`          | Snowflake account identifier                                                                     | Required                |
+| `--sf-user`             | Snowflake user name                                                                              | Required                |
+| `--sf-role`             | Snowflake role                                                                                   | Required                |
+| `--sf-warehouse`        | Snowflake warehouse name                                                                         | Required                |
+| `--sf-database`         | Snowflake database name                                                                          | Required                |
+| `--sf-schema`           | Snowflake schema name                                                                            | Required                |
+| `--datahub-url`         | DataHub instance URL                                                                             | Required                |
+| `--datahub-token`       | DataHub Personal Access Token                                                                    | Required                |
+| `--agent-name`          | Agent name in Snowflake                                                                          | `DATAHUB_SQL_AGENT`     |
+| `--agent-display-name`  | Agent display name in UI                                                                         | `DataHub SQL Assistant` |
+| `--agent-color`         | Agent color in UI                                                                                | `blue`                  |
+| `--output-dir`          | Output directory for SQL files                                                                   | `./snowflake_setup`     |
+| `--enable-mutations`    | Include mutation/write tools (tags, descriptions, owners, etc.)                                  | `True` (enabled)        |
+| `--no-enable-mutations` | Disable mutation tools (read-only mode with 9 UDFs instead of 20)                                | N/A                     |
+| `--execute`             | Execute scripts directly                                                                         | `False`                 |
+| `--sf-password`         | Snowflake password (required if --execute is used with `snowflake` authenticator)                | None                    |
+| `--sf-authenticator`    | Authentication method: `snowflake` (password), `externalbrowser` (SSO), or `oauth` (token-based) | `snowflake`             |
 
 ## Authentication Methods
 

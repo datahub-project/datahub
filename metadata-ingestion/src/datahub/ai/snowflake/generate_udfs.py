@@ -50,6 +50,42 @@ from datahub.ai.snowflake.udfs.update_description import (
 logger = logging.getLogger(__name__)
 
 
+def extract_function_signature(udf_sql: str) -> str:
+    """Extract function parameter signature from UDF SQL.
+
+    Args:
+        udf_sql: The SQL CREATE FUNCTION statement
+
+    Returns:
+        String of Snowflake parameter types (e.g., "STRING, NUMBER")
+        Empty string if function has no parameters
+    """
+    import re
+
+    # Match the function parameters between parentheses
+    # The SQL format is: CREATE OR REPLACE FUNCTION name(params) RETURNS ...
+    match = re.search(r"FUNCTION\s+\w+\s*\((.*?)\)\s*RETURNS", udf_sql, re.DOTALL)
+    if not match:
+        return ""
+
+    params_str = match.group(1).strip()
+    if not params_str:
+        return ""
+
+    # Extract just the types (STRING, NUMBER, etc.)
+    # Parameter format is: param_name TYPE
+    param_types = []
+    for param in params_str.split(","):
+        param = param.strip()
+        if param:
+            # Split on whitespace and take the last part (the type)
+            parts = param.split()
+            if len(parts) >= 2:
+                param_types.append(parts[-1])
+
+    return ", ".join(param_types) if param_types else ""
+
+
 def generate_all_udfs(include_mutations: bool = True) -> dict[str, str]:
     """Generate all DataHub UDFs from datahub-agent-context tools.
 
@@ -118,9 +154,13 @@ def generate_datahub_udfs_sql(include_mutations: bool = True) -> str:
     Args:
         include_mutations: Whether to include mutation/write tools (default: True)
     """
+    # Generate read-only UDFs first to get count
+    read_only_udfs = generate_all_udfs(include_mutations=False)
+    read_ops_count = len(read_only_udfs)
+
+    # Generate all UDFs (read + write if enabled)
     all_udfs = generate_all_udfs(include_mutations=include_mutations)
     total_udfs = len(all_udfs)
-    read_ops_count = 9
     write_ops_count = total_udfs - read_ops_count
 
     udf_sections = []
@@ -134,72 +174,11 @@ def generate_datahub_udfs_sql(include_mutations: bool = True) -> str:
 -- ============================================================================
 {udf_sql}""")
 
-        # Generate GRANT statement based on function signature
-        if function_name == "GET_ME":
-            grant_statements.append(
-                f"GRANT USAGE ON FUNCTION {function_name}() TO ROLE IDENTIFIER($SF_ROLE);"
-            )
-        elif function_name in [
-            "GET_ENTITIES",
-            "REMOVE_DOMAINS",
-        ]:
-            grant_statements.append(
-                f"GRANT USAGE ON FUNCTION {function_name}(STRING) TO ROLE IDENTIFIER($SF_ROLE);"
-            )
-        elif function_name == "SEARCH_DATAHUB":
-            grant_statements.append(
-                f"GRANT USAGE ON FUNCTION {function_name}(STRING, STRING) TO ROLE IDENTIFIER($SF_ROLE);"
-            )
-        elif function_name == "SEARCH_DOCUMENTS":
-            grant_statements.append(
-                f"GRANT USAGE ON FUNCTION {function_name}(STRING, NUMBER) TO ROLE IDENTIFIER($SF_ROLE);"
-            )
-        elif function_name == "SET_DOMAINS":
-            grant_statements.append(
-                f"GRANT USAGE ON FUNCTION {function_name}(STRING, STRING) TO ROLE IDENTIFIER($SF_ROLE);"
-            )
-        elif function_name == "LIST_SCHEMA_FIELDS":
-            grant_statements.append(
-                f"GRANT USAGE ON FUNCTION {function_name}(STRING, STRING, NUMBER) TO ROLE IDENTIFIER($SF_ROLE);"
-            )
-        elif function_name in [
-            "ADD_TAGS",
-            "REMOVE_TAGS",
-            "ADD_GLOSSARY_TERMS",
-            "REMOVE_GLOSSARY_TERMS",
-            "ADD_OWNERS",
-            "REMOVE_OWNERS",
-        ]:
-            grant_statements.append(
-                f"GRANT USAGE ON FUNCTION {function_name}(STRING, STRING, STRING) TO ROLE IDENTIFIER($SF_ROLE);"
-            )
-        elif function_name in [
-            "ADD_STRUCTURED_PROPERTIES",
-            "REMOVE_STRUCTURED_PROPERTIES",
-        ]:
-            grant_statements.append(
-                f"GRANT USAGE ON FUNCTION {function_name}(STRING, STRING) TO ROLE IDENTIFIER($SF_ROLE);"
-            )
-        elif function_name == "UPDATE_DESCRIPTION":
-            grant_statements.append(
-                f"GRANT USAGE ON FUNCTION {function_name}(STRING, STRING, STRING, STRING) TO ROLE IDENTIFIER($SF_ROLE);"
-            )
-        elif function_name == "GET_DATASET_QUERIES":
-            grant_statements.append(
-                f"GRANT USAGE ON FUNCTION {function_name}(STRING, STRING, STRING, NUMBER) TO ROLE IDENTIFIER($SF_ROLE);"
-            )
-        elif function_name == "GREP_DOCUMENTS":
-            grant_statements.append(
-                f"GRANT USAGE ON FUNCTION {function_name}(STRING, STRING, NUMBER, NUMBER) TO ROLE IDENTIFIER($SF_ROLE);"
-            )
-        elif function_name == "GET_LINEAGE":
-            grant_statements.append(
-                f"GRANT USAGE ON FUNCTION {function_name}(STRING, STRING, NUMBER, NUMBER, NUMBER) TO ROLE IDENTIFIER($SF_ROLE);"
-            )
-        elif function_name == "GET_LINEAGE_PATHS_BETWEEN":
-            grant_statements.append(
-                f"GRANT USAGE ON FUNCTION {function_name}(STRING, STRING, STRING, STRING) TO ROLE IDENTIFIER($SF_ROLE);"
-            )
+        # Generate GRANT statement based on function signature extracted from SQL
+        signature = extract_function_signature(udf_sql)
+        grant_statements.append(
+            f"GRANT USAGE ON FUNCTION {function_name}({signature}) TO ROLE IDENTIFIER($SF_ROLE);"
+        )
 
         show_statements.append(f"SHOW FUNCTIONS LIKE '{function_name}';")
         function_list.append(

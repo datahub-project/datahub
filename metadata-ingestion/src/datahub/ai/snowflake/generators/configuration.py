@@ -10,14 +10,18 @@ def generate_configuration_sql(
     sf_schema: str | None,
     datahub_url: str,
     datahub_token: str,
-    datahub_ips: str,
     agent_name: str,
     agent_display_name: str,
     agent_color: str,
+    execute: bool = False,
 ) -> str:
     """Generate configuration SQL based on provided parameters.
 
     If parameters are None, uses Snowflake SQL functions to auto-detect values.
+    In non-execute mode, uses placeholder for token for security.
+
+    Args:
+        execute: If True, includes actual token. If False, uses placeholder.
     """
     # Use SQL functions for auto-detection when values are not provided
     account_value = f"'{sf_account}'" if sf_account else "CURRENT_ACCOUNT()"
@@ -26,6 +30,9 @@ def generate_configuration_sql(
     warehouse_value = f"'{sf_warehouse}'" if sf_warehouse else "CURRENT_WAREHOUSE()"
     database_value = f"'{sf_database}'" if sf_database else "CURRENT_DATABASE()"
     schema_value = f"'{sf_schema}'" if sf_schema else "CURRENT_SCHEMA()"
+
+    # Use placeholder for token in non-execute mode for security
+    token_value = datahub_token if execute else "<DATAHUB_TOKEN>"
 
     return f"""-- ============================================================================
 -- CONFIGURATION FILE - Customize these values for your environment
@@ -80,7 +87,7 @@ CREATE OR REPLACE SECRET datahub_url
 
 CREATE OR REPLACE SECRET datahub_token
   TYPE = GENERIC_STRING
-  SECRET_STRING = '{datahub_token}';
+  SECRET_STRING = '{token_value}';
 
 -- ============================================================================
 -- AGENT CONFIGURATION
