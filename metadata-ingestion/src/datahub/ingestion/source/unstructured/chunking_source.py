@@ -13,11 +13,10 @@ which generates a single embedding for the entire document.
 import hashlib
 import json
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Optional
-
-import litellm
+from typing import TYPE_CHECKING, Any, Iterable, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -27,7 +26,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import CapabilityReport, Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
@@ -36,9 +35,13 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     get_semantic_search_config,
 )
 
+if TYPE_CHECKING:
+    from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
+
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class DocumentChunkingReport(SourceReport):
     """Report for document chunking source."""
 
@@ -48,7 +51,13 @@ class DocumentChunkingReport(SourceReport):
     num_documents_skipped_unchanged: int = 0
     num_chunks_created: int = 0
     num_embeddings_generated: int = 0
-    processing_errors: list[str] = []
+    processing_errors: list[str] = field(default_factory=list)
+
+    # Embedding statistics
+    num_documents_with_embeddings: int = 0
+    num_documents_without_embeddings: int = 0
+    num_embedding_failures: int = 0
+    embedding_failures: list[str] = field(default_factory=list)
 
     def report_document_fetched(self) -> None:
         self.num_documents_fetched += 1
@@ -69,6 +78,15 @@ class DocumentChunkingReport(SourceReport):
 
     def report_error(self, error: str) -> None:
         self.processing_errors.append(error)
+
+    def report_embedding_success(self) -> None:
+        """Track successful embedding generation."""
+        self.num_documents_with_embeddings += 1
+
+    def report_embedding_failure(self, document_urn: str, error: str) -> None:
+        """Track embedding generation failure."""
+        self.num_embedding_failures += 1
+        self.embedding_failures.append(f"{document_urn}: {error}")
 
 
 @platform_name("DataHub")
@@ -111,167 +129,11 @@ class DocumentChunkingSource(Source):
             # Inline mode: use parent's graph connection if provided
             self.graph = graph
 
-        # Auto-configure embedding if not explicitly set
+        # Auto-configure embedding using shared resolution logic
         self.embedding_model: Optional[str] = None
-
-        # Check if user provided any embedding configuration
-        if not self.config.embedding.has_local_config():
-            # No local config provided - try server first, then use defaults
-            if self.graph:
-                try:
-                    logger.info(
-                        "No embedding provider configured - loading from DataHub server..."
-                    )
-                    server_config = get_semantic_search_config(self.graph)
-
-                    if (
-                        server_config
-                        and server_config.enabled
-                        and server_config.embedding_config
-                    ):
-                        logger.info(
-                            f"Loaded embedding config from server: {server_config.embedding_config.provider} / {server_config.embedding_config.model_id}"
-                        )
-
-                        # Preserve any local credentials (api_key) that user may have set
-                        local_api_key = self.config.embedding.api_key
-
-                        from datahub.ingestion.source.unstructured.chunking_config import (
-                            EmbeddingConfig,
-                        )
-
-                        self.config.embedding = EmbeddingConfig.from_server(
-                            server_config.embedding_config,
-                            api_key=local_api_key,
-                        )
-
-                        logger.info(
-                            "✓ Loaded embedding configuration from server"
-                            f"\n  Provider: {server_config.embedding_config.provider}"
-                            f"\n  Model: {server_config.embedding_config.model_id}"
-                            f"\n  Model Embedding Key: {server_config.embedding_config.model_embedding_key}"
-                            f"\n  AWS Region: {server_config.embedding_config.aws_region or 'N/A'}"
-                        )
-                    else:
-                        # Server doesn't have semantic search enabled - use defaults
-                        logger.info(
-                            "Semantic search not enabled on server - using default client-side embedding config (Bedrock/Cohere)"
-                        )
-                        from datahub.ingestion.source.unstructured.chunking_config import (
-                            EmbeddingConfig,
-                        )
-
-                        self.config.embedding = EmbeddingConfig.get_default_config()
-
-                        logger.info(
-                            "✓ Using default embedding configuration"
-                            f"\n  Provider: {self.config.embedding.provider}"
-                            f"\n  Model: {self.config.embedding.model}"
-                            f"\n  AWS Region: {self.config.embedding.aws_region}"
-                        )
-
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to load embedding config from server: {e}. Using default client-side embedding config."
-                    )
-                    from datahub.ingestion.source.unstructured.chunking_config import (
-                        EmbeddingConfig,
-                    )
-
-                    self.config.embedding = EmbeddingConfig.get_default_config()
-
-                    logger.info(
-                        "✓ Using default embedding configuration"
-                        f"\n  Provider: {self.config.embedding.provider}"
-                        f"\n  Model: {self.config.embedding.model}"
-                        f"\n  AWS Region: {self.config.embedding.aws_region}"
-                    )
-            else:
-                # No graph available - use defaults
-                logger.info(
-                    "No DataHub server connection available - using default client-side embedding config"
-                )
-                from datahub.ingestion.source.unstructured.chunking_config import (
-                    EmbeddingConfig,
-                )
-
-                self.config.embedding = EmbeddingConfig.get_default_config()
-
-                logger.info(
-                    "✓ Using default embedding configuration"
-                    f"\n  Provider: {self.config.embedding.provider}"
-                    f"\n  Model: {self.config.embedding.model}"
-                    f"\n  AWS Region: {self.config.embedding.aws_region}"
-                )
-
-        # If local config is provided, validate against server (unless break-glass mode)
-        elif self.config.embedding.provider is not None:
-            if not self.config.embedding.allow_local_embedding_config and self.graph:
-                logger.info("Loading embedding configuration from DataHub server...")
-
-                try:
-                    server_config = get_semantic_search_config(self.graph)
-
-                    # Check if semantic search is enabled
-                    if not server_config.enabled:
-                        raise ValueError(
-                            "Semantic search is not enabled on the DataHub server. "
-                            "Cannot proceed with embedding generation. "
-                            "Please enable semantic search in the server's application.yml configuration."
-                        )
-
-                    # Validate local config matches server
-                    logger.info(
-                        "Validating local embedding configuration against server..."
-                    )
-
-                    self.config.embedding.validate_against_server(
-                        server_config.embedding_config
-                    )
-
-                    logger.info(
-                        "✓ Local embedding configuration validated successfully"
-                        f"\n  Provider: {server_config.embedding_config.provider}"
-                        f"\n  Model: {server_config.embedding_config.model_id}"
-                    )
-
-                except Exception as e:
-                    # Check if this is an old server that doesn't support semantic search config API
-                    is_old_server = (
-                        "does not expose semantic search configuration" in str(e)
-                    )
-
-                    if is_old_server:
-                        # Backward compatibility: Old server + local config provided
-                        logger.warning(
-                            f"⚠️  Server does not support semantic search configuration API (likely older version). "
-                            f"Falling back to local embedding configuration.\n"
-                            f"  Provider: {self.config.embedding.provider}\n"
-                            f"  Model: {self.config.embedding.model}\n"
-                            f"  AWS Region: {self.config.embedding.aws_region or 'N/A'}\n\n"
-                            f"Note: Semantic search on the server may not work if the configuration doesn't match. "
-                            f"Consider upgrading to DataHub v0.14.0+ for automatic configuration sync."
-                        )
-                        # Continue with local config (don't raise)
-                    else:
-                        # Other error (semantic search disabled, validation failed, etc.)
-                        logger.error(
-                            f"Failed to load/validate embedding configuration from server: {e}"
-                        )
-                        raise ValueError(
-                            f"Cannot proceed with embedding generation - server configuration failed.\n"
-                            f"Error: {e}\n\n"
-                            f"To bypass server validation (NOT RECOMMENDED), set:\n"
-                            f"  embedding:\n"
-                            f"    allow_local_embedding_config: true"
-                        ) from e
-
-            else:
-                logger.warning(
-                    "⚠️  WARNING: Server validation is disabled (allow_local_embedding_config=true). "
-                    "Proceeding with local embedding configuration. "
-                    "This may cause semantic search to fail if configuration doesn't match the server."
-                )
+        self.config.embedding = DocumentChunkingSource.resolve_embedding_config(
+            self.config.embedding, self.graph
+        )
 
         # At this point, embedding config should be fully resolved
         if self.config.embedding.provider is None:
@@ -279,12 +141,22 @@ class DocumentChunkingSource(Source):
                 "No embedding provider configured - skipping embedding generation"
             )
         else:
+            try:
+                import litellm  # Lazy import to avoid ModuleNotFoundError during tests
+            except ModuleNotFoundError:
+                # litellm not installed - will fail later if embeddings are actually generated
+                logger.debug(
+                    "litellm not installed - embedding generation will fail if attempted"
+                )
+                litellm = None  # type: ignore
+
             # Initialize embedding model name for litellm
             if self.config.embedding.provider == "bedrock":
                 # Prefix with bedrock/ for litellm
                 assert self.config.embedding.model is not None
                 self.embedding_model = f"bedrock/{self.config.embedding.model}"
-                litellm.set_verbose = False  # Reduce litellm logging
+                if litellm is not None:
+                    litellm.set_verbose = False  # Reduce litellm logging
             elif self.config.embedding.provider == "cohere":
                 # Prefix with cohere/ for litellm
                 model_name = self.config.embedding.model
@@ -328,38 +200,47 @@ class DocumentChunkingSource(Source):
         Yields:
             MetadataWorkUnits containing SemanticContent aspects
         """
-        try:
-            if not elements:
-                logger.warning(f"No elements provided for document {document_urn}")
-                return
+        if not elements:
+            logger.warning(f"No elements provided for document {document_urn}")
+            return
 
-            # Chunk the elements
-            chunks = self._chunk_elements(elements)
-            if not chunks:
-                logger.warning(f"No chunks created for document {document_urn}")
-                return
+        # Chunk the elements
+        chunks = self._chunk_elements(elements)
+        if not chunks:
+            logger.warning(f"No chunks created for document {document_urn}")
+            return
 
-            # Generate embeddings (only if configured)
-            embeddings = []
-            if self.embedding_model:
+        # Generate embeddings (only if configured)
+        embeddings = []
+        if self.embedding_model:
+            try:
                 embeddings = self._generate_embeddings(chunks)
-            else:
-                logger.debug(
-                    f"Skipping embedding generation for {document_urn} - no embedding provider configured"
+                self.report.report_embedding_success()
+            except Exception as e:
+                # Embedding generation failed - document still ingested but no search capability
+                short_error = str(e).split("\n")[0][:200]  # First line, max 200 chars
+
+                self.report.report_embedding_failure(document_urn, short_error)
+
+                # Report as warning so it appears in pipeline summary
+                self.report.report_warning(
+                    title="Embedding generation failed",
+                    message="Document was ingested successfully but embedding generation failed. Semantic search will not work for this document.",
+                    context=f"{document_urn}: {short_error}",
+                    exc=e,
                 )
+                # Don't re-raise - allow document to be processed without embeddings
+        else:
+            logger.debug(
+                f"Skipping embedding generation for {document_urn} - no embedding provider configured"
+            )
 
-            # Emit SemanticContent aspect (only if embeddings were generated)
-            if embeddings:
-                yield from self._emit_semantic_content(document_urn, chunks, embeddings)
+        # Emit SemanticContent aspect (only if embeddings were generated)
+        if embeddings:
+            yield from self._emit_semantic_content(document_urn, chunks, embeddings)
 
-            self.report.report_document_processed(len(chunks))
-            self.report.report_embeddings_generated(len(embeddings))
-
-        except Exception as e:
-            error_msg = f"Failed to process elements inline for {document_urn}: {e}"
-            logger.error(error_msg, exc_info=True)
-            self.report.report_error(error_msg)
-            # Don't re-raise - allow document to be ingested even if embedding fails
+        self.report.report_document_processed(len(chunks))
+        self.report.report_embeddings_generated(len(embeddings))
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Fetch documents, chunk them, generate embeddings, and emit SemanticContent."""
@@ -629,14 +510,33 @@ class DocumentChunkingSource(Source):
             # Generate embeddings (only if configured)
             embeddings = []
             if self.embedding_model:
-                embeddings = self._generate_embeddings(chunks)
+                try:
+                    embeddings = self._generate_embeddings(chunks)
+                    self.report.report_embedding_success()
+                except Exception as e:
+                    # Embedding generation failed - document still processed but no search capability
+                    short_error = str(e).split("\n")[0][
+                        :200
+                    ]  # First line, max 200 chars
+
+                    self.report.report_embedding_failure(doc["urn"], short_error)
+
+                    # Report as warning so it appears in pipeline summary
+                    self.report.report_warning(
+                        title="Embedding generation failed",
+                        message="Document was ingested successfully but embedding generation failed. Semantic search will not work for this document.",
+                        context=f"{doc['urn']}: {short_error}",
+                        exc=e,
+                    )
+                    # Don't re-raise - allow document to be processed without embeddings
             else:
                 logger.debug(
                     f"Skipping embedding generation for {doc['urn']} - no embedding provider configured"
                 )
 
-            # Emit SemanticContent aspect to DataHub
-            yield from self._emit_semantic_content(doc["urn"], chunks, embeddings)
+            # Emit SemanticContent aspect to DataHub (only if embeddings were generated)
+            if embeddings:
+                yield from self._emit_semantic_content(doc["urn"], chunks, embeddings)
 
             self.report.report_document_processed(len(chunks))
             self.report.report_embeddings_generated(len(embeddings))
@@ -792,6 +692,14 @@ class DocumentChunkingSource(Source):
 
     def _generate_embeddings(self, chunks: list[dict[str, Any]]) -> list[list[float]]:
         """Generate embeddings using litellm (supports Bedrock and Cohere)."""
+        try:
+            import litellm
+        except ModuleNotFoundError as e:
+            raise ModuleNotFoundError(
+                "litellm is required for embedding generation. "
+                "Install with: pip install 'acryl-datahub[unstructured-embedding]'"
+            ) from e
+
         # Extract text from chunks
         texts = [chunk.get("text", "") for chunk in chunks]
 
@@ -902,6 +810,326 @@ class DocumentChunkingSource(Source):
         )
 
         yield workunit
+
+    @staticmethod
+    def resolve_embedding_config(
+        embedding_config: "EmbeddingConfig",
+        graph: Optional[DataHubGraph] = None,
+    ) -> "EmbeddingConfig":
+        """Resolve embedding configuration using server-first, then defaults logic.
+
+        This is the shared logic used by both actual ingestion (__init__) and
+        test_connection to ensure consistent behavior.
+
+        Resolution order:
+        1. If explicit local config provided: return it (optionally validate vs server)
+        2. If not: try to load from DataHub server
+        3. If server unreachable or not configured: use defaults
+
+        Args:
+            embedding_config: Initial embedding configuration from recipe
+            graph: Optional DataHubGraph for querying server config
+
+        Returns:
+            Resolved EmbeddingConfig ready for use
+
+        Raises:
+            ValueError: If local config validation fails (unless allow_local_embedding_config=true)
+        """
+        from datahub.ingestion.source.unstructured.chunking_config import (
+            EmbeddingConfig,
+        )
+
+        # Check if user provided explicit embedding configuration
+        if embedding_config.has_local_config():
+            # Explicit config provided - validate against server if available
+            if not embedding_config.allow_local_embedding_config and graph:
+                logger.info("Loading embedding configuration from DataHub server...")
+
+                try:
+                    server_config = get_semantic_search_config(graph)
+
+                    # Check if semantic search is enabled
+                    if not server_config.enabled:
+                        raise ValueError(
+                            "Semantic search is not enabled on the DataHub server. "
+                            "Cannot proceed with embedding generation. "
+                            "Please enable semantic search in the server's application.yml configuration."
+                        )
+
+                    # Validate local config matches server
+                    logger.info(
+                        "Validating local embedding configuration against server..."
+                    )
+
+                    embedding_config.validate_against_server(
+                        server_config.embedding_config
+                    )
+
+                    logger.info(
+                        "✓ Local embedding configuration validated successfully"
+                        f"\n  Provider: {server_config.embedding_config.provider}"
+                        f"\n  Model: {server_config.embedding_config.model_id}"
+                    )
+
+                except Exception as e:
+                    # Check if this is an old server that doesn't support semantic search config API
+                    is_old_server = (
+                        "does not expose semantic search configuration" in str(e)
+                    )
+
+                    if is_old_server:
+                        # Backward compatibility: Old server + local config provided
+                        logger.warning(
+                            f"⚠️  Server does not support semantic search configuration API (likely older version). "
+                            f"Falling back to local embedding configuration.\n"
+                            f"  Provider: {embedding_config.provider}\n"
+                            f"  Model: {embedding_config.model}\n"
+                            f"  AWS Region: {embedding_config.aws_region or 'N/A'}\n\n"
+                            f"Note: Semantic search on the server may not work if the configuration doesn't match. "
+                            f"Consider upgrading to DataHub v0.14.0+ for automatic configuration sync."
+                        )
+                        # Continue with local config (don't raise)
+                    else:
+                        # Other error (semantic search disabled, validation failed, etc.)
+                        logger.error(
+                            f"Failed to load/validate embedding configuration from server: {e}"
+                        )
+                        raise ValueError(
+                            f"Cannot proceed with embedding generation - server configuration failed.\n"
+                            f"Error: {e}\n\n"
+                            f"To bypass server validation (NOT RECOMMENDED), set:\n"
+                            f"  embedding:\n"
+                            f"    allow_local_embedding_config: true"
+                        ) from e
+
+            else:
+                logger.warning(
+                    "⚠️  WARNING: Server validation is disabled (allow_local_embedding_config=true). "
+                    "Proceeding with local embedding configuration. "
+                    "This may cause semantic search to fail if configuration doesn't match the server."
+                )
+
+            return embedding_config
+
+        # No explicit config - try server first, then defaults
+        if graph:
+            try:
+                logger.info(
+                    "No embedding provider configured - loading from DataHub server..."
+                )
+                server_config = get_semantic_search_config(graph)
+
+                if (
+                    server_config
+                    and server_config.enabled
+                    and server_config.embedding_config
+                ):
+                    logger.info(
+                        f"Loaded embedding config from server: {server_config.embedding_config.provider} / {server_config.embedding_config.model_id}"
+                    )
+                    # Preserve any local credentials (api_key) that user may have set
+                    local_api_key = embedding_config.api_key
+                    resolved = EmbeddingConfig.from_server(
+                        server_config.embedding_config,
+                        api_key=local_api_key,
+                    )
+                    logger.info(
+                        "✓ Loaded embedding configuration from server"
+                        f"\n  Provider: {server_config.embedding_config.provider}"
+                        f"\n  Model: {server_config.embedding_config.model_id}"
+                        f"\n  Model Embedding Key: {server_config.embedding_config.model_embedding_key}"
+                        f"\n  AWS Region: {server_config.embedding_config.aws_region or 'N/A'}"
+                    )
+                    return resolved
+                else:
+                    # Server doesn't have semantic search enabled - use defaults
+                    logger.info(
+                        "Semantic search not enabled on server - using default client-side embedding config (Bedrock/Cohere)"
+                    )
+                    default_config = EmbeddingConfig.get_default_config()
+                    logger.info(
+                        "✓ Using default embedding configuration"
+                        f"\n  Provider: {default_config.provider}"
+                        f"\n  Model: {default_config.model}"
+                        f"\n  AWS Region: {default_config.aws_region}"
+                    )
+                    return default_config
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load embedding config from server: {e}. Using default client-side embedding config."
+                )
+                default_config = EmbeddingConfig.get_default_config()
+                logger.info(
+                    "✓ Using default embedding configuration"
+                    f"\n  Provider: {default_config.provider}"
+                    f"\n  Model: {default_config.model}"
+                    f"\n  AWS Region: {default_config.aws_region}"
+                )
+                return default_config
+        else:
+            # No graph available - use defaults
+            logger.info(
+                "No DataHub server connection available - using default client-side embedding config"
+            )
+            default_config = EmbeddingConfig.get_default_config()
+            logger.info(
+                "✓ Using default embedding configuration"
+                f"\n  Provider: {default_config.provider}"
+                f"\n  Model: {default_config.model}"
+                f"\n  AWS Region: {default_config.aws_region}"
+            )
+            return default_config
+
+    @staticmethod
+    def test_embedding_capability(
+        embedding_config: "EmbeddingConfig",
+    ) -> CapabilityReport:
+        """Test if embedding generation will work with the provided configuration.
+
+        This tests the actual embedding API connection by generating a test embedding.
+        Used by sources (like Notion) to validate semantic search capability during test_connection.
+
+        Args:
+            embedding_config: The embedding configuration to test
+
+        Returns:
+            CapabilityReport indicating if embedding generation is capable
+        """
+        # Check if embedding config is provided and enabled
+        if not embedding_config or not embedding_config.provider:
+            return CapabilityReport(
+                capable=False,
+                failure_reason="Embedding configuration not provided",
+                mitigation_message="Configure embedding provider (bedrock or cohere) to enable semantic search. "
+                "See https://datahubproject.io/docs/semantic-search/",
+            )
+
+        try:
+            # Try to import litellm
+            try:
+                import litellm
+            except ModuleNotFoundError:
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason="litellm package not installed",
+                    mitigation_message="Install litellm: pip install 'acryl-datahub[unstructured-embedding]'",
+                )
+
+            # Determine embedding model name for litellm
+            if embedding_config.provider == "bedrock":
+                if not embedding_config.model:
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason="Bedrock model not specified in embedding config",
+                        mitigation_message="Set embedding.model to a valid Bedrock model (e.g., 'amazon.titan-embed-text-v1')",
+                    )
+                embedding_model = f"bedrock/{embedding_config.model}"
+                litellm.set_verbose = False
+
+            elif embedding_config.provider == "cohere":
+                if not embedding_config.model:
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason="Cohere model not specified in embedding config",
+                        mitigation_message="Set embedding.model to a valid Cohere model (e.g., 'embed-english-v3.0')",
+                    )
+
+                model_name = embedding_config.model
+                if not model_name.startswith("cohere/"):
+                    model_name = f"cohere/{model_name}"
+                embedding_model = model_name
+
+                if not embedding_config.api_key:
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason="Cohere API key not provided",
+                        mitigation_message="Set embedding.api_key to your Cohere API key. "
+                        "Get one at https://dashboard.cohere.com/api-keys",
+                    )
+            else:
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason=f"Unsupported embedding provider: {embedding_config.provider}",
+                    mitigation_message="Supported providers: 'bedrock', 'cohere'",
+                )
+
+            # Test embedding generation with a simple text
+            test_text = "DataHub semantic search test"
+
+            try:
+                response = litellm.embedding(
+                    model=embedding_model,
+                    input=[test_text],
+                    api_key=embedding_config.api_key,
+                    aws_region_name=embedding_config.aws_region,
+                )
+
+                # Verify we got an embedding back
+                if not response or not response.data or len(response.data) == 0:
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason="Embedding API returned empty response",
+                        mitigation_message="Check your embedding configuration and API credentials",
+                    )
+
+                embedding = response.data[0]["embedding"]
+                embedding_dim = len(embedding)
+
+                # Success! Embedding generation works
+                return CapabilityReport(
+                    capable=True,
+                    mitigation_message=f"Semantic search enabled: {embedding_config.provider}/{embedding_config.model} "
+                    f"(dimension: {embedding_dim}). Documents will be searchable in DataHub.",
+                )
+
+            except Exception as e:
+                # Parse error message for common issues
+                error_str = str(e)
+                error_class = e.__class__.__name__
+
+                # Provide specific guidance for common errors
+                if "AuthFailure" in error_str or "InvalidClientTokenId" in error_str:
+                    mitigation = (
+                        "AWS credentials not configured or invalid. "
+                        "Ensure AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY are set, "
+                        "or IAM role is properly configured."
+                    )
+                elif "invalid_api_key" in error_str or "Unauthorized" in error_str:
+                    mitigation = (
+                        "Invalid API key. "
+                        "Check your Cohere API key at https://dashboard.cohere.com/api-keys"
+                    )
+                elif "ValidationException" in error_str:
+                    mitigation = (
+                        "Invalid model or parameters. "
+                        f"Check that model '{embedding_config.model}' is valid for {embedding_config.provider}."
+                    )
+                elif "AccessDeniedException" in error_str:
+                    mitigation = (
+                        "AWS IAM permissions missing. "
+                        "Ensure your AWS credentials have 'bedrock:InvokeModel' permission."
+                    )
+                elif (
+                    "rate_limit" in error_str.lower() or "throttl" in error_str.lower()
+                ):
+                    mitigation = "Rate limit exceeded. Try again in a few moments or increase your API quota."
+                else:
+                    mitigation = f"Check your {embedding_config.provider} configuration and credentials."
+
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason=f"Embedding generation failed: {error_class}: {error_str[:200]}",
+                    mitigation_message=mitigation,
+                )
+
+        except Exception as e:
+            return CapabilityReport(
+                capable=False,
+                failure_reason=f"Unexpected error testing embeddings: {e}",
+                mitigation_message="Check logs for more details",
+            )
 
     def get_report(self) -> SourceReport:
         return self.report

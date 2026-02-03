@@ -3,8 +3,6 @@
 import logging
 from typing import Any
 
-from unstructured.partition.md import partition_md
-
 logger = logging.getLogger(__name__)
 
 
@@ -26,6 +24,14 @@ class TextPartitioner:
         Raises:
             ImportError: If unstructured library is not installed
         """
+        try:
+            from unstructured.partition.md import partition_md
+        except ModuleNotFoundError as e:
+            raise ModuleNotFoundError(
+                "unstructured is required for text partitioning. "
+                "Install with: pip install 'acryl-datahub[unstructured]'"
+            ) from e
+
         # Handle empty text - return empty list
         # This avoids potential issues with empty input in various unstructured versions
         if not text or text.strip() == "":

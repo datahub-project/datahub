@@ -3988,6 +3988,26 @@
       "platform_id": "vertica",
       "platform_name": "Vertica",
       "support_status": "CERTIFIED"
+    },
+    "notion": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.notion.notion_source.NotionSource",
+      "platform_id": "notion",
+      "platform_name": "Notion",
+      "support_status": "INCUBATING"
     }
   }
 }
