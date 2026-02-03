@@ -46,6 +46,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - `browsePaths` aspect replaced with `browsePathsV2`
   - In `Dashboard` entitiy and `dashboardInfo` aspect, `charts` property (deprecated) is replaced with `chartEdges`
   - Only emits MCPs
+- #16023: In PowerBI, Container URNs change for users with `platform_instance` configured, as this PR now passes `platform_instance` to dataset containers (affects GUID generation). The `env` parameter addition is harmless as it's excluded from GUID calculation. Stateful ingestion will soft-delete old containers and create new ones on the next run. Dataset entities and their lineage are unaffected.
 
 ### Known Issues
 
@@ -53,8 +54,11 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
+- (CLI) The `--use-password` flag in `datahub init` command is deprecated. Token generation is now automatically detected when both `--username` and `--password` are provided together. The flag continues to work for backward compatibility but will be removed in a future release.
+
 ### Other Notable Changes
 
+- (Ingestion) BigQuery source: Improved `dataset_pattern` filtering to apply earlier in the ingestion pipeline, reducing unnecessary API calls to BigQuery for datasets that will be filtered out.
 - #15714: Kafka topic partition counts can now automatically be increased during upgrades if configured values exceed existing partition counts. Set `DATAHUB_AUTO_INCREASE_PARTITIONS=true` to enable.
 - (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.
 - #14968: Added an ingestion source for IBM Db2 databases.

@@ -52,6 +52,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_EXTERNAL_DATASET_URL_TEMPLATE,
     BQ_EXTERNAL_TABLE_URL_TEMPLATE,
+    BigQueryFilter,
     BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
@@ -219,6 +220,7 @@ class BigQuerySchemaGenerator:
         sql_parser_schema_resolver: SchemaResolver,
         profiler: BigqueryProfiler,
         identifiers: BigQueryIdentifierBuilder,
+        filters: BigQueryFilter,
         shard_matcher: BigQueryShardPatternMatcher,
         graph: Optional[DataHubGraph] = None,
     ):
@@ -229,6 +231,7 @@ class BigQuerySchemaGenerator:
         self.sql_parser_schema_resolver = sql_parser_schema_resolver
         self.profiler = profiler
         self.identifiers = identifiers
+        self.filters = filters
         self.shard_matcher = shard_matcher
         self.graph = graph
 
@@ -409,7 +412,10 @@ class BigQuerySchemaGenerator:
         project_id = bigquery_project.id
         try:
             bigquery_project.datasets = self.schema_api.get_datasets_for_project_id(
-                project_id
+                project_id,
+                dataset_filter=lambda dataset_name: self.filters.is_dataset_allowed(
+                    dataset_name=dataset_name, project_id=project_id
+                ),
             )
         except Exception as e:
             if self.config.project_ids and "not enabled BigQuery." in str(e):
@@ -419,8 +425,10 @@ class BigQuerySchemaGenerator:
                 )
             else:
                 action_mesage = (
-                    "Does your service account have `bigquery.datasets.get` permission ? "
-                    "Assign predefined role `roles/bigquery.metadataViewer` to your service account."
+                    "Does your service account have `bigquery.datasets.get` and "
+                    "INFORMATION_SCHEMA query permissions? "
+                    "Assign predefined role `roles/bigquery.metadataViewer` and ensure "
+                    "`bigquery.jobs.create` permission is granted."
                 )
 
             self.report.failure(

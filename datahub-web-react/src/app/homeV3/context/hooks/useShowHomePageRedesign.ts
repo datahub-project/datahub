@@ -23,7 +23,11 @@ function setShowHomePageRedesignLocalStorage(showHomePageRedesign: boolean) {
 const HOME_PAGE_REDESIGN_KEY = 'showHomePageRedesign';
 
 export function loadHomePageRedesignFromLocalStorage(): boolean {
-    return localStorage.getItem(HOME_PAGE_REDESIGN_KEY) === 'true';
+    const localStorageItem = localStorage.getItem(HOME_PAGE_REDESIGN_KEY);
+    if (localStorageItem === null) {
+        return true;
+    }
+    return localStorageItem === 'true';
 }
 
 function saveToLocalStorage(showHomePageRedesign: boolean) {
