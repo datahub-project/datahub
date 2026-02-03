@@ -1,0 +1,316 @@
+package com.linkedin.metadata.entity;
+
+import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.EntityAspect;
+import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.SystemAspectValidator;
+import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
+import com.linkedin.metadata.config.OversizedAspectRemediation;
+import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
+import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * Payload validator that validates aspect size after serialization but before database write.
+ * Throws AspectSizeExceededException if the aspect exceeds configured thresholds.
+ *
+ * <p>This validation applies to ALL aspect writes (REST, GraphQL, MCP), configured via
+ * datahub.validation.aspectSize.postPatch.
+ *
+ * <p><b>Why This Validator Exists:</b> This validator implements aspect size validation at zero
+ * performance cost by reusing serialization that is ALREADY REQUIRED before database writes.
+ * Aspects must be serialized to JSON before being written to the database - this is not optional.
+ * By implementing AspectPayloadValidator, we can inspect the already-serialized JSON string without
+ * introducing a second serialization into the hot path. Since JSON serialization is one of the most
+ * expensive parts of MCP processing, adding a second serialization just for size validation would
+ * effectively double this cost. The validator pattern makes size validation essentially free.
+ *
+ * <p><b>Why Size Validation is Necessary:</b> Oversized aspects have been observed in production
+ * databases, and any deployment can potentially create them. Without validation, aspects can grow
+ * beyond deserialization limits, causing unrecoverable failures when reading those aspects back.
+ * This validation provides a sanity check to prevent creating aspects that cannot be read later.
+ *
+ * <p><b>DELETE Remediation:</b> When DELETE remediation is configured, oversized aspects are
+ * collected in OperationContext during validation. After the database transaction commits,
+ * EntityServiceImpl processes these deletions through proper EntityService flow, ensuring all side
+ * effects are handled (Elasticsearch, graph, consumer hooks).
+ */
+@Slf4j
+public class AspectSizePayloadValidator implements SystemAspectValidator {
+
+  private final AspectSizeValidationConfiguration config;
+  private final MetricUtils metricUtils;
+  private final long[] sizeBucketBoundaries; // Primitive array for performance
+  private final String[] sizeBucketLabels; // Pre-computed labels (cached)
+
+  public AspectSizePayloadValidator(
+      @Nonnull AspectSizeValidationConfiguration config, @Nullable MetricUtils metricUtils) {
+    this.config = config;
+    this.metricUtils = metricUtils;
+
+    // Use configured buckets or default to 1MB, 5MB, 10MB, 15MB
+    java.util.List<Long> buckets =
+        (config.getMetrics() != null && config.getMetrics().getSizeBuckets() != null)
+            ? config.getMetrics().getSizeBuckets()
+            : java.util.Arrays.asList(1048576L, 5242880L, 10485760L, 15728640L);
+
+    // Convert to primitive array for performance (avoids boxing)
+    this.sizeBucketBoundaries = new long[buckets.size()];
+    for (int i = 0; i < buckets.size(); i++) {
+      this.sizeBucketBoundaries[i] = buckets.get(i);
+    }
+
+    // Pre-compute bucket labels to avoid string allocation in hot path
+    this.sizeBucketLabels = new String[buckets.size() + 1];
+    long prevBoundary = 0;
+    for (int i = 0; i < buckets.size(); i++) {
+      long boundary = buckets.get(i);
+      this.sizeBucketLabels[i] = formatBytes(prevBoundary) + "-" + formatBytes(boundary);
+      prevBoundary = boundary;
+    }
+    // Last label for sizes exceeding all boundaries
+    this.sizeBucketLabels[buckets.size()] = formatBytes(prevBoundary) + "+";
+  }
+
+  /**
+   * Categorize aspect size into buckets for distribution tracking. Optimized for hot path - uses
+   * pre-computed labels and primitive array to avoid allocations.
+   *
+   * @param bytes aspect size in bytes
+   * @return bucket label (e.g., "0-1MB", "1MB-5MB", "10MB-15MB", "15MB+")
+   */
+  private String getSizeBucket(long bytes) {
+    // Find first boundary that exceeds the size
+    for (int i = 0; i < sizeBucketBoundaries.length; i++) {
+      if (bytes < sizeBucketBoundaries[i]) {
+        return sizeBucketLabels[i];
+      }
+    }
+    // Size exceeds all boundaries - return last label
+    return sizeBucketLabels[sizeBucketBoundaries.length];
+  }
+
+  /**
+   * Format bytes as human-readable size for metric labels (e.g., 1048576 -> "1MB").
+   *
+   * <p>Note: We don't use {@link com.linkedin.metadata.search.utils.SizeUtils#formatBytes(long)}
+   * because its format ("2.5 MB" with spaces and decimals) is designed for user-facing output,
+   * while metric labels should be simple identifiers without spaces.
+   *
+   * @param bytes size in bytes
+   * @return formatted string (e.g., "512KB", "1MB", "5MB")
+   */
+  private static String formatBytes(long bytes) {
+    if (bytes == 0) return "0";
+    long mb = bytes / (1024 * 1024);
+    if (mb > 0) return mb + "MB";
+    long kb = bytes / 1024;
+    if (kb > 0) return kb + "KB";
+    return bytes + "B";
+  }
+
+  @Override
+  public void validatePrePatch(
+      @Nullable String rawMetadata,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      @Nullable Object operationContext) {
+
+    // Skip validation if this is a remediation deletion to avoid circular validation
+    if (operationContext instanceof io.datahubproject.metadata.context.OperationContext) {
+      io.datahubproject.metadata.context.OperationContext opContext =
+          (io.datahubproject.metadata.context.OperationContext) operationContext;
+      if (opContext.getValidationContext() != null
+          && opContext.getValidationContext().isRemediationDeletion()) {
+        log.debug(
+            "Skipping pre-patch size validation for remediation deletion: urn={}, aspect={}",
+            urn,
+            aspectName);
+        return;
+      }
+    }
+
+    // Validation disabled
+    if (config.getPrePatch() == null || !config.getPrePatch().isEnabled()) {
+      return;
+    }
+
+    // No metadata to validate (new aspect)
+    if (rawMetadata == null) {
+      return;
+    }
+
+    long actualSize = rawMetadata.length();
+    long threshold = config.getPrePatch().getMaxSizeBytes();
+
+    // Emit bucketed counter for size distribution tracking
+    if (metricUtils != null) {
+      metricUtils.incrementMicrometer(
+          "aspectSizeValidation.prePatch.sizeDistribution",
+          1,
+          "aspectName",
+          aspectName,
+          "sizeBucket",
+          getSizeBucket(actualSize));
+    }
+
+    if (actualSize > threshold) {
+      OversizedAspectRemediation remediation = config.getPrePatch().getOversizedRemediation();
+
+      log.warn(
+          "Oversized pre-patch aspect remediation={}: urn={}, aspect={}, size={} serialized bytes, threshold={} serialized bytes",
+          remediation != null ? remediation.logLabel : "null",
+          urn,
+          aspectName,
+          actualSize,
+          threshold);
+
+      // Emit oversized counter metric
+      if (metricUtils != null) {
+        metricUtils.incrementMicrometer(
+            "aspectSizeValidation.prePatch.oversized",
+            1,
+            "aspectName",
+            aspectName,
+            "remediation",
+            remediation != null ? remediation.name() : "null");
+      }
+
+      // For DELETE remediation, collect deletion request for execution after transaction
+      if (remediation == OversizedAspectRemediation.DELETE
+          && operationContext instanceof io.datahubproject.metadata.context.OperationContext) {
+        io.datahubproject.metadata.context.OperationContext opContext =
+            (io.datahubproject.metadata.context.OperationContext) operationContext;
+        opContext.addPendingDeletion(
+            AspectDeletionRequest.builder()
+                .urn(urn)
+                .aspectName(aspectName)
+                .validationPoint("PRE_DB_PATCH")
+                .aspectSize(actualSize)
+                .threshold(threshold)
+                .build());
+      }
+
+      // Always throw to skip the write (for both IGNORE and DELETE)
+      throw new AspectSizeExceededException(
+          "PRE_DB_PATCH", actualSize, threshold, urn.toString(), aspectName);
+    } else if (config.getPrePatch().getWarnSizeBytes() != null
+        && actualSize > config.getPrePatch().getWarnSizeBytes()) {
+      // Exceeded warning threshold but under max - log without blocking
+      log.warn(
+          "Large pre-patch aspect (above warning threshold): urn={}, aspect={}, size={} serialized bytes, warnThreshold={}, maxThreshold={}",
+          urn,
+          aspectName,
+          actualSize,
+          config.getPrePatch().getWarnSizeBytes(),
+          threshold);
+
+      // Emit warning counter metric
+      if (metricUtils != null) {
+        metricUtils.incrementMicrometer(
+            "aspectSizeValidation.prePatch.warning", 1, "aspectName", aspectName);
+      }
+      // No throw - write proceeds
+    }
+  }
+
+  @Override
+  public void validatePayload(
+      @Nonnull SystemAspect systemAspect, @Nonnull EntityAspect serializedAspect) {
+
+    if (config.getPostPatch() == null || !config.getPostPatch().isEnabled()) {
+      return; // Validation disabled
+    }
+
+    String metadata = serializedAspect.getMetadata();
+    if (metadata == null) {
+      return; // No metadata to validate
+    }
+
+    long actualSize = metadata.length();
+    long threshold = config.getPostPatch().getMaxSizeBytes();
+
+    // Emit bucketed counter for size distribution tracking
+    if (metricUtils != null) {
+      metricUtils.incrementMicrometer(
+          "aspectSizeValidation.postPatch.sizeDistribution",
+          1,
+          "aspectName",
+          systemAspect.getAspectSpec().getName(),
+          "sizeBucket",
+          getSizeBucket(actualSize));
+    }
+
+    if (actualSize > threshold) {
+      OversizedAspectRemediation remediation = config.getPostPatch().getOversizedRemediation();
+
+      log.warn(
+          "Oversized post-patch aspect remediation={}: urn={}, aspect={}, size={} serialized bytes, threshold={} serialized bytes",
+          remediation != null ? remediation.logLabel : "null",
+          systemAspect.getUrn(),
+          systemAspect.getAspectSpec().getName(),
+          actualSize,
+          threshold);
+
+      // Emit oversized counter metric
+      if (metricUtils != null) {
+        metricUtils.incrementMicrometer(
+            "aspectSizeValidation.postPatch.oversized",
+            1,
+            "aspectName",
+            systemAspect.getAspectSpec().getName(),
+            "remediation",
+            remediation != null ? remediation.name() : "null");
+      }
+
+      // For DELETE remediation, collect deletion request for execution after transaction
+      if (remediation == OversizedAspectRemediation.DELETE) {
+        Object opContextObj = systemAspect.getOperationContext();
+        if (opContextObj instanceof io.datahubproject.metadata.context.OperationContext) {
+          io.datahubproject.metadata.context.OperationContext opContext =
+              (io.datahubproject.metadata.context.OperationContext) opContextObj;
+          AspectDeletionRequest request =
+              AspectDeletionRequest.builder()
+                  .urn(systemAspect.getUrn())
+                  .aspectName(systemAspect.getAspectSpec().getName())
+                  .validationPoint("POST_DB_PATCH")
+                  .aspectSize(actualSize)
+                  .threshold(threshold)
+                  .build();
+          opContext.addPendingDeletion(request);
+        }
+      }
+
+      // Always throw to prevent this write (for both DELETE and IGNORE)
+      throw new AspectSizeExceededException(
+          "POST_DB_PATCH",
+          actualSize,
+          threshold,
+          systemAspect.getUrn().toString(),
+          systemAspect.getAspectSpec().getName());
+    } else if (config.getPostPatch().getWarnSizeBytes() != null
+        && actualSize > config.getPostPatch().getWarnSizeBytes()) {
+      // Exceeded warning threshold but under max - log without blocking
+      log.warn(
+          "Large post-patch aspect (above warning threshold): urn={}, aspect={}, size={} serialized bytes, warnThreshold={}, maxThreshold={}",
+          systemAspect.getUrn(),
+          systemAspect.getAspectSpec().getName(),
+          actualSize,
+          config.getPostPatch().getWarnSizeBytes(),
+          threshold);
+
+      // Emit warning counter metric
+      if (metricUtils != null) {
+        metricUtils.incrementMicrometer(
+            "aspectSizeValidation.postPatch.warning",
+            1,
+            "aspectName",
+            systemAspect.getAspectSpec().getName());
+      }
+      // No throw - write proceeds
+    }
+  }
+}

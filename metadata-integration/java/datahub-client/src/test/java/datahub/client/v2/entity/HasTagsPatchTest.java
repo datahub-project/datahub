@@ -103,6 +103,43 @@ public class HasTagsPatchTest {
   }
 
   @Test
+  public void testApplyPatchOperations_RemoveTagWithUrlEncodedPath()
+      throws IOException, URISyntaxException {
+    // Create initial GlobalTags with a tag whose URN contains characters that may be encoded
+    GlobalTags current = new GlobalTags();
+    TagAssociationArray tags = new TagAssociationArray();
+    TagAssociation tag1 = new TagAssociation();
+    tag1.setTag(TagUrn.createFromString("urn:li:tag:tag1"));
+    tags.add(tag1);
+    current.setTags(tags);
+
+    // Create patch with URL-encoded URN in path (e.g. urn:li:tag:tag1 -> urn%3Ali%3Atag%3Atag1)
+    String encodedPath = "/tags/urn%3Ali%3Atag%3Atag1";
+    String patchJson =
+        "{"
+            + "\"patch\": ["
+            + "  {"
+            + "    \"op\": \"remove\","
+            + "    \"path\": \""
+            + encodedPath
+            + "\""
+            + "  }"
+            + "]"
+            + "}";
+
+    MetadataChangeProposal patch = new MetadataChangeProposal();
+    GenericAspect aspect = new GenericAspect();
+    aspect.setValue(ByteString.copyString(patchJson, StandardCharsets.UTF_8));
+    aspect.setContentType("application/json");
+    patch.setAspect(aspect);
+
+    GlobalTags result = HasTags.applyPatchOperations(current, patch);
+
+    // Verify tag was removed after decoding path
+    assertEquals(0, result.getTags().size());
+  }
+
+  @Test
   public void testApplyPatchOperations_RemoveNonExistentTag()
       throws IOException, URISyntaxException {
     // Create initial GlobalTags with one tag
