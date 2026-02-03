@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "session_id": "marge-session-a93127ac",
-  "checkpoint_timestamp": "2026-02-03T08:39:30.124504",
+  "checkpoint_timestamp": "2026-02-03T08:43:14.876827",
   "upstream_remote": "upstream",
   "upstream_branch": "master",
   "target_branch": "acryl-main",
@@ -30,7 +30,7 @@
     "01afb0ff772f107763307301ac38fae306b77a25",
     "cf8a31a6446022d4b534e295173df087d4b4d6c5"
   ],
-  "next_commit_index": 16,
+  "next_commit_index": 18,
   "processed_commits": [
     {
       "sha": "61dda29b0f90e0739a45f035bb8b32f8c0cff5d3",
@@ -191,18 +191,44 @@
       "timestamp": null,
       "attempt_count": 0,
       "conflict_files": []
+    },
+    {
+      "sha": "25e1e00f4b16cb6eb2797c4873a065453f0079f5",
+      "short_hash": "25e1e00f4b",
+      "message": "chore(docker): add pre-commit hook to validate generated quickstart compose file (#15992)",
+      "author": "Chakru <161002324+chakru-r@users.noreply.github.com>",
+      "status": "merged_with_conflicts",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "fe294119c315f82db1df42adbf05afaa88fbbaf2",
+      "short_hash": "fe294119c3",
+      "message": "fix(bigquery): Optimize dataset filtering to reduce unnecessary API calls (#15945)",
+      "author": "Rajat Singh <rajats2502@gmail.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
     }
   ],
   "stack": {
-    "size": 0,
-    "commit_shas": [],
-    "commit_messages": [],
-    "last_committed": null
+    "size": 1,
+    "commit_shas": [
+      "fe294119c315f82db1df42adbf05afaa88fbbaf2"
+    ],
+    "commit_messages": [
+      "fix(bigquery): Optimize dataset filtering to reduce unnecessary API calls (#15945)"
+    ],
+    "last_committed": "2026-02-03T08:43:14.876836"
   },
   "git_state": {
-    "head_sha": "d15883b6f8e0b136da50ce228eeb3d82b03cc6fa",
+    "head_sha": "d2b062bd57b860382f8f23287d57b9d11a790e0a",
     "branch": "marge-session-a93127ac-branch",
-    "working_tree_clean": true,
-    "uncommitted_files": []
+    "working_tree_clean": false,
+    "uncommitted_files": [
+      "arge_checkpoints/marge-session-a93127ac.json"
+    ]
   }
 }
