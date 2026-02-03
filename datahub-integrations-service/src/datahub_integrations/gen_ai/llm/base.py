@@ -46,12 +46,15 @@ import json
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 
+from datahub.cli.env_utils import get_boolean_env_variable
 from langchain_core.messages import AIMessage, ToolMessage
 from loguru import logger
 
 from datahub_integrations.gen_ai.llm.types import ConverseResponse, TokenUsage
 from datahub_integrations.gen_ai.llm.utils import is_verbose_llm_logging_enabled
-from datahub_integrations.gen_ai.model_config import CustomModelProvider
+from datahub_integrations.gen_ai.model_config import (
+    CustomModelProvider,
+)
 from datahub_integrations.observability.cost import (
     TokenUsage as ObsTokenUsage,
     get_cost_tracker,
@@ -128,6 +131,10 @@ class LLMWrapper(ABC, HasProviderAndModelInfo):
         self.max_attempts = max_attempts
         self.custom_model_provider = custom_model_provider
         self._client = self._initialize_client()
+
+        self.enable_llm_streaming_mode = get_boolean_env_variable(
+            "ENABLE_LLM_STREAMING_MODE"
+        )
 
     @property
     def model_name(self) -> str:
@@ -674,34 +681,43 @@ class LLMWrapper(ABC, HasProviderAndModelInfo):
         last_finish_reason: Optional[str] = None
         last_finish_message: Optional[str] = None
 
-        for chunk in llm.stream(lc_messages, **stream_kwargs):
+        if self.enable_llm_streaming_mode:
+            for chunk in llm.stream(lc_messages, **stream_kwargs):
+                if is_verbose_llm_logging_enabled():
+                    logger.debug("LLM chunk received: {chunk}", chunk=chunk)
+
+                if full_message is None:
+                    full_message = chunk
+                else:
+                    # Langchain's AIMessageChunk supports + operator for proper merging
+                    full_message = full_message + chunk
+
+                # Track finish_reason and finish_message from each chunk (will use last one)
+                chunk_metadata = getattr(chunk, "response_metadata", {}) or {}
+                if "finish_reason" in chunk_metadata:
+                    last_finish_reason = chunk_metadata["finish_reason"]
+                if "finish_message" in chunk_metadata:
+                    last_finish_message = chunk_metadata["finish_message"]
+
+            # Fix finish_reason and finish_message: merge_dicts concatenates string values,
+            # but these should use only the last chunk's value (the final state)
+            if full_message is not None:
+                if last_finish_reason is not None:
+                    if full_message.response_metadata is None:
+                        full_message.response_metadata = {}
+                    full_message.response_metadata["finish_reason"] = last_finish_reason
+                if last_finish_message is not None:
+                    if full_message.response_metadata is None:
+                        full_message.response_metadata = {}
+                    full_message.response_metadata["finish_message"] = (
+                        last_finish_message
+                    )
+        else:
+            full_message = llm.invoke(lc_messages, **stream_kwargs)
             if is_verbose_llm_logging_enabled():
-                logger.debug("LLM chunk received: {chunk}", chunk=chunk)
-
-            if full_message is None:
-                full_message = chunk
-            else:
-                # Langchain's AIMessageChunk supports + operator for proper merging
-                full_message = full_message + chunk
-
-            # Track finish_reason and finish_message from each chunk (will use last one)
-            chunk_metadata = getattr(chunk, "response_metadata", {}) or {}
-            if "finish_reason" in chunk_metadata:
-                last_finish_reason = chunk_metadata["finish_reason"]
-            if "finish_message" in chunk_metadata:
-                last_finish_message = chunk_metadata["finish_message"]
-
-        # Fix finish_reason and finish_message: merge_dicts concatenates string values,
-        # but these should use only the last chunk's value (the final state)
-        if full_message is not None:
-            if last_finish_reason is not None:
-                if full_message.response_metadata is None:
-                    full_message.response_metadata = {}
-                full_message.response_metadata["finish_reason"] = last_finish_reason
-            if last_finish_message is not None:
-                if full_message.response_metadata is None:
-                    full_message.response_metadata = {}
-                full_message.response_metadata["finish_message"] = last_finish_message
+                logger.debug(
+                    "LLM response received: {full_message}", full_message=full_message
+                )
 
         # Return the combined message (or empty message if stream was empty)
         return full_message if full_message is not None else AIMessage(content="")

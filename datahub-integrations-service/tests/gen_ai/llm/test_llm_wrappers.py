@@ -416,6 +416,8 @@ class TestOpenAILLMWrapper:
                 "input_tokens": 20,
                 "output_tokens": 10,
                 "total_tokens": 30,
+                "input_token_details": {"cache_read": 0},
+                "output_token_details": {"reasoning": 0},
             }
             chunk.response_metadata = {"finish_reason": "stop"}
             yield chunk
@@ -423,6 +425,7 @@ class TestOpenAILLMWrapper:
         mock_client.stream.side_effect = mock_stream
 
         wrapper = OpenAILLMWrapper(model_name="gpt-4o")
+        wrapper.enable_llm_streaming_mode = True
 
         response = wrapper.converse(
             system=[{"text": "You are a helpful assistant"}],
@@ -459,6 +462,8 @@ class TestOpenAILLMWrapper:
                 "input_tokens": 50,
                 "output_tokens": 5,
                 "total_tokens": 55,
+                "input_token_details": {"cache_read": 0},
+                "output_token_details": {"reasoning": 0},
             }
             chunk.response_metadata = {"finish_reason": "stop"}
             yield chunk
@@ -466,6 +471,7 @@ class TestOpenAILLMWrapper:
         mock_client.stream.side_effect = mock_stream
 
         wrapper = OpenAILLMWrapper(model_name="gpt-4o")
+        wrapper.enable_llm_streaming_mode = True
 
         wrapper.converse(
             system=[
@@ -510,6 +516,8 @@ class TestOpenAILLMWrapper:
                 "input_tokens": 100,
                 "output_tokens": 30,
                 "total_tokens": 130,
+                "input_token_details": {"cache_read": 0},
+                "output_token_details": {"reasoning": 0},
             }
             chunk.response_metadata = {"finish_reason": "tool_calls"}
             yield chunk
@@ -517,6 +525,7 @@ class TestOpenAILLMWrapper:
         mock_llm_with_tools.stream.side_effect = mock_stream
 
         wrapper = OpenAILLMWrapper(model_name="gpt-4o")
+        wrapper.enable_llm_streaming_mode = True
 
         tool_config = {
             "tools": [
@@ -581,6 +590,7 @@ class TestOpenAILLMWrapper:
         # Patch the openai module's exception class for isinstance check
         with patch.object(openai, "AuthenticationError", AuthenticationError):
             wrapper = OpenAILLMWrapper(model_name="gpt-4o")
+            wrapper.enable_llm_streaming_mode = True
 
             with pytest.raises(LlmAuthenticationException) as exc_info:
                 wrapper.converse(
@@ -605,6 +615,7 @@ class TestOpenAILLMWrapper:
 
         with patch.object(openai, "RateLimitError", RateLimitError):
             wrapper = OpenAILLMWrapper(model_name="gpt-4o")
+            wrapper.enable_llm_streaming_mode = True
 
             with pytest.raises(LlmRateLimitException) as exc_info:
                 wrapper.converse(
@@ -631,6 +642,7 @@ class TestOpenAILLMWrapper:
 
         with patch.object(openai, "BadRequestError", BadRequestError):
             wrapper = OpenAILLMWrapper(model_name="gpt-4o")
+            wrapper.enable_llm_streaming_mode = True
 
             with pytest.raises(LlmInputTooLongException) as exc_info:
                 wrapper.converse(
@@ -657,12 +669,15 @@ class TestOpenAILLMWrapper:
                 "input_tokens": 10,
                 "output_tokens": 5,
                 "total_tokens": 15,
+                "input_token_details": {"cache_read": 0},
+                "output_token_details": {"reasoning": 0},
             }
             yield chunk
 
         mock_client.stream.side_effect = mock_stream
 
         wrapper = OpenAILLMWrapper(model_name="gpt-4o")
+        wrapper.enable_llm_streaming_mode = True
 
         wrapper.converse(
             system=[{"text": "You are helpful"}],
@@ -695,12 +710,15 @@ class TestOpenAILLMWrapper:
                 "input_tokens": 50,
                 "output_tokens": 10,
                 "total_tokens": 60,
+                "input_token_details": {"cache_read": 0},
+                "output_token_details": {"reasoning": 0},
             }
             yield chunk
 
         mock_llm_with_tools.stream.side_effect = mock_stream
 
         wrapper = OpenAILLMWrapper(model_name="gpt-4o")
+        wrapper.enable_llm_streaming_mode = True
 
         # Tool config with cachePoint markers
         tool_config = {
@@ -753,6 +771,8 @@ class TestOpenAILLMWrapper:
                 "input_tokens": 10,
                 "output_tokens": 1,
                 "total_tokens": 11,
+                "input_token_details": {"cache_read": 0},
+                "output_token_details": {"reasoning": 0},
             }
             chunk1.response_metadata = {}
             yield chunk1
@@ -762,6 +782,8 @@ class TestOpenAILLMWrapper:
                 "input_tokens": 0,
                 "output_tokens": 1,
                 "total_tokens": 1,
+                "input_token_details": {"cache_read": 0},
+                "output_token_details": {"reasoning": 0},
             }
             chunk2.response_metadata = {"finish_reason": "stop"}
             yield chunk2
@@ -769,6 +791,7 @@ class TestOpenAILLMWrapper:
         mock_client.stream.side_effect = mock_stream
 
         wrapper = OpenAILLMWrapper(model_name="gpt-4o")
+        wrapper.enable_llm_streaming_mode = True
 
         # Should not raise any exceptions even with verbose logging
         response = wrapper.converse(
@@ -855,6 +878,8 @@ class TestGeminiLLMWrapper:
                 "input_tokens": 20,
                 "output_tokens": 10,
                 "total_tokens": 30,
+                "input_token_details": {"cache_read": 0},
+                "output_token_details": {"reasoning": 0},
             },
             response_metadata={"finish_reason": "STOP"},
         )
@@ -867,6 +892,7 @@ class TestGeminiLLMWrapper:
         mock_client.stream.side_effect = mock_stream
 
         wrapper = GeminiLLMWrapper(model_name="gemini-1.5-pro")
+        wrapper.enable_llm_streaming_mode = True
 
         response = wrapper.converse(
             system=[{"text": "You are helpful"}],
@@ -907,12 +933,15 @@ class TestGeminiLLMWrapper:
                 "input_tokens": 10,
                 "output_tokens": 5,
                 "total_tokens": 15,
+                "input_token_details": {"cache_read": 0},
+                "output_token_details": {"reasoning": 0},
             }
             yield chunk
 
         mock_client.stream.side_effect = mock_stream
 
         wrapper = GeminiLLMWrapper(model_name="gemini-1.5-pro")
+        wrapper.enable_llm_streaming_mode = True
 
         wrapper.converse(
             system=[{"text": "You are helpful"}],
@@ -1384,6 +1413,8 @@ class TestCustomOpenAIProxyLLMWrapper:
                 "input_tokens": 20,
                 "output_tokens": 10,
                 "total_tokens": 30,
+                "input_token_details": {"cache_read": 0},
+                "output_token_details": {"reasoning": 0},
             }
             chunk.response_metadata = {"finish_reason": "stop"}
             yield chunk
@@ -1402,6 +1433,7 @@ class TestCustomOpenAIProxyLLMWrapper:
             model_name="custom-gpt-4",
             custom_model_provider=custom_provider,
         )
+        wrapper.enable_llm_streaming_mode = True
 
         response = wrapper.converse(
             system=[{"text": "You are a helpful assistant"}],
@@ -1765,6 +1797,8 @@ class TestLLMFactory:
                 "input_tokens": 100,
                 "output_tokens": 30,
                 "total_tokens": 130,
+                "input_token_details": {"cache_read": 0},
+                "output_token_details": {"reasoning": 0},
             }
             chunk.response_metadata = {"finish_reason": "tool_calls"}
             yield chunk
@@ -1782,6 +1816,7 @@ class TestLLMFactory:
         wrapper = CustomOpenAIProxyLLMWrapper(
             model_name="custom-gpt-4o", custom_model_provider=custom_provider
         )
+        wrapper.enable_llm_streaming_mode = True
 
         tool_config = {
             "tools": [
@@ -1924,6 +1959,7 @@ class TestLLMFactory:
             wrapper = CustomOpenAIProxyLLMWrapper(
                 model_name="custom-gpt-4o", custom_model_provider=custom_provider
             )
+            wrapper.enable_llm_streaming_mode = True
 
             with pytest.raises(LlmAuthenticationException) as exc_info:
                 wrapper.converse(
@@ -1960,6 +1996,7 @@ class TestLLMFactory:
             wrapper = CustomOpenAIProxyLLMWrapper(
                 model_name="custom-gpt-4o", custom_model_provider=custom_provider
             )
+            wrapper.enable_llm_streaming_mode = True
 
             with pytest.raises(LlmRateLimitException) as exc_info:
                 wrapper.converse(
@@ -1998,6 +2035,7 @@ class TestLLMFactory:
             wrapper = CustomOpenAIProxyLLMWrapper(
                 model_name="custom-gpt-4o", custom_model_provider=custom_provider
             )
+            wrapper.enable_llm_streaming_mode = True
 
             with pytest.raises(LlmInputTooLongException) as exc_info:
                 wrapper.converse(
@@ -2081,6 +2119,8 @@ class TestLLMFactory:
                 "input_tokens": 10,
                 "output_tokens": 5,
                 "total_tokens": 15,
+                "input_token_details": {"cache_read": 0},
+                "output_token_details": {"reasoning": 0},
             }
             chunk.response_metadata = {"finish_reason": "stop"}
             yield chunk
@@ -2101,6 +2141,7 @@ class TestLLMFactory:
             model_name="custom-gpt-4",
             custom_model_provider=custom_provider,
         )
+        wrapper.enable_llm_streaming_mode = True
 
         # Verify initial client was created
         assert mock_chat_openai.call_count == 1
@@ -2148,6 +2189,8 @@ class TestLLMFactory:
                 "input_tokens": 10,
                 "output_tokens": 5,
                 "total_tokens": 15,
+                "input_token_details": {"cache_read": 0},
+                "output_token_details": {"reasoning": 0},
             }
             chunk.response_metadata = {"finish_reason": "stop"}
             yield chunk
@@ -2166,6 +2209,7 @@ class TestLLMFactory:
             model_name="custom-gpt-4",
             custom_model_provider=custom_provider,
         )
+        wrapper.enable_llm_streaming_mode = True
 
         # Verify initial client was created
         assert mock_chat_openai.call_count == 1

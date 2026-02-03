@@ -1215,6 +1215,7 @@ class TestConvertLangchainResponseToBedrock:
         - Direct AIMessage with text content
         """
         wrapper = MockLLMWrapper(model_name="test")
+        wrapper.enable_llm_streaming_mode = True
 
         from unittest.mock import MagicMock
 
@@ -1365,6 +1366,7 @@ class TestInvokeWithLangchain:
     def test_invoke_without_tools(self) -> None:
         """Test invocation without any tools configured (uses streaming internally)."""
         wrapper = MockLLMWrapper(model_name="test")
+        wrapper.enable_llm_streaming_mode = True
 
         # Mock the client and its stream method
         from unittest.mock import MagicMock
@@ -1398,6 +1400,7 @@ class TestInvokeWithLangchain:
     def test_invoke_with_tools(self) -> None:
         """Test invocation with tools configured (uses streaming internally)."""
         wrapper = MockLLMWrapper(model_name="test")
+        wrapper.enable_llm_streaming_mode = True
 
         from unittest.mock import MagicMock
 
@@ -1454,6 +1457,7 @@ class TestInvokeWithLangchain:
     def test_invoke_filters_cache_point(self) -> None:
         """Test that cachePoint markers are filtered out from tools."""
         wrapper = MockLLMWrapper(model_name="test")
+        wrapper.enable_llm_streaming_mode = True
 
         from unittest.mock import MagicMock
 
@@ -1506,8 +1510,9 @@ class TestInvokeWithLangchain:
         assert bound_tools[1]["function"]["name"] == "tool2"
 
     def test_invoke_with_only_cache_point(self) -> None:
-        """Test that if only cachePoint markers exist, regular invoke is used."""
+        """Test that if only cachePoint markers exist, streaming is still used (when enabled)."""
         wrapper = MockLLMWrapper(model_name="test")
+        wrapper.enable_llm_streaming_mode = True
 
         from unittest.mock import MagicMock
 
@@ -1548,6 +1553,7 @@ class TestInvokeWithLangchain:
     def test_invoke_with_empty_tools_list(self) -> None:
         """Test invocation with empty tools list."""
         wrapper = MockLLMWrapper(model_name="test")
+        wrapper.enable_llm_streaming_mode = True
 
         from unittest.mock import MagicMock
 
@@ -1582,8 +1588,9 @@ class TestInvokeWithLangchain:
         assert result == mock_response
 
     def test_invoke_maps_inference_config_correctly(self) -> None:
-        """Test that inferenceConfig is mapped to invoke kwargs correctly."""
+        """Test that inferenceConfig is mapped to streaming kwargs correctly."""
         wrapper = MockLLMWrapper(model_name="test")
+        wrapper.enable_llm_streaming_mode = True
 
         from unittest.mock import MagicMock
 
@@ -1623,6 +1630,7 @@ class TestInvokeWithLangchain:
     def test_invoke_with_multiple_tools(self) -> None:
         """Test invocation with multiple tools."""
         wrapper = MockLLMWrapper(model_name="test")
+        wrapper.enable_llm_streaming_mode = True
 
         from unittest.mock import MagicMock
 
@@ -1695,6 +1703,7 @@ class TestInvokeWithLangchain:
         should use only the final chunk's value, not concatenated values from all chunks.
         """
         wrapper = MockLLMWrapper(model_name="test")
+        wrapper.enable_llm_streaming_mode = True
 
         from unittest.mock import MagicMock
 
@@ -1796,3 +1805,206 @@ class TestInvokeWithLangchain:
             # Verify this enables correct stop_reason mapping
             result = wrapper._convert_langchain_response_to_bedrock(result_message)
             assert result["stopReason"] == expected_stop_reason
+
+    def test_invoke_mode_without_tools(self) -> None:
+        """Test invocation using invoke mode (enable_llm_streaming_mode=False) without tools."""
+        wrapper = MockLLMWrapper(model_name="test")
+        wrapper.enable_llm_streaming_mode = False
+
+        from unittest.mock import MagicMock
+
+        mock_client = MagicMock()
+        mock_response = AIMessage(
+            content="Response in invoke mode",
+            usage_metadata={
+                "input_tokens": 15,
+                "output_tokens": 25,
+                "total_tokens": 40,
+            },
+            response_metadata={"finish_reason": "stop"},
+        )
+
+        mock_client.invoke.return_value = mock_response
+        wrapper._client = mock_client
+
+        lc_messages = [HumanMessage(content="Hello")]
+        inferenceConfig = {"temperature": 0.7}
+
+        result = wrapper._invoke_with_langchain(lc_messages, None, inferenceConfig)
+
+        # Should call client.invoke with mapped inference config
+        mock_client.invoke.assert_called_once_with(lc_messages, temperature=0.7)
+        assert result.content == mock_response.content
+        assert result == mock_response
+
+    def test_invoke_mode_with_tools(self) -> None:
+        """Test invocation using invoke mode (enable_llm_streaming_mode=False) with tools."""
+        wrapper = MockLLMWrapper(model_name="test")
+        wrapper.enable_llm_streaming_mode = False
+
+        from unittest.mock import MagicMock
+
+        mock_client = MagicMock()
+        mock_bound_client = MagicMock()
+        mock_response = AIMessage(
+            content="Using tool in invoke mode",
+            tool_calls=[{"name": "search", "args": {"query": "test"}, "id": "call_1"}],
+            usage_metadata={
+                "input_tokens": 60,
+                "output_tokens": 35,
+                "total_tokens": 95,
+            },
+            response_metadata={"finish_reason": "tool_calls"},
+        )
+
+        mock_bound_client.invoke.return_value = mock_response
+        mock_client.bind_tools.return_value = mock_bound_client
+        wrapper._client = mock_client
+
+        lc_messages = [HumanMessage(content="Search for something")]
+        toolConfig = {
+            "tools": [
+                {
+                    "toolSpec": {
+                        "name": "search",
+                        "description": "Search tool",
+                        "inputSchema": {
+                            "json": {
+                                "type": "object",
+                                "properties": {"query": {"type": "string"}},
+                            }
+                        },
+                    }
+                }
+            ]
+        }
+        inferenceConfig = {"temperature": 0.5, "maxTokens": 100}
+
+        result = wrapper._invoke_with_langchain(
+            lc_messages, toolConfig, inferenceConfig
+        )
+
+        # Should bind tools and invoke on the bound client
+        mock_client.bind_tools.assert_called_once()
+        bound_tools = mock_client.bind_tools.call_args[0][0]
+        assert len(bound_tools) == 1
+        assert bound_tools[0]["type"] == "function"
+        assert bound_tools[0]["function"]["name"] == "search"
+
+        mock_bound_client.invoke.assert_called_once_with(
+            lc_messages, temperature=0.5, max_tokens=100
+        )
+        assert result == mock_response
+
+    def test_invoke_mode_maps_inference_config_correctly(self) -> None:
+        """Test that inferenceConfig is mapped to invoke kwargs correctly in invoke mode."""
+        wrapper = MockLLMWrapper(model_name="test")
+        wrapper.enable_llm_streaming_mode = False
+
+        from unittest.mock import MagicMock
+
+        mock_client = MagicMock()
+        mock_response = AIMessage(
+            content="Response",
+            usage_metadata={
+                "input_tokens": 10,
+                "output_tokens": 20,
+                "total_tokens": 30,
+            },
+            response_metadata={"finish_reason": "stop"},
+        )
+
+        mock_client.invoke.return_value = mock_response
+        wrapper._client = mock_client
+
+        lc_messages = [HumanMessage(content="Test")]
+        inferenceConfig = {
+            "temperature": 0.9,
+            "maxTokens": 500,
+        }
+
+        wrapper._invoke_with_langchain(lc_messages, None, inferenceConfig)
+
+        # Should map Bedrock config to langchain kwargs
+        mock_client.invoke.assert_called_once_with(
+            lc_messages, temperature=0.9, max_tokens=500
+        )
+        call_kwargs = mock_client.invoke.call_args[1]
+        assert call_kwargs["temperature"] == 0.9
+        assert call_kwargs["max_tokens"] == 500
+
+    def test_invoke_mode_with_multiple_tools(self) -> None:
+        """Test invocation with multiple tools in invoke mode."""
+        wrapper = MockLLMWrapper(model_name="test")
+        wrapper.enable_llm_streaming_mode = False
+
+        from unittest.mock import MagicMock
+
+        mock_client = MagicMock()
+        mock_bound_client = MagicMock()
+        mock_response = AIMessage(
+            content="Response with multiple tools",
+            tool_calls=[
+                {"name": "search", "args": {"query": "test"}, "id": "call_1"},
+                {"name": "get_details", "args": {"urn": "urn:123"}, "id": "call_2"},
+            ],
+            usage_metadata={
+                "input_tokens": 80,
+                "output_tokens": 40,
+                "total_tokens": 120,
+            },
+            response_metadata={"finish_reason": "tool_calls"},
+        )
+
+        mock_bound_client.invoke.return_value = mock_response
+        mock_client.bind_tools.return_value = mock_bound_client
+        wrapper._client = mock_client
+
+        lc_messages = [HumanMessage(content="Test")]
+        toolConfig = {
+            "tools": [
+                {
+                    "toolSpec": {
+                        "name": "search",
+                        "description": "Search for entities",
+                        "inputSchema": {
+                            "json": {
+                                "type": "object",
+                                "properties": {"query": {"type": "string"}},
+                            }
+                        },
+                    }
+                },
+                {
+                    "toolSpec": {
+                        "name": "get_details",
+                        "description": "Get entity details",
+                        "inputSchema": {
+                            "json": {
+                                "type": "object",
+                                "properties": {"urn": {"type": "string"}},
+                            }
+                        },
+                    }
+                },
+            ]
+        }
+        inferenceConfig = None
+
+        result = wrapper._invoke_with_langchain(
+            lc_messages, toolConfig, inferenceConfig
+        )
+
+        # Should bind all tools
+        mock_client.bind_tools.assert_called_once()
+        bound_tools = mock_client.bind_tools.call_args[0][0]
+        assert len(bound_tools) == 2
+        assert bound_tools[0]["function"]["name"] == "search"
+        assert bound_tools[1]["function"]["name"] == "get_details"
+
+        # Verify strict=True is passed
+        assert mock_client.bind_tools.call_args[1]["strict"] is True
+
+        # Verify invoke was called
+        mock_bound_client.invoke.assert_called_once_with(lc_messages)
+        assert result == mock_response
