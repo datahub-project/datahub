@@ -61,7 +61,7 @@ def test_space_allow_includes_only_specified_spaces(
     base_config_dict: dict, pipeline_context: PipelineContext
 ) -> None:
     """Test that space_allow limits ingestion to specified spaces."""
-    config_dict = {**base_config_dict, "space_allow": ["TEAM", "DOCS"]}
+    config_dict = {**base_config_dict, "spaces": {"allow": ["TEAM", "DOCS"]}}
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
@@ -83,7 +83,7 @@ def test_space_deny_excludes_specified_spaces(
     base_config_dict: dict, pipeline_context: PipelineContext
 ) -> None:
     """Test that space_deny excludes specified spaces from ingestion."""
-    config_dict = {**base_config_dict, "space_deny": ["~johndoe", "ARCHIVE"]}
+    config_dict = {**base_config_dict, "spaces": {"deny": ["~johndoe", "ARCHIVE"]}}
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
@@ -109,8 +109,10 @@ def test_space_allow_and_deny_combined(
     """Test that space_deny takes precedence over space_allow."""
     config_dict = {
         **base_config_dict,
-        "space_allow": ["TEAM", "DOCS", "PUBLIC"],
-        "space_deny": ["PUBLIC"],
+        "spaces": {
+            "allow": ["TEAM", "DOCS", "PUBLIC"],
+            "deny": ["PUBLIC"],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
@@ -136,10 +138,12 @@ def test_space_allow_with_urls(
     """Test that space_allow works with space URLs (not just keys)."""
     config_dict = {
         **base_config_dict,
-        "space_allow": [
-            "https://test.atlassian.net/wiki/spaces/TEAM",
-            "https://test.atlassian.net/wiki/spaces/DOCS",
-        ],
+        "spaces": {
+            "allow": [
+                "https://test.atlassian.net/wiki/spaces/TEAM",
+                "https://test.atlassian.net/wiki/spaces/DOCS",
+            ]
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
@@ -167,7 +171,7 @@ def test_no_page_filters_ingests_all_pages(
     base_config_dict: dict, pipeline_context: PipelineContext
 ) -> None:
     """Test that with no page filters, all pages in allowed spaces are ingested."""
-    config_dict = {**base_config_dict, "space_allow": ["TEAM"]}
+    config_dict = {**base_config_dict, "spaces": {"allow": ["TEAM"]}}
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
@@ -189,7 +193,7 @@ def test_page_allow_includes_only_specified_pages(
     base_config_dict: dict, pipeline_context: PipelineContext
 ) -> None:
     """Test that page_allow limits ingestion to specified pages."""
-    config_dict = {**base_config_dict, "page_allow": ["20001", "20002"]}
+    config_dict = {**base_config_dict, "pages": {"allow": ["20001", "20002"]}}
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
@@ -212,7 +216,7 @@ def test_page_deny_excludes_specified_pages(
     base_config_dict: dict, pipeline_context: PipelineContext
 ) -> None:
     """Test that page_deny excludes specified pages from ingestion."""
-    config_dict = {**base_config_dict, "page_deny": ["20003", "20004"]}
+    config_dict = {**base_config_dict, "pages": {"deny": ["20003", "20004"]}}
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
@@ -238,8 +242,10 @@ def test_page_allow_and_deny_combined(
     """Test that page_deny takes precedence over page_allow."""
     config_dict = {
         **base_config_dict,
-        "page_allow": ["20001", "20002", "20003"],
-        "page_deny": ["20003"],
+        "pages": {
+            "allow": ["20001", "20002", "20003"],
+            "deny": ["20003"],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
@@ -267,10 +273,12 @@ def test_page_allow_with_urls(
     """Test that page_allow works with page URLs (not just IDs)."""
     config_dict = {
         **base_config_dict,
-        "page_allow": [
-            "https://test.atlassian.net/wiki/spaces/DOCS/pages/20001/API+Documentation",
-            "https://test.atlassian.net/wiki/spaces/DOCS/pages/20002/REST+API",
-        ],
+        "pages": {
+            "allow": [
+                "https://test.atlassian.net/wiki/spaces/DOCS/pages/20001/API+Documentation",
+                "https://test.atlassian.net/wiki/spaces/DOCS/pages/20002/REST+API",
+            ]
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
@@ -300,9 +308,11 @@ def test_space_and_page_filters_combined(
     """Test combining space and page filters."""
     config_dict = {
         **base_config_dict,
-        "space_allow": ["TEAM", "DOCS"],
-        "space_deny": ["TEAM"],
-        "page_deny": ["20003"],
+        "spaces": {
+            "allow": ["TEAM", "DOCS"],
+            "deny": ["TEAM"],
+        },
+        "pages": {"deny": ["20003"]},
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
@@ -330,7 +340,7 @@ def test_exclude_personal_spaces_common_pattern(
     base_config_dict: dict, pipeline_context: PipelineContext
 ) -> None:
     """Test common pattern: exclude personal spaces from ingestion."""
-    config_dict = {**base_config_dict, "space_deny": ["~johndoe"]}
+    config_dict = {**base_config_dict, "spaces": {"deny": ["~johndoe"]}}
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
@@ -353,7 +363,7 @@ def test_exclude_archived_content_common_pattern(
     base_config_dict: dict, pipeline_context: PipelineContext
 ) -> None:
     """Test common pattern: exclude archived spaces from ingestion."""
-    config_dict = {**base_config_dict, "space_deny": ["ARCHIVE"]}
+    config_dict = {**base_config_dict, "spaces": {"deny": ["ARCHIVE"]}}
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
@@ -377,7 +387,7 @@ def test_specific_documentation_tree_common_pattern(
     """Test common pattern: ingest only specific documentation trees."""
     config_dict = {
         **base_config_dict,
-        "page_allow": ["20001"],  # API Documentation root page
+        "pages": {"allow": ["20001"]},  # API Documentation root page
         "recursive": True,
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
@@ -467,7 +477,7 @@ def test_page_deny_only_filters_across_all_spaces(
     base_config_dict: dict, pipeline_context: PipelineContext
 ) -> None:
     """Test page_deny without space filters filters pages across all spaces."""
-    config_dict = {**base_config_dict, "page_deny": ["10002", "20003"]}
+    config_dict = {**base_config_dict, "pages": {"deny": ["10002", "20003"]}}
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
@@ -496,8 +506,8 @@ def test_page_deny_with_space_deny(
     """Test page_deny + space_deny filters both spaces and pages."""
     config_dict = {
         **base_config_dict,
-        "space_deny": ["ARCHIVE"],
-        "page_deny": ["10002"],
+        "spaces": {"deny": ["ARCHIVE"]},
+        "pages": {"deny": ["10002"]},
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
@@ -529,8 +539,8 @@ def test_page_allow_overrides_space_allow(
     """Test that page_allow overrides space_allow (page-based mode)."""
     config_dict = {
         **base_config_dict,
-        "space_allow": ["TEAM"],  # Would limit to TEAM only
-        "page_allow": ["20001"],  # Page in DOCS space
+        "spaces": {"allow": ["TEAM"]},  # Would limit to TEAM only
+        "pages": {"allow": ["20001"]},  # Page in DOCS space
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
@@ -555,9 +565,11 @@ def test_page_allow_ignores_both_space_filters(
     """Test that page_allow bypasses all space filtering."""
     config_dict = {
         **base_config_dict,
-        "space_allow": ["TEAM"],
-        "space_deny": ["DOCS"],
-        "page_allow": ["20001"],  # Page in DOCS (denied space)
+        "spaces": {
+            "allow": ["TEAM"],
+            "deny": ["DOCS"],
+        },
+        "pages": {"allow": ["20001"]},  # Page in DOCS (denied space)
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
@@ -580,9 +592,11 @@ def test_page_allow_with_page_deny_complex(
     """Test page_allow + page_deny with space filters present."""
     config_dict = {
         **base_config_dict,
-        "space_allow": ["TEAM"],  # Ignored in page-based mode
-        "page_allow": ["20001", "20002", "10001"],
-        "page_deny": ["20002"],
+        "spaces": {"allow": ["TEAM"]},  # Ignored in page-based mode
+        "pages": {
+            "allow": ["20001", "20002", "10001"],
+            "deny": ["20002"],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
@@ -611,7 +625,9 @@ def test_space_url_without_wiki() -> None:
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "space_allow": ["https://test.atlassian.net/TEAM"],  # Missing /wiki/spaces/
+        "spaces": {
+            "allow": ["https://test.atlassian.net/TEAM"]
+        },  # Missing /wiki/spaces/
     }
 
     with pytest.raises(ValueError, match="Could not extract space key from URL"):
@@ -624,9 +640,9 @@ def test_page_url_malformed() -> None:
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "page_allow": [
-            "https://test.atlassian.net/wiki/spaces/TEAM"
-        ],  # Missing /pages/
+        "pages": {
+            "allow": ["https://test.atlassian.net/wiki/spaces/TEAM"]  # Missing /pages/
+        },
     }
 
     with pytest.raises(ValueError, match="Could not extract page ID from URL"):
@@ -639,7 +655,7 @@ def test_mixed_valid_invalid_page_ids() -> None:
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "page_allow": ["123456", "invalid", "789012"],
+        "pages": {"allow": ["123456", "invalid", "789012"]},
     }
 
     with pytest.raises(ValueError, match="Page ID must be numeric"):
@@ -655,7 +671,7 @@ def test_empty_strings_in_space_allow() -> None:
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "space_allow": ["TEAM", "", "DOCS"],
+        "spaces": {"allow": ["TEAM", "", "DOCS"]},
     }
 
     # Empty strings should be stripped by validator and result in error
@@ -669,7 +685,7 @@ def test_whitespace_only_strings() -> None:
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "space_allow": ["TEAM", "   ", "DOCS"],
+        "spaces": {"allow": ["TEAM", "   ", "DOCS"]},
     }
 
     # Whitespace-only strings should be stripped and rejected
