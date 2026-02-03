@@ -359,6 +359,38 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.stateful_ingestion and self.config.stateful_ingestion.enabled:
             self._initialize_state_tracking()
 
+        # Validate embedding configuration early
+        if self.config.embedding.provider is not None:
+            self._validate_embedding_config_early()
+
+    def _validate_embedding_config_early(self) -> None:
+        """Validate embedding config early with clear warnings (non-blocking).
+
+        Design: Embedding failures don't block ingestion, but users should
+        know upfront if credentials are missing.
+        """
+        if self.config.embedding.provider == "bedrock":
+            import os
+
+            has_creds = bool(os.environ.get("AWS_ACCESS_KEY_ID"))
+            has_profile = bool(os.environ.get("AWS_PROFILE"))
+            has_config = Path.home().joinpath(".aws", "credentials").exists()
+
+            if not (has_creds or has_profile or has_config):
+                logger.warning(
+                    "\n" + "=" * 80 + "\n"
+                    "WARNING: AWS Bedrock embeddings configured but credentials not detected.\n"
+                    "\n"
+                    "Embedding generation will likely fail for all documents.\n"
+                    "Documents will still be ingested, but semantic search won't work.\n"
+                    "\n"
+                    "Configure AWS credentials via:\n"
+                    "  - Environment: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY\n"
+                    "  - Credentials file: ~/.aws/credentials\n"
+                    "  - AWS_PROFILE environment variable\n"
+                    "  - IAM instance profile (if on EC2)\n" + "=" * 80
+                )
+
     def _patch_notion_client_for_is_locked(self) -> None:
         """Monkeypatch unstructured-ingest's Page class to support is_locked field.
 
@@ -683,6 +715,111 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 f"Failed to apply DatabasesEndpoint query monkeypatch: {e}. "
                 "May encounter 'super' object has no attribute 'query' errors."
             )
+
+    def _monkeypatch_syncblock_from_dict(self) -> None:
+        """Monkeypatch unstructured-ingest to skip synced blocks gracefully.
+
+        ROOT CAUSE: unstructured-ingest v0.7.2's synced block implementation is
+        incompatible with the actual Notion API format:
+        - Notion API: Children are NOT nested in synced_block object
+        - unstructured-ingest: OriginalSyncedBlock.from_dict() requires data["children"]
+        - Result: KeyError when processing synced blocks
+
+        WORKAROUND: Make OriginalSyncedBlock.from_dict() default children to empty list.
+        This allows pages with synced blocks to be ingested, but synced block content
+        will be missing (since Notion API doesn't provide it in the expected format).
+
+        LIMITATION: Pages with synced blocks will be ingested, but the synced block
+        content itself will be missing from the ingested text. To fully support synced
+        blocks, the connector would need to use the Notion API directly instead of
+        relying on unstructured-ingest.
+        """
+        try:
+            from unstructured_ingest.processes.connectors.notion.types.blocks import (
+                OriginalSyncedBlock,
+            )
+
+            # Capture report in closure for use in monkeypatch
+            report = self.report
+
+            # Track if synced blocks are encountered for reporting
+            synced_blocks_encountered = []
+
+            def patched_from_dict(cls: Type[Any], data: dict) -> Any:
+                # Default children to empty list if not present
+                # Notion API doesn't nest children inside synced_block object
+                children = data.get("children", [])
+
+                if not children:
+                    # Synced block has no children in the API response
+                    # Content is missing due to unstructured-ingest limitation
+                    if not synced_blocks_encountered:  # Log and report only once
+                        logger.warning(
+                            "Encountered synced blocks during ingestion. "
+                            "Synced block content will be skipped due to unstructured-ingest v0.7.2 limitation. "
+                            "Pages will be ingested but synced block content will be missing."
+                        )
+                        # Report to ingestion summary
+                        report.report_warning(
+                            title="Synced Blocks Limitation",
+                            message="Pages with synced blocks were encountered during ingestion. "
+                            "The pages were ingested successfully, but synced block content is missing. "
+                            "This is a known limitation of the current connector version due to unstructured-ingest v0.7.2 compatibility.",
+                        )
+                    synced_blocks_encountered.append(True)
+
+                return cls(children=children)
+
+            OriginalSyncedBlock.from_dict = classmethod(patched_from_dict)
+            logger.info(
+                "Applied monkeypatch to OriginalSyncedBlock for synced blocks compatibility"
+            )
+
+        except ImportError as e:
+            logger.warning(
+                f"OriginalSyncedBlock class not found - skipping monkeypatch: {e}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to apply OriginalSyncedBlock monkeypatch: {e}")
+
+    @staticmethod
+    def _monkeypatch_numbered_list_item_new_fields():
+        """Monkeypatch NumberedListItem to support new Notion API fields.
+
+        TEMPORARY FIX: Notion API now returns:
+        - list_start_index: Starting number (e.g., start at 2)
+        - list_format: Format style ('numbers', 'letters', 'roman')
+
+        These fields aren't supported in unstructured-ingest 0.7.2.
+        """
+        try:
+            from unstructured_ingest.processes.connectors.notion.types.blocks import (
+                NumberedListItem,
+            )
+
+            original_from_dict = NumberedListItem.from_dict.__func__
+
+            def patched_from_dict(cls: Type[Any], data: dict) -> Any:
+                data_copy = data.copy()
+                # Filter new fields from nested numbered_list_item data
+                list_data = data_copy.get("numbered_list_item", {})
+                if isinstance(list_data, dict):
+                    list_data.pop("list_start_index", None)
+                    list_data.pop("list_format", None)
+                    data_copy["numbered_list_item"] = list_data
+                return original_from_dict(cls, data_copy)
+
+            NumberedListItem.from_dict = classmethod(patched_from_dict)
+            logger.info(
+                "Applied monkeypatch to NumberedListItem for new Notion API fields"
+            )
+
+        except ImportError as e:
+            logger.warning(
+                f"NumberedListItem class not found - skipping monkeypatch: {e}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to apply NumberedListItem monkeypatch: {e}")
 
     def _initialize_state_tracking(self) -> None:
         """Initialize state tracking for content-based change detection.
@@ -1217,6 +1354,8 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         self._monkeypatch_database_property_description()
         self._monkeypatch_database_title_extraction()
         self._monkeypatch_databases_endpoint_query()
+        self._monkeypatch_syncblock_from_dict()
+        self._monkeypatch_numbered_list_item_new_fields()
 
         # Auto-discover pages if none provided
         page_ids = self.config.page_ids
@@ -1814,11 +1953,27 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 document_urn=document_urn, elements=elements
             )
         except Exception as e:
-            logger.warning(
-                f"Failed to generate embeddings for {document_urn}: {e}. "
-                f"Document will be ingested without embeddings.",
-                exc_info=True,
+            short_error = str(e).split("\n")[0][:150]
+            is_credential_error = any(
+                keyword in str(e).lower()
+                for keyword in [
+                    "authfailure",
+                    "credentials",
+                    "unauthorized",
+                    "invalid_api_key",
+                    "accessdenied",
+                ]
             )
+
+            if is_credential_error:
+                logger.error(
+                    f"EMBEDDING CREDENTIAL ERROR for {page_id}: {short_error}\n"
+                    f"Document ingested without embeddings. Fix AWS/Cohere credentials."
+                )
+            else:
+                logger.warning(
+                    f"Failed to generate embeddings for {page_id}: {short_error}"
+                )
 
         # Update report
         file_type = metadata.get("filetype", "unknown")
@@ -1844,6 +1999,23 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             # Extend LossyList with items from the regular list
             for failure in chunking_report.embedding_failures:
                 self.report.embedding_failures.append(failure)
+
+        # Log prominent warning if all embeddings failed
+        if (
+            self.config.embedding.provider is not None
+            and self.report.num_embedding_failures > 0
+            and self.report.num_documents_with_embeddings == 0
+        ):
+            logger.error(
+                "\n" + "=" * 80 + "\n"
+                f"EMBEDDING GENERATION FAILED FOR ALL {self.report.num_embedding_failures} DOCUMENTS\n"
+                "\n"
+                "Documents ingested successfully, but semantic search will NOT work.\n"
+                "This usually indicates missing/invalid credentials.\n"
+                "\n"
+                f"Provider: {self.config.embedding.provider}\n"
+                f"Model: {self.config.embedding.model}\n" + "=" * 80
+            )
 
         return self.report
 
