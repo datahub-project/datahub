@@ -189,7 +189,7 @@ Before using Agent Context Kit, familiarize yourself with these DataHub concepts
 
 ## MCP Server
 
-It is also possible to connect your agent or tool directly to the **Datahub MCP Server**: [DataHub MCP Server](../../features/feature-guides/mcp.md) with your chosen framework.
+It is also possible to connect your agent or tool directly to the **DataHub MCP Server**: [DataHub MCP Server](../../features/feature-guides/mcp.md) with your chosen framework.
 
 ## Troubleshooting
 

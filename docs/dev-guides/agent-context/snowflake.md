@@ -46,9 +46,9 @@ pip install datahub-agent-context[snowflake]
 
 ### Permissions
 
-#### Datahub
+#### DataHub
 
-In order to interact with Datahub, you will need the following from your Datahub account
+In order to interact with DataHub, you will need the following from your DataHub account
 
 - The URL of your DataHub Cloud instance e.g. `https://<tenant>.acryl.io`
 - A [personal access token](../../authentication/personal-access-tokens.md)
@@ -138,9 +138,9 @@ Once your agent is created, you can further customize it's prompt settings, mode
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/snowflake/snowflake-cortex-agent.png"/>
 </p>
 
-### Using your Datahub Agent
+### Using your DataHub Agent
 
-Open [Snowflake Intelligence](https://ai.snowflake.com/) and select the Datahub Agent.
+Open [Snowflake Intelligence](https://ai.snowflake.com/) and select the DataHub Agent.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/snowflake/snowflake-intellgence.png"/>
