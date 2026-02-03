@@ -785,4 +785,23 @@ public class DashboardTest {
     List<MetadataChangeProposal> patches = dashboard.getPendingPatches();
     assertFalse("Should have multiple patches", patches.isEmpty());
   }
+
+  @Test
+  public void testDashboardGetDefaultAspects() throws Exception {
+    Dashboard dashboard = Dashboard.builder().tool("tableau").id("my_dashboard").build();
+
+    List<?> aspects = dashboard.getDefaultAspects();
+    assertNotNull(aspects);
+    assertFalse("Default aspects should not be empty", aspects.isEmpty());
+    assertTrue(
+        "Should include DashboardInfo",
+        aspects.contains(com.linkedin.dashboard.DashboardInfo.class));
+    assertTrue("Should include Ownership", aspects.contains(com.linkedin.common.Ownership.class));
+    try {
+      ((List) aspects).clear();
+      fail("getDefaultAspects() should return an immutable list");
+    } catch (UnsupportedOperationException expected) {
+      // expected
+    }
+  }
 }

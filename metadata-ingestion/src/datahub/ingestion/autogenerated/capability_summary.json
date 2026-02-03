@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-01-07T20:46:44.630014+00:00",
+  "generated_at": "2026-02-03T05:09:29.378106+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -477,6 +477,32 @@
       "platform_name": "CockroachDB",
       "support_status": "TESTING"
     },
+    "confluence": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.confluence.confluence_source.ConfluenceSource",
+      "platform_id": "confluence",
+      "platform_name": "Confluence",
+      "support_status": "INCUBATING"
+    },
     "csv-enricher": {
       "capabilities": [
         {
@@ -551,6 +577,20 @@
       "platform_id": "datahubdebug",
       "platform_name": "DataHubDebug",
       "support_status": "TESTING"
+    },
+    "datahub-documents": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubDocumentsSource",
+      "platform_id": "datahub-documents",
+      "platform_name": "DataHubDocuments",
+      "support_status": "INCUBATING"
     },
     "datahub-gc": {
       "capabilities": [],
@@ -962,6 +1002,12 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Optionally enabled via `extract_table_tags` to extract dynamoDB table tags as DataHub tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "By default, platform_instance will use the AWS account id",
           "subtype_modifier": null,
@@ -1024,6 +1070,38 @@
       "platform_id": "excel",
       "platform_name": "Excel",
       "support_status": "INCUBATING"
+    },
+    "fabric-onelake": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.fabric.onelake.source.FabricOneLakeSource",
+      "platform_id": "fabric-onelake",
+      "platform_name": "Fabric OneLake",
+      "support_status": "TESTING"
     },
     "feast": {
       "capabilities": [
@@ -2238,6 +2316,26 @@
       "platform_id": "nifi",
       "platform_name": "NiFi",
       "support_status": "CERTIFIED"
+    },
+    "notion": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.notion.notion_source.NotionSource",
+      "platform_id": "notion",
+      "platform_name": "Notion",
+      "support_status": "INCUBATING"
     },
     "okta": {
       "capabilities": [
@@ -3558,6 +3656,12 @@
         {
           "capability": "DOMAINS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Optionally enabled via configuration (extract_ownership)",
           "subtype_modifier": null,
           "supported": true
         },
