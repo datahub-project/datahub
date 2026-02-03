@@ -471,6 +471,49 @@ def _clickhouse_extract_to_tables(
     )
 
 
+def _clickhouse_filter_column_lineage(
+    column_lineage: List[_ColumnLineageInfo],
+    table_name_urn_mapping: Dict["_TableName", str],
+) -> List[_ColumnLineageInfo]:
+    """Filter column lineage to remove entries with unresolvable tables.
+
+    ClickHouse DICTGET functions and ARRAY JOIN can create pseudo-table references
+    that don't exist in the table mapping. This filters those out to prevent
+    KeyError during translation.
+    """
+    filtered = []
+    for col_lineage in column_lineage:
+        # Check if downstream table is resolvable (if present)
+        if col_lineage.downstream.table:
+            if col_lineage.downstream.table not in table_name_urn_mapping:
+                logger.debug(
+                    f"Filtering column lineage with unresolvable downstream: "
+                    f"{col_lineage.downstream.table}"
+                )
+                continue
+
+        # Filter out unresolvable upstreams
+        resolved_upstreams = []
+        for upstream in col_lineage.upstreams:
+            if upstream.table in table_name_urn_mapping:
+                resolved_upstreams.append(upstream)
+            else:
+                logger.debug(
+                    f"Filtering upstream with unresolvable table: {upstream.table}"
+                )
+
+        # Keep the entry with filtered upstreams
+        filtered.append(
+            _ColumnLineageInfo(
+                downstream=col_lineage.downstream,
+                upstreams=resolved_upstreams,
+                logic=col_lineage.logic,
+            )
+        )
+
+    return filtered
+
+
 # ==============================================================================
 # End ClickHouse-specific helpers
 # ==============================================================================
@@ -588,7 +631,7 @@ def _table_level_lineage(
         return table
 
     # Generate table-level lineage.
-    is_clickhouse = is_dialect_instance(dialect, "clickhouse")
+    # ClickHouse: Extract TO tables from MV definitions (empty for other dialects)
     clickhouse_to_tables = _clickhouse_extract_to_tables(statement, dialect)
 
     modified = (
@@ -613,7 +656,7 @@ def _table_level_lineage(
             # For statements that include a column list, like
             # CREATE DDL statements and `INSERT INTO table (col1, col2) SELECT ...`
             # the table name is nested inside a Schema object.
-            # ClickHouse: Skip MV name if there's a TO table (use TO table instead).
+            # ClickHouse: Skip MV name when TO table exists (use TO table instead).
             (
                 expr.this.this
                 for expr in statement.find_all(
@@ -622,7 +665,7 @@ def _table_level_lineage(
                 )
                 if isinstance(expr.this, sqlglot.exp.Schema)
                 and isinstance(expr.this.this, sqlglot.exp.Table)
-                and not (is_clickhouse and clickhouse_to_tables)
+                and not clickhouse_to_tables
             ),
             dialect,
         )
@@ -649,15 +692,10 @@ def _table_level_lineage(
                 table
                 for table in statement.find_all(sqlglot.exp.Table)
                 if not isinstance(table.parent, sqlglot.exp.Drop)
-                # ClickHouse-specific filters (only applied when dialect is clickhouse)
-                and not (is_clickhouse and _is_in_clickhouse_dict_function(table))
+                and not _is_in_clickhouse_dict_function(table)
+                and not isinstance(table.parent, sqlglot.exp.ToTableProperty)
                 and not (
-                    is_clickhouse
-                    and isinstance(table.parent, sqlglot.exp.ToTableProperty)
-                )
-                and not (
-                    is_clickhouse
-                    and clickhouse_to_tables
+                    clickhouse_to_tables
                     and isinstance(table.parent, sqlglot.exp.Schema)
                 )
             ),
@@ -1671,65 +1709,10 @@ def _translate_internal_column_lineage(
     table_name_urn_mapping: Dict[_TableName, str],
     raw_column_lineage: _ColumnLineageInfo,
     dialect: sqlglot.Dialect,
-    strict: bool = True,
-) -> Optional[ColumnLineageInfo]:
-    """Translate internal column lineage to URN-based column lineage.
-
-    Args:
-        table_name_urn_mapping: Mapping from table names to URNs.
-        raw_column_lineage: Internal column lineage info to translate.
-        dialect: SQL dialect for type translation.
-        strict: If True, raises KeyError on unresolvable tables.
-            If False, gracefully skips entries with unresolvable tables
-            (useful for dialects with pseudo-tables like ARRAY JOIN).
-
-    Returns:
-        Translated column lineage info, or None if downstream table is unresolvable
-        in non-strict mode.
-    """
+) -> ColumnLineageInfo:
     downstream_urn = None
     if raw_column_lineage.downstream.table:
-        if strict:
-            downstream_urn = table_name_urn_mapping[raw_column_lineage.downstream.table]
-        else:
-            downstream_urn = table_name_urn_mapping.get(
-                raw_column_lineage.downstream.table
-            )
-            if downstream_urn is None:
-                logger.debug(
-                    f"Skipping column lineage with unresolvable downstream table: "
-                    f"{raw_column_lineage.downstream.table}"
-                )
-                return None
-
-    # Build upstreams list
-    if strict:
-        # Strict mode: KeyError on missing table
-        resolved_upstreams = [
-            ColumnRef(
-                table=table_name_urn_mapping[upstream.table],
-                column=upstream.column,
-            )
-            for upstream in raw_column_lineage.upstreams
-        ]
-    else:
-        # Lenient mode: Filter out upstreams with unresolvable tables
-        # (e.g., from ARRAY JOIN pseudo-tables, complex CTE scopes)
-        resolved_upstreams = []
-        for upstream in raw_column_lineage.upstreams:
-            urn = table_name_urn_mapping.get(upstream.table)
-            if urn is not None:
-                resolved_upstreams.append(
-                    ColumnRef(
-                        table=urn,
-                        column=upstream.column,
-                    )
-                )
-            else:
-                logger.debug(
-                    f"Skipping upstream with unresolvable table: {upstream.table}"
-                )
-
+        downstream_urn = table_name_urn_mapping[raw_column_lineage.downstream.table]
     return ColumnLineageInfo(
         downstream=DownstreamColumnRef(
             table=downstream_urn,
@@ -1750,7 +1733,13 @@ def _translate_internal_column_lineage(
                 else None
             ),
         ),
-        upstreams=resolved_upstreams,
+        upstreams=[
+            ColumnRef(
+                table=table_name_urn_mapping[upstream.table],
+                column=upstream.column,
+            )
+            for upstream in raw_column_lineage.upstreams
+        ],
         logic=raw_column_lineage.logic,
     )
 
@@ -1993,24 +1982,21 @@ def _sqlglot_lineage_inner(
     out_urns = sorted({table_name_urn_mapping[table] for table in modified})
     column_lineage_urns = None
     if column_lineage:
-        use_lenient_resolution = is_dialect_instance(dialect, "clickhouse")
+        # ClickHouse: Filter out pseudo-table references (e.g., from DICTGET, ARRAY JOIN)
+        if is_dialect_instance(dialect, "clickhouse"):
+            column_lineage = _clickhouse_filter_column_lineage(
+                column_lineage, table_name_urn_mapping
+            )
         try:
             column_lineage_urns = [
-                translated
-                for internal_col_lineage in column_lineage
-                if (
-                    translated := _translate_internal_column_lineage(
-                        table_name_urn_mapping,
-                        internal_col_lineage,
-                        dialect=dialect,
-                        strict=not use_lenient_resolution,
-                    )
+                _translate_internal_column_lineage(
+                    table_name_urn_mapping, internal_col_lineage, dialect=dialect
                 )
-                is not None
+                for internal_col_lineage in column_lineage
             ]
         except KeyError as e:
-            # When this happens, it's usually because of things like PIVOT where we
-            # can't really go up the scope chain.
+            # When this happens, it's usually because of things like PIVOT where we can't
+            # really go up the scope chain.
             logger.debug(
                 f"Failed to translate column lineage to urns: {e}", exc_info=True
             )
