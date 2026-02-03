@@ -1,0 +1,86 @@
+{
+  "version": "1.0",
+  "session_id": "marge-session-a93127ac",
+  "checkpoint_timestamp": "2026-02-03T07:46:30.728429",
+  "upstream_remote": "upstream",
+  "upstream_branch": "master",
+  "target_branch": "acryl-main",
+  "merge_strategy": "stacked",
+  "pr_number": null,
+  "max_attempts": 3,
+  "commits_to_merge": [
+    "61dda29b0f90e0739a45f035bb8b32f8c0cff5d3",
+    "58841943c35133544ab8d2f6e52b5d7503a64b76",
+    "5b6e42f800380d824c5fc2bb8d2348ad894bbf8b",
+    "a4597db5f177de9d6c042a389071a5e209dda540",
+    "34ba35aed4fafc16424bda8027d94b9d76caa89d",
+    "fe67c6c237c70909f58080fb09e1de90ba526d3c",
+    "736fac13925029fb423719d7167b4cb51139730b",
+    "3187c73865dcdee246683a8c82f70e204c0f9494",
+    "30ff3061be6ea7dc1d7ae4616d902edd578fc513",
+    "9ccff9503e3e43538e59f21d1de88b683cf00a2f",
+    "882788dec5507642d801e2e14e10cebc03c3621f",
+    "2c52eaac7be541f6105ab4f462c5cedca9d28f25",
+    "37d85ca56a01a12634425f02a83eddd0f7032a6c",
+    "0c86b640e0fd40c09f7cd96f3a0264f54921adb3",
+    "8e8e87bc241e6104ffc21f904975d80f989eff9b",
+    "9d678fb03c0c0807b223f6f2fcb063f9e6f6badf",
+    "25e1e00f4b16cb6eb2797c4873a065453f0079f5",
+    "fe294119c315f82db1df42adbf05afaa88fbbaf2",
+    "01afb0ff772f107763307301ac38fae306b77a25",
+    "cf8a31a6446022d4b534e295173df087d4b4d6c5"
+  ],
+  "next_commit_index": 3,
+  "processed_commits": [
+    {
+      "sha": "61dda29b0f90e0739a45f035bb8b32f8c0cff5d3",
+      "short_hash": "61dda29b0f",
+      "message": "feat(service accounts): Introducing support for Service Accounts (#15972)",
+      "author": "John Joyce <john@acryl.io>",
+      "status": "merged_with_conflicts",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "58841943c35133544ab8d2f6e52b5d7503a64b76",
+      "short_hash": "58841943c3",
+      "message": "docs(observe): new saas vs oss features (#15954)",
+      "author": "Jay <159848059+jayacryl@users.noreply.github.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "5b6e42f800380d824c5fc2bb8d2348ad894bbf8b",
+      "short_hash": "5b6e42f800",
+      "message": "feat(sql-aggregator): performance test and micro optimizations (#15953)",
+      "author": "Sergio G\u00f3mez Villamor <sgomezvillamor@gmail.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    }
+  ],
+  "stack": {
+    "size": 2,
+    "commit_shas": [
+      "58841943c35133544ab8d2f6e52b5d7503a64b76",
+      "5b6e42f800380d824c5fc2bb8d2348ad894bbf8b"
+    ],
+    "commit_messages": [
+      "docs(observe): new saas vs oss features (#15954)",
+      "feat(sql-aggregator): performance test and micro optimizations (#15953)"
+    ],
+    "last_committed": "2026-02-03T07:46:30.728443"
+  },
+  "git_state": {
+    "head_sha": "63e54cade2d38b09feb82f06d996060233ff4e21",
+    "branch": "marge-session-a93127ac-branch",
+    "working_tree_clean": false,
+    "uncommitted_files": [
+      "marge_checkpoints/marge-session-a93127ac.json"
+    ]
+  }
+}
