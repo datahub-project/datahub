@@ -8,6 +8,7 @@ import com.linkedin.common.FormAssociationArray;
 import com.linkedin.common.FormVerificationAssociation;
 import com.linkedin.common.FormVerificationAssociationArray;
 import com.linkedin.common.Forms;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataComplex;
 import com.linkedin.data.DataList;
@@ -18,15 +19,18 @@ import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.List;
 import java.util.ListIterator;
@@ -144,7 +148,7 @@ public class DeleteEntityUtils {
           return null;
         }
       } else {
-        log.error(
+        log.warn(
             "[Reference removal logic] Unable to find value {} in data map {} at path {}",
             value,
             record,
@@ -208,7 +212,7 @@ public class DeleteEntityUtils {
     if (index == pathComponents.size() - 1) {
       final boolean found = aspectList.remove(value);
       if (!found) {
-        log.error(
+        log.warn(
             String.format(
                 "Unable to find value %s in aspect list %s at path %s",
                 value, aspectList, pathComponents.subList(0, index)));
@@ -372,5 +376,42 @@ public class DeleteEntityUtils {
     updatedAspect.get().setPrompts(new FormPromptArray(filteredPrompts));
 
     return updatedAspect.get();
+  }
+
+  /**
+   * Get filter to find all DataHub file entities that reference a deleted entity via the
+   * referencedByAsset field.
+   *
+   * @param deletedUrn the URN of the entity being deleted
+   * @return Filter to use in search queries
+   */
+  public static Filter getFilterForFileDeletion(@Nonnull Urn deletedUrn) {
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                new ConjunctiveCriterion()
+                    .setAnd(
+                        new CriterionArray(
+                            buildCriterion(
+                                "referencedByAsset", Condition.EQUAL, deletedUrn.toString())))));
+  }
+
+  /**
+   * Build a MetadataChangeProposal to soft-delete an entity by setting its status to removed.
+   *
+   * @param urn the URN of the entity to soft-delete
+   * @return MetadataChangeProposal for soft deletion
+   */
+  public static MetadataChangeProposal buildSoftDeleteProposal(@Nonnull Urn urn) {
+    Status status = new Status().setRemoved(true);
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(urn);
+    mcp.setEntityType(urn.getEntityType());
+    mcp.setAspectName(Constants.STATUS_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(status));
+
+    return mcp;
   }
 }

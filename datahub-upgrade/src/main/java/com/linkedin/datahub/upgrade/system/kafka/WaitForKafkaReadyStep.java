@@ -23,17 +23,17 @@ public class WaitForKafkaReadyStep implements UpgradeStep {
   private static final long RETRY_INTERVAL_SECONDS = 5;
   private static final long REQUEST_TIMEOUT_MS = 5000;
 
-  private final OperationContext _opContext;
-  private final KafkaConfiguration _kafkaConfiguration;
-  private final KafkaProperties _kafkaProperties;
+  private final OperationContext opContext;
+  private final KafkaConfiguration kafkaConfiguration;
+  private final KafkaProperties kafkaProperties;
 
   public WaitForKafkaReadyStep(
       OperationContext opContext,
       KafkaConfiguration kafkaConfiguration,
       KafkaProperties kafkaProperties) {
-    this._opContext = opContext;
-    this._kafkaConfiguration = kafkaConfiguration;
-    this._kafkaProperties = kafkaProperties;
+    this.opContext = opContext;
+    this.kafkaConfiguration = kafkaConfiguration;
+    this.kafkaProperties = kafkaProperties;
   }
 
   @Override
@@ -81,7 +81,7 @@ public class WaitForKafkaReadyStep implements UpgradeStep {
 
   protected AdminClient createAdminClient() {
     return buildKafkaAdminClient(
-        _kafkaConfiguration, _kafkaProperties, "datahub-upgrade-kafka-setup");
+        kafkaConfiguration, kafkaProperties, "datahub-upgrade-kafka-setup");
   }
 
   @Override

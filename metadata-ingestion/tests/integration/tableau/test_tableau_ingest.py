@@ -1148,9 +1148,11 @@ def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
             mock_sdk.return_value = mock_client
 
             reporter = TableauSourceReport()
+            mock_config = mock.MagicMock()
+            mock_config.max_retries = 3  # Set max_retries for backoff calculation
             tableau_source = TableauSiteSource(
                 platform="tableau",
-                config=mock.MagicMock(),
+                config=mock_config,
                 ctx=mock.MagicMock(),
                 site=mock.MagicMock(spec=SiteItem, id="Site1", content_url="site1"),
                 server=mock_sdk.return_value,

@@ -71,6 +71,8 @@ query getMe {
             manageApplications
             manageFeatures
             manageHomePageTemplates
+            manageDocuments
+            manageServiceAccounts
         }
     }
 }
