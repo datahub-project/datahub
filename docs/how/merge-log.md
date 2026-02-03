@@ -3399,3 +3399,76 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **68b0bf327a** - feat(ingestion): add datahub-documents source with chunking and embed… (#15975)
   *by Shirshanka Das <shirshanka@apache.org> on 2026-01-26*
+
+## Upstream Merge Session - 2026-02-03 06:20:09
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 20
+- **Strategy**: stacked
+- **Started**: 2026-02-03 06:20:09
+
+### Commits Included in This Merge
+
+- **61dda29b0f** - feat(service accounts): Introducing support for Service Accounts (#15972)
+  *by John Joyce <john@acryl.io> on 2026-01-26*
+
+- **58841943c3** - docs(observe): new saas vs oss features (#15954)
+  *by Jay <159848059+jayacryl@users.noreply.github.com> on 2026-01-26*
+
+- **5b6e42f800** - feat(sql-aggregator): performance test and micro optimizations (#15953)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-01-27*
+
+- **a4597db5f1** - chore(python): drop Python 3.9 support, require Python 3.10+ (#15984)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-01-27*
+
+- **34ba35aed4** - feat(ingest/teradata): Add ownership extraction from table and view creators (#15899)
+  *by Aviraj Gour <252974426+aviraj-gour@users.noreply.github.com> on 2026-01-27*
+
+- **fe67c6c237** - feat(ingestion): Add Microsoft Fabric OneLake connector for metadata extaction (#15888)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-01-27*
+
+- **736fac1392** - fix(ingest/airflow): Remove kill switch variable from Airflow 2.x support (#15930)
+  *by Tamas Nemeth <treff7es@gmail.com> on 2026-01-27*
+
+- **3187c73865** - updated pr-labeler.yml (add Rajat Singh[rajatoss] to team member-list) (#15986)
+  *by Rajat Singh <rajats2502@gmail.com> on 2026-01-27*
+
+- **30ff3061be** - docs: Add v0.3.16 release notes to sidebar (#15989)
+  *by Andrew Sikowitz <andrew.sikowitz@acryl.io> on 2026-01-27*
+
+- **9ccff9503e** - feat(ingestion/bigquery) sharding optimizations (#15978)
+  *by Jonny Dixon <45681293+acrylJonny@users.noreply.github.com> on 2026-01-27*
+
+- **882788dec5** - fix(fivetran): adds missing databricks-sdk dependency via databricks_common (#15988)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-01-27*
+
+- **2c52eaac7b** - fix(ingestion): enforce boto3>=1.35.0 for S3 ListBuckets Prefix support (#15987)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-01-27*
+
+- **37d85ca56a** - fix(ingest): hide empty Settings section in recipe form (#15993)
+  *by Anna Everhart <149417426+annadoesdesign@users.noreply.github.com> on 2026-01-27*
+
+- **0c86b640e0** - fix(ingest/ariflow): Airflow Asset support for Airflow 2/3 (#15947)
+  *by Tamas Nemeth <treff7es@gmail.com> on 2026-01-27*
+
+- **8e8e87bc24** - fix(tableau): Use datasource name for Custom SQL query display names (#15914)
+  *by Brock Griffey <52086127+brock-acryl@users.noreply.github.com> on 2026-01-27*
+
+- **9d678fb03c** - feat(notion): add Notion source integration with embedding support (#15990)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-01-27*
+
+- **25e1e00f4b** - chore(docker): add pre-commit hook to validate generated quickstart compose file (#15992)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-28*
+
+- **fe294119c3** - fix(bigquery): Optimize dataset filtering to reduce unnecessary API calls (#15945)
+  *by Rajat Singh <rajats2502@gmail.com> on 2026-01-28*
+
+- **01afb0ff77** - feat(ci): add exclusion list for python dependency pinning check (#15995)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-28*
+
+- **cf8a31a644** - fix(fivetran): databricks auth issue (#15996)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-01-28*
