@@ -904,6 +904,16 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             )
             doc._set_aspect(platform_instance)
 
+        # Add BrowsePathsV2 for hierarchical navigation
+        browse_path_v2 = ConfluenceHierarchyExtractor.build_browse_path_v2(
+            page_metadata=page,
+            platform=self.platform,
+            instance_id=self._get_instance_id(),
+            ingested_page_ids=ingested_page_ids,
+        )
+        if browse_path_v2:
+            doc._set_aspect(browse_path_v2)
+
         # Emit all workunits from the Document
         for workunit in doc.as_workunits():
             yield workunit
