@@ -4,7 +4,10 @@ import logging
 import time
 from typing import Any, Dict, List, Optional, Set
 
-from datahub.ingestion.source.google_sheets.config import GoogleSheetsSourceConfig
+from datahub.ingestion.source.google_sheets.config import (
+    GoogleSheetsCheckpointState,
+    GoogleSheetsSourceConfig,
+)
 from datahub.ingestion.source.google_sheets.constants import (
     DRIVE_API_FIELDS,
     DRIVE_QUERY_SHEETS_MIMETYPE,
@@ -19,7 +22,6 @@ from datahub.ingestion.source.google_sheets.constants import (
 )
 from datahub.ingestion.source.google_sheets.models import DriveFile, SheetPathResult
 from datahub.ingestion.source.google_sheets.report import GoogleSheetsSourceReport
-from datahub.ingestion.source.state.checkpoint import CheckpointStateBase
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -33,7 +35,7 @@ class DriveAPIClient:
         drive_service: Any,
         config: GoogleSheetsSourceConfig,
         report: GoogleSheetsSourceReport,
-        checkpoint_state: CheckpointStateBase,
+        checkpoint_state: GoogleSheetsCheckpointState,
     ):
         self.drive_service = drive_service
         self.config = config

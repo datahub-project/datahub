@@ -149,7 +149,7 @@ def get_named_ranges(spreadsheet: Spreadsheet) -> List[NamedRangeInfo]:
     Returns:
         List of named range information
     """
-    named_ranges = []
+    named_ranges: List[NamedRangeInfo] = []
 
     if not spreadsheet.namedRanges:
         return named_ranges

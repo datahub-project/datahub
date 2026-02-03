@@ -1,7 +1,18 @@
 import logging
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 import numpy as np
 import pandas as pd
@@ -1228,7 +1239,7 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
                 ]
 
     def _profile_sheet(
-        self, sheet_id: str, sheet_data: Dict[str, Any]
+        self, sheet_id: str, sheet_data: SheetData
     ) -> Optional[DatasetProfileClass]:
         """Profile the data in a Google Sheet if profiling is enabled."""
         if not self.config.profiling.enabled:
@@ -1289,7 +1300,7 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
             return profile
 
     def _profile_sheet_tab(
-        self, sheet_id: str, sheet_data: Dict[str, Any], sheet_name: str
+        self, sheet_id: str, sheet_data: SheetData, sheet_name: str
     ) -> Optional[DatasetProfileClass]:
         """Profile a specific sheet tab in sheets_as_datasets mode."""
         if not self.config.profiling.enabled:
@@ -1444,7 +1455,10 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
                     owners.append(permission.emailAddress)
 
         if owners:
-            dataset.set_owners(owners)
+            owner_urns: Sequence[str] = [
+                builder.make_user_urn(email) for email in owners
+            ]
+            dataset.set_owners(cast(Any, owner_urns))
 
         tags_list = self._extract_tags_from_drive_metadata(sheet_file)
         if tags_list:
@@ -1452,10 +1466,10 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
             dataset.set_tags(tag_names)
 
         if schema_fields:
-            dataset.set_schema(schema_fields)
+            dataset._set_schema(schema_fields)
 
         if upstream_lineage:
-            dataset.set_upstream_lineage(upstream_lineage)
+            dataset.set_upstreams(cast(Any, upstream_lineage))
 
         dataset.set_subtype(SUBTYPE_GOOGLE_SHEETS)
 
@@ -1465,7 +1479,7 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
         self,
         sheet_file: DriveFile,
         dataset_urn: str,
-        sheet_data: Optional[Dict[str, Any]] = None,
+        sheet_data: Optional[SheetData] = None,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """Create a DatasetProperties aspect MCP for the specified sheet."""
         custom_properties = {
@@ -1606,7 +1620,7 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
                 created_containers.add(spreadsheet_container_urn)
 
             # Now process each sheet tab as a separate dataset
-            sheets_tabs = sheet_data["spreadsheet"].sheets
+            sheets_tabs = sheet_data.spreadsheet.sheets
 
             for sheet_tab in sheets_tabs:
                 sheet_tab_name = sheet_tab.properties.title
@@ -1818,8 +1832,10 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
             yield status_mcp.as_workunit()
 
             # Emit usage statistics if available
-            usage_stats_data = sheet_data.get("usage_stats")
-            if usage_stats_data and isinstance(usage_stats_data, SheetUsageStatistics):
+            if sheet_data.usage_stats and isinstance(
+                sheet_data.usage_stats, SheetUsageStatistics
+            ):
+                usage_stats_data = sheet_data.usage_stats
                 if (
                     usage_stats_data.view_count > 0
                     or usage_stats_data.unique_user_count > 0

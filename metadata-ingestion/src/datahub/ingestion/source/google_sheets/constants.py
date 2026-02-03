@@ -96,6 +96,12 @@ FIELD_EMAIL_ADDRESS = "emailAddress"
 FIELD_ROLE = "role"
 FIELD_TYPE = "type"
 
+# Permission types
+PERMISSION_TYPE_USER = "user"
+PERMISSION_TYPE_GROUP = "group"
+PERMISSION_TYPE_DOMAIN = "domain"
+PERMISSION_TYPE_ANYONE = "anyone"
+
 # Default values
 DEFAULT_SHEET_NAME = "Sheet1"
 DEFAULT_SHEET_TITLE = "Unknown"

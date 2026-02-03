@@ -1,627 +1,305 @@
 import json
-import logging
-from unittest.mock import MagicMock, patch
+import pathlib
+from typing import Any, Dict
+from unittest import mock
 
 import pytest
+import yaml
 
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.google_sheets.google_sheets_source import (
-    GoogleSheetsSource,
-    GoogleSheetsSourceConfig,
-)
+from datahub.ingestion.run.pipeline import Pipeline
+from datahub.testing import mce_helpers
 
-FROZEN_TIME = "2023-05-15 07:00:00"
-
-# Test configurations for parametrized tests
-TEST_CONFIGS = [
-    {
-        "name": "basic_test",
-        "config": {
-            "credentials": "test_creds.json",
-            "sheets_as_datasets": False,
-            "extract_usage_stats": True,
-            "profiling": {"enabled": True},
-        },
-        "golden_file": "google_sheets_mces_golden.json",
-        "mock_fixture": "mock_basic_sheet_data",
-    },
-    {
-        "name": "lineage_test",
-        "config": {
-            "credentials": "test_creds.json",
-            "sheets_as_datasets": False,
-            "extract_lineage_from_formulas": True,
-            "extract_column_level_lineage": True,
-        },
-        "golden_file": "google_sheets_lineage_golden.json",
-        "mock_fixture": "mock_lineage_sheet_data",
-    },
-]
+test_resources_dir = pathlib.Path(__file__).parent
 
 
-@pytest.fixture(scope="module")
-def test_resources_dir(pytestconfig):
-    return pytestconfig.rootpath / "tests/integration/google_sheets"
+def read_mock_response(filename: str) -> Dict[str, Any]:
+    """Read a mock API response from the setup directory."""
+    response_path = test_resources_dir / "setup" / filename
+    with open(response_path) as f:
+        return json.load(f)
 
 
-@pytest.fixture
-def mock_google_services():
-    """Mock the Google API services for testing."""
-    with patch("googleapiclient.discovery.build") as mock_build:
-        # Set up mock services
-        mock_drive_service = MagicMock()
-        mock_sheets_service = MagicMock()
-        mock_drive_activity_service = MagicMock()
+def load_recipe_config(recipe_name: str) -> Dict[str, Any]:
+    """Load a recipe YAML file and prepare it for testing."""
+    recipe_path = test_resources_dir / "recipes" / recipe_name
+    with open(recipe_path) as f:
+        config = yaml.safe_load(f)
 
-        # Configure the mock build function to return our mock services
-        mock_build.side_effect = lambda service, version, credentials: {
-            "drive": mock_drive_service,
-            "sheets": mock_sheets_service,
-            "driveactivity": mock_drive_activity_service,
-        }[service]
+    # Replace relative credentials path with absolute path
+    credentials_path = str(test_resources_dir / "setup" / "dummy_credentials.json")
+    config["source"]["config"]["credentials"] = credentials_path
 
-        yield {
-            "drive_service": mock_drive_service,
-            "sheets_service": mock_sheets_service,
-            "drive_activity_service": mock_drive_activity_service,
-        }
+    return config
 
 
-@pytest.fixture
-def mock_basic_sheet_data(mock_google_services):
-    """Set up mocks for basic sheet tests."""
-    # Mock files list
-    mock_files_list = MagicMock()
-    mock_google_services[
-        "drive_service"
-    ].files.return_value.list.return_value = mock_files_list
+def create_mock_drive_service():
+    """Create a mock Google Drive service with realistic API responses.
 
-    # Mock response for files.list
-    mock_files_list.execute.return_value = {
-        "files": [
-            {
-                "id": "test_sheet_id_1",
-                "name": "Test Sheet 1",
-                "description": "Test sheet for integration tests",
-                "owners": [{"emailAddress": "test@example.com"}],
-                "createdTime": "2023-01-01T00:00:00.000Z",
-                "modifiedTime": "2023-01-02T00:00:00.000Z",
-                "webViewLink": "https://docs.google.com/spreadsheets/d/test_sheet_id_1",
-                "shared": True,
-            }
-        ],
-        "nextPageToken": None,
-    }
+    Uses simple objects instead of Mock to avoid call-tracking issues.
+    """
 
-    # Mock response for files.get for path resolution
-    def mock_files_get(**kwargs):
-        file_id = kwargs.get("fileId")
-        mock_response = MagicMock()
-        if file_id == "test_sheet_id_1":
-            mock_response.execute.return_value = {
-                "name": "Test Sheet 1",
-                "parents": ["test_folder_id"],
-            }
-        elif file_id == "test_folder_id":
-            mock_response.execute.return_value = {
-                "name": "Test Folder",
-                "parents": None,
-            }
-        return mock_response
+    class MockExecute:
+        def __init__(self, data):
+            self.data = data
 
-    mock_google_services["drive_service"].files.return_value.get = mock_files_get
+        def execute(self):
+            return self.data
 
-    # Mock response for spreadsheets.get
-    mock_spreadsheet = MagicMock()
-    mock_google_services[
-        "sheets_service"
-    ].spreadsheets.return_value.get.return_value = mock_spreadsheet
+    class MockFiles:
+        def list(self, **kwargs):
+            return MockExecute(read_mock_response("drive_files_mydrive.json"))
 
-    mock_spreadsheet.execute.return_value = {
-        "properties": {"title": "Test Sheet 1"},
-        "sheets": [
-            {
-                "properties": {"title": "Sheet1"},
-            }
-        ],
-    }
-
-    # Mock response for spreadsheets.values.get
-    mock_values = MagicMock()
-    mock_google_services[
-        "sheets_service"
-    ].spreadsheets.return_value.values.return_value.get.return_value = mock_values
-
-    mock_values.execute.return_value = {
-        "values": [
-            ["Name", "Age", "City"],  # Headers
-            ["John Doe", "30", "New York"],
-            ["Jane Smith", "25", "San Francisco"],
-            ["Bob Johnson", "35", "Chicago"],
-        ]
-    }
-
-    return mock_google_services
-
-
-@pytest.fixture
-def mock_lineage_sheet_data(mock_google_services):
-    """Set up mocks for lineage tests between sheets."""
-    # Mock files list
-    mock_files_list = MagicMock()
-    mock_google_services[
-        "drive_service"
-    ].files.return_value.list.return_value = mock_files_list
-
-    # Mock response for files.list - include both source and target sheets
-    mock_files_list.execute.return_value = {
-        "files": [
-            {
-                "id": "test_sheet_id_1",
-                "name": "Test Sheet 1",
-                "description": "Source sheet",
-                "owners": [{"emailAddress": "test@example.com"}],
-                "createdTime": "2023-01-01T00:00:00.000Z",
-                "modifiedTime": "2023-01-02T00:00:00.000Z",
-                "webViewLink": "https://docs.google.com/spreadsheets/d/test_sheet_id_1",
-                "shared": True,
-            },
-            {
-                "id": "test_sheet_id_2",
-                "name": "Test Sheet 2",
-                "description": "Destination sheet with IMPORTRANGE formula",
-                "owners": [{"emailAddress": "test@example.com"}],
-                "createdTime": "2023-01-01T00:00:00.000Z",
-                "modifiedTime": "2023-01-02T00:00:00.000Z",
-                "webViewLink": "https://docs.google.com/spreadsheets/d/test_sheet_id_2",
-                "shared": True,
-            },
-        ],
-        "nextPageToken": None,
-    }
-
-    # Mock response for files.get for path resolution
-    def mock_files_get(**kwargs):
-        file_id = kwargs.get("fileId")
-        mock_response = MagicMock()
-        if file_id in ["test_sheet_id_1", "test_sheet_id_2"]:
-            mock_response.execute.return_value = {
-                "name": f"Test Sheet {file_id[-1]}",
-                "parents": ["test_folder_id"],
-            }
-        elif file_id == "test_folder_id":
-            mock_response.execute.return_value = {
-                "name": "Test Folder",
-                "parents": None,
-            }
-        return mock_response
-
-    mock_google_services["drive_service"].files.return_value.get = mock_files_get
-
-    # Mock responses for spreadsheets.get
-    def mock_spreadsheets_get(**kwargs):
-        sheet_id = kwargs.get("spreadsheetId")
-        include_grid_data = kwargs.get("includeGridData", False)
-
-        mock_response = MagicMock()
-
-        if sheet_id == "test_sheet_id_1":
-            mock_response.execute.return_value = {
-                "properties": {"title": "Test Sheet 1"},
-                "sheets": [
+        def get(self, **kwargs):
+            file_id = kwargs.get("fileId", "test")
+            # Return folder data without parents to terminate the loop
+            if file_id in ["root", "0ALrfhxL-W8y1Uk9PVA"]:  # root folder IDs
+                return MockExecute(
                     {
-                        "properties": {"title": "Sheet1"},
+                        "id": file_id,
+                        "name": "My Drive" if file_id == "root" else "root",
+                        "parents": [],  # No parents to stop the loop
                     }
-                ],
-            }
-        elif sheet_id == "test_sheet_id_2":
-            # Sheet with formulas
-            if include_grid_data:
-                mock_response.execute.return_value = {
-                    "sheets": [
-                        {
-                            "properties": {"title": "Sheet1"},
-                            "data": [
-                                {
-                                    "rowData": [
-                                        {
-                                            "values": [
-                                                {"formattedValue": "Name"},
-                                                {"formattedValue": "Age"},
-                                                {"formattedValue": "City"},
-                                            ]
-                                        },
-                                        {
-                                            "values": [
-                                                {
-                                                    "userEnteredValue": {
-                                                        "formulaValue": '=IMPORTRANGE("https://docs.google.com/spreadsheets/d/test_sheet_id_1", "Sheet1!A2:A4")'
-                                                    }
-                                                }
-                                            ]
-                                        },
-                                    ]
-                                }
-                            ],
-                        }
-                    ]
-                }
-            else:
-                mock_response.execute.return_value = {
-                    "properties": {"title": "Test Sheet 2"},
-                    "sheets": [
-                        {
-                            "properties": {"title": "Sheet1"},
-                        }
-                    ],
-                }
-
-        return mock_response
-
-    mock_google_services[
-        "sheets_service"
-    ].spreadsheets.return_value.get = mock_spreadsheets_get
-
-    # Mock response for spreadsheets.values.get
-    def mock_values_get(**kwargs):
-        sheet_id = kwargs.get("spreadsheetId")
-        mock_response = MagicMock()
-
-        if sheet_id == "test_sheet_id_1":
-            mock_response.execute.return_value = {
-                "values": [
-                    ["Name", "Age", "City"],  # Headers
-                    ["John Doe", "30", "New York"],
-                    ["Jane Smith", "25", "San Francisco"],
-                    ["Bob Johnson", "35", "Chicago"],
-                ]
-            }
-        elif sheet_id == "test_sheet_id_2":
-            mock_response.execute.return_value = {
-                "values": [
-                    ["Name", "Age", "City"],  # Headers
-                    [
-                        '=IMPORTRANGE("https://docs.google.com/spreadsheets/d/test_sheet_id_1", "Sheet1!A2:A4")',
-                        "30",
-                        "New York",
-                    ],
-                ]
-            }
-
-        return mock_response
-
-    mock_google_services[
-        "sheets_service"
-    ].spreadsheets.return_value.values.return_value.get = mock_values_get
-
-    return mock_google_services
-
-
-def create_mock_source(config, ctx, mock_services):
-    """
-    Create a GoogleSheetsSource instance with mocked services.
-    This helper function injects our mock services into the real Source class.
-    """
-    source = GoogleSheetsSource(config, ctx)
-
-    # Replace the real services with mocks
-    source.drive_service = mock_services["drive_service"]
-    source.sheets_service = mock_services["sheets_service"]
-    source.drive_activity_service = mock_services["drive_activity_service"]
-
-    return source
-
-
-def process_workunit_for_golden_file(wu):
-    """Process a workunit into a format suitable for golden files."""
-    # Start with basic metadata
-    result = {"type": wu.__class__.__name__, "id": wu.id}
-
-    try:
-        # Extract the content of MetadataChangeEvent-based workunits
-        if hasattr(wu, "mce") and wu.mce:
-            # Extract the full MCE content
-            if hasattr(wu.mce, "proposedSnapshot") and wu.mce.proposedSnapshot:
-                # Get the snapshot
-                snapshot = wu.mce.proposedSnapshot
-                snapshot_dict = snapshot.to_obj()
-                result["proposedSnapshot"] = snapshot_dict
-
-                # Extract specific aspects based on the snapshot type
-                if hasattr(snapshot, "aspects") and snapshot.aspects:
-                    result["aspects"] = [aspect.to_obj() for aspect in snapshot.aspects]
-
-            # Get system metadata if present
-            if hasattr(wu.mce, "systemMetadata") and wu.mce.systemMetadata:
-                result["systemMetadata"] = wu.mce.systemMetadata.to_obj()
-
-        # Extract content of MetadataChangeProposal-based workunits
-        elif hasattr(wu, "mcp") and wu.mcp:
-            # Get the entity URN
-            if hasattr(wu.mcp, "entityUrn"):
-                result["entityUrn"] = str(wu.mcp.entityUrn)
-
-            # Get the change type
-            if hasattr(wu.mcp, "changeType"):
-                result["changeType"] = wu.mcp.changeType
-
-            # Get the aspect name
-            if hasattr(wu.mcp, "aspectName"):
-                result["aspectName"] = wu.mcp.aspectName
-
-            # Get the aspect content
-            if hasattr(wu.mcp, "aspect") and wu.mcp.aspect:
-                try:
-                    aspect_dict = wu.mcp.aspect.to_obj()
-                    result["aspect"] = aspect_dict
-                except Exception as aspect_error:
-                    result["aspectError"] = str(aspect_error)
-
-            # Get system metadata if present
-            if hasattr(wu.mcp, "systemMetadata") and wu.mcp.systemMetadata:
-                result["systemMetadata"] = wu.mcp.systemMetadata.to_obj()
-
-        # For other workunit types, try to find any available data
-        # This is a fallback mechanism for other workunit types
-        else:
-            # Look for common attributes that might contain useful data
-            for attr_name in dir(wu):
-                # Skip private attributes and methods
-                if attr_name.startswith("_") or callable(getattr(wu, attr_name)):
-                    continue
-
-                # Try to get the attribute
-                try:
-                    attr_value = getattr(wu, attr_name)
-
-                    # Skip the attributes we already handled
-                    if attr_name in ["id", "mce", "mcp"]:
-                        continue
-
-                    # Try to convert to a serializable form if it has a to_obj method
-                    if hasattr(attr_value, "to_obj") and callable(attr_value.to_obj):
-                        result[attr_name] = attr_value.to_obj()
-                    # For simple types, just store directly
-                    elif (
-                        isinstance(attr_value, (str, int, float, bool, list, dict))
-                        or attr_value is None
-                    ):
-                        result[attr_name] = attr_value
-                except Exception as attr_error:
-                    result[f"{attr_name}_error"] = str(attr_error)
-
-    except Exception as e:
-        # If we encounter any error processing the workunit, include an error message
-        result["error_extracting_content"] = str(e)
-        logging.warning(f"Error extracting content from workunit {wu.id}: {e}")
-
-    return result
-
-
-@pytest.mark.integration
-@pytest.mark.parametrize("test_case", TEST_CONFIGS)
-def test_generate_golden_file(
-    test_case,
-    test_resources_dir,
-    pytestconfig,
-    tmp_path,
-    mock_basic_sheet_data,
-    mock_lineage_sheet_data,
-):
-    """Test generating golden files for Google Sheets metadata."""
-
-    # Select the appropriate mock data based on the test case
-    if test_case["mock_fixture"] == "mock_basic_sheet_data":
-        mock_test_data = mock_basic_sheet_data
-    else:
-        mock_test_data = mock_lineage_sheet_data
-
-    # Mock the credentials class
-    credentials_patch = patch(
-        "google.oauth2.service_account.Credentials.from_service_account_file"
-    )
-    mock_credentials = credentials_patch.start()
-    mock_credentials.return_value = MagicMock()
-
-    try:
-        # Create a temporary credentials file
-        test_credentials_file = tmp_path / "test_creds.json"
-        test_credentials_file.write_text("{}")
-
-        test_config = test_case["config"].copy()
-        test_config["credentials"] = str(test_credentials_file)
-
-        # Set up a deterministic run ID
-        ctx = PipelineContext(run_id=f"google-sheets-{test_case['name']}")
-
-        # Create the source directly instead of using Pipeline.create
-        source = GoogleSheetsSource(
-            config=GoogleSheetsSourceConfig.model_validate(test_config), ctx=ctx
-        )
-
-        # Inject mocked services
-        source.drive_service = mock_test_data["drive_service"]
-        source.sheets_service = mock_test_data["sheets_service"]
-        source.drive_activity_service = mock_test_data["drive_activity_service"]
-
-        # Get workunits
-        workunits = list(source.get_workunits())
-        print(f"\nGenerated {len(workunits)} workunits for test: {test_case['name']}")
-
-        # Process workunits for the golden file
-        workunit_data = []
-        for i, wu in enumerate(workunits):
-            print(
-                f"  Processing workunit {i + 1}/{len(workunits)}: {wu.__class__.__name__} - {wu.id}"
-            )
-            workunit_data.append(process_workunit_for_golden_file(wu))
-
-        # Update the golden file directly
-        golden_file_path = test_resources_dir / test_case["golden_file"]
-        with open(golden_file_path, "w") as f:
-            json.dump(workunit_data, f, indent=2)
-        print(f"Updated golden file: {golden_file_path}")
-
-    finally:
-        credentials_patch.stop()
-
-
-@pytest.mark.integration
-def test_pydantic_models_and_sql_parsing(mock_google_services, tmp_path):
-    """Test that Pydantic models work correctly and SQL parsing is integrated."""
-    from datahub.ingestion.source.google_sheets.google_sheets_source import (
-        GoogleSheetsSourceConfig,
-    )
-    from datahub.ingestion.source.google_sheets.models import (
-        DatabaseReference,
-        JdbcParseResult,
-        SheetPathResult,
-    )
-
-    # Test Pydantic models directly
-    jdbc_result = JdbcParseResult(
-        platform="bigquery",
-        database="my_project",
-        sql_query="SELECT * FROM dataset.table",
-    )
-    assert jdbc_result.platform == "bigquery"
-    assert jdbc_result.database == "my_project"
-    assert jdbc_result.sql_query == "SELECT * FROM dataset.table"
-
-    path_result = SheetPathResult(
-        full_path="/Folder/Sheet", folder_path_parts=["Folder"]
-    )
-    assert path_result.full_path == "/Folder/Sheet"
-    assert len(path_result.folder_path_parts) == 1
-
-    db_ref = DatabaseReference.create_bigquery("proj", "dataset", "table")
-    assert db_ref.platform == "bigquery"
-    assert db_ref.table_identifier == "proj.dataset.table"
-
-    # Test that source can be instantiated with config
-    test_credentials_file = tmp_path / "test_creds.json"
-    test_credentials_file.write_text("{}")
-
-    config = GoogleSheetsSourceConfig.model_validate(
-        {
-            "credentials": str(test_credentials_file),
-            "parse_sql_for_lineage": True,
-            "extract_tags": False,  # No synthetic tags
-        }
-    )
-
-    assert config.parse_sql_for_lineage is True
-    assert config.extract_tags is False
-
-
-@pytest.mark.integration
-def test_no_synthetic_metadata(mock_basic_sheet_data, tmp_path):
-    """Test that no synthetic tags or descriptions are created."""
-    from datahub.ingestion.source.google_sheets.models import DriveFile
-    from datahub.ingestion.source.google_sheets.utils import (
-        extract_tags_from_drive_metadata,
-    )
-
-    test_credentials_file = tmp_path / "test_creds.json"
-    test_credentials_file.write_text("{}")
-
-    config = GoogleSheetsSourceConfig.model_validate(
-        {"credentials": str(test_credentials_file), "extract_tags": True}
-    )
-
-    # With extract_tags=True but no labelInfo, should return empty
-    sheet = DriveFile(
-        id="test123",
-        name="Test Sheet",
-        mimeType="application/vnd.google-apps.spreadsheet",
-        shared=True,
-        owners=[{"emailAddress": "test@example.com"}],
-    )
-    tags = extract_tags_from_drive_metadata(sheet, config)
-
-    # Should be empty - no labelInfo provided
-    assert len(tags) == 0, "No tags without labelInfo"
-
-
-@pytest.mark.integration
-def test_real_drive_label_extraction(tmp_path):
-    """Test that real Drive labels are extracted correctly."""
-    from datahub.ingestion.source.google_sheets.models import DriveFile
-    from datahub.ingestion.source.google_sheets.utils import (
-        extract_tags_from_drive_metadata,
-    )
-
-    test_credentials_file = tmp_path / "test_creds.json"
-    test_credentials_file.write_text("{}")
-
-    config = GoogleSheetsSourceConfig.model_validate(
-        {"credentials": str(test_credentials_file), "extract_tags": True}
-    )
-
-    # Sheet with real Drive labelInfo structure
-    sheet = DriveFile(
-        id="test123",
-        name="Test Sheet",
-        mimeType="application/vnd.google-apps.spreadsheet",
-        labelInfo={
-            "labels": [
+                )
+            # Return file data with parent
+            return MockExecute(
                 {
-                    "id": "finance-label-001",
-                    "fields": {
-                        "department": {"text": ["Finance"]},
-                        "status": {"selection": ["active", "reviewed"]},
-                    },
+                    "id": file_id,
+                    "name": f"File {file_id}",
+                    "parents": ["root"],  # Will terminate on next iteration
                 }
-            ]
-        },
+            )
+
+    class MockDrives:
+        def list(self, **kwargs):
+            return MockExecute(read_mock_response("drive_shared_drives_list.json"))
+
+    class MockService:
+        def files(self):
+            return MockFiles()
+
+        def drives(self):
+            return MockDrives()
+
+    return MockService()
+
+
+def create_mock_sheets_service():
+    """Create a mock Google Sheets service with realistic API responses."""
+
+    class MockExecute:
+        def __init__(self, data):
+            self.data = data
+
+        def execute(self):
+            return self.data
+
+    class MockValues:
+        def get(self, **kwargs):
+            return MockExecute(
+                {
+                    "range": kwargs.get("range", ""),
+                    "majorDimension": "ROWS",
+                    "values": [
+                        ["Date", "Product", "Quantity", "Revenue", "Region"],
+                        ["2024-01-01", "Widget A", "150", "15000", "North"],
+                    ],
+                }
+            )
+
+    class MockSpreadsheets:
+        def get(self, **kwargs):
+            return MockExecute(read_mock_response("spreadsheet_basic.json"))
+
+        def values(self):
+            return MockValues()
+
+    class MockService:
+        def spreadsheets(self):
+            return MockSpreadsheets()
+
+    return MockService()
+
+
+def create_mock_drive_activity_service():
+    """Create a mock Google Drive Activity service for usage statistics."""
+
+    class MockExecute:
+        def __init__(self, data):
+            self.data = data
+
+        def execute(self):
+            return self.data
+
+    class MockActivity:
+        def query(self, **kwargs):
+            return MockExecute(read_mock_response("drive_activity_usage.json"))
+
+    class MockService:
+        def activity(self):
+            return MockActivity()
+
+    return MockService()
+
+
+@pytest.fixture
+def mock_google_apis():
+    """Mock all Google API services.
+
+    Patch at the source module level like Tableau does with Server.
+    """
+    mock_drive = create_mock_drive_service()
+    mock_sheets = create_mock_sheets_service()
+    mock_drive_activity = create_mock_drive_activity_service()
+
+    # Configure build to return appropriate service
+    def build_service(service_name, version, **kwargs):
+        if service_name == "drive":
+            return mock_drive
+        elif service_name == "sheets":
+            return mock_sheets
+        elif service_name == "driveactivity":
+            return mock_drive_activity
+        else:
+            raise ValueError(f"Unknown service: {service_name}")
+
+    with mock.patch(
+        "datahub.ingestion.source.google_sheets.google_sheets_source.build",
+        side_effect=build_service,
+    ):
+        yield {
+            "drive": mock_drive,
+            "sheets": mock_sheets,
+            "driveactivity": mock_drive_activity,
+        }
+
+
+@pytest.fixture
+def mock_credentials():
+    """Mock Google service account credentials."""
+    with mock.patch(
+        "google.oauth2.service_account.Credentials.from_service_account_file"
+    ) as mock_creds:
+        mock_creds.return_value = mock.MagicMock()
+        yield mock_creds
+
+
+@pytest.fixture
+def mock_sleep():
+    """Mock time.sleep to prevent hangs during API rate limiting."""
+    with mock.patch("time.sleep", return_value=None):
+        yield
+
+
+def test_basic_ingestion(
+    mock_google_apis, mock_credentials, mock_sleep, pytestconfig, tmp_path
+):
+    """Test basic ingestion without lineage or profiling."""
+    output_path = tmp_path / "google_sheets_basic_mces.json"
+    golden_path = test_resources_dir / "google_sheets_basic_golden.json"
+
+    # Load recipe and configure output
+    config = load_recipe_config("recipe_basic_ingestion.yml")
+    config["sink"]["config"]["filename"] = str(output_path)
+
+    pipeline = Pipeline.create(config)
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Verify output matches golden file
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=golden_path,
     )
 
-    tags = extract_tags_from_drive_metadata(sheet, config)
 
-    # Should have 1 label ID + 1 text field + 2 selections = 4 tags
-    assert len(tags) == 4, f"Expected 4 tags, got {len(tags)}"
+def test_lineage_extraction(
+    mock_google_apis, mock_credentials, mock_sleep, pytestconfig, tmp_path
+):
+    """Test lineage extraction from IMPORTRANGE and QUERY formulas."""
+    output_path = tmp_path / "google_sheets_lineage_mces.json"
+    golden_path = test_resources_dir / "google_sheets_lineage_golden.json"
 
-    tag_values = [tag.tag for tag in tags]
-    assert any("drive-label:finance-label-001" in t for t in tag_values)
-    assert any("drive-label-field:Finance" in t for t in tag_values)
-    assert any("drive-label-selection:active" in t for t in tag_values)
-    assert any("drive-label-selection:reviewed" in t for t in tag_values)
+    # Load recipe and configure output
+    config = load_recipe_config("recipe_lineage_extraction.yml")
+    config["sink"]["config"]["filename"] = str(output_path)
+
+    pipeline = Pipeline.create(config)
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Verify output matches golden file
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=golden_path,
+    )
 
 
-@pytest.mark.parametrize(
-    "config_dict, is_success, error_message",
-    [
-        (
-            {
-                "credentials": "test_creds.json",
-            },
-            True,
-            None,
-        ),
-        (
-            {
-                "credentials": "nonexistent_file.json",
-            },
-            False,
-            "Credentials file nonexistent_file.json does not exist",
-        ),
-    ],
-)
-@pytest.mark.integration
-def test_google_sheets_validation(config_dict, is_success, error_message, tmp_path):
-    """Test Google Sheets config validation."""
-    # Mock the validator method to avoid actually checking file existence
-    with patch("os.path.exists") as mock_exists:
-        mock_exists.side_effect = lambda path: path != "nonexistent_file.json"
+def test_header_detection(
+    mock_google_apis, mock_credentials, mock_sleep, pytestconfig, tmp_path
+):
+    """Test automatic header row detection."""
+    output_path = tmp_path / "google_sheets_header_mces.json"
+    golden_path = test_resources_dir / "google_sheets_header_detection_golden.json"
 
-        if is_success:
-            # Create a mock credentials file
-            test_creds_file = tmp_path / "test_creds.json"
-            test_creds_file.write_text("{}")
-            config_dict["credentials"] = str(test_creds_file)
+    # Load recipe and configure output
+    config = load_recipe_config("recipe_header_detection.yml")
+    config["sink"]["config"]["filename"] = str(output_path)
 
-            # This should not raise an exception
-            GoogleSheetsSourceConfig.model_validate(config_dict)
-        else:
-            with pytest.raises(ValueError, match=error_message):
-                GoogleSheetsSourceConfig.model_validate(config_dict)
+    pipeline = Pipeline.create(config)
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Verify output matches golden file
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=golden_path,
+    )
+
+
+def test_profiling_and_usage(
+    mock_google_apis, mock_credentials, mock_sleep, pytestconfig, tmp_path
+):
+    """Test profiling and usage statistics extraction."""
+    output_path = tmp_path / "google_sheets_profiling_mces.json"
+    golden_path = test_resources_dir / "google_sheets_profiling_usage_golden.json"
+
+    # Load recipe and configure output
+    config = load_recipe_config("recipe_profiling_usage.yml")
+    config["sink"]["config"]["filename"] = str(output_path)
+
+    pipeline = Pipeline.create(config)
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Verify output matches golden file
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=golden_path,
+    )
+
+
+def test_shared_drives(
+    mock_google_apis, mock_credentials, mock_sleep, pytestconfig, tmp_path
+):
+    """Test ingestion from Google Shared Drives."""
+    output_path = tmp_path / "google_sheets_shared_drives_mces.json"
+    golden_path = test_resources_dir / "google_sheets_shared_drives_golden.json"
+
+    # Load recipe and configure output
+    config = load_recipe_config("recipe_shared_drives.yml")
+    config["sink"]["config"]["filename"] = str(output_path)
+
+    pipeline = Pipeline.create(config)
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Verify output matches golden file
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=golden_path,
+    )

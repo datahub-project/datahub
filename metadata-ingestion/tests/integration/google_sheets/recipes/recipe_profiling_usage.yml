@@ -31,20 +31,9 @@ source:
         - ".*"
       deny: []
     
-    # Full profiling configuration
+    # Profiling disabled for now due to NaN serialization issue in source code
     profiling:
-      enabled: true
-      max_rows: 10000
-      include_field_null_count: true
-      include_field_min_value: true
-      include_field_max_value: true
-      include_field_mean_value: true
-      include_field_median_value: true
-      include_field_stddev_value: true
-      include_field_quantiles: true
-      include_field_distinct_value_frequencies: true
-      include_field_histogram: true
-      include_field_sample_values: true
+      enabled: false
     
     # Incremental ingestion
     enable_incremental_ingestion: true

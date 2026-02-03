@@ -6,6 +6,7 @@ from pydantic import Field, field_validator
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.state.checkpoint import CheckpointStateBase
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -13,6 +14,19 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+
+
+class GoogleSheetsCheckpointState(CheckpointStateBase):
+    """Checkpoint state for Google Sheets connector."""
+
+    sheet_modified_times: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Maps sheet ID to last modified time (ISO 8601 format)",
+    )
+    last_run_time: Optional[str] = Field(
+        default=None,
+        description="Last ingestion run time (ISO 8601 format)",
+    )
 
 
 class GoogleSheetsSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):

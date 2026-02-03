@@ -158,9 +158,8 @@ class MetadataBuilder:
 
         if sheet_file.owners:
             for owner in sheet_file.owners:
-                email = owner.get("emailAddress")
-                if email:
-                    owner_urn = builder.make_user_urn(email)
+                if owner.emailAddress:
+                    owner_urn = builder.make_user_urn(owner.emailAddress)
                     owners_list.append(
                         OwnerClass(owner=owner_urn, type=OwnershipTypeClass.DATAOWNER)
                     )
@@ -236,8 +235,7 @@ class MetadataBuilder:
 
         if sheet_file.owners:
             for owner in sheet_file.owners:
-                email = owner.get("emailAddress")
-                if email:
-                    owner_emails.append(email)
+                if owner.emailAddress:
+                    owner_emails.append(owner.emailAddress)
 
         return owner_emails

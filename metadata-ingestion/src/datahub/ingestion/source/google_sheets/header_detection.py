@@ -59,7 +59,7 @@ class HeaderDetector:
             return start_row
 
         max_rows_to_check = min(10, len(values) - start_row)
-        best_score = -1
+        best_score = -1.0
         best_row = start_row
 
         for i in range(start_row, start_row + max_rows_to_check):
