@@ -1711,4 +1711,561 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     return new SearchResultMetadata()
         .setAggregations(new AggregationMetadataArray(aggregationMetadata));
   }
+
+  @Test
+  public void testCreateGenericEntities() throws Exception {
+    Urn TEST_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)");
+
+    // Mock entity service response
+    when(mockEntityService.ingestProposal(
+            any(OperationContext.class), any(AspectsBatch.class), eq(false)))
+        .thenAnswer(
+            invocation -> {
+              AspectsBatch batch = invocation.getArgument(1);
+              List<IngestResult> results = new ArrayList<>();
+              for (MCPItem item : batch.getMCPItems()) {
+                IngestResult result =
+                    IngestResult.builder()
+                        .urn(item.getUrn())
+                        .request(item)
+                        .result(
+                            UpdateAspectResult.builder()
+                                .urn(item.getUrn())
+                                .auditStamp(item.getAuditStamp())
+                                .newValue(new Status().setRemoved(false))
+                                .newSystemMetadata(new SystemMetadata())
+                                .build())
+                        .sqlCommitted(true)
+                        .build();
+                results.add(result);
+              }
+              return results;
+            });
+
+    // Test POST /entity/generic with multiple entity types
+    String requestBody =
+        "{\n"
+            + "  \"dataset\": [\n"
+            + "    {\n"
+            + "      \"urn\": \"urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)\",\n"
+            + "      \"status\": {\n"
+            + "        \"value\": {\n"
+            + "          \"removed\": false\n"
+            + "        }\n"
+            + "      }\n"
+            + "    }\n"
+            + "  ]\n"
+            + "}";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/generic")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .param("async", "false")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.dataset[0].urn").value(TEST_URN.toString()));
+  }
+
+  @Test
+  public void testCreateGenericEntitiesAsync() throws Exception {
+    Urn TEST_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)");
+
+    // Mock entity service response for async
+    when(mockEntityService.ingestProposal(
+            any(OperationContext.class), any(AspectsBatch.class), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              AspectsBatch batch = invocation.getArgument(1);
+              List<IngestResult> results = new ArrayList<>();
+              for (MCPItem item : batch.getMCPItems()) {
+                IngestResult result =
+                    IngestResult.builder()
+                        .urn(item.getUrn())
+                        .request(item)
+                        .publishedMCP(true)
+                        .build();
+                results.add(result);
+              }
+              return results;
+            });
+
+    String requestBody =
+        "{\n"
+            + "  \"dataset\": [\n"
+            + "    {\n"
+            + "      \"urn\": \"urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)\",\n"
+            + "      \"status\": {\n"
+            + "        \"value\": {\n"
+            + "          \"removed\": false\n"
+            + "        }\n"
+            + "      }\n"
+            + "    }\n"
+            + "  ]\n"
+            + "}";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/generic")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .param("async", "true")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isAccepted());
+  }
+
+  @Test
+  public void testCreateGenericEntitiesInvalidArray() throws Exception {
+    // Test with non-array value
+    String invalidRequestBody = "{\n" + "  \"dataset\": \"not-an-array\"\n" + "}";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/generic")
+                .content(invalidRequestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is4xxClientError())
+        .andExpect(
+            result -> {
+              assertTrue(result.getResolvedException() instanceof IllegalArgumentException);
+              assertTrue(result.getResolvedException().getMessage().contains("must be an array"));
+            });
+  }
+
+  @Test
+  public void testPatchGenericEntities() throws Exception {
+    Urn TEST_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)");
+
+    // Mock entity service response
+    when(mockEntityService.ingestProposal(
+            any(OperationContext.class), any(AspectsBatch.class), eq(false)))
+        .thenAnswer(
+            invocation -> {
+              AspectsBatch batch = invocation.getArgument(1);
+              List<IngestResult> results = new ArrayList<>();
+              for (MCPItem item : batch.getMCPItems()) {
+                IngestResult result =
+                    IngestResult.builder()
+                        .urn(item.getUrn())
+                        .request(item)
+                        .result(
+                            UpdateAspectResult.builder()
+                                .urn(item.getUrn())
+                                .auditStamp(item.getAuditStamp())
+                                .newValue(
+                                    new GlobalTags()
+                                        .setTags(
+                                            new TagAssociationArray(
+                                                List.of(
+                                                    new TagAssociation()
+                                                        .setTag(new TagUrn("urn:li:tag:test"))))))
+                                .newSystemMetadata(new SystemMetadata())
+                                .build())
+                        .sqlCommitted(true)
+                        .build();
+                results.add(result);
+              }
+              return results;
+            });
+
+    String requestBody =
+        "{\n"
+            + "  \"dataset\": [\n"
+            + "    {\n"
+            + "      \"urn\": \"urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)\",\n"
+            + "      \"globalTags\": {\n"
+            + "        \"value\": {\n"
+            + "          \"patch\": [{\n"
+            + "            \"op\": \"add\",\n"
+            + "            \"path\": \"/tags/urn:li:tag:test\"\n"
+            + "          }]\n"
+            + "        }\n"
+            + "      }\n"
+            + "    }\n"
+            + "  ]\n"
+            + "}";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.patch("/openapi/v3/entity/generic")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .param("async", "false")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.dataset[0].urn").value(TEST_URN.toString()));
+  }
+
+  @Test
+  public void testBatchGetGenericEntities() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"),
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,2,PROD)"));
+
+    // Mock entity aspect response
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data()))),
+                TEST_URNS.get(1),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    String requestBody =
+        "{\n"
+            + "  \"dataset\": [\n"
+            + "    {\"urn\": \"urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)\"},\n"
+            + "    {\"urn\": \"urn:li:dataset:(urn:li:dataPlatform:testPlatform,2,PROD)\"}\n"
+            + "  ]\n"
+            + "}";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/generic/batchGet")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.dataset[0].urn").value(TEST_URNS.get(0).toString()))
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.dataset[1].urn").value(TEST_URNS.get(1).toString()));
+  }
+
+  @Test
+  public void testBatchGetGenericEntitiesInvalidArray() throws Exception {
+    // Test with non-array value
+    String invalidRequestBody = "{\n" + "  \"dataset\": \"not-an-array\"\n" + "}";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/generic/batchGet")
+                .content(invalidRequestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is4xxClientError())
+        .andExpect(
+            result -> {
+              assertTrue(result.getResolvedException() instanceof IllegalArgumentException);
+              assertTrue(result.getResolvedException().getMessage().contains("must be an array"));
+            });
+  }
+
+  @Test
+  public void testScrollEntitiesWithFacets() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+
+    AggregationMetadata aggregationMetadata = new AggregationMetadata();
+    aggregationMetadata.setName("platform");
+    aggregationMetadata.setAggregations(new LongMap(Map.of("testPlatform", 5L)));
+
+    SearchResultMetadata metadata =
+        new SearchResultMetadata()
+            .setAggregations(new AggregationMetadataArray(List.of(aggregationMetadata)));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(metadata)
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id"))))));
+
+    when(mockSearchService.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("skipAggregation", "false")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.facets[0].field").value("platform"))
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.facets[0].aggregations.testPlatform").value(5));
+  }
+
+  @Test
+  public void testScrollEntitiesWithScrollIdPerEntity() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"),
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,2,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(2)
+            .setMetadata(testSearchResultMetadata())
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "scroll-id-1"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(1))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "scroll-id-2"))))));
+
+    when(mockSearchService.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data()))),
+                TEST_URNS.get(1),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("scrollIdPerEntity", "true")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.entities[0].scrollId").value("scroll-id-1"))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.entities[1].scrollId").value("scroll-id-2"));
+  }
+
+  @Test
+  public void testScrollEntitiesWithSortCriteriaInBody() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(testSearchResultMetadata())
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id"))))));
+
+    ArgumentCaptor<List> sortCriteriaCaptor = ArgumentCaptor.forClass(List.class);
+
+    when(mockSearchService.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            sortCriteriaCaptor.capture(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    String requestBody =
+        "{\n"
+            + "  \"entities\": [\"dataset\"],\n"
+            + "  \"sortCriteria\": [\n"
+            + "    {\n"
+            + "      \"field\": \"name\",\n"
+            + "      \"order\": \"DESCENDING\"\n"
+            + "    }\n"
+            + "  ]\n"
+            + "}";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    // Verify sort criteria from body was used
+    List capturedSortCriteria = sortCriteriaCaptor.getValue();
+    assertNotNull(capturedSortCriteria);
+    assertTrue(capturedSortCriteria.size() > 0);
+    com.linkedin.metadata.query.filter.SortCriterion captured =
+        (com.linkedin.metadata.query.filter.SortCriterion) capturedSortCriteria.get(0);
+    assertEquals("name", captured.getField());
+    assertEquals(SortOrder.DESCENDING, captured.getOrder());
+  }
+
+  @Test
+  public void testToEntityVersionRequestWithVersionHeader() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+
+    // Mock entity aspect response with versioned aspect
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    // Request with version header in aspect
+    String requestBody =
+        "[\n"
+            + "  {\n"
+            + "    \"urn\": \"urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)\",\n"
+            + "    \"status\": {\n"
+            + "      \"headers\": {\n"
+            + "        \"If-Version-Match\": \"5\"\n"
+            + "      }\n"
+            + "    }\n"
+            + "  }\n"
+            + "]";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset/batchGet")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(MockMvcResultMatchers.jsonPath("$[0].urn").value(TEST_URNS.get(0).toString()));
+  }
+
+  @Test
+  public void testToEntityVersionRequestWithMissingUrnField() throws Exception {
+    // Request without urn field
+    String requestBody =
+        "[\n"
+            + "  {\n"
+            + "    \"status\": {\n"
+            + "      \"value\": {\"removed\": false}\n"
+            + "    }\n"
+            + "  }\n"
+            + "]";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset/batchGet")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is4xxClientError())
+        .andExpect(
+            result -> {
+              assertTrue(result.getResolvedException() instanceof IllegalArgumentException);
+              assertTrue(
+                  result.getResolvedException().getMessage().contains("Missing `urn` field"));
+            });
+  }
+
+  @Test
+  public void testScrollEntitiesWithEmptyPitKeepAlive() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(testSearchResultMetadata())
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id"))))));
+
+    // Mock to expect null pitKeepAlive when empty string is passed
+    when(mockSearchService.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            eq(null),
+            anyInt()))
+        .thenReturn(expectedResult);
+
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("pitKeepAlive", "")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+  }
 }

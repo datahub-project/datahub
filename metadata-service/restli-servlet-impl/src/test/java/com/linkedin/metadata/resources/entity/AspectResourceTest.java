@@ -364,4 +364,235 @@ public class AspectResourceTest {
         any(OperationContext.class), eq(executionRequestUrn), any());
     verify(authorizer, never()).authorize(any(AuthorizationRequest.class));
   }
+
+  @Test
+  public void testIngestProposalBatchAsync() throws URISyntaxException {
+    reset(producer, aspectDao, authorizer);
+
+    Urn dataset1Urn = new DatasetUrn(new DataPlatformUrn("platform"), "dataset1", FabricType.PROD);
+    Urn dataset2Urn = new DatasetUrn(new DataPlatformUrn("platform"), "dataset2", FabricType.PROD);
+
+    MetadataChangeProposal mcp1 = new MetadataChangeProposal();
+    mcp1.setEntityType(DATASET_ENTITY_NAME);
+    mcp1.setEntityUrn(dataset1Urn);
+    mcp1.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+    DatasetProperties properties1 = new DatasetProperties().setName("dataset1");
+    mcp1.setAspect(GenericRecordUtils.serializeAspect(properties1));
+    mcp1.setChangeType(ChangeType.UPSERT);
+    mcp1.setSystemMetadata(new SystemMetadata());
+
+    MetadataChangeProposal mcp2 = new MetadataChangeProposal();
+    mcp2.setEntityType(DATASET_ENTITY_NAME);
+    mcp2.setEntityUrn(dataset2Urn);
+    mcp2.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+    DatasetProperties properties2 = new DatasetProperties().setName("dataset2");
+    mcp2.setAspect(GenericRecordUtils.serializeAspect(properties2));
+    mcp2.setChangeType(ChangeType.UPSERT);
+    mcp2.setSystemMetadata(new SystemMetadata());
+
+    when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
+      AuthorizationRequest request = invocation.getArgument(0);
+      return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "allowed");
+    });
+
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    Actor actor = new Actor(ActorType.USER, "user");
+    when(mockAuthentication.getActor()).thenReturn(actor);
+
+    aspectResource.ingestProposalBatch(new MetadataChangeProposal[]{mcp1, mcp2}, "true");
+
+    // Verify both proposals were processed asynchronously
+    verify(producer, times(2)).produceMetadataChangeProposal(
+        any(OperationContext.class), any(Urn.class), any());
+  }
+
+  @Test
+  public void testIngestProposalWithNullAsync() throws URISyntaxException {
+    reset(producer, aspectDao, authorizer);
+
+    Urn datasetUrn = new DatasetUrn(new DataPlatformUrn("platform"), "dataset1", FabricType.PROD);
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    mcp.setEntityUrn(datasetUrn);
+    mcp.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+    DatasetProperties properties = new DatasetProperties().setName("dataset1");
+    mcp.setAspect(GenericRecordUtils.serializeAspect(properties));
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setSystemMetadata(new SystemMetadata());
+
+    ChangeItemImpl req = ChangeItemImpl.builder()
+            .urn(datasetUrn)
+            .aspectName(mcp.getAspectName())
+            .recordTemplate(mcp.getAspect())
+            .auditStamp(opContext.getAuditStamp())
+            .metadataChangeProposal(mcp)
+            .build(opContext.getAspectRetriever());
+    IngestAspectsResult txResult = IngestAspectsResult.builder()
+            .updateAspectResults(List.of(
+                    UpdateAspectResult.builder()
+                            .urn(datasetUrn)
+                            .newValue(new DatasetProperties().setName("dataset1"))
+                            .auditStamp(opContext.getAuditStamp())
+                            .request(req)
+                            .build()))
+            .build();
+    when(aspectDao.runInTransactionWithRetry(any(), any(), anyInt())).thenReturn(java.util.Optional.of(txResult));
+
+    when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
+      AuthorizationRequest request = invocation.getArgument(0);
+      return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "allowed");
+    });
+
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    Actor actor = new Actor(ActorType.USER, "user");
+    when(mockAuthentication.getActor()).thenReturn(actor);
+
+    // Test with "unset" which uses the environment default (sync in test environment)
+    aspectResource.ingestProposal(mcp, "unset");
+
+    // Verify proposal was processed synchronously (default in test environment)
+    verify(producer, times(1)).produceMetadataChangeLog(
+        any(OperationContext.class), eq(datasetUrn), any(AspectSpec.class), any(MetadataChangeLog.class));
+  }
+
+  @Test
+  public void testIngestProposalBatchWithEmptyArray() throws URISyntaxException {
+    reset(producer, aspectDao, authorizer);
+
+    when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
+      AuthorizationRequest request = invocation.getArgument(0);
+      return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "allowed");
+    });
+
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    Actor actor = new Actor(ActorType.USER, "user");
+    when(mockAuthentication.getActor()).thenReturn(actor);
+
+    aspectResource.ingestProposalBatch(new MetadataChangeProposal[]{}, "true");
+
+    // Verify no proposals were processed
+    verify(producer, never()).produceMetadataChangeProposal(any(), any(), any());
+  }
+
+  @Test
+  public void testIngestProposalWithMultipleDomains() throws URISyntaxException {
+    reset(producer, aspectDao, authorizer);
+
+    Urn datasetUrn = new DatasetUrn(new DataPlatformUrn("platform"), "dataset1", FabricType.PROD);
+    Urn domain1Urn = Urn.createFromString("urn:li:domain:finance");
+    Urn domain2Urn = Urn.createFromString("urn:li:domain:marketing");
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    mcp.setEntityUrn(datasetUrn);
+    mcp.setAspectName(DOMAINS_ASPECT_NAME);
+    UrnArray domainArray = new UrnArray();
+    domainArray.add(domain1Urn);
+    domainArray.add(domain2Urn);
+    Domains domains = new Domains().setDomains(domainArray);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(domains));
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setSystemMetadata(new SystemMetadata());
+
+    when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
+      AuthorizationRequest request = invocation.getArgument(0);
+      return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "allowed");
+    });
+
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    Actor actor = new Actor(ActorType.USER, "user");
+    when(mockAuthentication.getActor()).thenReturn(actor);
+
+    aspectResource.ingestProposal(mcp, "true");
+
+    verify(producer, times(1)).produceMetadataChangeProposal(
+        any(OperationContext.class), eq(datasetUrn), any());
+  }
+
+  @Test
+  public void testIngestProposalBatchSync() throws URISyntaxException {
+    reset(producer, aspectDao, authorizer);
+
+    Urn datasetUrn = new DatasetUrn(new DataPlatformUrn("platform"), "dataset1", FabricType.PROD);
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    mcp.setEntityUrn(datasetUrn);
+    mcp.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+    DatasetProperties properties = new DatasetProperties().setName("dataset1");
+    mcp.setAspect(GenericRecordUtils.serializeAspect(properties));
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setSystemMetadata(new SystemMetadata());
+
+    ChangeItemImpl req = ChangeItemImpl.builder()
+            .urn(datasetUrn)
+            .aspectName(mcp.getAspectName())
+            .recordTemplate(mcp.getAspect())
+            .auditStamp(opContext.getAuditStamp())
+            .metadataChangeProposal(mcp)
+            .build(opContext.getAspectRetriever());
+    IngestAspectsResult txResult = IngestAspectsResult.builder()
+            .updateAspectResults(List.of(
+                    UpdateAspectResult.builder()
+                            .urn(datasetUrn)
+                            .newValue(new DatasetProperties().setName("dataset1"))
+                            .auditStamp(opContext.getAuditStamp())
+                            .request(req)
+                            .build()))
+            .build();
+    when(aspectDao.runInTransactionWithRetry(any(), any(), anyInt())).thenReturn(java.util.Optional.of(txResult));
+
+    when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
+      AuthorizationRequest request = invocation.getArgument(0);
+      return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "allowed");
+    });
+
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    Actor actor = new Actor(ActorType.USER, "user");
+    when(mockAuthentication.getActor()).thenReturn(actor);
+
+    aspectResource.ingestProposalBatch(new MetadataChangeProposal[]{mcp}, "false");
+
+    // Verify sync processing path
+    verify(producer, times(1))
+        .produceMetadataChangeLog(any(OperationContext.class), eq(datasetUrn), any(AspectSpec.class), any(MetadataChangeLog.class));
+  }
+
+  @Test
+  public void testIngestProposalWithCreateChangeType() throws URISyntaxException {
+    reset(producer, aspectDao, authorizer);
+
+    Urn datasetUrn = new DatasetUrn(new DataPlatformUrn("platform"), "dataset1", FabricType.PROD);
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    mcp.setEntityUrn(datasetUrn);
+    mcp.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+    DatasetProperties properties = new DatasetProperties().setName("dataset1");
+    mcp.setAspect(GenericRecordUtils.serializeAspect(properties));
+    mcp.setChangeType(ChangeType.CREATE);
+    mcp.setSystemMetadata(new SystemMetadata());
+
+    when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
+      AuthorizationRequest request = invocation.getArgument(0);
+      return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "allowed");
+    });
+
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    Actor actor = new Actor(ActorType.USER, "user");
+    when(mockAuthentication.getActor()).thenReturn(actor);
+
+    aspectResource.ingestProposal(mcp, "true");
+
+    verify(producer, times(1)).produceMetadataChangeProposal(
+        any(OperationContext.class), eq(datasetUrn), any());
+  }
+
 }
