@@ -183,13 +183,17 @@ class TestResolveTableBatching:
         assert mock_graph.get_entities.call_count == 1
         assert mock_graph.get_aspect.call_count >= 1
 
-    def test_unexpected_errors_propagate(self, schema_resolver, mock_graph):
-        mock_graph.get_entities.side_effect = ValueError("Unexpected bug")
+    def test_handles_batch_errors_gracefully(self, schema_resolver, mock_graph):
+        """Test that batch errors trigger fallback to individual fetches."""
+        mock_graph.get_entities.side_effect = ValueError("Unexpected batch error")
+        mock_graph.get_aspect.return_value = None
 
         table = _TableName(database="db", db_schema="schema", table="table")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
 
-        with pytest.raises(ValueError, match="Unexpected bug"):
-            schema_resolver.resolve_table(table)
+        assert schema_info is None
+        assert mock_graph.get_entities.call_count == 1
+        assert mock_graph.get_aspect.call_count >= 1
 
     def test_handles_not_found(self, schema_resolver, mock_graph):
         mock_graph.get_entities.return_value = {}
@@ -216,6 +220,124 @@ class TestResolveTableBatching:
         resolved_urn2, schema_info2 = schema_resolver.resolve_table(table)
         assert schema_info2 == schema_info1
         assert mock_graph.get_entities.call_count == 1
+
+    def test_partial_urn_match_from_batch(self, schema_resolver, mock_graph):
+        """Test when batch fetch returns schemas for SOME URN variations but not others."""
+        urn_lower = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        )
+        mock_graph.get_entities.return_value = {
+            urn_lower: {
+                "schemaMetadata": (create_mock_schema([("col1", "string")]), {})
+            }
+        }
+
+        table = _TableName(database="DB", db_schema="SCHEMA", table="TABLE")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is not None
+        assert "col1" in schema_info
+        assert resolved_urn == urn_lower
+        assert mock_graph.get_entities.call_count == 1
+
+    def test_mixed_cached_none_and_fetch(self, schema_resolver, mock_graph):
+        """Test when some URN variations are cached as None and others need fetching."""
+        urn_upper = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.DB.SCHEMA.TABLE,PROD)"
+        )
+        urn_lower = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        )
+
+        schema_resolver.add_schema_metadata_from_fetch(urn_upper, None)
+
+        mock_graph.get_entities.return_value = {
+            urn_lower: {
+                "schemaMetadata": (create_mock_schema([("found_col", "int")]), {})
+            }
+        }
+
+        table = _TableName(database="DB", db_schema="SCHEMA", table="TABLE")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is not None
+        assert "found_col" in schema_info
+        assert resolved_urn == urn_lower
+        assert mock_graph.get_entities.call_count == 1
+
+    def test_caches_none_to_prevent_repeated_lookups(self, schema_resolver, mock_graph):
+        """Test that None results are cached to prevent repeated API calls."""
+        mock_graph.get_entities.return_value = {}
+
+        table = _TableName(database="db", db_schema="schema", table="missing_table")
+
+        resolved_urn1, schema_info1 = schema_resolver.resolve_table(table)
+        assert schema_info1 is None
+        assert mock_graph.get_entities.call_count == 1
+
+        resolved_urn2, schema_info2 = schema_resolver.resolve_table(table)
+        assert schema_info2 is None
+        assert mock_graph.get_entities.call_count == 1
+
+    def test_http_error_triggers_fallback(self, schema_resolver, mock_graph):
+        """Test that HTTP errors trigger fallback to individual fetches."""
+        from requests.models import HTTPError
+
+        mock_graph.get_entities.side_effect = HTTPError("503 Service Unavailable")
+        mock_graph.get_aspect.return_value = None
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is None
+        assert mock_graph.get_entities.call_count == 1
+        assert mock_graph.get_aspect.call_count >= 1
+
+    def test_json_decode_error_triggers_fallback(self, schema_resolver, mock_graph):
+        """Test that JSON parsing errors trigger fallback to individual fetches."""
+        import json
+
+        mock_graph.get_entities.side_effect = json.JSONDecodeError(
+            "Invalid JSON", "", 0
+        )
+        mock_graph.get_aspect.return_value = None
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is None
+        assert mock_graph.get_entities.call_count == 1
+        assert mock_graph.get_aspect.call_count >= 1
+
+    def test_graph_error_triggers_fallback(self, schema_resolver, mock_graph):
+        """Test that GraphError triggers fallback to individual fetches."""
+        from datahub.configuration.common import GraphError
+
+        mock_graph.get_entities.side_effect = GraphError(
+            "Failed to find aspect in response"
+        )
+        mock_graph.get_aspect.return_value = None
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is None
+        assert mock_graph.get_entities.call_count == 1
+        assert mock_graph.get_aspect.call_count >= 1
+
+    def test_assertion_error_triggers_fallback(self, schema_resolver, mock_graph):
+        """Test that AssertionError during deserialization triggers fallback."""
+        mock_graph.get_entities.side_effect = AssertionError(
+            "Aspect type mismatch during deserialization"
+        )
+        mock_graph.get_aspect.return_value = None
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is None
+        assert mock_graph.get_entities.call_count == 1
+        assert mock_graph.get_aspect.call_count >= 1
 
 
 class TestTableNameParts:

@@ -1,11 +1,14 @@
 import contextlib
+import json
 import logging
 import pathlib
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Protocol, Set, Tuple
 
+from requests.models import HTTPError
 from typing_extensions import TypedDict
 
+from datahub.configuration.common import GraphError
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
     make_dataset_urn_with_platform_instance,
@@ -144,8 +147,14 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         urn = self.get_urn_for_table(table)
         urn_lower = self.get_urn_for_table(table, lower=True)
-        # Check mixed case due to inconsistent platform instance lowercasing across connectors.
-        # See https://github.com/datahub-project/datahub/pull/8928
+        # Our treatment of platform instances when lowercasing urns
+        # is inconsistent. In some places (e.g. Snowflake), we lowercase
+        # the table names but not the platform instance. In other places
+        # (e.g. Databricks), we lowercase everything because it happens
+        # via the automatic lowercasing helper.
+        # See https://github.com/datahub-project/datahub/pull/8928.
+        # While we have this sort of inconsistency, we should also
+        # check the mixed case urn, as a last resort.
         urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
 
         urns_to_try = [urn]
@@ -193,9 +202,31 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                         f"Falling back to individual fetches for {len(urns_to_fetch)} URNs.",
                         exc_info=True,
                     )
-                    for fetch_urn in urns_to_fetch:
-                        if fetch_urn not in self._schema_cache:
-                            self._resolve_schema_info(fetch_urn)
+                    self._fallback_fetch_schemas(urns_to_fetch)
+
+                except HTTPError as e:
+                    logger.warning(
+                        f"Batch fetch failed due to HTTP error: {e}. "
+                        f"Falling back to individual fetches for {len(urns_to_fetch)} URNs.",
+                        exc_info=True,
+                    )
+                    self._fallback_fetch_schemas(urns_to_fetch)
+
+                except (json.JSONDecodeError, ValueError, KeyError) as e:
+                    logger.warning(
+                        f"Batch fetch failed due to data parsing error: {e}. "
+                        f"Falling back to individual fetches for {len(urns_to_fetch)} URNs.",
+                        exc_info=True,
+                    )
+                    self._fallback_fetch_schemas(urns_to_fetch)
+
+                except (GraphError, AssertionError) as e:
+                    logger.warning(
+                        f"Batch fetch failed due to DataHub error: {e}. "
+                        f"Falling back to individual fetches for {len(urns_to_fetch)} URNs.",
+                        exc_info=True,
+                    )
+                    self._fallback_fetch_schemas(urns_to_fetch)
 
             for candidate_urn in urns_to_try:
                 schema_info = self._schema_cache.get(candidate_urn)
@@ -260,6 +291,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         """Cache schema from DataHub API fetch if not already present.
 
         Respects cache precedence: ingestion schemas take precedence over fetched schemas.
+        Always caches the result (even None) to prevent repeated API calls for missing schemas.
 
         Returns:
             True if schema was cached (new entry), False if skipped (already cached from ingestion).
@@ -276,6 +308,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             schema_info = _convert_schema_aspect_to_info(schema_metadata)
             self._save_to_cache(urn, schema_info)
         else:
+            # Cache None to prevent repeated lookups for missing schemas
             self._save_to_cache(urn, None)
 
         return True
@@ -307,6 +340,47 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
     def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
         self._schema_cache[urn] = schema_info
+
+    def _fallback_fetch_schemas(self, urns: List[str]) -> None:
+        """Fetch schemas individually when batch fetch fails.
+
+        Handles network, HTTP, data parsing, and DataHub-specific errors gracefully
+        by caching None for failed fetches to prevent repeated attempts.
+        """
+        if not self.graph:
+            return
+
+        for fetch_urn in urns:
+            if fetch_urn in self._schema_cache:
+                continue
+
+            try:
+                schema_metadata = self.graph.get_aspect(fetch_urn, SchemaMetadataClass)
+                self.add_schema_metadata_from_fetch(fetch_urn, schema_metadata)
+
+            except (TimeoutError, ConnectionError, OSError) as net_error:
+                logger.debug(
+                    f"Network error fetching schema for {fetch_urn}: {net_error}"
+                )
+                self.add_schema_metadata_from_fetch(fetch_urn, None)
+
+            except HTTPError as http_error:
+                logger.debug(
+                    f"HTTP error fetching schema for {fetch_urn}: {http_error}"
+                )
+                self.add_schema_metadata_from_fetch(fetch_urn, None)
+
+            except (json.JSONDecodeError, ValueError, KeyError) as data_error:
+                logger.debug(
+                    f"Data parsing error fetching schema for {fetch_urn}: {data_error}"
+                )
+                self.add_schema_metadata_from_fetch(fetch_urn, None)
+
+            except (GraphError, AssertionError) as datahub_error:
+                logger.debug(
+                    f"DataHub error fetching schema for {fetch_urn}: {datahub_error}"
+                )
+                self.add_schema_metadata_from_fetch(fetch_urn, None)
 
     def _fetch_schema_info(self, graph: DataHubGraph, urn: str) -> Optional[SchemaInfo]:
         aspect = graph.get_aspect(urn, SchemaMetadataClass)
