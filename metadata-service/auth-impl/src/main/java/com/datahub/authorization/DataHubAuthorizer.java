@@ -26,6 +26,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Getter;
@@ -69,6 +71,8 @@ public class DataHubAuthorizer implements Authorizer {
   @Getter private final OperationContext systemOpContext;
 
   public static final String ALL = "ALL";
+  private static final Pattern SCHEMA_FIELD_URN_PATTERN =
+      Pattern.compile("^urn:li:schemaField:\\((urn:li:dataset:[^,]+),.*\\)$");
 
   public DataHubAuthorizer(
       @Nonnull final OperationContext systemOpContext,
@@ -132,6 +136,36 @@ public class DataHubAuthorizer implements Authorizer {
             String.format("Granted by policy with type: %s", policy.getType()));
       }
     }
+
+    // 3. Special case for schema fields: Check if the actor has permission on the parent dataset
+    if (request.getResourceSpec().isPresent()
+        && isSchemaFieldResource(request.getResourceSpec().get())) {
+      Optional<String> parentDatasetUrn =
+          extractDatasetUrnFromSchemaField(request.getResourceSpec().get().getEntity());
+      if (parentDatasetUrn.isPresent()) {
+        log.debug(
+            "Schema field permission denied directly, checking parent dataset: {}",
+            parentDatasetUrn.get());
+
+        // Create a new authorization request for the parent dataset
+        AuthorizationRequest parentRequest =
+            new AuthorizationRequest(
+                request.getActorUrn(),
+                request.getPrivilege(),
+                Optional.of(new EntitySpec("dataset", parentDatasetUrn.get())),
+                request.getSubResources());
+
+        // Recursively check parent dataset permissions
+        AuthorizationResult parentResult = authorize(parentRequest);
+        if (parentResult.getType() == AuthorizationResult.Type.ALLOW) {
+          return new AuthorizationResult(
+              request,
+              AuthorizationResult.Type.ALLOW,
+              "Granted by inherited permission from parent dataset");
+        }
+      }
+    }
+
     return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
   }
 
@@ -317,6 +351,42 @@ public class DataHubAuthorizer implements Authorizer {
           String.format(
               "Failed to bind actor %s to an URN. Actors must be URNs. Denying the authorization request",
               actor));
+      return Optional.empty();
+    }
+  }
+
+  /**
+   * Checks if the given EntitySpec represents a schema field resource.
+   *
+   * @param entitySpec the entity spec to check
+   * @return true if this is a schema field resource, false otherwise
+   */
+  private boolean isSchemaFieldResource(@Nonnull EntitySpec entitySpec) {
+    return "schemaField".equals(entitySpec.getType())
+        || (entitySpec.getEntity() != null
+            && entitySpec.getEntity().startsWith("urn:li:schemaField:"));
+  }
+
+  /**
+   * Extracts the dataset URN from a schema field URN. Schema field URNs have the format:
+   * urn:li:schemaField:(urn:li:dataset:...,fieldPath)
+   *
+   * @param schemaFieldUrn the schema field URN
+   * @return the dataset URN if extraction is successful, empty otherwise
+   */
+  private Optional<String> extractDatasetUrnFromSchemaField(@Nonnull String schemaFieldUrn) {
+    try {
+      Matcher matcher = SCHEMA_FIELD_URN_PATTERN.matcher(schemaFieldUrn);
+      if (matcher.matches()) {
+        String datasetUrn = matcher.group(1);
+        log.debug("Extracted dataset URN {} from schema field URN {}", datasetUrn, schemaFieldUrn);
+        return Optional.of(datasetUrn);
+      } else {
+        log.debug("Schema field URN {} does not match expected pattern", schemaFieldUrn);
+        return Optional.empty();
+      }
+    } catch (Exception e) {
+      log.warn("Failed to extract dataset URN from schema field URN: {}", schemaFieldUrn, e);
       return Optional.empty();
     }
   }
