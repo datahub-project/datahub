@@ -1648,9 +1648,20 @@ JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers".
 
 
 def test_clickhouse_dictget_not_treated_as_table() -> None:
-    # Test that ClickHouse DICTGET function arguments are not treated as table references.
-    # DICTGET(dict_name, attr_name, key) takes a dictionary name as the first argument,
-    # which sqlglot parses as a Table node but should not appear in lineage.
+    """Test that ClickHouse DICTGET function arguments are not treated as table references.
+
+    DICTGET(dict_name, attr_name, key) takes a dictionary name as the first argument,
+    which sqlglot parses as a Table node but should NOT appear in lineage.
+
+    Expected lineage:
+        analytics.events
+              |
+              v
+          [output]
+
+    NOT included (dictionary reference, not a table):
+        default.subscriptions
+    """
     assert_sql_result(
         """\
 SELECT
@@ -1665,8 +1676,20 @@ FROM analytics.events
 
 
 def test_clickhouse_dictget_with_multiple_tables() -> None:
-    # Test DICTGET with actual table joins - dictionary refs should be excluded,
-    # but real table refs should be included.
+    """Test DICTGET with actual table joins.
+
+    Dictionary refs should be excluded, but real table refs should be included.
+
+    Expected lineage:
+        analytics.events    analytics.users
+                    \           /
+                     \         /
+                      v       v
+                      [output]
+
+    NOT included (dictionary reference, not a table):
+        default.categories
+    """
     assert_sql_result(
         """\
 SELECT
@@ -1682,8 +1705,19 @@ JOIN analytics.users u ON e.user_id = u.id
 
 
 def test_clickhouse_materialized_view_to_table() -> None:
-    # Test that the TO table in ClickHouse CREATE MATERIALIZED VIEW ... TO target_table
-    # is not treated as an upstream table. The TO table is the storage target, not a data source.
+    """Test ClickHouse CREATE MATERIALIZED VIEW ... TO target_table syntax.
+
+    The TO table is the storage target (downstream), not a data source (upstream).
+    The MV acts as a trigger that inserts into the target table.
+
+    Expected lineage:
+        analytics.events
+              |
+              v
+        analytics.agg_daily_stats  (target table from TO clause)
+
+    The MV name (analytics.mv_daily_stats) is NOT the downstream - the TO table is.
+    """
     assert_sql_result(
         """\
 CREATE MATERIALIZED VIEW analytics.mv_daily_stats TO analytics.agg_daily_stats

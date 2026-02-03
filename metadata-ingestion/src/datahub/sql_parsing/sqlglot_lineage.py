@@ -550,9 +550,10 @@ def _table_level_lineage(
 
     # Generate table-level lineage.
     # ClickHouse-specific: For CREATE MATERIALIZED VIEW ... TO target_table,
-    # the actual output is the TO table, not the view itself.
+    # the actual output is the target table, not the view itself.
+    is_clickhouse = is_dialect_instance(dialect, "clickhouse")
     clickhouse_to_tables: OrderedSet[_TableName] = OrderedSet()
-    if is_dialect_instance(dialect, "clickhouse"):
+    if is_clickhouse:
         clickhouse_to_tables = _extract_table_names(
             (
                 to_prop.this
@@ -620,13 +621,15 @@ def _table_level_lineage(
                 table
                 for table in statement.find_all(sqlglot.exp.Table)
                 if not isinstance(table.parent, sqlglot.exp.Drop)
-                # ClickHouse: Filter out dictionary references in DICTGET() and similar functions
-                and not _is_in_clickhouse_dict_function(table)
-                # ClickHouse: Filter out TO table in CREATE MATERIALIZED VIEW ... TO target_table
-                and not isinstance(table.parent, sqlglot.exp.ToTableProperty)
-                # ClickHouse: Filter out MV name (in Schema) when TO table exists
+                # ClickHouse-specific filters (only applied when dialect is clickhouse)
+                and not (is_clickhouse and _is_in_clickhouse_dict_function(table))
                 and not (
-                    clickhouse_to_tables
+                    is_clickhouse
+                    and isinstance(table.parent, sqlglot.exp.ToTableProperty)
+                )
+                and not (
+                    is_clickhouse
+                    and clickhouse_to_tables
                     and isinstance(table.parent, sqlglot.exp.Schema)
                 )
             ),
@@ -785,7 +788,6 @@ def _prepare_query_columns(
             # - running the full pre-type annotation optimizer
 
             # logger.debug("Schema: %s", sqlglot_db_schema.mapping)
-            logger.debug("[CLL] Starting sqlglot optimizer")
             statement = sqlglot.optimizer.optimizer.optimize(
                 statement,
                 dialect=dialect,
@@ -799,7 +801,6 @@ def _prepare_query_columns(
                 db=default_schema,
                 rules=_OPTIMIZE_RULES,
             )
-            logger.debug("[CLL] sqlglot optimizer completed")
         except (sqlglot.errors.OptimizeError, ValueError) as e:
             raise SqlUnderstandingError(
                 f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
@@ -885,14 +886,8 @@ def _select_statement_cll(
             (select_col.alias_or_name, select_col) for select_col in statement.selects
         ]
         logger.debug("output columns: %s", [col[0] for col in output_columns])
-        total_columns = len(output_columns)
-        logger.debug(
-            f"[CLL] Processing {total_columns} output columns for {output_table}"
-        )
 
-        for col_idx, (output_col, _original_col_expression) in enumerate(
-            output_columns
-        ):
+        for output_col, _original_col_expression in output_columns:
             if not output_col or output_col == "*":
                 # If schema information is available, the * will be expanded to the actual columns.
                 # Otherwise, we can't process it.
@@ -908,12 +903,6 @@ def _select_statement_cll(
                 # if they appear in the output.
                 continue
 
-            # Log progress every 10 columns or for first/last column
-            if col_idx == 0 or col_idx == total_columns - 1 or col_idx % 10 == 0:
-                logger.debug(
-                    f"[CLL] Processing column {col_idx + 1}/{total_columns}: {output_col}"
-                )
-
             try:
                 lineage_node = sqlglot.lineage.lineage(
                     output_col,
@@ -925,8 +914,7 @@ def _select_statement_cll(
                 )
             except Exception as e:
                 logger.warning(
-                    f"[CLL] Failed to compute lineage for column '{output_col}' "
-                    f"({col_idx + 1}/{total_columns}): {e}"
+                    f"Failed to compute lineage for column '{output_col}': {e}"
                 )
                 continue
 
@@ -940,8 +928,7 @@ def _select_statement_cll(
                 )
             except Exception as e:
                 logger.warning(
-                    f"[CLL] Failed to get upstreams for column '{output_col}' "
-                    f"({col_idx + 1}/{total_columns}): {e}"
+                    f"Failed to get upstreams for column '{output_col}': {e}"
                 )
                 continue
 
@@ -987,22 +974,11 @@ def _select_statement_cll(
                 )
             )
 
-        logger.debug(
-            f"[CLL] Finished processing all columns, generated {len(column_lineage)} lineage entries"
-        )
         # TODO: Also extract referenced columns (aka auxiliary / non-SELECT lineage)
     except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
-        logger.warning(
-            f"[CLL] sqlglot exception during CLL extraction for {output_table}: {e}"
-        )
         raise SqlUnderstandingError(
             f"sqlglot failed to compute some lineage: {e}"
         ) from e
-    except Exception as e:
-        logger.warning(
-            f"[CLL] Unexpected exception during CLL extraction for {output_table}: {e}"
-        )
-        raise
 
     return column_lineage
 
@@ -1024,14 +1000,8 @@ def _column_level_lineage(
     default_schema: Optional[str],
 ) -> _ColumnLineageWithDebugInfo:
     # Simplify the input statement for column-level lineage generation.
-    logger.debug(
-        f"[CLL] Starting _column_level_lineage for downstream={downstream_table}"
-    )
     try:
         select_statement = _try_extract_select(statement, dialect=dialect)
-        logger.debug(
-            f"[CLL] _try_extract_select completed, type={type(select_statement).__name__}"
-        )
     except Exception as e:
         raise SqlUnderstandingError(
             f"Failed to extract select from statement: {e}"
@@ -1039,7 +1009,6 @@ def _column_level_lineage(
 
     try:
         assert select_statement is not None
-        logger.debug("[CLL] Starting _prepare_query_columns")
         (select_statement, column_resolver) = _prepare_query_columns(
             select_statement,
             dialect=dialect,
@@ -1047,7 +1016,6 @@ def _column_level_lineage(
             default_db=default_db,
             default_schema=default_schema,
         )
-        logger.debug("[CLL] _prepare_query_columns completed")
     except UnsupportedStatementTypeError as e:
         # Inject details about the outer statement type too.
         e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
@@ -1076,20 +1044,17 @@ def _column_level_lineage(
 
     assert isinstance(select_statement, _SupportedColumnLineageTypesTuple)
     try:
-        logger.debug("[CLL] Building scope for statement")
         root_scope = sqlglot.optimizer.build_scope(select_statement)
         if root_scope is None:
             raise SqlUnderstandingError(
                 f"Failed to build scope for statement - scope was empty: {statement}"
             )
-        logger.debug("[CLL] Scope built successfully")
     except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
         raise SqlUnderstandingError(
             f"sqlglot failed to preprocess statement: {e}"
         ) from e
 
     # Generate column-level lineage.
-    logger.debug(f"[CLL] Starting _select_statement_cll for {downstream_table}")
     column_lineage = _select_statement_cll(
         select_statement,
         dialect=dialect,
@@ -1099,9 +1064,6 @@ def _column_level_lineage(
         table_name_schema_mapping=table_name_schema_mapping,
         default_db=default_db,
         default_schema=default_schema,
-    )
-    logger.debug(
-        f"[CLL] _select_statement_cll completed with {len(column_lineage)} entries"
     )
 
     joins: Optional[List[_JoinInfo]] = None
@@ -1681,16 +1643,27 @@ def _translate_internal_column_lineage(
     table_name_urn_mapping: Dict[_TableName, str],
     raw_column_lineage: _ColumnLineageInfo,
     dialect: sqlglot.Dialect,
+    strict: bool = True,
 ) -> Optional[ColumnLineageInfo]:
-    # ClickHouse-specific: Handle unresolvable tables gracefully.
-    # ClickHouse has ARRAY JOIN which creates pseudo-tables, and complex CTEs
-    # with SELECT * can create phantom table references that can't be resolved.
-    # For ClickHouse, we filter these out instead of failing entirely.
-    is_clickhouse = is_dialect_instance(dialect, "clickhouse")
+    """Translate internal column lineage to URN-based column lineage.
 
+    Args:
+        table_name_urn_mapping: Mapping from table names to URNs.
+        raw_column_lineage: Internal column lineage info to translate.
+        dialect: SQL dialect for type translation.
+        strict: If True, raises KeyError on unresolvable tables.
+            If False, gracefully skips entries with unresolvable tables
+            (useful for dialects with pseudo-tables like ARRAY JOIN).
+
+    Returns:
+        Translated column lineage info, or None if downstream table is unresolvable
+        in non-strict mode.
+    """
     downstream_urn = None
     if raw_column_lineage.downstream.table:
-        if is_clickhouse:
+        if strict:
+            downstream_urn = table_name_urn_mapping[raw_column_lineage.downstream.table]
+        else:
             downstream_urn = table_name_urn_mapping.get(
                 raw_column_lineage.downstream.table
             )
@@ -1700,13 +1673,20 @@ def _translate_internal_column_lineage(
                     f"{raw_column_lineage.downstream.table}"
                 )
                 return None
-        else:
-            downstream_urn = table_name_urn_mapping[raw_column_lineage.downstream.table]
 
-    # Build upstreams list, with ClickHouse-specific graceful handling
-    if is_clickhouse:
-        # Filter out upstreams with unresolvable tables (e.g., from ARRAY JOIN
-        # pseudo-tables, CTEs with complex subquery scopes, etc.)
+    # Build upstreams list
+    if strict:
+        # Strict mode: KeyError on missing table
+        resolved_upstreams = [
+            ColumnRef(
+                table=table_name_urn_mapping[upstream.table],
+                column=upstream.column,
+            )
+            for upstream in raw_column_lineage.upstreams
+        ]
+    else:
+        # Lenient mode: Filter out upstreams with unresolvable tables
+        # (e.g., from ARRAY JOIN pseudo-tables, complex CTE scopes)
         resolved_upstreams = []
         for upstream in raw_column_lineage.upstreams:
             urn = table_name_urn_mapping.get(upstream.table)
@@ -1721,15 +1701,6 @@ def _translate_internal_column_lineage(
                 logger.debug(
                     f"Skipping upstream with unresolvable table: {upstream.table}"
                 )
-    else:
-        # For other dialects, use original behavior (KeyError on missing table)
-        resolved_upstreams = [
-            ColumnRef(
-                table=table_name_urn_mapping[upstream.table],
-                column=upstream.column,
-            )
-            for upstream in raw_column_lineage.upstreams
-        ]
 
     return ColumnLineageInfo(
         downstream=DownstreamColumnRef(
@@ -2001,45 +1972,30 @@ def _sqlglot_lineage_inner(
     out_urns = sorted({table_name_urn_mapping[table] for table in modified})
     column_lineage_urns = None
     if column_lineage:
-        if is_dialect_instance(dialect, "clickhouse"):
-            # ClickHouse-specific: Filter out entries with unresolvable tables.
-            # This allows partial column lineage to be emitted even when some tables
-            # can't be resolved (e.g., ARRAY JOIN pseudo-tables, complex CTE scopes).
+        # Use lenient table resolution for dialects with pseudo-tables (e.g., ARRAY JOIN)
+        # that may create unresolvable table references.
+        use_strict_resolution = not is_dialect_instance(dialect, "clickhouse")
+        try:
             column_lineage_urns = [
                 translated
                 for internal_col_lineage in column_lineage
                 if (
                     translated := _translate_internal_column_lineage(
-                        table_name_urn_mapping, internal_col_lineage, dialect=dialect
+                        table_name_urn_mapping,
+                        internal_col_lineage,
+                        dialect=dialect,
+                        strict=use_strict_resolution,
                     )
                 )
                 is not None
             ]
-            if not column_lineage_urns:
-                # All column lineages were filtered out
-                column_lineage_urns = None
-        else:
-            # For other dialects, use original behavior with try/except
-            try:
-                column_lineage_urns = [
-                    translated
-                    for internal_col_lineage in column_lineage
-                    if (
-                        translated := _translate_internal_column_lineage(
-                            table_name_urn_mapping,
-                            internal_col_lineage,
-                            dialect=dialect,
-                        )
-                    )
-                    is not None
-                ]
-            except KeyError as e:
-                # When this happens, it's usually because of things like PIVOT where we
-                # can't really go up the scope chain.
-                logger.debug(
-                    f"Failed to translate column lineage to urns: {e}", exc_info=True
-                )
-                debug_info.column_error = e
+        except KeyError as e:
+            # When this happens, it's usually because of things like PIVOT where we
+            # can't really go up the scope chain.
+            logger.debug(
+                f"Failed to translate column lineage to urns: {e}", exc_info=True
+            )
+            debug_info.column_error = e
     joins_urns = None
     if joins is not None:
         try:

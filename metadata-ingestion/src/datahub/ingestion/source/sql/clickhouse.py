@@ -261,6 +261,13 @@ class ClickHouseConfig(
             for pattern in self.temporary_tables_pattern
         ]
 
+    def is_temp_table(self, name: str) -> bool:
+        """Check if a table name matches temporary table patterns."""
+        for pattern in self._compiled_temporary_tables_pattern:
+            if pattern.match(name):
+                return True
+        return False
+
     def get_sql_alchemy_url(
         self,
         uri_opts: Optional[Dict[str, Any]] = None,
@@ -631,6 +638,54 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         config = ClickHouseConfig.model_validate(config_dict)
         return cls(config, ctx)
 
+    def get_view_downstream_urn(
+        self,
+        view_urn: str,
+        view_definition: str,
+        schema: str,
+    ) -> Optional[str]:
+        """Get the downstream URN for ClickHouse materialized views with TO clause.
+
+        ClickHouse materialized views can specify a separate target table using the
+        TO clause: CREATE MATERIALIZED VIEW mv TO target_table AS SELECT ...
+        The target table stores the actual data, while the MV is just a trigger.
+        For lineage, we want source → target_table (not source → mv).
+        """
+        view_def_upper = view_definition.upper()
+        if "MATERIALIZED VIEW" not in view_def_upper:
+            return None
+
+        # Check for TO clause pattern
+        to_match = re.search(r"\bTO\s+(\S+)", view_def_upper)
+        if not to_match:
+            return None
+
+        # Extract the target table name from the TO clause
+        # The match is in uppercase, so we need to find the original case
+        to_match_original = re.search(r"\bTO\s+(\S+)", view_definition, re.IGNORECASE)
+        if not to_match_original:
+            return None
+
+        target_table = to_match_original.group(1)
+        # Remove backticks or quotes if present
+        target_table = target_table.strip("`\"'")
+
+        # Build the target table URN
+        if "." in target_table:
+            # Fully qualified: db.table
+            target_dataset_name = target_table
+        else:
+            # Unqualified: use the same schema as the view
+            target_dataset_name = f"{schema}.{target_table}"
+
+        target_urn = builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=target_dataset_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+        return target_urn
+
     def _should_extract_query_log(self) -> bool:
         """Check if any query log extraction feature is enabled."""
         return (
@@ -661,7 +716,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                 top_n_queries=self.config.top_n_queries,
             ),
             generate_operations=self.config.include_query_log_operations,
-            is_temp_table=self._is_temp_table,
+            is_temp_table=self.config.is_temp_table,
             format_queries=False,
         )
 
@@ -675,13 +730,6 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             start_time = get_time_bucket(start_time, self.config.bucket_duration)
 
         return start_time, end_time
-
-    def _is_temp_table(self, name: str) -> bool:
-        """Check if a table name matches temporary table patterns."""
-        for pattern in self.config._compiled_temporary_tables_pattern:
-            if pattern.match(name):
-                return True
-        return False
 
     def _build_query_log_query(self) -> str:
         """Build SQL query to fetch relevant entries from query_log."""

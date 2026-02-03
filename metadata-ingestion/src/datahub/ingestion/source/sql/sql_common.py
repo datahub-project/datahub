@@ -1170,6 +1170,28 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         # into a dataset identifier string and then parsed back out.
         return self.get_db_schema(dataset_identifier)
 
+    def get_view_downstream_urn(
+        self,
+        view_urn: str,
+        view_definition: str,
+        schema: str,
+    ) -> Optional[str]:
+        """Get the downstream URN for a view definition.
+
+        Override this method in subclasses to customize the downstream URN for views.
+        For example, ClickHouse materialized views with TO clause have a separate
+        target table as the actual downstream.
+
+        Args:
+            view_urn: The URN of the view being processed.
+            view_definition: The SQL definition of the view.
+            schema: The schema (database) the view belongs to.
+
+        Returns:
+            The downstream URN if different from view_urn, or None to use view_urn.
+        """
+        return None
+
     def _process_view(
         self,
         dataset_name: str,
@@ -1212,11 +1234,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         view_definition = self._get_view_definition(inspector, schema, view)
         properties["view_definition"] = view_definition
-        view_def_len = len(view_definition) if view_definition else 0
-        logger.debug(
-            f"[VIEW-DEF] {dataset_name}: view_definition length={view_def_len}, "
-            f"include_view_lineage={self.config.include_view_lineage}"
-        )
         if view_definition and self.config.include_view_lineage:
             default_db = None
             default_schema = None
@@ -1231,20 +1248,26 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     exc=e,
                 )
 
-            logger.debug(
-                f"[VIEW-DEF] Adding to aggregator: {dataset_name} -> {dataset_urn}"
+            # Allow sources to override the downstream URN (e.g., for ClickHouse MVs
+            # with TO clause where the actual downstream is a separate target table).
+            downstream_urn = self.get_view_downstream_urn(
+                view_urn=dataset_urn,
+                view_definition=view_definition,
+                schema=schema,
             )
+
             self.aggregator.add_view_definition(
                 view_urn=dataset_urn,
                 view_definition=view_definition,
                 default_db=default_db,
                 default_schema=default_schema,
+                downstream_urn=downstream_urn,
             )
         elif not view_definition:
-            logger.warning(f"[VIEW-DEF] No view definition for {dataset_name}")
+            logger.warning(f"Empty view definition for {dataset_name}")
         elif not self.config.include_view_lineage:
             logger.debug(
-                f"[VIEW-DEF] Skipping {dataset_name}: include_view_lineage=False"
+                f"Skipping view lineage for {dataset_name}: include_view_lineage=False"
             )
 
         dataset_snapshot = DatasetSnapshotClass(

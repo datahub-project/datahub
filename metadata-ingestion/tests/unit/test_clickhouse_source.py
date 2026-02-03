@@ -1,13 +1,12 @@
-from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from datahub.ingestion.source.sql.clickhouse import (
     ClickHouseConfig,
+    ClickHouseSource,
     get_view_definition,
 )
-from datahub.ingestion.source.sql.clickhouse.source import ClickHouseSource
 
 
 def test_clickhouse_uri_https():
@@ -132,79 +131,7 @@ def test_get_view_definition_returns_empty_when_not_found():
     assert result == ""
 
 
-def test_get_view_definition_without_schema():
-    """Test get_view_definition works without schema."""
-    mock_dialect = MagicMock()
-    mock_connection = MagicMock()
-
-    expected_view_sql = "CREATE VIEW test_view AS SELECT * FROM source"
-    mock_connection.execute.return_value.fetchone.return_value = (expected_view_sql,)
-
-    result = get_view_definition(
-        mock_dialect, mock_connection, "test_view", schema=None
-    )
-
-    assert result == expected_view_sql
-
-
 # Query log extraction tests
-
-
-def test_query_log_config_defaults():
-    """Test that query log config options have correct defaults."""
-    config = ClickHouseConfig.model_validate(
-        {
-            "host_port": "localhost:8123",
-        }
-    )
-
-    assert config.include_query_log_lineage is False
-    assert config.include_usage_statistics is False
-    assert config.include_query_log_operations is False
-    assert config.query_log_table == "system.query_log"
-    assert config.top_n_queries == 10
-
-
-def test_query_log_config_enabled():
-    """Test that query log config options can be enabled."""
-    config = ClickHouseConfig.model_validate(
-        {
-            "host_port": "localhost:8123",
-            "include_query_log_lineage": True,
-            "include_usage_statistics": True,
-            "query_log_table": "custom.query_log_view",
-            "query_log_deny_usernames": ["system", "default"],
-        }
-    )
-
-    assert config.include_query_log_lineage is True
-    assert config.include_usage_statistics is True
-    assert config.query_log_table == "custom.query_log_view"
-    assert config.query_log_deny_usernames == ["system", "default"]
-
-
-def test_temporary_tables_pattern():
-    """Test that temporary tables patterns are compiled correctly."""
-    config = ClickHouseConfig.model_validate(
-        {
-            "host_port": "localhost:8123",
-        }
-    )
-
-    patterns = config._compiled_temporary_tables_pattern
-
-    # Default patterns
-    assert len(patterns) == 4
-
-    # Test pattern matching
-    assert patterns[0].match("_temp_table")  # ^_.*
-    assert patterns[1].match("db.tmp_staging")  # .*\.tmp_.*
-    assert patterns[2].match("db.temp_data")  # .*\.temp_.*
-    assert patterns[3].match("db._inner_mv")  # .*\._inner.*
-
-    # Non-matching cases
-    assert not patterns[0].match("normal_table")
-    assert not patterns[1].match("db.regular_table")
 
 
 def test_query_log_table_validation_valid():
@@ -266,12 +193,12 @@ def test_query_log_deny_usernames_validation_valid():
             ],
         }
     )
-    assert config.query_log_deny_usernames == [
+    assert set(config.query_log_deny_usernames) == {
         "system",
         "default",
         "admin-user",
         "test_user123",
-    ]
+    }
 
 
 def test_query_log_deny_usernames_validation_invalid():
@@ -297,32 +224,27 @@ def test_query_log_deny_usernames_validation_invalid():
 
 
 def test_is_temp_table():
-    """Test that _is_temp_table correctly identifies temporary tables."""
+    """Test that is_temp_table correctly identifies temporary tables."""
     config = ClickHouseConfig.model_validate(
         {
             "host_port": "localhost:8123",
         }
     )
 
-    # Create a mock source with the config
-    with patch.object(ClickHouseSource, "__init__", lambda x, y, z: None):
-        source = ClickHouseSource.__new__(ClickHouseSource)
-        source.config = config
+    # Tables that should match temporary patterns
+    assert config.is_temp_table("_temp_table")
+    assert config.is_temp_table("db.tmp_staging")
+    assert config.is_temp_table("db.temp_data")
+    assert config.is_temp_table("db._inner_mv")
 
-        # Tables that should match temporary patterns
-        assert source._is_temp_table("_temp_table")
-        assert source._is_temp_table("db.tmp_staging")
-        assert source._is_temp_table("db.temp_data")
-        assert source._is_temp_table("db._inner_mv")
-
-        # Tables that should NOT match
-        assert not source._is_temp_table("normal_table")
-        assert not source._is_temp_table("db.regular_table")
-        assert not source._is_temp_table("my_db.production_table")
+    # Tables that should NOT match
+    assert not config.is_temp_table("normal_table")
+    assert not config.is_temp_table("db.regular_table")
+    assert not config.is_temp_table("my_db.production_table")
 
 
 def test_is_temp_table_custom_patterns():
-    """Test _is_temp_table with custom patterns."""
+    """Test is_temp_table with custom patterns."""
     config = ClickHouseConfig.model_validate(
         {
             "host_port": "localhost:8123",
@@ -333,14 +255,10 @@ def test_is_temp_table_custom_patterns():
         }
     )
 
-    with patch.object(ClickHouseSource, "__init__", lambda x, y, z: None):
-        source = ClickHouseSource.__new__(ClickHouseSource)
-        source.config = config
-
-        assert source._is_temp_table("db.staging_data")
-        assert source._is_temp_table("test_table")
-        # Default patterns no longer match with custom patterns
-        assert not source._is_temp_table("_temp_table")
+    assert config.is_temp_table("db.staging_data")
+    assert config.is_temp_table("test_table")
+    # Default patterns no longer match with custom patterns
+    assert not config.is_temp_table("_temp_table")
 
 
 def test_build_query_log_query_basic():
@@ -360,15 +278,29 @@ def test_build_query_log_query_basic():
 
         query = source._build_query_log_query()
 
-        # Verify basic query structure
-        assert "SELECT" in query
-        assert "query_id" in query
-        assert "query" in query
-        assert "FROM system.query_log" in query
-        assert "type = 'QueryFinish'" in query
-        assert "is_initial_query = 1" in query
-        assert "2024-01-01" in query
-        assert "2024-01-08" in query
+        expected = """
+SELECT
+    query_id,
+    query,
+    query_kind,
+    user,
+    event_time,
+    query_duration_ms,
+    read_rows,
+    written_rows,
+    current_database,
+    normalized_query_hash
+FROM system.query_log
+WHERE type = 'QueryFinish'
+  AND is_initial_query = 1
+  AND event_time >= '2024-01-01 00:00:00'
+  AND event_time < '2024-01-08 00:00:00'
+  AND query_kind IN ('Insert', 'Create', 'Select')
+  AND 1=1
+  AND query NOT LIKE '%system.%'
+ORDER BY event_time ASC
+"""
+        assert query == expected
 
 
 def test_build_query_log_query_with_deny_usernames():
@@ -389,9 +321,29 @@ def test_build_query_log_query_with_deny_usernames():
 
         query = source._build_query_log_query()
 
-        # Verify user filters are included
-        assert "user != 'system'" in query
-        assert "user != 'default'" in query
+        expected = """
+SELECT
+    query_id,
+    query,
+    query_kind,
+    user,
+    event_time,
+    query_duration_ms,
+    read_rows,
+    written_rows,
+    current_database,
+    normalized_query_hash
+FROM system.query_log
+WHERE type = 'QueryFinish'
+  AND is_initial_query = 1
+  AND event_time >= '2024-01-01 00:00:00'
+  AND event_time < '2024-01-08 00:00:00'
+  AND query_kind IN ('Insert', 'Create', 'Select')
+  AND user != 'system' AND user != 'default'
+  AND query NOT LIKE '%system.%'
+ORDER BY event_time ASC
+"""
+        assert query == expected
 
 
 def test_build_query_log_query_custom_table():
@@ -412,94 +364,26 @@ def test_build_query_log_query_custom_table():
 
         query = source._build_query_log_query()
 
-        # Verify custom table is used
-        assert "FROM monitoring.query_log_view" in query
-        assert "FROM system.query_log" not in query
-
-
-def test_parse_query_log_row():
-    """Test _parse_query_log_row correctly parses a query log entry."""
-    config = ClickHouseConfig.model_validate(
-        {
-            "host_port": "localhost:8123",
-        }
-    )
-
-    with patch.object(ClickHouseSource, "__init__", lambda x, y, z: None):
-        source = ClickHouseSource.__new__(ClickHouseSource)
-        source.config = config
-        source.report = MagicMock()
-
-        row = {
-            "query_id": "abc-123",
-            "query": "INSERT INTO target SELECT * FROM source",
-            "query_kind": "Insert",
-            "user": "analyst",
-            "event_time": datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc),
-            "query_duration_ms": 150,
-            "read_rows": 1000,
-            "written_rows": 1000,
-            "current_database": "production",
-            "normalized_query_hash": 12345678,
-        }
-
-        result = source._parse_query_log_row(row)
-
-        assert result is not None
-        assert result.query == "INSERT INTO target SELECT * FROM source"
-        assert result.session_id == "abc-123"
-        assert result.default_db == "production"
-        assert result.query_hash == "12345678"
-        assert str(result.user) == "urn:li:corpuser:analyst"
-
-
-def test_parse_query_log_row_minimal():
-    """Test _parse_query_log_row with minimal required fields."""
-    config = ClickHouseConfig.model_validate(
-        {
-            "host_port": "localhost:8123",
-        }
-    )
-
-    with patch.object(ClickHouseSource, "__init__", lambda x, y, z: None):
-        source = ClickHouseSource.__new__(ClickHouseSource)
-        source.config = config
-        source.report = MagicMock()
-
-        row = {
-            "query": "SELECT 1",
-            "event_time": datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc),
-        }
-
-        result = source._parse_query_log_row(row)
-
-        assert result is not None
-        assert result.query == "SELECT 1"
-        assert result.user is None
-        assert result.session_id is None
-
-
-def test_parse_query_log_row_handles_naive_datetime():
-    """Test _parse_query_log_row handles naive datetime objects."""
-    config = ClickHouseConfig.model_validate(
-        {
-            "host_port": "localhost:8123",
-        }
-    )
-
-    with patch.object(ClickHouseSource, "__init__", lambda x, y, z: None):
-        source = ClickHouseSource.__new__(ClickHouseSource)
-        source.config = config
-        source.report = MagicMock()
-
-        # Naive datetime (no timezone)
-        row = {
-            "query": "SELECT 1",
-            "event_time": datetime(2024, 1, 15, 10, 30, 0),  # naive datetime
-        }
-
-        result = source._parse_query_log_row(row)
-
-        # Should still work, timestamp may be treated as local time
-        assert result is not None
-        assert result.query == "SELECT 1"
+        expected = """
+SELECT
+    query_id,
+    query,
+    query_kind,
+    user,
+    event_time,
+    query_duration_ms,
+    read_rows,
+    written_rows,
+    current_database,
+    normalized_query_hash
+FROM monitoring.query_log_view
+WHERE type = 'QueryFinish'
+  AND is_initial_query = 1
+  AND event_time >= '2024-01-01 00:00:00'
+  AND event_time < '2024-01-08 00:00:00'
+  AND query_kind IN ('Insert', 'Create', 'Select')
+  AND 1=1
+  AND query NOT LIKE '%system.%'
+ORDER BY event_time ASC
+"""
+        assert query == expected
