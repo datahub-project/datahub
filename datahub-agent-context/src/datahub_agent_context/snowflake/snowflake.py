@@ -4,11 +4,11 @@ from typing import Any
 
 import click
 
-from datahub.ai.snowflake.generate_udfs import (
+from datahub_agent_context.snowflake.generate_udfs import (
     generate_all_udfs,
     generate_datahub_udfs_sql,
 )
-from datahub.ai.snowflake.generators import (
+from datahub_agent_context.snowflake.generators import (
     generate_configuration_sql,
     generate_cortex_agent_sql,
     generate_network_rules_sql,

@@ -1,23 +1,27 @@
-"""REMOVE_GLOSSARY_TERMS UDF generator."""
+"""ADD_GLOSSARY_TERMS UDF generator."""
 
-from datahub.ai.snowflake.udfs.base import generate_python_udf_code
+from datahub_agent_context.snowflake.udfs.base import generate_python_udf_code
 
 
-def generate_remove_glossary_terms_udf() -> str:
-    """Generate REMOVE_GLOSSARY_TERMS UDF using datahub-agent-context.
+def generate_add_glossary_terms_udf() -> str:
+    """Generate ADD_GLOSSARY_TERMS UDF using datahub-agent-context.
 
-    This UDF wraps datahub_agent_context.mcp_tools.remove_glossary_terms() to
-    remove glossary terms from multiple DataHub entities or their columns.
+    This UDF wraps datahub_agent_context.mcp_tools.add_glossary_terms() to add
+    glossary terms to multiple DataHub entities or their columns.
 
     Parameters:
-        term_urns (STRING): JSON array of glossary term URNs to remove
-        entity_urns (STRING): JSON array of entity URNs
+        term_urns (STRING): JSON array of glossary term URNs
+        entity_urns (STRING): JSON array of entity URNs to annotate
         column_paths (STRING): Optional JSON array of column names (use NULL for entity-level)
 
     Returns:
         VARIANT: Dictionary with success status and message
+
+    Examples:
+        - Add terms: ADD_GLOSSARY_TERMS('["urn:li:glossaryTerm:CustomerData"]', '["urn:li:dataset:(...)"]', NULL)
+        - Add to columns: ADD_GLOSSARY_TERMS('["urn:li:glossaryTerm:Email"]', '["urn:li:dataset:(...)"]', '["email"]')
     """
-    function_body = """from datahub_agent_context.mcp_tools import remove_glossary_terms
+    function_body = """from datahub_agent_context.mcp_tools import add_glossary_terms
 import json
 try:
     datahub_url = _snowflake.get_generic_secret_string('datahub_url_secret')
@@ -33,7 +37,7 @@ try:
     column_path_list = json.loads(column_paths) if column_paths and isinstance(column_paths, str) else None
 
     with DataHubContext(graph):
-        return remove_glossary_terms(
+        return add_glossary_terms(
             term_urns=term_urn_list,
             entity_urns=entity_urn_list,
             column_paths=column_path_list
@@ -46,7 +50,7 @@ except Exception as e:
     }"""
 
     return generate_python_udf_code(
-        function_name="REMOVE_GLOSSARY_TERMS",
+        function_name="ADD_GLOSSARY_TERMS",
         parameters=[
             ("term_urns", "STRING"),
             ("entity_urns", "STRING"),

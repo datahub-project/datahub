@@ -8,7 +8,6 @@ from typing import ContextManager, Optional
 import click
 
 import datahub._version as datahub_version
-from datahub.cli.agent_cli import agent
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
     enable_auto_decorators,
@@ -359,7 +358,6 @@ def init(
     click.echo(f"✓ Configuration written to {DATAHUB_CONFIG_PATH}")
 
 
-datahub.add_command(agent)
 datahub.add_command(check)
 datahub.add_command(docker)
 datahub.add_command(ingest)
@@ -413,6 +411,16 @@ except ImportError as e:
     logger.debug(f"Failed to load datahub actions framework: {e}")
     datahub.add_command(
         make_shim_command("actions", "run `pip install acryl-datahub-actions`")
+    )
+
+try:
+    from datahub_agent_context.cli import agent
+
+    datahub.add_command(agent)
+except ImportError as e:
+    logger.debug(f"Failed to load datahub-agent-context framework: {e}")
+    datahub.add_command(
+        make_shim_command("agent", "run `pip install datahub-agent-context`")
     )
 
 # Adding telemetry and upgrade decorators to all commands

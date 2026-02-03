@@ -1,6 +1,6 @@
 """GET_LINEAGE_PATHS_BETWEEN UDF generator."""
 
-from datahub.ai.snowflake.udfs.base import generate_python_udf_code
+from datahub_agent_context.snowflake.udfs.base import generate_python_udf_code
 
 
 def generate_get_lineage_paths_between_udf() -> str:

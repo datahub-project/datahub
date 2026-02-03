@@ -1,6 +1,6 @@
 """ADD_STRUCTURED_PROPERTIES UDF generator."""
 
-from datahub.ai.snowflake.udfs.base import generate_python_udf_code
+from datahub_agent_context.snowflake.udfs.base import generate_python_udf_code
 
 
 def generate_add_structured_properties_udf() -> str:

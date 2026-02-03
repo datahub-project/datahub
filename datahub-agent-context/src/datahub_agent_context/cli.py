@@ -128,7 +128,7 @@ def create_snowflake(
         # Execute with SSO authentication (browser-based)
         $ datahub agent create snowflake --execute --sf-authenticator=externalbrowser ...
     """
-    from datahub.ai.snowflake.snowflake import create_snowflake_agent
+    from datahub_agent_context.snowflake.snowflake import create_snowflake_agent
 
     ctx = click.get_current_context()
     ctx.invoke(

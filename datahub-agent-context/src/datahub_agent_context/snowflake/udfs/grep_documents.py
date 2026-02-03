@@ -1,6 +1,6 @@
 """GREP_DOCUMENTS UDF generator."""
 
-from datahub.ai.snowflake.udfs.base import generate_python_udf_code
+from datahub_agent_context.snowflake.udfs.base import generate_python_udf_code
 
 
 def generate_grep_documents_udf() -> str:

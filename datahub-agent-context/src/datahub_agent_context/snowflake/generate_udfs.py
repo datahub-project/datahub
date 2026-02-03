@@ -10,40 +10,50 @@ from pathlib import Path
 
 import click
 
-from datahub.ai.snowflake.udfs.add_glossary_terms import (
+from datahub_agent_context.snowflake.udfs.add_glossary_terms import (
     generate_add_glossary_terms_udf,
 )
-from datahub.ai.snowflake.udfs.add_owners import generate_add_owners_udf
-from datahub.ai.snowflake.udfs.add_structured_properties import (
+from datahub_agent_context.snowflake.udfs.add_owners import generate_add_owners_udf
+from datahub_agent_context.snowflake.udfs.add_structured_properties import (
     generate_add_structured_properties_udf,
 )
-from datahub.ai.snowflake.udfs.add_tags import generate_add_tags_udf
-from datahub.ai.snowflake.udfs.get_dataset_queries import (
+from datahub_agent_context.snowflake.udfs.add_tags import generate_add_tags_udf
+from datahub_agent_context.snowflake.udfs.get_dataset_queries import (
     generate_get_dataset_queries_udf,
 )
-from datahub.ai.snowflake.udfs.get_entities import generate_get_entities_udf
-from datahub.ai.snowflake.udfs.get_lineage import generate_get_lineage_udf
-from datahub.ai.snowflake.udfs.get_lineage_paths_between import (
+from datahub_agent_context.snowflake.udfs.get_entities import generate_get_entities_udf
+from datahub_agent_context.snowflake.udfs.get_lineage import generate_get_lineage_udf
+from datahub_agent_context.snowflake.udfs.get_lineage_paths_between import (
     generate_get_lineage_paths_between_udf,
 )
-from datahub.ai.snowflake.udfs.get_me import generate_get_me_udf
-from datahub.ai.snowflake.udfs.grep_documents import generate_grep_documents_udf
-from datahub.ai.snowflake.udfs.list_schema_fields import (
+from datahub_agent_context.snowflake.udfs.get_me import generate_get_me_udf
+from datahub_agent_context.snowflake.udfs.grep_documents import (
+    generate_grep_documents_udf,
+)
+from datahub_agent_context.snowflake.udfs.list_schema_fields import (
     generate_list_schema_fields_udf,
 )
-from datahub.ai.snowflake.udfs.remove_domains import generate_remove_domains_udf
-from datahub.ai.snowflake.udfs.remove_glossary_terms import (
+from datahub_agent_context.snowflake.udfs.remove_domains import (
+    generate_remove_domains_udf,
+)
+from datahub_agent_context.snowflake.udfs.remove_glossary_terms import (
     generate_remove_glossary_terms_udf,
 )
-from datahub.ai.snowflake.udfs.remove_owners import generate_remove_owners_udf
-from datahub.ai.snowflake.udfs.remove_structured_properties import (
+from datahub_agent_context.snowflake.udfs.remove_owners import (
+    generate_remove_owners_udf,
+)
+from datahub_agent_context.snowflake.udfs.remove_structured_properties import (
     generate_remove_structured_properties_udf,
 )
-from datahub.ai.snowflake.udfs.remove_tags import generate_remove_tags_udf
-from datahub.ai.snowflake.udfs.search_datahub import generate_search_datahub_udf
-from datahub.ai.snowflake.udfs.search_documents import generate_search_documents_udf
-from datahub.ai.snowflake.udfs.set_domains import generate_set_domains_udf
-from datahub.ai.snowflake.udfs.update_description import (
+from datahub_agent_context.snowflake.udfs.remove_tags import generate_remove_tags_udf
+from datahub_agent_context.snowflake.udfs.search_datahub import (
+    generate_search_datahub_udf,
+)
+from datahub_agent_context.snowflake.udfs.search_documents import (
+    generate_search_documents_udf,
+)
+from datahub_agent_context.snowflake.udfs.set_domains import generate_set_domains_udf
+from datahub_agent_context.snowflake.udfs.update_description import (
     generate_update_description_udf,
 )
 

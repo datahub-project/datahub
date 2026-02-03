@@ -69,6 +69,11 @@ langchain_requirements = {
     "langchain-core>=1.2.7,<2.0.0",
 }
 
+snowflake_requirements = {
+    "click>=8.0.0,<9.0.0",
+    "snowflake-connector-python>=3.0.0,<4.0.0",
+}
+
 dev_requirements = {
     *lint_requirements,
     *mypy_stubs,
@@ -123,5 +128,6 @@ setuptools.setup(
     extras_require={
         "dev": list(dev_requirements),
         "langchain": list(langchain_requirements),
+        "snowflake": list(snowflake_requirements),
     },
 )

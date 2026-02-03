@@ -1,27 +1,23 @@
-"""ADD_TAGS UDF generator."""
+"""REMOVE_TAGS UDF generator."""
 
-from datahub.ai.snowflake.udfs.base import generate_python_udf_code
+from datahub_agent_context.snowflake.udfs.base import generate_python_udf_code
 
 
-def generate_add_tags_udf() -> str:
-    """Generate ADD_TAGS UDF using datahub-agent-context.
+def generate_remove_tags_udf() -> str:
+    """Generate REMOVE_TAGS UDF using datahub-agent-context.
 
-    This UDF wraps datahub_agent_context.mcp_tools.add_tags() to add tags to
-    multiple DataHub entities or their columns in a single operation.
+    This UDF wraps datahub_agent_context.mcp_tools.remove_tags() to remove tags
+    from multiple DataHub entities or their columns.
 
     Parameters:
-        tag_urns (STRING): JSON array of tag URNs (e.g., '["urn:li:tag:PII", "urn:li:tag:Sensitive"]')
-        entity_urns (STRING): JSON array of entity URNs to tag
-        column_paths (STRING): Optional JSON array of column names (use NULL for entity-level tags)
+        tag_urns (STRING): JSON array of tag URNs to remove
+        entity_urns (STRING): JSON array of entity URNs to untag
+        column_paths (STRING): Optional JSON array of column names (use NULL for entity-level)
 
     Returns:
         VARIANT: Dictionary with success status and message
-
-    Examples:
-        - Tag datasets: ADD_TAGS('["urn:li:tag:PII"]', '["urn:li:dataset:(...)"]', NULL)
-        - Tag columns: ADD_TAGS('["urn:li:tag:PII"]', '["urn:li:dataset:(...)"]', '["email"]')
     """
-    function_body = """from datahub_agent_context.mcp_tools import add_tags
+    function_body = """from datahub_agent_context.mcp_tools import remove_tags
 import json
 try:
     datahub_url = _snowflake.get_generic_secret_string('datahub_url_secret')
@@ -37,7 +33,7 @@ try:
     column_path_list = json.loads(column_paths) if column_paths and isinstance(column_paths, str) else None
 
     with DataHubContext(graph):
-        return add_tags(
+        return remove_tags(
             tag_urns=tag_urn_list,
             entity_urns=entity_urn_list,
             column_paths=column_path_list
@@ -50,7 +46,7 @@ except Exception as e:
     }"""
 
     return generate_python_udf_code(
-        function_name="ADD_TAGS",
+        function_name="REMOVE_TAGS",
         parameters=[
             ("tag_urns", "STRING"),
             ("entity_urns", "STRING"),

@@ -1,6 +1,6 @@
 """LIST_SCHEMA_FIELDS UDF generator."""
 
-from datahub.ai.snowflake.udfs.base import generate_python_udf_code
+from datahub_agent_context.snowflake.udfs.base import generate_python_udf_code
 
 
 def generate_list_schema_fields_udf() -> str:
