@@ -258,7 +258,10 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     )
     add_database_name_to_urn: Optional[bool] = Field(
         default=False,
-        description="Add oracle database name to urn, default urn is schema.table",
+        description=(
+            "Include database name in URNs. Default is False (schema.table format). "
+            "Set to True for database.schema.table format when ingesting from multiple Oracle databases."
+        ),
     )
     # custom
     data_dictionary_mode: DataDictionaryMode = Field(
@@ -1155,6 +1158,13 @@ class OracleSource(SQLAlchemySource):
                                 dependencies["downstream"]
                             )
 
+                    # Set default_db based on add_database_name_to_urn config
+                    # This ensures stored procedure lineage URNs match table URNs
+                    # Only use database name if explicitly set in config, matching get_identifier() behavior
+                    default_db = None
+                    if self.config.add_database_name_to_urn and self.config.database:
+                        default_db = self.config.database
+
                     base_procedures.append(
                         BaseProcedure(
                             name=row.name,
@@ -1166,6 +1176,8 @@ class OracleSource(SQLAlchemySource):
                             last_altered=row.last_ddl_time,
                             comment=None,
                             extra_properties=extra_props,
+                            default_db=default_db,
+                            default_schema=normalized_schema,
                         )
                     )
 

@@ -291,3 +291,108 @@ END;
     input_job_urns = datajob_input_output.inputDatajobs
     assert any("helper_proc" in urn.lower() for urn in input_job_urns)
     assert any("calc_func" in urn.lower() for urn in input_job_urns)
+
+
+def test_oracle_procedure_to_procedure_lineage_with_overloaded_procedures():
+    """Test that overloaded procedures (with argument signatures) generate correct URNs with hash suffixes."""
+    from datahub.emitter.mce_builder import datahub_guid
+    from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
+    from datahub.ingestion.source.sql.stored_procedures.base import (
+        BaseProcedure,
+        generate_procedure_lineage,
+    )
+
+    schema_resolver = SchemaResolver(platform="oracle", env="PROD")
+
+    source_urn = DatasetUrn("oracle", "testdb.testschema.source_table").urn()
+    schema_resolver.add_raw_schema_info(
+        urn=source_urn,
+        schema_info={"id": "NUMBER", "value": "NUMBER"},
+    )
+
+    target_urn = DatasetUrn("oracle", "testdb.testschema.target_table").urn()
+    schema_resolver.add_raw_schema_info(
+        urn=target_urn,
+        schema_info={"id": "NUMBER", "value": "NUMBER"},
+    )
+
+    # Create procedure registry with an overloaded procedure that has a signature hash
+    calc_signature = "v_amount IN NUMBER, v_rate IN NUMBER"
+    calc_hash = datahub_guid(dict(argument_signature=calc_signature))
+    procedure_registry = {
+        "testdb.helper_proc": "helper_proc",  # No signature
+        "testdb.calc_func": f"calc_func_{calc_hash}",  # Has signature hash
+    }
+
+    procedure = BaseProcedure(
+        name="main_procedure",
+        language="SQL",
+        argument_signature=None,
+        return_type=None,
+        procedure_definition="""
+BEGIN
+  INSERT INTO target_table (id, value)
+  SELECT id, value FROM source_table;
+END;
+""",
+        created=None,
+        last_altered=None,
+        comment=None,
+        extra_properties={
+            "upstream_dependencies": "TESTDB.HELPER_PROC (PROCEDURE), TESTDB.CALC_FUNC (FUNCTION)"
+        },
+    )
+
+    database_key = DatabaseKey(
+        database="testdb",
+        platform="oracle",
+        instance=None,
+        env="PROD",
+        backcompat_env_as_instance=True,
+    )
+
+    schema_key = SchemaKey(
+        database="testdb",
+        schema="testschema",
+        platform="oracle",
+        instance=None,
+        env="PROD",
+        backcompat_env_as_instance=True,
+    )
+
+    job_urn = procedure.to_urn(database_key, schema_key)
+
+    lineage_mcps = list(
+        generate_procedure_lineage(
+            schema_resolver=schema_resolver,
+            procedure=procedure,
+            procedure_job_urn=job_urn,
+            default_db="testdb",
+            default_schema="testschema",
+            database_key=database_key,
+            schema_key=schema_key,
+            procedure_registry=procedure_registry,
+        )
+    )
+
+    assert len(lineage_mcps) == 1
+
+    from datahub.metadata.schema_classes import DataJobInputOutputClass
+
+    datajob_input_output = lineage_mcps[0].aspect
+    assert isinstance(datajob_input_output, DataJobInputOutputClass)
+
+    assert source_urn in datajob_input_output.inputDatasets
+
+    assert datajob_input_output.inputDatajobs is not None
+    assert len(datajob_input_output.inputDatajobs) == 2
+
+    input_job_urns = datajob_input_output.inputDatajobs
+
+    # Verify helper_proc (no signature) doesn't have hash
+    helper_urn = [u for u in input_job_urns if "helper_proc" in u.lower()][0]
+    assert helper_urn.endswith("helper_proc)")
+
+    # Verify calc_func (with signature) has the correct hash
+    calc_urn = [u for u in input_job_urns if "calc_func" in u.lower()][0]
+    assert calc_hash in calc_urn

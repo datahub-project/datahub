@@ -1566,14 +1566,25 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     env=self.config.env,
                 ),
             )
+
+        # Build procedure registry for resolving procedure-to-procedure lineage
+        # Maps "schema.procedure_name" -> full identifier (with hash if overloaded)
+        procedure_registry: Dict[str, str] = {}
+        for proc in procedures:
+            registry_key = f"{schema.lower()}.{proc.name.lower()}"
+            procedure_registry[registry_key] = proc.get_procedure_identifier()
+
         for procedure in procedures:
-            yield from self._process_procedure(procedure, schema, db_name)
+            yield from self._process_procedure(
+                procedure, schema, db_name, procedure_registry
+            )
 
     def _process_procedure(
         self,
         procedure: BaseProcedure,
         schema: str,
         db_name: str,
+        procedure_registry: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         try:
             yield from generate_procedure_workunits(
@@ -1592,6 +1603,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     env=self.config.env,
                 ),
                 schema_resolver=self.get_schema_resolver(),
+                procedure_registry=procedure_registry,
             )
         except Exception as e:
             self.report.warning(

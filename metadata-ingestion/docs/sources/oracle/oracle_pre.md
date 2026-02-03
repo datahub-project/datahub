@@ -85,3 +85,24 @@ GRANT SELECT ON DBA_MVIEWS TO datahub_user;
 ```sql
 GRANT SELECT ON V_$DATABASE TO datahub_user;
 ```
+
+#### URN Format Configuration
+
+By default, Oracle URNs are formatted as `schema.table` (e.g., `HR.EMPLOYEES`).
+
+**When using `service_name` (recommended):** URNs are always `schema.table`, regardless of configuration.
+
+**When using `database` in config:** You can optionally include the database name in URNs by setting `add_database_name_to_urn: true`. This is useful when ingesting from multiple Oracle databases into the same DataHub instance.
+
+**URN Format Examples:**
+
+- **With `service_name` (any `add_database_name_to_urn` value)**: `urn:li:dataset:(urn:li:dataPlatform:oracle,schema.table,PROD)`
+  - Example: `urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)`
+- **With `database` in config + `add_database_name_to_urn: true`**: `urn:li:dataset:(urn:li:dataPlatform:oracle,database.schema.table,PROD)`
+  - Example: `urn:li:dataset:(urn:li:dataPlatform:oracle,orcl.hr.employees,PROD)`
+
+**Important Notes:**
+
+- All assets (tables, views, stored procedures) will use the same URN format for consistent lineage
+- Once you've ingested with a particular setting, changing it will create new URNs and break existing lineage
+- The `add_database_name_to_urn` flag only has an effect when you specify `database` in your config (not when using `service_name`)

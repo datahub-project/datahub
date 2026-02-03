@@ -205,6 +205,7 @@ def _parse_procedure_dependencies(
     dependencies_str: str,
     database_key: DatabaseKey,
     schema_key: Optional[SchemaKey],
+    procedure_registry: Optional[Dict[str, str]] = None,
 ) -> List[str]:
     """
     Parse Oracle/SQL Server dependencies string and convert to DataJob URNs.
@@ -213,9 +214,15 @@ def _parse_procedure_dependencies(
         dependencies_str: Comma-separated string like "SCHEMA.PROC_NAME (PROCEDURE), SCHEMA.FUNC_NAME (FUNCTION)"
         database_key: Database key for platform/instance/env information
         schema_key: Schema key for schema context
+        procedure_registry: Optional mapping of "schema.procedure_name" -> full_job_id (with hash if overloaded)
 
     Returns:
         List of DataJob URNs for the referenced procedures/functions
+
+    Note:
+        For overloaded procedures (multiple signatures), the URN will only match if a procedure_registry
+        is provided. Otherwise, only the procedure name is used, which may not match the actual URN
+        if the procedure has an argument signature hash.
     """
     input_jobs = []
 
@@ -236,6 +243,13 @@ def _parse_procedure_dependencies(
 
         dep_schema, dep_name = parts
 
+        # Try to look up the full identifier (with hash) from the registry
+        registry_key = f"{dep_schema.lower()}.{dep_name.lower()}"
+        job_id = dep_name.lower()
+
+        if procedure_registry and registry_key in procedure_registry:
+            job_id = procedure_registry[registry_key]
+
         # Create DataJob URN for the referenced procedure/function
         dep_job_urn = make_data_job_urn(
             orchestrator=database_key.platform,
@@ -250,7 +264,7 @@ def _parse_procedure_dependencies(
                     backcompat_env_as_instance=database_key.backcompat_env_as_instance,
                 ),
             ),
-            job_id=dep_name.lower(),
+            job_id=job_id,
             cluster=database_key.env or DEFAULT_ENV,
             platform_instance=database_key.instance,
         )
@@ -272,6 +286,7 @@ def generate_procedure_lineage(
     report_failure: Optional[Callable[[str], None]] = None,
     database_key: Optional[DatabaseKey] = None,
     schema_key: Optional[SchemaKey] = None,
+    procedure_registry: Optional[Dict[str, str]] = None,
 ) -> Iterable[MetadataChangeProposalWrapper]:
     if procedure.procedure_definition and procedure.language == "SQL":
         datajob_input_output = parse_procedure_code(
@@ -289,7 +304,7 @@ def generate_procedure_lineage(
             upstream_deps = procedure.extra_properties.get("upstream_dependencies", "")
             if upstream_deps:
                 input_datajobs = _parse_procedure_dependencies(
-                    upstream_deps, database_key, schema_key
+                    upstream_deps, database_key, schema_key, procedure_registry
                 )
                 if input_datajobs:
                     # Add to existing inputDatajobs or create new list
@@ -326,6 +341,7 @@ def generate_procedure_workunits(
     database_key: DatabaseKey,
     schema_key: Optional[SchemaKey],
     schema_resolver: Optional[SchemaResolver],
+    procedure_registry: Optional[Dict[str, str]] = None,
 ) -> Iterable[MetadataWorkUnit]:
     yield from _generate_job_workunits(database_key, schema_key, procedure)
 
@@ -342,5 +358,6 @@ def generate_procedure_workunits(
                 or (schema_key.db_schema if schema_key else None),
                 database_key=database_key,
                 schema_key=schema_key,
+                procedure_registry=procedure_registry,
             )
         )
