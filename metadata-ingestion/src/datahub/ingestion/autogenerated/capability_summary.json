@@ -369,7 +369,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.clickhouse.source.ClickHouseSource",
+      "classname": "datahub.ingestion.source.sql.clickhouse.ClickHouseSource",
       "platform_id": "clickhouse",
       "platform_name": "ClickHouse",
       "support_status": "CERTIFIED"
