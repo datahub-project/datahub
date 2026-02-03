@@ -101,7 +101,13 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     </StyledTabToolbar>
                     <div>
                         {displayedDescription ? (
-                            [<Editor content={displayedDescription} readOnly />]
+                            [
+                                <Editor
+                                    content={displayedDescription}
+                                    dataTestId="documentation-editor-content"
+                                    readOnly
+                                />,
+                            ]
                         ) : (
                             <DocumentationContainer>
                                 <Typography.Text type="secondary">No documentation added yet.</Typography.Text>
