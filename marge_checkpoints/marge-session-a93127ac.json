@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "session_id": "marge-session-a93127ac",
-  "checkpoint_timestamp": "2026-02-03T08:15:31.443002",
+  "checkpoint_timestamp": "2026-02-03T08:39:30.124504",
   "upstream_remote": "upstream",
   "upstream_branch": "master",
   "target_branch": "acryl-main",
@@ -30,7 +30,7 @@
     "01afb0ff772f107763307301ac38fae306b77a25",
     "cf8a31a6446022d4b534e295173df087d4b4d6c5"
   ],
-  "next_commit_index": 15,
+  "next_commit_index": 16,
   "processed_commits": [
     {
       "sha": "61dda29b0f90e0739a45f035bb8b32f8c0cff5d3",
@@ -181,42 +181,28 @@
       "timestamp": null,
       "attempt_count": 0,
       "conflict_files": []
+    },
+    {
+      "sha": "9d678fb03c0c0807b223f6f2fcb063f9e6f6badf",
+      "short_hash": "9d678fb03c",
+      "message": "feat(notion): add Notion source integration with embedding support (#15990)",
+      "author": "Shirshanka Das <shirshanka@apache.org>",
+      "status": "merged_with_conflicts",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
     }
   ],
   "stack": {
-    "size": 10,
-    "commit_shas": [
-      "fe67c6c237c70909f58080fb09e1de90ba526d3c",
-      "736fac13925029fb423719d7167b4cb51139730b",
-      "3187c73865dcdee246683a8c82f70e204c0f9494",
-      "30ff3061be6ea7dc1d7ae4616d902edd578fc513",
-      "9ccff9503e3e43538e59f21d1de88b683cf00a2f",
-      "882788dec5507642d801e2e14e10cebc03c3621f",
-      "2c52eaac7be541f6105ab4f462c5cedca9d28f25",
-      "37d85ca56a01a12634425f02a83eddd0f7032a6c",
-      "0c86b640e0fd40c09f7cd96f3a0264f54921adb3",
-      "8e8e87bc241e6104ffc21f904975d80f989eff9b"
-    ],
-    "commit_messages": [
-      "feat(ingestion): Add Microsoft Fabric OneLake connector for metadata extaction (#15888)",
-      "fix(ingest/airflow): Remove kill switch variable from Airflow 2.x support (#15930)",
-      "updated pr-labeler.yml (add Rajat Singh[rajatoss] to team member-list) (#15986)",
-      "docs: Add v0.3.16 release notes to sidebar (#15989)",
-      "feat(ingestion/bigquery) sharding optimizations (#15978)",
-      "fix(fivetran): adds missing databricks-sdk dependency via databricks_common (#15988)",
-      "fix(ingestion): enforce boto3>=1.35.0 for S3 ListBuckets Prefix support (#15987)",
-      "fix(ingest): hide empty Settings section in recipe form (#15993)",
-      "fix(ingest/ariflow): Airflow Asset support for Airflow 2/3 (#15947)",
-      "fix(tableau): Use datasource name for Custom SQL query display names (#15914)"
-    ],
-    "last_committed": "2026-02-03T08:15:31.443015"
+    "size": 0,
+    "commit_shas": [],
+    "commit_messages": [],
+    "last_committed": null
   },
   "git_state": {
-    "head_sha": "c06e7aa79b3398d37ea3d0fbd41ee4f9ee23669a",
+    "head_sha": "d15883b6f8e0b136da50ce228eeb3d82b03cc6fa",
     "branch": "marge-session-a93127ac-branch",
-    "working_tree_clean": false,
-    "uncommitted_files": [
-      "arge_checkpoints/marge-session-a93127ac.json"
-    ]
+    "working_tree_clean": true,
+    "uncommitted_files": []
   }
 }
