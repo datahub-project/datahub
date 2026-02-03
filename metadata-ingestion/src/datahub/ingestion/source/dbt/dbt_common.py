@@ -98,6 +98,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
@@ -106,6 +107,12 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    QueryLanguageClass,
+    QueryPropertiesClass,
+    QuerySourceClass,
+    QueryStatementClass,
+    QuerySubjectClass,
+    QuerySubjectsClass,
     SiblingsClass,
     StatusClass,
     SubTypesClass,
@@ -113,7 +120,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.metadata.urns import DatasetUrn
+from datahub.metadata.urns import DatasetUrn, QueryUrn
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -137,7 +144,66 @@ logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
 
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
-_DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
+_DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
+_DBT_MAX_SQL_LENGTH = 1 * 1024 * 1024  # 1MB
+# URN-safe chars only; names like "Revenue (USD)" become "Revenue_USD_" which can
+# collide with "Revenue [USD]" - duplicates are detected and skipped with warnings.
+_QUERY_URN_SANITIZE_PATTERN = re.compile(r"[^a-zA-Z0-9_\-\.]+")
+
+
+class DBTQueryDefinition(pydantic.BaseModel):
+    """Pydantic model for validating query definitions in meta.queries."""
+
+    model_config = pydantic.ConfigDict(extra="forbid")  # Catch typos in field names
+
+    name: str = Field(..., min_length=1, description="Unique name for the query")
+    sql: str = Field(..., min_length=1, description="SQL statement for the query")
+    description: Optional[str] = Field(None, description="Human-readable description")
+    tags: Optional[List[str]] = Field(None, description="Tags for categorization")
+    terms: Optional[List[str]] = Field(None, description="Glossary terms")
+
+    @field_validator("name", "sql", mode="before")
+    @classmethod
+    def strip_whitespace(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                raise ValueError("cannot be empty or whitespace-only")
+        return v
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def coerce_description(cls, v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            logger.warning(
+                f"meta.queries: description must be string, got {type(v).__name__}"
+            )
+            return None
+        return v.strip() or None
+
+    @field_validator("tags", "terms", mode="before")
+    @classmethod
+    def coerce_string_list(
+        cls, v: Any, info: pydantic.ValidationInfo
+    ) -> Optional[List[str]]:
+        if v is None:
+            return None
+        if not isinstance(v, list):
+            logger.warning(
+                f"meta.queries: {info.field_name} must be list, got {type(v).__name__}"
+            )
+            return None
+        return [str(item).strip() for item in v if item and str(item).strip()]
+
+    @staticmethod
+    def _list_to_csv(values: Optional[List[str]]) -> Optional[str]:
+        """Convert list to comma-separated string for customProperties storage."""
+        if not values:
+            return None
+        return ", ".join(values)
+
 
 # =============================================================================
 # Regex patterns for Snowflake semantic view CLL (Column-Level Lineage) parsing
@@ -234,6 +300,12 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     duplicate_sources_dropped: Optional[int] = None
     duplicate_sources_references_updated: Optional[int] = None
 
+    # Query entity emission statistics
+    num_queries_emitted: int = 0
+    num_queries_failed: int = 0
+    queries_failed_list: LossyList[str] = field(default_factory=LossyList)
+    query_timestamps_fallback_used: bool = False
+
 
 class EmitDirective(ConfigEnum):
     """A holder for directives for emission for specific types of entities"""
@@ -275,6 +347,10 @@ class DBTEntitiesEnabled(ConfigModel):
         EmitDirective.YES,
         description="Emit model performance metadata when set to Yes or Only. "
         "Only supported with dbt core.",
+    )
+    queries: EmitDirective = Field(
+        EmitDirective.YES,
+        description="Emit Query entities from meta.queries field when set to Yes or Only.",
     )
 
     @field_validator("*", mode="before")
@@ -339,6 +415,10 @@ class DBTEntitiesEnabled(ConfigModel):
     @property
     def can_emit_model_performance(self) -> bool:
         return self.model_performance == EmitDirective.YES
+
+    @property
+    def can_emit_queries(self) -> bool:
+        return self.queries == EmitDirective.YES
 
 
 class MaterializedNodePatternConfig(ConfigModel):
@@ -443,6 +523,12 @@ class DBTCommonConfig(
     enable_owner_extraction: bool = Field(
         default=True,
         description="When enabled, ownership info will be extracted from the dbt meta",
+    )
+    max_queries_per_model: int = Field(
+        default=100,
+        ge=0,
+        description="Maximum number of Query entities to emit per dbt model. "
+        "Prevents metadata explosion from malformed manifests. Set to 0 for unlimited.",
     )
     owner_extraction_pattern: Optional[str] = Field(
         default=None,
@@ -1111,6 +1197,32 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
             self, self.config, ctx
         )
+        # Cached timestamp for Query entities (ensures reproducible output)
+        self._query_timestamp_cache: Optional[int] = None
+
+    def _get_query_timestamp(self) -> int:
+        """Get timestamp for Query entities, cached for reproducibility."""
+        if self._query_timestamp_cache is not None:
+            return self._query_timestamp_cache
+
+        manifest_info = getattr(self.report, "manifest_info", None)
+        if isinstance(manifest_info, dict):
+            generated_at = manifest_info.get("generated_at")
+            if generated_at and generated_at != "unknown":
+                try:
+                    self._query_timestamp_cache = datetime_to_ts_millis(
+                        dateutil.parser.parse(generated_at)
+                    )
+                    return self._query_timestamp_cache
+                except (ValueError, TypeError) as e:
+                    logger.warning(
+                        f"Failed to parse manifest timestamp '{generated_at}': {e}"
+                    )
+
+        # Fallback to current time (manifest timestamp unavailable or unparseable)
+        self._query_timestamp_cache = datetime_to_ts_millis(datetime.now())
+        self.report.query_timestamps_fallback_used = True
+        return self._query_timestamp_cache
 
     def create_test_entity_mcps(
         self,
@@ -1984,6 +2096,134 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 result_type=model_performance.status,
             )
 
+    def _create_query_entity_mcps(
+        self,
+        node: DBTNode,
+        node_datahub_urn: str,
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Create Query entities from meta.queries field in dbt models."""
+        # Check if query emission is enabled via entities_enabled.queries
+        if self.config.entities_enabled.queries == EmitDirective.NO:
+            return
+
+        if not node.meta:
+            return
+
+        queries = node.meta.get("queries")
+        if queries is None:
+            return
+
+        if not isinstance(queries, list):
+            msg = f"Invalid meta.queries in {node.dbt_name}: expected list, got {type(queries).__name__}"
+            logger.warning(msg)
+            self.report.report_warning(node.dbt_name, msg)
+            return
+
+        # Ephemeral models don't exist in target platform, so queries can't be linked
+        if node.is_ephemeral_model():
+            logger.warning(
+                f"Queries on ephemeral model {node.dbt_name} skipped: "
+                "ephemeral models don't exist in target platform"
+            )
+            return
+
+        # Limit queries to prevent metadata explosion (0 = unlimited)
+        max_queries = self.config.max_queries_per_model
+        if max_queries > 0 and len(queries) > max_queries:
+            logger.warning(
+                f"Too many queries in {node.dbt_name}: {len(queries)} exceeds limit of "
+                f"{max_queries}, only processing first {max_queries}"
+            )
+            queries = queries[:max_queries]
+
+        # Get timestamp (computed once from manifest, cached for reproducibility)
+        query_timestamp = self._get_query_timestamp()
+
+        seen_urns: Dict[str, str] = {}
+
+        for idx, query_def in enumerate(queries):
+            try:
+                query = DBTQueryDefinition.model_validate(query_def)
+            except pydantic.ValidationError as e:
+                error_msg = "; ".join(
+                    f"{err['loc'][0]}: {err['msg']}" if err.get("loc") else err["msg"]
+                    for err in e.errors()
+                )
+                logger.warning(f"Invalid query at {node.dbt_name}[{idx}]: {error_msg}")
+                self.report.num_queries_failed += 1
+                self.report.queries_failed_list.append(
+                    f"{node.dbt_name}[{idx}]: {error_msg}"
+                )
+                continue
+
+            query_name = query.name
+            query_sql = query.sql
+            sql_truncated = False
+            if len(query_sql) > _DBT_MAX_SQL_LENGTH:
+                logger.warning(
+                    f"Query '{query_name}' in {node.dbt_name}: SQL exceeds 1MB, truncating"
+                )
+                query_sql = f"{query_sql[:_DBT_MAX_SQL_LENGTH]}..."
+                sql_truncated = True
+
+            query_id = _QUERY_URN_SANITIZE_PATTERN.sub(
+                "_", f"{node.dbt_name}_{query_name}"
+            )
+            query_urn_str = QueryUrn(query_id).urn()
+
+            # Skip duplicates (can occur when different names sanitize to same URN)
+            if query_urn_str in seen_urns:
+                msg = f"Query '{query_name}' in {node.dbt_name} skipped: URN collision with '{seen_urns[query_urn_str]}'"
+                logger.warning(msg)
+                self.report.report_warning(node.dbt_name, msg)
+                self.report.num_queries_failed += 1
+                self.report.queries_failed_list.append(
+                    f"{node.dbt_name}.{query_name}: URN collision"
+                )
+                continue
+            seen_urns[query_urn_str] = query_name
+
+            # Build custom properties
+            # Note: Tags/terms stored as CSV strings because Query entities don't
+            # currently support native GlobalTags/GlossaryTerms aspects.
+            custom_properties: Dict[str, str] = {}
+            if tags_csv := DBTQueryDefinition._list_to_csv(query.tags):
+                custom_properties["tags"] = tags_csv
+            if terms_csv := DBTQueryDefinition._list_to_csv(query.terms):
+                custom_properties["terms"] = terms_csv
+            if sql_truncated:
+                custom_properties["sql_truncated"] = "true"
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=query_urn_str,
+                aspect=QueryPropertiesClass(
+                    statement=QueryStatementClass(
+                        value=query_sql, language=QueryLanguageClass.SQL
+                    ),
+                    source=QuerySourceClass.MANUAL,  # User-defined, not auto-discovered
+                    name=query_name,
+                    description=query.description,
+                    created=AuditStampClass(
+                        time=query_timestamp, actor=_DBT_EXECUTOR_ACTOR
+                    ),
+                    lastModified=AuditStampClass(
+                        time=query_timestamp, actor=_DBT_EXECUTOR_ACTOR
+                    ),
+                    origin=node_datahub_urn,
+                    customProperties=custom_properties or None,
+                ),
+            )
+
+            # Links query to dataset so it appears in the Queries tab
+            yield MetadataChangeProposalWrapper(
+                entityUrn=query_urn_str,
+                aspect=QuerySubjectsClass(
+                    subjects=[QuerySubjectClass(entity=node_datahub_urn)]
+                ),
+            )
+
+            self.report.num_queries_emitted += 1
+
     def create_target_platform_mces(
         self,
         dbt_nodes: List[DBTNode],
@@ -1999,14 +2239,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self.config.env,
                 mce_platform_instance,
             )
+
+            # Check if node exists in target platform first - needed for all emissions
+            # (queries need a target dataset to link to, other aspects need the dataset to exist)
+            if not node.exists_in_target_platform:
+                continue
+
+            # Emit Query entities independently of node type setting.
+            # This allows queries=YES/ONLY to work even when models=NO.
+            # (https://github.com/datahub-project/datahub/issues/15150)
+            if self.config.entities_enabled.can_emit_queries:
+                yield from auto_workunit(
+                    self._create_query_entity_mcps(node, node_datahub_urn)
+                )
+
+            # Check if we should emit other aspects (sibling, lineage) for this node type
             if not self.config.entities_enabled.can_emit_node_type(node.node_type):
                 logger.debug(
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
                 )
-                continue
-
-            # We are creating empty node for platform and only add lineage/keyaspect.
-            if not node.exists_in_target_platform:
                 continue
 
             # Emit sibling patch for target platform entity BEFORE any other aspects.
@@ -2159,9 +2410,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             compiled_code = try_format_query(
                 node.compiled_code, platform=self.config.target_platform
             )
-            compiled_code = self._truncate_code(
-                compiled_code, _DBT_MAX_COMPILED_CODE_LENGTH
-            )
+            compiled_code = self._truncate_code(compiled_code, _DBT_MAX_SQL_LENGTH)
 
         materialized = node.materialization in {"table", "incremental", "snapshot"}
         view_properties = ViewPropertiesClass(
