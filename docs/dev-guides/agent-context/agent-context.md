@@ -87,9 +87,8 @@ Before using Agent Context Kit, familiarize yourself with these DataHub concepts
 
 - **Entity**: A metadata object in DataHub (e.g., Dataset, Dashboard, Chart, User). Think of these as the "nouns" of your data ecosystem.
 - **URN (Uniform Resource Name)**: A unique identifier for an entity. Format: `urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.users,PROD)`. This is like a primary key for metadata.
-- **Aspect**: A facet of metadata attached to an entity (e.g., Schema, Ownership, Documentation). Entities are composed of multiple aspects.
 - **MCP (Model Context Protocol)**: A standard protocol for connecting AI agents to external data sources. These tools implement MCP for DataHub.
-- **Graph**: The DataHubGraph client object used to interact with the DataHub API.
+- **Graph**: The underlying client used internally to query DataHub. For LangChain users, this is handled automatically by the builder.
 
 ## Agent Platforms
 

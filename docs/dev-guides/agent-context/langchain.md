@@ -45,17 +45,19 @@ pip install datahub-agent-context[langchain]
 Build AI agents with pre-built LangChain tools:
 
 ```python
-from datahub.ingestion.graph.client import DataHubGraph
+from datahub.sdk.main_client import DataHubClient
 from datahub_agent_context.langchain_tools import build_langchain_tools
 
-# Initialize DataHub client
-graph = DataHubGraph(config={"server": "http://localhost:8080", "token": "YOUR_TOKEN"})
+# Initialize DataHub client from environment (recommended)
+client = DataHubClient.from_env()
+# Or specify server and token explicitly:
+# client = DataHubClient(server="http://localhost:8080", token="YOUR_TOKEN")
 
 # Build all tools (read-only by default)
-tools = build_langchain_tools(graph, include_mutations=False)
+tools = build_langchain_tools(client, include_mutations=False)
 
 # Or include mutation tools for tagging, descriptions, etc.
-tools = build_langchain_tools(graph, include_mutations=True)
+tools = build_langchain_tools(client, include_mutations=True)
 ```
 
 **Note**: `include_mutations=False` provides read-only tools (search, get entities, lineage). Set to `True` to enable tools that modify metadata (add tags, update descriptions, etc.).
@@ -65,20 +67,18 @@ tools = build_langchain_tools(graph, include_mutations=True)
 Here's a full example of a DataHub-powered LangChain agent:
 
 ```python
-from datahub.ingestion.graph.client import DataHubGraph
+from datahub.sdk.main_client import DataHubClient
 from datahub_agent_context.langchain_tools import build_langchain_tools
 from langchain_openai import ChatOpenAI
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain.prompts import ChatPromptTemplate
 
-# Initialize DataHub graph client
-graph = DataHubGraph(config={
-    "server": "https://your-datahub.acryl.io",
-    "token": "YOUR_DATAHUB_TOKEN"
-})
+# Initialize DataHub client
+client = DataHubClient.from_env()
+# Or: client = DataHubClient(server="http://localhost:8080", token="YOUR_TOKEN")
 
 # Build DataHub tools (read-only)
-tools = build_langchain_tools(graph, include_mutations=False)
+tools = build_langchain_tools(client, include_mutations=False)
 
 # Initialize LLM
 llm = ChatOpenAI(
@@ -192,8 +192,8 @@ from datahub_agent_context.langchain_tools import (
 )
 
 # Only search and entity tools
-search_tools = build_search_tools(graph)
-entity_tools = build_entity_tools(graph)
+search_tools = build_search_tools(client)
+entity_tools = build_entity_tools(client)
 tools = search_tools + entity_tools
 ```
 
@@ -202,7 +202,7 @@ tools = search_tools + entity_tools
 ```python
 # Configure specific tools
 tools = build_langchain_tools(
-    graph,
+    client,
     include_mutations=False,
     max_search_results=20,  # Increase search result limit
     max_lineage_depth=5      # Deeper lineage traversal
@@ -214,8 +214,7 @@ tools = build_langchain_tools(
 Complete examples are available in the datahub-project repo:
 
 - [Basic Agent](https://github.com/datahub-project/datahub/blob/master/datahub-agent-context/examples/langchain/basic_agent.py)
-- [Agent with Memory](https://github.com/datahub-project/datahub/blob/master/datahub-agent-context/examples/langchain/agent_with_memory.py)
-- [Custom Tools](https://github.com/datahub-project/datahub/blob/master/datahub-agent-context/examples/langchain/custom_tools.py)
+- [Simple Search](https://github.com/datahub-project/datahub/blob/master/datahub-agent-context/examples/langchain/simple_search.py)
 
 ## Troubleshooting
 
@@ -225,7 +224,7 @@ Complete examples are available in the datahub-project repo:
 
 **Solutions**:
 
-- Verify DataHub connection: Test `graph.get_config()` works
+- Verify DataHub connection: Test `client.config` is correctly set
 - Check tool availability: Print `[tool.name for tool in tools]` to see available tools
 - Enable verbose mode: Set `verbose=True` in AgentExecutor to see tool calls
 - Validate token permissions: Ensure token has read access (and write access if using mutations)
