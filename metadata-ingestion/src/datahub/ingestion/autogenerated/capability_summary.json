@@ -313,15 +313,19 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
-          "subtype_modifier": [
-            "View"
-          ],
+          "description": "Enabled by default via `include_view_column_lineage`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_usage_statistics`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -365,7 +369,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.clickhouse.ClickHouseSource",
+      "classname": "datahub.ingestion.source.sql.clickhouse.source.ClickHouseSource",
       "platform_id": "clickhouse",
       "platform_name": "ClickHouse",
       "support_status": "CERTIFIED"

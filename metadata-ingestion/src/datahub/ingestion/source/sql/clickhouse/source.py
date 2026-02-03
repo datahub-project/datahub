@@ -13,7 +13,7 @@ import clickhouse_sqlalchemy.types as custom_types
 import pydantic
 from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import reflection
@@ -103,6 +103,13 @@ register_custom_type(custom_types.ip.IPv4, NumberTypeClass)
 register_custom_type(custom_types.ip.IPv6, StringTypeClass)
 register_custom_type(custom_types.common.Map, MapTypeClass)
 register_custom_type(custom_types.common.Tuple, UnionTypeClass)
+
+# Regex for safe SQL identifiers (table names, usernames) - prevents SQL injection
+# Allows: alphanumeric, underscores, dots (for schema.table)
+_SAFE_SQL_IDENTIFIER_PATTERN = re.compile(
+    r"^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$"
+)
+_SAFE_USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
 class LineageCollectorType(Enum):
@@ -206,6 +213,30 @@ class ClickHouseConfig(
         default=10,
         description="Number of top queries to save to each table for usage statistics.",
     )
+
+    @field_validator("query_log_table")
+    @classmethod
+    def validate_query_log_table(cls, v: str) -> str:
+        """Validate query_log_table to prevent SQL injection."""
+        if not _SAFE_SQL_IDENTIFIER_PATTERN.match(v):
+            raise ValueError(
+                f"Invalid query_log_table '{v}'. "
+                "Must be a valid SQL identifier (e.g., 'system.query_log')."
+            )
+        return v
+
+    @field_validator("query_log_deny_usernames")
+    @classmethod
+    def validate_query_log_deny_usernames(cls, v: List[str]) -> List[str]:
+        """Validate usernames to prevent SQL injection."""
+        for username in v:
+            if not _SAFE_USERNAME_PATTERN.match(username):
+                raise ValueError(
+                    f"Invalid username '{username}' in query_log_deny_usernames. "
+                    "Usernames must contain only alphanumeric characters, "
+                    "underscores, and hyphens."
+                )
+        return v
 
     @cached_property
     def _compiled_temporary_tables_pattern(self) -> List[re.Pattern[str]]:
@@ -359,23 +390,34 @@ def get_view_names(self, connection, schema=None, **kw):
 # when reflecting schema for multiple tables at once.
 @reflection.cache  # type: ignore
 def _get_schema_column_info(self, connection, schema=None, **kw):
-    schema_clause = f"database = '{schema}'" if schema else "1"
     all_columns = defaultdict(list)
-    result = connection.execute(
-        text(
-            textwrap.dedent(
-                """\
-        SELECT database
-             , table AS table_name
-             , name
-             , type
-             , comment
-          FROM system.columns
-         WHERE {schema_clause}
-         ORDER BY database, table, position""".format(schema_clause=schema_clause)
-            )
+    if schema:
+        query = text(
+            """
+            SELECT database
+                 , table AS table_name
+                 , name
+                 , type
+                 , comment
+              FROM system.columns
+             WHERE database = :schema
+             ORDER BY database, table, position
+            """
         )
-    )
+        result = connection.execute(query, {"schema": schema})
+    else:
+        query = text(
+            """
+            SELECT database
+                 , table AS table_name
+                 , name
+                 , type
+                 , comment
+              FROM system.columns
+             ORDER BY database, table, position
+            """
+        )
+        result = connection.execute(query)
     for col in result:
         key = (col.database, col.table_name)
         all_columns[key].append(col)
@@ -456,25 +498,28 @@ def get_view_definition(self, connection, view_name, schema=None, **kw):
     We return the full statement and let the SQL parser extract the SELECT portion.
     """
     if schema:
-        query = textwrap.dedent(
-            f"""\
+        query = text(
+            """
             SELECT create_table_query
             FROM system.tables
-            WHERE database = '{schema}'
-              AND name = '{view_name}'
+            WHERE database = :schema
+              AND name = :view_name
               AND engine LIKE '%View'
             """
         )
+        result = connection.execute(
+            query, {"schema": schema, "view_name": view_name}
+        ).fetchone()
     else:
-        query = textwrap.dedent(
-            f"""\
+        query = text(
+            """
             SELECT create_table_query
             FROM system.tables
-            WHERE name = '{view_name}'
+            WHERE name = :view_name
               AND engine LIKE '%View'
             """
         )
-    result = connection.execute(text(query)).fetchone()
+        result = connection.execute(query, {"view_name": view_name}).fetchone()
     if result and result[0]:
         return result[0]
     return ""
