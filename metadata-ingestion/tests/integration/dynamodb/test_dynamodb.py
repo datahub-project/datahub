@@ -1,9 +1,11 @@
 import pathlib
+from unittest.mock import patch
 
 import boto3
 import pytest
 from freezegun import freeze_time
 from moto import mock_dynamodb
+from mypy_boto3_dynamodb.type_defs import TagTypeDef
 
 from datahub.ingestion.glossary.classification_mixin import ClassificationConfig
 from datahub.ingestion.glossary.classifier import DynamicTypedClassifierConfig
@@ -13,6 +15,7 @@ from datahub.ingestion.glossary.datahub_classifier import (
     PredictionFactorsAndWeights,
 )
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.dynamodb.dynamodb import DynamoDBSource
 from datahub.testing import mce_helpers
 
 test_resources_dir = pathlib.Path(__file__).parent
@@ -25,6 +28,10 @@ FROZEN_TIME = "2023-08-30 12:00:00"
 def test_dynamodb(pytestconfig, tmp_path):
     boto3.setup_default_session()
     client = boto3.client("dynamodb", region_name="us-west-2")
+    tags: list[TagTypeDef] = [
+        {"Key": "env", "Value": "testing"},
+        {"Key": "team", "Value": "datahub"},
+    ]
     client.create_table(
         TableName="Location",
         KeySchema=[
@@ -36,6 +43,7 @@ def test_dynamodb(pytestconfig, tmp_path):
             {"AttributeName": "city", "AttributeType": "S"},
         ],
         ProvisionedThroughput={"ReadCapacityUnits": 10, "WriteCapacityUnits": 10},
+        Tags=tags,
     )
     client.put_item(
         TableName="Location",
@@ -140,5 +148,42 @@ def test_dynamodb(pytestconfig, tmp_path):
         pytestconfig,
         output_path=f"{tmp_path}/dynamodb_platform_instance_mces.json",
         golden_path=test_resources_dir / "dynamodb_platform_instance_mces_golden.json",
+        ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+    )
+
+    pipeline_with_tags = Pipeline.create(
+        {
+            "run_id": "dynamodb-test",
+            "source": {
+                "type": "dynamodb",
+                "config": {
+                    "aws_access_key_id": "testing",
+                    "aws_secret_access_key": "testing",
+                    "aws_session_token": "testing",
+                    "aws_region": "us-west-2",
+                    "extract_table_tags": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/dynamodb_with_tags_mces.json",
+                },
+            },
+        }
+    )
+    # Mocking the _get_dynamodb_table_tags because moto does not support mocking list_tags_of_resource yet.
+    with patch.object(
+        DynamoDBSource,
+        "_get_dynamodb_table_tags",
+        return_value=tags,
+    ):
+        pipeline_with_tags.run()
+        pipeline_with_tags.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/dynamodb_with_tags_mces.json",
+        golden_path=test_resources_dir / "dynamodb_with_tags_mces_golden.json",
         ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
     )
