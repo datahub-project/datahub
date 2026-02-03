@@ -61,7 +61,7 @@ export const TabTitleWithCount = ({ name, count }: TabTitleWithCountProps) => (
     </TabTitle>
 );
 
-type ManageIdentitiesHeaderProps = {
+type ManageUsersAndGroupsHeaderProps = {
     version?: string;
     canManageUsers: boolean;
     canManageServiceAccounts: boolean;

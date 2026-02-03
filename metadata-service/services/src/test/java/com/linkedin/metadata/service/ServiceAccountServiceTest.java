@@ -20,6 +20,7 @@ import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import org.mockito.ArgumentCaptor;
@@ -42,8 +43,10 @@ public class ServiceAccountServiceTest {
   @BeforeMethod
   public void setup() {
     mockEntityClient = Mockito.mock(SystemEntityClient.class);
-    serviceAccountService = new ServiceAccountService(mockEntityClient);
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    serviceAccountService =
+        new ServiceAccountService(
+            mockEntityClient, mock(OpenApiClient.class), opContext.getObjectMapper());
   }
 
   @Test

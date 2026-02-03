@@ -10,8 +10,8 @@ import {
     TabTitleWithCount,
 } from '@app/identity/ManageUsersAndGroups.components';
 import { GroupList } from '@app/identity/group/GroupList';
-import InviteUsersModal from '@app/identity/user/InviteUsersModal';
 import { ServiceAccountList } from '@app/identity/serviceAccount';
+import InviteUsersModal from '@app/identity/user/InviteUsersModal';
 import { UserList } from '@app/identity/user/UserListV2';
 import { markRecommendedUsersAsSeen } from '@app/identity/user/recommendedUsersLocalStorage';
 import { checkIsSsoEnabled } from '@app/settingsV2/platform/sso/utils';
