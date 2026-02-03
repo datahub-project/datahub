@@ -222,7 +222,7 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
       final Urn datasetUrn = Urn.createFromString(dataset.getUrn());
       dataset.setDomainsAssociations(DomainsAssociationsMapper.map(context, domains, datasetUrn));
     } catch (Exception e) {
-      // If URN parsing fails, skip domainsAssociations
+      log.debug("Failed to parse URN for domainsAssociations: {}", dataset.getUrn(), e);
     }
     dataset.setDomain(DomainAssociationMapper.map(context, domains, dataset.getUrn()));
   }

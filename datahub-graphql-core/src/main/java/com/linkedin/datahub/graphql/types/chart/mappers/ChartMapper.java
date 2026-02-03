@@ -63,7 +63,9 @@ import com.linkedin.structured.StructuredProperties;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
 
   public static final ChartMapper INSTANCE = new ChartMapper();
@@ -313,7 +315,7 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
       final Urn entityUrn = Urn.createFromString(chart.getUrn());
       chart.setDomainsAssociations(DomainsAssociationsMapper.map(context, domains, entityUrn));
     } catch (Exception e) {
-      // If URN parsing fails, skip domainsAssociations
+      log.debug("Failed to parse URN for domainsAssociations: {}", chart.getUrn(), e);
     }
     chart.setDomain(DomainAssociationMapper.map(context, domains, chart.getUrn()));
   }

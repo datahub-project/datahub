@@ -43,8 +43,10 @@ import com.linkedin.ml.metadata.MLModelGroupProperties;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /** Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema. */
+@Slf4j
 public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGroup> {
 
   public static final MLModelGroupMapper INSTANCE = new MLModelGroupMapper();
@@ -173,7 +175,7 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
       final Urn entityUrn = Urn.createFromString(entity.getUrn());
       entity.setDomainsAssociations(DomainsAssociationsMapper.map(context, domains, entityUrn));
     } catch (Exception e) {
-      // If URN parsing fails, skip domainsAssociations
+      log.debug("Failed to parse URN for domainsAssociations: {}", entity.getUrn(), e);
     }
     entity.setDomain(DomainAssociationMapper.map(context, domains, entity.getUrn()));
   }

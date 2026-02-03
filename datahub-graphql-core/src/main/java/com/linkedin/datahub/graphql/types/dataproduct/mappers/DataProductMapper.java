@@ -49,7 +49,9 @@ import com.linkedin.settings.asset.AssetSettings;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class DataProductMapper implements ModelMapper<EntityResponse, DataProduct> {
 
   public static final DataProductMapper INSTANCE = new DataProductMapper();
@@ -98,7 +100,7 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
             dataProduct.setDomainsAssociations(
                 DomainsAssociationsMapper.map(context, domains, dataProductUrn));
           } catch (Exception e) {
-            // If URN parsing fails, skip domainsAssociations
+            log.debug("Failed to parse URN for domainsAssociations: {}", dataProduct.getUrn(), e);
           }
           dataProduct.setDomain(
               DomainAssociationMapper.map(context, domains, dataProduct.getUrn()));

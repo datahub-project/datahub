@@ -51,7 +51,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
   public static final NotebookMapper INSTANCE = new NotebookMapper();
 
@@ -255,7 +257,7 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
       final Urn entityUrn = Urn.createFromString(notebook.getUrn());
       notebook.setDomainsAssociations(DomainsAssociationsMapper.map(context, domains, entityUrn));
     } catch (Exception e) {
-      // If URN parsing fails, skip domainsAssociations
+      log.debug("Failed to parse URN for domainsAssociations: {}", notebook.getUrn(), e);
     }
     notebook.setDomain(DomainAssociationMapper.map(context, domains, notebook.getUrn()));
   }

@@ -38,12 +38,14 @@ import com.linkedin.settings.asset.AssetSettings;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
  *
  * <p>To be replaced by auto-generated mappers implementations
  */
+@Slf4j
 public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryTerm> {
 
   public static final GlossaryTermMapper INSTANCE = new GlossaryTermMapper();
@@ -147,7 +149,7 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
       glossaryTerm.setDomainsAssociations(
           DomainsAssociationsMapper.map(context, domains, entityUrn));
     } catch (Exception e) {
-      // If URN parsing fails, skip domainsAssociations
+      log.debug("Failed to parse URN for domainsAssociations: {}", glossaryTerm.getUrn(), e);
     }
     glossaryTerm.setDomain(DomainAssociationMapper.map(context, domains, glossaryTerm.getUrn()));
   }

@@ -53,7 +53,9 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
 
   public static final DataFlowMapper INSTANCE = new DataFlowMapper();
@@ -238,7 +240,7 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
       final Urn entityUrn = Urn.createFromString(dataFlow.getUrn());
       dataFlow.setDomainsAssociations(DomainsAssociationsMapper.map(context, domains, entityUrn));
     } catch (Exception e) {
-      // If URN parsing fails, skip domainsAssociations
+      log.debug("Failed to parse URN for domainsAssociations: {}", dataFlow.getUrn(), e);
     }
     dataFlow.setDomain(DomainAssociationMapper.map(context, domains, dataFlow.getUrn()));
   }

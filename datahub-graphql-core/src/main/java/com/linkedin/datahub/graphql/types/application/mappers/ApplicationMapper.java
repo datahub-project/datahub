@@ -40,7 +40,9 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class ApplicationMapper implements ModelMapper<EntityResponse, Application> {
 
   public static final ApplicationMapper INSTANCE = new ApplicationMapper();
@@ -82,7 +84,7 @@ public class ApplicationMapper implements ModelMapper<EntityResponse, Applicatio
             application.setDomainsAssociations(
                 DomainsAssociationsMapper.map(context, domains, applicationUrn));
           } catch (Exception e) {
-            // If URN parsing fails, skip domainsAssociations
+            log.debug("Failed to parse URN for domainsAssociations: {}", application.getUrn(), e);
           }
           application.setDomain(
               DomainAssociationMapper.map(context, domains, application.getUrn()));

@@ -47,8 +47,10 @@ import com.linkedin.ml.metadata.MLFeatureTableProperties;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /** Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema. */
+@Slf4j
 public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatureTable> {
 
   public static final MLFeatureTableMapper INSTANCE = new MLFeatureTableMapper();
@@ -176,7 +178,7 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
       final Urn entityUrn = Urn.createFromString(entity.getUrn());
       entity.setDomainsAssociations(DomainsAssociationsMapper.map(context, domains, entityUrn));
     } catch (Exception e) {
-      // If URN parsing fails, skip domainsAssociations
+      log.debug("Failed to parse URN for domainsAssociations: {}", entity.getUrn(), e);
     }
     entity.setDomain(DomainAssociationMapper.map(context, domains, entity.getUrn()));
   }

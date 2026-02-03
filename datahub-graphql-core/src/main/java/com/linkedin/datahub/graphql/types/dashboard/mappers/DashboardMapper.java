@@ -61,7 +61,9 @@ import com.linkedin.structured.StructuredProperties;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
 
   public static final DashboardMapper INSTANCE = new DashboardMapper();
@@ -305,7 +307,7 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
       final Urn entityUrn = Urn.createFromString(dashboard.getUrn());
       dashboard.setDomainsAssociations(DomainsAssociationsMapper.map(context, domains, entityUrn));
     } catch (Exception e) {
-      // If URN parsing fails, skip domainsAssociations
+      log.debug("Failed to parse URN for domainsAssociations: {}", dashboard.getUrn(), e);
     }
     dashboard.setDomain(DomainAssociationMapper.map(context, domains, dashboard.getUrn()));
   }
