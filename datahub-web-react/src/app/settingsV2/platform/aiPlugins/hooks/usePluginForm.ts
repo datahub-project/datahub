@@ -1,6 +1,7 @@
 import { message } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import {
     DEFAULT_PLUGIN_FORM_STATE,
     PluginFormState,
@@ -12,7 +13,9 @@ import {
     updateFormField,
 } from '@app/settingsV2/platform/aiPlugins/utils/pluginFormState';
 import { ValidationErrors, validatePluginForm } from '@app/settingsV2/platform/aiPlugins/utils/pluginFormValidation';
+import { extractPlatformFromUrl } from '@app/settingsV2/platform/aiPlugins/utils/pluginLogoUtils';
 import {
+    buildUpsertOAuthServerInput,
     buildUpsertServiceInput,
     extractOAuthServerIdFromUrn,
 } from '@app/settingsV2/platform/aiPlugins/utils/pluginMutationBuilder';
@@ -20,9 +23,10 @@ import {
 import {
     useOAuthAuthorizationServerQuery,
     useServiceQuery,
+    useUpsertOAuthAuthorizationServerMutation,
     useUpsertServiceMutation,
 } from '@graphql/aiPlugins.generated';
-import { AiPluginConfig } from '@types';
+import { AiPluginAuthType, AiPluginConfig } from '@types';
 
 export interface UsePluginFormOptions {
     editingPlugin: AiPluginConfig | null;
@@ -88,7 +92,9 @@ export function usePluginForm(options: UsePluginFormOptions): UsePluginFormResul
         skip: !existingOAuthServerUrn,
     });
 
-    const [upsertService, { loading: isSaving }] = useUpsertServiceMutation();
+    const [upsertService, { loading: isSavingService }] = useUpsertServiceMutation();
+    const [upsertOAuthServer, { loading: isSavingOAuth }] = useUpsertOAuthAuthorizationServerMutation();
+    const isSaving = isSavingService || isSavingOAuth;
 
     // Populate form when editing or duplicating
     useEffect(() => {
@@ -145,14 +151,49 @@ export function usePluginForm(options: UsePluginFormOptions): UsePluginFormResul
         }
 
         try {
+            // If editing with an existing OAuth server, update it separately first
+            const hasExistingOAuth =
+                isEditing && existingOAuthServerUrn && formState.authType === AiPluginAuthType.UserOauth;
+
+            if (hasExistingOAuth) {
+                const oauthInput = buildUpsertOAuthServerInput(formState, existingOAuthServerId!);
+                await upsertOAuthServer({
+                    variables: { input: oauthInput },
+                });
+            }
+
+            // Build service input - use oauthServerUrn (not newOAuthServer) when editing existing OAuth
             const input = buildUpsertServiceInput(formState, {
                 editingUrn,
-                existingOAuthServerId,
+                existingOAuthServerUrn: hasExistingOAuth ? existingOAuthServerUrn : null,
             });
 
-            await upsertService({
+            const result = await upsertService({
                 variables: { input },
             });
+
+            // Emit analytics event
+            const pluginId = result.data?.upsertService?.urn || editingUrn || undefined;
+            const platform = extractPlatformFromUrl(formState.url);
+            if (isEditing) {
+                analytics.event({
+                    type: EventType.UpdateAiPluginEvent,
+                    pluginId: pluginId || '',
+                    pluginType: 'MCP_SERVER',
+                    authType: formState.authType,
+                    displayName: formState.displayName,
+                    platform,
+                });
+            } else {
+                analytics.event({
+                    type: EventType.CreateAiPluginEvent,
+                    pluginId,
+                    pluginType: 'MCP_SERVER',
+                    authType: formState.authType,
+                    displayName: formState.displayName,
+                    platform,
+                });
+            }
 
             message.success(isEditing ? 'AI plugin updated successfully' : 'AI plugin created successfully');
             onSuccess();
@@ -160,7 +201,18 @@ export function usePluginForm(options: UsePluginFormOptions): UsePluginFormResul
             message.error('Failed to save AI plugin');
             console.error('Error saving AI plugin:', error);
         }
-    }, [formState, validationOptions, editingUrn, existingOAuthServerId, upsertService, isEditing, onSuccess]);
+    }, [
+        formState,
+        validationOptions,
+        editingUrn,
+        existingOAuthServerUrn,
+        existingOAuthServerId,
+        upsertService,
+        upsertOAuthServer,
+        isEditing,
+        onSuccess,
+    ]);
+    // Note: existingOAuthServerId is still in deps because it's used in the OAuth server update call
 
     // Modal title
     const getModalTitle = useCallback(() => {

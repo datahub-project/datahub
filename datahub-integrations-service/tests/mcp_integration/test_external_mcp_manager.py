@@ -9,8 +9,12 @@ import pytest
 from datahub_integrations.mcp_integration.ai_plugin_loader import (
     AiPluginAuthType,
     AiPluginConfig,
+    AuthInjectionLocation,
     McpServerConfig,
     McpTransport,
+    OAuthConfig,
+    SharedApiKeyConfig,
+    UserApiKeyConfig,
 )
 from datahub_integrations.mcp_integration.external_mcp_manager import (
     ExternalMCPManager,
@@ -989,8 +993,6 @@ class TestExternalMCPManagerGetAuthHeaders:
         mock_credential_store = MagicMock()
         mock_credential_store.get_access_token.return_value = "test-access-token"
 
-        from datahub_integrations.mcp_integration.ai_plugin_loader import OAuthConfig
-
         plugin = create_test_plugin(auth_type=AiPluginAuthType.USER_OAUTH)
         plugin.oauth_config = OAuthConfig(
             server_urn="urn:li:oauthServer:test", required_scopes=[]
@@ -1004,3 +1006,186 @@ class TestExternalMCPManagerGetAuthHeaders:
 
         headers = manager._get_auth_headers(plugin)
         assert headers == {"Authorization": "Bearer test-access-token"}
+
+    def test_raises_error_for_oauth_without_config(self) -> None:
+        """Test that OAuth auth without config raises PluginConnectionError."""
+        mock_credential_store = MagicMock()
+        plugin = create_test_plugin(auth_type=AiPluginAuthType.USER_OAUTH)
+        # oauth_config is None by default
+
+        manager = ExternalMCPManager(
+            plugins=[plugin],
+            credential_store=mock_credential_store,
+            user_urn="urn:li:corpuser:admin",
+        )
+
+        with pytest.raises(PluginConnectionError) as exc_info:
+            manager._get_auth_headers(plugin)
+
+        assert exc_info.value.plugin_id == "test-plugin"
+        assert "OAuth" in str(exc_info.value)
+        assert "missing configuration" in str(exc_info.value)
+
+    def test_raises_error_for_shared_api_key_without_config(self) -> None:
+        """Test that SHARED_API_KEY auth without config raises PluginConnectionError."""
+        mock_credential_store = MagicMock()
+        plugin = create_test_plugin(auth_type=AiPluginAuthType.SHARED_API_KEY)
+        # shared_api_key_config is None by default
+
+        manager = ExternalMCPManager(
+            plugins=[plugin],
+            credential_store=mock_credential_store,
+            user_urn="urn:li:corpuser:admin",
+        )
+
+        with pytest.raises(PluginConnectionError) as exc_info:
+            manager._get_auth_headers(plugin)
+
+        assert exc_info.value.plugin_id == "test-plugin"
+        assert "shared API key" in str(exc_info.value)
+        assert "missing configuration" in str(exc_info.value)
+
+    def test_raises_error_for_shared_api_key_without_credentials(self) -> None:
+        """Test that SHARED_API_KEY auth with config but no credentials raises error."""
+        mock_credential_store = MagicMock()
+        mock_credential_store.get_credentials_by_urn.return_value = None
+
+        plugin = create_test_plugin(auth_type=AiPluginAuthType.SHARED_API_KEY)
+        plugin.shared_api_key_config = SharedApiKeyConfig(
+            credential_urn="urn:li:dataHubConnection:test-cred",
+            auth_location=AuthInjectionLocation.HEADER,
+            auth_header_name="Authorization",
+            auth_scheme="Bearer",
+            auth_query_param=None,
+        )
+
+        manager = ExternalMCPManager(
+            plugins=[plugin],
+            credential_store=mock_credential_store,
+            user_urn="urn:li:corpuser:admin",
+        )
+
+        with pytest.raises(PluginConnectionError) as exc_info:
+            manager._get_auth_headers(plugin)
+
+        assert exc_info.value.plugin_id == "test-plugin"
+        assert "shared API key" in str(exc_info.value)
+        assert "API key is not set" in str(exc_info.value)
+
+    def test_returns_headers_for_shared_api_key_with_credentials(self) -> None:
+        """Test that SHARED_API_KEY auth with valid credentials returns headers."""
+        mock_credential_store = MagicMock()
+        mock_creds = MagicMock()
+        mock_creds.api_key.api_key = "test-api-key"
+        mock_credential_store.get_credentials_by_urn.return_value = mock_creds
+
+        plugin = create_test_plugin(auth_type=AiPluginAuthType.SHARED_API_KEY)
+        plugin.shared_api_key_config = SharedApiKeyConfig(
+            credential_urn="urn:li:dataHubConnection:test-cred",
+            auth_location=AuthInjectionLocation.HEADER,
+            auth_header_name="Authorization",
+            auth_scheme="Bearer",
+            auth_query_param=None,
+        )
+
+        manager = ExternalMCPManager(
+            plugins=[plugin],
+            credential_store=mock_credential_store,
+            user_urn="urn:li:corpuser:admin",
+        )
+
+        headers = manager._get_auth_headers(plugin)
+        assert headers == {"Authorization": "Bearer test-api-key"}
+
+    def test_returns_headers_for_shared_api_key_with_token_scheme(self) -> None:
+        """Test that SHARED_API_KEY auth with 'token' scheme formats correctly (dbt style)."""
+        mock_credential_store = MagicMock()
+        mock_creds = MagicMock()
+        mock_creds.api_key.api_key = "dbt-api-key"
+        mock_credential_store.get_credentials_by_urn.return_value = mock_creds
+
+        plugin = create_test_plugin(auth_type=AiPluginAuthType.SHARED_API_KEY)
+        plugin.shared_api_key_config = SharedApiKeyConfig(
+            credential_urn="urn:li:dataHubConnection:dbt-cred",
+            auth_location=AuthInjectionLocation.HEADER,
+            auth_header_name="Authorization",
+            auth_scheme="token",
+            auth_query_param=None,
+        )
+
+        manager = ExternalMCPManager(
+            plugins=[plugin],
+            credential_store=mock_credential_store,
+            user_urn="urn:li:corpuser:admin",
+        )
+
+        headers = manager._get_auth_headers(plugin)
+        assert headers == {"Authorization": "token dbt-api-key"}
+
+    def test_raises_error_for_user_api_key_without_config(self) -> None:
+        """Test that USER_API_KEY auth without config raises PluginConnectionError."""
+        mock_credential_store = MagicMock()
+        plugin = create_test_plugin(auth_type=AiPluginAuthType.USER_API_KEY)
+        # user_api_key_config is None by default
+
+        manager = ExternalMCPManager(
+            plugins=[plugin],
+            credential_store=mock_credential_store,
+            user_urn="urn:li:corpuser:admin",
+        )
+
+        with pytest.raises(PluginConnectionError) as exc_info:
+            manager._get_auth_headers(plugin)
+
+        assert exc_info.value.plugin_id == "test-plugin"
+        assert "user API key" in str(exc_info.value)
+        assert "missing configuration" in str(exc_info.value)
+
+    def test_raises_error_for_user_api_key_without_credentials(self) -> None:
+        """Test that USER_API_KEY auth with config but no credentials raises error."""
+        mock_credential_store = MagicMock()
+        mock_credential_store.get_credentials.return_value = None
+
+        plugin = create_test_plugin(auth_type=AiPluginAuthType.USER_API_KEY)
+        plugin.user_api_key_config = UserApiKeyConfig(
+            auth_location=AuthInjectionLocation.HEADER,
+            auth_header_name="X-API-Key",
+            auth_scheme=None,
+            auth_query_param=None,
+        )
+
+        manager = ExternalMCPManager(
+            plugins=[plugin],
+            credential_store=mock_credential_store,
+            user_urn="urn:li:corpuser:admin",
+        )
+
+        with pytest.raises(PluginConnectionError) as exc_info:
+            manager._get_auth_headers(plugin)
+
+        assert exc_info.value.plugin_id == "test-plugin"
+        assert "requires an API key" in str(exc_info.value)
+
+    def test_returns_headers_for_user_api_key_with_credentials(self) -> None:
+        """Test that USER_API_KEY auth with valid credentials returns headers."""
+        mock_credential_store = MagicMock()
+        mock_creds = MagicMock()
+        mock_creds.api_key.api_key = "user-api-key"
+        mock_credential_store.get_credentials.return_value = mock_creds
+
+        plugin = create_test_plugin(auth_type=AiPluginAuthType.USER_API_KEY)
+        plugin.user_api_key_config = UserApiKeyConfig(
+            auth_location=AuthInjectionLocation.HEADER,
+            auth_header_name="X-API-Key",
+            auth_scheme=None,
+            auth_query_param=None,
+        )
+
+        manager = ExternalMCPManager(
+            plugins=[plugin],
+            credential_store=mock_credential_store,
+            user_urn="urn:li:corpuser:admin",
+        )
+
+        headers = manager._get_auth_headers(plugin)
+        assert headers == {"X-API-Key": "user-api-key"}

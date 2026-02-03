@@ -3994,7 +3994,8 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher(
-                    "upsertService", new UpsertServiceResolver(entityClient, secretService))
+                    "upsertService",
+                    new UpsertServiceResolver(entityClient, secretService, connectionService))
                 .dataFetcher("deleteService", new DeleteServiceResolver(entityClient)));
     builder.type(
         "Query",

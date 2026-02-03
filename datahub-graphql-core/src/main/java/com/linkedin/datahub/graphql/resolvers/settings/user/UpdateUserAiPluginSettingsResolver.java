@@ -132,6 +132,22 @@ public class UpdateUserAiPluginSettingsResolver implements DataFetcher<Completab
       pluginConfig.removeOauthConfig();
     }
 
+    // Handle custom headers update
+    if (input.getCustomHeaders() != null) {
+      if (input.getCustomHeaders().isEmpty()) {
+        // Empty list means clear headers
+        pluginConfig.removeCustomHeaders();
+      } else {
+        // Convert GraphQL input to string map
+        com.linkedin.data.template.StringMap headersMap =
+            new com.linkedin.data.template.StringMap();
+        for (var entry : input.getCustomHeaders()) {
+          headersMap.put(entry.getKey(), entry.getValue());
+        }
+        pluginConfig.setCustomHeaders(headersMap);
+      }
+    }
+
     settings.setAiPluginSettings(aiPluginSettings);
   }
 

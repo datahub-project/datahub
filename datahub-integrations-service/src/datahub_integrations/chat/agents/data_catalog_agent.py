@@ -22,6 +22,7 @@ from datahub_integrations.chat.agent import (
 )
 from datahub_integrations.chat.agents.data_catalog_prompts import (
     DataHubSystemPromptBuilder,
+    PlanningMode,
 )
 from datahub_integrations.chat.agents.data_catalog_tools import (
     _respond_to_user_tool,
@@ -44,6 +45,7 @@ from datahub_integrations.mcp.mcp_server import (
     register_all_tools,
 )
 from datahub_integrations.mcp_integration.tool import (
+    Tool,
     ToolWrapper,
     async_background,
     tools_from_fastmcp,
@@ -157,7 +159,7 @@ def create_data_catalog_explorer_agent_fast(
     history: Optional[ChatHistory] = None,
     extra_instructions_override: Optional[str] = None,
     chat_type: ChatType = ChatType.DEFAULT,
-    tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
+    tools: Optional[Sequence[Tool | FastMCP]] = None,
     context: Optional[str] = None,
     platform: Optional["BotPlatform"] = None,
 ) -> AgentRunner:
@@ -198,7 +200,7 @@ def create_data_catalog_explorer_agent_fast(
         agent_name="AskDataHubFast",
         include_mutation_tools=False,
         smart_search_enabled=False,
-        is_planning_enabled=False,
+        planning_mode=PlanningMode.DISABLED,
     )
 
 
@@ -207,7 +209,7 @@ def create_data_catalog_explorer_agent_research(
     history: Optional[ChatHistory] = None,
     extra_instructions_override: Optional[str] = None,
     chat_type: ChatType = ChatType.DEFAULT,
-    tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
+    tools: Optional[Sequence[Tool | FastMCP]] = None,
     context: Optional[str] = None,
     platform: Optional["BotPlatform"] = None,
 ) -> AgentRunner:
@@ -216,7 +218,7 @@ def create_data_catalog_explorer_agent_research(
 
     Research mode characteristics:
     - Uses standard model (Sonnet)
-    - Planning mode enabled
+    - Planning mode: STRICT (must create plan for every question)
     - Includes mutation tools
     - Includes smart search
 
@@ -248,7 +250,7 @@ def create_data_catalog_explorer_agent_research(
         agent_name="AskDataHubResearch",
         include_mutation_tools=True,
         smart_search_enabled=is_smart_search_enabled(),
-        is_planning_enabled=True,
+        planning_mode=PlanningMode.STRICT,
     )
 
 
@@ -257,7 +259,7 @@ def create_data_catalog_explorer_agent(
     history: Optional[ChatHistory] = None,
     extra_instructions_override: Optional[str] = None,
     chat_type: ChatType = ChatType.DEFAULT,
-    tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
+    tools: Optional[Sequence[Tool | FastMCP]] = None,
     context: Optional[str] = None,
     platform: Optional["BotPlatform"] = None,
 ) -> AgentRunner:
@@ -266,7 +268,7 @@ def create_data_catalog_explorer_agent(
 
     Auto mode characteristics:
     - Uses standard model (Sonnet)
-    - No planning mode
+    - Planning mode: AUTO (recommended for complex tasks, optional for simple ones)
     - Includes mutation tools
     - Includes smart search
 
@@ -298,17 +300,17 @@ def create_data_catalog_explorer_agent(
         agent_name="AskDataHubAuto",
         include_mutation_tools=True,
         smart_search_enabled=is_smart_search_enabled(),
-        is_planning_enabled=False,
+        planning_mode=PlanningMode.AUTO,
     )
 
 
 def build_data_catalog_agent_tools(
     client: DataHubClient,
     chat_type: ChatType,
-    tools: Optional[Sequence[ToolWrapper | FastMCP]],
+    tools: Optional[Sequence[Tool | FastMCP]],
     include_mutation_tools: bool,
     smart_search_enabled: bool,
-) -> List[ToolWrapper]:
+) -> List[Tool]:
     """
     Build tool lists for DataCatalog Explorer agent.
 
@@ -346,7 +348,7 @@ def build_data_catalog_agent_tools(
 
     # Prepare plannable tools (public tools from MCP)
     # tools_from_fastmcp applies both tag filtering and document tools filtering
-    plannable_tools: List[ToolWrapper] = [
+    plannable_tools: List[Tool] = [
         tool
         for entry in tools
         for tool in (
@@ -384,13 +386,13 @@ def create_data_catalog_explorer_agent_base(
     extra_instructions_override: Optional[str] = None,
     chat_type: ChatType = ChatType.DEFAULT,
     model_id: Optional[str] = None,
-    tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
+    tools: Optional[Sequence[Tool | FastMCP]] = None,
     context: Optional[str] = None,
     platform: Optional["BotPlatform"] = None,
     agent_name: str = "DataCatalogExplorer",
     include_mutation_tools: bool = True,
     smart_search_enabled: bool = True,
-    is_planning_enabled: bool = False,
+    planning_mode: PlanningMode = PlanningMode.DISABLED,
 ) -> AgentRunner:
     """
     Create a DataCatalog Explorer agent (formerly ChatSession).
@@ -414,7 +416,7 @@ def create_data_catalog_explorer_agent_base(
         agent_name: Agent name string (e.g., "DataCatalogExplorer")
         include_mutation_tools: Whether to include MUTATION-tagged tools
         smart_search_enabled: Whether to include smart_search tool
-        is_planning_enabled: Whether planning mode is enabled
+        planning_mode: Planning mode (STRICT, AUTO, or DISABLED)
 
     Returns:
         Configured AgentRunner instance
@@ -448,7 +450,10 @@ def create_data_catalog_explorer_agent_base(
     config = AgentConfig(
         model_id=model_id,
         system_prompt_builder=DataHubSystemPromptBuilder(
-            extra_instructions_override, context, is_planning_enabled
+            extra_instructions_override,
+            context,
+            planning_mode,
+            tools=plannable_tools,
         ),
         tools=plannable_tools.copy(),
         plannable_tools=plannable_tools,  # Subset for planning (excludes internal)
@@ -472,7 +477,7 @@ def create_data_catalog_explorer_agent_base(
     )
 
     # Add internal tools that require agent reference
-    internal_tools = get_data_catalog_internal_tools(agent, is_planning_enabled)
+    internal_tools = get_data_catalog_internal_tools(agent, planning_mode)
     agent.tools.extend(internal_tools)
 
     logger.info(

@@ -20,7 +20,6 @@ to handle failures gracefully.
 import json
 import uuid
 from typing import (
-    TYPE_CHECKING,
     Annotated,
     Any,
     Dict,
@@ -28,7 +27,6 @@ from typing import (
     Literal,
     NamedTuple,
     Optional,
-    Sequence,
 )
 
 from json_repair import repair_json
@@ -37,8 +35,10 @@ from pydantic import Field
 
 from datahub_integrations.chat.agents.data_catalog_prompts import (
     get_extra_llm_instructions,
+    get_tool_instructions,
 )
 from datahub_integrations.chat.planner.models import Constraints, OnFail, Plan, Step
+from datahub_integrations.chat.planner.planning_context import PlanningContext
 from datahub_integrations.chat.planner.recipes import get_recipe_guidance
 from datahub_integrations.chat.planner.templates import (
     get_template,
@@ -47,15 +47,12 @@ from datahub_integrations.gen_ai.bedrock import _ENABLE_BEDROCK_PROMPT_CACHING
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.mcp.mcp_server import get_datahub_client
-from datahub_integrations.mcp_integration.tool import ToolWrapper, async_background
+from datahub_integrations.mcp_integration.tool import (
+    Tool,
+    ToolWrapper,
+    async_background,
+)
 from datahub_integrations.observability.metrics_constants import AIModule
-
-if TYPE_CHECKING:
-    from datahub_integrations.mcp_integration.external_mcp_manager import (
-        ExternalToolWrapper,
-    )
-
-from datahub_integrations.chat.planner.planning_context import PlanningContext
 
 # =============================================================================
 # Planner LLM Response
@@ -336,34 +333,7 @@ important for search-based tasks - use them in param_hints to ensure thorough co
 Return ONLY valid JSON matching this structure - no additional text or explanation."""
 
 
-def get_tool_instructions(
-    tools: Sequence["ToolWrapper | ExternalToolWrapper"],
-) -> List[str]:
-    """Get unique instructions from a list of tools.
-
-    External MCP tools (like GitHub) can provide server-specific instructions
-    that guide the LLM on how to use them correctly (e.g., "always include
-    repo:owner/repo in search queries").
-
-    Args:
-        tools: List of ToolWrapper (internal MCP) or ExternalToolWrapper (external MCP)
-
-    Returns:
-        List of unique instruction strings from tools that have them.
-        Only ExternalToolWrapper has instructions; ToolWrapper does not.
-    """
-    seen: set[str] = set()
-    instructions: List[str] = []
-    for tool in tools:
-        # ExternalToolWrapper has instructions attribute
-        tool_instructions = getattr(tool, "instructions", None)
-        if tool_instructions and tool_instructions not in seen:
-            seen.add(tool_instructions)
-            instructions.append(tool_instructions)
-    return instructions
-
-
-def _get_planner_tool_wrappers() -> List[ToolWrapper]:
+def _get_planner_tool_wrappers() -> List[Tool]:
     """
     Get ToolWrappers for internal planner LLM tools.
 
@@ -371,7 +341,7 @@ def _get_planner_tool_wrappers() -> List[ToolWrapper]:
     The tool specs are extracted from the function signatures and docstrings.
 
     Returns:
-        List of ToolWrapper objects for the three planner tools
+        List of Tool objects for the three planner tools
     """
     return [
         ToolWrapper.from_function(
@@ -1159,7 +1129,7 @@ def report_step_progress(
     return message
 
 
-def get_planning_tool_wrappers(ctx: PlanningContext) -> list[ToolWrapper]:
+def get_planning_tool_wrappers(ctx: PlanningContext) -> list[Tool]:
     """
     Get planning tools as ToolWrappers for agent use.
 

@@ -37,11 +37,20 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.service.McpServerProperties;
 import com.linkedin.service.ServiceProperties;
+import com.linkedin.settings.global.AiPluginConfig;
+import com.linkedin.settings.global.AiPluginConfigArray;
+import com.linkedin.settings.global.AiPluginSettings;
+import com.linkedin.settings.global.AiPluginType;
+import com.linkedin.settings.global.AuthInjectionLocation;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import com.linkedin.settings.global.OAuthAiPluginConfig;
+import com.linkedin.settings.global.SharedApiKeyAiPluginConfig;
+import com.linkedin.settings.global.UserApiKeyAiPluginConfig;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
@@ -59,6 +68,7 @@ public class UpsertServiceResolverTest {
 
   @Mock private EntityClient entityClient;
   @Mock private SecretService secretService;
+  @Mock private ConnectionService connectionService;
   @Mock private DataFetchingEnvironment environment;
 
   private UpsertServiceResolver resolver;
@@ -67,7 +77,7 @@ public class UpsertServiceResolverTest {
   @BeforeMethod
   public void setup() throws Exception {
     MockitoAnnotations.openMocks(this);
-    resolver = new UpsertServiceResolver(entityClient, secretService);
+    resolver = new UpsertServiceResolver(entityClient, secretService, connectionService);
     capturedProposals = new ArrayList<>();
 
     // Mock secret encryption
@@ -554,7 +564,7 @@ public class UpsertServiceResolverTest {
     assertNotNull(globalSettingsProposal, "Should update GlobalSettings");
   }
 
-  /** Test service creation with inline OAuth server. */
+  /** Test service creation with inline OAuth server (no ID - creates new). */
   @Test
   public void testServiceWithInlineOAuthServer() throws Exception {
     QueryContext mockContext = getMockAllowContext();
@@ -565,9 +575,9 @@ public class UpsertServiceResolverTest {
     UpsertServiceInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.USER_OAUTH);
 
-    // Inline OAuth server
+    // Inline OAuth server - NO ID (creates new server with auto-generated UUID)
     UpsertOAuthAuthorizationServerInput oauthInput = new UpsertOAuthAuthorizationServerInput();
-    oauthInput.setId("inline-oauth-server");
+    // Note: id is NOT set - this is correct for new OAuth servers
     oauthInput.setDisplayName("Inline OAuth Server");
     oauthInput.setClientId("client-123");
     oauthInput.setClientSecret("secret-123");
@@ -589,6 +599,58 @@ public class UpsertServiceResolverTest {
     assertNotNull(oauthProposal, "Should create OAuth server");
   }
 
+  /**
+   * Test that createOAuthServer rejects input with an ID. To update an existing OAuth server, use
+   * the upsertOAuthAuthorizationServer mutation directly, then link via oauthServerUrn.
+   */
+  @Test
+  public void testInlineOAuthServerRejectsIdForUpdate() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(environment.getContext()).thenReturn(mockContext);
+    setupGlobalSettingsMock(new GlobalSettingsInfo());
+    setupServiceResponseMock();
+
+    UpsertServiceInput input = createBasicServiceInput();
+    input.setAuthType(AiPluginAuthType.USER_OAUTH);
+
+    // Inline OAuth server WITH an ID - this should fail
+    UpsertOAuthAuthorizationServerInput oauthInput = new UpsertOAuthAuthorizationServerInput();
+    oauthInput.setId(
+        "existing-oauth-server-id"); // ID provided = trying to update, which is not allowed
+    oauthInput.setDisplayName("OAuth Server");
+    oauthInput.setClientId("client-123");
+    oauthInput.setClientSecret("secret-123");
+    oauthInput.setAuthorizationUrl("https://auth.example.com/authorize");
+    oauthInput.setTokenUrl("https://auth.example.com/token");
+    input.setNewOAuthServer(oauthInput);
+
+    when(environment.getArgument("input")).thenReturn(input);
+
+    // Execute and expect IllegalArgumentException
+    Exception thrown = null;
+    try {
+      resolver.get(environment).join();
+    } catch (Exception e) {
+      thrown = e;
+    }
+
+    assertNotNull(thrown, "Should throw exception when ID is provided in newOAuthServer");
+
+    // Unwrap exception chain to find the IllegalArgumentException
+    Throwable cause = thrown;
+    while (cause != null && !(cause instanceof IllegalArgumentException)) {
+      cause = cause.getCause();
+    }
+    assertNotNull(
+        cause, "Should contain IllegalArgumentException in exception chain, got: " + thrown);
+    assertTrue(
+        cause instanceof IllegalArgumentException,
+        "Should throw IllegalArgumentException, got: " + cause.getClass().getName());
+    assertTrue(
+        cause.getMessage().contains("Cannot update existing OAuth server via newOAuthServer"),
+        "Exception message should explain the issue, got: " + cause.getMessage());
+  }
+
   /** Test service creation with SHARED_API_KEY auth type. */
   @Test
   public void testServiceWithSharedApiKey() throws Exception {
@@ -596,6 +658,12 @@ public class UpsertServiceResolverTest {
     when(environment.getContext()).thenReturn(mockContext);
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
+
+    // Mock connectionService to return a credential URN
+    Urn credentialUrn =
+        UrnUtils.getUrn("urn:li:dataHubConnection:urn_li_service_test-mcp-server__apiKey");
+    when(connectionService.upsertConnection(any(), any(), any(), any(), any(), any()))
+        .thenReturn(credentialUrn);
 
     UpsertServiceInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.SHARED_API_KEY);
@@ -610,10 +678,349 @@ public class UpsertServiceResolverTest {
       // May fail on final mapping
     }
 
-    // Should have proposals for DataHubConnection creation
-    MetadataChangeProposal connectionProposal =
-        findProposalByAspect(Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME);
-    assertNotNull(connectionProposal, "Should create DataHubConnection for shared API key");
+    // Verify ConnectionService was called to create the shared credential
+    verify(connectionService).upsertConnection(any(), any(), any(), any(), any(), any());
+  }
+
+  /**
+   * Test that existing credential is preserved when updating a service without providing a new API
+   * key. This is critical to prevent credential loss when editing plugin settings.
+   */
+  @Test
+  public void testSharedApiKeyCredentialPreservedOnUpdate() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(environment.getContext()).thenReturn(mockContext);
+    setupServiceResponseMock();
+
+    // Setup existing GlobalSettings with a plugin config that has a credential
+    Urn existingCredentialUrn =
+        UrnUtils.getUrn("urn:li:dataHubConnection:urn_li_service_test-mcp-server__apiKey");
+    Urn serviceUrn = UrnUtils.getUrn(TEST_SERVICE_URN);
+
+    SharedApiKeyAiPluginConfig existingSharedConfig = new SharedApiKeyAiPluginConfig();
+    existingSharedConfig.setCredentialUrn(existingCredentialUrn);
+    existingSharedConfig.setAuthLocation(AuthInjectionLocation.HEADER);
+    existingSharedConfig.setAuthScheme("Bearer");
+
+    AiPluginConfig existingPluginConfig = new AiPluginConfig();
+    existingPluginConfig.setId(TEST_SERVICE_URN);
+    existingPluginConfig.setServiceUrn(serviceUrn);
+    existingPluginConfig.setType(AiPluginType.MCP_SERVER);
+    existingPluginConfig.setAuthType(com.linkedin.settings.global.AiPluginAuthType.SHARED_API_KEY);
+    existingPluginConfig.setEnabled(true);
+    existingPluginConfig.setSharedApiKeyConfig(existingSharedConfig);
+
+    AiPluginConfigArray pluginsArray = new AiPluginConfigArray();
+    pluginsArray.add(existingPluginConfig);
+
+    AiPluginSettings pluginSettings = new AiPluginSettings();
+    pluginSettings.setPlugins(pluginsArray);
+
+    GlobalSettingsInfo existingSettings = new GlobalSettingsInfo();
+    existingSettings.setAiPluginSettings(pluginSettings);
+
+    setupGlobalSettingsMock(existingSettings);
+
+    // Create update input WITHOUT providing a new API key
+    UpsertServiceInput input = createBasicServiceInput();
+    input.setAuthType(AiPluginAuthType.SHARED_API_KEY);
+    input.setSharedApiKey(null); // No new API key provided!
+    // Don't provide auth settings - should be preserved from existing config
+
+    when(environment.getArgument("input")).thenReturn(input);
+
+    try {
+      resolver.get(environment).join();
+    } catch (Exception e) {
+      // May fail on final mapping, but we can verify captured proposals
+    }
+
+    // ConnectionService should NOT be called since no new API key was provided
+    verify(connectionService, never()).upsertConnection(any(), any(), any(), any(), any(), any());
+
+    // Verify GlobalSettings was updated with preserved credential
+    MetadataChangeProposal globalSettingsProposal =
+        findProposalByAspect(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME);
+    assertNotNull(globalSettingsProposal, "Should update GlobalSettings");
+
+    // Deserialize and verify the credential URN is preserved
+    JacksonDataCodec codec = new JacksonDataCodec();
+    DataMap dataMap = codec.bytesToMap(globalSettingsProposal.getAspect().getValue().copyBytes());
+    GlobalSettingsInfo updatedSettings = new GlobalSettingsInfo(dataMap);
+
+    assertTrue(updatedSettings.hasAiPluginSettings(), "Should have AI plugin settings");
+    assertTrue(updatedSettings.getAiPluginSettings().hasPlugins(), "Should have plugins array");
+
+    AiPluginConfigArray updatedPlugins = updatedSettings.getAiPluginSettings().getPlugins();
+    assertEquals(updatedPlugins.size(), 1, "Should have one plugin");
+
+    AiPluginConfig updatedPlugin = updatedPlugins.get(0);
+    assertTrue(updatedPlugin.hasSharedApiKeyConfig(), "Should have shared API key config");
+
+    SharedApiKeyAiPluginConfig updatedSharedConfig = updatedPlugin.getSharedApiKeyConfig();
+    assertEquals(
+        updatedSharedConfig.getCredentialUrn(),
+        existingCredentialUrn,
+        "Credential URN should be preserved");
+    assertEquals(
+        updatedSharedConfig.getAuthLocation(),
+        AuthInjectionLocation.HEADER,
+        "Auth location should be preserved");
+    assertEquals(updatedSharedConfig.getAuthScheme(), "Bearer", "Auth scheme should be preserved");
+  }
+
+  /**
+   * Test that new credential is created when updating with a new API key, even if one already
+   * exists.
+   */
+  @Test
+  public void testSharedApiKeyCredentialReplacedOnUpdate() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(environment.getContext()).thenReturn(mockContext);
+    setupServiceResponseMock();
+
+    // Setup existing GlobalSettings with a plugin config that has a credential
+    Urn existingCredentialUrn =
+        UrnUtils.getUrn("urn:li:dataHubConnection:urn_li_service_test-mcp-server__apiKey_old");
+    Urn newCredentialUrn =
+        UrnUtils.getUrn("urn:li:dataHubConnection:urn_li_service_test-mcp-server__apiKey");
+    Urn serviceUrn = UrnUtils.getUrn(TEST_SERVICE_URN);
+
+    SharedApiKeyAiPluginConfig existingSharedConfig = new SharedApiKeyAiPluginConfig();
+    existingSharedConfig.setCredentialUrn(existingCredentialUrn);
+    existingSharedConfig.setAuthScheme("Bearer");
+
+    AiPluginConfig existingPluginConfig = new AiPluginConfig();
+    existingPluginConfig.setId(TEST_SERVICE_URN);
+    existingPluginConfig.setServiceUrn(serviceUrn);
+    existingPluginConfig.setType(AiPluginType.MCP_SERVER);
+    existingPluginConfig.setAuthType(com.linkedin.settings.global.AiPluginAuthType.SHARED_API_KEY);
+    existingPluginConfig.setEnabled(true);
+    existingPluginConfig.setSharedApiKeyConfig(existingSharedConfig);
+
+    AiPluginConfigArray pluginsArray = new AiPluginConfigArray();
+    pluginsArray.add(existingPluginConfig);
+
+    AiPluginSettings pluginSettings = new AiPluginSettings();
+    pluginSettings.setPlugins(pluginsArray);
+
+    GlobalSettingsInfo existingSettings = new GlobalSettingsInfo();
+    existingSettings.setAiPluginSettings(pluginSettings);
+
+    setupGlobalSettingsMock(existingSettings);
+
+    // Mock connectionService to return a new credential URN
+    when(connectionService.upsertConnection(any(), any(), any(), any(), any(), any()))
+        .thenReturn(newCredentialUrn);
+
+    // Create update input WITH a new API key
+    UpsertServiceInput input = createBasicServiceInput();
+    input.setAuthType(AiPluginAuthType.SHARED_API_KEY);
+    input.setSharedApiKey("new-api-key-value"); // New API key provided!
+    input.setSharedApiKeyAuthScheme("Token"); // New auth scheme
+
+    when(environment.getArgument("input")).thenReturn(input);
+
+    try {
+      resolver.get(environment).join();
+    } catch (Exception e) {
+      // May fail on final mapping, but we can verify captured proposals
+    }
+
+    // ConnectionService SHOULD be called since a new API key was provided
+    verify(connectionService).upsertConnection(any(), any(), any(), any(), any(), any());
+
+    // Verify GlobalSettings was updated with new credential
+    MetadataChangeProposal globalSettingsProposal =
+        findProposalByAspect(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME);
+    assertNotNull(globalSettingsProposal, "Should update GlobalSettings");
+
+    // Deserialize and verify the new credential URN is used
+    JacksonDataCodec codec = new JacksonDataCodec();
+    DataMap dataMap = codec.bytesToMap(globalSettingsProposal.getAspect().getValue().copyBytes());
+    GlobalSettingsInfo updatedSettings = new GlobalSettingsInfo(dataMap);
+
+    AiPluginConfig updatedPlugin = updatedSettings.getAiPluginSettings().getPlugins().get(0);
+    SharedApiKeyAiPluginConfig updatedSharedConfig = updatedPlugin.getSharedApiKeyConfig();
+
+    assertEquals(
+        updatedSharedConfig.getCredentialUrn(), newCredentialUrn, "Should use new credential URN");
+    assertEquals(updatedSharedConfig.getAuthScheme(), "Token", "Should use new auth scheme");
+  }
+
+  /**
+   * Test that existing USER_API_KEY auth settings are preserved when updating a service without
+   * re-providing them. This prevents auth injection settings loss during partial updates.
+   *
+   * <p>Note: Fields with GraphQL schema defaults (authLocation, authHeaderName) will receive their
+   * default values even when not explicitly set in the mutation, so we only test preservation of
+   * fields without defaults (authScheme, authQueryParam).
+   */
+  @Test
+  public void testUserApiKeySettingsPreservedOnUpdate() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(environment.getContext()).thenReturn(mockContext);
+    setupServiceResponseMock();
+
+    // Setup existing GlobalSettings with a USER_API_KEY plugin config
+    Urn serviceUrn = UrnUtils.getUrn(TEST_SERVICE_URN);
+
+    UserApiKeyAiPluginConfig existingUserConfig = new UserApiKeyAiPluginConfig();
+    existingUserConfig.setAuthLocation(AuthInjectionLocation.HEADER);
+    existingUserConfig.setAuthScheme("Bearer");
+    existingUserConfig.setAuthQueryParam("api_key");
+
+    AiPluginConfig existingPluginConfig = new AiPluginConfig();
+    existingPluginConfig.setId(TEST_SERVICE_URN);
+    existingPluginConfig.setServiceUrn(serviceUrn);
+    existingPluginConfig.setType(AiPluginType.MCP_SERVER);
+    existingPluginConfig.setAuthType(com.linkedin.settings.global.AiPluginAuthType.USER_API_KEY);
+    existingPluginConfig.setEnabled(true);
+    existingPluginConfig.setUserApiKeyConfig(existingUserConfig);
+
+    AiPluginConfigArray pluginsArray = new AiPluginConfigArray();
+    pluginsArray.add(existingPluginConfig);
+
+    AiPluginSettings pluginSettings = new AiPluginSettings();
+    pluginSettings.setPlugins(pluginsArray);
+
+    GlobalSettingsInfo existingSettings = new GlobalSettingsInfo();
+    existingSettings.setAiPluginSettings(pluginSettings);
+
+    setupGlobalSettingsMock(existingSettings);
+
+    // Create update input WITHOUT providing auth settings (just disable the plugin)
+    UpsertServiceInput input = createBasicServiceInput();
+    input.setAuthType(AiPluginAuthType.USER_API_KEY);
+    input.setEnabled(false);
+    // Don't provide auth settings - should be preserved from existing config
+
+    when(environment.getArgument("input")).thenReturn(input);
+
+    try {
+      resolver.get(environment).join();
+    } catch (Exception e) {
+      // May fail on final mapping, but we can verify captured proposals
+    }
+
+    // Verify GlobalSettings was updated with preserved auth settings
+    MetadataChangeProposal globalSettingsProposal =
+        findProposalByAspect(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME);
+    assertNotNull(globalSettingsProposal, "Should update GlobalSettings");
+
+    // Deserialize and verify the auth settings are preserved
+    JacksonDataCodec codec = new JacksonDataCodec();
+    DataMap dataMap = codec.bytesToMap(globalSettingsProposal.getAspect().getValue().copyBytes());
+    GlobalSettingsInfo updatedSettings = new GlobalSettingsInfo(dataMap);
+
+    assertTrue(updatedSettings.hasAiPluginSettings(), "Should have AI plugin settings");
+    assertTrue(updatedSettings.getAiPluginSettings().hasPlugins(), "Should have plugins array");
+
+    AiPluginConfigArray updatedPlugins = updatedSettings.getAiPluginSettings().getPlugins();
+    assertEquals(updatedPlugins.size(), 1, "Should have one plugin");
+
+    AiPluginConfig updatedPlugin = updatedPlugins.get(0);
+    assertFalse(updatedPlugin.isEnabled(), "Should be disabled");
+    assertTrue(updatedPlugin.hasUserApiKeyConfig(), "Should have user API key config");
+
+    UserApiKeyAiPluginConfig updatedUserConfig = updatedPlugin.getUserApiKeyConfig();
+    // Note: authLocation and authHeaderName have GraphQL defaults, so they will be set to
+    // the default values even if not explicitly provided. We test fields without defaults.
+    assertEquals(updatedUserConfig.getAuthScheme(), "Bearer", "Auth scheme should be preserved");
+    assertEquals(
+        updatedUserConfig.getAuthQueryParam(), "api_key", "Auth query param should be preserved");
+  }
+
+  /**
+   * Test that existing USER_OAUTH settings (serverUrn and requiredScopes) are preserved when
+   * updating a service without re-providing them.
+   */
+  @Test
+  public void testUserOAuthSettingsPreservedOnUpdate() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(environment.getContext()).thenReturn(mockContext);
+    setupServiceResponseMock();
+
+    // Setup existing GlobalSettings with a USER_OAUTH plugin config
+    Urn serviceUrn = UrnUtils.getUrn(TEST_SERVICE_URN);
+    Urn existingOAuthServerUrn =
+        UrnUtils.getUrn("urn:li:oAuthAuthorizationServer:existing-oauth-server");
+
+    OAuthAiPluginConfig existingOAuthConfig = new OAuthAiPluginConfig();
+    existingOAuthConfig.setServerUrn(existingOAuthServerUrn);
+    existingOAuthConfig.setRequiredScopes(
+        new com.linkedin.data.template.StringArray(
+            ImmutableList.of("read:data", "write:data", "admin")));
+
+    AiPluginConfig existingPluginConfig = new AiPluginConfig();
+    existingPluginConfig.setId(TEST_SERVICE_URN);
+    existingPluginConfig.setServiceUrn(serviceUrn);
+    existingPluginConfig.setType(AiPluginType.MCP_SERVER);
+    existingPluginConfig.setAuthType(com.linkedin.settings.global.AiPluginAuthType.USER_OAUTH);
+    existingPluginConfig.setEnabled(true);
+    existingPluginConfig.setOauthConfig(existingOAuthConfig);
+
+    AiPluginConfigArray pluginsArray = new AiPluginConfigArray();
+    pluginsArray.add(existingPluginConfig);
+
+    AiPluginSettings pluginSettings = new AiPluginSettings();
+    pluginSettings.setPlugins(pluginsArray);
+
+    GlobalSettingsInfo existingSettings = new GlobalSettingsInfo();
+    existingSettings.setAiPluginSettings(pluginSettings);
+
+    setupGlobalSettingsMock(existingSettings);
+
+    // Create update input WITHOUT providing OAuth server or scopes (just disable the plugin)
+    UpsertServiceInput input = createBasicServiceInput();
+    input.setAuthType(AiPluginAuthType.USER_OAUTH);
+    input.setEnabled(false);
+    // Don't provide oauthServer or requiredScopes - should be preserved from existing config
+
+    when(environment.getArgument("input")).thenReturn(input);
+
+    try {
+      resolver.get(environment).join();
+    } catch (Exception e) {
+      // May fail on final mapping, but we can verify captured proposals
+    }
+
+    // Verify GlobalSettings was updated with preserved OAuth settings
+    MetadataChangeProposal globalSettingsProposal =
+        findProposalByAspect(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME);
+    assertNotNull(globalSettingsProposal, "Should update GlobalSettings");
+
+    // Deserialize and verify the OAuth settings are preserved
+    JacksonDataCodec codec = new JacksonDataCodec();
+    DataMap dataMap = codec.bytesToMap(globalSettingsProposal.getAspect().getValue().copyBytes());
+    GlobalSettingsInfo updatedSettings = new GlobalSettingsInfo(dataMap);
+
+    assertTrue(updatedSettings.hasAiPluginSettings(), "Should have AI plugin settings");
+    assertTrue(updatedSettings.getAiPluginSettings().hasPlugins(), "Should have plugins array");
+
+    AiPluginConfigArray updatedPlugins = updatedSettings.getAiPluginSettings().getPlugins();
+    assertEquals(updatedPlugins.size(), 1, "Should have one plugin");
+
+    AiPluginConfig updatedPlugin = updatedPlugins.get(0);
+    assertFalse(updatedPlugin.isEnabled(), "Should be disabled");
+    assertTrue(updatedPlugin.hasOauthConfig(), "Should have OAuth config");
+
+    OAuthAiPluginConfig updatedOAuthConfig = updatedPlugin.getOauthConfig();
+    assertEquals(
+        updatedOAuthConfig.getServerUrn(),
+        existingOAuthServerUrn,
+        "OAuth server URN should be preserved");
+    assertTrue(updatedOAuthConfig.hasRequiredScopes(), "Should have required scopes");
+    assertEquals(
+        updatedOAuthConfig.getRequiredScopes().size(), 3, "Should have 3 scopes preserved");
+    assertTrue(
+        updatedOAuthConfig.getRequiredScopes().contains("read:data"),
+        "Should contain read:data scope");
+    assertTrue(
+        updatedOAuthConfig.getRequiredScopes().contains("write:data"),
+        "Should contain write:data scope");
+    assertTrue(
+        updatedOAuthConfig.getRequiredScopes().contains("admin"), "Should contain admin scope");
   }
 
   /** Test service creation with enabled=false. */
@@ -672,12 +1079,23 @@ public class UpsertServiceResolverTest {
 
   @Test
   public void testConstructorNullEntityClient() {
-    assertThrows(NullPointerException.class, () -> new UpsertServiceResolver(null, secretService));
+    assertThrows(
+        NullPointerException.class,
+        () -> new UpsertServiceResolver(null, secretService, connectionService));
   }
 
   @Test
   public void testConstructorNullSecretService() {
-    assertThrows(NullPointerException.class, () -> new UpsertServiceResolver(entityClient, null));
+    assertThrows(
+        NullPointerException.class,
+        () -> new UpsertServiceResolver(entityClient, null, connectionService));
+  }
+
+  @Test
+  public void testConstructorNullConnectionService() {
+    assertThrows(
+        NullPointerException.class,
+        () -> new UpsertServiceResolver(entityClient, secretService, null));
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -894,9 +1312,9 @@ public class UpsertServiceResolverTest {
     UpsertServiceInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.USER_OAUTH);
 
-    // Full OAuth server configuration
+    // Full OAuth server configuration - NO ID (creates new server)
     UpsertOAuthAuthorizationServerInput oauthInput = new UpsertOAuthAuthorizationServerInput();
-    oauthInput.setId("full-oauth-server");
+    // Note: id is NOT set - newOAuthServer only supports creation, not updates
     oauthInput.setDisplayName("Full OAuth Server");
     oauthInput.setDescription("A fully configured OAuth server");
     oauthInput.setClientId("client-123");
@@ -925,7 +1343,7 @@ public class UpsertServiceResolverTest {
     assertNotNull(secretProposal, "Should create secret for client secret");
   }
 
-  /** Test inline OAuth server without client secret. */
+  /** Test inline OAuth server without client secret (for public OAuth clients). */
   @Test
   public void testInlineOAuthServerWithoutClientSecret() throws Exception {
     QueryContext mockContext = getMockAllowContext();
@@ -937,7 +1355,7 @@ public class UpsertServiceResolverTest {
     input.setAuthType(AiPluginAuthType.USER_OAUTH);
 
     UpsertOAuthAuthorizationServerInput oauthInput = new UpsertOAuthAuthorizationServerInput();
-    oauthInput.setId("oauth-server-no-secret");
+    // Note: id is NOT set - newOAuthServer only supports creation
     oauthInput.setDisplayName("OAuth Server Without Secret");
     // No client secret (for public clients)
     input.setNewOAuthServer(oauthInput);

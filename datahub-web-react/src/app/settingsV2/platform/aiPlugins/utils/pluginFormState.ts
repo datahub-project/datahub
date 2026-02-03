@@ -27,6 +27,7 @@ export interface PluginFormState {
     authType: AiPluginAuthType;
     sharedApiKey: string;
     sharedApiKeyAuthScheme: string;
+    userApiKeyAuthScheme: string;
 
     // OAuth configuration (for UserOauth auth type)
     oauthServerName: string;
@@ -37,6 +38,16 @@ export interface PluginFormState {
     oauthTokenUrl: string;
     oauthScopes: string;
     requiredScopes: string;
+
+    // OAuth Advanced Settings
+    oauthTokenAuthMethod: string; // POST_BODY or BASIC_AUTH
+    oauthAuthLocation: string; // HEADER or QUERY_PARAM
+    oauthAuthHeaderName: string;
+    oauthAuthScheme: string;
+    oauthAuthQueryParam: string;
+
+    // OAuth secret status (for showing "configured" indicator when editing)
+    hasOAuthClientSecret: boolean;
 
     // LLM Instructions
     instructions: string;
@@ -55,11 +66,12 @@ export const DEFAULT_PLUGIN_FORM_STATE: PluginFormState = {
     displayName: '',
     description: '',
     url: '',
-    transport: McpTransport.Http,
+    transport: McpTransport.Sse,
     timeout: '30',
     authType: AiPluginAuthType.None,
     sharedApiKey: '',
     sharedApiKeyAuthScheme: 'Bearer',
+    userApiKeyAuthScheme: 'Bearer',
     oauthServerName: '',
     oauthServerDescription: '',
     oauthClientId: '',
@@ -68,6 +80,12 @@ export const DEFAULT_PLUGIN_FORM_STATE: PluginFormState = {
     oauthTokenUrl: '',
     oauthScopes: '',
     requiredScopes: '',
+    oauthTokenAuthMethod: 'BASIC',
+    oauthAuthLocation: 'HEADER',
+    oauthAuthHeaderName: 'Authorization',
+    oauthAuthScheme: 'Bearer',
+    oauthAuthQueryParam: '',
+    hasOAuthClientSecret: false,
     instructions: '',
     enabled: true,
     customHeaders: [],
@@ -92,11 +110,12 @@ export function createFormStateFromPlugin(
         displayName: service?.properties?.displayName || '',
         description: service?.properties?.description || '',
         url: service?.mcpServerProperties?.url || '',
-        transport: service?.mcpServerProperties?.transport || McpTransport.Http,
+        transport: service?.mcpServerProperties?.transport || McpTransport.Sse,
         timeout: String(service?.mcpServerProperties?.timeout || 30),
         authType: plugin.authType || AiPluginAuthType.None,
         sharedApiKey: '',
         sharedApiKeyAuthScheme: plugin.sharedApiKeyConfig?.authScheme || 'Bearer',
+        userApiKeyAuthScheme: plugin.userApiKeyConfig?.authScheme || 'Bearer',
         oauthServerName: oauthServerData?.oauthAuthorizationServer?.properties?.displayName || '',
         oauthServerDescription: oauthServerData?.oauthAuthorizationServer?.properties?.description || '',
         oauthClientId: oauthServerData?.oauthAuthorizationServer?.properties?.clientId || '',
@@ -105,6 +124,12 @@ export function createFormStateFromPlugin(
         oauthTokenUrl: oauthServerData?.oauthAuthorizationServer?.properties?.tokenUrl || '',
         oauthScopes: oauthServerData?.oauthAuthorizationServer?.properties?.scopes?.join(', ') || '',
         requiredScopes: plugin.oauthConfig?.requiredScopes?.join(', ') || '',
+        oauthTokenAuthMethod: oauthServerData?.oauthAuthorizationServer?.properties?.tokenAuthMethod || 'BASIC',
+        oauthAuthLocation: oauthServerData?.oauthAuthorizationServer?.properties?.authLocation || 'HEADER',
+        oauthAuthHeaderName: oauthServerData?.oauthAuthorizationServer?.properties?.authHeaderName || 'Authorization',
+        oauthAuthScheme: oauthServerData?.oauthAuthorizationServer?.properties?.authScheme || 'Bearer',
+        oauthAuthQueryParam: oauthServerData?.oauthAuthorizationServer?.properties?.authQueryParam || '',
+        hasOAuthClientSecret: oauthServerData?.oauthAuthorizationServer?.properties?.hasClientSecret ?? false,
         instructions: plugin.instructions || '',
         enabled: plugin.enabled ?? true,
         customHeaders:

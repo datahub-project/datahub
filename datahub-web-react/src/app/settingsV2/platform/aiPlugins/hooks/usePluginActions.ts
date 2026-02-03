@@ -1,7 +1,9 @@
 import { message } from 'antd';
 import { useCallback } from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import { AiPluginRow } from '@app/settingsV2/platform/aiPlugins/utils/pluginDataUtils';
+import { extractPlatformFromUrl } from '@app/settingsV2/platform/aiPlugins/utils/pluginLogoUtils';
 import { useDeleteAiPluginMutation, useUpsertServiceMutation } from '@src/graphql/aiPlugins.generated';
 import { ServiceSubType } from '@src/types.generated';
 
@@ -78,6 +80,17 @@ export function usePluginActions({ onSuccess }: UsePluginActionsOptions = {}): U
         async (pluginRow: AiPluginRow) => {
             try {
                 await deleteAiPlugin({ variables: { id: pluginRow.id } });
+
+                // Emit analytics event
+                const pluginUrl = pluginRow.plugin.service?.mcpServerProperties?.url;
+                analytics.event({
+                    type: EventType.DeleteAiPluginEvent,
+                    pluginId: pluginRow.id,
+                    pluginType: pluginRow.plugin.type,
+                    authType: pluginRow.authType,
+                    platform: extractPlatformFromUrl(pluginUrl),
+                });
+
                 message.success('Plugin deleted successfully');
                 onSuccess?.();
             } catch (error) {

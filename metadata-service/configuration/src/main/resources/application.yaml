@@ -1211,6 +1211,8 @@ featureFlags:
   # Enables the Dataset Health dashboard in the application
   aiFeaturesEnabled: ${AI_FEATURES_ENABLED:true}
   # Whether AI-powered features are enabled. Not supported for non-AWS deployments.
+  aiPluginsEnabled: ${AI_PLUGINS_ENABLED:false}
+  # Whether AI Plugins (MCP servers) configuration is enabled. Controls visibility of the AI Plugins admin tab and My Integrations user page.
   documentationAiDefaultEnabled: ${DOCUMENTATION_AI_ENABLED:false}
   # If the AI-powered documentation feature should be enabled by default.
   # The globalSettings.documentationAi.enabled setting takes precedence over this.

@@ -57,13 +57,19 @@ describe('pluginLogoUtils', () => {
             expect(getPluginLogoUrl('', '')).toBeNull();
         });
 
-        it('matches display name to platform logos first', () => {
-            // Even with unknown URL, should match on display name
+        it('prioritizes URL over display name for logo matching', () => {
+            // URL takes priority - a "dbt" named plugin pointing to GitHub should show GitHub logo
+            const logo = getPluginLogoUrl('dbt Cloud MCP Server', 'https://api.github.com/mcp');
+            expect(logo).toBe(KNOWN_MCP_LOGOS['github.com']);
+        });
+
+        it('falls back to display name when URL has no match', () => {
+            // When URL doesn't match, should fall back to display name
             const logo = getPluginLogoUrl('dbt Cloud MCP Server', 'https://unknown.com');
             expect(logo).not.toBeNull();
         });
 
-        it('returns local logo for known URL domains when display name has no match', () => {
+        it('returns local logo for known URL domains', () => {
             expect(getPluginLogoUrl('Custom Plugin', 'https://cloud.getdbt.com/api')).toBe(
                 KNOWN_MCP_LOGOS['cloud.getdbt.com'],
             );

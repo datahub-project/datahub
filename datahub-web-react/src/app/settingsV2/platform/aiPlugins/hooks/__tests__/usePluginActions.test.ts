@@ -27,7 +27,7 @@ describe('usePluginActions', () => {
                         mcpServerProperties: {
                             url: 'https://example.com/mcp',
                             timeout: 60,
-                            transport: McpTransport.Http,
+                            transport: McpTransport.Sse,
                         },
                     },
                 },
@@ -69,7 +69,7 @@ describe('usePluginActions', () => {
                         mcpServerProperties: {
                             url: '',
                             timeout: 30,
-                            transport: McpTransport.Http,
+                            transport: McpTransport.Sse,
                         },
                     },
                 },
@@ -99,7 +99,7 @@ describe('usePluginActions', () => {
                         mcpServerProperties: {
                             url: 'https://example.com',
                             timeout: 0,
-                            transport: McpTransport.Http,
+                            transport: McpTransport.Sse,
                         },
                     },
                 },
@@ -127,7 +127,7 @@ describe('usePluginActions', () => {
                         mcpServerProperties: {
                             url: '',
                             timeout: 30,
-                            transport: McpTransport.Http,
+                            transport: McpTransport.Sse,
                         },
                     },
                 },

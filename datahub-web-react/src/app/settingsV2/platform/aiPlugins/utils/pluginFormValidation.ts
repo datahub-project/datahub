@@ -8,6 +8,37 @@ import { AiPluginAuthType } from '@types';
 export type ValidationErrors = Record<string, string>;
 
 /**
+ * Validates that a string is a valid URL with http:// or https:// protocol.
+ * Returns an error message if invalid, or null if valid.
+ */
+export function validateUrlFormat(url: string, fieldLabel = 'URL'): string | null {
+    const trimmed = url.trim();
+
+    if (!trimmed) {
+        return `${fieldLabel} is required`;
+    }
+
+    // Check for valid URL format
+    try {
+        const parsedUrl = new URL(trimmed);
+
+        // Must be http or https protocol
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+            return `${fieldLabel} must start with http:// or https://`;
+        }
+
+        // Must have a hostname
+        if (!parsedUrl.hostname) {
+            return `${fieldLabel} must include a valid hostname`;
+        }
+
+        return null;
+    } catch {
+        return `${fieldLabel} must be a valid URL (e.g., https://example.com)`;
+    }
+}
+
+/**
  * Result of form validation
  */
 export interface ValidationResult {
@@ -54,10 +85,7 @@ export function validateDisplayName(
  * Validates the server URL field
  */
 export function validateUrl(url: string): string | null {
-    if (!url.trim()) {
-        return 'Server URL is required';
-    }
-    return null;
+    return validateUrlFormat(url, 'Server URL');
 }
 
 /**
@@ -74,7 +102,7 @@ export function validateSharedApiKey(sharedApiKey: string, isEditing: boolean): 
 /**
  * Validates OAuth configuration fields
  */
-export function validateOAuthConfig(state: PluginFormState): ValidationErrors {
+export function validateOAuthConfig(state: PluginFormState, _isEditing: boolean): ValidationErrors {
     const errors: ValidationErrors = {};
 
     if (!state.oauthServerName.trim()) {
@@ -83,14 +111,18 @@ export function validateOAuthConfig(state: PluginFormState): ValidationErrors {
     if (!state.oauthClientId.trim()) {
         errors.oauthClientId = 'Client ID is required';
     }
-    if (!state.oauthClientSecret.trim()) {
-        errors.oauthClientSecret = 'Client Secret is required';
+    // Client Secret is optional - backend will keep existing if not provided
+
+    // Validate Authorization URL format
+    const authUrlError = validateUrlFormat(state.oauthAuthorizationUrl, 'Authorization URL');
+    if (authUrlError) {
+        errors.oauthAuthorizationUrl = authUrlError;
     }
-    if (!state.oauthAuthorizationUrl.trim()) {
-        errors.oauthAuthorizationUrl = 'Authorization URL is required';
-    }
-    if (!state.oauthTokenUrl.trim()) {
-        errors.oauthTokenUrl = 'Token URL is required';
+
+    // Validate Token URL format
+    const tokenUrlError = validateUrlFormat(state.oauthTokenUrl, 'Token URL');
+    if (tokenUrlError) {
+        errors.oauthTokenUrl = tokenUrlError;
     }
 
     return errors;
@@ -122,7 +154,7 @@ export function validatePluginForm(state: PluginFormState, options: ValidationOp
     }
 
     if (state.authType === AiPluginAuthType.UserOauth) {
-        const oauthErrors = validateOAuthConfig(state);
+        const oauthErrors = validateOAuthConfig(state, options.isEditing);
         Object.assign(errors, oauthErrors);
     }
 
@@ -138,6 +170,11 @@ export function validatePluginForm(state: PluginFormState, options: ValidationOp
 export function isFormValid(state: PluginFormState, options: ValidationOptions): boolean {
     // Basic required fields
     if (!state.displayName.trim() || !state.url.trim()) {
+        return false;
+    }
+
+    // Validate Server URL format
+    if (validateUrlFormat(state.url, 'URL') !== null) {
         return false;
     }
 
@@ -158,9 +195,9 @@ export function isFormValid(state: PluginFormState, options: ValidationOptions):
         if (
             !state.oauthServerName.trim() ||
             !state.oauthClientId.trim() ||
-            !state.oauthClientSecret.trim() ||
-            !state.oauthAuthorizationUrl.trim() ||
-            !state.oauthTokenUrl.trim()
+            // Client Secret is optional - backend will keep existing if not provided
+            validateUrlFormat(state.oauthAuthorizationUrl, 'URL') !== null ||
+            validateUrlFormat(state.oauthTokenUrl, 'URL') !== null
         ) {
             return false;
         }

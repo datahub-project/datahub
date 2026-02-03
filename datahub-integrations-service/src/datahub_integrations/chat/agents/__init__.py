@@ -11,6 +11,7 @@ from datahub_integrations.chat.agents.data_catalog_agent import (
     create_data_catalog_explorer_agent_fast,
     create_data_catalog_explorer_agent_research,
 )
+from datahub_integrations.chat.agents.data_catalog_prompts import PlanningMode
 from datahub_integrations.chat.agents.ingestion_troubleshooting_agent import (
     create_ingestion_troubleshooting_agent,
 )
@@ -26,4 +27,5 @@ __all__ = [
     "create_ingestion_troubleshooting_agent",
     "NextMessage",  # Re-export for convenience
     "ChatType",  # Re-export for convenience
+    "PlanningMode",  # Planning mode enum (STRICT, AUTO, DISABLED)
 ]

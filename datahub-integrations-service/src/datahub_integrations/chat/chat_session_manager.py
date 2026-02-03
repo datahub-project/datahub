@@ -57,7 +57,7 @@ from datahub_integrations.mcp_integration.external_mcp_manager import (
     ExternalToolWrapper,
     PluginConnectionError,
 )
-from datahub_integrations.mcp_integration.tool import ToolWrapper
+from datahub_integrations.mcp_integration.tool import Tool
 from datahub_integrations.oauth.credential_store import DataHubConnectionCredentialStore
 from datahub_integrations.telemetry.chat_events import (
     ChatbotInteractionEvent,
@@ -106,7 +106,7 @@ class AgentFactory(Protocol):
         history: Optional[ChatHistory] = None,
         extra_instructions_override: Optional[str] = None,
         chat_type: ChatType = ChatType.DEFAULT,
-        tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
+        tools: Optional[Sequence[Tool | FastMCP]] = None,
         context: Optional[str] = None,
         platform: Optional["BotPlatform"] = None,
     ) -> AgentRunner:
@@ -338,7 +338,7 @@ mutation DisableUserPlugin($input: UpdateUserAiPluginSettingsInput!) {
         combined_context = combine_contexts(conversation_context, message_context)
 
         # Build tools list: always include mcp, optionally add external tools
-        tools: List[ToolWrapper | FastMCP | ExternalToolWrapper] = [mcp]
+        tools: List[Tool | FastMCP] = [mcp]
         if external_tools:
             tools.extend(external_tools)
 
@@ -433,6 +433,12 @@ mutation DisableUserPlugin($input: UpdateUserAiPluginSettingsInput!) {
         try:
             external_tools = self._get_external_tools(chat_type, user_urn)
         except PluginConnectionError as e:
+            # Log the error for debugging
+            logger.bind(
+                plugin_id=e.plugin_id,
+                plugin_name=e.plugin_name,
+                user_urn=user_urn,
+            ).opt(exception=True).warning(f"Plugin connection failed: {e}")
             # Auto-disable the failing plugin
             self._disable_user_plugin(user_urn, e.plugin_id)
 

@@ -160,6 +160,9 @@ export const PlatformIntegrations = () => {
 
     const getCurrentUrl = useCallback(() => location.pathname, [location.pathname]);
 
+    // Check if AI Plugins feature flag is enabled
+    const showAiPluginsTab = config.featureFlags.aiPluginsEnabled;
+
     const tabs: Tab[] = [
         {
             name: 'Notifications',
@@ -178,13 +181,21 @@ export const PlatformIntegrations = () => {
                 <IntegrationsListContent integrations={DATA_INTEGRATIONS} onSelectIntegration={selectIntegration} />
             ),
         },
-        {
-            name: 'AI Plugins',
-            key: IntegrationsTabType.AiPlugins,
-            component: (
-                <AiPluginsTab showCreateModal={showCreatePluginModal} setShowCreateModal={setShowCreatePluginModal} />
-            ),
-        },
+        // Only show AI Plugins tab if feature flag is enabled
+        ...(showAiPluginsTab
+            ? [
+                  {
+                      name: 'AI Plugins',
+                      key: IntegrationsTabType.AiPlugins,
+                      component: (
+                          <AiPluginsTab
+                              showCreateModal={showCreatePluginModal}
+                              setShowCreateModal={setShowCreatePluginModal}
+                          />
+                      ),
+                  },
+              ]
+            : []),
     ];
 
     // Check if we're on an integration detail page

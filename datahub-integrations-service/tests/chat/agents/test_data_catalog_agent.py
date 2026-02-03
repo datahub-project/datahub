@@ -382,16 +382,23 @@ class TestCreateDataCatalogExplorerAgent:
         mock_smart_search_enabled: Mock,
         mock_client: Mock,
     ) -> None:
-        """Should add internal tools (respond_to_user, planning tools in RESEARCH mode)."""
+        """Should add internal tools (respond_to_user, planning tools based on mode)."""
 
         mock_smart_search_enabled.return_value = False
 
-        # Test DEFAULT mode - should have respond_to_user but no planning tools
+        # Test FAST mode - should have respond_to_user but NO planning tools
+        fast_agent = create_data_catalog_explorer_agent_fast(mock_client, tools=[])
+        fast_tool_names = [t.name for t in fast_agent.tools]
+        assert _respond_to_user_tool.name in fast_tool_names
+        assert "create_plan" not in fast_tool_names
+        assert "revise_plan" not in fast_tool_names
+
+        # Test DEFAULT/AUTO mode - should have respond_to_user AND planning tools
         default_agent = create_data_catalog_explorer_agent(mock_client, tools=[])
         default_tool_names = [t.name for t in default_agent.tools]
         assert _respond_to_user_tool.name in default_tool_names
-        assert "create_plan" not in default_tool_names
-        assert "revise_plan" not in default_tool_names
+        assert "create_plan" in default_tool_names
+        assert "revise_plan" in default_tool_names
 
         # Test RESEARCH mode - should have respond_to_user and planning tools
         research_agent = create_data_catalog_explorer_agent_research(
@@ -476,30 +483,36 @@ class TestCreateDataCatalogExplorerAgent:
         mock_smart_search_enabled: Mock,
         mock_client: Mock,
     ) -> None:
-        """Should pass is_planning_enabled to DataHubSystemPromptBuilder based on mode."""
+        """Should pass planning_mode to DataHubSystemPromptBuilder based on mode."""
+        from datahub_integrations.chat.agents.data_catalog_prompts import PlanningMode
 
         mock_smart_search_enabled.return_value = False
 
-        # Create agent with RESEARCH mode - should have planning enabled
+        # Create agent with RESEARCH mode - should have STRICT planning
         research_agent = create_data_catalog_explorer_agent_research(
             mock_client, tools=[]
         )
-        assert hasattr(
-            research_agent.config.system_prompt_builder, "is_planning_enabled"
+        assert hasattr(research_agent.config.system_prompt_builder, "planning_mode")
+        assert (
+            research_agent.config.system_prompt_builder.planning_mode
+            == PlanningMode.STRICT
         )
-        assert research_agent.config.system_prompt_builder.is_planning_enabled is True
 
-        # Create agent with DEFAULT mode - should NOT have planning enabled
+        # Create agent with DEFAULT mode - should have AUTO planning
         default_agent = create_data_catalog_explorer_agent(mock_client, tools=[])
-        assert hasattr(
-            default_agent.config.system_prompt_builder, "is_planning_enabled"
+        assert hasattr(default_agent.config.system_prompt_builder, "planning_mode")
+        assert (
+            default_agent.config.system_prompt_builder.planning_mode
+            == PlanningMode.AUTO
         )
-        assert default_agent.config.system_prompt_builder.is_planning_enabled is False
 
-        # Create agent with FAST mode - should NOT have planning enabled
+        # Create agent with FAST mode - should have DISABLED planning
         fast_agent = create_data_catalog_explorer_agent_fast(mock_client, tools=[])
-        assert hasattr(fast_agent.config.system_prompt_builder, "is_planning_enabled")
-        assert fast_agent.config.system_prompt_builder.is_planning_enabled is False
+        assert hasattr(fast_agent.config.system_prompt_builder, "planning_mode")
+        assert (
+            fast_agent.config.system_prompt_builder.planning_mode
+            == PlanningMode.DISABLED
+        )
 
     @patch(
         "datahub_integrations.chat.agents.data_catalog_agent.is_smart_search_enabled"

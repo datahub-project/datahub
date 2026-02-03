@@ -93,6 +93,7 @@ class _UserPluginDict(TypedDict, total=False):
     enabled: bool
     oauthConfig: _UserOAuthConfigDict
     apiKeyConfig: _UserApiKeyConnectionDict
+    customHeaders: List[_CustomHeaderDict]
 
 
 class AiPluginAuthType(Enum):
@@ -177,6 +178,8 @@ class AiPluginConfig:
     shared_api_key_config: Optional[SharedApiKeyConfig] = None
     user_api_key_config: Optional[UserApiKeyConfig] = None
     user_is_connected: bool = False
+    user_custom_headers: Optional[Dict[str, str]] = None
+    """User-specific custom headers that override/extend admin-configured headers."""
 
 
 # GraphQL query to load global plugin settings with all necessary details
@@ -242,6 +245,10 @@ query GetUserAiPluginSettings {
             apiKeyConfig {
               isConnected
             }
+            customHeaders {
+              key
+              value
+            }
           }
         }
       }
@@ -257,6 +264,7 @@ class _UserPluginSetting:
 
     enabled: bool
     is_connected: bool
+    custom_headers: Dict[str, str]
 
 
 class AiPluginLoader:
@@ -337,7 +345,7 @@ class AiPluginLoader:
 
             # Parse into AiPluginConfig
             try:
-                config = self._parse_plugin_config(plugin, user_setting.is_connected)
+                config = self._parse_plugin_config(plugin, user_setting)
                 if config:
                     enabled_plugins.append(config)
                     logger.info(
@@ -406,8 +414,7 @@ class AiPluginLoader:
                 if not plugin_id:
                     continue
 
-                # Handle null/None as False - only explicit True enables the plugin
-                enabled = plugin.get("enabled") is True
+                enabled = plugin.get("enabled", False)
 
                 # Determine connection status
                 oauth_config = plugin.get("oauthConfig") or {}
@@ -416,12 +423,23 @@ class AiPluginLoader:
                     "isConnected", False
                 ) or api_key_config.get("isConnected", False)
 
+                # Parse user custom headers
+                custom_headers: Dict[str, str] = {}
+                for header in plugin.get("customHeaders") or []:
+                    key = header.get("key")
+                    value = header.get("value")
+                    if key and value:
+                        custom_headers[key] = value
+
                 settings[plugin_id] = _UserPluginSetting(
-                    enabled=enabled, is_connected=is_connected
+                    enabled=enabled,
+                    is_connected=is_connected,
+                    custom_headers=custom_headers,
                 )
                 logger.debug(
                     f"User plugin setting: {plugin_id} - "
-                    f"enabled={enabled}, connected={is_connected}"
+                    f"enabled={enabled}, connected={is_connected}, "
+                    f"custom_headers={len(custom_headers)}"
                 )
 
             return settings
@@ -431,7 +449,9 @@ class AiPluginLoader:
             return {}
 
     def _parse_plugin_config(
-        self, plugin_data: _GlobalPluginDict, user_is_connected: bool
+        self,
+        plugin_data: _GlobalPluginDict,
+        user_setting: _UserPluginSetting,
     ) -> Optional[AiPluginConfig]:
         """Parse raw GraphQL data into AiPluginConfig."""
         service = plugin_data.get("service")
@@ -514,5 +534,6 @@ class AiPluginLoader:
             oauth_config=oauth_config,
             shared_api_key_config=shared_api_key_config,
             user_api_key_config=user_api_key_config,
-            user_is_connected=user_is_connected,
+            user_is_connected=user_setting.is_connected,
+            user_custom_headers=user_setting.custom_headers or None,
         )

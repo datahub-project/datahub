@@ -14,8 +14,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * 7. We close the popup and refetch data
  */
 export function useOAuthConnect(onSuccess?: () => void) {
-    const [isConnecting, setIsConnecting] = useState(false);
+    const [connectingPluginId, setConnectingPluginId] = useState<string | null>(null);
     const popupRef = useRef<Window | null>(null);
+
+    // For backwards compatibility
+    const isConnecting = connectingPluginId !== null;
 
     // Listen for messages from the OAuth popup
     useEffect(() => {
@@ -30,7 +33,7 @@ export function useOAuthConnect(onSuccess?: () => void) {
             // Backend sends 'oauth_callback' (lowercase)
             if (type === 'oauth_callback') {
                 console.log('[OAuth] Processing oauth_callback message');
-                setIsConnecting(false);
+                setConnectingPluginId(null);
 
                 // Close the popup
                 if (popupRef.current && !popupRef.current.closed) {
@@ -66,7 +69,7 @@ export function useOAuthConnect(onSuccess?: () => void) {
     }, []);
 
     const initiateOAuthConnect = useCallback(async (pluginId: string) => {
-        setIsConnecting(true);
+        setConnectingPluginId(pluginId);
 
         try {
             // Get the authorization URL from the backend
@@ -111,12 +114,12 @@ export function useOAuthConnect(onSuccess?: () => void) {
             const checkPopupClosed = setInterval(() => {
                 if (popupRef.current?.closed) {
                     clearInterval(checkPopupClosed);
-                    setIsConnecting(false);
+                    setConnectingPluginId(null);
                     popupRef.current = null;
                 }
             }, 500);
         } catch (error) {
-            setIsConnecting(false);
+            setConnectingPluginId(null);
             message.error(error instanceof Error ? error.message : 'Failed to connect. Please try again.');
         }
     }, []);
@@ -124,6 +127,7 @@ export function useOAuthConnect(onSuccess?: () => void) {
     return {
         initiateOAuthConnect,
         isConnecting,
+        connectingPluginId,
     };
 }
 

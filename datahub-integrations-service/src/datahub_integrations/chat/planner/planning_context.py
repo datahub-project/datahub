@@ -5,13 +5,16 @@ This module is separate from tools.py to avoid circular imports.
 PlanningContext is created in AgentRunner and passed to planning tools.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any, Optional
+
+from datahub_integrations.mcp_integration.tool import Tool
 
 if TYPE_CHECKING:
     from datahub_integrations.chat.agent.history_snapshot import PlanCacheEntry
     from datahub_integrations.chat.agent.langgraph_agent import SnapshotHolder
     from datahub_integrations.chat.planner.models import Plan
-    from datahub_integrations.mcp_integration.tool import ToolWrapper
 
 
 class PlanningContext:
@@ -28,8 +31,8 @@ class PlanningContext:
 
     def __init__(
         self,
-        plannable_tools: list["ToolWrapper"],
-        holder: "SnapshotHolder",
+        plannable_tools: list[Tool],
+        holder: SnapshotHolder,
     ):
         """
         Initialize planning context.
@@ -41,16 +44,16 @@ class PlanningContext:
         self._plannable_tools = plannable_tools
         self._holder = holder
 
-    def get_plannable_tools(self) -> list["ToolWrapper"]:
+    def get_plannable_tools(self) -> list[Tool]:
         """
         Get tools available for use in execution plans.
 
         Returns:
-            List of ToolWrapper objects
+            List of Tool objects
         """
         return self._plannable_tools
 
-    def get_plan(self, plan_id: str) -> Optional["PlanCacheEntry"]:
+    def get_plan(self, plan_id: str) -> Optional[PlanCacheEntry]:
         """
         Get a plan by ID from the plan cache.
 
@@ -62,7 +65,7 @@ class PlanningContext:
         """
         return self._holder.get_plan(plan_id)
 
-    def set_plan(self, plan_id: str, plan: "Plan", internal: dict[str, Any]) -> None:
+    def set_plan(self, plan_id: str, plan: Plan, internal: dict[str, Any]) -> None:
         """
         Store or update a plan in the cache.
 

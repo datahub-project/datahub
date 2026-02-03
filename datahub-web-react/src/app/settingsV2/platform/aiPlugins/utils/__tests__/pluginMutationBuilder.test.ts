@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_PLUGIN_FORM_STATE, PluginFormState } from '@app/settingsV2/platform/aiPlugins/utils/pluginFormState';
 import {
     buildCustomHeadersInput,
-    buildOAuthServerInput,
+    buildNewOAuthServerInput,
+    buildUpsertOAuthServerInput,
     buildUpsertServiceInput,
     extractOAuthServerIdFromUrn,
     parseCommaSeparatedList,
@@ -71,13 +72,13 @@ describe('pluginMutationBuilder', () => {
         });
     });
 
-    describe('buildOAuthServerInput', () => {
+    describe('buildNewOAuthServerInput', () => {
         it('returns undefined for non-OAuth auth type', () => {
             const state = { ...DEFAULT_PLUGIN_FORM_STATE };
-            expect(buildOAuthServerInput(state)).toBeUndefined();
+            expect(buildNewOAuthServerInput(state)).toBeUndefined();
         });
 
-        it('builds OAuth server input for UserOauth', () => {
+        it('builds OAuth server input for UserOauth (new server)', () => {
             const state: PluginFormState = {
                 ...DEFAULT_PLUGIN_FORM_STATE,
                 authType: AiPluginAuthType.UserOauth,
@@ -90,10 +91,9 @@ describe('pluginMutationBuilder', () => {
                 oauthScopes: 'openid, profile, email',
             };
 
-            const result = buildOAuthServerInput(state);
+            const result = buildNewOAuthServerInput(state);
 
             expect(result).toEqual({
-                id: undefined,
                 displayName: 'OAuth Provider',
                 description: 'Description',
                 clientId: 'client-id',
@@ -101,10 +101,16 @@ describe('pluginMutationBuilder', () => {
                 authorizationUrl: 'https://provider.com/authorize',
                 tokenUrl: 'https://provider.com/token',
                 scopes: ['openid', 'profile', 'email'],
+                // Advanced OAuth settings (defaults)
+                tokenAuthMethod: 'BASIC',
+                authLocation: 'HEADER',
+                authHeaderName: 'Authorization',
+                authScheme: 'Bearer',
+                authQueryParam: undefined,
             });
         });
 
-        it('includes existing OAuth server ID when provided', () => {
+        it('does not include id field (new servers only)', () => {
             const state: PluginFormState = {
                 ...DEFAULT_PLUGIN_FORM_STATE,
                 authType: AiPluginAuthType.UserOauth,
@@ -115,9 +121,48 @@ describe('pluginMutationBuilder', () => {
                 oauthTokenUrl: 'https://provider.com/token',
             };
 
-            const result = buildOAuthServerInput(state, 'existing-oauth-id');
+            const result = buildNewOAuthServerInput(state);
 
-            expect(result?.id).toBe('existing-oauth-id');
+            expect(result?.id).toBeUndefined();
+        });
+    });
+
+    describe('buildUpsertOAuthServerInput', () => {
+        it('builds OAuth server input for updating existing server', () => {
+            const state: PluginFormState = {
+                ...DEFAULT_PLUGIN_FORM_STATE,
+                authType: AiPluginAuthType.UserOauth,
+                oauthServerName: 'Updated OAuth Provider',
+                oauthServerDescription: 'Updated Description',
+                oauthClientId: 'updated-client-id',
+                oauthClientSecret: '', // Empty = preserve existing
+                oauthAuthorizationUrl: 'https://provider.com/authorize',
+                oauthTokenUrl: 'https://provider.com/token',
+                oauthScopes: 'openid, profile',
+            };
+
+            const result = buildUpsertOAuthServerInput(state, 'existing-oauth-id');
+
+            expect(result.id).toBe('existing-oauth-id');
+            expect(result.displayName).toBe('Updated OAuth Provider');
+            expect(result.clientId).toBe('updated-client-id');
+            expect(result.clientSecret).toBeUndefined(); // undefined = preserve existing
+        });
+
+        it('includes client secret when provided', () => {
+            const state: PluginFormState = {
+                ...DEFAULT_PLUGIN_FORM_STATE,
+                authType: AiPluginAuthType.UserOauth,
+                oauthServerName: 'OAuth Provider',
+                oauthClientId: 'client-id',
+                oauthClientSecret: 'new-secret', // New secret provided
+                oauthAuthorizationUrl: 'https://provider.com/authorize',
+                oauthTokenUrl: 'https://provider.com/token',
+            };
+
+            const result = buildUpsertOAuthServerInput(state, 'existing-oauth-id');
+
+            expect(result.clientSecret).toBe('new-secret');
         });
     });
 
@@ -128,7 +173,7 @@ describe('pluginMutationBuilder', () => {
                 displayName: 'My Plugin',
                 description: 'Description',
                 url: 'https://example.com/mcp',
-                transport: McpTransport.Http,
+                transport: McpTransport.Sse,
                 timeout: '30',
                 enabled: true,
             };
@@ -142,7 +187,7 @@ describe('pluginMutationBuilder', () => {
                 subType: ServiceSubType.McpServer,
                 mcpServerProperties: {
                     url: 'https://example.com/mcp',
-                    transport: McpTransport.Http,
+                    transport: McpTransport.Sse,
                     timeout: 30,
                     customHeaders: undefined,
                 },
@@ -232,6 +277,47 @@ describe('pluginMutationBuilder', () => {
             const result = buildUpsertServiceInput(state, {});
 
             expect(result.mcpServerProperties.timeout).toBe(30);
+        });
+
+        it('uses oauthServerUrn when editing with existing OAuth server', () => {
+            const state: PluginFormState = {
+                ...DEFAULT_PLUGIN_FORM_STATE,
+                displayName: 'My Plugin',
+                url: 'https://example.com/mcp',
+                authType: AiPluginAuthType.UserOauth,
+                oauthServerName: 'OAuth Provider',
+                oauthClientId: 'client-id',
+                oauthAuthorizationUrl: 'https://provider.com/authorize',
+                oauthTokenUrl: 'https://provider.com/token',
+            };
+
+            const result = buildUpsertServiceInput(state, {
+                editingUrn: 'urn:li:service:my-plugin-id',
+                existingOAuthServerUrn: 'urn:li:oauthAuthorizationServer:existing-oauth-id',
+            });
+
+            expect(result.oauthServerUrn).toBe('urn:li:oauthAuthorizationServer:existing-oauth-id');
+            expect(result.newOAuthServer).toBeUndefined();
+        });
+
+        it('uses newOAuthServer when creating new plugin with OAuth', () => {
+            const state: PluginFormState = {
+                ...DEFAULT_PLUGIN_FORM_STATE,
+                displayName: 'My Plugin',
+                url: 'https://example.com/mcp',
+                authType: AiPluginAuthType.UserOauth,
+                oauthServerName: 'New OAuth Provider',
+                oauthClientId: 'client-id',
+                oauthClientSecret: 'client-secret',
+                oauthAuthorizationUrl: 'https://provider.com/authorize',
+                oauthTokenUrl: 'https://provider.com/token',
+            };
+
+            const result = buildUpsertServiceInput(state, {});
+
+            expect(result.oauthServerUrn).toBeUndefined();
+            expect(result.newOAuthServer).toBeDefined();
+            expect(result.newOAuthServer?.displayName).toBe('New OAuth Provider');
         });
     });
 

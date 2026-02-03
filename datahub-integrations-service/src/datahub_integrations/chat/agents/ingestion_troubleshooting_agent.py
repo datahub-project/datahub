@@ -22,6 +22,7 @@ from datahub_integrations.chat.agents.data_catalog_agent import (
 )
 from datahub_integrations.chat.agents.data_catalog_prompts import (
     DataHubSystemPromptBuilder,
+    PlanningMode,
 )
 from datahub_integrations.chat.agents.data_catalog_tools import (
     get_data_catalog_internal_tools,
@@ -50,6 +51,7 @@ from datahub_integrations.mcp.mcp_server import (
     register_all_tools,
 )
 from datahub_integrations.mcp_integration.tool import (
+    Tool,
     ToolWrapper,
     async_background,
     tools_from_fastmcp,
@@ -70,7 +72,7 @@ def create_ingestion_troubleshooting_agent(
     history: Optional[ChatHistory] = None,
     extra_instructions_override: Optional[str] = None,
     chat_type: ChatType = ChatType.DEFAULT,
-    tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
+    tools: Optional[Sequence[Tool | FastMCP]] = None,
     context: Optional[str] = None,
     platform: Optional["BotPlatform"] = None,
 ) -> AgentRunner:
@@ -110,7 +112,7 @@ def create_ingestion_troubleshooting_agent(
 
     # Prepare plannable tools (public tools from MCP)
     # tools_from_fastmcp applies both tag filtering and document tools filtering
-    plannable_tools: List[ToolWrapper] = [
+    plannable_tools: List[Tool] = [
         tool
         for entry in tools
         for tool in (
@@ -195,7 +197,8 @@ def create_ingestion_troubleshooting_agent(
         system_prompt_builder=DataHubSystemPromptBuilder(
             extra_instructions_override,
             context,
-            False,
+            PlanningMode.DISABLED,
+            tools=plannable_tools,
         ),
         tools=plannable_tools.copy(),  # Will be extended with internal tools
         plannable_tools=plannable_tools,  # Subset for planning (excludes internal)

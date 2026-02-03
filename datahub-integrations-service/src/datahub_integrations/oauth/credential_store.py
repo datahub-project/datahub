@@ -174,19 +174,32 @@ class UserCredentials:
         """
         Create from a dictionary.
 
+        Handles multiple formats:
+        - Standard format: {"type": "api_key", "api_key": "value"}
+        - GMS format (from UpsertServiceResolver): {"apiKey": "value"}
+        - OAuth format: {"type": "oauth", "access_token": ..., ...}
+
         Args:
             data: Dictionary with credential data.
 
         Returns:
             UserCredentials instance.
         """
-        cred_type = data.get("type", "oauth")  # Default to oauth for backwards compat
+        cred_type = data.get("type")
+
+        # Handle GMS format: {"apiKey": "value"} (no type field, camelCase key)
+        if cred_type is None and "apiKey" in data:
+            return cls(api_key=ApiKeyCredential(api_key=data["apiKey"]))
+
+        # Handle standard api_key format
         if cred_type == "api_key":
             return cls(api_key=ApiKeyCredential.from_dict(data))
-        elif cred_type == "oauth":
+
+        # Handle OAuth format (default for backwards compat when type is "oauth" or missing with OAuth fields)
+        if cred_type == "oauth" or (cred_type is None and "access_token" in data):
             return cls(oauth_tokens=OAuthTokens.from_dict(data))
-        else:
-            return cls()
+
+        return cls()
 
 
 class CredentialStore(Protocol):
@@ -419,6 +432,67 @@ query GetConnection($urn: String!) {
 
         except Exception as e:
             logger.warning(f"Failed to get credentials for {user_urn}/{plugin_id}: {e}")
+            return None
+
+    def get_credentials_by_urn(self, connection_urn: str) -> Optional[UserCredentials]:
+        """
+        Get credentials by direct DataHubConnection URN.
+
+        Use this for shared API keys where the credential_urn is already known
+        and should not be transformed through build_connection_urn().
+
+        Uses the REST API directly since GraphQL `connection` query may not find
+        connections created via GMS (e.g., by UpsertServiceResolver).
+
+        Args:
+            connection_urn: The full URN of the DataHubConnection entity.
+
+        Returns:
+            UserCredentials if found, None otherwise.
+        """
+        try:
+            # Use GraphQL which auto-decrypts the blob
+            result = self._graph.execute_graphql(
+                query="""
+query GetConnection($urn: String!) {
+  connection(urn: $urn) {
+    urn
+    details {
+      type
+      json {
+        blob
+      }
+    }
+  }
+}
+""",
+                variables={"urn": connection_urn},
+            )
+
+            connection = result.get("connection")
+            if not connection:
+                logger.debug(f"Connection not found via GraphQL: {connection_urn}")
+                return None
+
+            details = connection.get("details")
+            if not details or details.get("type") != "JSON":
+                logger.debug(f"Connection has no JSON details: {connection_urn}")
+                return None
+
+            json_details = details.get("json", {})
+            blob = json_details.get("blob")
+            if not blob:
+                logger.debug(f"Connection has no blob: {connection_urn}")
+                return None
+
+            data = json.loads(blob)
+            return UserCredentials.from_dict(data)
+
+        except Exception as e:
+            logger.bind(
+                connection_urn=connection_urn,
+                error_type=type(e).__name__,
+            ).opt(exception=True).warning("Failed to get credentials by URN")
             return None
 
     def save_oauth_tokens(

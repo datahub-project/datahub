@@ -2,7 +2,18 @@ import dataclasses
 import functools
 import inspect
 import json
-from typing import Any, Awaitable, Callable, List, Optional, ParamSpec, TypeVar
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    List,
+    Optional,
+    ParamSpec,
+    Protocol,
+    Set,
+    TypeVar,
+    runtime_checkable,
+)
 
 import asyncer
 import fastmcp.tools
@@ -67,6 +78,34 @@ class ToolRunError(Exception):
     pass
 
 
+@runtime_checkable
+class Tool(Protocol):
+    """Protocol for all tool wrappers (internal and external).
+
+    Both ToolWrapper and ExternalToolWrapper implement this interface.
+    Use this type in function signatures that accept any tool type.
+
+    For ExternalToolWrapper-specific properties (like `instructions`),
+    use isinstance() checks.
+    """
+
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def description(self) -> str: ...
+
+    @property
+    def tags(self) -> Optional[Set[str]]: ...
+
+    @property
+    def parameters(self) -> dict: ...
+
+    def to_bedrock_spec(self) -> dict: ...
+
+    def run(self, arguments: dict) -> str | dict: ...
+
+
 @dataclasses.dataclass
 class ToolWrapper:
     _tool: fastmcp.tools.Tool
@@ -83,6 +122,16 @@ class ToolWrapper:
     def description(self) -> str:
         """Get the tool description."""
         return self._tool.description or ""
+
+    @property
+    def tags(self) -> Optional[Set[str]]:
+        """Get the tool tags."""
+        return self._tool.tags
+
+    @property
+    def parameters(self) -> dict:
+        """Get the tool parameters schema."""
+        return self._tool.parameters
 
     def to_bedrock_spec(self) -> dict:
         schema = self._tool.parameters
@@ -163,9 +212,9 @@ def tools_from_fastmcp(
     mcp: FastMCP,
     client: DataHubClient,
     filter_fn: Optional[Callable[[FastMCPTool], bool]] = None,
-) -> List[ToolWrapper]:
+) -> List[Tool]:
     """
-    Extract ToolWrapper objects from a FastMCP server instance.
+    Extract Tool objects from a FastMCP server instance.
 
     Applies two levels of filtering:
     1. Optional custom filter (e.g., for Slack/Teams tag filtering)
@@ -178,7 +227,7 @@ def tools_from_fastmcp(
                    True to include it. Useful for filtering by tags.
 
     Returns:
-        List of ToolWrapper objects, one for each tool in the MCP server
+        List of Tool objects, one for each tool in the MCP server
 
     Example:
         # Filter out tools with USER tag for Slack/Teams

@@ -207,18 +207,26 @@ public class UpsertOAuthAuthorizationServerResolver
     }
     // Empty string = clear secret (don't set URN)
 
-    // OAuth config
+    // OAuth config - preserve existing values if input is null
     if (input.getClientId() != null) {
       properties.setClientId(input.getClientId());
+    } else if (existingProperties != null && existingProperties.hasClientId()) {
+      properties.setClientId(existingProperties.getClientId());
     }
     if (input.getAuthorizationUrl() != null) {
       properties.setAuthorizationUrl(input.getAuthorizationUrl());
+    } else if (existingProperties != null && existingProperties.hasAuthorizationUrl()) {
+      properties.setAuthorizationUrl(existingProperties.getAuthorizationUrl());
     }
     if (input.getTokenUrl() != null) {
       properties.setTokenUrl(input.getTokenUrl());
+    } else if (existingProperties != null && existingProperties.hasTokenUrl()) {
+      properties.setTokenUrl(existingProperties.getTokenUrl());
     }
     if (input.getScopes() != null) {
       properties.setScopes(new StringArray(input.getScopes()));
+    } else if (existingProperties != null && existingProperties.hasScopes()) {
+      properties.setScopes(existingProperties.getScopes());
     }
 
     // Token auth method

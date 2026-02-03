@@ -8,21 +8,15 @@ behavior through composition of pluggable components.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Optional
+from typing import Any, Callable, Iterable, List, Optional
 
+from datahub_integrations.chat.agent.conversational_parser import ConversationalParser
+from datahub_integrations.chat.agent.system_prompt_builder import SystemPromptBuilder
+from datahub_integrations.chat.chat_history import Message
+from datahub_integrations.chat.context_reducer import ChatContextReducer
+from datahub_integrations.mcp_integration.tool import Tool
+from datahub_integrations.observability.bot_metrics import BotPlatform
 from datahub_integrations.observability.metrics_constants import AIModule
-
-if TYPE_CHECKING:
-    from datahub_integrations.chat.agent.conversational_parser import (
-        ConversationalParser,
-    )
-    from datahub_integrations.chat.agent.system_prompt_builder import (
-        SystemPromptBuilder,
-    )
-    from datahub_integrations.chat.chat_history import Message
-    from datahub_integrations.chat.context_reducer import ChatContextReducer
-    from datahub_integrations.mcp_integration.tool import ToolWrapper
-    from datahub_integrations.observability.bot_metrics import BotPlatform
 
 
 @dataclass
@@ -52,11 +46,11 @@ class AgentConfig:
     model_id: str
     """The LLM model identifier (e.g., 'anthropic.claude-3-5-sonnet-20241022-v2:0')"""
 
-    system_prompt_builder: "SystemPromptBuilder"
+    system_prompt_builder: SystemPromptBuilder
     """Builder that constructs system messages for this agent"""
 
     # Tools
-    tools: List["ToolWrapper"]
+    tools: List[Tool]
     """
     All tools available to the agent.
     
@@ -77,7 +71,7 @@ class AgentConfig:
         ```
     """
 
-    plannable_tools: List["ToolWrapper"]
+    plannable_tools: List[Tool]
     """
     Subset of tools that can be used in execution plans.
     
@@ -88,7 +82,7 @@ class AgentConfig:
     """
 
     # Context management
-    context_reducers: Optional[Iterable["ChatContextReducer"]] = None
+    context_reducers: Optional[Iterable[ChatContextReducer]] = None
     """
     Optional chain of context reducers for managing token limits.
     
@@ -96,7 +90,7 @@ class AgentConfig:
     """
 
     # Conversational message parsing
-    conversational_parser: Optional["ConversationalParser"] = None
+    conversational_parser: Optional[ConversationalParser] = None
     """
     Optional parser for converting LLM reasoning messages to user-visible text.
     
@@ -115,7 +109,7 @@ class AgentConfig:
     """
 
     # Response formatting
-    response_formatter: Optional[Callable[["Message", Any], Any]] = None
+    response_formatter: Optional[Callable[[Message, Any], Any]] = None
     """
     Optional formatter to convert the final Message to a domain-specific response format.
     
@@ -143,7 +137,7 @@ class AgentConfig:
     """
 
     # Completion check
-    completion_check: Optional[Callable[["Message"], bool]] = None
+    completion_check: Optional[Callable[[Message], bool]] = None
     """
     Optional function to determine when the agent should stop generating.
     
@@ -190,10 +184,5 @@ class AgentConfig:
     ai_module: AIModule = AIModule.CHAT
     """AI module for cost tracking and observability (default: CHAT)"""
 
-    platform: Optional["BotPlatform"] = None
+    platform: Optional[BotPlatform] = None
     """Bot platform if agent is used in a bot context (SLACK or TEAMS)"""
-
-
-# Import here to avoid circular imports
-if TYPE_CHECKING:
-    pass

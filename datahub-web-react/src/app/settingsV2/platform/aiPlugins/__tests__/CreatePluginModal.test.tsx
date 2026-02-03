@@ -35,7 +35,7 @@ const mockEditingPlugin = {
         },
         mcpServerProperties: {
             url: 'https://example.com/mcp',
-            transport: McpTransport.Http,
+            transport: McpTransport.Sse,
             timeout: 30,
         },
     },
@@ -91,15 +91,15 @@ describe('CreatePluginModal', () => {
         expect(screen.getByText('LLM Instructions')).toBeInTheDocument();
     });
 
-    it('shows transport options', () => {
+    it('shows stdio disclaimer in server URL helper text', () => {
         render(
             <TestWrapper mocks={[]}>
                 <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
             </TestWrapper>,
         );
 
-        expect(screen.getByText('HTTP / SSE')).toBeInTheDocument();
-        expect(screen.getByText('WebSocket')).toBeInTheDocument();
+        // Disclaimer message about stdio plugins in Server URL helper text
+        expect(screen.getByText('stdio-based MCP plugins are not currently supported.')).toBeInTheDocument();
     });
 
     it('shows enable checkbox in footer', () => {
@@ -191,7 +191,7 @@ describe('CreatePluginModal', () => {
         );
 
         // Enter a duplicate name
-        const nameInput = screen.getByPlaceholderText('e.g., Glean MCP Server');
+        const nameInput = screen.getByPlaceholderText('Glean MCP Server');
         fireEvent.change(nameInput, { target: { value: 'Test Plugin' } });
 
         // Enter required URL
@@ -221,7 +221,7 @@ describe('CreatePluginModal', () => {
         );
 
         // Enter a unique name
-        const nameInput = screen.getByPlaceholderText('e.g., Glean MCP Server');
+        const nameInput = screen.getByPlaceholderText('Glean MCP Server');
         fireEvent.change(nameInput, { target: { value: 'Unique Plugin Name' } });
 
         // Enter required URL

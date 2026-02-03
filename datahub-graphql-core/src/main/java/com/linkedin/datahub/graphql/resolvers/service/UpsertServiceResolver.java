@@ -8,6 +8,8 @@ import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_URN;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.connection.DataHubConnectionDetailsType;
+import com.linkedin.connection.DataHubJsonConnection;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -27,6 +29,7 @@ import com.linkedin.datahub.graphql.types.service.mappers.ServiceMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.oauth.AuthLocation;
 import com.linkedin.oauth.OAuthAuthorizationServerProperties;
@@ -38,7 +41,11 @@ import com.linkedin.settings.global.AiPluginConfig;
 import com.linkedin.settings.global.AiPluginConfigArray;
 import com.linkedin.settings.global.AiPluginSettings;
 import com.linkedin.settings.global.AiPluginType;
+import com.linkedin.settings.global.AuthInjectionLocation;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import com.linkedin.settings.global.OAuthAiPluginConfig;
+import com.linkedin.settings.global.SharedApiKeyAiPluginConfig;
+import com.linkedin.settings.global.UserApiKeyAiPluginConfig;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.SecretService;
@@ -55,13 +62,20 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Service>> {
 
+  private static final Urn AI_PLUGIN_PLATFORM_URN = UrnUtils.getUrn("urn:li:dataPlatform:datahub");
+
   private final EntityClient entityClient;
   private final SecretService secretService;
+  private final ConnectionService connectionService;
 
   public UpsertServiceResolver(
-      @Nonnull final EntityClient entityClient, @Nonnull final SecretService secretService) {
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final SecretService secretService,
+      @Nonnull final ConnectionService connectionService) {
     this.entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
     this.secretService = Objects.requireNonNull(secretService, "secretService must not be null");
+    this.connectionService =
+        Objects.requireNonNull(connectionService, "connectionService must not be null");
   }
 
   @Override
@@ -249,7 +263,15 @@ public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Serv
     AiPluginConfigArray pluginsArray =
         pluginSettings.hasPlugins() ? pluginSettings.getPlugins() : new AiPluginConfigArray();
 
-    // Remove existing config for this service if present (for updates)
+    // Find and remove existing config for this service (for updates), but keep a reference
+    // to preserve credentials if not re-provided
+    AiPluginConfig existingConfig = null;
+    for (AiPluginConfig c : pluginsArray) {
+      if (c.getServiceUrn().equals(serviceUrn)) {
+        existingConfig = c;
+        break;
+      }
+    }
     pluginsArray.removeIf(c -> c.getServiceUrn().equals(serviceUrn));
 
     // Build the AiPluginConfig
@@ -278,61 +300,126 @@ public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Serv
     config.setAuthType(com.linkedin.settings.global.AiPluginAuthType.valueOf(authType.toString()));
 
     // Build auth config based on authType
-    if (authType == AiPluginAuthType.SHARED_API_KEY && sharedCredentialUrn != null) {
-      // Shared API key config - auth injection settings are embedded directly
-      com.linkedin.settings.global.SharedApiKeyAiPluginConfig sharedConfig =
-          new com.linkedin.settings.global.SharedApiKeyAiPluginConfig();
-      sharedConfig.setCredentialUrn(sharedCredentialUrn);
+    if (authType == AiPluginAuthType.SHARED_API_KEY) {
+      // Determine which credential URN to use:
+      // 1. New credential if a new API key was provided
+      // 2. Existing credential from previous config if no new key provided
+      Urn credentialUrnToUse = sharedCredentialUrn;
+      SharedApiKeyAiPluginConfig existingSharedConfig = null;
 
-      // Map auth injection settings from input
-      if (input.getSharedApiKeyAuthLocation() != null) {
-        sharedConfig.setAuthLocation(
-            com.linkedin.settings.global.AuthInjectionLocation.valueOf(
-                input.getSharedApiKeyAuthLocation().toString()));
-      }
-      if (input.getSharedApiKeyAuthHeaderName() != null) {
-        sharedConfig.setAuthHeaderName(input.getSharedApiKeyAuthHeaderName());
-      }
-      if (input.getSharedApiKeyAuthScheme() != null) {
-        sharedConfig.setAuthScheme(input.getSharedApiKeyAuthScheme());
-      }
-      if (input.getSharedApiKeyAuthQueryParam() != null) {
-        sharedConfig.setAuthQueryParam(input.getSharedApiKeyAuthQueryParam());
+      if (credentialUrnToUse == null
+          && existingConfig != null
+          && existingConfig.hasSharedApiKeyConfig()) {
+        existingSharedConfig = existingConfig.getSharedApiKeyConfig();
+        if (existingSharedConfig.hasCredentialUrn()) {
+          credentialUrnToUse = existingSharedConfig.getCredentialUrn();
+          log.info(
+              "Preserving existing credential {} for service {}", credentialUrnToUse, serviceUrn);
+        }
       }
 
-      config.setSharedApiKeyConfig(sharedConfig);
+      if (credentialUrnToUse != null) {
+        // Shared API key config - auth injection settings are embedded directly
+        SharedApiKeyAiPluginConfig sharedConfig = new SharedApiKeyAiPluginConfig();
+        sharedConfig.setCredentialUrn(credentialUrnToUse);
+
+        // Map auth injection settings from input, falling back to existing config if not provided
+        if (input.getSharedApiKeyAuthLocation() != null) {
+          sharedConfig.setAuthLocation(
+              AuthInjectionLocation.valueOf(input.getSharedApiKeyAuthLocation().toString()));
+        } else if (existingSharedConfig != null && existingSharedConfig.hasAuthLocation()) {
+          sharedConfig.setAuthLocation(existingSharedConfig.getAuthLocation());
+        }
+
+        if (input.getSharedApiKeyAuthHeaderName() != null) {
+          sharedConfig.setAuthHeaderName(input.getSharedApiKeyAuthHeaderName());
+        } else if (existingSharedConfig != null && existingSharedConfig.hasAuthHeaderName()) {
+          sharedConfig.setAuthHeaderName(existingSharedConfig.getAuthHeaderName());
+        }
+
+        if (input.getSharedApiKeyAuthScheme() != null) {
+          sharedConfig.setAuthScheme(input.getSharedApiKeyAuthScheme());
+        } else if (existingSharedConfig != null && existingSharedConfig.hasAuthScheme()) {
+          sharedConfig.setAuthScheme(existingSharedConfig.getAuthScheme());
+        }
+
+        if (input.getSharedApiKeyAuthQueryParam() != null) {
+          sharedConfig.setAuthQueryParam(input.getSharedApiKeyAuthQueryParam());
+        } else if (existingSharedConfig != null && existingSharedConfig.hasAuthQueryParam()) {
+          sharedConfig.setAuthQueryParam(existingSharedConfig.getAuthQueryParam());
+        }
+
+        config.setSharedApiKeyConfig(sharedConfig);
+      }
     } else if (authType == AiPluginAuthType.USER_API_KEY) {
       // User API key config - auth injection settings are embedded directly
-      com.linkedin.settings.global.UserApiKeyAiPluginConfig userConfig =
-          new com.linkedin.settings.global.UserApiKeyAiPluginConfig();
+      UserApiKeyAiPluginConfig userConfig = new UserApiKeyAiPluginConfig();
 
-      // Map auth injection settings from input
+      // Get existing user API key config for preservation
+      UserApiKeyAiPluginConfig existingUserConfig = null;
+      if (existingConfig != null && existingConfig.hasUserApiKeyConfig()) {
+        existingUserConfig = existingConfig.getUserApiKeyConfig();
+      }
+
+      // Map auth injection settings from input, falling back to existing config if not provided
       if (input.getUserApiKeyAuthLocation() != null) {
         userConfig.setAuthLocation(
-            com.linkedin.settings.global.AuthInjectionLocation.valueOf(
-                input.getUserApiKeyAuthLocation().toString()));
+            AuthInjectionLocation.valueOf(input.getUserApiKeyAuthLocation().toString()));
+      } else if (existingUserConfig != null && existingUserConfig.hasAuthLocation()) {
+        userConfig.setAuthLocation(existingUserConfig.getAuthLocation());
       }
+
       if (input.getUserApiKeyAuthHeaderName() != null) {
         userConfig.setAuthHeaderName(input.getUserApiKeyAuthHeaderName());
+      } else if (existingUserConfig != null && existingUserConfig.hasAuthHeaderName()) {
+        userConfig.setAuthHeaderName(existingUserConfig.getAuthHeaderName());
       }
+
       if (input.getUserApiKeyAuthScheme() != null) {
         userConfig.setAuthScheme(input.getUserApiKeyAuthScheme());
+      } else if (existingUserConfig != null && existingUserConfig.hasAuthScheme()) {
+        userConfig.setAuthScheme(existingUserConfig.getAuthScheme());
       }
+
       if (input.getUserApiKeyAuthQueryParam() != null) {
         userConfig.setAuthQueryParam(input.getUserApiKeyAuthQueryParam());
+      } else if (existingUserConfig != null && existingUserConfig.hasAuthQueryParam()) {
+        userConfig.setAuthQueryParam(existingUserConfig.getAuthQueryParam());
       }
 
       config.setUserApiKeyConfig(userConfig);
-    } else if (authType == AiPluginAuthType.USER_OAUTH && oauthServerUrn != null) {
+    } else if (authType == AiPluginAuthType.USER_OAUTH) {
       // OAuth config
-      com.linkedin.settings.global.OAuthAiPluginConfig oauthConfig =
-          new com.linkedin.settings.global.OAuthAiPluginConfig();
-      oauthConfig.setServerUrn(oauthServerUrn);
-      if (input.getRequiredScopes() != null && !input.getRequiredScopes().isEmpty()) {
-        oauthConfig.setRequiredScopes(
-            new com.linkedin.data.template.StringArray(input.getRequiredScopes()));
+      OAuthAiPluginConfig oauthConfig = new OAuthAiPluginConfig();
+
+      // Get existing OAuth config for preservation
+      OAuthAiPluginConfig existingOAuthConfig = null;
+      if (existingConfig != null && existingConfig.hasOauthConfig()) {
+        existingOAuthConfig = existingConfig.getOauthConfig();
       }
-      config.setOauthConfig(oauthConfig);
+
+      // Preserve serverUrn from existing config if not provided in input
+      Urn serverUrnToUse = oauthServerUrn;
+      if (serverUrnToUse == null
+          && existingOAuthConfig != null
+          && existingOAuthConfig.hasServerUrn()) {
+        serverUrnToUse = existingOAuthConfig.getServerUrn();
+        log.info("Preserving existing OAuth server {} for service {}", serverUrnToUse, serviceUrn);
+      }
+
+      if (serverUrnToUse != null) {
+        oauthConfig.setServerUrn(serverUrnToUse);
+
+        // Preserve requiredScopes from existing config if not provided in input
+        if (input.getRequiredScopes() != null && !input.getRequiredScopes().isEmpty()) {
+          oauthConfig.setRequiredScopes(
+              new com.linkedin.data.template.StringArray(input.getRequiredScopes()));
+        } else if (existingOAuthConfig != null && existingOAuthConfig.hasRequiredScopes()) {
+          oauthConfig.setRequiredScopes(existingOAuthConfig.getRequiredScopes());
+        }
+
+        config.setOauthConfig(oauthConfig);
+      }
     }
 
     // Add the config to the array
@@ -350,16 +437,26 @@ public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Serv
   }
 
   /**
-   * Creates an OAuthAuthorizationServer entity from inline input.
+   * Creates a NEW OAuthAuthorizationServer entity from inline input. This method is for creation
+   * only - to update an existing OAuth server, use the upsertOAuthAuthorizationServer mutation
+   * directly.
    *
    * @return URN of the created OAuth server
+   * @throws IllegalArgumentException if an ID is provided (use update mutation instead)
    */
   private Urn createOAuthServer(
       final QueryContext context, final UpsertOAuthAuthorizationServerInput input)
       throws Exception {
 
-    // Generate URN
-    final String serverId = input.getId() != null ? input.getId() : UUID.randomUUID().toString();
+    // This method only creates new OAuth servers - updates should go through the dedicated mutation
+    if (input.getId() != null) {
+      throw new IllegalArgumentException(
+          "Cannot update existing OAuth server via newOAuthServer. "
+              + "Use upsertOAuthAuthorizationServer mutation to update, then link via oauthServerUrn.");
+    }
+
+    // Generate URN for new server
+    final String serverId = UUID.randomUUID().toString();
     final Urn serverUrn =
         UrnUtils.getUrn(String.format("urn:li:oauthAuthorizationServer:%s", serverId));
 
@@ -473,14 +570,11 @@ public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Serv
   }
 
   /**
-   * Creates a DataHubConnection entity owned by the service to store the shared API key.
+   * Creates a DataHubConnection to store a shared API key credential.
    *
-   * <p>The DataHubConnection uses a sanitized combination of service URN and "apiKey" as the
-   * single-string ID, making it uniquely associated with this service.
-   *
-   * <p>Note: DataHubConnectionKey has a single `id` field (not a compound key), so we cannot use
-   * tuple format like (owner,connectionId). Instead, we use a sanitized single-string format:
-   * urn:li:dataHubConnection:&lt;sanitized_service_urn&gt;__apiKey
+   * <p>Uses ConnectionService.upsertConnection() which properly handles: - Creating both
+   * dataHubConnectionDetails and dataPlatformInstance aspects - Encrypting the entire blob (not
+   * just the API key value inside it)
    *
    * @param context Query context
    * @param serviceUrn The service that owns this credential
@@ -488,36 +582,30 @@ public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Serv
    * @return URN of the created DataHubConnection
    */
   private Urn createSharedCredential(
-      final QueryContext context, final Urn serviceUrn, final String apiKey) throws Exception {
+      final QueryContext context, final Urn serviceUrn, final String apiKey) {
 
-    // DataHubConnection URN format: urn:li:dataHubConnection:<single_id>
-    // DataHubConnectionKey has only one field (id: string), not a compound key.
-    // We use double-underscore as separator to create a unique, parseable ID.
-    final String connectionUrn = buildServiceConnectionUrn(serviceUrn.toString(), "apiKey");
-    final Urn credentialUrn = UrnUtils.getUrn(connectionUrn);
+    // Build the connection ID (ConnectionService will create the full URN)
+    final String connectionId = buildServiceConnectionId(serviceUrn.toString(), "apiKey");
 
-    // Build the connection details JSON with encrypted API key
-    final com.linkedin.connection.DataHubConnectionDetails connectionDetails =
-        new com.linkedin.connection.DataHubConnectionDetails();
-    connectionDetails.setType(com.linkedin.connection.DataHubConnectionDetailsType.JSON);
+    // Build JSON payload with the plaintext API key, then encrypt the entire blob
+    // ConnectionService expects the blob to already be encrypted
+    final String jsonPayload = String.format("{\"apiKey\":\"%s\"}", apiKey);
+    final DataHubJsonConnection json =
+        new DataHubJsonConnection().setEncryptedBlob(secretService.encrypt(jsonPayload));
 
-    // Build JSON payload with the API key
-    final String jsonPayload = String.format("{\"apiKey\":\"%s\"}", secretService.encrypt(apiKey));
-    connectionDetails.setJson(
-        new com.linkedin.connection.DataHubJsonConnection().setEncryptedBlob(jsonPayload));
-
-    // Ingest the connection
-    final MetadataChangeProposal connectionMcp =
-        buildMetadataChangeProposalWithUrn(
-            credentialUrn, Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME, connectionDetails);
-    entityClient.ingestProposal(context.getOperationContext(), connectionMcp, false);
-
-    return credentialUrn;
+    // Use ConnectionService which properly adds both aspects (details + platform instance)
+    return connectionService.upsertConnection(
+        context.getOperationContext(),
+        connectionId,
+        AI_PLUGIN_PLATFORM_URN,
+        DataHubConnectionDetailsType.JSON,
+        json,
+        "Shared API Key - " + serviceUrn);
   }
 
   /**
-   * Builds a DataHubConnection URN for service credentials. Format:
-   * urn:li:dataHubConnection:&lt;sanitized_service_urn&gt;__&lt;sanitized_credential_type&gt;
+   * Builds a DataHubConnection ID for service credentials. Format:
+   * &lt;sanitized_service_urn&gt;__&lt;sanitized_credential_type&gt;
    *
    * <p>Uses `__` as separator (not a tuple) because DataHubConnection expects a single-string key.
    * Using tuple format (a,b) causes DataHub to interpret it as a multi-part key which fails since
@@ -525,16 +613,15 @@ public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Serv
    *
    * <p>All special characters are sanitized to underscores for URN safety.
    *
-   * <p>This must match the Python implementation in credential_store.py's build_connection_urn()
-   * for consistency.
+   * <p>This must match the Python implementation in credential_store.py's build_connection_id() for
+   * consistency.
    */
-  private static String buildServiceConnectionUrn(String serviceUrn, String credentialType) {
+  private static String buildServiceConnectionId(String serviceUrn, String credentialType) {
     // Sanitize both parts - replace colons, commas, and parentheses with underscores
     String sanitizedServiceUrn =
         serviceUrn.replace(":", "_").replace(",", "_").replace("(", "_").replace(")", "_");
     String sanitizedCredentialType =
         credentialType.replace(":", "_").replace(",", "_").replace("(", "_").replace(")", "_");
-    return String.format(
-        "urn:li:dataHubConnection:%s__%s", sanitizedServiceUrn, sanitizedCredentialType);
+    return String.format("%s__%s", sanitizedServiceUrn, sanitizedCredentialType);
   }
 }

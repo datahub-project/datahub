@@ -227,6 +227,10 @@ query GetUserAiPluginSettings {
                             isConnected
                             expiresAt
                         }
+                        customHeaders {
+                            key
+                            value
+                        }
                     }
                 }
             }
@@ -287,6 +291,10 @@ query GetAiPluginsWithUserStatus {
                         apiKeyConfig {
                             connectionUrn
                             isConnected
+                        }
+                        customHeaders {
+                            key
+                            value
                         }
                     }
                 }

@@ -13,6 +13,7 @@ from datahub_integrations.oauth.router import (
     _resolve_secret_value,
     build_authorization_url,
     build_oauth_callback_url,
+    get_auth_token,
     get_oauth_server_config,
     get_plugin_config,
     get_user_urn_from_token,
@@ -721,17 +722,19 @@ class TestGetAuthToken:
         token = get_auth_token("Bearer my-jwt-token")
         assert token == "my-jwt-token"
 
-    def test_get_auth_token_raises_on_missing_header(self) -> None:
-        """Test error when Authorization header is missing."""
+    def test_get_auth_token_raises_on_missing_header_and_cookie(self) -> None:
+        """Test error when both Authorization header and PLAY_SESSION cookie are missing."""
         from fastapi import HTTPException
 
         from datahub_integrations.oauth.router import get_auth_token
 
         with pytest.raises(HTTPException) as exc_info:
-            get_auth_token(None)
+            get_auth_token(authorization=None, play_session=None)
 
         assert exc_info.value.status_code == 401
-        assert "Missing Authorization header" in str(exc_info.value.detail)
+        assert "Missing Authorization header or PLAY_SESSION cookie" in str(
+            exc_info.value.detail
+        )
 
     def test_get_auth_token_raises_on_invalid_format(self) -> None:
         """Test error when Authorization header has wrong format."""
@@ -740,7 +743,7 @@ class TestGetAuthToken:
         from datahub_integrations.oauth.router import get_auth_token
 
         with pytest.raises(HTTPException) as exc_info:
-            get_auth_token("Basic abc123")
+            get_auth_token(authorization="Basic abc123", play_session=None)
 
         assert exc_info.value.status_code == 401
         assert "expected 'Bearer" in str(exc_info.value.detail)
@@ -752,9 +755,294 @@ class TestGetAuthToken:
         from datahub_integrations.oauth.router import get_auth_token
 
         with pytest.raises(HTTPException) as exc_info:
-            get_auth_token("Bearer ")
+            get_auth_token(authorization="Bearer ", play_session=None)
 
         assert exc_info.value.status_code == 401
+
+    def test_get_auth_token_extracts_token_from_play_session_cookie(self) -> None:
+        """Test extracting token from valid PLAY_SESSION cookie."""
+        import base64
+        import json
+
+        # Create a valid JWT payload structure matching PLAY_SESSION cookie
+        payload_data = {
+            "data": {
+                "actor": "urn:li:corpuser:admin",
+                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.signature",
+            },
+            "exp": 1769539919,
+            "nbf": 1769453519,
+            "iat": 1769453519,
+        }
+
+        # Encode as JWT (header.payload.signature)
+        header = (
+            base64.urlsafe_b64encode(
+                json.dumps({"alg": "HS256", "typ": "JWT"}).encode()
+            )
+            .decode()
+            .rstrip("=")
+        )
+        payload = (
+            base64.urlsafe_b64encode(json.dumps(payload_data).encode())
+            .decode()
+            .rstrip("=")
+        )
+        signature = "fake_signature"
+
+        play_session_cookie = f"{header}.{payload}.{signature}"
+
+        # Should extract token from cookie
+        token = get_auth_token(authorization=None, play_session=play_session_cookie)
+        assert token == "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.signature"
+
+    def test_get_auth_token_authorization_header_takes_precedence_over_cookie(
+        self,
+    ) -> None:
+        """Test that Authorization header is used when both header and cookie are present."""
+        import base64
+        import json
+
+        # Create a valid PLAY_SESSION cookie
+        payload_data = {
+            "data": {
+                "actor": "urn:li:corpuser:admin",
+                "token": "cookie_token_should_not_be_used",
+            },
+            "exp": 1769539919,
+        }
+        header = (
+            base64.urlsafe_b64encode(json.dumps({"alg": "HS256"}).encode())
+            .decode()
+            .rstrip("=")
+        )
+        payload = (
+            base64.urlsafe_b64encode(json.dumps(payload_data).encode())
+            .decode()
+            .rstrip("=")
+        )
+        play_session_cookie = f"{header}.{payload}.signature"
+
+        # Should use Authorization header token, not cookie token
+        token = get_auth_token(
+            authorization="Bearer header_token_should_be_used",
+            play_session=play_session_cookie,
+        )
+        assert token == "header_token_should_be_used"
+
+    def test_get_auth_token_raises_on_invalid_play_session_format(self) -> None:
+        """Test error when PLAY_SESSION cookie is not a valid JWT format."""
+        # Not a JWT (missing parts)
+        with pytest.raises(HTTPException) as exc_info:
+            get_auth_token(authorization=None, play_session="not.a.valid.jwt.format")
+
+        assert exc_info.value.status_code == 401
+        assert "Invalid PLAY_SESSION cookie format" in exc_info.value.detail
+
+    def test_get_auth_token_raises_on_play_session_without_token(self) -> None:
+        """Test error when PLAY_SESSION cookie doesn't contain token in data field."""
+        import base64
+        import json
+
+        # Create JWT without token in data field
+        payload_data = {
+            "data": {
+                "actor": "urn:li:corpuser:admin",
+                # Missing "token" field
+            },
+            "exp": 1769539919,
+        }
+        header = (
+            base64.urlsafe_b64encode(json.dumps({"alg": "HS256"}).encode())
+            .decode()
+            .rstrip("=")
+        )
+        payload = (
+            base64.urlsafe_b64encode(json.dumps(payload_data).encode())
+            .decode()
+            .rstrip("=")
+        )
+        play_session_cookie = f"{header}.{payload}.signature"
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_auth_token(authorization=None, play_session=play_session_cookie)
+
+        assert exc_info.value.status_code == 401
+        assert "No token found in PLAY_SESSION cookie" in exc_info.value.detail
+
+    def test_get_auth_token_raises_on_malformed_play_session_json(self) -> None:
+        """Test error when PLAY_SESSION cookie payload is not valid JSON."""
+        import base64
+
+        # Create JWT with invalid JSON in payload
+        header = base64.urlsafe_b64encode(b'{"alg":"HS256"}').decode().rstrip("=")
+        payload = base64.urlsafe_b64encode(b"not valid json{{{").decode().rstrip("=")
+        play_session_cookie = f"{header}.{payload}.signature"
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_auth_token(authorization=None, play_session=play_session_cookie)
+
+        assert exc_info.value.status_code == 401
+        assert "Invalid PLAY_SESSION cookie payload" in exc_info.value.detail
+
+
+class TestGetAuthenticatedUser:
+    """Test get_authenticated_user function with Authorization header and PLAY_SESSION cookie."""
+
+    def test_get_authenticated_user_with_authorization_header(
+        self, monkeypatch
+    ) -> None:
+        """Test get_authenticated_user extracts token from Authorization header."""
+        from unittest.mock import MagicMock
+
+        from datahub_integrations.oauth.router import get_authenticated_user
+
+        # Mock validate_token_and_get_user to avoid actual GMS call
+        mock_validate = MagicMock(return_value="urn:li:corpuser:testuser")
+        monkeypatch.setattr(
+            "datahub_integrations.oauth.router.validate_token_and_get_user",
+            mock_validate,
+        )
+
+        # Call with Authorization header
+        user_urn = get_authenticated_user(
+            authorization="Bearer test_token_from_header", play_session=None
+        )
+
+        assert user_urn == "urn:li:corpuser:testuser"
+        # Verify the token was extracted correctly
+        mock_validate.assert_called_once_with("test_token_from_header")
+
+    def test_get_authenticated_user_with_play_session_cookie(self, monkeypatch) -> None:
+        """Test get_authenticated_user extracts token from PLAY_SESSION cookie."""
+        import base64
+        import json
+        from unittest.mock import MagicMock
+
+        from datahub_integrations.oauth.router import get_authenticated_user
+
+        # Create a valid PLAY_SESSION cookie
+        payload_data = {
+            "data": {
+                "actor": "urn:li:corpuser:admin",
+                "token": "test_token_from_cookie",
+            },
+            "exp": 1769539919,
+            "nbf": 1769453519,
+            "iat": 1769453519,
+        }
+        header = (
+            base64.urlsafe_b64encode(json.dumps({"alg": "HS256"}).encode())
+            .decode()
+            .rstrip("=")
+        )
+        payload = (
+            base64.urlsafe_b64encode(json.dumps(payload_data).encode())
+            .decode()
+            .rstrip("=")
+        )
+        play_session_cookie = f"{header}.{payload}.signature"
+
+        # Mock validate_token_and_get_user to avoid actual GMS call
+        mock_validate = MagicMock(return_value="urn:li:corpuser:cookieuser")
+        monkeypatch.setattr(
+            "datahub_integrations.oauth.router.validate_token_and_get_user",
+            mock_validate,
+        )
+
+        # Call with PLAY_SESSION cookie only
+        user_urn = get_authenticated_user(
+            authorization=None, play_session=play_session_cookie
+        )
+
+        assert user_urn == "urn:li:corpuser:cookieuser"
+        # Verify the token was extracted from cookie correctly
+        mock_validate.assert_called_once_with("test_token_from_cookie")
+
+    def test_get_authenticated_user_header_takes_precedence(self, monkeypatch) -> None:
+        """Test that Authorization header takes precedence over PLAY_SESSION cookie."""
+        import base64
+        import json
+        from unittest.mock import MagicMock
+
+        from datahub_integrations.oauth.router import get_authenticated_user
+
+        # Create a valid PLAY_SESSION cookie
+        payload_data = {
+            "data": {
+                "actor": "urn:li:corpuser:admin",
+                "token": "cookie_token_should_not_be_used",
+            },
+            "exp": 1769539919,
+        }
+        header = (
+            base64.urlsafe_b64encode(json.dumps({"alg": "HS256"}).encode())
+            .decode()
+            .rstrip("=")
+        )
+        payload = (
+            base64.urlsafe_b64encode(json.dumps(payload_data).encode())
+            .decode()
+            .rstrip("=")
+        )
+        play_session_cookie = f"{header}.{payload}.signature"
+
+        # Mock validate_token_and_get_user to avoid actual GMS call
+        mock_validate = MagicMock(return_value="urn:li:corpuser:headeruser")
+        monkeypatch.setattr(
+            "datahub_integrations.oauth.router.validate_token_and_get_user",
+            mock_validate,
+        )
+
+        # Call with both Authorization header and cookie
+        user_urn = get_authenticated_user(
+            authorization="Bearer header_token_used",
+            play_session=play_session_cookie,
+        )
+
+        # Should use header token, so get headeruser
+        assert user_urn == "urn:li:corpuser:headeruser"
+        # Verify header token was used, not cookie token
+        mock_validate.assert_called_once_with("header_token_used")
+
+    def test_get_authenticated_user_raises_on_missing_both(self) -> None:
+        """Test error when both Authorization header and PLAY_SESSION cookie are missing."""
+        from fastapi import HTTPException
+
+        from datahub_integrations.oauth.router import get_authenticated_user
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_authenticated_user(authorization=None, play_session=None)
+
+        assert exc_info.value.status_code == 401
+        assert (
+            "Missing Authorization header or PLAY_SESSION cookie"
+            in exc_info.value.detail
+        )
+
+    def test_get_authenticated_user_raises_on_invalid_token(self, monkeypatch) -> None:
+        """Test error when GMS rejects the token."""
+
+        from fastapi import HTTPException
+
+        from datahub_integrations.oauth.router import get_authenticated_user
+
+        # Mock validate_token_and_get_user to raise HTTPException
+        def mock_validate_raises(token):
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+        monkeypatch.setattr(
+            "datahub_integrations.oauth.router.validate_token_and_get_user",
+            mock_validate_raises,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_authenticated_user(
+                authorization="Bearer invalid_token", play_session=None
+            )
+
+        assert exc_info.value.status_code == 401
+        assert "Invalid or expired token" in exc_info.value.detail
 
 
 class TestBuildAuthorizationUrlEdgeCases:

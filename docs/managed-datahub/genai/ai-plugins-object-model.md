@@ -228,6 +228,7 @@ erDiagram
         array allowedTools "future: tool filter"
         record apiKeyConfig "API key connection"
         record oauthConfig "OAuth connection"
+        map customHeaders "per-user headers"
     }
 
     UserApiKeyConnectionConfig {
@@ -257,6 +258,7 @@ erDiagram
 - `AiPluginConfig.userApiKeyConfig` embeds auth injection settings for `USER_API_KEY` (credentials in user's `DataHubConnection`)
 - `UserAiPluginConfig.id` matches `AiPluginConfig.id` to link user settings to global config
 - `UserAiPluginConfig.apiKeyConfig.connection` and `oauthConfig.connection` reference `DataHubConnection` for easy credential discovery
+- `UserAiPluginConfig.customHeaders` allows per-user headers that override `McpServerProperties.customHeaders` (admin-configured)
 
 ---
 
@@ -843,6 +845,13 @@ record UserAiPluginConfig {
    * Present when user has completed OAuth flow for this plugin.
    */
   oauthConfig: optional UserOAuthConnectionConfig
+
+  /**
+   * User-specific custom headers to send with requests to this plugin.
+   * These are merged with (and override) admin-configured custom headers.
+   * Example: {"x-dbt-prod-environment-id": "362762"}
+   */
+  customHeaders: optional map[string, string]
 }
 
 /**
@@ -1201,6 +1210,7 @@ Each new subtype could have its own type-specific aspect.
 
 | Date       | Change                                                                                                                                                                                                                                                                                                    |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-01-27 | **Per-user custom headers**: Added `customHeaders: optional map[string, string]` to `UserAiPluginConfig`. Allows users to configure per-plugin custom headers (e.g., `x-dbt-prod-environment-id`) that are merged with admin-configured headers. User headers override admin headers with the same name.  |
 | 2026-01-17 | **DataHubConnection URN options**: Documented both per-auth-server and per-plugin URN format options. Implementation chooses which approach to use.                                                                                                                                                       |
 | 2026-01-17 | **UserAiPluginSettings redesigned**: Changed from `map[string, UserAiPluginSettings]` to `UserAiPluginSettings { plugins: array[UserAiPluginConfig] }`. Added `id` field to match global config, `allowedTools` for future, and `apiKeyConfig`/`oauthConfig` with connection URN references.              |
 | 2026-01-16 | **Removed supportedCredentialTypes**: The `supportedCredentialTypes` field and `CredentialType` enum were removed entirely from `OAuthAuthorizationServer` since it's strictly for OAuth2 - the field was redundant.                                                                                      |

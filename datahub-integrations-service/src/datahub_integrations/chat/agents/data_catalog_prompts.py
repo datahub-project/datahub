@@ -5,7 +5,8 @@ This module contains the DataHub-specific system prompts and the builder
 that fetches dynamic instructions from the GraphQL API.
 """
 
-from typing import TYPE_CHECKING, List, Optional
+from enum import Enum
+from typing import TYPE_CHECKING, List, Optional, Sequence
 
 import cachetools
 from loguru import logger
@@ -16,8 +17,26 @@ if TYPE_CHECKING:
 
 # Feature flag for planning tools
 from datahub_integrations.gen_ai.model_config import model_config
+from datahub_integrations.mcp_integration.external_mcp_manager import (
+    ExternalToolWrapper,
+)
+from datahub_integrations.mcp_integration.tool import Tool
 
 PLANNING_TOOLS_ENABLED = model_config.chat_assistant_ai.planning_mode_enabled
+
+
+class PlanningMode(str, Enum):
+    """Planning mode for the DataCatalog Explorer agent."""
+
+    STRICT = "strict"
+    """Planning is required - MUST call create_plan as the FIRST tool for every user question."""
+
+    AUTO = "auto"
+    """Planning is recommended for complex tasks - SHOULD use create_plan for SQL generation or 3+ tool call tasks."""
+
+    DISABLED = "disabled"
+    """Planning is disabled - no planning tools available."""
+
 
 # Message length limits
 MESSAGE_LENGTH_SOFT_LIMIT = 1500
@@ -25,17 +44,53 @@ MESSAGE_LENGTH_HARD_LIMIT = 3000 - 100  # 100 is a buffer
 _MAX_SUGGESTIONS = 4
 
 
-def _get_system_prompt(is_planning_enabled: bool) -> str:
-    """
-    Generate the system prompt based on whether planning mode is enabled.
+def get_tool_instructions(
+    tools: Sequence[Tool],
+) -> List[str]:
+    """Get unique prefixed instructions from a list of tools.
+
+    External MCP tools (like GitHub) can provide server-specific instructions
+    that guide the LLM on how to use them correctly (e.g., "always include
+    repo:owner/repo in search queries").
+
+    Instructions are prefixed with the tool's prefix (e.g., "[github]") to make
+    it clear which plugin each instruction applies to when multiple plugins
+    are configured.
 
     Args:
-        is_planning_enabled: Whether planning mode should be enabled
+        tools: List of ToolWrapper (internal MCP) or ExternalToolWrapper (external MCP)
+
+    Returns:
+        List of unique instruction strings from tools that have them, prefixed
+        with the tool prefix. Only ExternalToolWrapper has instructions.
+    """
+    seen: set[str] = set()
+    instructions: List[str] = []
+    for tool in tools:
+        # Only ExternalToolWrapper has instructions
+        if not isinstance(tool, ExternalToolWrapper):
+            continue
+        if tool.instructions and tool.instructions not in seen:
+            seen.add(tool.instructions)
+            # Add prefix for clarity when multiple plugins are configured
+            if tool.tool_prefix:
+                instructions.append(f"[{tool.tool_prefix}] {tool.instructions}")
+            else:
+                instructions.append(tool.instructions)
+    return instructions
+
+
+def _get_system_prompt(planning_mode: PlanningMode) -> str:
+    """
+    Generate the system prompt based on the planning mode.
+
+    Args:
+        planning_mode: The planning mode (STRICT, AUTO, or DISABLED)
 
     Returns:
         System prompt string with optional planning instructions
     """
-    planning_enabled = is_planning_enabled
+    planning_enabled = planning_mode != PlanningMode.DISABLED
 
     return f"""\
 The assistant is DataHub AI, created by Acryl Data.
@@ -67,9 +122,16 @@ DataHub AI will typically make multiple tool calls in order to answer a single q
 DataHub AI will not make more than 20 tool calls in a single response.
 
 {
-        "DataHub AI MUST call create_plan as the FIRST tool for every user question."
-        if planning_enabled
-        else ""
+        {
+            PlanningMode.STRICT: "DataHub AI MUST call create_plan as the FIRST tool for every user question.",
+            PlanningMode.AUTO: (
+                "DataHub AI SHOULD use create_plan for any SQL generation or complex tasks that require "
+                "3 or more tool calls, especially for impact analysis, dependency analysis, or tasks "
+                "requiring iterative refinement. Simple 1-2 tool call tasks can be executed directly "
+                "without planning."
+            ),
+            PlanningMode.DISABLED: "",
+        }.get(planning_mode, "")
     }
 
 DataHub AI can also answer very basic questions about DataHub itself using its built-in knowledge. \
@@ -242,7 +304,8 @@ class DataHubSystemPromptBuilder:
         self,
         extra_instructions_override: Optional[str] = None,
         context: Optional[str] = None,
-        is_planning_enabled: bool = False,
+        planning_mode: PlanningMode = PlanningMode.DISABLED,
+        tools: Optional[Sequence] = None,
     ):
         """
         Initialize DataHub system prompt builder.
@@ -251,11 +314,13 @@ class DataHubSystemPromptBuilder:
             extra_instructions_override: Optional override for extra instructions
                                         (skips GraphQL fetch if provided)
             context: Optional natural language context about what the user is working on
-            is_planning_enabled: Whether planning mode should be enabled
+            planning_mode: Planning mode (STRICT, AUTO, or DISABLED)
+            tools: Optional sequence of tools to extract plugin-specific instructions from
         """
-        self.is_planning_enabled = is_planning_enabled
+        self.planning_mode = planning_mode
         self.extra_instructions_override = extra_instructions_override
         self.context = context
+        self.tools = tools or []
 
     def build_system_messages(
         self, client: "DataHubClient"
@@ -263,7 +328,7 @@ class DataHubSystemPromptBuilder:
         """Build system messages for DataHub ChatSession."""
 
         system_messages: List["SystemContentBlockTypeDef"] = [
-            {"text": _get_system_prompt(self.is_planning_enabled)}
+            {"text": _get_system_prompt(self.planning_mode)}
         ]
 
         # Add context if provided
@@ -287,5 +352,16 @@ class DataHubSystemPromptBuilder:
                 f"{extra_instructions}"
             )
             system_messages.append({"text": formatted_instructions})
+
+        # Add plugin-specific instructions from external MCP servers
+        if self.tools:
+            plugin_instructions = get_tool_instructions(self.tools)
+            if plugin_instructions:
+                formatted_plugin_instructions = "\n\n".join(plugin_instructions)
+                system_messages.append(
+                    {
+                        "text": f"TOOL-SPECIFIC INSTRUCTIONS:\n\n{formatted_plugin_instructions}"
+                    }
+                )
 
         return system_messages

@@ -10,30 +10,64 @@ This document explains how authentication works for the DataHub Integrations Ser
 │                    (Browser, OAuth Providers, API Clients)                   │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
+                                      │ Production: API Gateway
+                                      │ Local Dev: Frontend Proxy
                                       ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         DataHub Frontend (Port 9002)                         │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                    IntegrationsController.java                       │    │
-│  │  • Authenticates requests (session/JWT)                              │    │
-│  │  • Remaps paths: /integrations/* → /public/*                         │    │
-│  │  • STRIPS x-datahub-actor header (security measure)                  │    │
-│  │  • Adds X-Forwarded-Host, X-Forwarded-Proto                          │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────────┘
+                     ┌────────────────────────────────┐
+                     │   /public/* (external routes)   │
+                     └────────────────────────────────┘
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    Integrations Service (Port 9003)                          │
-│  ┌─────────────────────────────┐  ┌─────────────────────────────────────┐   │
-│  │   /private/* (internal)     │  │        /public/* (external)          │   │
-│  │   • Not exposed externally  │  │   • Exposed via frontend proxy       │   │
-│  │   • Service-to-service      │  │   • External callbacks (OAuth)       │   │
-│  └─────────────────────────────┘  └─────────────────────────────────────┘   │
+│                                                                               │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │                        /public/* (external)                             │ │
+│  │  • Accessible via API Gateway (production) or Frontend (local)          │ │
+│  │  • Receives cookies (PLAY_SESSION) and headers (Authorization)          │ │
+│  │  • OAuth callbacks, browser requests, API endpoints                     │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                               │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │                        /private/* (internal)                            │ │
+│  │  • Called directly by GMS and other internal services                   │ │
+│  │  • NOT exposed through API Gateway or Frontend proxy                    │ │
+│  │  • Service-to-service communication                                     │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      ▲
+                                      │
+                                      │ Direct calls (no proxy)
+                                      │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    GMS & Other Internal Services                             │
+│  • Call /private/* endpoints directly                                        │
+│  • No API Gateway or Frontend proxy involved                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    DataHub Frontend (Port 9002) - Local Only                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                    IntegrationsController.java                       │    │
+│  │  • Used for LOCAL DEBUGGING ONLY                                     │    │
+│  │  • Remaps paths: /integrations/* → /public/*                         │    │
+│  │  • STRIPS x-datahub-actor header (security measure)                  │    │
+│  │  • In production, API Gateway handles /public/* routing              │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## URL Path Mapping
+
+### Production (API Gateway)
+
+| External URL (Browser) | Internal URL (Integrations Service) | Notes                       |
+| ---------------------- | ----------------------------------- | --------------------------- |
+| `/integrations/foo`    | `/public/foo`                       | API Gateway routes directly |
+| N/A (internal only)    | `/private/foo`                      | Not accessible externally   |
+
+### Local Development (Frontend Proxy)
 
 | External URL (Browser) | Internal URL (Integrations Service) | Notes                      |
 | ---------------------- | ----------------------------------- | -------------------------- |
@@ -47,7 +81,10 @@ This document explains how authentication works for the DataHub Integrations Ser
 # NOTE: Single, fixed URL for ALL OAuth providers (plugin identified via state parameter)
 https://datahub.example.com/integrations/oauth/callback
 
-# After frontend proxy remapping, integrations service receives:
+# In production, API Gateway routes to:
+http://integrations-service:9003/public/oauth/callback
+
+# In local development, frontend proxy remaps to:
 http://integrations-service:9003/public/oauth/callback
 ```
 
@@ -55,27 +92,35 @@ http://integrations-service:9003/public/oauth/callback
 
 ### 1. Internal Router (`/private/*`)
 
-**Purpose:** Endpoints called by other DataHub services (GMS, frontend), not directly by browsers.
+**Purpose:** Endpoints called directly by GMS and other internal DataHub services, not by external clients.
 
 **Characteristics:**
 
-- Not exposed through the frontend proxy
-- May use service-to-service authentication
-- Typically handles background operations
+- Called directly by internal services (no proxy involved)
+- Not exposed through the API Gateway or frontend proxy
+- May use service-to-service authentication (x-datahub-actor header)
+- Typically handles background operations initiated by GMS
 
 **Example routes:**
 
 - `/private/share/*` - Share functionality
 - `/private/sql/*` - SQL execution
 
+**Access pattern:**
+
+```
+GMS → http://integrations-service:9003/private/sql/execute
+(Direct call, no API Gateway or frontend proxy)
+```
+
 ### 2. External Router (`/public/*`)
 
-**Purpose:** Endpoints accessible via the frontend proxy from external clients.
+**Purpose:** Endpoints accessible via the API Gateway (production) or frontend proxy (local) from external clients.
 
 **Characteristics:**
 
-- Mapped from `/integrations/*` to `/public/*` by frontend
-- Can receive browser requests
+- Accessible from browsers and external services
+- Can receive browser requests with cookies
 - Includes OAuth callbacks, API endpoints
 
 **Example routes:**
@@ -85,36 +130,85 @@ http://integrations-service:9003/public/oauth/callback
 
 ## Authentication Methods
 
-### Method 1: JWT Bearer Token
+### Method 1: JWT Bearer Token (Preferred)
 
-**Used by:** MCP server, Chat API, OAuth private endpoints
+**Used by:** MCP server, Chat API, OAuth private endpoints, API clients
 
 **How it works:**
 
 1. Client sends `Authorization: Bearer <jwt_token>` header
-2. Service extracts user URN from JWT `sub` claim
-3. **No signature verification** (service doesn't have the secret)
-4. Security relies on using token for downstream GMS calls (GMS validates)
+2. Service validates token with GMS via GraphQL API
+3. GMS returns the authenticated user URN
+4. Service uses the URN for data isolation and per-user operations
 
 **Example:**
 
 ```python
-from fastapi import Header, HTTPException
-import jwt
+from fastapi import Header, HTTPException, Depends
+from datahub.ingestion.graph.client import DataHubGraph
 
-def get_authenticated_user(authorization: str = Header(None)) -> str:
-    """Extract user URN from JWT token."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+def validate_token_and_get_user(token: str) -> str:
+    """Validate token with GMS and get user URN."""
+    graph = DataHubGraph(...)
 
-    token = authorization.split(" ", 1)[1]
+    # GMS validates the token and returns the user
+    result = graph.execute_graphql(
+        query="""
+        query Me {
+            me {
+                corpUser {
+                    urn
+                }
+            }
+        }
+        """,
+        token=token
+    )
 
-    # Decode WITHOUT signature verification
-    # This is safe because:
-    # 1. We only use the URN for data isolation (per-user storage)
-    # 2. Actual data access goes through GMS which validates the token
-    payload = jwt.decode(token, options={"verify_signature": False})
-    return payload["sub"]  # e.g., "urn:li:corpuser:johndoe"
+    if "errors" in result or not result.get("data", {}).get("me"):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    return result["data"]["me"]["corpUser"]["urn"]
+
+def get_auth_token(
+    authorization: Optional[str] = Header(None),
+    play_session: Optional[str] = Cookie(None, alias="PLAY_SESSION")
+) -> str:
+    """Extract token from Authorization header or PLAY_SESSION cookie."""
+    # Prefer Authorization header
+    if authorization:
+        if not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Invalid Authorization header format")
+        return authorization.split(" ", 1)[1]
+
+    # Fallback to PLAY_SESSION cookie
+    if play_session:
+        # Parse JWT cookie from Play Framework
+        parts = play_session.split(".")
+        if len(parts) != 3:
+            raise HTTPException(status_code=401, detail="Invalid PLAY_SESSION format")
+
+        # Decode payload (add padding if needed)
+        payload = parts[1]
+        padding = 4 - (len(payload) % 4)
+        if padding != 4:
+            payload += "=" * padding
+
+        decoded = json.loads(base64.urlsafe_b64decode(payload))
+        token = decoded.get("data", {}).get("token")
+        if not token:
+            raise HTTPException(status_code=401, detail="No token in PLAY_SESSION")
+        return token
+
+    raise HTTPException(status_code=401, detail="Missing Authorization header or PLAY_SESSION cookie")
+
+def get_authenticated_user(
+    authorization: Optional[str] = Header(None),
+    play_session: Optional[str] = Cookie(None, alias="PLAY_SESSION")
+) -> str:
+    """Get authenticated user URN from Bearer token or PLAY_SESSION cookie."""
+    token = get_auth_token(authorization, play_session)
+    return validate_token_and_get_user(token)
 ```
 
 **When to use:**
@@ -123,13 +217,58 @@ def get_authenticated_user(authorization: str = Header(None)) -> str:
 - Storing per-user data (credentials, settings)
 - Following the same pattern as MCP and Chat
 
-### Method 2: State Parameter (OAuth Callbacks)
+**Security:**
+
+- GMS is the authoritative source for token validation
+- Integrations service never verifies JWT signatures locally
+- All authorization decisions are made by GMS
+
+### Method 2: PLAY_SESSION Cookie (Fallback)
+
+**Used by:** Browser requests when Authorization header is not available
+
+**How it works:**
+
+1. Browser sends `PLAY_SESSION` cookie (set by Play Framework frontend)
+2. Service extracts JWT-encoded token from cookie payload
+3. Token is validated with GMS (same as Method 1)
+4. GMS returns the authenticated user URN
+
+**Cookie Structure:**
+
+The PLAY_SESSION cookie is a JWT with this structure:
+
+```json
+{
+  "data": {
+    "actor": "urn:li:corpuser:admin",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  },
+  "exp": 1769539919,
+  "nbf": 1769453519,
+  "iat": 1769453519
+}
+```
+
+**When to use:**
+
+- Browser requests routed through API Gateway that don't include Authorization header
+- Frontend pages that need to call integrations service endpoints
+- Provides seamless authentication for browser-based flows
+
+**API Gateway Behavior:**
+
+- API Gateway passes cookies from browser to integrations service
+- PLAY_SESSION cookie is automatically included in requests
+- No additional frontend code needed to extract/forward the cookie
+
+### Method 3: State Parameter (OAuth Callbacks)
 
 **Used by:** OAuth callback endpoints
 
 **How it works:**
 
-1. User initiates OAuth flow (authenticated via JWT)
+1. User initiates OAuth flow (authenticated via JWT or cookie)
 2. Service stores `user_urn` in state parameter and in-memory store
 3. OAuth provider redirects to callback with `state` parameter
 4. Service looks up stored state to get `user_urn`
@@ -140,7 +279,7 @@ def get_authenticated_user(authorization: str = Header(None)) -> str:
 ```python
 # During /connect (user is authenticated)
 state_result = state_store.create_state(
-    user_urn="urn:li:corpuser:johndoe",  # From JWT
+    user_urn="urn:li:corpuser:johndoe",  # From JWT or cookie
     plugin_id="urn:li:service:glean-search",  # Plugin URN stored in state
     redirect_uri="https://datahub.example.com/integrations/oauth/callback",  # Single fixed URL
     code_verifier="...",
@@ -158,54 +297,71 @@ oauth_state = state_store.get_and_consume_state("abc123")
 - OAuth callback endpoints
 - Any redirect-based flow where the callback URL is called by an external service
 
-### Method 3: x-datahub-actor Header (Limited Use)
+### Method 4: x-datahub-actor Header (Internal Only)
 
-**Used by:** Some internal service-to-service calls
+**Used by:** Direct service-to-service calls from GMS to `/private/*` endpoints
+
+**How it works:**
+
+1. GMS calls integrations service `/private/*` endpoint directly (no proxy)
+2. GMS includes `x-datahub-actor` header with user URN
+3. Integrations service trusts this header since the call is internal
 
 **⚠️ Important Limitations:**
 
-- The frontend proxy **STRIPS** this header before forwarding
+- Only valid for `/private/*` endpoints that are NOT exposed externally
+- The frontend proxy **STRIPS** this header before forwarding (security measure)
+- API Gateway does NOT pass this header to `/public/*` endpoints
 - Cannot be used for endpoints called through `/integrations/*`
-- Only useful for direct service-to-service calls (e.g., GMS → Integrations)
 
-**Why it's stripped:**
-Security measure - prevents clients from spoofing the header to impersonate other users.
+**Why it's stripped from external requests:**
+Security measure - prevents external clients from spoofing the header to impersonate other users.
 
 ```java
 // From IntegrationsController.java line 117-121
+// Frontend proxy strips this header to prevent spoofing
 request = request.removeHeader("X-DataHub-Actor");
 ```
 
 **When to use:**
 
-- Internal service-to-service calls NOT going through the frontend proxy
-- **Do NOT use** for user-facing endpoints exposed via `/integrations/*`
+- `/private/*` endpoints called directly by GMS or other trusted internal services
+- **Do NOT use** for `/public/*` endpoints or any endpoint exposed via `/integrations/*`
+
+**Example:**
+
+```
+# GMS calls integrations service directly
+GMS → http://integrations-service:9003/private/sql/execute
+Headers: x-datahub-actor: urn:li:corpuser:admin
+```
 
 ## Authentication by Endpoint Type
 
-| Endpoint Type                        | Auth Method      | User Identity Source                |
-| ------------------------------------ | ---------------- | ----------------------------------- |
-| User API calls via `/integrations/*` | JWT Bearer token | Decoded from `Authorization` header |
-| OAuth callbacks                      | State parameter  | Stored during `/connect` call       |
-| Service-to-service (direct)          | x-datahub-actor  | Header from trusted service         |
-| Public/anonymous                     | None             | N/A                                 |
+| Endpoint Type                        | Auth Method                | User Identity Source               |
+| ------------------------------------ | -------------------------- | ---------------------------------- |
+| User API calls via `/integrations/*` | JWT Bearer or PLAY_SESSION | Header or cookie, validated by GMS |
+| OAuth callbacks                      | State parameter            | Stored during `/connect` call      |
+| Service-to-service (direct)          | x-datahub-actor            | Header from trusted service        |
+| Public/anonymous                     | None                       | N/A                                |
 
 ## Complete Example: OAuth Flow
 
 ```
 ┌──────────┐      ┌──────────┐      ┌─────────────┐      ┌──────────────┐
-│  Browser │      │ Frontend │      │ Integrations│      │OAuth Provider│
+│  Browser │      │API Gateway│      │ Integrations│      │OAuth Provider│
 └────┬─────┘      └────┬─────┘      └──────┬──────┘      └──────┬───────┘
      │                  │                   │                    │
      │ POST /integrations/oauth/plugins/{pluginId}/connect      │
-     │ Authorization: Bearer <jwt>         │                    │
+     │ Cookie: PLAY_SESSION=...            │                    │
      │─────────────────►│                   │                    │
      │                  │                   │                    │
      │                  │ POST /public/oauth/plugins/{pluginId}/connect
-     │                  │ (strips x-datahub-actor, keeps Auth header)
+     │                  │ Cookie: PLAY_SESSION=...              │
      │                  │──────────────────►│                    │
      │                  │                   │                    │
-     │                  │                   │ Decode JWT → user_urn
+     │                  │                   │ Extract token from cookie
+     │                  │                   │ Validate with GMS → user_urn
      │                  │                   │ Store state: {nonce: "abc", user_urn, plugin_id}
      │                  │                   │ Build auth URL with state=abc
      │                  │                   │                    │
@@ -235,16 +391,44 @@ request = request.removeHeader("X-DataHub-Actor");
 
 ## Security Considerations
 
-### 1. JWT Without Signature Verification
+### 1. Token Validation with GMS
 
-**Why this is acceptable:**
+**Why GMS validates:**
 
-- The integrations service doesn't make authorization decisions
-- It only uses the URN for **data isolation** (per-user storage)
-- Any sensitive operations go through GMS, which DOES validate the JWT
-- Worst case: attacker stores data under a fake URN that no real user can access
+- GMS is the authoritative source for authentication
+- GMS has access to JWT signing secrets
+- Integrations service never sees or verifies JWT signatures
+- All authorization decisions are delegated to GMS
 
-### 2. State Parameter Security
+**Flow:**
+
+1. Integrations service extracts token (from header or cookie)
+2. Integrations service sends token to GMS via GraphQL `me` query
+3. GMS validates signature, checks expiration, returns user URN
+4. Integrations service uses URN for data isolation
+
+**Benefits:**
+
+- Centralized authentication logic
+- No need to distribute JWT secrets
+- Consistent validation across all services
+
+### 2. PLAY_SESSION Cookie Security
+
+**Protections:**
+
+- Cookie is JWT-signed by Play Framework (validated by Play, not by integrations service)
+- Cookie contains a nested DataHub token that IS validated by GMS
+- API Gateway passes cookies without modification
+- Integrations service treats cookie content as untrusted until GMS validates the nested token
+
+**What if cookie is tampered with?**
+
+- Tampering breaks JWT signature → Play Framework rejects on next request
+- Even if signature passes, nested token must be valid → GMS will reject invalid tokens
+- Worst case: attacker stores data under a fake URN, but can't access real user data
+
+### 3. State Parameter Security
 
 **Protections:**
 
@@ -253,22 +437,23 @@ request = request.removeHeader("X-DataHub-Actor");
 - Short TTL (10 minutes default)
 - Stored server-side (attacker can't forge state)
 
-### 3. Credential Storage
+### 4. Credential Storage
 
 **Model:**
 
 - Credentials stored in `DataHubConnection` entities
-- Scoped to user URN (extracted from JWT or state)
+- Scoped to user URN (extracted from validated token)
 - Users can only access their own credentials
 - URN is never taken from user input
 
 ## Quick Reference
 
 ```python
-# Pattern 1: JWT Bearer Token (user-initiated actions)
+# Pattern 1: JWT Bearer Token or PLAY_SESSION Cookie (user-initiated actions)
 @router.post("/endpoint")
 async def my_endpoint(user_urn: str = Depends(get_authenticated_user)):
-    # user_urn is extracted from JWT token
+    # user_urn is extracted from Authorization header or PLAY_SESSION cookie
+    # and validated with GMS
     ...
 
 # Pattern 2: State Parameter (OAuth callbacks)
@@ -288,8 +473,8 @@ async def public_info():
 
 ## Related Files
 
-- `datahub-frontend/app/controllers/IntegrationsController.java` - Frontend proxy
+- `datahub-frontend/app/controllers/IntegrationsController.java` - Frontend proxy (local debugging)
 - `datahub-integrations-service/src/datahub_integrations/server.py` - Router registration
-- `datahub-integrations-service/src/datahub_integrations/oauth/router.py` - OAuth endpoints
+- `datahub-integrations-service/src/datahub_integrations/oauth/router.py` - OAuth endpoints and authentication functions
 - `datahub-integrations-service/src/datahub_integrations/mcp/router.py` - MCP authentication
 - `datahub-integrations-service/src/datahub_integrations/chat/chat_api.py` - Chat authentication

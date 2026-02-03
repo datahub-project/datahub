@@ -166,7 +166,7 @@ export const AiPluginsTab = ({ showCreateModal, setShowCreateModal }: AiPluginsT
             render: (record) => (
                 <ActionsCell onClick={(e) => e.stopPropagation()}>
                     <Menu items={getActionsMenuItems(record)} trigger={['click']}>
-                        <Button variant="text" size="sm">
+                        <Button variant="text" size="sm" data-testid={`plugin-actions-${record.id}`}>
                             <DotsThreeVertical size={20} color={colors.gray[500]} weight="bold" />
                         </Button>
                     </Menu>
@@ -198,7 +198,7 @@ export const AiPluginsTab = ({ showCreateModal, setShowCreateModal }: AiPluginsT
 
     return (
         <Container data-testid="ai-plugins-tab">
-            <TableSection>
+            <TableSection data-testid="ai-plugins-table">
                 <Table<AiPluginRow>
                     columns={columns}
                     data={rows}

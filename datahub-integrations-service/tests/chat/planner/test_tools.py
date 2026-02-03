@@ -706,7 +706,7 @@ class TestPlanningToolWrappers:
         for tool in tools:
             assert tool.name is not None
             # Description should be set from original function docstrings
-            assert tool._tool.description is not None
+            assert tool.description is not None
 
 
 class TestPlanCacheManagement:

@@ -2,32 +2,55 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { vi } from 'vitest';
 
-import AiConnectionCard from '@app/settingsV2/personal/aiConnections/AiConnectionCard';
+import IntegrationCard from '@app/settingsV2/personal/myIntegrations/IntegrationCard';
 
 import { AiPluginAuthType, AiPluginConfig, AiPluginType } from '@types';
 
-// Mock antd components
-vi.mock('antd', () => ({
-    Switch: ({ checked, onChange, loading, size }: any) => (
-        <button
-            type="button"
-            data-testid="toggle-switch"
-            data-checked={checked}
-            data-loading={loading}
-            data-size={size}
-            onClick={() => onChange(!checked)}
-        >
-            {checked ? 'On' : 'Off'}
-        </button>
+// Mock PluginLogo component
+vi.mock('@app/settingsV2/platform/aiPlugins/components/PluginLogo', () => ({
+    PluginLogo: ({ displayName }: { displayName: string }) => <span data-testid="plugin-logo">{displayName}</span>,
+}));
+
+// Mock Menu component - render menu items directly when visible
+vi.mock('@components/components/Menu/Menu', () => ({
+    Menu: ({ items, children }: { items: any[]; children: React.ReactNode }) => (
+        <div data-testid="menu-container">
+            {children}
+            <div data-testid="menu-items">
+                {items
+                    .filter((item: any) => item.type === 'item')
+                    .map((item: any) => (
+                        <button
+                            key={item.key}
+                            type="button"
+                            data-testid={`menu-item-${item.key}`}
+                            onClick={item.onClick}
+                        >
+                            {item.title}
+                        </button>
+                    ))}
+            </div>
+        </div>
     ),
-    Tooltip: ({ children, title }: any) => <span title={title}>{children}</span>,
 }));
 
 // Mock alchemy-components
 vi.mock('@src/alchemy-components', () => ({
-    Button: ({ children, onClick, disabled, isLoading, icon: _icon }: any) => (
-        <button type="button" data-testid="connect-button" onClick={onClick} disabled={disabled || isLoading}>
+    Button: ({ children, onClick, disabled, isLoading, icon: _icon, 'data-testid': testId }: any) => (
+        <button type="button" data-testid={testId} onClick={onClick} disabled={disabled || isLoading}>
             {isLoading ? 'Loading...' : children}
+        </button>
+    ),
+    Pill: ({ label }: any) => <span data-testid="pill">{label}</span>,
+    Switch: ({ isChecked, isDisabled, onChange, 'data-testid': testId }: any) => (
+        <button
+            type="button"
+            data-testid={testId}
+            data-checked={isChecked}
+            data-disabled={isDisabled}
+            onClick={() => onChange({ target: { checked: !isChecked }, stopPropagation: () => {} })}
+        >
+            {isChecked ? 'On' : 'Off'}
         </button>
     ),
     colors: {
@@ -40,13 +63,7 @@ vi.mock('@src/alchemy-components', () => ({
     },
 }));
 
-// Mock @ant-design/icons
-vi.mock('@ant-design/icons', () => ({
-    CheckCircleFilled: () => <span data-testid="check-circle-icon">✓</span>,
-    CheckOutlined: () => <span data-testid="check-icon">✓</span>,
-}));
-
-describe('AiConnectionCard', () => {
+describe('IntegrationCard', () => {
     const mockOnConnect = vi.fn();
     const mockOnToggleEnabled = vi.fn();
     const mockOnDisconnect = vi.fn();
@@ -79,7 +96,7 @@ describe('AiConnectionCard', () => {
             const plugin = createPlugin({ displayName: 'My Plugin', description: 'My description' });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -90,7 +107,8 @@ describe('AiConnectionCard', () => {
                 />,
             );
 
-            expect(screen.getByText('My Plugin')).toBeInTheDocument();
+            // Plugin name appears in both PluginLogo mock and title
+            expect(screen.getAllByText('My Plugin')).toHaveLength(2);
             expect(screen.getByText('My description')).toBeInTheDocument();
         });
 
@@ -101,7 +119,7 @@ describe('AiConnectionCard', () => {
             };
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin as any}
                     isConnected={false}
                     isEnabled={false}
@@ -112,7 +130,8 @@ describe('AiConnectionCard', () => {
                 />,
             );
 
-            expect(screen.getByText('Unknown Plugin')).toBeInTheDocument();
+            // "Unknown Plugin" appears twice - once in PluginLogo mock and once in the title
+            expect(screen.getAllByText('Unknown Plugin')).toHaveLength(2);
         });
     });
 
@@ -121,7 +140,7 @@ describe('AiConnectionCard', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -139,7 +158,7 @@ describe('AiConnectionCard', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.UserApiKey });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -157,7 +176,7 @@ describe('AiConnectionCard', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.SharedApiKey });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -175,7 +194,7 @@ describe('AiConnectionCard', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.None });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -190,108 +209,12 @@ describe('AiConnectionCard', () => {
         });
     });
 
-    describe('Status Display - USER_OAUTH/USER_API_KEY plugins', () => {
-        it('should show "Not Connected" when not connected', () => {
-            const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
-
-            render(
-                <AiConnectionCard
-                    plugin={plugin}
-                    isConnected={false}
-                    isEnabled={false}
-                    onConnect={mockOnConnect}
-                    onToggleEnabled={mockOnToggleEnabled}
-                    isConnecting={false}
-                    isToggling={false}
-                />,
-            );
-
-            expect(screen.getByText('Not Connected')).toBeInTheDocument();
-        });
-
-        it('should show "Connected" when connected and enabled', () => {
-            const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
-
-            render(
-                <AiConnectionCard
-                    plugin={plugin}
-                    isConnected
-                    isEnabled
-                    onConnect={mockOnConnect}
-                    onToggleEnabled={mockOnToggleEnabled}
-                    isConnecting={false}
-                    isToggling={false}
-                />,
-            );
-
-            expect(screen.getByText('Connected')).toBeInTheDocument();
-            expect(screen.getByTestId('check-circle-icon')).toBeInTheDocument();
-        });
-
-        it('should show "Connected (Disabled)" when connected but disabled', () => {
-            const plugin = createPlugin({ authType: AiPluginAuthType.UserApiKey });
-
-            render(
-                <AiConnectionCard
-                    plugin={plugin}
-                    isConnected
-                    isEnabled={false}
-                    onConnect={mockOnConnect}
-                    onToggleEnabled={mockOnToggleEnabled}
-                    isConnecting={false}
-                    isToggling={false}
-                />,
-            );
-
-            expect(screen.getByText('Connected (Disabled)')).toBeInTheDocument();
-        });
-    });
-
-    describe('Status Display - SHARED_API_KEY/NONE plugins', () => {
-        it('should show "Ready to use" when enabled', () => {
-            const plugin = createPlugin({ authType: AiPluginAuthType.SharedApiKey });
-
-            render(
-                <AiConnectionCard
-                    plugin={plugin}
-                    isConnected
-                    isEnabled
-                    onConnect={mockOnConnect}
-                    onToggleEnabled={mockOnToggleEnabled}
-                    isConnecting={false}
-                    isToggling={false}
-                />,
-            );
-
-            expect(screen.getByText('Ready to use')).toBeInTheDocument();
-            expect(screen.getByTestId('check-icon')).toBeInTheDocument();
-        });
-
-        it('should show "Available" when not enabled', () => {
-            const plugin = createPlugin({ authType: AiPluginAuthType.None });
-
-            render(
-                <AiConnectionCard
-                    plugin={plugin}
-                    isConnected
-                    isEnabled={false}
-                    onConnect={mockOnConnect}
-                    onToggleEnabled={mockOnToggleEnabled}
-                    isConnecting={false}
-                    isToggling={false}
-                />,
-            );
-
-            expect(screen.getByText('Available')).toBeInTheDocument();
-        });
-    });
-
     describe('Connect Button', () => {
         it('should show Connect button for USER_OAUTH when not connected', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -302,7 +225,7 @@ describe('AiConnectionCard', () => {
                 />,
             );
 
-            expect(screen.getByTestId('connect-button')).toBeInTheDocument();
+            expect(screen.getByTestId('connect-button-test-plugin')).toBeInTheDocument();
             expect(screen.getByText('Connect')).toBeInTheDocument();
         });
 
@@ -310,7 +233,7 @@ describe('AiConnectionCard', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.UserApiKey });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -321,14 +244,14 @@ describe('AiConnectionCard', () => {
                 />,
             );
 
-            expect(screen.getByTestId('connect-button')).toBeInTheDocument();
+            expect(screen.getByTestId('connect-button-test-plugin')).toBeInTheDocument();
         });
 
         it('should NOT show Connect button when already connected', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected
                     isEnabled
@@ -339,14 +262,14 @@ describe('AiConnectionCard', () => {
                 />,
             );
 
-            expect(screen.queryByTestId('connect-button')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('connect-button-test-plugin')).not.toBeInTheDocument();
         });
 
         it('should NOT show Connect button for SHARED_API_KEY', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.SharedApiKey });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -357,14 +280,14 @@ describe('AiConnectionCard', () => {
                 />,
             );
 
-            expect(screen.queryByTestId('connect-button')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('connect-button-test-plugin')).not.toBeInTheDocument();
         });
 
         it('should NOT show Connect button for NONE auth type', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.None });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -375,14 +298,14 @@ describe('AiConnectionCard', () => {
                 />,
             );
 
-            expect(screen.queryByTestId('connect-button')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('connect-button-test-plugin')).not.toBeInTheDocument();
         });
 
         it('should show "Connecting..." when isConnecting is true', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -400,7 +323,7 @@ describe('AiConnectionCard', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -411,7 +334,7 @@ describe('AiConnectionCard', () => {
                 />,
             );
 
-            fireEvent.click(screen.getByTestId('connect-button'));
+            fireEvent.click(screen.getByTestId('connect-button-test-plugin'));
             expect(mockOnConnect).toHaveBeenCalledTimes(1);
         });
     });
@@ -421,7 +344,7 @@ describe('AiConnectionCard', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected
                     isEnabled
@@ -432,15 +355,14 @@ describe('AiConnectionCard', () => {
                 />,
             );
 
-            expect(screen.getByTestId('toggle-switch')).toBeInTheDocument();
-            expect(screen.getByText('Enabled')).toBeInTheDocument();
+            expect(screen.getByTestId('toggle-switch-test-plugin')).toBeInTheDocument();
         });
 
         it('should NOT show toggle for USER_OAUTH when not connected', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -451,14 +373,14 @@ describe('AiConnectionCard', () => {
                 />,
             );
 
-            expect(screen.queryByTestId('toggle-switch')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('toggle-switch-test-plugin')).not.toBeInTheDocument();
         });
 
         it('should always show toggle for SHARED_API_KEY', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.SharedApiKey });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -469,14 +391,14 @@ describe('AiConnectionCard', () => {
                 />,
             );
 
-            expect(screen.getByTestId('toggle-switch')).toBeInTheDocument();
+            expect(screen.getByTestId('toggle-switch-test-plugin')).toBeInTheDocument();
         });
 
         it('should always show toggle for NONE auth type', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.None });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -487,32 +409,14 @@ describe('AiConnectionCard', () => {
                 />,
             );
 
-            expect(screen.getByTestId('toggle-switch')).toBeInTheDocument();
-        });
-
-        it('should show "Disabled" text when not enabled', () => {
-            const plugin = createPlugin({ authType: AiPluginAuthType.SharedApiKey });
-
-            render(
-                <AiConnectionCard
-                    plugin={plugin}
-                    isConnected
-                    isEnabled={false}
-                    onConnect={mockOnConnect}
-                    onToggleEnabled={mockOnToggleEnabled}
-                    isConnecting={false}
-                    isToggling={false}
-                />,
-            );
-
-            expect(screen.getByText('Disabled')).toBeInTheDocument();
+            expect(screen.getByTestId('toggle-switch-test-plugin')).toBeInTheDocument();
         });
 
         it('should call onToggleEnabled when clicked', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.SharedApiKey });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected
                     isEnabled={false}
@@ -523,7 +427,7 @@ describe('AiConnectionCard', () => {
                 />,
             );
 
-            fireEvent.click(screen.getByTestId('toggle-switch'));
+            fireEvent.click(screen.getByTestId('toggle-switch-test-plugin'));
             expect(mockOnToggleEnabled).toHaveBeenCalledWith(true);
         });
     });
@@ -533,7 +437,7 @@ describe('AiConnectionCard', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected
                     isEnabled
@@ -552,7 +456,7 @@ describe('AiConnectionCard', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected={false}
                     isEnabled={false}
@@ -571,7 +475,7 @@ describe('AiConnectionCard', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected
                     isEnabled
@@ -589,7 +493,7 @@ describe('AiConnectionCard', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.SharedApiKey });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected
                     isEnabled
@@ -608,7 +512,7 @@ describe('AiConnectionCard', () => {
             const plugin = createPlugin({ authType: AiPluginAuthType.UserApiKey });
 
             render(
-                <AiConnectionCard
+                <IntegrationCard
                     plugin={plugin}
                     isConnected
                     isEnabled
@@ -622,153 +526,6 @@ describe('AiConnectionCard', () => {
 
             fireEvent.click(screen.getByText('Disconnect'));
             expect(mockOnDisconnect).toHaveBeenCalledTimes(1);
-        });
-    });
-
-    describe('Corrupt Credentials Link (Admin Only)', () => {
-        const mockOnCorruptCredentials = vi.fn();
-
-        beforeEach(() => {
-            mockOnCorruptCredentials.mockClear();
-        });
-
-        it('should show Corrupt link for admin user with OAuth plugin when connected', () => {
-            const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
-
-            render(
-                <AiConnectionCard
-                    plugin={plugin}
-                    isConnected
-                    isEnabled
-                    onConnect={mockOnConnect}
-                    onToggleEnabled={mockOnToggleEnabled}
-                    onCorruptCredentials={mockOnCorruptCredentials}
-                    isConnecting={false}
-                    isToggling={false}
-                    isAdminUser
-                />,
-            );
-
-            expect(screen.getByText('Corrupt')).toBeInTheDocument();
-        });
-
-        it('should NOT show Corrupt link for non-admin users', () => {
-            const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
-
-            render(
-                <AiConnectionCard
-                    plugin={plugin}
-                    isConnected
-                    isEnabled
-                    onConnect={mockOnConnect}
-                    onToggleEnabled={mockOnToggleEnabled}
-                    onCorruptCredentials={mockOnCorruptCredentials}
-                    isConnecting={false}
-                    isToggling={false}
-                    isAdminUser={false}
-                />,
-            );
-
-            expect(screen.queryByText('Corrupt')).not.toBeInTheDocument();
-        });
-
-        it('should NOT show Corrupt link when isAdminUser is not set', () => {
-            const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
-
-            render(
-                <AiConnectionCard
-                    plugin={plugin}
-                    isConnected
-                    isEnabled
-                    onConnect={mockOnConnect}
-                    onToggleEnabled={mockOnToggleEnabled}
-                    onCorruptCredentials={mockOnCorruptCredentials}
-                    isConnecting={false}
-                    isToggling={false}
-                />,
-            );
-
-            expect(screen.queryByText('Corrupt')).not.toBeInTheDocument();
-        });
-
-        it('should NOT show Corrupt link for API_KEY auth type (even for admin)', () => {
-            const plugin = createPlugin({ authType: AiPluginAuthType.UserApiKey });
-
-            render(
-                <AiConnectionCard
-                    plugin={plugin}
-                    isConnected
-                    isEnabled
-                    onConnect={mockOnConnect}
-                    onToggleEnabled={mockOnToggleEnabled}
-                    onCorruptCredentials={mockOnCorruptCredentials}
-                    isConnecting={false}
-                    isToggling={false}
-                    isAdminUser
-                />,
-            );
-
-            expect(screen.queryByText('Corrupt')).not.toBeInTheDocument();
-        });
-
-        it('should NOT show Corrupt link when not connected', () => {
-            const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
-
-            render(
-                <AiConnectionCard
-                    plugin={plugin}
-                    isConnected={false}
-                    isEnabled={false}
-                    onConnect={mockOnConnect}
-                    onToggleEnabled={mockOnToggleEnabled}
-                    onCorruptCredentials={mockOnCorruptCredentials}
-                    isConnecting={false}
-                    isToggling={false}
-                    isAdminUser
-                />,
-            );
-
-            expect(screen.queryByText('Corrupt')).not.toBeInTheDocument();
-        });
-
-        it('should NOT show Corrupt link when no handler provided', () => {
-            const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
-
-            render(
-                <AiConnectionCard
-                    plugin={plugin}
-                    isConnected
-                    isEnabled
-                    onConnect={mockOnConnect}
-                    onToggleEnabled={mockOnToggleEnabled}
-                    isConnecting={false}
-                    isToggling={false}
-                    isAdminUser
-                />,
-            );
-
-            expect(screen.queryByText('Corrupt')).not.toBeInTheDocument();
-        });
-
-        it('should call onCorruptCredentials when clicked', () => {
-            const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
-
-            render(
-                <AiConnectionCard
-                    plugin={plugin}
-                    isConnected
-                    isEnabled
-                    onConnect={mockOnConnect}
-                    onToggleEnabled={mockOnToggleEnabled}
-                    onCorruptCredentials={mockOnCorruptCredentials}
-                    isConnecting={false}
-                    isToggling={false}
-                    isAdminUser
-                />,
-            );
-
-            fireEvent.click(screen.getByText('Corrupt'));
-            expect(mockOnCorruptCredentials).toHaveBeenCalledTimes(1);
         });
     });
 });

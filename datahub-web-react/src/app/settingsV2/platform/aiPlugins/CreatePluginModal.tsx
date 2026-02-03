@@ -1,12 +1,11 @@
-import { CaretDown, CaretRight, Trash } from '@phosphor-icons/react';
-import { Radio } from 'antd';
-import React from 'react';
+import { CaretDown, CaretRight, CheckCircle, Trash } from '@phosphor-icons/react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { usePluginForm } from '@app/settingsV2/platform/aiPlugins/hooks/usePluginForm';
 import { Button, Checkbox, Input, Modal, SimpleSelect, Text, TextArea, colors } from '@src/alchemy-components';
 
-import { AiPluginAuthType, AiPluginConfig, McpTransport } from '@types';
+import { AiPluginAuthType, AiPluginConfig } from '@types';
 
 interface CreatePluginModalProps {
     editingPlugin: AiPluginConfig | null;
@@ -46,10 +45,21 @@ const InlineOAuthForm = styled.div`
     margin-top: 8px;
 `;
 
-const StyledRadioGroup = styled(Radio.Group)`
+const CallbackUrlContainer = styled.div`
     display: flex;
-    flex-direction: column;
-    gap: 16px;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: ${colors.gray[1500]};
+    border: 1px solid ${colors.gray[100]};
+    border-radius: 8px;
+`;
+
+const CallbackUrlText = styled.code`
+    flex: 1;
+    font-size: 13px;
+    color: ${colors.gray[600]};
+    word-break: break-all;
 `;
 
 const AdvancedToggle = styled.div`
@@ -103,17 +113,21 @@ const FooterButtons = styled.div`
     gap: 8px;
 `;
 
+const SecretStatus = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #52c41a;
+    margin-bottom: 4px;
+`;
+
 // Constants
 const AUTH_TYPE_OPTIONS = [
     { label: 'None (Public API)', value: AiPluginAuthType.None },
     { label: 'Shared API Key (System-wide)', value: AiPluginAuthType.SharedApiKey },
     { label: 'User API Key (Each user provides their own)', value: AiPluginAuthType.UserApiKey },
     { label: 'User OAuth (Each user authenticates)', value: AiPluginAuthType.UserOauth },
-];
-
-const TRANSPORT_OPTIONS = [
-    { label: 'HTTP / SSE', value: McpTransport.Http },
-    { label: 'WebSocket', value: McpTransport.Websocket },
 ];
 
 const CreatePluginModal: React.FC<CreatePluginModalProps> = ({ editingPlugin, onClose, existingNames = [] }) => {
@@ -136,6 +150,30 @@ const CreatePluginModal: React.FC<CreatePluginModalProps> = ({ editingPlugin, on
         onSuccess: onClose,
     });
 
+    // Generate the OAuth callback URL based on current environment
+    const callbackUrl = useMemo(() => {
+        return `${window.location.origin}/integrations/oauth/callback`;
+    }, []);
+
+    const [copied, setCopied] = useState(false);
+    const [showOAuthAdvanced, setShowOAuthAdvanced] = useState(false);
+
+    const handleCopyCallbackUrl = () => {
+        navigator.clipboard.writeText(callbackUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const getOAuthClientSecretPlaceholder = () => {
+        if (isEditing && formState.hasOAuthClientSecret) {
+            return 'Enter new secret to replace existing';
+        }
+        if (isEditing) {
+            return 'Enter client secret';
+        }
+        return 'OAuth Client Secret';
+    };
+
     return (
         <Modal
             title={getModalTitle()}
@@ -143,6 +181,7 @@ const CreatePluginModal: React.FC<CreatePluginModalProps> = ({ editingPlugin, on
             onCancel={onClose}
             width={600}
             maskClosable={false}
+            data-testid="create-plugin-modal"
             footer={
                 <ModalFooter>
                     <Checkbox
@@ -150,12 +189,18 @@ const CreatePluginModal: React.FC<CreatePluginModalProps> = ({ editingPlugin, on
                         isChecked={formState.enabled}
                         setIsChecked={(checked) => updateField('enabled', checked)}
                         shouldHandleLabelClicks
+                        data-testid="plugin-enabled-checkbox"
                     />
                     <FooterButtons>
-                        <Button variant="outline" onClick={onClose}>
+                        <Button variant="outline" onClick={onClose} data-testid="plugin-cancel-button">
                             Cancel
                         </Button>
-                        <Button variant="filled" onClick={handleSubmit} isLoading={isSaving}>
+                        <Button
+                            variant="filled"
+                            onClick={handleSubmit}
+                            isLoading={isSaving}
+                            data-testid="plugin-submit-button"
+                        >
                             {isEditing ? 'Save' : 'Create'}
                         </Button>
                     </FooterButtons>
@@ -168,11 +213,12 @@ const CreatePluginModal: React.FC<CreatePluginModalProps> = ({ editingPlugin, on
                     <FormField>
                         <Input
                             label="Name"
-                            placeholder="e.g., Glean MCP Server"
+                            placeholder="Glean MCP Server"
                             value={formState.displayName}
                             setValue={(val) => updateField('displayName', val)}
                             isRequired
                             error={errors.displayName}
+                            data-testid="plugin-name-input"
                         />
                     </FormField>
 
@@ -199,32 +245,8 @@ const CreatePluginModal: React.FC<CreatePluginModalProps> = ({ editingPlugin, on
                             setValue={(val) => updateField('url', val)}
                             isRequired
                             error={errors.url}
-                        />
-                    </FormField>
-
-                    <FormField>
-                        <Text weight="semiBold" style={{ marginBottom: 8, display: 'block', color: colors.gray[600] }}>
-                            Transport
-                        </Text>
-                        <StyledRadioGroup
-                            value={formState.transport}
-                            onChange={(e) => updateField('transport', e.target.value)}
-                        >
-                            {TRANSPORT_OPTIONS.map((opt) => (
-                                <Radio key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                </Radio>
-                            ))}
-                        </StyledRadioGroup>
-                    </FormField>
-
-                    <FormField>
-                        <Input
-                            label="Timeout (seconds)"
-                            placeholder="30"
-                            value={formState.timeout}
-                            setValue={(val) => updateField('timeout', val)}
-                            type="number"
+                            data-testid="plugin-url-input"
+                            helperText="stdio-based MCP plugins are not currently supported."
                         />
                     </FormField>
                 </FormSection>
@@ -266,6 +288,27 @@ const CreatePluginModal: React.FC<CreatePluginModalProps> = ({ editingPlugin, on
                     {/* OAuth Provider Configuration */}
                     {formState.authType === AiPluginAuthType.UserOauth && (
                         <>
+                            {/* Callback URL Info */}
+                            <FormField>
+                                <Text size="sm" weight="semiBold" style={{ marginBottom: 8, display: 'block' }}>
+                                    OAuth Callback URL
+                                </Text>
+                                <CallbackUrlContainer>
+                                    <CallbackUrlText>{callbackUrl}</CallbackUrlText>
+                                    <Button
+                                        variant="text"
+                                        size="sm"
+                                        onClick={handleCopyCallbackUrl}
+                                        icon={{ icon: copied ? 'Check' : 'ContentCopy', source: 'material' }}
+                                    >
+                                        {copied ? 'Copied' : 'Copy'}
+                                    </Button>
+                                </CallbackUrlContainer>
+                                <Text size="sm" color="gray" style={{ marginTop: 4 }}>
+                                    Use this URL when registering your OAuth application with the provider.
+                                </Text>
+                            </FormField>
+
                             <InlineOAuthForm>
                                 <Text
                                     weight="bold"
@@ -277,7 +320,7 @@ const CreatePluginModal: React.FC<CreatePluginModalProps> = ({ editingPlugin, on
                                 <FormField>
                                     <Input
                                         label="Provider Name"
-                                        placeholder="e.g., Glean OAuth"
+                                        placeholder="Glean OAuth"
                                         value={formState.oauthServerName}
                                         setValue={(val) => updateField('oauthServerName', val)}
                                         isRequired
@@ -306,15 +349,24 @@ const CreatePluginModal: React.FC<CreatePluginModalProps> = ({ editingPlugin, on
                                 </FormField>
 
                                 <FormField>
+                                    {isEditing && formState.hasOAuthClientSecret && (
+                                        <SecretStatus>
+                                            <CheckCircle size={14} weight="fill" /> Client secret is configured. Enter
+                                            new value to replace.
+                                        </SecretStatus>
+                                    )}
                                     <Input
                                         label="Client Secret"
-                                        placeholder="OAuth Client Secret"
+                                        placeholder={getOAuthClientSecretPlaceholder()}
                                         value={formState.oauthClientSecret}
                                         setValue={(val) => updateField('oauthClientSecret', val)}
                                         isPassword
-                                        isRequired
-                                        error={errors.oauthClientSecret}
-                                        helperText="Will be securely encrypted"
+                                        isRequired={!isEditing || !formState.hasOAuthClientSecret}
+                                        helperText={
+                                            isEditing && formState.hasOAuthClientSecret
+                                                ? 'Leave empty to keep existing secret, or enter a new value to replace it.'
+                                                : 'Will be securely encrypted'
+                                        }
                                     />
                                 </FormField>
 
@@ -343,23 +395,106 @@ const CreatePluginModal: React.FC<CreatePluginModalProps> = ({ editingPlugin, on
                                 <FormField>
                                     <Input
                                         label="Default Scopes"
-                                        placeholder="openid, profile, email"
+                                        placeholder="openid, profile, repo, user"
                                         value={formState.oauthScopes}
                                         setValue={(val) => updateField('oauthScopes', val)}
-                                        helperText="Comma-separated list of scopes"
+                                        helperText="Comma-separated scopes requested from the OAuth provider."
                                     />
                                 </FormField>
-                            </InlineOAuthForm>
 
-                            <FormField style={{ marginTop: 16 }}>
-                                <Input
-                                    label="Required Scopes for this Plugin"
-                                    placeholder="e.g., search:read, documents:read"
-                                    value={formState.requiredScopes}
-                                    setValue={(val) => updateField('requiredScopes', val)}
-                                    helperText="Additional scopes beyond provider defaults"
-                                />
-                            </FormField>
+                                {/* OAuth Advanced Settings */}
+                                <AdvancedToggle
+                                    onClick={() => setShowOAuthAdvanced(!showOAuthAdvanced)}
+                                    style={{ marginTop: 16, marginBottom: 0 }}
+                                >
+                                    {showOAuthAdvanced ? <CaretDown size={16} /> : <CaretRight size={16} />}
+                                    <Text weight="semiBold">Advanced OAuth Settings</Text>
+                                </AdvancedToggle>
+
+                                {showOAuthAdvanced && (
+                                    <>
+                                        <FormField style={{ marginTop: 12 }}>
+                                            <Text
+                                                weight="semiBold"
+                                                style={{ marginBottom: 8, display: 'block', color: colors.gray[600] }}
+                                            >
+                                                Token Auth Method
+                                            </Text>
+                                            <SimpleSelect
+                                                options={[
+                                                    { label: 'Basic Auth (default)', value: 'BASIC' },
+                                                    { label: 'POST Body', value: 'POST_BODY' },
+                                                    { label: 'None (Public Client)', value: 'NONE' },
+                                                ]}
+                                                values={[formState.oauthTokenAuthMethod]}
+                                                onUpdate={(vals) => updateField('oauthTokenAuthMethod', vals[0])}
+                                                width="full"
+                                            />
+                                            <Text color="gray" size="sm" style={{ marginTop: 4 }}>
+                                                How to send client credentials when exchanging tokens. Use
+                                                &quot;None&quot; for public OAuth clients.
+                                            </Text>
+                                        </FormField>
+
+                                        <FormField>
+                                            <Text
+                                                weight="semiBold"
+                                                style={{ marginBottom: 8, display: 'block', color: colors.gray[600] }}
+                                            >
+                                                Auth Injection Location
+                                            </Text>
+                                            <SimpleSelect
+                                                options={[
+                                                    { label: 'Header (default)', value: 'HEADER' },
+                                                    { label: 'Query Parameter', value: 'QUERY_PARAM' },
+                                                ]}
+                                                values={[formState.oauthAuthLocation]}
+                                                onUpdate={(vals) => updateField('oauthAuthLocation', vals[0])}
+                                                width="full"
+                                            />
+                                            <Text color="gray" size="sm" style={{ marginTop: 4 }}>
+                                                Where to inject the access token when calling the MCP server.
+                                            </Text>
+                                        </FormField>
+
+                                        {formState.oauthAuthLocation === 'HEADER' && (
+                                            <>
+                                                <FormField>
+                                                    <Input
+                                                        label="Auth Header Name"
+                                                        placeholder="Authorization"
+                                                        value={formState.oauthAuthHeaderName}
+                                                        setValue={(val) => updateField('oauthAuthHeaderName', val)}
+                                                        helperText="Header name for the access token (defaults to Authorization)."
+                                                    />
+                                                </FormField>
+
+                                                <FormField>
+                                                    <Input
+                                                        label="Auth Scheme"
+                                                        placeholder="Bearer"
+                                                        value={formState.oauthAuthScheme}
+                                                        setValue={(val) => updateField('oauthAuthScheme', val)}
+                                                        helperText="Prefix for the token value (defaults to Bearer)."
+                                                    />
+                                                </FormField>
+                                            </>
+                                        )}
+
+                                        {formState.oauthAuthLocation === 'QUERY_PARAM' && (
+                                            <FormField>
+                                                <Input
+                                                    label="Query Parameter Name"
+                                                    placeholder="access_token"
+                                                    value={formState.oauthAuthQueryParam}
+                                                    setValue={(val) => updateField('oauthAuthQueryParam', val)}
+                                                    helperText="Query parameter name for the access token."
+                                                />
+                                            </FormField>
+                                        )}
+                                    </>
+                                )}
+                            </InlineOAuthForm>
                         </>
                     )}
                 </FormSection>
@@ -371,7 +506,7 @@ const CreatePluginModal: React.FC<CreatePluginModalProps> = ({ editingPlugin, on
                     <FormField>
                         <TextArea
                             label="Instructions for the AI Assistant"
-                            placeholder="e.g., Use this plugin to search company documentation and internal wikis..."
+                            placeholder="Use this plugin to search company documentation and internal wikis..."
                             value={formState.instructions}
                             onChange={(e) => updateField('instructions', e.target.value)}
                             rows={4}
@@ -388,15 +523,39 @@ const CreatePluginModal: React.FC<CreatePluginModalProps> = ({ editingPlugin, on
 
                     {showAdvanced && (
                         <>
-                            {/* Auth Scheme for Shared API Key */}
-                            {formState.authType === AiPluginAuthType.SharedApiKey && (
+                            {/* Timeout */}
+                            <FormField>
+                                <Input
+                                    label="Timeout (seconds)"
+                                    placeholder="30"
+                                    value={formState.timeout}
+                                    setValue={(val) => updateField('timeout', val)}
+                                    type="number"
+                                    helperText="Connection timeout for MCP server requests."
+                                />
+                            </FormField>
+
+                            {/* Auth Scheme for API Key auth types */}
+                            {(formState.authType === AiPluginAuthType.SharedApiKey ||
+                                formState.authType === AiPluginAuthType.UserApiKey) && (
                                 <FormField>
                                     <Input
                                         label="Auth Scheme"
                                         placeholder="Bearer"
-                                        value={formState.sharedApiKeyAuthScheme}
-                                        setValue={(val) => updateField('sharedApiKeyAuthScheme', val)}
-                                        helperText="Prefix for Authorization header (e.g., Bearer, Token, ApiKey)"
+                                        value={
+                                            formState.authType === AiPluginAuthType.SharedApiKey
+                                                ? formState.sharedApiKeyAuthScheme
+                                                : formState.userApiKeyAuthScheme
+                                        }
+                                        setValue={(val) =>
+                                            updateField(
+                                                formState.authType === AiPluginAuthType.SharedApiKey
+                                                    ? 'sharedApiKeyAuthScheme'
+                                                    : 'userApiKeyAuthScheme',
+                                                val,
+                                            )
+                                        }
+                                        helperText="Prefix for Authorization header (Bearer, Token, ApiKey)"
                                     />
                                 </FormField>
                             )}
@@ -410,7 +569,7 @@ const CreatePluginModal: React.FC<CreatePluginModalProps> = ({ editingPlugin, on
                                     Custom Headers
                                 </Text>
                                 <Text color="gray" size="sm" style={{ marginBottom: 12, display: 'block' }}>
-                                    Additional headers to send with every request (e.g., x-dbt-prod-environment-id)
+                                    Additional headers to send with every request (x-dbt-prod-environment-id)
                                 </Text>
 
                                 {formState.customHeaders.map((header, index) => (

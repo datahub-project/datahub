@@ -43,4 +43,11 @@ record UserAiPluginConfig {
    * Present when the plugin uses USER_OAUTH auth and the user has connected.
    */
   oauthConfig: optional UserOAuthConnectionConfig
+
+  /**
+   * User-specific custom headers to send with requests to this plugin's MCP server.
+   * These are merged with (and override) admin-configured custom headers.
+   * Example: {"x-dbt-prod-environment-id": "362762"}
+   */
+  customHeaders: optional map[string, string]
 }

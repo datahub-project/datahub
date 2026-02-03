@@ -14143,6 +14143,12 @@ type UserAiPluginConfig {
   Present when the plugin uses USER_OAUTH auth and the user has connected.
   """
   oauthConfig: UserOAuthConnectionConfig
+
+  """
+  User-specific custom headers to send with requests to this plugin.
+  These are merged with (and override) admin-configured custom headers.
+  """
+  customHeaders: [StringMapEntry!]
 }
 
 """
@@ -14224,6 +14230,13 @@ input UpdateUserAiPluginSettingsInput {
   If provided, sets the user's OAuth connection. Takes precedence over disconnectOAuth.
   """
   oauthConnectionUrn: String
+
+  """
+  Custom headers to send with requests to this plugin.
+  If provided, replaces any existing custom headers.
+  Use empty array to clear.
+  """
+  customHeaders: [StringMapEntryInput!]
 }
 
 """

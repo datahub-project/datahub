@@ -9,28 +9,31 @@ from typing import TYPE_CHECKING, List, Union
 
 from fastmcp import FastMCP
 
-from datahub_integrations.mcp_integration.tool import ToolWrapper, tools_from_fastmcp
+from datahub_integrations.mcp_integration.tool import (
+    Tool,
+    tools_from_fastmcp,
+)
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
 
 
 def flatten_tools(
-    tools: List[Union[ToolWrapper, FastMCP]], client: "DataHubClient"
-) -> List[ToolWrapper]:
+    tools: List[Union[Tool, FastMCP]], client: "DataHubClient"
+) -> List[Tool]:
     """
-    Flatten a mixed list of ToolWrapper and FastMCP objects into a uniform list.
+    Flatten a mixed list of Tool and FastMCP objects into a uniform list.
 
     This is useful when accepting tools from different sources and needing
-    a consistent ToolWrapper list. FastMCP instances use their own name
+    a consistent Tool list. FastMCP instances use their own name
     as the tool prefix.
 
     Args:
-        tools: Mixed list of ToolWrapper and FastMCP objects
+        tools: Mixed list of Tool and FastMCP objects
         client: DataHub client for querying catalog contents during tool filtering
 
     Returns:
-        Flattened list of ToolWrapper objects
+        Flattened list of Tool objects
     """
     result = []
     for entry in tools:
@@ -41,9 +44,7 @@ def flatten_tools(
     return result
 
 
-def filter_tools_by_names(
-    tools: List[ToolWrapper], allowed_names: List[str]
-) -> List[ToolWrapper]:
+def filter_tools_by_names(tools: List[Tool], allowed_names: List[str]) -> List[Tool]:
     """
     Filter tools by a list of allowed names.
 
@@ -58,9 +59,7 @@ def filter_tools_by_names(
     return [tool for tool in tools if tool.name in allowed_set]
 
 
-def exclude_tools_by_names(
-    tools: List[ToolWrapper], excluded_names: List[str]
-) -> List[ToolWrapper]:
+def exclude_tools_by_names(tools: List[Tool], excluded_names: List[str]) -> List[Tool]:
     """
     Exclude tools by a list of names to remove.
 

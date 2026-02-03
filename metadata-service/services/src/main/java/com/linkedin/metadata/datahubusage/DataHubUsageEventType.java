@@ -282,7 +282,12 @@ public enum DataHubUsageEventType {
   FREE_TRIAL_CONTACT_SALES_CLICK_EVENT("FreeTrialContactSalesClickEvent"),
   ONBOARDING_CHECKLIST_ACTION_EVENT("OnboardingChecklistActionEvent"),
   COMPLETE_ONBOARDING_CHECKLIST_ACTION_EVENT("CompleteOnboardingChecklistActionEvent"),
-  FREE_TRIAL_EDUCATION_MODAL_ACTION_EVENT("FreeTrialEducationModalActionEvent");
+  FREE_TRIAL_EDUCATION_MODAL_ACTION_EVENT("FreeTrialEducationModalActionEvent"),
+
+  // AI plugin events
+  CREATE_AI_PLUGIN_EVENT("CreateAiPluginEvent"),
+  UPDATE_AI_PLUGIN_EVENT("UpdateAiPluginEvent"),
+  DELETE_AI_PLUGIN_EVENT("DeleteAiPluginEvent");
 
   private final String type;
 

@@ -298,6 +298,10 @@ export enum EventType {
     OnboardingChecklistActionEvent,
     CompleteOnboardingChecklistActionEvent,
     FreeTrialEducationModalActionEvent,
+    // AI Plugin Events
+    CreateAiPluginEvent,
+    UpdateAiPluginEvent,
+    DeleteAiPluginEvent,
 }
 
 /**
@@ -2274,6 +2278,44 @@ export interface FreeTrialEducationModalActionEvent extends BaseEvent {
     isFlowCompleted?: boolean;
 }
 
+// AI Plugin Events
+
+/**
+ * Logged when an admin creates a new AI plugin.
+ */
+export interface CreateAiPluginEvent extends BaseEvent {
+    type: EventType.CreateAiPluginEvent;
+    pluginId?: string;
+    pluginType: string; // 'MCP_SERVER' | 'OAUTH'
+    authType: string; // AiPluginAuthType value
+    displayName?: string;
+    platform?: string; // e.g., 'snowflake', 'github', 'dbt' - derived from plugin URL domain
+}
+
+/**
+ * Logged when an admin updates an existing AI plugin.
+ */
+export interface UpdateAiPluginEvent extends BaseEvent {
+    type: EventType.UpdateAiPluginEvent;
+    pluginId: string;
+    pluginType: string;
+    authType: string;
+    displayName?: string;
+    platform?: string; // e.g., 'snowflake', 'github', 'dbt' - derived from plugin URL domain
+    fieldsUpdated?: string[]; // e.g., ['enabled', 'displayName', 'description']
+}
+
+/**
+ * Logged when an admin deletes an AI plugin.
+ */
+export interface DeleteAiPluginEvent extends BaseEvent {
+    type: EventType.DeleteAiPluginEvent;
+    pluginId: string;
+    pluginType?: string;
+    authType?: string;
+    platform?: string; // e.g., 'snowflake', 'github', 'dbt' - derived from plugin URL domain
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -2531,4 +2573,7 @@ export type Event =
     | FreeTrialContactSalesClickEvent
     | OnboardingChecklistActionEvent
     | CompleteOnboardingChecklistActionEvent
-    | FreeTrialEducationModalActionEvent;
+    | FreeTrialEducationModalActionEvent
+    | CreateAiPluginEvent
+    | UpdateAiPluginEvent
+    | DeleteAiPluginEvent;

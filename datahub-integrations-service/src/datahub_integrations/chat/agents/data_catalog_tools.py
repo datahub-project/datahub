@@ -16,11 +16,12 @@ from datahub_integrations.chat.agent.agent_runner import _strip_reasoning_tag
 from datahub_integrations.chat.agents.data_catalog_prompts import (
     _MAX_SUGGESTIONS,
     MESSAGE_LENGTH_SOFT_LIMIT,
+    PlanningMode,
 )
 from datahub_integrations.chat.types import NextMessage
 from datahub_integrations.gen_ai.bedrock import get_bedrock_client
 from datahub_integrations.gen_ai.model_config import model_config
-from datahub_integrations.mcp_integration.tool import ToolWrapper
+from datahub_integrations.mcp_integration.tool import Tool, ToolWrapper
 
 if TYPE_CHECKING:
     from datahub_integrations.chat.agent.agent_runner import AgentRunner
@@ -113,8 +114,8 @@ Break down complex information into bullet points for better readability.""",
 
 
 def get_data_catalog_internal_tools(
-    agent: "AgentRunner", is_planning_enabled: bool = False
-) -> List[ToolWrapper]:
+    agent: "AgentRunner", planning_mode: PlanningMode = PlanningMode.DISABLED
+) -> List[Tool]:
     """
     Get internal tools for the DataCatalog Explorer agent.
 
@@ -126,12 +127,12 @@ def get_data_catalog_internal_tools(
 
     Args:
         agent: The AgentRunner instance (uses agent._planning_context for planning tools)
-        is_planning_enabled: Whether planning mode is enabled (adds planning tools if True)
+        planning_mode: Planning mode (STRICT, AUTO, or DISABLED)
     """
-    tools = [_respond_to_user_tool]
+    tools: List[Tool] = [_respond_to_user_tool]
 
-    # Add planning tools if enabled
-    if PLANNING_TOOLS_ENABLED and is_planning_enabled:
+    # Add planning tools if enabled (either STRICT or AUTO mode)
+    if PLANNING_TOOLS_ENABLED and planning_mode != PlanningMode.DISABLED:
         # Import inline to avoid circular dependency
         from datahub_integrations.chat.planner.tools import (
             get_planning_tool_wrappers,

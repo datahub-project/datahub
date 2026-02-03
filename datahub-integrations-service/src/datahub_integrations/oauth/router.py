@@ -94,7 +94,7 @@ from urllib.parse import urlencode
 import fastapi
 import httpx
 import jwt
-from fastapi import Depends, Header, HTTPException, Query, status
+from fastapi import Cookie, Depends, Header, HTTPException, Query, status
 from fastapi.responses import HTMLResponse
 from loguru import logger
 from pydantic import BaseModel
@@ -211,39 +211,122 @@ class CallbackSuccessResponse(BaseModel):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def get_auth_token(authorization: Optional[str] = Header(None)) -> str:
+def get_auth_token(
+    authorization: Optional[str] = Header(None),
+    play_session: Optional[str] = Cookie(None, alias="PLAY_SESSION"),
+) -> str:
     """
-    Extract and validate the Bearer token from the Authorization header.
+    Extract and validate the Bearer token from the Authorization header or PLAY_SESSION cookie.
+
+    This function supports two authentication methods:
+    1. Authorization header with Bearer token (takes precedence)
+    2. PLAY_SESSION cookie (fallback for browser requests)
+
+    The PLAY_SESSION cookie is a JWT signed by the Play Framework frontend with the structure:
+    {
+      "data": {
+        "actor": "urn:li:corpuser:...",
+        "token": "eyJhbGci..."  // The actual GMS token
+      },
+      "exp": ...,
+      ...
+    }
 
     Args:
         authorization: The Authorization header value (injected by FastAPI).
+        play_session: The PLAY_SESSION cookie value (injected by FastAPI).
 
     Returns:
         The extracted token string.
 
     Raises:
-        HTTPException: 401 if authorization header is missing or invalid.
+        HTTPException: 401 if neither authorization method is provided or invalid.
     """
-    if not authorization:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing Authorization header",
-        )
+    # Priority 1: Explicit Authorization header (for programmatic/API requests)
+    if authorization:
+        if not authorization.startswith("Bearer "):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authorization header format; expected 'Bearer <token>'",
+            )
 
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization header format; expected 'Bearer <token>'",
-        )
+        token = authorization.split(" ", 1)[1]
+        if not token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Empty token",
+            )
 
-    token = authorization.split(" ", 1)[1]
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Empty token",
-        )
+        return token
 
-    return token
+    # Priority 2: PLAY_SESSION cookie (for browser requests)
+    if play_session:
+        import base64
+        import json
+
+        try:
+            # Handle both string and Cookie object types
+            # FastAPI might inject a Cookie object instead of a string in some versions/configurations
+            cookie_value = (
+                str(play_session) if not isinstance(play_session, str) else play_session
+            )
+
+            logger.info(
+                f"Attempting to parse PLAY_SESSION cookie (length={len(cookie_value)})"
+            )
+            # JWT format: header.payload.signature
+            # We only need to decode the payload (middle part) to extract the token
+            parts = cookie_value.split(".")
+            logger.info(f"PLAY_SESSION split into {len(parts)} parts")
+            if len(parts) != 3:
+                logger.error(
+                    f"Invalid PLAY_SESSION format: expected 3 parts, got {len(parts)}"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid PLAY_SESSION cookie format",
+                )
+
+            # Decode the payload (base64url decode)
+            payload = parts[1]
+            # Add padding if needed for base64 decoding
+            padding = 4 - (len(payload) % 4)
+            if padding != 4:
+                payload += "=" * padding
+
+            decoded_payload = base64.urlsafe_b64decode(payload)
+            session_data = json.loads(decoded_payload)
+
+            # Extract the token from data.token
+            token = session_data.get("data", {}).get("token")
+            if not token:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="No token found in PLAY_SESSION cookie",
+                )
+
+            return token
+
+        except HTTPException:
+            # Re-raise HTTPExceptions as-is (these are our explicit error cases)
+            raise
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid PLAY_SESSION cookie payload",
+            ) from e
+        except Exception as e:
+            logger.exception(f"Error extracting token from PLAY_SESSION cookie: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Failed to extract token from PLAY_SESSION cookie",
+            ) from e
+
+    # No authentication method provided
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Missing Authorization header or PLAY_SESSION cookie",
+    )
 
 
 def get_user_urn_from_token(token: str) -> str:
@@ -416,14 +499,17 @@ def validate_token_and_get_user(token: str) -> str:
         ) from e
 
 
-def get_authenticated_user(authorization: Optional[str] = Header(None)) -> str:
+def get_authenticated_user(
+    authorization: Optional[str] = Header(None),
+    play_session: Optional[str] = Cookie(None, alias="PLAY_SESSION"),
+) -> str:
     """
-    FastAPI dependency to get the authenticated user's URN from Bearer token.
+    FastAPI dependency to get the authenticated user's URN from Bearer token or PLAY_SESSION cookie.
 
     This is the primary authentication dependency for OAuth endpoints.
-    It extracts the JWT token from the Authorization header and validates it
-    by making a GraphQL call to GMS. The user URN is returned from GMS's
-    response, not decoded locally from the token.
+    It extracts the JWT token from the Authorization header or PLAY_SESSION cookie
+    and validates it by making a GraphQL call to GMS. The user URN is returned from
+    GMS's response, not decoded locally from the token.
 
     SECURITY NOTE:
     This function validates the token via GMS rather than decoding the JWT
@@ -440,6 +526,7 @@ def get_authenticated_user(authorization: Optional[str] = Header(None)) -> str:
 
     Args:
         authorization: The Authorization header (injected by FastAPI).
+        play_session: The PLAY_SESSION cookie (injected by FastAPI).
 
     Returns:
         The authenticated user's URN (from GMS, authoritative source).
@@ -447,7 +534,7 @@ def get_authenticated_user(authorization: Optional[str] = Header(None)) -> str:
     Raises:
         HTTPException: 401 if not authenticated, token is invalid, or GMS rejects it.
     """
-    token = get_auth_token(authorization)
+    token = get_auth_token(authorization, play_session)
     return validate_token_and_get_user(token)
 
 

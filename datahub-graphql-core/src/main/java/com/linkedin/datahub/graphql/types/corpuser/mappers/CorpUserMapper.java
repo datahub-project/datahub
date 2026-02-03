@@ -312,6 +312,20 @@ public class CorpUserMapper {
       result.setOauthConfig(mapUserOAuthConnectionConfig(config.getOauthConfig()));
     }
 
+    if (config.hasCustomHeaders()) {
+      result.setCustomHeaders(
+          config.getCustomHeaders().entrySet().stream()
+              .map(
+                  e -> {
+                    com.linkedin.datahub.graphql.generated.StringMapEntry entry =
+                        new com.linkedin.datahub.graphql.generated.StringMapEntry();
+                    entry.setKey(e.getKey());
+                    entry.setValue(e.getValue());
+                    return entry;
+                  })
+              .collect(Collectors.toList()));
+    }
+
     return result;
   }
 

@@ -62,7 +62,7 @@ from datahub_integrations.mcp.mcp_server import with_datahub_client
 from datahub_integrations.mcp_integration.external_mcp_manager import (
     PluginConnectionError,
 )
-from datahub_integrations.mcp_integration.tool import ToolWrapper
+from datahub_integrations.mcp_integration.tool import Tool
 from datahub_integrations.observability import (
     detect_provider_and_normalize_model,
     get_cost_tracker,
@@ -267,8 +267,8 @@ class AgentRunner:
         self.session_id = str(uuid.uuid4())
 
         # Use tools from config (already prepared)
-        self.tools: List[ToolWrapper] = config.tools
-        self.plannable_tools: List[ToolWrapper] = config.plannable_tools
+        self.tools: List[Tool] = config.tools
+        self.plannable_tools: List[Tool] = config.plannable_tools
 
         # Create initial snapshot from provided history (or empty)
         # This is the single source of truth for all agent state
@@ -351,7 +351,7 @@ class AgentRunner:
         )
 
     @property
-    def tool_map(self) -> Dict[str, ToolWrapper]:
+    def tool_map(self) -> Dict[str, Tool]:
         """Get mapping of tool names to tool instances."""
         return {tool.name: tool for tool in self.tools}
 

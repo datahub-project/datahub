@@ -5,10 +5,8 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
-import { AiPluginsSettings } from '@app/settingsV2/platform/aiPlugins';
 import { SLACK_CONNECTION_URN } from '@app/settingsV2/platform/slack/constants';
 import { decodeSlackConnection } from '@app/settingsV2/platform/slack/utils';
-import { useAppConfig } from '@app/useAppConfig';
 import { PageTitle, Switch, TextArea, colors } from '@src/alchemy-components';
 
 import { useConnectionQuery } from '@graphql/connection.generated';
@@ -109,8 +107,6 @@ const SlackToggleSection = styled.div`
 `;
 
 export const PlatformAiSettings = () => {
-    const appConfig = useAppConfig();
-    const aiPluginsEnabled = appConfig.config?.featureFlags?.aiPluginsEnabled ?? false;
     const { globalSettings, refetch, loading } = useGlobalSettingsContext();
     const [updateGlobalDocsAiSettings, { loading: updatingDocsAi }] = useUpdateGlobalDocsAiSettingsMutation();
     const [updateGlobalAiAssistantSettings, { loading: updatingAiAssistant }] =
@@ -369,9 +365,6 @@ export const PlatformAiSettings = () => {
                         </InstructionsContainer>
                     )}
                 </StyledCard>
-
-                {/* AI Plugins Section - behind feature flag */}
-                {aiPluginsEnabled && <AiPluginsSettings />}
             </>
         );
     }

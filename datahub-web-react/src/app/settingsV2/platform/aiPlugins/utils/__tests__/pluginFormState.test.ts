@@ -16,7 +16,7 @@ describe('pluginFormState', () => {
         it('has correct default values', () => {
             expect(DEFAULT_PLUGIN_FORM_STATE.displayName).toBe('');
             expect(DEFAULT_PLUGIN_FORM_STATE.url).toBe('');
-            expect(DEFAULT_PLUGIN_FORM_STATE.transport).toBe(McpTransport.Http);
+            expect(DEFAULT_PLUGIN_FORM_STATE.transport).toBe(McpTransport.Sse);
             expect(DEFAULT_PLUGIN_FORM_STATE.timeout).toBe('30');
             expect(DEFAULT_PLUGIN_FORM_STATE.authType).toBe(AiPluginAuthType.None);
             expect(DEFAULT_PLUGIN_FORM_STATE.enabled).toBe(true);

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Set
 
 import asyncer
 import httpx
@@ -188,6 +188,18 @@ class ExternalToolWrapper:
     Multiple tools from the same server will have identical instructions.
     When building prompts, collect unique instructions to avoid duplication.
     """
+    tool_prefix: str = ""
+    """Unique prefix for this plugin's tools (e.g., 'github', 'dbt_alex').
+    
+    Used to identify which plugin an instruction belongs to when multiple
+    plugins are configured. Matches the prefix in tool names like 'github__search'.
+    """
+    tags: Optional[Set[str]] = None
+    """Optional tags for filtering (e.g., USER, MUTATION).
+    
+    External tools typically don't have tags, but this field is needed
+    to satisfy the Tool protocol interface.
+    """
 
     def to_bedrock_spec(self) -> dict:
         return {
@@ -329,7 +341,12 @@ class ExternalMCPManager:
         return cls(plugins, credential_store, user_urn)
 
     def _get_auth_headers(self, plugin: AiPluginConfig) -> Dict[str, str]:
-        """Get authentication headers for a plugin based on its auth type."""
+        """Get authentication headers for a plugin based on its auth type.
+
+        Raises:
+            PluginConnectionError: If auth is configured but credentials are
+                missing or unavailable. This triggers the plugin disable flow.
+        """
         headers: Dict[str, str] = {}
 
         if plugin.auth_type == AiPluginAuthType.NONE:
@@ -337,49 +354,86 @@ class ExternalMCPManager:
 
         if plugin.auth_type == AiPluginAuthType.SHARED_API_KEY:
             if not plugin.shared_api_key_config:
-                logger.warning(
-                    f"Plugin {plugin.id} has SHARED_API_KEY auth but no config"
+                logger.bind(
+                    plugin_id=plugin.id,
+                    plugin_name=plugin.display_name,
+                    auth_type=plugin.auth_type.value,
+                ).warning(
+                    "Plugin configured for SHARED_API_KEY but sharedApiKeyConfig is null."
                 )
-                return headers
+                raise PluginConnectionError(
+                    plugin_id=plugin.id,
+                    plugin_name=plugin.display_name,
+                    message=(
+                        f"Plugin '{plugin.display_name}' is configured for shared API key "
+                        "authentication but missing configuration. Please reconfigure the plugin."
+                    ),
+                )
 
             shared_config = plugin.shared_api_key_config
-            # Shared API key is stored in a DataHubConnection
-            creds = self._credential_store.get_credentials(
-                user_urn="urn:li:corpuser:__system__",  # Shared creds use system user
-                plugin_id=shared_config.credential_urn,
+            # Shared API key is stored in a DataHubConnection with a known URN.
+            # Use get_credentials_by_urn() to look up by direct URN, not build_connection_urn().
+            creds = self._credential_store.get_credentials_by_urn(
+                connection_urn=shared_config.credential_urn,
             )
-            if creds and creds.api_key:
-                headers = self._build_auth_headers(
-                    token=creds.api_key.api_key,
-                    location=shared_config.auth_location,
-                    header_name=shared_config.auth_header_name,
-                    scheme=shared_config.auth_scheme,
+            if not creds or not creds.api_key:
+                raise PluginConnectionError(
+                    plugin_id=plugin.id,
+                    plugin_name=plugin.display_name,
+                    message=(
+                        f"Plugin '{plugin.display_name}' is configured for shared API key "
+                        "authentication but the API key is not set. Please configure the API key."
+                    ),
                 )
+            headers = self._build_auth_headers(
+                token=creds.api_key.api_key,
+                location=shared_config.auth_location,
+                header_name=shared_config.auth_header_name,
+                scheme=shared_config.auth_scheme,
+            )
 
         elif plugin.auth_type == AiPluginAuthType.USER_API_KEY:
             if not plugin.user_api_key_config:
-                logger.warning(
-                    f"Plugin {plugin.id} has USER_API_KEY auth but no config"
+                raise PluginConnectionError(
+                    plugin_id=plugin.id,
+                    plugin_name=plugin.display_name,
+                    message=(
+                        f"Plugin '{plugin.display_name}' is configured for user API key "
+                        "authentication but missing configuration. Please reconfigure the plugin."
+                    ),
                 )
-                return headers
 
             user_api_config = plugin.user_api_key_config
             creds = self._credential_store.get_credentials(
                 user_urn=self._user_urn,
                 plugin_id=plugin.id,
             )
-            if creds and creds.api_key:
-                headers = self._build_auth_headers(
-                    token=creds.api_key.api_key,
-                    location=user_api_config.auth_location,
-                    header_name=user_api_config.auth_header_name,
-                    scheme=user_api_config.auth_scheme,
+            if not creds or not creds.api_key:
+                raise PluginConnectionError(
+                    plugin_id=plugin.id,
+                    plugin_name=plugin.display_name,
+                    message=(
+                        f"Plugin '{plugin.display_name}' requires an API key. "
+                        "Please connect your API key in Settings."
+                    ),
                 )
+            headers = self._build_auth_headers(
+                token=creds.api_key.api_key,
+                location=user_api_config.auth_location,
+                header_name=user_api_config.auth_header_name,
+                scheme=user_api_config.auth_scheme,
+            )
 
         elif plugin.auth_type == AiPluginAuthType.USER_OAUTH:
             if not plugin.oauth_config:
-                logger.warning(f"Plugin {plugin.id} has USER_OAUTH auth but no config")
-                return headers
+                raise PluginConnectionError(
+                    plugin_id=plugin.id,
+                    plugin_name=plugin.display_name,
+                    message=(
+                        f"Plugin '{plugin.display_name}' is configured for OAuth "
+                        "authentication but missing configuration. Please reconfigure the plugin."
+                    ),
+                )
 
             # Let TokenRefreshError propagate - it will be handled as an auth error
             # and trigger the plugin disable flow
@@ -413,8 +467,12 @@ class ExternalMCPManager:
         """Create an MCP client for the given plugin configuration."""
         mcp_config = plugin.mcp_config
 
-        # Start with custom headers from config
+        # Start with admin-configured custom headers
         headers = dict(mcp_config.custom_headers)
+
+        # Merge in user-specific custom headers (override admin headers)
+        if plugin.user_custom_headers:
+            headers.update(plugin.user_custom_headers)
 
         # Add authentication headers
         auth_headers = self._get_auth_headers(plugin)
@@ -501,6 +559,7 @@ class ExternalMCPManager:
                         plugin_id=plugin.id,
                         plugin_name=plugin.display_name,
                         instructions=plugin.instructions,
+                        tool_prefix=tool_prefix,
                     )
                     for tool in tools
                 ]
