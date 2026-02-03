@@ -68,12 +68,14 @@ class KafkaSinkTest(unittest.TestCase):
     @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
     @patch("datahub.ingestion.sink.datahub_kafka._KafkaCallback", autospec=True)
     def test_kafka_sink_write(self, mock_k_callback, mock_producer, mock_context):
+        from datahub.emitter.kafka_emitter import MCP_KEY
+
         mock_k_callback_instance = mock_k_callback.return_value
         callback = MagicMock(spec=WriteCallback)
         kafka_sink = DatahubKafkaSink.create(
             {"connection": {"bootstrap": "foobar:9092"}}, mock_context
         )
-        mock_producer_instance = kafka_sink.emitter.producers[MCE_KEY]
+        mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
 
         mce = builder.make_lineage_mce(
             [
@@ -92,18 +94,89 @@ class KafkaSinkTest(unittest.TestCase):
         ] = RecordEnvelope(record=mce, metadata={})
         kafka_sink.write_record_async(re, callback)
 
-        mock_producer_instance.poll.assert_called_once()  # producer should call poll() first
+        # With the fix, MCEs are unpacked into MCPs. The lineage MCE contains 1 aspect (UpstreamLineage).
+        # So we expect 1 produce call to the MCP producer
+        assert mock_mcp_producer.produce.call_count == 1
+
         self.validate_kafka_callback(
             mock_k_callback, re, callback
         )  # validate kafka callback was constructed appropriately
 
-        # validate that confluent_kafka.Producer.produce was called with the right arguments
-        mock_producer_instance.produce.assert_called_once()
-        args, kwargs = mock_producer_instance.produce.call_args
-        assert kwargs["value"] == mce
+        # Validate that the MCP producer was used (not MCE producer)
+        # and that the produced value is an MCP (not the original MCE)
+        args, kwargs = mock_mcp_producer.produce.call_args
+        produced_value = kwargs["value"]
+        assert isinstance(produced_value, MetadataChangeProposalWrapper)
         assert kwargs["key"]  # produce call should include a Kafka key
         created_callback = kwargs["on_delivery"]
         assert created_callback == mock_k_callback_instance.kafka_callback
+
+    @patch("datahub.ingestion.api.sink.PipelineContext", autospec=True)
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+    @patch("datahub.ingestion.sink.datahub_kafka._KafkaCallback", autospec=True)
+    def test_kafka_sink_mce_with_multiple_aspects(
+        self, mock_k_callback, mock_producer, mock_context
+    ):
+        """Test that MCEs with multiple aspects (like GroupMembership) are unpacked into separate MCPs.
+
+        This test validates the fix for CUS-7626, where EntraID user ingestion with Kafka sink
+        was missing group membership information because MCEs weren't being unpacked.
+        """
+        from datahub.emitter.kafka_emitter import MCP_KEY
+
+        mock_k_callback_instance = mock_k_callback.return_value
+        callback = MagicMock(spec=WriteCallback)
+        kafka_sink = DatahubKafkaSink.create(
+            {"connection": {"bootstrap": "foobar:9092"}}, mock_context
+        )
+        mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+
+        # Create an MCE with multiple aspects (simulating Azure AD user ingestion)
+        user_urn = builder.make_user_urn("testuser")
+        group_urns = [
+            builder.make_group_urn("group1"),
+            builder.make_group_urn("group2"),
+        ]
+
+        # Build user snapshot with multiple aspects
+        user_snapshot = models.CorpUserSnapshotClass(
+            urn=user_urn,
+            aspects=[
+                models.CorpUserInfoClass(
+                    active=True,
+                    displayName="Test User",
+                    email="test@example.com",
+                ),
+                models.GroupMembershipClass(groups=group_urns),
+            ],
+        )
+
+        mce = MetadataChangeEvent(proposedSnapshot=user_snapshot)
+
+        re: RecordEnvelope[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ] = RecordEnvelope(record=mce, metadata={})
+
+        kafka_sink.write_record_async(re, callback)
+
+        # With the fix, the MCE should be unpacked into 2 MCPs (one per aspect)
+        assert mock_mcp_producer.produce.call_count == 2
+
+        self.validate_kafka_callback(
+            mock_k_callback, re, callback
+        )  # validate kafka callback was constructed
+
+        # Verify that all produced values are MCPs
+        for call_args in mock_mcp_producer.produce.call_args_list:
+            args, kwargs = call_args
+            produced_value = kwargs["value"]
+            assert isinstance(produced_value, MetadataChangeProposalWrapper)
+            assert kwargs["key"] == user_urn  # All MCPs should have the user URN as key
+            assert kwargs["on_delivery"] == mock_k_callback_instance.kafka_callback
 
     # TODO: Test that kafka producer is configured correctly
 

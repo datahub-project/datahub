@@ -6,6 +6,7 @@ from confluent_kafka import KafkaError, Message
 
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -114,10 +115,27 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
         kafka_callback = _KafkaCallback(self.report, record_envelope, write_callback)
         try:
             record = record_envelope.record
-            self.emitter.emit(
-                record,
-                callback=kafka_callback.kafka_callback,
-            )
+
+            # If the record is an MCE, unpack it into multiple MCPs (one per aspect).
+            # This ensures that all aspects (including GroupMembership) are emitted
+            # as separate messages and properly handled by downstream consumers.
+            # This matches the behavior of the REST sink (datahub_rest.py).
+            if isinstance(record, MetadataChangeEvent):
+                logger.debug(
+                    f"Unpacking MCE for {record.proposedSnapshot.urn} into individual MCPs"
+                )
+                mcps = list(mcps_from_mce(record))
+                for mcp in mcps:
+                    self.emitter.emit(
+                        mcp,
+                        callback=kafka_callback.kafka_callback,
+                    )
+            else:
+                # For MCPs, emit directly as before
+                self.emitter.emit(
+                    record,
+                    callback=kafka_callback.kafka_callback,
+                )
         except Exception as err:
             # In case we throw an exception while trying to emit the record,
             # catch it and report the failure. This might happen if the schema
