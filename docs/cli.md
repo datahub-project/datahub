@@ -505,6 +505,8 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `DATAHUB_GMS_PORT` (default `8080`) - Set to a port of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
 - `DATAHUB_GMS_PROTOCOL` (default `http`) - Set to a protocol like `http` or `https`. Prefer using `DATAHUB_GMS_URL` to set the URL.
 - `DATAHUB_GMS_TOKEN` (default `None`) - Used for communicating with DataHub Cloud.
+- `DATAHUB_USERNAME` (default `None`) - Username for generating access tokens via `datahub init`. Used with `DATAHUB_PASSWORD` for non-interactive authentication.
+- `DATAHUB_PASSWORD` (default `None`) - Password for generating access tokens via `datahub init`. Used with `DATAHUB_USERNAME` for non-interactive authentication.
 - `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
 - `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
 - `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI. This exposes sensitive information in logs, enabling on production instances should be avoided especially if UI ingestion is in use as logs can be made available for runs through the UI.

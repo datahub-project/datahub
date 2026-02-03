@@ -13,6 +13,7 @@ from datahub.cli.cli_utils import (
     enable_auto_decorators,
     fixup_gms_url,
     generate_access_token,
+    get_init_config_value,
     make_shim_command,
 )
 from datahub.cli.config_utils import DATAHUB_CONFIG_PATH, write_gms_config
@@ -122,45 +123,6 @@ def version(include_server: bool = False) -> None:
     if include_server:
         server_config = get_default_graph(ClientMode.CLI).get_config()
         click.echo(f"Server config: {server_config}")
-
-
-def get_init_config_value(
-    arg_value: Optional[str],
-    env_var: str,
-    prompt_text: str,
-    default: Optional[str] = None,
-    hide_input: bool = False,
-) -> str:
-    """Get config value from CLI arg, env var, or interactive prompt.
-
-    Precedence: CLI arg > Environment variable > Interactive prompt
-
-    Args:
-        arg_value: Value from CLI argument (if provided)
-        env_var: Environment variable name to check
-        prompt_text: Text to show in interactive prompt
-        default: Default value for prompt
-        hide_input: Whether to hide input (for passwords)
-
-    Returns:
-        The resolved configuration value
-    """
-    # Priority 1: CLI argument
-    if arg_value is not None:
-        return arg_value
-
-    # Priority 2: Environment variable
-    env_value = os.environ.get(env_var)
-    if env_value:
-        return env_value
-
-    # Priority 3: Interactive prompt (fallback)
-    return click.prompt(
-        text=prompt_text,
-        type=str,
-        default=default or "",
-        hide_input=hide_input,
-    )
 
 
 def _validate_init_inputs(
