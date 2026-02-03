@@ -15,7 +15,7 @@ def _validate_domain_urn(client: DataHubClient, domain_urn: str) -> None:
     Raises:
         ValueError: If the domain URN does not exist or is invalid
     """
-    from datahub_integrations.mcp.mcp_server import execute_graphql
+    from ..mcp_server import execute_graphql
 
     query = """
         query getDomain($urn: String!) {
@@ -109,7 +109,7 @@ def set_domains(
             ]
         )
     """
-    from datahub_integrations.mcp.mcp_server import execute_graphql, get_datahub_client
+    from ..mcp_server import execute_graphql, get_datahub_client
 
     client = get_datahub_client()
 
@@ -196,7 +196,7 @@ def remove_domains(
             ]
         )
     """
-    from datahub_integrations.mcp.mcp_server import execute_graphql, get_datahub_client
+    from ..mcp_server import execute_graphql, get_datahub_client
 
     client = get_datahub_client()
 
@@ -235,33 +235,3 @@ def remove_domains(
         if isinstance(e, RuntimeError):
             raise
         raise RuntimeError(f"Error removing domain: {str(e)}") from e
-
-
-if __name__ == "__main__":
-    client = DataHubClient.from_env()
-    from datahub_integrations.mcp.mcp_server import (
-        with_datahub_client,
-    )
-
-    with with_datahub_client(client):
-        """
-        # Simple test to add domains
-        print(
-            set_domains(
-                domain_urn="urn:li:domain:subdomain",
-                entity_urns=[
-                    "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
-                ],
-            )
-        )
-        """
-        """
-        # Simple test to remove domains
-        print(
-            remove_domains(
-                entity_urns=[
-                    "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
-                ],
-            )
-        )
-        """

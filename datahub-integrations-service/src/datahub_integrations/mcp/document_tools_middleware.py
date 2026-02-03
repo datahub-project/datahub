@@ -23,11 +23,11 @@ Environment Variables:
   impact chatbot behavior. Default: false (document tools enabled).
 
 Usage (MCP middleware):
-    from datahub_integrations.mcp.document_tools_middleware import DocumentToolsMiddleware
+    from .document_tools_middleware import DocumentToolsMiddleware
     mcp_instance.add_middleware(DocumentToolsMiddleware())
 
 Usage (tool filtering):
-    from datahub_integrations.mcp.document_tools_middleware import filter_document_tools
+    from .document_tools_middleware import filter_document_tools
     filtered_tools = filter_document_tools(tools)
 """
 
@@ -86,8 +86,8 @@ def _query_documents_exist_cached() -> bool:
         Exception: If the GraphQL query fails
     """
     # Import here to avoid circular imports at module load time
-    from datahub_integrations.mcp.mcp_server import execute_graphql, get_datahub_client
-    from datahub_integrations.mcp.tools.documents import document_search_gql
+    from .mcp_server import execute_graphql, get_datahub_client
+    from .tools.documents import document_search_gql
 
     logger.debug("Document check cache miss, querying DataHub")
 
@@ -151,7 +151,7 @@ def filter_document_tools(tools: Sequence[T]) -> list[T]:
         Returns all tools unchanged if documents exist or on error.
 
     Example:
-        >>> from datahub_integrations.mcp.document_tools_middleware import filter_document_tools
+        >>> from .document_tools_middleware import filter_document_tools
         >>> filtered = filter_document_tools(mcp._tool_manager._tools.values())
     """
     # Check if document tools are disabled via environment variable

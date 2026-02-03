@@ -26,7 +26,7 @@ def get_me() -> dict[str, Any]:
         get_me()
     """
     # Late import to avoid circular dependency
-    from datahub_integrations.mcp.mcp_server import execute_graphql, get_datahub_client
+    from ..mcp_server import execute_graphql, get_datahub_client
 
     client = get_datahub_client()
 

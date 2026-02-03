@@ -179,6 +179,8 @@ exclude = [
 [tool.ruff.lint.extend-per-file-ignores]
 "experiments/**.py" = ["INP001", "E402"]
 "scripts/**.py" = ["B008"]
+# Allow relative imports from parent modules in MCP directory for OSS compatibility
+"src/datahub_integrations/mcp/**.py" = ["TID252"]
 
 [tool.pyright]
 extraPaths = ['tests']

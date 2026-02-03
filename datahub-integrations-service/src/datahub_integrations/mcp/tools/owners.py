@@ -16,7 +16,7 @@ def _validate_owner_urns(client: DataHubClient, owner_urns: List[str]) -> None:
         ValueError: If any owner URN does not exist or is not a valid owner entity type
     """
     # Late import to avoid circular dependency
-    from datahub_integrations.mcp.mcp_server import execute_graphql
+    from ..mcp_server import execute_graphql
 
     # Query to check if owners exist and are valid types
     query = """
@@ -86,7 +86,7 @@ def _batch_modify_owners(
     Validates inputs, constructs GraphQL mutation, and executes the operation.
     """
     # Late import to avoid circular dependency
-    from datahub_integrations.mcp.mcp_server import execute_graphql, get_datahub_client
+    from ..mcp_server import execute_graphql, get_datahub_client
 
     client = get_datahub_client()
 

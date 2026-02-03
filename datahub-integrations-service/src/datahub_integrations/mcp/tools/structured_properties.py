@@ -20,7 +20,7 @@ def _validate_and_fetch_structured_property(
     Raises:
         ValueError: If the property URN does not exist or is invalid
     """
-    from datahub_integrations.mcp.mcp_server import execute_graphql
+    from ..mcp_server import execute_graphql
 
     query = """
         query getStructuredProperty($urn: String!) {
@@ -237,7 +237,7 @@ def add_structured_properties(
             ]
         )
     """
-    from datahub_integrations.mcp.mcp_server import execute_graphql, get_datahub_client
+    from ..mcp_server import execute_graphql, get_datahub_client
 
     client = get_datahub_client()
 
@@ -366,7 +366,7 @@ def remove_structured_properties(
             ]
         )
     """
-    from datahub_integrations.mcp.mcp_server import execute_graphql, get_datahub_client
+    from ..mcp_server import execute_graphql, get_datahub_client
 
     client = get_datahub_client()
 
@@ -436,41 +436,3 @@ def remove_structured_properties(
         "success": True,
         "message": f"Successfully removed {len(property_urns)} structured propert(ies) from {success_count} entit(ies)",
     }
-
-
-if __name__ == "__main__":
-    client = DataHubClient.from_env()
-    from datahub_integrations.mcp.mcp_server import (
-        with_datahub_client,
-    )
-
-    with with_datahub_client(client):
-        """
-        # Simple test to add structured property
-        print(
-            add_structured_properties(
-                property_values={
-                    "urn:li:structuredProperty:42c31378-2eb4-4b2b-baf4-2175f44cd59e": [
-                        "na-gen-ai"
-                    ],
-                },
-                entity_urns=[
-                    "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
-                ],
-            )
-        )
-        """
-
-        """
-        # Simple test to remove structured property
-        print(
-            remove_structured_properties(
-                property_urns=[
-                    "urn:li:structuredProperty:42c31378-2eb4-4b2b-baf4-2175f44cd59e"
-                ],
-                entity_urns=[
-                    "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
-                ],
-            )
-        )
-        """

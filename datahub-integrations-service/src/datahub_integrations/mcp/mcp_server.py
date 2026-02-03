@@ -50,24 +50,25 @@ from json_repair import repair_json
 from loguru import logger
 from pydantic import BaseModel
 
-from datahub_integrations.mcp.tools.descriptions import update_description
-from datahub_integrations.mcp.tools.domains import remove_domains, set_domains
-from datahub_integrations.mcp.tools.get_me import get_me
-from datahub_integrations.mcp.tools.owners import add_owners, remove_owners
-from datahub_integrations.mcp.tools.structured_properties import (
+# IMPORTANT: Use relative import to maintain compatibility across repositories
+from ._token_estimator import TokenCountEstimator
+
+# IMPORTANT: Use relative imports to maintain compatibility across repositories
+from .tools.descriptions import update_description
+from .tools.documents import grep_documents, search_documents
+from .tools.domains import remove_domains, set_domains
+from .tools.get_me import get_me
+from .tools.owners import add_owners, remove_owners
+from .tools.save_document import is_save_document_enabled, save_document
+from .tools.structured_properties import (
     add_structured_properties,
     remove_structured_properties,
 )
-from datahub_integrations.mcp.tools.terms import (
+from .tools.tags import add_tags, remove_tags
+from .tools.terms import (
     add_glossary_terms,
     remove_glossary_terms,
 )
-
-# IMPORTANT: Use relative import to maintain compatibility across repositories
-from ._token_estimator import TokenCountEstimator
-from .tools.documents import grep_documents, search_documents
-from .tools.save_document import is_save_document_enabled, save_document
-from .tools.tags import add_tags, remove_tags
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")

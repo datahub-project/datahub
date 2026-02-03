@@ -85,7 +85,7 @@ DocumentType = Literal[
 
 def _get_current_user_info() -> Optional[Dict]:
     """Fetch the current authenticated user's information."""
-    from datahub_integrations.mcp.mcp_server import execute_graphql, get_datahub_client
+    from ..mcp_server import execute_graphql, get_datahub_client
 
     client = get_datahub_client()
 
@@ -162,7 +162,7 @@ def _is_document_in_shared_folder(document_urn: str) -> Tuple[bool, Optional[str
         - (True, None) if document is in the shared folder
         - (False, error_message) if document is outside the folder
     """
-    from datahub_integrations.mcp.mcp_server import get_datahub_client
+    from ..mcp_server import get_datahub_client
 
     client = get_datahub_client()
     root_parent_urn = _get_root_parent_urn()
@@ -266,7 +266,7 @@ def _ensure_document_exists(
     parent_urn: Optional[str] = None,
 ) -> str:
     """Ensure a document exists, creating it if necessary. Returns the URN."""
-    from datahub_integrations.mcp.mcp_server import get_datahub_client
+    from ..mcp_server import get_datahub_client
 
     client = get_datahub_client()
     doc_urn = f"urn:li:document:{doc_id}"
@@ -477,7 +477,7 @@ def save_document(
             topics=["architecture", "data-model", "migration", "approved"]
         )
     """
-    from datahub_integrations.mcp.mcp_server import get_datahub_client
+    from ..mcp_server import get_datahub_client
 
     client = get_datahub_client()
 

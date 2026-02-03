@@ -17,7 +17,7 @@ def _validate_glossary_term_urns(client: DataHubClient, term_urns: List[str]) ->
     """
 
     # Late import to avoid circular dependency
-    from datahub_integrations.mcp.mcp_server import execute_graphql
+    from ..mcp_server import execute_graphql
 
     # Query to check if glossary terms exist
     query = """
@@ -84,7 +84,7 @@ def _batch_modify_glossary_terms(
     Validates inputs, constructs GraphQL mutation, and executes the operation.
     """
     # Late import to avoid circular dependency
-    from datahub_integrations.mcp.mcp_server import execute_graphql, get_datahub_client
+    from ..mcp_server import execute_graphql, get_datahub_client
 
     client = get_datahub_client()
 

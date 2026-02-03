@@ -178,7 +178,7 @@ def _search_documents_impl(
        )
     """
     # Late imports to avoid circular dependency
-    from datahub_integrations.mcp.mcp_server import (
+    from ..mcp_server import (
         clean_gql_response,
         execute_graphql,
         fetch_global_default_view,
@@ -324,7 +324,7 @@ def grep_documents(
     - documents_with_matches: Number of documents containing matches
     """
     # Late imports to avoid circular dependency
-    from datahub_integrations.mcp.mcp_server import (
+    from ..mcp_server import (
         execute_graphql,
         get_datahub_client,
     )

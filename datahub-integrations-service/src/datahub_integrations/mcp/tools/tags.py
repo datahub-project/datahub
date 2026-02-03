@@ -16,7 +16,7 @@ def _validate_tag_urns(client: DataHubClient, tag_urns: List[str]) -> None:
         ValueError: If any tag URN does not exist or is invalid
     """
     # Late import to avoid circular dependency
-    from datahub_integrations.mcp.mcp_server import execute_graphql
+    from ..mcp_server import execute_graphql
 
     query = """
         query getTags($urns: [String!]!) {
@@ -84,7 +84,7 @@ def _batch_modify_tags(
     Validates inputs, constructs GraphQL mutation, and executes the operation.
     """
     # Late import to avoid circular dependency
-    from datahub_integrations.mcp.mcp_server import execute_graphql, get_datahub_client
+    from ..mcp_server import execute_graphql, get_datahub_client
 
     client = get_datahub_client()
 
