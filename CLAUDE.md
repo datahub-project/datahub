@@ -9,6 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 ./gradlew build           # Build entire project
 ./gradlew check           # Run all tests and linting
+./gradlew format          # Format all code (Java, Markdown, GraphQL, YAML)
 
 # Note that each directory typically has a build.gradle file, but the available tasks follow similar conventions.
 
@@ -19,6 +20,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./gradlew :metadata-ingestion:testQuick     # Fast Python unit tests
 ./gradlew :metadata-ingestion:lint          # Python linting (ruff, mypy)
 ./gradlew :metadata-ingestion:lintFix       # Python linting auto-fix (ruff only)
+
+# Markdown, GraphQL, YAML formatting
+./gradlew :datahub-web-react:mdPrettierWrite        # Format markdown files
+./gradlew :datahub-web-react:graphqlPrettierWrite   # Format GraphQL schemas
+./gradlew :datahub-web-react:githubActionsPrettierWrite # Format GitHub Actions
 ```
 
 If you are using git worktrees then exclude this as that might cause git related failures when running any gradle command.
@@ -31,6 +37,7 @@ If you are using git worktrees then exclude this as that might cause git related
 
 - **ALWAYS use `./gradlew :metadata-ingestion:lintFix`** to verify Python code changes
 - **NEVER use `python3 -m py_compile`** - it doesn't catch style issues or type errors
+- **NEVER use `ruff` or `mypy` commands directly** - use the Gradle task instead
 - lintFix runs ruff formatting and fixing automatically, ensuring code quality
 - For smoke-test changes, the lintFix command will also check those files
 
@@ -41,6 +48,73 @@ If you are using git worktrees then exclude this as that might cause git related
 ./gradlew quickstartDebug                              # Start full DataHub stack
 cd datahub-web-react && yarn start                     # Frontend dev server
 ```
+
+## Code Formatting and Linting
+
+**CRITICAL: Always use Gradle tasks for formatting and linting. Never use npm/yarn/npx commands directly.**
+
+### Available Formatting Tasks
+
+**Format everything:**
+
+```bash
+./gradlew format              # Format all code (Java, Markdown, GraphQL, YAML)
+./gradlew formatChanged       # Format only changed files (faster)
+```
+
+**Format specific file types:**
+
+```bash
+# Markdown files
+./gradlew :datahub-web-react:mdPrettierWrite        # Format all markdown
+./gradlew :datahub-web-react:mdPrettierCheck        # Check markdown formatting
+
+# GraphQL schemas
+./gradlew :datahub-web-react:graphqlPrettierWrite   # Format GraphQL files
+./gradlew :datahub-web-react:graphqlPrettierCheck   # Check GraphQL formatting
+
+# GitHub Actions YAML
+./gradlew :datahub-web-react:githubActionsPrettierWrite   # Format workflow files
+./gradlew :datahub-web-react:githubActionsPrettierCheck   # Check workflow files
+
+# Java code
+./gradlew spotlessApply       # Format Java code
+
+# Python code
+./gradlew :metadata-ingestion:lintFix      # Format and fix Python code
+./gradlew :metadata-ingestion:lint         # Check Python formatting
+```
+
+### When CI Formatting Checks Fail
+
+If you see CI failures like:
+
+- `markdown_format / markdown_format_check (pull_request)` - Use `./gradlew :datahub-web-react:mdPrettierWrite`
+- `graphql_prettier_check` - Use `./gradlew :datahub-web-react:graphqlPrettierWrite`
+- `spotlessJavaCheck` - Use `./gradlew spotlessApply`
+- Python linting failures - Use `./gradlew :metadata-ingestion:lintFix`
+
+**❌ NEVER do this:**
+
+```bash
+npx prettier --write "docs/**/*.md"    # WRONG - bypasses Gradle
+yarn prettier --write                   # WRONG - bypasses Gradle
+npm run format                          # WRONG - bypasses Gradle
+```
+
+**✅ ALWAYS do this:**
+
+```bash
+./gradlew :datahub-web-react:mdPrettierWrite      # CORRECT - uses Gradle
+./gradlew format                                   # CORRECT - formats everything
+```
+
+### Why Use Gradle Tasks?
+
+1. **Consistent configuration**: Gradle tasks use the project's Prettier config
+2. **Pre-commit hook integration**: Gradle tasks match what CI runs
+3. **Dependency management**: Ensures correct tool versions
+4. **Cross-platform**: Works reliably across all environments
 
 **Java SDK v2 integration tests:**
 
