@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-01-27T23:33:49.965494+00:00",
+  "generated_at": "2026-02-03T11:25:52.065593+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -1229,6 +1229,62 @@
       "platform_id": "glue",
       "platform_name": "Glue",
       "support_status": "CERTIFIED"
+    },
+    "google-sheets": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Can extract column-level lineage from Google Sheets formulas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Can profile Google Sheets data",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Can extract usage statistics from Google Sheets",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default when stateful ingestion is turned on.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Extracts schema from Google Sheets",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Can extract lineage between Google Sheets and other platforms",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.google_sheets.google_sheets_source.GoogleSheetsSource",
+      "platform_id": "google-sheets",
+      "platform_name": "Google Sheets",
+      "support_status": "INCUBATING"
     },
     "grafana": {
       "capabilities": [
