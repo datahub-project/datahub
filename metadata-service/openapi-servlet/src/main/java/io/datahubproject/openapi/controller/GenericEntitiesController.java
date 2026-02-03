@@ -2,7 +2,6 @@ package io.datahubproject.openapi.controller;
 
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.TIMESTAMP_MILLIS;
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
@@ -513,11 +512,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    com.datahub.authorization.EntitySpec resourceSpec =
-        new com.datahub.authorization.EntitySpec(urn.getEntityType(), urn.toString());
-    com.datahub.authorization.DisjunctivePrivilegeGroup privilegeGroup =
-        AuthUtil.buildDisjunctivePrivilegeGroup(ENTITY, DELETE, urn.getEntityType());
-    if (!AuthUtil.isAuthorized(opContext, privilegeGroup, resourceSpec, Collections.emptyList())) {
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
@@ -642,11 +637,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    com.datahub.authorization.EntitySpec resourceSpec =
-        new com.datahub.authorization.EntitySpec(urn.getEntityType(), urn.toString());
-    com.datahub.authorization.DisjunctivePrivilegeGroup privilegeGroup =
-        AuthUtil.buildDisjunctivePrivilegeGroup(ENTITY, DELETE, urn.getEntityType());
-    if (!AuthUtil.isAuthorized(opContext, privilegeGroup, resourceSpec, Collections.emptyList())) {
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }

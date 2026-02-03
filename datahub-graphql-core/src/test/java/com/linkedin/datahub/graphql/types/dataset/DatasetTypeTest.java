@@ -668,4 +668,66 @@ public class DatasetTypeTest {
     // Verify proposals were ingested
     Mockito.verify(mockClient, Mockito.times(1)).batchIngestProposals(any(), any(), anyBoolean());
   }
+
+  @Test
+  public void testUpdateDatasetWithDomainBasedAuthorizationEnabledVerifiesCodePath()
+      throws Exception {
+    // This test verifies the domain-based authorization code path is exercised (lines 286-302)
+    // The DomainAuthorizationHelper uses the OperationContext for authorization decisions
+    // and proper denial testing requires integration tests or mocking the static helper
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    Urn datasetUrn = Urn.createFromString(TEST_DATASET_URN);
+    Urn domainUrn = Urn.createFromString(TEST_DOMAIN_URN);
+
+    // Mock dataset exists WITH domain - this exercises the domain extraction path
+    Domains existingDomains =
+        new Domains().setDomains(new com.linkedin.common.UrnArray(ImmutableList.of(domainUrn)));
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(new HashSet<>(ImmutableSet.of(datasetUrn))),
+                any()))
+        .thenReturn(
+            ImmutableMap.of(
+                datasetUrn,
+                new EntityResponse()
+                    .setEntityName(Constants.DATASET_ENTITY_NAME)
+                    .setUrn(datasetUrn)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.DOMAINS_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(existingDomains.data())))))));
+
+    // Create feature flags with domain-based authorization ENABLED
+    FeatureFlags mockFeatureFlagsEnabled = Mockito.mock(FeatureFlags.class);
+    Mockito.when(mockFeatureFlagsEnabled.isDomainBasedAuthorizationEnabled()).thenReturn(true);
+
+    DatasetType datasetType = new DatasetType(mockClient, mockFeatureFlagsEnabled);
+
+    // Create update input - adding editable properties to generate proposals
+    DatasetUpdateInput input = new DatasetUpdateInput();
+    com.linkedin.datahub.graphql.generated.DatasetEditablePropertiesUpdate editableProps =
+        new com.linkedin.datahub.graphql.generated.DatasetEditablePropertiesUpdate();
+    editableProps.setDescription("Test description for domain auth path");
+    input.setEditableProperties(editableProps);
+
+    // Setup context with ALLOW authorization
+    // This exercises the full code path including:
+    // - extractNewDomainsFromMCPs (line 286-287)
+    // - DomainAuthorizationHelper.authorizeWithDomains (lines 289-295)
+    // - Authorization result checking (lines 298-302)
+    QueryContext mockContext = getMockAllowContext(TEST_ACTOR_URN);
+
+    // Execute update - exercises domain-based authorization code path
+    datasetType.update(TEST_DATASET_URN, input, mockContext);
+
+    // Verify proposals were ingested
+    Mockito.verify(mockClient, Mockito.times(1)).batchIngestProposals(any(), any(), anyBoolean());
+  }
 }

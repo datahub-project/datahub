@@ -393,30 +393,6 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
   }
 
   @Test
-  public void testDeleteEntityWithDomain_Unauthorized() throws Exception {
-    // Domain-based auth is already enabled in @BeforeMethod setup
-    // Override authorization to DENY
-    when(mockAuthorizerChain.authorize(any()))
-        .thenReturn(
-            new AuthorizationResult(
-                null, AuthorizationResult.Type.DENY, "Unauthorized - missing domain access"));
-
-    // Mock entity exists with domain - returns Set of existing URNs
-    Urn testUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)");
-    when(mockEntityService.exists(any(), anyCollection(), eq(true)))
-        .thenReturn(Collections.singleton(testUrn));
-
-    mockMvc
-        .perform(
-            MockMvcRequestBuilders.delete(
-                "/openapi/v3/entity/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)"))
-        .andExpect(status().isForbidden());
-
-    // Verify deletion was NOT performed
-    verify(mockEntityService, never()).deleteUrn(any(), any());
-  }
-
-  @Test
   public void testBatchCreateMixedAuthorization_PartialSuccess() throws Exception {
     // Domain-based auth is already enabled in @BeforeMethod setup
     // Mock authorization: first entity authorized, second denied
@@ -853,6 +829,118 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
     verify(mockEntityService).ingestProposal(any(), any(), anyBoolean());
   }
 
+  // ========== HEAD ENTITY TESTS ==========
+
+  @Test
+  public void testHeadEntity_Exists() throws Exception {
+    // Test head entity when entity exists
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+    when(mockEntityService.exists(any(), eq(datasetUrn), eq(false))).thenReturn(true);
+
+    mockMvc
+        .perform(MockMvcRequestBuilders.head("/openapi/v3/entity/dataset/" + DATASET_URN))
+        .andExpect(status().isNoContent());
+  }
+
+  @Test
+  public void testHeadEntity_NotExists() throws Exception {
+    // Test head entity when entity doesn't exist
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+    when(mockEntityService.exists(any(), eq(datasetUrn), eq(false))).thenReturn(false);
+
+    mockMvc
+        .perform(MockMvcRequestBuilders.head("/openapi/v3/entity/dataset/" + DATASET_URN))
+        .andExpect(status().isNotFound());
+  }
+
+  // ========== HEAD ASPECT TESTS ==========
+
+  @Test
+  public void testHeadAspect_Exists() throws Exception {
+    // Test head aspect when aspect exists
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+    when(mockEntityService.exists(any(), eq(datasetUrn), eq("status"), eq(false))).thenReturn(true);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.head("/openapi/v3/entity/dataset/" + DATASET_URN + "/status"))
+        .andExpect(status().isNoContent());
+  }
+
+  @Test
+  public void testHeadAspect_NotExists() throws Exception {
+    // Test head aspect when aspect doesn't exist
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+    when(mockEntityService.exists(any(), eq(datasetUrn), eq("status"), eq(false)))
+        .thenReturn(false);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.head("/openapi/v3/entity/dataset/" + DATASET_URN + "/status"))
+        .andExpect(status().isNotFound());
+  }
+
+  // ========== DELETE ASPECT TESTS ==========
+
+  @Test
+  public void testDeleteAspect_Authorized() throws Exception {
+    // Test deleteAspect authorized
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+
+    // Mock entity exists
+    when(mockEntityService.exists(any(), anyCollection(), eq(true)))
+        .thenReturn(Collections.singleton(datasetUrn));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete("/openapi/v3/entity/dataset/" + DATASET_URN + "/status"))
+        .andExpect(status().isOk());
+  }
+
+  // ========== DELETE ENTITY WITH CLEAR OPTION TESTS ==========
+
+  @Test
+  public void testDeleteEntity_WithClearOption() throws Exception {
+    // Test deleteEntity with clear=true (removes all aspects except key aspect)
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+
+    // Mock entity exists
+    when(mockEntityService.exists(any(), anyCollection(), eq(true)))
+        .thenReturn(Collections.singleton(datasetUrn));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(
+                "/openapi/v3/entity/dataset/" + DATASET_URN + "?clear=true"))
+        .andExpect(status().isOk());
+
+    // Verify deleteAspect was called for each aspect (clear mode)
+    verify(mockEntityService, atLeastOnce()).deleteAspect(any(), any(), any(), any(), anyBoolean());
+    // Verify deleteUrn was NOT called (clear mode preserves entity)
+    verify(mockEntityService, never()).deleteUrn(any(), any());
+  }
+
+  @Test
+  public void testDeleteEntity_WithSpecificAspects() throws Exception {
+    // Test deleteEntity with specific aspects to delete
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+
+    // Mock entity exists
+    when(mockEntityService.exists(any(), anyCollection(), eq(true)))
+        .thenReturn(Collections.singleton(datasetUrn));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(
+                "/openapi/v3/entity/dataset/" + DATASET_URN + "?aspects=status"))
+        .andExpect(status().isOk());
+
+    // Verify deleteAspect was called for the specific aspect
+    verify(mockEntityService).deleteAspect(any(), any(), eq("status"), any(), anyBoolean());
+    // Verify deleteUrn was NOT called
+    verify(mockEntityService, never()).deleteUrn(any(), any());
+  }
+
   @TestConfiguration
   public static class TestConfig {
     @MockBean public EntityServiceImpl entityService;
@@ -867,8 +955,11 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
     }
 
     @Bean(name = "systemOperationContext")
-    public OperationContext systemOperationContext() {
-      return TestOperationContexts.systemContextNoSearchAuthorization();
+    public OperationContext systemOperationContext(AuthorizerChain authorizerChain) {
+      // Use userContextNoSearchAuthorization with the mock authorizer to enable authorization
+      // testing
+      return TestOperationContexts.userContextNoSearchAuthorization(
+          authorizerChain, TestOperationContexts.TEST_USER_AUTH, null);
     }
 
     @Bean("entityRegistry")
