@@ -1,7 +1,8 @@
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Dict, Iterable, Optional
+from typing import Callable, Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -200,6 +201,65 @@ def _generate_job_workunits(
         ).as_workunit()
 
 
+def _parse_procedure_dependencies(
+    dependencies_str: str,
+    database_key: DatabaseKey,
+    schema_key: Optional[SchemaKey],
+) -> List[str]:
+    """
+    Parse Oracle/SQL Server dependencies string and convert to DataJob URNs.
+
+    Args:
+        dependencies_str: Comma-separated string like "SCHEMA.PROC_NAME (PROCEDURE), SCHEMA.FUNC_NAME (FUNCTION)"
+        database_key: Database key for platform/instance/env information
+        schema_key: Schema key for schema context
+
+    Returns:
+        List of DataJob URNs for the referenced procedures/functions
+    """
+    input_jobs = []
+
+    # Split by comma
+    for dep in dependencies_str.split(","):
+        dep = dep.strip()
+
+        # Parse "SCHEMA.NAME (TYPE)" format - match PROCEDURE, FUNCTION, or PACKAGE
+        match = re.match(r"^([^(]+)\s*\((?:PROCEDURE|FUNCTION|PACKAGE)\)$", dep)
+        if not match:
+            continue
+
+        full_name = match.group(1).strip()
+        parts = full_name.split(".")
+
+        if len(parts) != 2:
+            continue
+
+        dep_schema, dep_name = parts
+
+        # Create DataJob URN for the referenced procedure/function
+        dep_job_urn = make_data_job_urn(
+            orchestrator=database_key.platform,
+            flow_id=_get_procedure_flow_name(
+                database_key,
+                SchemaKey(
+                    database=database_key.database,
+                    schema=dep_schema.lower(),
+                    platform=database_key.platform,
+                    instance=database_key.instance,
+                    env=database_key.env,
+                    backcompat_env_as_instance=database_key.backcompat_env_as_instance,
+                ),
+            ),
+            job_id=dep_name.lower(),
+            cluster=database_key.env or DEFAULT_ENV,
+            platform_instance=database_key.instance,
+        )
+
+        input_jobs.append(dep_job_urn)
+
+    return input_jobs
+
+
 def generate_procedure_lineage(
     *,
     schema_resolver: SchemaResolver,
@@ -210,6 +270,8 @@ def generate_procedure_lineage(
     is_temp_table: Callable[[str], bool] = lambda _: False,
     raise_: bool = False,
     report_failure: Optional[Callable[[str], None]] = None,
+    database_key: Optional[DatabaseKey] = None,
+    schema_key: Optional[SchemaKey] = None,
 ) -> Iterable[MetadataChangeProposalWrapper]:
     if procedure.procedure_definition and procedure.language == "SQL":
         datajob_input_output = parse_procedure_code(
@@ -221,6 +283,20 @@ def generate_procedure_lineage(
             raise_=raise_,
             procedure_name=procedure.name,
         )
+
+        # Add procedure-to-procedure lineage from Oracle/SQL Server dependencies
+        if datajob_input_output and procedure.extra_properties and database_key:
+            upstream_deps = procedure.extra_properties.get("upstream_dependencies", "")
+            if upstream_deps:
+                input_datajobs = _parse_procedure_dependencies(
+                    upstream_deps, database_key, schema_key
+                )
+                if input_datajobs:
+                    # Add to existing inputDatajobs or create new list
+                    if datajob_input_output.inputDatajobs:
+                        datajob_input_output.inputDatajobs.extend(input_datajobs)
+                    else:
+                        datajob_input_output.inputDatajobs = input_datajobs
 
         if datajob_input_output:
             yield MetadataChangeProposalWrapper(
@@ -264,5 +340,7 @@ def generate_procedure_workunits(
                 default_db=procedure.default_db or database_key.database,
                 default_schema=procedure.default_schema
                 or (schema_key.db_schema if schema_key else None),
+                database_key=database_key,
+                schema_key=schema_key,
             )
         )

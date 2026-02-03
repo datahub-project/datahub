@@ -1,0 +1,293 @@
+import pytest
+
+from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
+from datahub.metadata.schema_classes import (
+    NumberTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemalessClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+)
+from datahub.metadata.urns import DatasetUrn
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+
+
+def test_oracle_function_with_while_loop_and_select_into():
+    schema_resolver = SchemaResolver(platform="oracle", env="PROD")
+    view_urn = DatasetUrn("oracle", "TESTDB.ORDER_LINES").urn()
+    schema_resolver.add_schema_metadata(
+        urn=view_urn,
+        schema_metadata=SchemaMetadataClass(
+            schemaName="ORDER_LINES",
+            platform="urn:li:dataPlatform:oracle",
+            version=0,
+            hash="",
+            platformSchema=SchemalessClass(),
+            fields=[
+                SchemaFieldClass(
+                    fieldPath="order_id",
+                    type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                    nativeDataType="NUMBER",
+                ),
+                SchemaFieldClass(
+                    fieldPath="line_num",
+                    type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                    nativeDataType="NUMBER",
+                ),
+                SchemaFieldClass(
+                    fieldPath="item_code",
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    nativeDataType="VARCHAR2",
+                ),
+                SchemaFieldClass(
+                    fieldPath="tax_rate",
+                    type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                    nativeDataType="NUMBER",
+                ),
+            ],
+        ),
+    )
+
+    code = """
+BEGIN
+v_found:='N';
+
+SELECT min(line_num) INTO v_line_num FROM order_lines WHERE order_id=order_id_in
+AND item_code=item_code_in;
+
+WHILE v_found='N' LOOP
+  SELECT tax_rate
+  INTO v_tax 
+  FROM order_lines 
+  WHERE order_id=order_id_in AND line_num=v_line_num;
+
+  IF v_tax is null THEN
+     v_line_num:=v_line_num -1;
+  ELSE 
+     v_found:='Y';
+  END IF;
+
+END LOOP;
+
+tax_out:=v_tax;
+RETURN tax_out;
+END;
+"""
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="TESTDB",
+        default_schema=None,
+        code=code,
+        is_temp_table=lambda _: False,
+        raise_=False,
+        procedure_name="get_tax_rate",
+    )
+
+    assert result is not None
+    assert len(result.inputDatasets) == 1
+    assert result.inputDatasets[0] == view_urn
+    assert result.fineGrainedLineages is not None
+    assert len(result.fineGrainedLineages) >= 2
+
+
+@pytest.mark.parametrize(
+    "source_table,target_table,source_schema,target_schema,code,procedure_name",
+    [
+        (
+            "SOURCE_TABLE",
+            "TARGET_TABLE",
+            {"id": "NUMBER", "name": "VARCHAR2", "value": "NUMBER"},
+            {"id": "NUMBER", "name": "VARCHAR2", "value": "NUMBER"},
+            """
+BEGIN
+  INSERT INTO target_table (id, name, value)
+  SELECT id, name, value
+  FROM source_table
+  WHERE active = 1;
+
+  COMMIT;
+END;
+""",
+            "simple_insert_select",
+        ),
+        (
+            "SOURCE_TABLE",
+            "TARGET_TABLE",
+            {"id": "NUMBER", "name": "VARCHAR2"},
+            {"id": "NUMBER", "name": "VARCHAR2"},
+            """
+BEGIN
+  INSERT INTO target_table (id, name)
+  SELECT id, name FROM source_table;
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      DBMS_OUTPUT.PUT_LINE('Error occurred');
+      ROLLBACK;
+END;
+""",
+            "with_exception_handling",
+        ),
+        (
+            "EMPLOYEES",
+            "HIGH_EARNERS",
+            {"emp_id": "NUMBER", "emp_name": "VARCHAR2", "salary": "NUMBER"},
+            {"emp_id": "NUMBER", "emp_name": "VARCHAR2"},
+            """
+DECLARE
+  v_threshold NUMBER := 50000;
+BEGIN
+  FOR i IN 1..10 LOOP
+    INSERT INTO high_earners (emp_id, emp_name)
+    SELECT emp_id, emp_name 
+    FROM employees 
+    WHERE salary > v_threshold;
+  END LOOP;
+END;
+""",
+            "with_for_loop",
+        ),
+    ],
+    ids=["simple_insert", "exception_handling", "for_loop"],
+)
+def test_oracle_insert_select_patterns(
+    source_table, target_table, source_schema, target_schema, code, procedure_name
+):
+    schema_resolver = SchemaResolver(platform="oracle", env="PROD")
+    source_urn = DatasetUrn("oracle", f"TESTDB.{source_table}").urn()
+    schema_resolver.add_raw_schema_info(urn=source_urn, schema_info=source_schema)
+    target_urn = DatasetUrn("oracle", f"TESTDB.{target_table}").urn()
+    schema_resolver.add_raw_schema_info(urn=target_urn, schema_info=target_schema)
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="TESTDB",
+        default_schema=None,
+        code=code,
+        is_temp_table=lambda _: False,
+        raise_=False,
+        procedure_name=procedure_name,
+    )
+
+    assert result is not None
+    assert source_urn in result.inputDatasets
+    assert target_urn in result.outputDatasets
+
+
+def test_oracle_filter_variable_declarations():
+    schema_resolver = SchemaResolver(platform="oracle", env="PROD")
+
+    code = """
+DECLARE
+  v_count NUMBER;
+  v_name VARCHAR2(100);
+BEGIN
+  v_count := 0;
+  v_name := 'test';
+  
+  RETURN v_count;
+END;
+"""
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="TESTDB",
+        default_schema=None,
+        code=code,
+        is_temp_table=lambda _: False,
+        raise_=False,
+        procedure_name="test_proc",
+    )
+
+    assert result is None or (not result.inputDatasets and not result.outputDatasets)
+
+
+def test_oracle_procedure_to_procedure_lineage():
+    """Test that Oracle procedure dependencies are converted to DataJob lineage edges."""
+    from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
+    from datahub.ingestion.source.sql.stored_procedures.base import (
+        BaseProcedure,
+        generate_procedure_lineage,
+    )
+
+    schema_resolver = SchemaResolver(platform="oracle", env="PROD")
+
+    source_urn = DatasetUrn("oracle", "testdb.testschema.source_table").urn()
+    schema_resolver.add_raw_schema_info(
+        urn=source_urn,
+        schema_info={"id": "NUMBER", "value": "NUMBER"},
+    )
+
+    target_urn = DatasetUrn("oracle", "testdb.testschema.target_table").urn()
+    schema_resolver.add_raw_schema_info(
+        urn=target_urn,
+        schema_info={"id": "NUMBER", "value": "NUMBER"},
+    )
+
+    procedure = BaseProcedure(
+        name="main_procedure",
+        language="SQL",
+        argument_signature=None,
+        return_type=None,
+        procedure_definition="""
+BEGIN
+  INSERT INTO target_table (id, value)
+  SELECT id, value FROM source_table;
+END;
+""",
+        created=None,
+        last_altered=None,
+        comment=None,
+        extra_properties={
+            "upstream_dependencies": "TESTDB.HELPER_PROC (PROCEDURE), TESTDB.CALC_FUNC (FUNCTION)"
+        },
+    )
+
+    database_key = DatabaseKey(
+        database="testdb",
+        platform="oracle",
+        instance=None,
+        env="PROD",
+        backcompat_env_as_instance=True,
+    )
+
+    schema_key = SchemaKey(
+        database="testdb",
+        schema="testschema",
+        platform="oracle",
+        instance=None,
+        env="PROD",
+        backcompat_env_as_instance=True,
+    )
+
+    job_urn = procedure.to_urn(database_key, schema_key)
+
+    lineage_mcps = list(
+        generate_procedure_lineage(
+            schema_resolver=schema_resolver,
+            procedure=procedure,
+            procedure_job_urn=job_urn,
+            default_db="testdb",
+            default_schema="testschema",
+            database_key=database_key,
+            schema_key=schema_key,
+        )
+    )
+
+    assert len(lineage_mcps) == 1
+
+    from datahub.metadata.schema_classes import DataJobInputOutputClass
+
+    datajob_input_output = lineage_mcps[0].aspect
+    assert isinstance(datajob_input_output, DataJobInputOutputClass)
+
+    assert source_urn in datajob_input_output.inputDatasets
+
+    assert datajob_input_output.inputDatajobs is not None
+    assert len(datajob_input_output.inputDatajobs) == 2
+
+    input_job_urns = datajob_input_output.inputDatajobs
+    assert any("helper_proc" in urn.lower() for urn in input_job_urns)
+    assert any("calc_func" in urn.lower() for urn in input_job_urns)
