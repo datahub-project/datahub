@@ -8,9 +8,11 @@ In order to execute this source, you need to attach the `AmazonDynamoDBReadOnlyA
 dynamodb:ListTables
 dynamodb:DescribeTable
 dynamodb:Scan
+dynamodb:ListTagsOfResource
 ```
 
 We need `dynamodb:Scan` because Dynamodb does not return the schema in `dynamodb:DescribeTable` and thus we sample few values to understand the schema.
+`dynamodb:ListTagsOfResource` is required only when extract_table_tags is set to true in the table configuration, to automatically extract and read DynamoDB table tags.
 
 ### Concept Mapping
 

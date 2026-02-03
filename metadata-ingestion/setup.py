@@ -464,6 +464,12 @@ notion_common = {
     "unstructured-ingest[notion]==0.7.2",
 } | unstructured_lib
 
+confluence_common = {
+    # Confluence-specific connector adds atlassian-python-api and related dependencies
+    "unstructured-ingest[confluence]==0.7.2",
+    "atlassian-python-api>=3.41.0,<5.0.0",  # Supports 3.x and 4.x API versions
+} | unstructured_lib
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -692,6 +698,7 @@ plugins: Dict[str, Set[str]] = {
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks_common | databricks | sql_common,
     "notion": notion_common,
+    "confluence": confluence_common,
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
@@ -821,8 +828,10 @@ base_dev_requirements = {
             "clickhouse",
             "clickhouse-usage",
             "cockroachdb",
+            "confluence",
             # Note: datahub-documents removed from dev deps due to Python 3.10+ requirement
             # It's available as a separate extra and in the docs extra for doc generation
+            # TODO: Re-add datahub-documents here now that Python 3.9 support was dropped
             "dataplex",
             "delta-lake",
             "dremio",
@@ -864,6 +873,7 @@ base_dev_requirements = {
             "singlestore",
             "unity-catalog",
             "nifi",
+            "notion",
             "vertica",
             "mode",
             "fivetran",
@@ -883,8 +893,6 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
-    # Include unstructured for testing datahub-documents source
-    *unstructured_lib,
 }
 
 # Documentation generation requirements
@@ -947,6 +955,7 @@ entry_points = {
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
+        "confluence = datahub.ingestion.source.confluence.confluence_source:ConfluenceSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
         "db2 = datahub.ingestion.source.sql.db2:Db2Source",
