@@ -121,4 +121,32 @@ public class CreateApplicationResolverTest {
     Mockito.verify(mockApplicationService, Mockito.never())
         .createApplication(any(), any(), any(), any());
   }
+
+  @Test
+  public void testCanCreateApplicationWhenAuthorized() throws Exception {
+    CreateApplicationPropertiesInput propertiesInput =
+        CreateApplicationPropertiesInput.builder()
+            .setName(TEST_APP_NAME)
+            .setDescription(TEST_APP_DESCRIPTION)
+            .build();
+    CreateApplicationInput input =
+        CreateApplicationInput.builder().setId(TEST_APP_ID).setProperties(propertiesInput).build();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+
+    // Mock the ApplicationService call
+    Mockito.when(
+            mockApplicationService.createApplication(
+                any(), eq(TEST_APP_ID), eq(TEST_APP_NAME), eq(TEST_APP_DESCRIPTION)))
+        .thenReturn(TEST_APP_URN);
+
+    Mockito.when(mockApplicationService.getApplicationEntityResponse(any(), eq(TEST_APP_URN)))
+        .thenReturn(null);
+
+    // Execute - should succeed because setupTest() uses getMockAllowContext
+    resolver.get(mockEnv).get();
+
+    // Verify the application was created
+    Mockito.verify(mockApplicationService, Mockito.times(1))
+        .createApplication(any(), eq(TEST_APP_ID), eq(TEST_APP_NAME), eq(TEST_APP_DESCRIPTION));
+  }
 }
