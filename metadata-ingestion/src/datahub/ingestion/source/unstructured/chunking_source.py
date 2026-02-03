@@ -168,6 +168,17 @@ class DocumentChunkingSource(Source):
                     raise ValueError(
                         "Cohere API key is required when using cohere provider"
                     )
+            elif self.config.embedding.provider == "openai":
+                # Prefix with openai/ for litellm
+                model_name = self.config.embedding.model
+                assert model_name is not None
+                if not model_name.startswith("openai/"):
+                    model_name = f"openai/{model_name}"
+                self.embedding_model = model_name
+                if not self.config.embedding.api_key:
+                    raise ValueError(
+                        "OpenAI API key is required when using openai provider"
+                    )
             else:
                 raise ValueError(
                     f"Unsupported embedding provider: {self.config.embedding.provider}"
@@ -983,6 +994,104 @@ class DocumentChunkingSource(Source):
             return default_config
 
     @staticmethod
+    def _validate_provider_config(
+        embedding_config: "EmbeddingConfig",
+    ) -> tuple[Optional[str], Optional[CapabilityReport]]:
+        """Validate provider-specific configuration and return the litellm model string.
+
+        Returns:
+            Tuple of (embedding_model, error_report). If validation passes,
+            embedding_model is set and error_report is None. If validation fails,
+            embedding_model is None and error_report contains the failure details.
+        """
+        if embedding_config.provider == "bedrock":
+            if not embedding_config.model:
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="Bedrock model not specified in embedding config",
+                    mitigation_message="Set embedding.model to a valid Bedrock model (e.g., 'amazon.titan-embed-text-v1')",
+                )
+            return f"bedrock/{embedding_config.model}", None
+
+        elif embedding_config.provider == "cohere":
+            if not embedding_config.model:
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="Cohere model not specified in embedding config",
+                    mitigation_message="Set embedding.model to a valid Cohere model (e.g., 'embed-english-v3.0')",
+                )
+            if not embedding_config.api_key:
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="Cohere API key not provided",
+                    mitigation_message="Set embedding.api_key to your Cohere API key. "
+                    "Get one at https://dashboard.cohere.com/api-keys",
+                )
+            model_name = embedding_config.model
+            if not model_name.startswith("cohere/"):
+                model_name = f"cohere/{model_name}"
+            return model_name, None
+
+        elif embedding_config.provider == "openai":
+            if not embedding_config.model:
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="OpenAI model not specified in embedding config",
+                    mitigation_message="Set embedding.model to a valid OpenAI model (e.g., 'text-embedding-3-small')",
+                )
+            if not embedding_config.api_key:
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="OpenAI API key not provided",
+                    mitigation_message="Set embedding.api_key to your OpenAI API key. "
+                    "Get one at https://platform.openai.com/api-keys",
+                )
+            model_name = embedding_config.model
+            if not model_name.startswith("openai/"):
+                model_name = f"openai/{model_name}"
+            return model_name, None
+
+        else:
+            return None, CapabilityReport(
+                capable=False,
+                failure_reason=f"Unsupported embedding provider: {embedding_config.provider}",
+                mitigation_message="Supported providers: 'bedrock', 'cohere', 'openai'",
+            )
+
+    @staticmethod
+    def _get_embedding_error_mitigation(
+        error_str: str, embedding_config: "EmbeddingConfig"
+    ) -> str:
+        """Get mitigation message for common embedding errors."""
+        if "AuthFailure" in error_str or "InvalidClientTokenId" in error_str:
+            return (
+                "AWS credentials not configured or invalid. "
+                "Ensure AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY are set, "
+                "or IAM role is properly configured."
+            )
+        elif "invalid_api_key" in error_str or "Unauthorized" in error_str:
+            return (
+                "Invalid API key. "
+                "Check your Cohere API key at https://dashboard.cohere.com/api-keys"
+            )
+        elif "ValidationException" in error_str:
+            return (
+                "Invalid model or parameters. "
+                f"Check that model '{embedding_config.model}' is valid for {embedding_config.provider}."
+            )
+        elif "AccessDeniedException" in error_str:
+            return (
+                "AWS IAM permissions missing. "
+                "Ensure your AWS credentials have 'bedrock:InvokeModel' permission."
+            )
+        elif "rate_limit" in error_str.lower() or "throttl" in error_str.lower():
+            return "Rate limit exceeded. Try again in a few moments or increase your API quota."
+        else:
+            return (
+                f"Check your {embedding_config.provider} configuration and credentials."
+            )
+
+    @staticmethod
     def test_embedding_capability(
         embedding_config: "EmbeddingConfig",
     ) -> CapabilityReport:
@@ -1017,43 +1126,15 @@ class DocumentChunkingSource(Source):
                     mitigation_message="Install litellm: pip install 'acryl-datahub[unstructured-embedding]'",
                 )
 
-            # Determine embedding model name for litellm
+            # Validate provider config and get litellm model string
+            embedding_model, error_report = (
+                DocumentChunkingSource._validate_provider_config(embedding_config)
+            )
+            if error_report:
+                return error_report
+
             if embedding_config.provider == "bedrock":
-                if not embedding_config.model:
-                    return CapabilityReport(
-                        capable=False,
-                        failure_reason="Bedrock model not specified in embedding config",
-                        mitigation_message="Set embedding.model to a valid Bedrock model (e.g., 'amazon.titan-embed-text-v1')",
-                    )
-                embedding_model = f"bedrock/{embedding_config.model}"
                 litellm.set_verbose = False
-
-            elif embedding_config.provider == "cohere":
-                if not embedding_config.model:
-                    return CapabilityReport(
-                        capable=False,
-                        failure_reason="Cohere model not specified in embedding config",
-                        mitigation_message="Set embedding.model to a valid Cohere model (e.g., 'embed-english-v3.0')",
-                    )
-
-                model_name = embedding_config.model
-                if not model_name.startswith("cohere/"):
-                    model_name = f"cohere/{model_name}"
-                embedding_model = model_name
-
-                if not embedding_config.api_key:
-                    return CapabilityReport(
-                        capable=False,
-                        failure_reason="Cohere API key not provided",
-                        mitigation_message="Set embedding.api_key to your Cohere API key. "
-                        "Get one at https://dashboard.cohere.com/api-keys",
-                    )
-            else:
-                return CapabilityReport(
-                    capable=False,
-                    failure_reason=f"Unsupported embedding provider: {embedding_config.provider}",
-                    mitigation_message="Supported providers: 'bedrock', 'cohere'",
-                )
 
             # Test embedding generation with a simple text
             test_text = "DataHub semantic search test"
@@ -1085,38 +1166,11 @@ class DocumentChunkingSource(Source):
                 )
 
             except Exception as e:
-                # Parse error message for common issues
                 error_str = str(e)
                 error_class = e.__class__.__name__
-
-                # Provide specific guidance for common errors
-                if "AuthFailure" in error_str or "InvalidClientTokenId" in error_str:
-                    mitigation = (
-                        "AWS credentials not configured or invalid. "
-                        "Ensure AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY are set, "
-                        "or IAM role is properly configured."
-                    )
-                elif "invalid_api_key" in error_str or "Unauthorized" in error_str:
-                    mitigation = (
-                        "Invalid API key. "
-                        "Check your Cohere API key at https://dashboard.cohere.com/api-keys"
-                    )
-                elif "ValidationException" in error_str:
-                    mitigation = (
-                        "Invalid model or parameters. "
-                        f"Check that model '{embedding_config.model}' is valid for {embedding_config.provider}."
-                    )
-                elif "AccessDeniedException" in error_str:
-                    mitigation = (
-                        "AWS IAM permissions missing. "
-                        "Ensure your AWS credentials have 'bedrock:InvokeModel' permission."
-                    )
-                elif (
-                    "rate_limit" in error_str.lower() or "throttl" in error_str.lower()
-                ):
-                    mitigation = "Rate limit exceeded. Try again in a few moments or increase your API quota."
-                else:
-                    mitigation = f"Check your {embedding_config.provider} configuration and credentials."
+                mitigation = DocumentChunkingSource._get_embedding_error_mitigation(
+                    error_str, embedding_config
+                )
 
                 return CapabilityReport(
                     capable=False,

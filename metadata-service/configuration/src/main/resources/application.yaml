@@ -409,16 +409,30 @@ elasticsearch:
           efConstruction: ${ELASTICSEARCH_SEMANTIC_EF_CONSTRUCTION:128}
           m: ${ELASTICSEARCH_SEMANTIC_M:16}
       # Embedding provider configuration for generating query embeddings
-      # Supports AWS Bedrock with automatic credential resolution (AWS_PROFILE, EC2 instance roles, etc.)
+      # Supports three providers: "aws-bedrock", "openai", "cohere"
       embeddingProvider:
-        # Provider type: "aws-bedrock" (currently only Bedrock is supported)
+        # Provider type: "aws-bedrock", "openai", or "cohere"
         type: ${EMBEDDING_PROVIDER_TYPE:aws-bedrock}
+
+        # AWS Bedrock configuration (used when type is "aws-bedrock")
         # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
         awsRegion: ${EMBEDDING_PROVIDER_AWS_REGION:us-west-2}
         # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions)
         modelId: ${EMBEDDING_PROVIDER_MODEL_ID:cohere.embed-english-v3}
         # Maximum text length before truncation (Cohere enforces 2048 character limit)
         maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
+
+        # OpenAI configuration (used when type is "openai")
+        openai:
+          apiKey: ${OPENAI_API_KEY:}
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+          endpoint: ${OPENAI_EMBEDDING_ENDPOINT:https://api.openai.com/v1/embeddings}
+
+        # Cohere configuration (used when type is "cohere")
+        cohere:
+          apiKey: ${COHERE_API_KEY:}
+          model: ${COHERE_EMBEDDING_MODEL:embed-english-v3.0}
+          endpoint: ${COHERE_EMBEDDING_ENDPOINT:https://api.cohere.ai/v1/embed}
   # Multi-client shim configuration
   shim:
     # Enable the search client shim (false = use legacy RestHighLevelClient)
