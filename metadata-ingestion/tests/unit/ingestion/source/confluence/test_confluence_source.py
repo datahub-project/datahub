@@ -716,7 +716,7 @@ def test_browse_path_ancestor_not_ingested(
         "username": "test@example.com",
         "api_token": "test-token-123",
         "cloud": True,
-        "page_allow": ["20004"],  # Only OAuth 2.0 Guide, not its ancestors
+        "pages": {"allow": ["20004"]},  # Only OAuth 2.0 Guide, not its ancestors
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
