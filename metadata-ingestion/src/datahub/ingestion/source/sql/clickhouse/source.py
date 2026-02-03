@@ -684,10 +684,10 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         query_kinds = ["'Insert'", "'Create'", "'Select'"]
         query_kinds_clause = ", ".join(query_kinds)
 
-        # Note: query_log_table and usernames are validated by Pydantic field validators
+        # Security: query_log_table and usernames are validated by Pydantic field validators
         # (validate_query_log_table, validate_query_log_deny_usernames) to only allow safe
-        # SQL identifiers, preventing SQL injection. Table names cannot be parameterized
-        # in SQL, so input validation is the standard approach.
+        # SQL identifiers [a-zA-Z0-9_.], preventing SQL injection. Table names cannot be
+        # parameterized in SQL, so input validation is the standard approach.
         return f"""
 SELECT
     query_id,
@@ -709,7 +709,7 @@ WHERE type = 'QueryFinish'
   AND {user_filter_clause}
   AND query NOT LIKE '%system.%'
 ORDER BY event_time ASC
-"""
+"""  # nosec B608 - values are validated by Pydantic validators before use
 
     def _extract_query_log(self) -> Iterable[MetadataWorkUnit]:
         """Extract lineage and usage from query_log and yield workunits."""
