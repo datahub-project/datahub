@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata
+
+/**
+ * Version information for installed sample data.
+ * Used to track which version of sample data is currently installed,
+ * enabling incremental migration and avoiding duplication during URN changes.
+ */
+record SampleDataVersionInfo {
+
+  /**
+   * Installed sample data version (e.g., "001" for unprefixed, "473242af593e" for hash-based versions).
+   * This version corresponds to the manifest files in /boot/manifests/{version}_manifest.json.
+   */
+  installedVersion: optional string
+
+  /**
+   * Timestamp of last sample data ingestion (epoch milliseconds).
+   */
+  lastIngestedAt: optional long
+}

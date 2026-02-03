@@ -189,7 +189,7 @@ const FreeTrialOnboardingContent = () => {
                     });
                 }
                 history.push(
-                    '/dataset/urn:li:dataset:(urn:li:dataPlatform:snowflake,order_entry_db.analytics.order_details,PROD)/Lineage?highlightedPath=&is_lineage_mode=false&schemaFilter=',
+                    '/dataset/urn:li:dataset:(urn:li:dataPlatform:snowflake,sample_data_order_entry_db.analytics.sample_data_order_details,PROD)/Lineage?highlightedPath=&is_lineage_mode=false&schemaFilter=',
                 );
                 break;
             case FREE_TRIAL.CONNECT_SOURCE_ID:

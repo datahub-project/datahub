@@ -104,13 +104,25 @@ public class GenerateOrderDetailsStatisticsStep implements UpgradeStep {
       return false;
     }
 
+    // Check if the dataset exists
+    if (!statisticsGenerator.datasetExists(context.opContext())) {
+      log.info("order_details dataset does not exist. Skipping stats generation.");
+      return true;
+    }
+
+    // Check if stats already exist for the dataset
+    if (!statisticsGenerator.statisticsExist(context.opContext())) {
+      log.info("Stats do not exist for order_details dataset. Generating.");
+      return false;
+    }
+
     // Check if upgrade already ran
     boolean previouslyRun =
         entityService.exists(
             systemOpContext, UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
 
     if (previouslyRun) {
-      log.info("{} was already run. Skipping.", id());
+      log.info("{} was already run and stats exist. Skipping.", id());
     }
     return previouslyRun;
   }

@@ -41,7 +41,7 @@ import org.joda.time.DateTimeZone;
 public class OrderDetailsStatisticsGenerator {
 
   public static final String ORDER_DETAILS_DATASET_URN =
-      "urn:li:dataset:(urn:li:dataPlatform:snowflake,order_entry_db.analytics.order_details,PROD)";
+      "urn:li:dataset:(urn:li:dataPlatform:snowflake,sample_data_order_entry_db.analytics.sample_data_order_details,PROD)";
 
   private static final int BASE_ROW_COUNT = 100000;
   private static final int ROW_COUNT_INCREMENT_MIN = 1000;
@@ -276,15 +276,15 @@ public class OrderDetailsStatisticsGenerator {
     // Generate top SQL queries
     final StringArray topSqlQueries = new StringArray();
     topSqlQueries.add(
-        "SELECT * FROM order_entry_db.analytics.order_details WHERE order_date >= CURRENT_DATE - 7");
+        "SELECT * FROM sample_data_order_entry_db.analytics.sample_data_order_details WHERE order_date >= CURRENT_DATE - 7");
     topSqlQueries.add(
-        "SELECT customer_id, SUM(order_total) FROM order_entry_db.analytics.order_details GROUP BY customer_id");
+        "SELECT customer_id, SUM(order_total) FROM sample_data_order_entry_db.analytics.sample_data_order_details GROUP BY customer_id");
     topSqlQueries.add(
-        "SELECT product_id, COUNT(*) FROM order_entry_db.analytics.order_details WHERE order_date = CURRENT_DATE GROUP BY product_id");
+        "SELECT product_id, COUNT(*) FROM sample_data_order_entry_db.analytics.sample_data_order_details WHERE order_date = CURRENT_DATE GROUP BY product_id");
     topSqlQueries.add(
-        "SELECT * FROM order_entry_db.analytics.order_details WHERE order_status = 'COMPLETED' LIMIT 100");
+        "SELECT * FROM sample_data_order_entry_db.analytics.sample_data_order_details WHERE order_status = 'COMPLETED' LIMIT 100");
     topSqlQueries.add(
-        "SELECT order_id, order_total, customer_id FROM order_entry_db.analytics.order_details ORDER BY order_date DESC LIMIT 50");
+        "SELECT order_id, order_total, customer_id FROM sample_data_order_entry_db.analytics.sample_data_order_details ORDER BY order_date DESC LIMIT 50");
     usageStatistics.setTopSqlQueries(topSqlQueries);
 
     // Generate user counts (distribute queries across users)

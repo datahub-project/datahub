@@ -342,6 +342,36 @@ class DataHubExporter:
 
         return related_urns
 
+    def extract_schema_field_urns(self, mcps: List[Dict[str, Any]]) -> Set[str]:
+        """
+        Extract all schemaField URNs from fine-grained lineage in upstreamLineage aspects.
+        These entities need to be explicitly fetched for column-level lineage to work in UI.
+        """
+        schema_field_urns = set()
+
+        for mcp in mcps:
+            aspect_name = mcp.get("aspectName")
+            if aspect_name != "upstreamLineage":
+                continue
+
+            aspect_json = mcp.get("aspect", {}).get("json", {})
+            fine_grained_lineages = aspect_json.get("fineGrainedLineages", [])
+
+            for fg in fine_grained_lineages:
+                # Extract from upstreams
+                upstreams = fg.get("upstreams", [])
+                for urn in upstreams:
+                    if urn.startswith("urn:li:schemaField:("):
+                        schema_field_urns.add(urn)
+
+                # Extract from downstreams
+                downstreams = fg.get("downstreams", [])
+                for urn in downstreams:
+                    if urn.startswith("urn:li:schemaField:("):
+                        schema_field_urns.add(urn)
+
+        return schema_field_urns
+
     def _fetch_parent_containers(self, container_urns: Set[str]) -> Set[str]:
         """
         Recursively fetch parent containers to complete the container hierarchy.
@@ -701,8 +731,445 @@ class DataHubExporter:
 
         return mcps_parsed
 
+    def add_sample_prefix_to_urns(
+        self, mcps: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Add 'sample_data_' prefix to all entity names in URNs to prevent collisions.
+
+        Examples:
+        - urn:li:dataset:(urn:li:dataPlatform:snowflake,order_entry_db.analytics.order_details,PROD)
+          → urn:li:dataset:(urn:li:dataPlatform:snowflake,sample_data_order_entry_db.analytics.sample_data_order_details,PROD)
+
+        - urn:li:dashboard:(looker,order_entry::order_dashboard)
+          → urn:li:dashboard:(looker,order_entry::sample_data_order_dashboard)
+
+        - urn:li:corpuser:john.doe
+          → urn:li:corpuser:sample_data_john.doe
+
+        - urn:li:tag:PII
+          → urn:li:tag:sample_data_PII
+
+        This applies to:
+        1. Entity URNs (entityUrn field)
+        2. References within aspects (ownership.owners, container.container, etc.)
+        3. Lineage relationships (upstreamLineage, downstreamLineage)
+        """
+        import re
+
+        # Build URN mapping (old → new)
+        urn_map = {}
+
+        # First pass: Create mapping for all entity URNs
+        for mcp in mcps:
+            old_urn = mcp.get("entityUrn", "")
+            if old_urn:
+                new_urn = self._add_prefix_to_urn(old_urn)
+                if new_urn != old_urn:
+                    urn_map[old_urn] = new_urn
+
+        logging.info(f"Generated {len(urn_map)} URN transformations")
+
+        # Second pass: Apply transformations to all URNs (entity URNs + references)
+        for mcp in mcps:
+            # Transform entity URN
+            if "entityUrn" in mcp:
+                mcp["entityUrn"] = urn_map.get(mcp["entityUrn"], mcp["entityUrn"])
+
+            # Transform references within aspects
+            aspect_json = mcp.get("aspect", {}).get("json", {})
+            if aspect_json:
+                self._transform_aspect_urns(aspect_json, urn_map)
+                # Also transform display names in certain aspects
+                self._transform_display_names(aspect_json, mcp.get("aspectName"))
+                # Special handling for browsePathsV2 - transform URNs even if not in urn_map
+                if mcp.get("aspectName") == "browsePathsV2":
+                    self._transform_browse_paths_v2(aspect_json, urn_map)
+                # Transform URNs embedded in text fields (documentation, descriptions, etc.)
+                self._transform_embedded_urns_in_text(aspect_json, urn_map)
+
+        return mcps
+
+    def _add_prefix_to_urn(self, urn: str) -> str:
+        """Add sample_data_ prefix to entity name within URN."""
+        if not urn or not urn.startswith("urn:li:"):
+            return urn
+
+        # Skip if already prefixed to avoid double-prefixing
+        if "sample_data_" in urn:
+            return urn
+
+        try:
+            # Parse URN: urn:li:<entityType>:<key>
+            parts = urn.split(":", 3)  # Split into ['urn', 'li', 'entityType', 'key']
+            if len(parts) < 4:
+                return urn
+
+            entity_type = parts[2]
+            key = parts[3]
+
+            # Different transformation strategies based on entity type
+            if entity_type == "schemaField":
+                # SchemaField: (urn:li:dataset:(...),field) → transform embedded dataset URN
+                # Extract and transform the dataset URN within the schemaField URN
+                new_key = self._prefix_schema_field_key(key)
+            elif entity_type == "dataset":
+                # Dataset: (platform,name,env) → (platform,sample_data_name,env)
+                new_key = self._prefix_dataset_key(key)
+            elif entity_type in ["dashboard", "chart"]:
+                # Dashboard/Chart: (platform,name) → (platform,sample_data_name)
+                new_key = self._prefix_platform_entity_key(key)
+            elif entity_type == "dataFlow":
+                # DataFlow: (platform,flowName,env) → (platform,sample_data_flowName,sample_data_env)
+                new_key = self._prefix_dataflow_key(key)
+            elif entity_type == "dataJob":
+                # DataJob: Complex nested structure with embedded dataFlow URN
+                new_key = self._prefix_data_job_key(key)
+            elif entity_type in ["corpuser", "corpGroup"]:
+                # Users/Groups: username → sample_data_username
+                new_key = f"sample_data_{key}"
+            elif entity_type in ["tag", "glossaryTerm", "glossaryNode", "domain"]:
+                # Tags/Terms: name → sample_data_name
+                new_key = f"sample_data_{key}"
+            elif entity_type == "container":
+                # Container: guid → keep as-is (GUIDs are unique)
+                return urn
+            else:
+                # Default: prefix the key
+                new_key = f"sample_data_{key}"
+
+            return f"urn:li:{entity_type}:{new_key}"
+
+        except Exception as e:
+            logging.warning(f"Could not transform URN {urn}: {e}")
+            return urn
+
+    def _prefix_dataset_key(self, key: str) -> str:
+        """Transform dataset key: (platform,db.schema.table,env) → (platform,sample_data_db.schema.sample_data_table,env)"""
+        if not key.startswith("(") or not key.endswith(")"):
+            return f"sample_data_{key}"
+
+        # Remove parentheses and split
+        inner = key[1:-1]
+        parts = inner.split(",")
+
+        if len(parts) == 3:
+            platform, name, env = parts
+            # Add prefix to database and table parts
+            # order_entry_db.analytics.order_details → sample_data_order_entry_db.analytics.sample_data_order_details
+            name_parts = name.split(".")
+            if len(name_parts) >= 2:
+                # Prefix first (database) and last (table) parts
+                name_parts[0] = f"sample_data_{name_parts[0]}"
+                name_parts[-1] = f"sample_data_{name_parts[-1]}"
+                new_name = ".".join(name_parts)
+            else:
+                new_name = f"sample_data_{name}"
+
+            return f"({platform},{new_name},{env})"
+
+        return f"sample_data_{key}"
+
+    def _prefix_platform_entity_key(self, key: str) -> str:
+        """Transform platform entity key: (platform,name) → (platform,sample_data_name)"""
+        if not key.startswith("(") or not key.endswith(")"):
+            return f"sample_data_{key}"
+
+        inner = key[1:-1]
+        parts = inner.split(",", 1)  # Split only on first comma
+
+        if len(parts) == 2:
+            platform, name = parts
+            # Handle :: separators in Looker/Mode dashboards
+            if "::" in name:
+                name_parts = name.split("::")
+                name_parts[-1] = f"sample_data_{name_parts[-1]}"
+                new_name = "::".join(name_parts)
+            else:
+                new_name = f"sample_data_{name}"
+
+            return f"({platform},{new_name})"
+
+        return f"sample_data_{key}"
+
+    def _prefix_dataflow_key(self, key: str) -> str:
+        """
+        Transform dataFlow key: (platform,flowName,env) → (platform,sample_data_flowName,sample_data_env).
+
+        Example: (spark,export_table_orders_to_s3,default) → (spark,sample_data_export_table_orders_to_s3,sample_data_default)
+        """
+        if not key.startswith("(") or not key.endswith(")"):
+            return f"sample_data_{key}"
+
+        # Remove parentheses and split
+        inner = key[1:-1]
+        parts = inner.split(",")
+
+        if len(parts) == 3:
+            platform, flow_name, env = parts
+            # Add prefix to flow name and environment
+            new_flow_name = f"sample_data_{flow_name}"
+            new_env = f"sample_data_{env}"
+            return f"({platform},{new_flow_name},{new_env})"
+
+        return f"sample_data_{key}"
+
+    def _prefix_data_job_key(self, key: str) -> str:
+        """Transform dataJob key which contains embedded dataFlow URN."""
+        # DataJob format: (urn:li:dataFlow:(platform,name,env),jobName)
+        # Need to recursively transform the embedded dataFlow URN
+        if "urn:li:dataFlow:" in key:
+            # Regex to extract and replace dataFlow URN
+            import re
+
+            def replace_flow(match):
+                flow_urn = match.group(0)
+                return self._add_prefix_to_urn(flow_urn)
+
+            key = re.sub(r"urn:li:dataFlow:\([^)]+\)", replace_flow, key)
+
+        # Also prefix the job name at the end
+        if key.endswith(")") and "," in key:
+            parts = key.rsplit(",", 1)
+            if len(parts) == 2:
+                base, job_name = parts
+                job_name = job_name.rstrip(")")
+                key = f"{base},sample_data_{job_name})"
+
+        return key
+
+    def _prefix_schema_field_key(self, key: str) -> str:
+        """
+        Transform schemaField key by transforming the embedded dataset URN.
+        Format: (urn:li:dataset:(...),fieldPath)
+        Example: (urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD),field_name)
+        """
+        if not key.startswith("(") or not key.endswith(")"):
+            return key
+
+        try:
+            # Remove outer parentheses
+            content = key[1:-1]
+
+            # Find the dataset URN (it ends with ),fieldPath)
+            dataset_urn_end = content.rfind("),")
+            if dataset_urn_end == -1:
+                return key
+
+            dataset_urn = content[:dataset_urn_end + 1]
+            field_path = content[dataset_urn_end + 2:]
+
+            # Transform the dataset URN
+            transformed_dataset_urn = self._add_prefix_to_urn(dataset_urn)
+
+            # Reconstruct the schemaField key
+            return f"({transformed_dataset_urn},{field_path})"
+        except Exception as e:
+            logging.warning(f"Could not transform schemaField key {key}: {e}")
+            return key
+
+    def _transform_aspect_urns(self, obj: Any, urn_map: Dict[str, str]) -> None:
+        """Recursively transform URN references within aspect JSON."""
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                if isinstance(value, str) and value.startswith("urn:li:"):
+                    # Handle schemaField URNs specially - they contain embedded dataset URNs
+                    if value.startswith("urn:li:schemaField:("):
+                        obj[key] = self._transform_schema_field_urn(value, urn_map)
+                    else:
+                        # Regular entity URN - try urn_map first, fall back to _add_prefix_to_urn
+                        # This ensures URNs referencing non-exported entities also get prefixed
+                        obj[key] = urn_map.get(value, self._add_prefix_to_urn(value))
+                elif isinstance(value, (dict, list)):
+                    # Recurse into nested structures
+                    self._transform_aspect_urns(value, urn_map)
+        elif isinstance(obj, list):
+            for i, item in enumerate(obj):
+                if isinstance(item, str) and item.startswith("urn:li:"):
+                    # Handle schemaField URNs specially
+                    if item.startswith("urn:li:schemaField:("):
+                        obj[i] = self._transform_schema_field_urn(item, urn_map)
+                    else:
+                        # Regular entity URN - try urn_map first, fall back to _add_prefix_to_urn
+                        obj[i] = urn_map.get(item, self._add_prefix_to_urn(item))
+                elif isinstance(item, (dict, list)):
+                    self._transform_aspect_urns(item, urn_map)
+
+    def _transform_schema_field_urn(self, schema_field_urn: str, urn_map: Dict[str, str]) -> str:
+        """
+        Transform a schemaField URN by transforming its embedded dataset URN.
+
+        Format: urn:li:schemaField:(urn:li:dataset:(...),fieldPath)
+        """
+        try:
+            # Extract the dataset URN and field path
+            # Format: urn:li:schemaField:(dataset_urn,field_path)
+            if not schema_field_urn.startswith("urn:li:schemaField:("):
+                return schema_field_urn
+
+            # Remove prefix and trailing )
+            content = schema_field_urn[len("urn:li:schemaField:("):-1]
+
+            # Find the dataset URN (it ends with ,PROD) or similar)
+            # Look for the last occurrence of a closing parenthesis before the comma
+            dataset_urn_end = content.rfind("),")
+            if dataset_urn_end == -1:
+                return schema_field_urn
+
+            dataset_urn = content[:dataset_urn_end + 1]
+            field_path = content[dataset_urn_end + 2:]
+
+            # Transform the dataset URN if it exists in the map
+            transformed_dataset_urn = urn_map.get(dataset_urn, dataset_urn)
+
+            # Reconstruct the schemaField URN
+            return f"urn:li:schemaField:({transformed_dataset_urn},{field_path})"
+        except Exception as e:
+            logging.warning(f"Could not transform schemaField URN {schema_field_urn}: {e}")
+            return schema_field_urn
+
+    def _transform_display_names(self, aspect_json: Dict[str, Any], aspect_name: str) -> None:
+        """Transform display names in aspects to add sample_data_ prefix."""
+        if not aspect_json or not aspect_name:
+            return
+
+        # datasetProperties: prefix 'name' and 'qualifiedName'
+        if aspect_name == 'datasetProperties':
+            if 'name' in aspect_json:
+                name = aspect_json['name']
+                # For qualified names like ORDER_DETAILS or db.schema.table
+                if '.' in name:
+                    # Format: db.schema.table → sample_data_db.schema.sample_data_table
+                    parts = name.split('.')
+                    aspect_json['name'] = f"sample_data_{parts[0]}.{'.'.join(parts[1:-1]) + '.' if len(parts) > 2 else ''}{parts[-1] if len(parts) > 1 else parts[0]}"
+                else:
+                    # Simple name: TABLE → sample_data_TABLE
+                    aspect_json['name'] = f"sample_data_{name}"
+
+            if 'qualifiedName' in aspect_json:
+                qualified = aspect_json['qualifiedName']
+                # Format: DB.SCHEMA.TABLE → sample_data_DB.SCHEMA.sample_data_TABLE
+                if '.' in qualified:
+                    parts = qualified.split('.')
+                    # Prefix database and table name
+                    prefixed_parts = [f"sample_data_{parts[0]}"] + parts[1:-1] + [f"sample_data_{parts[-1]}"]
+                    aspect_json['qualifiedName'] = '.'.join(prefixed_parts)
+                else:
+                    aspect_json['qualifiedName'] = f"sample_data_{qualified}"
+
+        # dataFlowInfo, dataJobInfo: prefix 'name'
+        elif aspect_name in ['dataFlowInfo', 'dataJobInfo']:
+            if 'name' in aspect_json:
+                name = aspect_json['name']
+                # Only prefix if not already prefixed
+                if not name.startswith('sample_data_'):
+                    aspect_json['name'] = f"sample_data_{name}"
+
+        # dashboardInfo, chartInfo: prefix 'title' and 'customProperties'
+        elif aspect_name in ['dashboardInfo', 'chartInfo']:
+            if 'title' in aspect_json and aspect_json['title']:
+                title = aspect_json['title']
+                if not title.startswith('sample_data_'):
+                    aspect_json['title'] = f"sample_data_{title}"
+
+        # glossaryTermInfo, glossaryNodeInfo: prefix 'name'
+        elif aspect_name in ['glossaryTermInfo', 'glossaryNodeInfo']:
+            if 'name' in aspect_json:
+                name = aspect_json['name']
+                if not name.startswith('sample_data_'):
+                    aspect_json['name'] = f"sample_data_{name}"
+
+        # tagProperties: prefix 'name'
+        elif aspect_name == 'tagProperties':
+            if 'name' in aspect_json:
+                name = aspect_json['name']
+                if not name.startswith('sample_data_'):
+                    aspect_json['name'] = f"sample_data_{name}"
+
+        # containerProperties: prefix 'name' and 'qualifiedName' to prevent conflicts with user data
+        elif aspect_name == 'containerProperties':
+            if 'name' in aspect_json:
+                name = aspect_json['name']
+                if not name.startswith('sample_data_'):
+                    aspect_json['name'] = f"sample_data_{name}"
+
+            if 'qualifiedName' in aspect_json:
+                qualified = aspect_json['qualifiedName']
+                if qualified and not qualified.startswith('sample_data_'):
+                    aspect_json['qualifiedName'] = f"sample_data_{qualified}"
+
+    def _transform_browse_paths_v2(self, aspect_json: Dict[str, Any], urn_map: Dict[str, str]) -> None:
+        """
+        Special handling for browsePathsV2 aspects.
+
+        The browsePathsV2 aspect contains URN references that may not be in urn_map
+        because the source data (fieldeng) has unprefixed URNs in these aspects.
+        We need to transform them using _add_prefix_to_urn to ensure consistency.
+        """
+        if not aspect_json or 'path' not in aspect_json:
+            return
+
+        path_entries = aspect_json.get('path', [])
+        for entry in path_entries:
+            if isinstance(entry, dict):
+                # Transform both 'id' and 'urn' fields if they exist
+                if 'id' in entry and isinstance(entry['id'], str) and entry['id'].startswith('urn:li:'):
+                    # Try urn_map first, fall back to _add_prefix_to_urn
+                    original_urn = entry['id']
+                    entry['id'] = urn_map.get(original_urn, self._add_prefix_to_urn(original_urn))
+
+                if 'urn' in entry and isinstance(entry['urn'], str) and entry['urn'].startswith('urn:li:'):
+                    # Try urn_map first, fall back to _add_prefix_to_urn
+                    original_urn = entry['urn']
+                    entry['urn'] = urn_map.get(original_urn, self._add_prefix_to_urn(original_urn))
+
+    def _transform_embedded_urns_in_text(self, obj: Any, urn_map: Dict[str, str]) -> None:
+        """
+        Find and transform URN references embedded within text strings.
+
+        This handles cases like documentation/description fields that contain
+        markdown text with URN references like `urn:li:corpuser:EMP006`.
+
+        These URNs need to be transformed to use the sample_data_ prefix.
+        """
+        import re
+
+        # Pattern to match URNs in text (including those wrapped in backticks or parentheses)
+        urn_pattern = re.compile(r'(urn:li:[a-zA-Z]+:[^\s`"\'\)\]<>,]+)')
+
+        def transform_text_field(text: str) -> str:
+            """Transform all URN references in a text string."""
+            def replace_urn(match):
+                urn = match.group(1)
+                # Try urn_map first, fall back to _add_prefix_to_urn
+                return urn_map.get(urn, self._add_prefix_to_urn(urn))
+            return urn_pattern.sub(replace_urn, text)
+
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                if isinstance(value, str):
+                    # Check if this is a text field that might contain embedded URNs
+                    # Skip if it's a standalone URN field (those are handled by _transform_aspect_urns)
+                    if value.startswith("urn:li:") and not '\n' in value and len(value) < 200:
+                        # This is likely a standalone URN, skip
+                        continue
+                    # Transform URN references in text fields
+                    if 'urn:li:' in value:
+                        obj[key] = transform_text_field(value)
+                elif isinstance(value, (dict, list)):
+                    self._transform_embedded_urns_in_text(value, urn_map)
+        elif isinstance(obj, list):
+            for i, item in enumerate(obj):
+                if isinstance(item, str):
+                    if item.startswith("urn:li:") and not '\n' in item and len(item) < 200:
+                        continue
+                    if 'urn:li:' in item:
+                        obj[i] = transform_text_field(item)
+                elif isinstance(item, (dict, list)):
+                    self._transform_embedded_urns_in_text(item, urn_map)
+
     def _clean_ownership(
-        self, aspect_json: Dict[str, Any], existing_entities: set, removed_count: Dict
+        self, aspect_json: Dict[str, Any], existing_entities: set, removed_count: Dict, valid_users: set = None
     ) -> tuple[bool, bool]:
         """Clean ownership aspect. Returns (modified, should_skip)."""
         owners = aspect_json.get("owners", [])
@@ -710,9 +1177,19 @@ class DataHubExporter:
             return False, False
 
         original_count = len(owners)
-        cleaned_owners = [
-            owner for owner in owners if owner.get("owner", "") in existing_entities
-        ]
+
+        # Remove owners that don't exist OR are stub users (users without corpUserInfo)
+        if valid_users is not None:
+            cleaned_owners = [
+                owner for owner in owners
+                if owner.get("owner", "") in existing_entities and
+                   (not owner.get("owner", "").startswith("urn:li:corpuser:") or owner.get("owner", "") in valid_users)
+            ]
+        else:
+            cleaned_owners = [
+                owner for owner in owners if owner.get("owner", "") in existing_entities
+            ]
+
         removed_count["ownership_references"] += original_count - len(cleaned_owners)
 
         if len(cleaned_owners) != original_count:
@@ -843,6 +1320,21 @@ class DataHubExporter:
             return True
         return False
 
+    def _clean_glossary_terms(
+        self, aspect_json: Dict[str, Any], existing_entities: set, removed_count: Dict
+    ) -> bool:
+        """Clean entity-level glossary term references (not column-level)."""
+        terms = aspect_json.get("terms", [])
+        if not terms:
+            return False
+
+        cleaned = [t for t in terms if t.get("urn", "") in existing_entities]
+        if len(cleaned) != len(terms):
+            aspect_json["terms"] = cleaned
+            removed_count["entity_glossary_term_references"] += len(terms) - len(cleaned)
+            return True
+        return False
+
     def _clean_schema_metadata(
         self, aspect_json: Dict[str, Any], existing_entities: set, removed_count: Dict
     ) -> bool:
@@ -888,6 +1380,7 @@ class DataHubExporter:
         Remove broken references to entities that don't exist in the sample data.
 
         This prevents URNs from showing in the UI where entity names should appear.
+        Also removes stub users (users without corpUserInfo) from ownership.
         """
         from collections import defaultdict
 
@@ -902,8 +1395,16 @@ class DataHubExporter:
                 entity_type = urn.split("urn:li:")[1].split(":")[0]
                 existing_by_type[entity_type].add(urn)
 
+        # Build set of valid users (users with corpUserInfo, not just corpUserKey stubs)
+        valid_users = set()
+        for mcp in mcps:
+            if mcp.get("aspectName") == "corpUserInfo":
+                valid_users.add(mcp.get("entityUrn"))
+
+        stub_users = existing_by_type["corpuser"] - valid_users
+
         logging.info(f"Found {len(existing_entities)} entities in sample data")
-        logging.info(f"  - {len(existing_by_type['corpuser'])} users")
+        logging.info(f"  - {len(existing_by_type['corpuser'])} users ({len(stub_users)} stub users will be cleaned)")
         logging.info(f"  - {len(existing_by_type['corpGroup'])} groups")
         logging.info(f"  - {len(existing_by_type['dataset'])} datasets")
 
@@ -916,10 +1417,19 @@ class DataHubExporter:
             aspect_json = aspect.get("json", {})
             modified = False
 
+            # Skip stub user aspects (corpUserKey/status for users without corpUserInfo)
+            if mcp.get("entityType") == "corpuser":
+                entity_urn = mcp.get("entityUrn", "")
+                if entity_urn not in valid_users:
+                    # This is a stub user - only keep if it's being converted to a real user
+                    if aspect_name in ["corpUserKey", "status", "roleMembership"]:
+                        removed_count["stub_user_aspects"] += 1
+                        continue
+
             # Dispatch to appropriate cleaner
             if aspect_name == "ownership":
                 modified, should_skip = self._clean_ownership(
-                    aspect_json, existing_entities, removed_count
+                    aspect_json, existing_entities, removed_count, valid_users
                 )
                 if should_skip:
                     continue
@@ -944,6 +1454,10 @@ class DataHubExporter:
                 continue
             elif aspect_name == "domains":
                 modified = self._clean_domains(
+                    aspect_json, existing_entities, removed_count
+                )
+            elif aspect_name == "glossaryTerms":
+                modified = self._clean_glossary_terms(
                     aspect_json, existing_entities, removed_count
                 )
             elif aspect_name == "editableSchemaMetadata":
@@ -1262,34 +1776,54 @@ class DataHubExporter:
                 logging.error(f"Error batch fetching {entity_type} entities: {e}")
                 continue
 
-        # Step 6: Sort MCPs to ensure dependencies come first
+        # Step 6: Extract and fetch schemaField entities from fine-grained lineage
+        logging.info("Extracting schemaField entities from fine-grained lineage...")
+        schema_field_urns = self.extract_schema_field_urns(all_mcps)
+        if schema_field_urns:
+            logging.info(f"Found {len(schema_field_urns)} schemaField URNs in lineage")
+            try:
+                schema_field_entities = self.batch_get_entities("schemaField", list(schema_field_urns))
+                for urn, entity_data in schema_field_entities.items():
+                    try:
+                        mcps = self.convert_to_mcps(entity_data)
+                        all_mcps.extend(mcps)
+                    except Exception as e:
+                        logging.warning(f"Error converting schemaField {urn} to MCPs: {e}")
+            except Exception as e:
+                logging.error(f"Error batch fetching schemaField entities: {e}")
+
+        # Step 7: Sort MCPs to ensure dependencies come first
         logging.info("Sorting MCPs to ensure proper ingestion order...")
         sorted_mcps = self.sort_mcps_by_dependency(all_mcps)
 
-        # Step 7: Anonymize sensitive data (emails, URLs, names)
+        # Step 8: Anonymize sensitive data (emails, URLs, names)
         logging.info("Anonymizing sensitive data (emails, URLs, names)...")
         anonymized_mcps = self.anonymize_sensitive_data(sorted_mcps)
 
-        # Step 8: Clean up broken references to missing entities
+        # Step 9: Add sample_data_ prefix to all URNs to prevent collisions
+        logging.info("Adding sample_data_ prefix to URNs to prevent collisions...")
+        prefixed_mcps = self.add_sample_prefix_to_urns(anonymized_mcps)
+
+        # Step 10: Clean up broken references to missing entities
         # This removes references that would show as URNs in the UI:
         # - Missing users/groups in ownership and group membership
         # - Missing datasets in user activity
         # - Missing assertions, domains, tags, glossary terms
         # - Forms aspects (removed entirely for demo simplicity)
         logging.info("Cleaning up broken references to missing entities...")
-        cleaned_mcps = self.cleanup_broken_references(anonymized_mcps)
+        cleaned_mcps = self.cleanup_broken_references(prefixed_mcps)
 
-        # Step 9: Add missing status aspects for toggle feature
+        # Step 11: Add missing status aspects for toggle feature
         # This ensures all entities can be soft-deleted when sample data is toggled off
         logging.info("Adding missing status aspects for toggle feature...")
         final_mcps = self.add_missing_status_aspects(cleaned_mcps)
 
-        # Step 10: Add missing dataFlowInfo to prevent URN display
+        # Step 12: Add missing dataFlowInfo to prevent URN display
         # This ensures dataFlow entities show proper names instead of URNs in the UI
         logging.info("Ensuring all dataFlows have display names...")
         final_mcps = self.add_missing_dataflow_info(final_mcps)
 
-        # Step 11: Write to output file
+        # Step 13: Write to output file
         logging.info(f"Writing {len(final_mcps)} MCPs to {output_file}...")
         with open(output_file, "w") as f:
             json.dump(final_mcps, f, indent=2)

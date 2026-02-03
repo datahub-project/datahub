@@ -27,9 +27,9 @@ public class SampleDataIntegrityTest {
 
   private static final String SAMPLE_DATA_FILE = "/boot/sample_data_mcp.json";
 
-  // Critical seed entity for demo lineage
+  // Critical seed entity for demo lineage (with sample_data_ prefix for collision prevention)
   private static final String ORDER_DETAILS_URN =
-      "urn:li:dataset:(urn:li:dataPlatform:snowflake,order_entry_db.analytics.order_details,PROD)";
+      "urn:li:dataset:(urn:li:dataPlatform:snowflake,sample_data_order_entry_db.analytics.sample_data_order_details,PROD)";
 
   private List<JsonNode> mcps;
   private Map<String, List<String>> upstreamLineageMap;
@@ -389,6 +389,120 @@ public class SampleDataIntegrityTest {
       assertFalse(
           mcp.path("changeType").asText().isEmpty(), "MCP " + i + " should have changeType");
     }
+  }
+
+  /**
+   * Test that browsePathsV2 URNs have correct sample_data_ prefix.
+   *
+   * <p>This test prevents a regression where browsePathsV2 aspects for dataJob entities had parent
+   * dataFlow URNs without the sample_data_ prefix, causing incorrect URNs to appear in browse
+   * navigation.
+   *
+   * <p>For example, a dataJob with entityUrn containing
+   * "urn:li:dataFlow:(spark,sample_data_export_table_X,sample_data_default)" should have a
+   * browsePathsV2 aspect with the same prefixed URN, not the unprefixed version.
+   */
+  @Test
+  public void testBrowsePathsV2HaveCorrectPrefix() {
+    // Find all browsePathsV2 aspects for dataJob entities
+    List<String> violatingMcps = new ArrayList<>();
+
+    for (JsonNode mcp : mcps) {
+      String entityUrn = mcp.path("entityUrn").asText();
+      String aspectName = mcp.path("aspectName").asText();
+
+      if ("browsePathsV2".equals(aspectName) && entityUrn.contains(":dataJob:")) {
+        JsonNode pathArray = mcp.path("aspect").path("json").path("path");
+
+        if (pathArray.isArray()) {
+          for (JsonNode pathEntry : pathArray) {
+            String pathId = pathEntry.path("id").asText();
+            String pathUrn = pathEntry.path("urn").asText();
+
+            // Check if this is a dataFlow URN reference
+            if (pathId.contains("urn:li:dataFlow:(spark,")) {
+              // The parent dataFlow URN in the entityUrn should match the browsePathsV2 URN
+              // Extract parent flow from entityUrn: urn:li:dataJob:(PARENT_FLOW_URN,jobId)
+              String parentFlowInEntityUrn = extractParentFlowUrn(entityUrn);
+
+              if (parentFlowInEntityUrn != null) {
+                // Verify the browsePathsV2 URN matches the parent flow URN
+                if (!pathId.equals(parentFlowInEntityUrn)
+                    || !pathUrn.equals(parentFlowInEntityUrn)) {
+                  violatingMcps.add(
+                      String.format(
+                          "EntityUrn: %s\n  Expected browsePathsV2 URN: %s\n  Actual browsePathsV2 URN: %s",
+                          entityUrn, parentFlowInEntityUrn, pathId));
+                }
+
+                // Also check that the URN has the sample_data_ prefix
+                if (pathId.contains("export_table_") || pathId.contains("import_table_")) {
+                  if (!pathId.contains("sample_data_export_table_")
+                      && !pathId.contains("sample_data_import_table_")) {
+                    violatingMcps.add(
+                        String.format(
+                            "EntityUrn: %s\n  browsePathsV2 URN missing sample_data_ prefix: %s",
+                            entityUrn, pathId));
+                  }
+                  if (!pathId.contains("sample_data_default")) {
+                    violatingMcps.add(
+                        String.format(
+                            "EntityUrn: %s\n  browsePathsV2 URN missing sample_data_default environment: %s",
+                            entityUrn, pathId));
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    assertTrue(
+        violatingMcps.isEmpty(),
+        "Found browsePathsV2 aspects with incorrect URN prefixes:\n"
+            + String.join("\n\n", violatingMcps));
+  }
+
+  /**
+   * Extract the parent dataFlow URN from a dataJob entityUrn.
+   *
+   * <p>Example:
+   * urn:li:dataJob:(urn:li:dataFlow:(spark,sample_data_export_X,sample_data_default),jobId)
+   * Returns: urn:li:dataFlow:(spark,sample_data_export_X,sample_data_default)
+   */
+  private String extractParentFlowUrn(String dataJobUrn) {
+    if (!dataJobUrn.contains("urn:li:dataJob:(urn:li:dataFlow:")) {
+      return null;
+    }
+
+    // Find the start of the parent flow URN
+    int flowStart = dataJobUrn.indexOf("urn:li:dataFlow:");
+    if (flowStart == -1) {
+      return null;
+    }
+
+    // Find the end of the parent flow URN by counting parentheses
+    int parenCount = 0;
+    int flowEnd = -1;
+    for (int i = flowStart; i < dataJobUrn.length(); i++) {
+      char c = dataJobUrn.charAt(i);
+      if (c == '(') {
+        parenCount++;
+      } else if (c == ')') {
+        parenCount--;
+        if (parenCount == 0) {
+          flowEnd = i + 1;
+          break;
+        }
+      }
+    }
+
+    if (flowEnd == -1) {
+      return null;
+    }
+
+    return dataJobUrn.substring(flowStart, flowEnd);
   }
 
   /**

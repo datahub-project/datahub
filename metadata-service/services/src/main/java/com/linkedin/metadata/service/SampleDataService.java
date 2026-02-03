@@ -310,35 +310,52 @@ public class SampleDataService {
   private boolean isEsInSyncWithExpectedState(
       @Nonnull OperationContext opContext, boolean expectedRemoved) {
     try {
-      // Use order_details as a representative sample data entity
+      // Use the exact URN of the Snowflake order_details dataset as a representative
       // This is a key entity that always exists in sample data
-      String searchQuery = "order_details";
+      String testUrn =
+          "urn:li:dataset:(urn:li:dataPlatform:snowflake,sample_data_order_entry_db.analytics.sample_data_order_details,PROD)";
 
       log.info(
-          "ES sync check: searching for '{}' to verify sample data state (expecting removed={})",
-          searchQuery,
+          "ES sync check: searching for specific URN '{}' to verify ES state (expecting removed={})",
+          testUrn,
           expectedRemoved);
 
-      // Search using the same method as the UI - this automatically filters removed entities
+      // Search for the EXACT URN (not a text query) to avoid matching multiple entities
+      // This checks if ES has indexed this specific entity with the expected removed state
+      Filter urnFilter =
+          new Filter()
+              .setOr(
+                  new ConjunctiveCriterionArray(
+                      new ConjunctiveCriterion()
+                          .setAnd(
+                              new CriterionArray(
+                                  new Criterion()
+                                      .setField("urn")
+                                      .setValue(testUrn)
+                                      .setCondition(Condition.EQUAL)))));
+
       SearchResult result =
           searchService.search(
               opContext,
-              List.of("dataset"), // order_details is a dataset
-              searchQuery,
-              null, // no additional filters
+              List.of("dataset"),
+              testUrn, // query text (for scoring)
+              urnFilter, // filter by exact URN
               null, // no sort
               0, // from
-              10); // size - just need to know if any results exist
+              1); // size - just need to know if this one entity exists
 
       boolean foundInSearch = result.getNumEntities() > 0;
 
       log.info(
-          "ES sync check: search for '{}' returned {} results (found={})",
-          searchQuery,
+          "ES sync check: search for URN '{}' returned {} results (found={})",
+          testUrn,
           result.getNumEntities(),
           foundInSearch);
 
       // Determine if in sync based on search results
+      // Search automatically filters removed entities, so:
+      // - If found in search → entity is active (removed=false)
+      // - If not found → entity is removed (removed=true) or not indexed yet
       boolean isInSync;
       if (expectedRemoved) {
         // Expecting removed=true: should NOT be found in search (UI filters removed entities)
@@ -355,6 +372,8 @@ public class SampleDataService {
             foundInSearch,
             isInSync);
       }
+
+      log.info("ES sync check: isInSync={}", isInSync);
 
       return isInSync;
     } catch (Exception e) {
