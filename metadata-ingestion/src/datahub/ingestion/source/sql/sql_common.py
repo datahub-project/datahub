@@ -1116,8 +1116,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
-            view_names = inspector.get_view_names(schema)
-            for view in view_names:
+            for view in inspector.get_view_names(schema):
                 dataset_name = self.get_identifier(
                     schema=schema, entity=view, inspector=inspector
                 )
@@ -1247,8 +1246,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 default_db=default_db,
                 default_schema=default_schema,
             )
-        elif not view_definition:
-            logger.warning(f"Empty view definition for {dataset_name}")
 
         dataset_snapshot = DatasetSnapshotClass(
             urn=dataset_urn,

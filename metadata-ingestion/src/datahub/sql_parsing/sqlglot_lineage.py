@@ -393,15 +393,6 @@ def _extract_table_names(
 # 3. ARRAY JOIN pseudo-tables - may create unresolvable table references
 
 
-def _clickhouse_should_use_lenient_resolution(dialect: sqlglot.Dialect) -> bool:
-    """Check if lenient table resolution should be used for this dialect.
-
-    ClickHouse may have unresolvable table references from ARRAY JOIN pseudo-tables
-    or complex CTE scopes. In these cases, we skip rather than fail.
-    """
-    return is_dialect_instance(dialect, "clickhouse")
-
-
 # Dictionary functions that take a dictionary name as first argument.
 # These are NOT table references and should be excluded from lineage.
 # See: https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions
@@ -1985,20 +1976,13 @@ def _sqlglot_lineage_inner(
                 f"Column-level lineage completed: {len(column_lineage or [])} entries, {table_context}"
             )
     except CooperativeTimeoutError as e:
-        logger.warning(
-            f"Timed out while generating column-level lineage ({table_context}): {e}"
-        )
+        logger.debug(f"Timed out while generating column-level lineage: {e}")
         debug_info.column_error = e
     except UnsupportedStatementTypeError as e:
         # For this known exception type, we assume the error is logged at the point of failure.
-        logger.warning(
-            f"Unsupported statement type for column lineage ({table_context}): {e}"
-        )
         debug_info.column_error = e
     except Exception as e:
-        logger.warning(
-            f"Failed to generate column-level lineage ({table_context}): {e}"
-        )
+        logger.debug(f"Failed to generate column-level lineage: {e}", exc_info=True)
         debug_info.column_error = e
 
     # TODO: Can we generate a common JOIN tables / keys section?
@@ -2009,7 +1993,7 @@ def _sqlglot_lineage_inner(
     out_urns = sorted({table_name_urn_mapping[table] for table in modified})
     column_lineage_urns = None
     if column_lineage:
-        use_lenient_resolution = _clickhouse_should_use_lenient_resolution(dialect)
+        use_lenient_resolution = is_dialect_instance(dialect, "clickhouse")
         try:
             column_lineage_urns = [
                 translated
