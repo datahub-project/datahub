@@ -743,9 +743,10 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             report = self.report
 
             # Track if synced blocks are encountered for reporting
-            synced_blocks_encountered = []
+            synced_blocks_encountered = False
 
             def patched_from_dict(cls: Type[Any], data: dict) -> Any:
+                nonlocal synced_blocks_encountered
                 # Default children to empty list if not present
                 # Notion API doesn't nest children inside synced_block object
                 children = data.get("children", [])
@@ -766,7 +767,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                             "The pages were ingested successfully, but synced block content is missing. "
                             "This is a known limitation of the current connector version due to unstructured-ingest v0.7.2 compatibility.",
                         )
-                    synced_blocks_encountered.append(True)
+                    synced_blocks_encountered = True
 
                 return cls(children=children)
 
