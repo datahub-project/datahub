@@ -77,6 +77,8 @@ snowflake_requirements = {
 dev_requirements = {
     *lint_requirements,
     *mypy_stubs,
+    *snowflake_requirements,
+    *langchain_requirements,
     "pytest>=8.3.4,<9.0.0",
     "pytest-cov>=2.8.0,<7.0.0",
     "tox>=4.0.0,<5.0.0",

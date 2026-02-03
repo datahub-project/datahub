@@ -808,11 +808,21 @@ class TestCreateSnowflakeAgent:
         mock_cursor.description = None
         mock_conn.execute_string.return_value = [mock_cursor]
 
+        # Mock snowflake module
+        mock_snowflake = MagicMock()
+        mock_snowflake.connector.connect.return_value = mock_conn
+
         runner = CliRunner()
         with (
-            patch("snowflake.connector.connect", return_value=mock_conn),
+            patch.dict(
+                "sys.modules",
+                {
+                    "snowflake": mock_snowflake,
+                    "snowflake.connector": mock_snowflake.connector,
+                },
+            ),
             patch(
-                "datahub.ai.snowflake.snowflake.auto_detect_snowflake_params",
+                "datahub_agent_context.snowflake.snowflake.auto_detect_snowflake_params",
                 return_value=(
                     "test_account",
                     "test_user",
@@ -861,14 +871,21 @@ class TestCreateSnowflakeAgent:
         self, tmp_path: Path
     ) -> None:
         """Test handling of connection failure during execution."""
-        from unittest.mock import patch
+        from unittest.mock import MagicMock, patch
 
         from click.testing import CliRunner
 
+        # Mock snowflake module that raises exception
+        mock_snowflake = MagicMock()
+        mock_snowflake.connector.connect.side_effect = Exception("Connection failed")
+
         runner = CliRunner()
-        with patch(
-            "snowflake.connector.connect",
-            side_effect=Exception("Connection failed"),
+        with patch.dict(
+            "sys.modules",
+            {
+                "snowflake": mock_snowflake,
+                "snowflake.connector": mock_snowflake.connector,
+            },
         ):
             result = runner.invoke(
                 create_snowflake_agent,
@@ -912,11 +929,21 @@ class TestCreateSnowflakeAgent:
         mock_conn = MagicMock()
         mock_conn.execute_string.side_effect = Exception("SQL execution failed")
 
+        # Mock snowflake module
+        mock_snowflake = MagicMock()
+        mock_snowflake.connector.connect.return_value = mock_conn
+
         runner = CliRunner()
         with (
-            patch("snowflake.connector.connect", return_value=mock_conn),
+            patch.dict(
+                "sys.modules",
+                {
+                    "snowflake": mock_snowflake,
+                    "snowflake.connector": mock_snowflake.connector,
+                },
+            ),
             patch(
-                "datahub.ai.snowflake.snowflake.auto_detect_snowflake_params",
+                "datahub_agent_context.snowflake.snowflake.auto_detect_snowflake_params",
                 return_value=(
                     "test_account",
                     "test_user",
@@ -971,11 +998,21 @@ class TestCreateSnowflakeAgent:
         mock_cursor.description = None
         mock_conn.execute_string.return_value = [mock_cursor]
 
+        # Mock snowflake module
+        mock_snowflake = MagicMock()
+        mock_snowflake.connector.connect.return_value = mock_conn
+
         runner = CliRunner()
         with (
-            patch("snowflake.connector.connect", return_value=mock_conn),
+            patch.dict(
+                "sys.modules",
+                {
+                    "snowflake": mock_snowflake,
+                    "snowflake.connector": mock_snowflake.connector,
+                },
+            ),
             patch(
-                "datahub.ai.snowflake.snowflake.auto_detect_snowflake_params",
+                "datahub_agent_context.snowflake.snowflake.auto_detect_snowflake_params",
                 return_value=(
                     "test_account",
                     "test_user",
