@@ -471,6 +471,24 @@ def _clickhouse_extract_to_tables(
     )
 
 
+def _is_clickhouse_non_input(
+    table: sqlglot.exp.Table,
+    has_to_table: bool,
+) -> bool:
+    """Check if a table should be excluded from input tables for ClickHouse.
+
+    Excludes:
+    - Dictionary references inside DICTGET functions (not real tables)
+    - TO table references (they are outputs, not inputs)
+    - MV name in Schema when TO table exists (MV name is not an input)
+    """
+    return (
+        _is_in_clickhouse_dict_function(table)
+        or isinstance(table.parent, sqlglot.exp.ToTableProperty)
+        or (has_to_table and isinstance(table.parent, sqlglot.exp.Schema))
+    )
+
+
 def _clickhouse_filter_column_lineage(
     column_lineage: List[_ColumnLineageInfo],
     table_name_urn_mapping: Dict["_TableName", str],
@@ -692,12 +710,7 @@ def _table_level_lineage(
                 table
                 for table in statement.find_all(sqlglot.exp.Table)
                 if not isinstance(table.parent, sqlglot.exp.Drop)
-                and not _is_in_clickhouse_dict_function(table)
-                and not isinstance(table.parent, sqlglot.exp.ToTableProperty)
-                and not (
-                    clickhouse_to_tables
-                    and isinstance(table.parent, sqlglot.exp.Schema)
-                )
+                and not _is_clickhouse_non_input(table, bool(clickhouse_to_tables))
             ),
             dialect,
         )
@@ -1938,13 +1951,6 @@ def _sqlglot_lineage_inner(
 
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     joins = None
-    # Log context for column lineage debugging
-    table_context = (
-        f"downstream={downstream_table}, tables={list(table_name_schema_mapping.keys())}"
-        if downstream_table or table_name_schema_mapping
-        else "no tables"
-    )
-    logger.debug(f"Starting column-level lineage generation: {table_context}")
     try:
         with cooperative_timeout(
             timeout=(
@@ -1961,9 +1967,6 @@ def _sqlglot_lineage_inner(
             )
             column_lineage = column_lineage_debug_info.column_lineage
             joins = column_lineage_debug_info.joins
-            logger.debug(
-                f"Column-level lineage completed: {len(column_lineage or [])} entries, {table_context}"
-            )
     except CooperativeTimeoutError as e:
         logger.debug(f"Timed out while generating column-level lineage: {e}")
         debug_info.column_error = e
