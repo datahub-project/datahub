@@ -42,16 +42,12 @@ with DAG(
     schedule_interval=None,
     catchup=False,
 ) as dag:
-    # HACK: We don't want to send real requests to BigQuery. As a workaround,
-    # we can simply monkey-patch the operator and hook methods.
     BigQueryInsertJobOperator.execute = _fake_bigquery_insert_job_execute  # type: ignore
 
-    # Also patch the hook's insert_job method
     from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
 
     BigQueryHook.insert_job = _fake_insert_job  # type: ignore
 
-    # Test case 1: WITH destinationTable
     select_with_destination_config = BigQueryInsertJobOperator(
         gcp_conn_id="my_bigquery",
         task_id="select_with_destination_config",
@@ -80,7 +76,6 @@ with DAG(
         },
     )
 
-    # Test case 2: WITHOUT destinationTable
     insert_query_without_destination = BigQueryInsertJobOperator(
         gcp_conn_id="my_bigquery",
         task_id="insert_query_without_destination",
