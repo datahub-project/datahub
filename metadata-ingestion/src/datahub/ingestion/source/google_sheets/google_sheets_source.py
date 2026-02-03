@@ -923,7 +923,7 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
         """
         db_refs: List[DatabaseReference] = []
 
-        # BigQuery references (using pre-compiled patterns)
+        # BigQuery
         for match in BIGQUERY_DIRECT_PATTERN.finditer(formula):
             project_id = match.group(1)
             dataset_id = match.group(2)
@@ -940,7 +940,7 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
                 DatabaseReference.create_bigquery(project_id, dataset_id, table_id)
             )
 
-        # Snowflake references (using pre-compiled patterns)
+        # Snowflake (only process if keyword detected to avoid false positives)
         sf_matches = SNOWFLAKE_DIRECT_PATTERN.finditer(formula)
         if "snowflake" in formula.lower() or "jdbc:snowflake" in formula.lower():
             for match in sf_matches:
@@ -951,13 +951,12 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
                     DatabaseReference.create_snowflake(database, schema, table)
                 )
 
-        # JDBC Snowflake connections (using pre-compiled pattern)
         for match in SNOWFLAKE_JDBC_PATTERN.finditer(formula):
             database = match.group(2)
             schema = match.group(3)
             db_refs.append(DatabaseReference.create_snowflake(database, schema, None))
 
-        # Postgres/MySQL JDBC connections (using pre-compiled pattern)
+        # Postgres/MySQL
         for match in POSTGRES_MYSQL_JDBC_PATTERN.finditer(formula):
             platform_name = match.group(1).lower()
             database = match.group(2)
@@ -965,15 +964,15 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
             if table_match:
                 table = table_match.group(1)
                 if platform_name == "postgresql":
-                    # Postgres uses database.schema.table, assume public schema
+                    # Postgres uses schema.table format, default to public schema
                     db_refs.append(
                         DatabaseReference.create_postgres(database, "public", table)
                     )
                 else:
-                    # MySQL uses database.table (no schema)
+                    # MySQL uses database.table (no schema concept)
                     db_refs.append(DatabaseReference.create_mysql(database, table))
 
-        # Redshift JDBC connections (using pre-compiled pattern)
+        # Redshift
         for match in REDSHIFT_JDBC_PATTERN.finditer(formula):
             database = match.group(1)
             table_match = SQL_TABLE_PATTERN.search(formula)
@@ -1721,7 +1720,6 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
                             entityUrn=dataset_urn, aspect=dataset_usage_stats
                         ).as_workunit()
 
-                # Emit profile if enabled (profile individual sheet)
                 if self.config.profiling.enabled:
                     profile = self._profile_sheet_tab(
                         spreadsheet_id, sheet_data, sheet_tab_name

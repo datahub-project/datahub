@@ -148,7 +148,14 @@ class LineageExtractor:
                                 )
                             )
                             self.report.report_lineage_edge()
-            except Exception:
+            except (
+                ValueError,
+                TypeError,
+                IndexError,
+                AttributeError,
+                KeyError,
+            ):
+                # Skip sheet on regex/URN parsing errors; continue with others for graceful degradation
                 continue
 
         lineage = None

@@ -1,7 +1,6 @@
 """JDBC URL parsing and SQL extraction for Google Sheets formulas."""
 
 import logging
-import re
 from typing import List
 
 from datahub.ingestion.source.google_sheets.constants import (
@@ -41,7 +40,7 @@ class JDBCParser:
         """Extract all JDBC connection strings from a formula."""
         urls = []
         for pattern in cls.JDBC_PATTERNS:
-            for match in re.finditer(pattern, formula, re.IGNORECASE):
+            for match in pattern.finditer(formula):
                 urls.append(match.group(0))
         return urls
 

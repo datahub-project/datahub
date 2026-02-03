@@ -39,25 +39,18 @@ DRIVE_SPACES_ALL = "drive,appDataFolder,photos"
 # Platform Identifiers
 # ========================================
 
-# Platform name
 PLATFORM_NAME = "googlesheets"
-
-# Platform display name
 PLATFORM_DISPLAY_NAME = "Google Sheets"
-
-# Platform ID for decorators
 PLATFORM_ID = "google-sheets"
 
 # ========================================
 # Subtypes
 # ========================================
 
-# Dataset subtypes (use existing constants from common/subtypes.py)
 SUBTYPE_GOOGLE_SHEETS = DatasetSubTypes.GOOGLE_SHEETS
 SUBTYPE_GOOGLE_SHEETS_NAMED_RANGE = DatasetSubTypes.GOOGLE_SHEETS_NAMED_RANGE
 SUBTYPE_GOOGLE_SHEETS_TAB = DatasetSubTypes.GOOGLE_SHEETS_TAB
 
-# Container subtypes
 SUBTYPE_FOLDER = DatasetContainerSubTypes.FOLDER
 SUBTYPE_GOOGLE_SHEETS_SPREADSHEET = DatasetContainerSubTypes.GOOGLE_SHEETS_SPREADSHEET
 SUBTYPE_PLATFORM = DatasetContainerSubTypes.PLATFORM
@@ -66,7 +59,6 @@ SUBTYPE_PLATFORM = DatasetContainerSubTypes.PLATFORM
 # Google Sheets API Field Names
 # ========================================
 
-# Drive file fields
 FIELD_ID = "id"
 FIELD_NAME = "name"
 FIELD_DESCRIPTION = "description"
@@ -82,7 +74,6 @@ FIELD_DRIVE_ID = "driveId"
 FIELD_NEXT_PAGE_TOKEN = "nextPageToken"
 FIELD_FILES = "files"
 
-# Spreadsheet structure fields
 FIELD_SPREADSHEET = "spreadsheet"
 FIELD_PROPERTIES = "properties"
 FIELD_TITLE = "title"
@@ -91,12 +82,10 @@ FIELD_SHEET_ID = "sheetId"
 FIELD_VALUES = "values"
 FIELD_NAMED_RANGES = "namedRanges"
 
-# Permission fields
 FIELD_EMAIL_ADDRESS = "emailAddress"
 FIELD_ROLE = "role"
 FIELD_TYPE = "type"
 
-# Permission types
 PERMISSION_TYPE_USER = "user"
 PERMISSION_TYPE_GROUP = "group"
 PERMISSION_TYPE_DOMAIN = "domain"

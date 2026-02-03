@@ -107,8 +107,8 @@ class SchemaExtractor:
                             nativeDataType=inferred.native_type,
                         )
                     )
-            except Exception:
-                # Schema extraction failures are logged by caller
+            except (ValueError, TypeError, IndexError, AttributeError, KeyError):
+                # Skip sheet on data type inference/parsing errors; caller logs failures
                 continue
 
         schema_name = (
