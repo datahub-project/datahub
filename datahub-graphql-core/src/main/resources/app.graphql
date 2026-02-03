@@ -293,6 +293,11 @@ type PlatformPrivileges {
   Whether the user should be able to create support tickets
   """
   createSupportTickets: Boolean!
+
+  """
+  Whether the user can create, update, and delete service accounts.
+  """
+  manageServiceAccounts: Boolean!
 }
 
 """

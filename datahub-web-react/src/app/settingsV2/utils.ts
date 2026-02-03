@@ -3,7 +3,10 @@ import { EMAIL_SINK, SLACK_SINK, TEAMS_SINK } from '@app/settingsV2/notification
 import { AccessTokenDuration, AccessTokenType, AppConfig, GlobalSettings } from '@types';
 
 /** A type of DataHub Access Token. */
-export const ACCESS_TOKEN_TYPES = [{ text: 'Personal', type: AccessTokenType.Personal }];
+export const ACCESS_TOKEN_TYPES = [
+    { text: 'Personal', type: AccessTokenType.Personal },
+    { text: 'Service Account', type: AccessTokenType.ServiceAccount },
+];
 
 /** The duration for which an Access Token is valid. */
 export const ACCESS_TOKEN_DURATIONS = [

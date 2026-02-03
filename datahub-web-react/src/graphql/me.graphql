@@ -96,6 +96,7 @@ query getMe {
             canViewIngestionPage
             createSupportTickets
             manageDocuments
+            manageServiceAccounts
         }
     }
 }
