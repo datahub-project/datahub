@@ -265,4 +265,4 @@ pip install datahub-agent-context langchain langchain-openai langchain-community
 - **LangChain Docs**: [LangChain Agent Documentation](https://python.langchain.com/docs/modules/agents/)
 - **DataHub Agent Context**: [Agent Context Kit Guide](./agent-context.md)
 - **GitHub Issues**: [Report issues](https://github.com/datahub-project/datahub/issues)
-- **Community Slack**: [Join DataHub Slack](https://datahubspace.slack.com/)
+- **Community Slack**: [Join DataHub Slack](https://datahub.com/slack/)

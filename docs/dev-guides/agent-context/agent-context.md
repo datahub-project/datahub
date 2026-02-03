@@ -258,7 +258,7 @@ Check the DataHub server logs for more details on server-side errors.
 
 ### Getting Help
 
-- **Documentation**: [DataHub Docs](https://datahubproject.io/docs/)
-- **Community Slack**: [Join DataHub Slack](https://datahubspace.slack.com/)
+- **Documentation**: [DataHub Docs](https://docs.datahub.com/)
+- **Community Slack**: [Join DataHub Slack](https://datahub.com/slack/)
 - **GitHub Issues**: [Report bugs](https://github.com/datahub-project/datahub/issues)
 - **Email Support**: For DataHub Cloud customers, contact support@acryl.io

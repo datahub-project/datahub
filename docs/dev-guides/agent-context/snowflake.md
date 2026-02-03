@@ -335,7 +335,7 @@ In Snowflake Intelligence UI:
 
 - **DataHub Documentation**: [Agent Context Kit](./agent-context.md)
 - **Snowflake Intelligence Docs**: [Getting Started Guide](https://www.snowflake.com/en/developers/guides/getting-started-with-snowflake-intelligence)
-- **Community Support**: [DataHub Slack](https://datahubspace.slack.com/)
+- **Community Support**: [DataHub Slack](https://datahub.com/slack/)
 - **GitHub Issues**: [Report bugs](https://github.com/datahub-project/datahub/issues)
 - **DataHub Cloud Support**: Email support@acryl.io
 
