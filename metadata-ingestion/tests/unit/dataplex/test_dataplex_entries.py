@@ -28,13 +28,13 @@ class TestProcessEntry:
         return DataplexConfig(project_ids=["test-project"], env="PROD")
 
     @pytest.fixture
-    def entity_data_by_project(self):
-        """Create entity data dictionary."""
+    def entry_data_by_project(self):
+        """Create entry data dictionary."""
         return {}
 
     @pytest.fixture
-    def entity_data_lock(self):
-        """Create entity data lock."""
+    def entry_data_lock(self):
+        """Create entry data lock."""
         return Lock()
 
     @pytest.fixture
@@ -90,8 +90,8 @@ class TestProcessEntry:
     def test_entry_without_fqn(
         self,
         config,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -108,8 +108,8 @@ class TestProcessEntry:
                 entry=entry,
                 entry_group_id="@bigquery",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -117,12 +117,12 @@ class TestProcessEntry:
         )
 
         assert len(results) == 0
-        assert len(entity_data_by_project) == 0
+        assert len(entry_data_by_project) == 0
 
     def test_entry_filtered_by_pattern(
         self,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -149,8 +149,8 @@ class TestProcessEntry:
                 entry=entry_dev,
                 entry_group_id="@bigquery",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -173,8 +173,8 @@ class TestProcessEntry:
                 entry=entry_prod,
                 entry_group_id="@bigquery",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -202,8 +202,8 @@ class TestProcessEntry:
                 entry=entry_prod_temp,
                 entry_group_id="@bigquery",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -217,8 +217,8 @@ class TestProcessEntry:
     def test_entry_with_invalid_fqn(
         self,
         config,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -235,8 +235,8 @@ class TestProcessEntry:
                 entry=entry,
                 entry_group_id="@bigquery",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -248,8 +248,8 @@ class TestProcessEntry:
     def test_bigquery_entry_valid(
         self,
         config,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -272,8 +272,8 @@ class TestProcessEntry:
                 entry=entry,
                 entry_group_id="@bigquery",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -307,14 +307,13 @@ class TestProcessEntry:
         # Should have container for BigQuery
         assert container is not None
 
-        # Check entity data tracking
-        assert "test-project" in entity_data_by_project
-        entity_data = entity_data_by_project["test-project"]
-        assert len(entity_data) == 1
-        entity_tuple = next(iter(entity_data))
-        assert entity_tuple.entity_id == "my_table"
-        assert entity_tuple.source_platform == "bigquery"
-        assert entity_tuple.is_entry is True
+        # Check entry data tracking
+        assert "test-project" in entry_data_by_project
+        entry_data = entry_data_by_project["test-project"]
+        assert len(entry_data) == 1
+        entry_tuple = next(iter(entry_data))
+        assert entry_tuple.entry_id == "my_table"
+        assert entry_tuple.source_platform == "bigquery"
 
         # Check BigQuery container tracking
         assert "test-project" in bq_containers
@@ -323,8 +322,8 @@ class TestProcessEntry:
     def test_bigquery_entry_insufficient_parts(
         self,
         config,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -341,8 +340,8 @@ class TestProcessEntry:
                 entry=entry,
                 entry_group_id="@bigquery",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -354,8 +353,8 @@ class TestProcessEntry:
     def test_bigquery_entry_zone_metadata(
         self,
         config,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -378,8 +377,8 @@ class TestProcessEntry:
                     entry=entry,
                     entry_group_id="@bigquery",
                     config=config,
-                    entity_data_by_project=entity_data_by_project,
-                    entity_data_lock=entity_data_lock,
+                    entry_data_by_project=entry_data_by_project,
+                    entry_data_lock=entry_data_lock,
                     bq_containers=bq_containers,
                     bq_containers_lock=bq_containers_lock,
                     construct_mcps_fn=construct_mcps_fn,
@@ -393,8 +392,8 @@ class TestProcessEntry:
     def test_bigquery_entry_asset_metadata(
         self,
         config,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -419,8 +418,8 @@ class TestProcessEntry:
                     entry=entry,
                     entry_group_id="@bigquery",
                     config=config,
-                    entity_data_by_project=entity_data_by_project,
-                    entity_data_lock=entity_data_lock,
+                    entry_data_by_project=entry_data_by_project,
+                    entry_data_lock=entry_data_lock,
                     bq_containers=bq_containers,
                     bq_containers_lock=bq_containers_lock,
                     construct_mcps_fn=construct_mcps_fn,
@@ -434,8 +433,8 @@ class TestProcessEntry:
     def test_gcs_entry_valid(
         self,
         config,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -453,8 +452,8 @@ class TestProcessEntry:
                 entry=entry,
                 entry_group_id="@gcs",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -473,13 +472,12 @@ class TestProcessEntry:
         assert dataset_props is not None
         assert dataset_props.description == "GCS file"
 
-        # Check entity data tracking
-        assert "test-project" in entity_data_by_project
-        entity_data = entity_data_by_project["test-project"]
-        assert len(entity_data) == 1
-        entity_tuple = next(iter(entity_data))
-        assert entity_tuple.source_platform == "gcs"
-        assert entity_tuple.is_entry is True
+        # Check entry data tracking
+        assert "test-project" in entry_data_by_project
+        entry_data = entry_data_by_project["test-project"]
+        assert len(entry_data) == 1
+        entry_tuple = next(iter(entry_data))
+        assert entry_tuple.source_platform == "gcs"
 
         # GCS entries should not have containers
         assert len(bq_containers) == 0
@@ -487,8 +485,8 @@ class TestProcessEntry:
     def test_gcs_entry_insufficient_parts(
         self,
         config,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -505,8 +503,8 @@ class TestProcessEntry:
                 entry=entry,
                 entry_group_id="@gcs",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -518,8 +516,8 @@ class TestProcessEntry:
     def test_gcs_entry_asset_metadata(
         self,
         config,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -536,8 +534,8 @@ class TestProcessEntry:
                 entry=entry,
                 entry_group_id="@gcs",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -548,8 +546,8 @@ class TestProcessEntry:
 
     def test_entry_with_schema_extraction_enabled(
         self,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -591,8 +589,8 @@ class TestProcessEntry:
                     entry=entry,
                     entry_group_id="@bigquery",
                     config=config,
-                    entity_data_by_project=entity_data_by_project,
-                    entity_data_lock=entity_data_lock,
+                    entry_data_by_project=entry_data_by_project,
+                    entry_data_lock=entry_data_lock,
                     bq_containers=bq_containers,
                     bq_containers_lock=bq_containers_lock,
                     construct_mcps_fn=construct_mcps_fn,
@@ -612,8 +610,8 @@ class TestProcessEntry:
 
     def test_entry_with_schema_extraction_disabled(
         self,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -639,8 +637,8 @@ class TestProcessEntry:
                     entry=entry,
                     entry_group_id="@bigquery",
                     config=config,
-                    entity_data_by_project=entity_data_by_project,
-                    entity_data_lock=entity_data_lock,
+                    entry_data_by_project=entry_data_by_project,
+                    entry_data_lock=entry_data_lock,
                     bq_containers=bq_containers,
                     bq_containers_lock=bq_containers_lock,
                     construct_mcps_fn=construct_mcps_fn,
@@ -661,8 +659,8 @@ class TestProcessEntry:
     def test_entry_without_timestamps(
         self,
         config,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -681,8 +679,8 @@ class TestProcessEntry:
                 entry=entry,
                 entry_group_id="@bigquery",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -702,8 +700,8 @@ class TestProcessEntry:
     def test_entry_without_entry_source(
         self,
         config,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -721,8 +719,8 @@ class TestProcessEntry:
                 entry=entry,
                 entry_group_id="@bigquery",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -743,8 +741,8 @@ class TestProcessEntry:
     def test_entry_custom_properties(
         self,
         config,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -762,8 +760,8 @@ class TestProcessEntry:
                 entry=entry,
                 entry_group_id="@bigquery",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -789,8 +787,8 @@ class TestProcessEntry:
     def test_multiple_entries_same_project(
         self,
         config,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -813,8 +811,8 @@ class TestProcessEntry:
                 entry=entry1,
                 entry_group_id="@bigquery",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -828,8 +826,8 @@ class TestProcessEntry:
                 entry=entry2,
                 entry_group_id="@bigquery",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,
@@ -837,8 +835,8 @@ class TestProcessEntry:
         )
 
         # Check entity data tracking
-        assert "test-project" in entity_data_by_project
-        entity_data = entity_data_by_project["test-project"]
+        assert "test-project" in entry_data_by_project
+        entity_data = entry_data_by_project["test-project"]
         assert len(entity_data) == 2
 
         # Check BigQuery container tracking
@@ -849,8 +847,8 @@ class TestProcessEntry:
     def test_entry_fqn_without_colon(
         self,
         config,
-        entity_data_by_project,
-        entity_data_lock,
+        entry_data_by_project,
+        entry_data_lock,
         bq_containers,
         bq_containers_lock,
         construct_mcps_fn,
@@ -867,8 +865,8 @@ class TestProcessEntry:
                 entry=entry,
                 entry_group_id="@bigquery",
                 config=config,
-                entity_data_by_project=entity_data_by_project,
-                entity_data_lock=entity_data_lock,
+                entry_data_by_project=entry_data_by_project,
+                entry_data_lock=entry_data_lock,
                 bq_containers=bq_containers,
                 bq_containers_lock=bq_containers_lock,
                 construct_mcps_fn=construct_mcps_fn,

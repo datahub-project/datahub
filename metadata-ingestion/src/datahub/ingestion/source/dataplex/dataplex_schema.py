@@ -5,9 +5,6 @@ from typing import Any, Optional
 
 from google.cloud import dataplex_v1
 
-from datahub.ingestion.source.dataplex.dataplex_helpers import (
-    map_dataplex_field_to_datahub,
-)
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -24,68 +21,6 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DataPlatformUrn
 
 logger = logging.getLogger(__name__)
-
-
-def extract_schema_metadata(
-    entity: dataplex_v1.Entity, dataset_urn: str, platform: str
-) -> Optional[SchemaMetadataClass]:
-    """Extract schema metadata from Dataplex entity.
-
-    Args:
-        entity: Dataplex entity object
-        dataset_urn: Dataset URN (not used, kept for compatibility)
-        platform: Platform name (bigquery, gcs, etc.)
-
-    Returns:
-        SchemaMetadataClass if schema found, None otherwise
-    """
-    if not entity.schema or not entity.schema.fields:
-        return None
-
-    fields = []
-    for field in entity.schema.fields:
-        field_path = field.name
-
-        field_type = map_dataplex_field_to_datahub(field)
-
-        schema_field = SchemaFieldClass(
-            fieldPath=field_path,
-            type=field_type,
-            nativeDataType=dataplex_v1.types.Schema.Type(field.type_).name,
-            description=field.description or "",
-            nullable=True,  # Dataplex doesn't explicitly track nullability
-            recursive=False,
-        )
-
-        # Handle nested fields
-        if field.fields:
-            schema_field.type = SchemaFieldDataTypeClass(type=RecordTypeClass())
-            # Add nested fields
-            for nested_field in field.fields:
-                nested_field_path = f"{field_path}.{nested_field.name}"
-                nested_type = map_dataplex_field_to_datahub(nested_field)
-                nested_schema_field = SchemaFieldClass(
-                    fieldPath=nested_field_path,
-                    type=nested_type,
-                    nativeDataType=dataplex_v1.types.Schema.Type(
-                        nested_field.type_
-                    ).name,
-                    description=nested_field.description or "",
-                    nullable=True,
-                    recursive=False,
-                )
-                fields.append(nested_schema_field)
-
-        fields.append(schema_field)
-
-    return SchemaMetadataClass(
-        schemaName=entity.id,
-        platform=str(DataPlatformUrn(platform)),
-        version=0,
-        hash="",
-        platformSchema=OtherSchemaClass(rawSchema=""),
-        fields=fields,
-    )
 
 
 def extract_field_value(field_data: Any, field_key: str, default: str = "") -> str:

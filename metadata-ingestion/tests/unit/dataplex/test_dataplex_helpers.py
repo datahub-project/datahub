@@ -3,88 +3,47 @@
 import json
 from unittest.mock import Mock
 
-from google.api_core import exceptions
-from google.cloud import dataplex_v1
-
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
-    EntityDataTuple,
-    determine_entity_platform,
-    extract_entity_metadata,
+    EntryDataTuple,
     make_audit_stamp,
     make_bigquery_dataset_container_key,
-    make_dataplex_external_url,
-    make_entity_dataset_urn,
-    map_dataplex_field_to_datahub,
-    map_dataplex_type_to_datahub,
     parse_entry_fqn,
     serialize_field_value,
 )
-from datahub.metadata.schema_classes import (
-    ArrayTypeClass,
-    SchemaFieldDataTypeClass,
-    StringTypeClass,
-)
 
 
-class TestEntityDataTuple:
-    """Test EntityDataTuple dataclass."""
+class TestEntryDataTuple:
+    """Test EntryDataTuple dataclass."""
 
-    def test_create_entity_data_tuple(self):
-        """Test creating EntityDataTuple."""
-        entity_data = EntityDataTuple(
-            lake_id="test-lake",
-            zone_id="test-zone",
-            entity_id="test-entity",
-            asset_id="test-asset",
+    def test_create_entry_data_tuple(self):
+        """Test creating EntryDataTuple."""
+        entry_data = EntryDataTuple(
+            entry_id="test-entry",
             source_platform="bigquery",
-            dataset_id="test-dataset",
-            is_entry=True,
+            dataset_id="test-project.test-dataset.test-table",
         )
 
-        assert entity_data.lake_id == "test-lake"
-        assert entity_data.zone_id == "test-zone"
-        assert entity_data.entity_id == "test-entity"
-        assert entity_data.asset_id == "test-asset"
-        assert entity_data.source_platform == "bigquery"
-        assert entity_data.dataset_id == "test-dataset"
-        assert entity_data.is_entry is True
+        assert entry_data.entry_id == "test-entry"
+        assert entry_data.source_platform == "bigquery"
+        assert entry_data.dataset_id == "test-project.test-dataset.test-table"
 
-    def test_entity_data_tuple_hashable(self):
-        """Test that EntityDataTuple is hashable (frozen)."""
-        entity_data1 = EntityDataTuple(
-            lake_id="lake1",
-            zone_id="zone1",
-            entity_id="entity1",
-            asset_id="asset1",
+    def test_entry_data_tuple_hashable(self):
+        """Test that EntryDataTuple is hashable (frozen)."""
+        entry_data1 = EntryDataTuple(
+            entry_id="entry1",
             source_platform="bigquery",
-            dataset_id="dataset1",
+            dataset_id="project.dataset.table",
         )
 
-        entity_data2 = EntityDataTuple(
-            lake_id="lake1",
-            zone_id="zone1",
-            entity_id="entity1",
-            asset_id="asset1",
+        entry_data2 = EntryDataTuple(
+            entry_id="entry1",
             source_platform="bigquery",
-            dataset_id="dataset1",
+            dataset_id="project.dataset.table",
         )
 
         # Should be able to add to set
-        entity_set = {entity_data1, entity_data2}
-        assert len(entity_set) == 1
-
-    def test_entity_data_tuple_default_is_entry(self):
-        """Test default value for is_entry."""
-        entity_data = EntityDataTuple(
-            lake_id="lake1",
-            zone_id="zone1",
-            entity_id="entity1",
-            asset_id="asset1",
-            source_platform="bigquery",
-            dataset_id="dataset1",
-        )
-
-        assert entity_data.is_entry is False
+        entry_set = {entry_data1, entry_data2}
+        assert len(entry_set) == 1
 
 
 class TestMakeBigQueryDatasetContainerKey:
@@ -106,37 +65,6 @@ class TestMakeBigQueryDatasetContainerKey:
         assert key.backcompat_env_as_instance is True
 
 
-class TestMakeEntityDatasetUrn:
-    """Test make_entity_dataset_urn function."""
-
-    def test_make_dataset_urn_bigquery(self):
-        """Test creating dataset URN for BigQuery."""
-        urn = make_entity_dataset_urn(
-            entity_id="my_table",
-            project_id="test-project",
-            env="PROD",
-            dataset_id="my_dataset",
-            platform="bigquery",
-        )
-
-        assert "urn:li:dataset:" in urn
-        assert "bigquery" in urn
-        assert "test-project.my_dataset.my_table" in urn
-
-    def test_make_dataset_urn_gcs(self):
-        """Test creating dataset URN for GCS."""
-        urn = make_entity_dataset_urn(
-            entity_id="file.parquet",
-            project_id="test-project",
-            env="PROD",
-            dataset_id="my-bucket",
-            platform="gcs",
-        )
-
-        assert "urn:li:dataset:" in urn
-        assert "gcs" in urn
-
-
 class TestMakeAuditStamp:
     """Test make_audit_stamp function."""
 
@@ -155,362 +83,6 @@ class TestMakeAuditStamp:
         """Test creating audit stamp with None timestamp."""
         result = make_audit_stamp(None)
         assert result is None
-
-
-class TestMakeDataplexExternalUrl:
-    """Test make_dataplex_external_url function."""
-
-    def test_make_external_url(self):
-        """Test generating Dataplex external URL."""
-        url = make_dataplex_external_url(
-            resource_type="lakes",
-            resource_id="my-lake",
-            project_id="test-project",
-            location="us-central1",
-            base_url="https://console.cloud.google.com/dataplex",
-        )
-
-        assert "https://console.cloud.google.com/dataplex/lakes" in url
-        assert "us-central1" in url
-        assert "my-lake" in url
-        assert "test-project" in url
-
-
-class TestDetermineEntityPlatform:
-    """Test determine_entity_platform function."""
-
-    def test_determine_platform_no_asset(self):
-        """Test determination when entity has no asset."""
-        entity = Mock(spec=dataplex_v1.Entity)
-        entity.asset = None
-
-        platform = determine_entity_platform(
-            entity=entity,
-            project_id="test-project",
-            lake_id="test-lake",
-            zone_id="test-zone",
-            location="us-central1",
-            dataplex_client=Mock(),
-        )
-
-        assert platform == "dataplex"
-
-    def test_determine_platform_bigquery(self):
-        """Test determination for BigQuery asset."""
-        entity = Mock(spec=dataplex_v1.Entity)
-        entity.asset = "test-asset"
-
-        mock_asset = Mock()
-        mock_asset.resource_spec = Mock()
-        mock_asset.resource_spec.type_ = Mock()
-        mock_asset.resource_spec.type_.name = "BIGQUERY_DATASET"
-
-        mock_client = Mock()
-        mock_client.get_asset.return_value = mock_asset
-
-        platform = determine_entity_platform(
-            entity=entity,
-            project_id="test-project",
-            lake_id="test-lake",
-            zone_id="test-zone",
-            location="us-central1",
-            dataplex_client=mock_client,
-        )
-
-        assert platform == "bigquery"
-
-    def test_determine_platform_gcs(self):
-        """Test determination for GCS asset."""
-        entity = Mock(spec=dataplex_v1.Entity)
-        entity.asset = "test-asset"
-
-        mock_asset = Mock()
-        mock_asset.resource_spec = Mock()
-        mock_asset.resource_spec.type_ = Mock()
-        mock_asset.resource_spec.type_.name = "STORAGE_BUCKET"
-
-        mock_client = Mock()
-        mock_client.get_asset.return_value = mock_asset
-
-        platform = determine_entity_platform(
-            entity=entity,
-            project_id="test-project",
-            lake_id="test-lake",
-            zone_id="test-zone",
-            location="us-central1",
-            dataplex_client=mock_client,
-        )
-
-        assert platform == "gcs"
-
-    def test_determine_platform_api_error(self):
-        """Test determination with API error."""
-        entity = Mock(spec=dataplex_v1.Entity)
-        entity.asset = "test-asset"
-
-        mock_client = Mock()
-        mock_client.get_asset.side_effect = exceptions.GoogleAPICallError("API error")
-
-        platform = determine_entity_platform(
-            entity=entity,
-            project_id="test-project",
-            lake_id="test-lake",
-            zone_id="test-zone",
-            location="us-central1",
-            dataplex_client=mock_client,
-        )
-
-        assert platform == "dataplex"
-
-    def test_determine_platform_attribute_error(self):
-        """Test determination with unexpected asset structure."""
-        entity = Mock(spec=dataplex_v1.Entity)
-        entity.asset = "test-asset"
-
-        mock_asset = Mock()
-        mock_asset.resource_spec = None
-
-        mock_client = Mock()
-        mock_client.get_asset.return_value = mock_asset
-
-        platform = determine_entity_platform(
-            entity=entity,
-            project_id="test-project",
-            lake_id="test-lake",
-            zone_id="test-zone",
-            location="us-central1",
-            dataplex_client=mock_client,
-        )
-
-        assert platform == "dataplex"
-
-
-class TestMapDataplexTypeToDatahub:
-    """Test map_dataplex_type_to_datahub function."""
-
-    def test_map_known_type(self):
-        """Test mapping known Dataplex type."""
-        result = map_dataplex_type_to_datahub("STRING")
-        assert isinstance(result, SchemaFieldDataTypeClass)
-        assert isinstance(result.type, StringTypeClass)
-
-    def test_map_unknown_type_defaults_to_string(self):
-        """Test that unknown type defaults to StringType."""
-        result = map_dataplex_type_to_datahub("UNKNOWN_TYPE")
-        assert isinstance(result, SchemaFieldDataTypeClass)
-        assert isinstance(result.type, StringTypeClass)
-
-
-class TestMapDataplexFieldToDatahub:
-    """Test map_dataplex_field_to_datahub function."""
-
-    def test_map_field_simple_type(self):
-        """Test mapping field with simple type."""
-        field = Mock()
-        field.type_ = dataplex_v1.types.Schema.Type.STRING
-        field.mode = dataplex_v1.types.Schema.Mode.NULLABLE
-
-        result = map_dataplex_field_to_datahub(field)
-
-        assert isinstance(result, SchemaFieldDataTypeClass)
-
-    def test_map_field_repeated_mode(self):
-        """Test mapping field with REPEATED mode."""
-        field = Mock()
-        field.type_ = dataplex_v1.types.Schema.Type.STRING
-        field.mode = dataplex_v1.types.Schema.Mode.REPEATED
-
-        result = map_dataplex_field_to_datahub(field)
-
-        assert isinstance(result, SchemaFieldDataTypeClass)
-        assert isinstance(result.type, ArrayTypeClass)
-
-
-class TestExtractEntityMetadata:
-    """Test extract_entity_metadata function."""
-
-    def test_extract_bigquery_metadata(self):
-        """Test extracting metadata for BigQuery entity."""
-        mock_asset = Mock()
-        mock_asset.resource_spec = Mock()
-        mock_asset.resource_spec.type_ = Mock()
-        mock_asset.resource_spec.type_.name = "BIGQUERY_DATASET"
-        mock_asset.resource_spec.name = "projects/test-project/datasets/my_dataset"
-
-        mock_client = Mock()
-        mock_client.get_asset.return_value = mock_asset
-
-        platform, dataset_id = extract_entity_metadata(
-            project_id="test-project",
-            lake_id="test-lake",
-            zone_id="test-zone",
-            entity_id="test-entity",
-            asset_id="test-asset",
-            location="us-central1",
-            dataplex_client=mock_client,
-        )
-
-        assert platform == "bigquery"
-        assert dataset_id == "my_dataset"
-
-    def test_extract_bigquery_metadata_simple_name(self):
-        """Test extracting BigQuery metadata with simple resource name."""
-        mock_asset = Mock()
-        mock_asset.resource_spec = Mock()
-        mock_asset.resource_spec.type_ = Mock()
-        mock_asset.resource_spec.type_.name = "BIGQUERY_DATASET"
-        mock_asset.resource_spec.name = "my_dataset"
-
-        mock_client = Mock()
-        mock_client.get_asset.return_value = mock_asset
-
-        platform, dataset_id = extract_entity_metadata(
-            project_id="test-project",
-            lake_id="test-lake",
-            zone_id="test-zone",
-            entity_id="test-entity",
-            asset_id="test-asset",
-            location="us-central1",
-            dataplex_client=mock_client,
-        )
-
-        assert platform == "bigquery"
-        assert dataset_id == "my_dataset"
-
-    def test_extract_gcs_metadata_full_path(self):
-        """Test extracting metadata for GCS entity with full path."""
-        mock_asset = Mock()
-        mock_asset.resource_spec = Mock()
-        mock_asset.resource_spec.type_ = Mock()
-        mock_asset.resource_spec.type_.name = "STORAGE_BUCKET"
-        mock_asset.resource_spec.name = "projects/test-project/buckets/my-bucket"
-
-        mock_client = Mock()
-        mock_client.get_asset.return_value = mock_asset
-
-        platform, dataset_id = extract_entity_metadata(
-            project_id="test-project",
-            lake_id="test-lake",
-            zone_id="test-zone",
-            entity_id="test-entity",
-            asset_id="test-asset",
-            location="us-central1",
-            dataplex_client=mock_client,
-        )
-
-        assert platform == "gcs"
-        assert dataset_id == "my-bucket"
-
-    def test_extract_gcs_metadata_gs_url(self):
-        """Test extracting GCS metadata with gs:// URL."""
-        mock_asset = Mock()
-        mock_asset.resource_spec = Mock()
-        mock_asset.resource_spec.type_ = Mock()
-        mock_asset.resource_spec.type_.name = "STORAGE_BUCKET"
-        mock_asset.resource_spec.name = "gs://my-bucket/path"
-
-        mock_client = Mock()
-        mock_client.get_asset.return_value = mock_asset
-
-        platform, dataset_id = extract_entity_metadata(
-            project_id="test-project",
-            lake_id="test-lake",
-            zone_id="test-zone",
-            entity_id="test-entity",
-            asset_id="test-asset",
-            location="us-central1",
-            dataplex_client=mock_client,
-        )
-
-        assert platform == "gcs"
-        assert dataset_id == "my-bucket"
-
-    def test_extract_gcs_metadata_simple_name(self):
-        """Test extracting GCS metadata with simple bucket name."""
-        mock_asset = Mock()
-        mock_asset.resource_spec = Mock()
-        mock_asset.resource_spec.type_ = Mock()
-        mock_asset.resource_spec.type_.name = "STORAGE_BUCKET"
-        mock_asset.resource_spec.name = "my-bucket"
-
-        mock_client = Mock()
-        mock_client.get_asset.return_value = mock_asset
-
-        platform, dataset_id = extract_entity_metadata(
-            project_id="test-project",
-            lake_id="test-lake",
-            zone_id="test-zone",
-            entity_id="test-entity",
-            asset_id="test-asset",
-            location="us-central1",
-            dataplex_client=mock_client,
-        )
-
-        assert platform == "gcs"
-        assert dataset_id == "my-bucket"
-
-    def test_extract_metadata_fallback_zone_id(self):
-        """Test fallback to zone_id when resource_name is not available."""
-        mock_asset = Mock()
-        mock_asset.resource_spec = Mock()
-        mock_asset.resource_spec.type_ = Mock()
-        mock_asset.resource_spec.type_.name = "BIGQUERY_DATASET"
-        mock_asset.resource_spec.name = None
-
-        mock_client = Mock()
-        mock_client.get_asset.return_value = mock_asset
-
-        platform, dataset_id = extract_entity_metadata(
-            project_id="test-project",
-            lake_id="test-lake",
-            zone_id="test-zone",
-            entity_id="test-entity",
-            asset_id="test-asset",
-            location="us-central1",
-            dataplex_client=mock_client,
-        )
-
-        assert platform == "bigquery"
-        assert dataset_id == "test-zone"
-
-    def test_extract_metadata_api_error(self):
-        """Test extraction with API error."""
-        mock_client = Mock()
-        mock_client.get_asset.side_effect = exceptions.GoogleAPICallError("API error")
-
-        platform, dataset_id = extract_entity_metadata(
-            project_id="test-project",
-            lake_id="test-lake",
-            zone_id="test-zone",
-            entity_id="test-entity",
-            asset_id="test-asset",
-            location="us-central1",
-            dataplex_client=mock_client,
-        )
-
-        assert platform is None
-        assert dataset_id is None
-
-    def test_extract_metadata_attribute_error(self):
-        """Test extraction with unexpected asset structure."""
-        mock_asset = Mock()
-        mock_asset.resource_spec = None
-
-        mock_client = Mock()
-        mock_client.get_asset.return_value = mock_asset
-
-        platform, dataset_id = extract_entity_metadata(
-            project_id="test-project",
-            lake_id="test-lake",
-            zone_id="test-zone",
-            entity_id="test-entity",
-            asset_id="test-asset",
-            location="us-central1",
-            dataplex_client=mock_client,
-        )
-
-        assert platform is None
-        assert dataset_id is None
 
 
 class TestSerializeFieldValue:

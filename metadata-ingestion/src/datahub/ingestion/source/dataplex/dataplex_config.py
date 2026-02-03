@@ -19,57 +19,21 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger = logging.getLogger(__name__)
 
 
-class EntitiesFilterConfig(ConfigModel):
-    """Filter configuration specific to Dataplex Entities API (Lakes/Zones).
-
-    These filters only apply when include_entities=True.
-    """
-
-    lake_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for lake names to filter in ingestion. Only applies when include_entities=True.",
-    )
-
-    zone_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for zone names to filter in ingestion. Only applies when include_entities=True.",
-    )
-
-    dataset_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for entity IDs (tables/filesets) to filter in ingestion. Only applies when include_entities=True.",
-    )
-
-
 class EntriesFilterConfig(ConfigModel):
-    """Filter configuration specific to Dataplex Entries API (Universal Catalog).
-
-    These filters only apply when include_entries=True.
-    """
+    """Filter configuration specific to Dataplex Entries API (Universal Catalog)."""
 
     dataset_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for entry IDs to filter in ingestion. Only applies when include_entries=True.",
+        description="Regex patterns for entry IDs to filter in ingestion.",
     )
 
 
 class DataplexFilterConfig(ConfigModel):
     """Filter configuration for Dataplex ingestion."""
 
-    entities: EntitiesFilterConfig = Field(
-        default_factory=EntitiesFilterConfig,
-        description=(
-            "Filters specific to Dataplex Entities API (lakes, zones, and entity datasets). "
-            "Only applies when include_entities=True."
-        ),
-    )
-
     entries: EntriesFilterConfig = Field(
         default_factory=EntriesFilterConfig,
-        description=(
-            "Filters specific to Dataplex Entries API (Universal Catalog). "
-            "Only applies when include_entries=True."
-        ),
+        description="Filters specific to Dataplex Entries API (Universal Catalog).",
     )
 
 
@@ -92,12 +56,6 @@ class DataplexConfig(
         "If not specified, uses project_id or attempts to detect from credentials.",
     )
 
-    location: str = Field(
-        default="us-central1",
-        description="GCP location/region where Dataplex lakes, zones, and entities are located (e.g., us-central1, europe-west1). "
-        "Only used for entities extraction (include_entities=True).",
-    )
-
     entries_location: str = Field(
         default="us",
         description="GCP location for Universal Catalog entries extraction. "
@@ -111,21 +69,6 @@ class DataplexConfig(
         description="Filters to control which Dataplex resources are ingested.",
     )
 
-    include_entries: bool = Field(
-        default=True,
-        description="Whether to extract Entries from Universal Catalog. "
-        "This is the primary source of metadata and takes precedence when both sources are enabled.",
-    )
-
-    include_entities: bool = Field(
-        default=False,
-        description="Whether to include Entity metadata from Lakes/Zones (discovered tables/filesets) as Datasets. "
-        "This is optional and complements the Entries API data. "
-        "WARNING: When both include_entries and include_entities are enabled and discover the same table, "
-        "entries will completely replace entity metadata including custom properties (lake, zone, asset info will be lost). "
-        "Recommended: Use only ONE API, or ensure APIs discover non-overlapping datasets. See documentation for details.",
-    )
-
     include_schema: bool = Field(
         default=True,
         description="Whether to extract and ingest schema metadata (columns, types, descriptions). "
@@ -136,7 +79,7 @@ class DataplexConfig(
     include_lineage: bool = Field(
         default=True,
         description="Whether to extract lineage information using Dataplex Lineage API. "
-        "Extracts table-level lineage relationships between entities. "
+        "Extracts table-level lineage relationships between entries. "
         "Lineage API calls automatically retry transient errors (timeouts, rate limits) with exponential backoff.",
     )
 
@@ -161,15 +104,10 @@ class DataplexConfig(
     batch_size: Optional[int] = Field(
         default=1000,
         description="Batch size for metadata emission and lineage extraction. "
-        "Entries and entities are emitted in batches to prevent memory issues in large deployments. "
+        "Entries are emitted in batches to prevent memory issues in large deployments. "
         "Lower values reduce memory usage but may increase processing time. "
-        "Set to None to disable batching (process all entities at once). "
-        "Recommended: 1000 for large deployments (>10k entities), None for small deployments (<1k entities). Default: 1000.",
-    )
-
-    max_workers: int = Field(
-        default=10,
-        description="Number of worker threads to use to parallelize zone entity extraction. Set to 1 to disable parallelization.",
+        "Set to None to disable batching (process all entries at once). "
+        "Recommended: 1000 for large deployments (>10k entries), None for small deployments (<1k entries). Default: 1000.",
     )
 
     dataplex_url: str = Field(
@@ -215,23 +153,13 @@ class DataplexConfig(
     def validate_location_configuration(self) -> "DataplexConfig":
         """Validate location configuration and warn about common mistakes."""
         # Warn if entries_location appears to be a regional location
-        if self.include_entries and self.entries_location:
+        if self.entries_location:
             if "-" in self.entries_location:
                 logger.warning(
                     f"entries_location='{self.entries_location}' appears to be a regional location (contains '-'). "
                     "System-managed entry groups like @bigquery require multi-region locations (us, eu, asia). "
                     "You may miss BigQuery tables and other system resources. "
                     "Recommended: Change entries_location to 'us', 'eu', or 'asia'."
-                )
-
-        # Warn if location is multi-region but used for entities
-        if self.include_entities and self.location:
-            if self.location in ["us", "eu", "asia"]:
-                logger.warning(
-                    f"location='{self.location}' is a multi-region location. "
-                    "For entities extraction (include_entities=True), you should use a specific regional location "
-                    "like 'us-central1', 'europe-west1', etc. "
-                    "Multi-region locations may not work correctly for entities API."
                 )
 
         return self

@@ -1,11 +1,9 @@
 """Google Dataplex source for DataHub ingestion.
 
-This source extracts metadata from Google Dataplex, including:
+This source extracts metadata from Google Dataplex Universal Catalog, including:
 - Entries (Universal Catalog) as Datasets with source platform URNs (bigquery, gcs, etc.)
-- Entities (discovered tables/filesets from Lakes/Zones) as Datasets with source platform URNs
 - BigQuery Projects as Containers (project-level containers)
 - BigQuery Datasets as Containers (dataset-level containers, nested under project containers)
-- Dataplex hierarchy (lakes, zones, assets, zone types) preserved as custom properties on datasets
 
 Reference implementation based on VertexAI and BigQuery V2 sources.
 """
@@ -41,9 +39,8 @@ from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_containers import (
     gen_bigquery_containers,
 )
-from datahub.ingestion.source.dataplex.dataplex_entities import process_zone_entities
 from datahub.ingestion.source.dataplex.dataplex_entries import process_entry
-from datahub.ingestion.source.dataplex.dataplex_helpers import EntityDataTuple
+from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
 from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageExtractor
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -55,7 +52,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +89,9 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report: DataplexReport = DataplexReport()
 
-        # Track entity IDs for lineage extraction
-        # Key: project_id, Value: set of tuples (entity_id, zone_id, lake_id)
-        self.entity_data_by_project: dict[str, set[EntityDataTuple]] = {}
+        # Track entry data for lineage extraction
+        # Key: project_id, Value: set of EntryDataTuple
+        self.entry_data_by_project: dict[str, set[EntryDataTuple]] = {}
 
         creds = self.config.get_credentials()
         credentials = (
@@ -104,13 +100,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             else None
         )
 
-        self.dataplex_client = dataplex_v1.DataplexServiceClient(
-            credentials=credentials
-        )
-        self.metadata_client = dataplex_v1.MetadataServiceClient(
-            credentials=credentials
-        )
-        # Catalog client for Phase 2: Entry Groups and Entries extraction
+        # Catalog client for Entry Groups and Entries extraction
         self.catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
 
         # Initialize redundant lineage run skip handler for stateful lineage ingestion
@@ -134,7 +124,6 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     config=self.config,
                     report=self.report,
                     lineage_client=self.lineage_client,
-                    dataplex_client=self.dataplex_client,
                     redundant_run_skip_handler=redundant_lineage_run_skip_handler,
                 )
             )
@@ -142,19 +131,12 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             self.lineage_client = None
             self.lineage_extractor = None
 
-        self.asset_metadata: dict[str, tuple[str, str]] = {}
-        self.zone_metadata: dict[
-            str, str
-        ] = {}  # Store zone types for adding to entity custom properties
-
         # Track BigQuery containers to create (project_id -> set of dataset_ids)
         self.bq_containers: dict[str, set[str]] = {}
 
         # Thread safety locks for parallel processing
         self._report_lock = Lock()
-        self._asset_metadata_lock = Lock()
-        self._entity_data_lock = Lock()
-        self._zone_metadata_lock = Lock()
+        self._entry_data_lock = Lock()
         self._bq_containers_lock = Lock()
 
     @staticmethod
@@ -170,13 +152,15 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 else None
             )
 
-            # Test connection by attempting to create a client and list one project
-            dataplex_client = dataplex_v1.DataplexServiceClient(credentials=credentials)
+            # Test connection by attempting to list entry groups
+            catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
             if config.project_ids:
                 project_id = config.project_ids[0]
-                # Try to list lakes to verify access
-                parent = f"projects/{project_id}/locations/{config.location}"
-                list(dataplex_client.list_lakes(parent=parent))
+                parent = f"projects/{project_id}/locations/{config.entries_location}"
+                entry_groups_request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
+                # Just iterate once to verify access
+                for _ in catalog_client.list_entry_groups(request=entry_groups_request):
+                    break
 
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except exceptions.GoogleAPICallError as e:
@@ -228,7 +212,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             cached_mcps: List of cached MCPs to emit
             total_emitted: Total count of MCPs emitted so far
             project_id: GCP project ID
-            resource_type: Type of resource being emitted ("entities" or "entries")
+            resource_type: Type of resource being emitted
 
         Yields:
             MetadataWorkUnit objects
@@ -244,92 +228,46 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         """Process all Dataplex resources for a single project.
 
         This uses a single-pass approach with batched emission:
-        1. Collect entities/entries MCPs in batches and track containers simultaneously
+        1. Collect entries MCPs in batches and track containers simultaneously
         2. Emit batches as they fill up to keep memory bounded
-        3. Emit BigQuery containers (so entities can reference them)
+        3. Emit BigQuery containers (so entries can reference them)
         4. Extract lineage
 
-        Processing order: Entities first, then Entries.
-        When both are enabled, entries will overwrite entity metadata for the same table,
-        making Universal Catalog the source of truth without requiring deduplication tracking.
-
-        IMPORTANT: When both APIs are enabled and discover the same table:
-        - Entry metadata (schema, entry custom properties) REPLACES entity metadata
-        - Entity custom properties (lake, zone, asset) are LOST
-        - This is DataHub's aspect-level replacement behavior (not a bug)
-        - Users should choose ONE API, or use both only for non-overlapping datasets
-        - See documentation for details: docs/sources/dataplex/dataplex_pre.md
-
-        Memory optimization: Batched emission prevents memory issues in large deployments
-        while maintaining the performance benefit of avoiding duplicate schema extraction.
+        Memory optimization: Batched emission prevents memory issues in large deployments.
         """
         # Determine batch size (None means no batching)
         batch_size = self.config.batch_size
         should_batch = batch_size is not None
 
         # Cache MCPs during the first pass
-        cached_entities_mcps: list[MetadataChangeProposalWrapper] = []
         cached_entries_mcps: list[MetadataChangeProposalWrapper] = []
-        entities_emitted = 0
         entries_emitted = 0
 
-        # Process Entities API FIRST (if enabled) - collect MCPs and track containers
-        if self.config.include_entities:
-            logger.info(
-                f"Processing entities from Dataplex Entities API for project {project_id}"
-            )
-            for mcp in self._get_entities_mcps(project_id):
-                cached_entities_mcps.append(mcp)
+        # Process Entries API - collect MCPs and track containers
+        logger.info(
+            f"Processing entries from Universal Catalog for project {project_id}"
+        )
+        for mcp in self._get_entries_mcps(project_id):
+            cached_entries_mcps.append(mcp)
 
-                # Emit batch if we've reached the batch size
-                if (
-                    should_batch
-                    and batch_size
-                    and len(cached_entities_mcps) >= batch_size
-                ):
-                    yield from auto_workunit(cached_entities_mcps)
-                    entities_emitted += len(cached_entities_mcps)
-                    logger.info(
-                        f"Emitted batch of {len(cached_entities_mcps)} entities ({entities_emitted} total) for project {project_id}"
-                    )
-                    cached_entities_mcps.clear()
+            # Emit batch if we've reached the batch size
+            if should_batch and batch_size and len(cached_entries_mcps) >= batch_size:
+                yield from auto_workunit(cached_entries_mcps)
+                entries_emitted += len(cached_entries_mcps)
+                logger.info(
+                    f"Emitted batch of {len(cached_entries_mcps)} entries ({entries_emitted} total) for project {project_id}"
+                )
+                cached_entries_mcps.clear()
 
-            # Emit remaining cached entities MCPs
-            yield from self._emit_final_batch(
-                cached_entities_mcps, entities_emitted, project_id, "entities"
-            )
+        # Emit remaining cached entries MCPs
+        yield from self._emit_final_batch(
+            cached_entries_mcps, entries_emitted, project_id, "entries"
+        )
 
-        # Process Entries API SECOND (if enabled) - collect MCPs and track containers
-        # Entries will overwrite any duplicate entity metadata
-        if self.config.include_entries:
-            logger.info(
-                f"Processing entries from Universal Catalog for project {project_id}"
-            )
-            for mcp in self._get_entries_mcps(project_id):
-                cached_entries_mcps.append(mcp)
-
-                # Emit batch if we've reached the batch size
-                if (
-                    should_batch
-                    and batch_size
-                    and len(cached_entries_mcps) >= batch_size
-                ):
-                    yield from auto_workunit(cached_entries_mcps)
-                    entries_emitted += len(cached_entries_mcps)
-                    logger.info(
-                        f"Emitted batch of {len(cached_entries_mcps)} entries ({entries_emitted} total) for project {project_id}"
-                    )
-                    cached_entries_mcps.clear()
-
-            # Emit remaining cached entries MCPs (will overwrite any duplicate entities)
-            yield from self._emit_final_batch(
-                cached_entries_mcps, entries_emitted, project_id, "entries"
-            )
-
-        # Emit BigQuery containers (so entities can reference them)
+        # Emit BigQuery containers (so entries can reference them)
         yield from gen_bigquery_containers(project_id, self.bq_containers, self.config)
 
-        # Extract lineage for entities (after entities and containers have been processed)
+        # Extract lineage for entries (after entries and containers have been processed)
         if self.config.include_lineage and self.lineage_extractor:
             yield from self._get_lineage_workunits(project_id)
 
@@ -350,111 +288,6 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             aspects=aspects,
         )
 
-    def _process_zone_entities(
-        self, project_id: str, lake_id: str, zone_id: str
-    ) -> Iterable[MetadataChangeProposalWrapper]:
-        """Process all entities for a single zone (called by parallel workers).
-
-        Args:
-            project_id: GCP project ID
-            lake_id: Dataplex lake ID
-            zone_id: Dataplex zone ID
-
-        Yields:
-            MetadataChangeProposalWrapper objects for entities in this zone
-        """
-        yield from process_zone_entities(
-            project_id=project_id,
-            lake_id=lake_id,
-            zone_id=zone_id,
-            config=self.config,
-            report=self.report,
-            metadata_client=self.metadata_client,
-            dataplex_client=self.dataplex_client,
-            asset_metadata=self.asset_metadata,
-            asset_metadata_lock=self._asset_metadata_lock,
-            zone_metadata=self.zone_metadata,
-            zone_metadata_lock=self._zone_metadata_lock,
-            entity_data_by_project=self.entity_data_by_project,
-            entity_data_lock=self._entity_data_lock,
-            bq_containers=self.bq_containers,
-            bq_containers_lock=self._bq_containers_lock,
-            report_lock=self._report_lock,
-            construct_mcps_fn=self._construct_mcps,
-        )
-
-    def _get_entities_mcps(
-        self, project_id: str
-    ) -> Iterable[MetadataChangeProposalWrapper]:
-        """Fetch entities from Dataplex and generate corresponding MCPs as Datasets.
-
-        This method parallelizes entity extraction at the zone level using ThreadedIteratorExecutor,
-        following the pattern established by BigQuery V2.
-        """
-        parent = f"projects/{project_id}/locations/{self.config.location}"
-
-        # Collect all zones to process in parallel
-        zones_to_process = []
-
-        try:
-            with self.report.dataplex_api_timer as _:
-                lakes_request = dataplex_v1.ListLakesRequest(parent=parent)
-                lakes = self.dataplex_client.list_lakes(request=lakes_request)
-
-            for lake in lakes:
-                lake_id = lake.name.split("/")[-1]
-
-                if not self.config.filter_config.entities.lake_pattern.allowed(lake_id):
-                    continue
-
-                zones_parent = f"projects/{project_id}/locations/{self.config.location}/lakes/{lake_id}"
-                zones_request = dataplex_v1.ListZonesRequest(parent=zones_parent)
-
-                try:
-                    zones = self.dataplex_client.list_zones(request=zones_request)
-
-                    for zone in zones:
-                        zone_id = zone.name.split("/")[-1]
-
-                        if not self.config.filter_config.entities.zone_pattern.allowed(
-                            zone_id
-                        ):
-                            continue
-
-                        # Store zone type for later use in entity custom properties
-                        zone_key = f"{project_id}.{lake_id}.{zone_id}"
-                        with self._zone_metadata_lock:
-                            self.zone_metadata[zone_key] = zone.type_.name
-
-                        # Add this zone to the list for parallel processing
-                        zones_to_process.append((project_id, lake_id, zone_id))
-
-                except exceptions.GoogleAPICallError as e:
-                    self.report.report_failure(
-                        title=f"Failed to list zones in lake {lake_id}",
-                        message=f"Error listing zones for entity extraction in project {project_id}",
-                        exc=e,
-                    )
-
-        except exceptions.GoogleAPICallError as e:
-            self.report.report_failure(
-                title="Failed to list lakes for entity extraction",
-                message=f"Error listing lakes in project {project_id}",
-                exc=e,
-            )
-
-        # Process zones in parallel using ThreadedIteratorExecutor
-        if zones_to_process:
-            logger.info(
-                f"Processing {len(zones_to_process)} zones in parallel with {self.config.max_workers} workers"
-            )
-            for wu in ThreadedIteratorExecutor.process(
-                worker_func=self._process_zone_entities,
-                args_list=zones_to_process,
-                max_workers=self.config.max_workers,
-            ):
-                yield wu
-
     def _get_entries_mcps(
         self, project_id: str
     ) -> Iterable[MetadataChangeProposalWrapper]:
@@ -463,10 +296,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         This method uses the Entries API to extract metadata from Universal Catalog.
         It processes entry groups and their entries, extracting aspects as custom properties.
 
-        Uses entries_location if specified, otherwise falls back to location.
         For system entry groups (@bigquery, @pubsub), use multi-region locations (us, eu, asia).
         """
-        # Use configured entries_location (defaults to "us")
         entries_location = self.config.entries_location
         parent = f"projects/{project_id}/locations/{entries_location}"
 
@@ -517,7 +348,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
         except exceptions.GoogleAPICallError as e:
             self.report.report_failure(
-                title="Failed to list entry groups for entity extraction",
+                title="Failed to list entry groups",
                 message=f"Error listing entry groups in project {project_id}",
                 exc=e,
             )
@@ -543,8 +374,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             entry=entry,
             entry_group_id=entry_group_id,
             config=self.config,
-            entity_data_by_project=self.entity_data_by_project,
-            entity_data_lock=self._entity_data_lock,
+            entry_data_by_project=self.entry_data_by_project,
+            entry_data_lock=self._entry_data_lock,
             bq_containers=self.bq_containers,
             bq_containers_lock=self._bq_containers_lock,
             construct_mcps_fn=self._construct_mcps,
@@ -552,7 +383,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
     def _get_lineage_workunits(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         """
-        Extract lineage for entities in a project.
+        Extract lineage for entries in a project.
 
         Args:
             project_id: GCP project ID
@@ -563,21 +394,21 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         if not self.lineage_extractor:
             return
 
-        # Get entity IDs that were processed for this project
-        entity_data = self.entity_data_by_project.get(project_id, set())
-        if not entity_data:
+        # Get entry data that was processed for this project
+        entry_data = self.entry_data_by_project.get(project_id, set())
+        if not entry_data:
             logger.info(
-                f"No entities found for lineage extraction in project {project_id}"
+                f"No entries found for lineage extraction in project {project_id}"
             )
             return
 
         logger.info(
-            f"Extracting lineage for {len(entity_data)} entities in project {project_id}"
+            f"Extracting lineage for {len(entry_data)} entries in project {project_id}"
         )
 
         try:
             yield from self.lineage_extractor.get_lineage_workunits(
-                project_id, entity_data
+                project_id, entry_data
             )
         except Exception as e:
             logger.warning(f"Failed to extract lineage for project {project_id}: {e}")
