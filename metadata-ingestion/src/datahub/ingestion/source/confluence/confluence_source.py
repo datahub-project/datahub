@@ -405,7 +405,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
     def _is_space_allowed(self, space_key: str) -> bool:
         """
-        Check if space is allowed by space_allow/space_deny lists.
+        Check if space is allowed by spaces.allow/spaces.deny lists.
 
         Args:
             space_key: Confluence space key
@@ -413,12 +413,12 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             True if space should be ingested, False otherwise
         """
-        # If space_allow is specified, space must be in the list
+        # If spaces.allow is specified, space must be in the list
         if self.config._parsed_space_allow is not None:
             if space_key not in self.config._parsed_space_allow:
                 return False
 
-        # If space_deny is specified, space must NOT be in the list
+        # If spaces.deny is specified, space must NOT be in the list
         if self.config._parsed_space_deny is not None:
             if space_key in self.config._parsed_space_deny:
                 return False
@@ -427,7 +427,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
     def _is_page_allowed(self, page_id: str) -> bool:
         """
-        Check if page is allowed by page_allow/page_deny lists.
+        Check if page is allowed by pages.allow/pages.deny lists.
 
         Args:
             page_id: Confluence page ID
@@ -435,12 +435,12 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             True if page should be ingested, False otherwise
         """
-        # If page_allow is specified, page must be in the list
+        # If pages.allow is specified, page must be in the list
         if self.config._parsed_page_allow is not None:
             if page_id not in self.config._parsed_page_allow:
                 return False
 
-        # If page_deny is specified, page must NOT be in the list
+        # If pages.deny is specified, page must NOT be in the list
         if self.config._parsed_page_deny is not None:
             if page_id in self.config._parsed_page_deny:
                 return False
@@ -454,10 +454,10 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             List of filtered Confluence space keys
         """
-        # If space_allow is specified, use those spaces directly
+        # If spaces.allow is specified, use those spaces directly
         if self.config._parsed_space_allow is not None:
             logger.info(
-                f"Using {len(self.config._parsed_space_allow)} spaces from space_allow"
+                f"Using {len(self.config._parsed_space_allow)} spaces from spaces.allow"
             )
             spaces = list(self.config._parsed_space_allow)
         else:
@@ -487,13 +487,13 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_failure("space_discovery", str(e))
                 return []
 
-        # Apply space_deny filter
+        # Apply spaces.deny filter
         if self.config._parsed_space_deny is not None:
             original_count = len(spaces)
             spaces = [s for s in spaces if s not in self.config._parsed_space_deny]
             filtered_count = original_count - len(spaces)
             if filtered_count > 0:
-                logger.info(f"Filtered out {filtered_count} spaces via space_deny")
+                logger.info(f"Filtered out {filtered_count} spaces via spaces.deny")
 
         return spaces
 
@@ -653,7 +653,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
     def _get_pages_from_page_allow(self) -> Iterable[Dict[str, Any]]:
         """
-        Get pages specified in page_allow list.
+        Get pages specified in pages.allow list.
 
         Yields:
             Page metadata dictionaries
@@ -662,7 +662,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         logger.info(
-            f"Processing {len(self.config._parsed_page_allow)} page(s) from page_allow"
+            f"Processing {len(self.config._parsed_page_allow)} page(s) from pages.allow"
         )
 
         visited_pages: Set[str] = set()
@@ -797,10 +797,10 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             logger.warning("Page missing ID, skipping")
             return
 
-        # Apply page_deny filter
+        # Apply pages.deny filter
         if not self._is_page_allowed(page_id):
-            logger.info(f"Page {page_id} filtered by page_deny, skipping")
-            self.report.report_page_skipped(page_id, "Filtered by page_deny")
+            logger.info(f"Page {page_id} filtered by pages.deny, skipping")
+            self.report.report_page_skipped(page_id, "Filtered by pages.deny")
             return
 
         # Extract text content
@@ -978,13 +978,13 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         # Determine ingestion strategy based on configuration
         if self.config._parsed_page_allow is not None:
             # Page-specific ingestion: fetch only specified pages
-            logger.info("Using page_allow - fetching specific pages only")
+            logger.info("Using pages.allow - fetching specific pages only")
             try:
                 pages = list(self._get_pages_from_page_allow())
                 all_pages.extend(pages)
-                logger.info(f"Collected {len(pages)} pages from page_allow")
+                logger.info(f"Collected {len(pages)} pages from pages.allow")
             except Exception as e:
-                logger.error(f"Failed to collect pages from page_allow: {e}")
+                logger.error(f"Failed to collect pages from pages.allow: {e}")
                 if not self.config.advanced.continue_on_failure:
                     raise
         else:
@@ -1198,7 +1198,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 num_spaces = 0
                 num_pages = 0
 
-                # Test space_allow
+                # Test spaces.allow
                 if config._parsed_space_allow:
                     for space_key in config._parsed_space_allow[:5]:  # Test first 5
                         try:
@@ -1218,7 +1218,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                                 f"space {space_key}: {e.__class__.__name__}"
                             )
 
-                # Test page_allow
+                # Test pages.allow
                 if config._parsed_page_allow:
                     for page_id in config._parsed_page_allow[:5]:  # Test first 5
                         try:
