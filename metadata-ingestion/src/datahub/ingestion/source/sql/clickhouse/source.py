@@ -104,12 +104,28 @@ register_custom_type(custom_types.ip.IPv6, StringTypeClass)
 register_custom_type(custom_types.common.Map, MapTypeClass)
 register_custom_type(custom_types.common.Tuple, UnionTypeClass)
 
-# Regex for safe SQL identifiers (table names, usernames) - prevents SQL injection
-# Allows: alphanumeric, underscores, dots (for schema.table)
-_SAFE_SQL_IDENTIFIER_PATTERN = re.compile(
-    r"^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$"
-)
-_SAFE_USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+def _is_valid_sql_identifier(value: str) -> bool:
+    """Check if value is a safe SQL identifier (e.g., 'schema.table').
+
+    Uses Python's str.isidentifier() which allows: letters, digits, underscores,
+    starting with letter or underscore. This prevents SQL injection.
+    """
+    if not value:
+        return False
+    # Split by dot for schema.table format, validate each part
+    parts = value.split(".")
+    return all(part.isidentifier() for part in parts)
+
+
+def _is_valid_username(value: str) -> bool:
+    """Check if value is a safe username (alphanumeric, underscores, hyphens)."""
+    if not value:
+        return False
+    allowed_chars = set(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
+    )
+    return all(c in allowed_chars for c in value)
 
 
 class LineageCollectorType(Enum):
@@ -218,7 +234,7 @@ class ClickHouseConfig(
     @classmethod
     def validate_query_log_table(cls, v: str) -> str:
         """Validate query_log_table to prevent SQL injection."""
-        if not _SAFE_SQL_IDENTIFIER_PATTERN.match(v):
+        if not _is_valid_sql_identifier(v):
             raise ValueError(
                 f"Invalid query_log_table '{v}'. "
                 "Must be a valid SQL identifier (e.g., 'system.query_log')."
@@ -230,7 +246,7 @@ class ClickHouseConfig(
     def validate_query_log_deny_usernames(cls, v: List[str]) -> List[str]:
         """Validate usernames to prevent SQL injection."""
         for username in v:
-            if not _SAFE_USERNAME_PATTERN.match(username):
+            if not _is_valid_username(username):
                 raise ValueError(
                     f"Invalid username '{username}' in query_log_deny_usernames. "
                     "Usernames must contain only alphanumeric characters, "
