@@ -458,7 +458,18 @@ class SupersetSource(StatefulIngestionSourceBase):
         table_name = result.get("table_name")
         database_id = result.get("database", {}).get("id")
         database_name = result.get("database", {}).get("database_name")
+        original_db_name = database_name
         database_name = self.config.database_alias.get(database_name, database_name)
+        # Diagnostic logging for database_alias
+        if original_db_name != database_name:
+            logger.info(
+                f"[DATABASE_ALIAS] get_datasource_urn_from_id: transformed '{original_db_name}' -> '{database_name}'"
+            )
+        elif self.config.database_alias and original_db_name:
+            logger.info(
+                f"[DATABASE_ALIAS] get_datasource_urn_from_id: NO MATCH for database_name={repr(original_db_name)}, "
+                f"available_keys={[repr(k) for k in self.config.database_alias]}"
+            )
 
         # Druid do not have a database concept and has a limited schema concept, but they are nonetheless reported
         # from superset. There is only one database per platform instance, and one schema named druid, so it would be
@@ -1200,6 +1211,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         if not self.config.database_alias:
             return urn
 
+        original_urn = urn
         # Parse URN to extract dataset name
         # URN format: urn:li:dataset:(urn:li:dataPlatform:platform,name,env)
         for old_db, new_db in self.config.database_alias.items():
@@ -1208,6 +1220,18 @@ class SupersetSource(StatefulIngestionSourceBase):
             # Replace at start of dataset name (after the comma following platform)
             urn = urn.replace(f",{old_db}.", f",{new_db}.")
             urn = urn.replace(f",{old_db_lower}.", f",{new_db}.")
+
+        # Diagnostic logging for database_alias URN transformation
+        if original_urn != urn:
+            logger.info(
+                f"[DATABASE_ALIAS] _apply_database_alias_to_urn: transformed {original_urn} -> {urn}"
+            )
+        elif "clickhouse" in original_urn.lower():
+            # Log when we expected a transformation but didn't get one
+            logger.info(
+                f"[DATABASE_ALIAS] _apply_database_alias_to_urn: NO MATCH for URN={original_urn}, "
+                f"tried_patterns={[repr(f',{k}.') for k in self.config.database_alias]}"
+            )
         return urn
 
     def generate_virtual_dataset_lineage(
@@ -1246,10 +1270,25 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
 
         # Apply database_alias to transform database names in URNs
+        # Log in_tables that contain "clickhouse" for diagnostic purposes
+        clickhouse_in_tables = [
+            urn for urn in parsed_query_object.in_tables if "clickhouse" in urn.lower()
+        ]
+        if clickhouse_in_tables:
+            logger.info(
+                f"[DATABASE_ALIAS] generate_virtual_dataset_lineage: ClickHouse in_tables before transform: {clickhouse_in_tables}"
+            )
         transformed_in_tables = [
             self._apply_database_alias_to_urn(urn)
             for urn in parsed_query_object.in_tables
         ]
+        clickhouse_transformed = [
+            urn for urn in transformed_in_tables if "clickhouse" in urn.lower()
+        ]
+        if clickhouse_transformed:
+            logger.info(
+                f"[DATABASE_ALIAS] generate_virtual_dataset_lineage: ClickHouse in_tables after transform: {clickhouse_transformed}"
+            )
 
         upstream_lineage = UpstreamLineageClass(
             upstreams=[
@@ -1343,10 +1382,21 @@ class SupersetSource(StatefulIngestionSourceBase):
         upstream_warehouse_db_name = (
             dataset_response.get("result", {}).get("database", {}).get("database_name")
         )
+        original_db_name = upstream_warehouse_db_name
         # Apply database_alias mapping to match URNs constructed elsewhere
         upstream_warehouse_db_name = self.config.database_alias.get(
             upstream_warehouse_db_name, upstream_warehouse_db_name
         )
+        # Diagnostic logging for database_alias
+        if original_db_name != upstream_warehouse_db_name:
+            logger.info(
+                f"[DATABASE_ALIAS] construct_dataset: transformed '{original_db_name}' -> '{upstream_warehouse_db_name}'"
+            )
+        elif self.config.database_alias and original_db_name:
+            logger.info(
+                f"[DATABASE_ALIAS] construct_dataset: NO MATCH for database_name={repr(original_db_name)}, "
+                f"available_keys={[repr(k) for k in self.config.database_alias]}"
+            )
 
         # if we have rendered sql, we always use that and defualt back to regular sql
         sql = dataset_response.get("result", {}).get(
