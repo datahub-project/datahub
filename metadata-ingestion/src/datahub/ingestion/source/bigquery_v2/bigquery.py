@@ -165,6 +165,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report,
             schema_resolver=self.sql_parser_schema_resolver,
             identifiers=self.identifiers,
+            filters=self.filters,
             redundant_run_skip_handler=redundant_lineage_run_skip_handler,
         )
 
@@ -205,6 +206,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.sql_parser_schema_resolver,
             self.profiler,
             self.identifiers,
+            self.filters,
             self.shard_matcher,
             self.ctx.graph,
         )

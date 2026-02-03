@@ -55,6 +55,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- (Ingestion) BigQuery source: Improved `dataset_pattern` filtering to apply earlier in the ingestion pipeline, reducing unnecessary API calls to BigQuery for datasets that will be filtered out.
 - #15714: Kafka topic partition counts can now automatically be increased during upgrades if configured values exceed existing partition counts. Set `DATAHUB_AUTO_INCREASE_PARTITIONS=true` to enable.
 - (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.
 - #14968: Added an ingestion source for IBM Db2 databases.
