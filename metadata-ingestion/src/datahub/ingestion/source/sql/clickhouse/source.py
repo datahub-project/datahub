@@ -709,7 +709,7 @@ WHERE type = 'QueryFinish'
   AND {user_filter_clause}
   AND query NOT LIKE '%system.%'
 ORDER BY event_time ASC
-"""  # nosec B608 - values are validated by Pydantic validators before use
+"""
 
     def _extract_query_log(self) -> Iterable[MetadataWorkUnit]:
         """Extract lineage and usage from query_log and yield workunits."""
