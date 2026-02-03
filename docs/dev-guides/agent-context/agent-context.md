@@ -36,7 +36,7 @@ pip install datahub-agent-context
 
 ### Prerequisites
 - DataHub instance (Cloud or self-hosted)
-- Python 3.8 or higher
+- Python 3.10 or higher
 - DataHub personal access token (for authentication)
 
 ## Basic Usage

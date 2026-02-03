@@ -31,7 +31,7 @@ pip install datahub-agent-context[langchain]
 ```
 
 ### Prerequisites
-- Python 3.8 or higher
+- Python 3.10 or higher
 - LangChain (`pip install langchain langchain-openai`)
 - DataHub instance with access token
 - OpenAI API key (or other LLM provider)
