@@ -321,6 +321,11 @@ class UnityCatalogSourceConfig(
         description="Details about the delta lake, incase to emit siblings",
     )
 
+    include_ml_models: bool = pydantic.Field(
+        default=True,
+        description="Whether to ingest ML models and MLflow experiments. Requires View permissions on ML model objects.",
+    )
+
     include_ml_model_aliases: bool = pydantic.Field(
         default=False,
         description="Whether to include ML model aliases in the ingestion.",
