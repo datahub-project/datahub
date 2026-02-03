@@ -5,6 +5,7 @@
 ## What Problem Does This Solve?
 
 Snowflake Intelligence provides powerful text-to-SQL capabilities, but it only sees raw table and column names. Without business context, your Snowflake Intelligence agents:
+
 - ❌ Can't distinguish `customer_revenue` from `customer_revenue_archive`
 - ❌ Don't understand business glossary terms like "churn" or "LTV"
 - ❌ Can't discover "all tables about customers" across schemas
@@ -14,6 +15,7 @@ Snowflake Intelligence provides powerful text-to-SQL capabilities, but it only s
 **DataHub's Snowflake Context Connector** solves this by providing Snowflake Intelligence with access to your DataHub metadata through User-Defined Functions (UDFs). This enables:
 
 ### What You Can Do
+
 - ✅ **Semantic Search**: "Find all revenue tables owned by finance"
 - ✅ **Business Context**: "What's the business definition of 'churn'?"
 - ✅ **Quality Signals**: "Show me certified customer datasets"
@@ -173,6 +175,7 @@ For more info on the tools exposed and DataHub Context, see the [DataHub Agent C
 **Symptoms**: `Insufficient privileges to operate on database/schema` errors during setup
 
 **Solutions**:
+
 - Verify you're using the `ACCOUNTADMIN` or `SECURITYADMIN` role for initial setup
 - Check that your user has `CREATE DATABASE` and `CREATE INTEGRATION` privileges
 - Ensure the role has `USAGE` on the warehouse
@@ -183,6 +186,7 @@ For more info on the tools exposed and DataHub Context, see the [DataHub Agent C
 **Symptoms**: Cannot create network rules for DataHub connection
 
 **Solutions**:
+
 - Verify your Snowflake account allows external network access
 - Check that the DataHub URL is accessible from your network
 - Ensure you're using the correct DataHub URL format: `https://your-instance.acryl.io`
@@ -193,6 +197,7 @@ For more info on the tools exposed and DataHub Context, see the [DataHub Agent C
 **Symptoms**: Cannot create secret for DataHub token
 
 **Solutions**:
+
 - Verify the DataHub token is valid and not expired
 - Check that the token format is correct (should start with `eyJ`)
 - Ensure the secret name doesn't conflict with existing secrets
@@ -205,6 +210,7 @@ For more info on the tools exposed and DataHub Context, see the [DataHub Agent C
 **Symptoms**: Agent doesn't use DataHub UDFs or says "function not found"
 
 **Solutions**:
+
 - Verify UDFs were created: `SHOW USER FUNCTIONS IN SCHEMA <schema>;`
 - Check agent configuration includes DataHub tools
 - Refresh the Snowflake Intelligence UI
@@ -215,6 +221,7 @@ For more info on the tools exposed and DataHub Context, see the [DataHub Agent C
 **Symptoms**: UDF calls fail with timeout or connection errors
 
 **Solutions**:
+
 - Verify network rules are configured correctly
 - Test DataHub connectivity: Try calling a UDF directly in a SQL worksheet
 - Check DataHub server is accessible and running
@@ -226,6 +233,7 @@ For more info on the tools exposed and DataHub Context, see the [DataHub Agent C
 **Symptoms**: Agent says "no data found" even though data exists in DataHub
 
 **Solutions**:
+
 - Verify token has correct permissions in DataHub
 - Check that entities exist and are searchable in DataHub UI
 - Try the search directly in DataHub UI with the same query
@@ -239,6 +247,7 @@ For more info on the tools exposed and DataHub Context, see the [DataHub Agent C
 **Symptoms**: Agent generates SQL without consulting DataHub metadata
 
 **Solutions**:
+
 - Update the agent system prompt to explicitly mention using DataHub tools
 - Configure agent to require tool usage before generating SQL
 - Add examples of DataHub tool usage to the agent prompt
@@ -249,6 +258,7 @@ For more info on the tools exposed and DataHub Context, see the [DataHub Agent C
 **Symptoms**: Agent suggests tables that don't exist
 
 **Solutions**:
+
 - Ensure agent is configured to search DataHub before querying Snowflake
 - Update prompt to require validation of table names via DataHub
 - Limit agent to only use tables found in DataHub search results
@@ -259,6 +269,7 @@ For more info on the tools exposed and DataHub Context, see the [DataHub Agent C
 #### Problem: `datahub agent create snowflake` Command Not Found
 
 **Solutions**:
+
 ```bash
 # Ensure package is installed with CLI
 pip install --upgrade 'acryl-datahub[cli]'
@@ -272,6 +283,7 @@ datahub agent --help
 #### Problem: Authentication Fails with `--execute`
 
 **Solutions**:
+
 - For password auth: Ensure password is properly quoted if it contains special characters
 - For SSO: Use `--sf-authenticator externalbrowser` and ensure browser can open
 - For key-pair auth: Use `--sf-private-key-path` with your key file
@@ -282,6 +294,7 @@ datahub agent --help
 #### Problem: Slow Agent Responses
 
 **Solutions**:
+
 - Ensure warehouse size is appropriate for workload (start with SMALL or MEDIUM)
 - Check DataHub API response times in DataHub logs
 - Optimize DataHub searches by adding specific entity type filters
@@ -316,6 +329,7 @@ SHOW USER FUNCTIONS LIKE 'datahub%';
 #### Check Agent Logs
 
 In Snowflake Intelligence UI:
+
 1. Open the agent conversation
 2. Click "View Details" on a response
 3. Check the "Tool Calls" section to see which UDFs were called
@@ -323,13 +337,13 @@ In Snowflake Intelligence UI:
 
 ### Common Error Messages
 
-| Error | Cause | Solution |
-|-------|-------|----------|
-| `Network rule violation` | DataHub URL not allowed | Update network rules to include DataHub domain |
-| `Secret not found` | Secret name mismatch | Verify secret name matches in UDF and creation script |
-| `Insufficient privileges` | Missing permissions | Grant required roles and privileges |
-| `Invalid access token` | Token expired or invalid | Regenerate DataHub token and update secret |
-| `Function does not exist` | UDF not created | Run `@02_datahub_udfs.sql` to create UDFs |
+| Error                     | Cause                    | Solution                                              |
+| ------------------------- | ------------------------ | ----------------------------------------------------- |
+| `Network rule violation`  | DataHub URL not allowed  | Update network rules to include DataHub domain        |
+| `Secret not found`        | Secret name mismatch     | Verify secret name matches in UDF and creation script |
+| `Insufficient privileges` | Missing permissions      | Grant required roles and privileges                   |
+| `Invalid access token`    | Token expired or invalid | Regenerate DataHub token and update secret            |
+| `Function does not exist` | UDF not created          | Run `@02_datahub_udfs.sql` to create UDFs             |
 
 ### Getting Help
 

@@ -5,6 +5,7 @@
 ## What Problem Does This Solve?
 
 When building AI agents that answer questions about data, agents often face these challenges:
+
 - **Hallucinate metadata**: Generate table or column names that don't exist
 - **Lack context**: Can't discover related datasets, lineage, or business definitions
 - **Missing ownership info**: Don't know who owns what data or how to contact them
@@ -13,6 +14,7 @@ When building AI agents that answer questions about data, agents often face thes
 **Agent Context Kit solves this** by giving AI agents real-time access to your DataHub metadata catalog, enabling them to provide accurate, contextual answers about your data ecosystem.
 
 ### Example Use Cases
+
 - **Data Discovery**: "Show me all datasets owned by the analytics team"
 - **Schema Exploration**: "What tables have a customer_id column?"
 - **Lineage Tracing**: "Trace lineage from raw data to this dashboard"
@@ -24,6 +26,7 @@ When building AI agents that answer questions about data, agents often face thes
 **DataHub Agent Context** provides a collection of tools and utilities for building AI agents that interact with DataHub metadata. This package contains MCP (Model Context Protocol) tools that enable AI agents to search, retrieve, and manipulate metadata in DataHub. These can be used directly to create an agent, or be included in an MCP server such as DataHub's open source MCP server.
 
 ### Quick Start Guide
+
 1. **New to Agent Context?** Start here with the basic example below
 2. **Using LangChain?** See the [LangChain integration guide](./langchain.md)
 3. **Using Snowflake Intelligence?** See the [Snowflake integration guide](./snowflake.md)
@@ -35,6 +38,7 @@ pip install datahub-agent-context
 ```
 
 ### Prerequisites
+
 - DataHub instance (Cloud or self-hosted)
 - Python 3.10 or higher
 - DataHub personal access token (for authentication)
@@ -89,26 +93,28 @@ Before using Agent Context Kit, familiarize yourself with these DataHub concepts
 
 ## Agent Platforms
 
-| Platform   | Status      | Guide |
-| ---------- | ----------- | ----- |
-| Custom     | Launched    | See below |
+| Platform   | Status      | Guide                             |
+| ---------- | ----------- | --------------------------------- |
+| Custom     | Launched    | See below                         |
 | Langchain  | Launched    | [LangChain Guide](./langchain.md) |
 | Snowflake  | Launched    | [Snowflake Guide](./snowflake.md) |
-| Google ADK | Coming Soon | - |
-| Crew AI    | Coming Soon | - |
-| OpenAI     | Coming Soon | - |
+| Google ADK | Coming Soon | -                                 |
+| Crew AI    | Coming Soon | -                                 |
+| OpenAI     | Coming Soon | -                                 |
 
 ## Available Tools
 
 #### Search Tools
 
 - **`search(graph, query, filters, num_results)`**
+
   - **Use when**: Finding entities by keyword across DataHub
   - **Returns**: List of matching entities with URNs, names, and descriptions
   - **Example**: `search(graph, "customer", {"entity_type": ["dataset"]}, 10)` to find datasets about customers
   - **Filters**: Can filter by entity_type, platform, domain, tags, and more
 
 - **`search_documents(graph, query, num_results)`**
+
   - **Use when**: Searching for documentation, business glossaries, or knowledge base articles
   - **Returns**: Document entities with titles and content
   - **Example**: `search_documents(graph, "data retention policy", 5)` to find policy documents
@@ -121,6 +127,7 @@ Before using Agent Context Kit, familiarize yourself with these DataHub concepts
 #### Entity Tools
 
 - **`get_entities(graph, urns)`**
+
   - **Use when**: Retrieving detailed metadata for specific entities you already know the URNs for
   - **Returns**: Full entity metadata including all aspects (schema, ownership, properties, etc.)
   - **Example**: After search, use this to get complete details about the found entities
@@ -134,6 +141,7 @@ Before using Agent Context Kit, familiarize yourself with these DataHub concepts
 #### Lineage Tools
 
 - **`get_lineage(graph, urn, direction, max_depth)`**
+
   - **Use when**: Understanding data flow and dependencies
   - **Returns**: Upstream (sources) or downstream (consumers) entities
   - **Example**: `get_lineage(graph, dashboard_urn, "UPSTREAM", 3)` to trace data sources for a dashboard
@@ -157,22 +165,27 @@ Before using Agent Context Kit, familiarize yourself with these DataHub concepts
 **Note**: These tools modify metadata. Use with caution in production environments.
 
 - **`add_tags(graph, urn, tags)`** / **`remove_tags(graph, urn, tags)`**
+
   - **Use when**: Categorizing or labeling entities
   - **Example**: `add_tags(graph, dataset_urn, ["PII", "Finance"])` to mark sensitive data
 
 - **`update_description(graph, urn, description)`**
+
   - **Use when**: Adding or updating documentation for entities
   - **Example**: Agents can auto-generate and update descriptions
 
 - **`set_domains(graph, urn, domain_urns)`** / **`remove_domains(graph, urn, domain_urns)`**
+
   - **Use when**: Organizing entities into business domains
   - **Example**: Assign datasets to "Marketing" or "Finance" domains
 
 - **`add_owners(graph, urn, owners)`** / **`remove_owners(graph, urn, owners)`**
+
   - **Use when**: Assigning data ownership and accountability
   - **Example**: `add_owners(graph, dataset_urn, [{"owner": user_urn, "type": "TECHNICAL_OWNER"}])`
 
 - **`add_glossary_terms(graph, urn, term_urns)`** / **`remove_glossary_terms(graph, urn, term_urns)`**
+
   - **Use when**: Linking entities to business glossary definitions
   - **Example**: Link a revenue column to the "Revenue" glossary term
 
@@ -198,6 +211,7 @@ It is also possible to connect your agent or tool directly to the **DataHub MCP 
 **Problem**: `Unauthorized` or `401` errors when calling tools
 
 **Solutions**:
+
 - Verify your DataHub token is valid: `datahub check metadata-service`
 - Ensure the token has the required permissions (read access for search tools, write access for mutation tools)
 - Check that the token hasn't expired
@@ -207,6 +221,7 @@ It is also possible to connect your agent or tool directly to the **DataHub MCP 
 **Problem**: `Connection refused` or timeout errors
 
 **Solutions**:
+
 - Verify DataHub server URL is correct and accessible
 - Check network connectivity: `curl -I https://your-datahub-instance.com/api/gms/health`
 - Ensure firewall rules allow outbound connections to DataHub
@@ -217,6 +232,7 @@ It is also possible to connect your agent or tool directly to the **DataHub MCP 
 **Problem**: Search returns no results or missing expected entities
 
 **Solutions**:
+
 - Verify entities exist in DataHub UI first
 - Check that your search query isn't too restrictive
 - Try removing filters to broaden the search
@@ -228,6 +244,7 @@ It is also possible to connect your agent or tool directly to the **DataHub MCP 
 **Problem**: `ModuleNotFoundError: No module named 'datahub_agent_context'`
 
 **Solutions**:
+
 - Ensure package is installed: `pip install datahub-agent-context`
 - If using LangChain: `pip install datahub-agent-context[langchain]`
 - If using Snowflake: `pip install datahub-agent-context[snowflake]`
@@ -238,6 +255,7 @@ It is also possible to connect your agent or tool directly to the **DataHub MCP 
 **Problem**: `429 Too Many Requests` errors
 
 **Solutions**:
+
 - Implement exponential backoff and retry logic
 - Reduce the frequency of API calls
 - For batch operations, use pagination instead of large single requests

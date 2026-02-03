@@ -5,6 +5,7 @@
 ## What Problem Does This Solve?
 
 LangChain is a popular framework for building AI agent applications, but agents often struggle with data questions because they:
+
 - Don't have access to your organization's data catalog
 - Hallucinate table names, schemas, and relationships
 - Can't discover data ownership or documentation
@@ -31,6 +32,7 @@ pip install datahub-agent-context[langchain]
 ```
 
 ### Prerequisites
+
 - Python 3.10 or higher
 - LangChain (`pip install langchain langchain-openai`)
 - DataHub instance with access token
@@ -210,6 +212,7 @@ tools = build_langchain_tools(
 ## More Examples
 
 Complete examples are available in the datahub-project repo:
+
 - [Basic Agent](https://github.com/datahub-project/datahub/blob/master/datahub-agent-context/examples/langchain/basic_agent.py)
 - [Agent with Memory](https://github.com/datahub-project/datahub/blob/master/datahub-agent-context/examples/langchain/agent_with_memory.py)
 - [Custom Tools](https://github.com/datahub-project/datahub/blob/master/datahub-agent-context/examples/langchain/custom_tools.py)
@@ -221,6 +224,7 @@ Complete examples are available in the datahub-project repo:
 **Problem**: Agent tries to use tools but gets errors
 
 **Solutions**:
+
 - Verify DataHub connection: Test `graph.get_config()` works
 - Check tool availability: Print `[tool.name for tool in tools]` to see available tools
 - Enable verbose mode: Set `verbose=True` in AgentExecutor to see tool calls
@@ -231,6 +235,7 @@ Complete examples are available in the datahub-project repo:
 **Problem**: Agent responds without calling DataHub tools
 
 **Solutions**:
+
 - Improve system prompt: Explicitly instruct agent to use tools
 - Use better examples: Add few-shot examples of tool usage to prompt
 - Check model compatibility: Ensure LLM supports tool/function calling (GPT-4, GPT-3.5-turbo, Claude 3+)
@@ -241,6 +246,7 @@ Complete examples are available in the datahub-project repo:
 **Problem**: Agent responses are slow
 
 **Solutions**:
+
 - Limit search results: Reduce `max_search_results` in tool configuration
 - Use streaming: Enable streaming responses with `stream=True`
 - Cache results: Implement caching for frequently accessed metadata
@@ -251,6 +257,7 @@ Complete examples are available in the datahub-project repo:
 **Problem**: `ModuleNotFoundError` for LangChain components
 
 **Solutions**:
+
 ```bash
 # Install all required dependencies
 pip install datahub-agent-context[langchain]
