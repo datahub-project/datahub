@@ -1,12 +1,16 @@
 package com.linkedin.gms.factory.search;
 
+import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2SemanticSearchMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,12 +49,36 @@ public class MappingsBuilderFactory {
     }
   }
 
+  @Bean("semanticSearchMappingsBuilder")
+  @ConditionalOnProperty(
+      name = "elasticsearch.entityIndex.semanticSearch.enabled",
+      havingValue = "true")
+  @Nonnull
+  protected MappingsBuilder createSemanticSearchMappingsBuilder(
+      ConfigurationProvider configProvider,
+      @Qualifier("legacyMappingsBuilder") @Nullable MappingsBuilder v2MappingsBuilder,
+      @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention) {
+    SemanticSearchConfiguration semanticConfig =
+        configProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
+
+    if (v2MappingsBuilder == null) {
+      throw new IllegalStateException(
+          "Semantic search requires v2 entity index to be enabled. "
+              + "Please set elasticsearch.entityIndex.v2.enabled=true");
+    }
+
+    log.info(
+        "Creating SemanticSearchMappingsBuilder bean for entities: {}",
+        semanticConfig.getEnabledEntities());
+    return new V2SemanticSearchMappingsBuilder(v2MappingsBuilder, semanticConfig, indexConvention);
+  }
+
   @Bean("mappingsBuilder")
   protected MappingsBuilder getInstance(
       @Qualifier("legacyMappingsBuilder") @Nullable MappingsBuilder legacyMappingsBuilder,
-      @Qualifier("multiEntityMappingsBuilder") @Nullable
-          MappingsBuilder multiEntityMappingsBuilder) {
-
+      @Qualifier("multiEntityMappingsBuilder") @Nullable MappingsBuilder multiEntityMappingsBuilder,
+      @Qualifier("semanticSearchMappingsBuilder") @Nullable
+          MappingsBuilder semanticSearchMappingsBuilder) {
     List<MappingsBuilder> builders = new ArrayList<>();
 
     if (legacyMappingsBuilder != null) {
@@ -59,6 +87,10 @@ public class MappingsBuilderFactory {
 
     if (multiEntityMappingsBuilder != null) {
       builders.add(multiEntityMappingsBuilder);
+    }
+
+    if (semanticSearchMappingsBuilder != null) {
+      builders.add(semanticSearchMappingsBuilder);
     }
 
     if (builders.isEmpty()) {

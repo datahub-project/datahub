@@ -1,6 +1,9 @@
 import { RightOutlined } from '@ant-design/icons';
+import { Typography } from 'antd';
 import React, { useRef } from 'react';
 import styled from 'styled-components';
+
+import colors from '@components/theme/foundations/colors';
 
 import { IconWrapper } from '@app/searchV2/filters/SearchFilterView';
 import { MoreFilterOptionLabel } from '@app/searchV2/filters/styledComponents';
@@ -14,6 +17,7 @@ import { FacetFilterInput, FacetMetadata } from '@types';
 const IconNameWrapper = styled.span`
     display: flex;
     align-items: center;
+    overflow: hidden;
 `;
 
 const StyledValueSelector = styled(ValueSelector)<{ width: number; height: number; isElementOutsideWindow: boolean }>`
@@ -71,7 +75,19 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
             >
                 <IconNameWrapper>
                     {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                    {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                    <Typography.Text
+                        ellipsis={{
+                            tooltip: {
+                                title: displayName,
+                                showArrow: false,
+                                color: 'white',
+                                overlayInnerStyle: { color: colors.gray[1700] },
+                                placement: 'left',
+                            },
+                        }}
+                    >
+                        {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                    </Typography.Text>
                 </IconNameWrapper>
                 <StyledRightOutlined />
             </MoreFilterOptionLabel>

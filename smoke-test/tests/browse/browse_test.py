@@ -1,9 +1,12 @@
+import logging
 from typing import Any, Dict
 
 import pytest
 
 from conftest import _ingest_cleanup_data_impl
 from tests.utils import execute_graphql
+
+logger = logging.getLogger(__name__)
 
 TEST_DATASET_1_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-1,PROD)"
 TEST_DATASET_2_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-2,PROD)"
@@ -45,7 +48,7 @@ def test_get_browse_paths(auth_session, ingest_cleanup_data):
     res_data = execute_graphql(auth_session, query, variables)
 
     browse = res_data["data"]["browse"]
-    print(browse)
+    logger.info(browse)
     assert browse["entities"] == [{"urn": TEST_DATASET_3_URN}]
 
     # /prod/kafka1

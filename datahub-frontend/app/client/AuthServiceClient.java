@@ -137,13 +137,12 @@ public class AuthServiceClient {
       @Nonnull final String userUrn,
       @Nonnull final String fullName,
       @Nonnull final String email,
-      @Nonnull final String title,
+      final String title,
       @Nonnull final String password,
       @Nonnull final String inviteToken) {
     Objects.requireNonNull(userUrn, "userUrn must not be null");
     Objects.requireNonNull(fullName, "fullName must not be null");
     Objects.requireNonNull(email, "email must not be null");
-    Objects.requireNonNull(title, "title must not be null");
     Objects.requireNonNull(password, "password must not be null");
     Objects.requireNonNull(inviteToken, "inviteToken must not be null");
     CloseableHttpResponse response = null;
@@ -167,7 +166,9 @@ public class AuthServiceClient {
       objectNode.put(USER_URN_FIELD, userUrn);
       objectNode.put(FULL_NAME_FIELD, fullName);
       objectNode.put(EMAIL_FIELD, email);
-      objectNode.put(TITLE_FIELD, title);
+      if (title != null) {
+        objectNode.put(TITLE_FIELD, title);
+      }
       objectNode.put(PASSWORD_FIELD, password);
       objectNode.put(INVITE_TOKEN_FIELD, inviteToken);
       final String json =

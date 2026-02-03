@@ -39,6 +39,7 @@ public class DocumentType
       ImmutableSet.of(
           Constants.DOCUMENT_KEY_ASPECT_NAME,
           Constants.DOCUMENT_INFO_ASPECT_NAME,
+          Constants.DOCUMENT_SETTINGS_ASPECT_NAME,
           Constants.OWNERSHIP_ASPECT_NAME,
           Constants.STATUS_ASPECT_NAME,
           Constants.BROWSE_PATHS_V2_ASPECT_NAME,
@@ -47,7 +48,9 @@ public class DocumentType
           Constants.SUB_TYPES_ASPECT_NAME,
           Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
           Constants.GLOBAL_TAGS_ASPECT_NAME,
-          Constants.GLOSSARY_TERMS_ASPECT_NAME);
+          Constants.GLOSSARY_TERMS_ASPECT_NAME,
+          Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+          Constants.DOCUMENTATION_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 

@@ -89,6 +89,7 @@ import play.test.WithBrowser;
 @SetEnvironmentVariable(key = "AUTH_OIDC_HTTP_RETRY_ATTEMPTS", value = "5")
 @SetEnvironmentVariable(key = "AUTH_OIDC_HTTP_RETRY_DELAY", value = "500")
 @SetEnvironmentVariable(key = "AUTH_VERBOSE_LOGGING", value = "true")
+@SetEnvironmentVariable(key = "MFE_CONFIG_FILE_PATH", value = "mfe.config.local.yaml")
 public class ApplicationTest extends WithBrowser {
   private static final Logger logger = LoggerFactory.getLogger(ApplicationTest.class);
   private static final String ISSUER_ID = "testIssuer";
@@ -618,6 +619,64 @@ public class ApplicationTest extends WithBrowser {
     Result result = route(app, request);
     assertEquals(MOVED_PERMANENTLY, result.status());
     assertEquals("/test", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashNestedPath() {
+    Http.RequestBuilder request =
+        fakeRequest(routes.Application.redirectTrailingSlash("foo/bar/baz"));
+
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/foo/bar/baz", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashDirectWithLeadingSlash() {
+    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
+    Result result = controller.redirectTrailingSlash("/evil.com");
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/evil.com", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashDirectWithMultipleLeadingSlashes() {
+    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
+    Result result = controller.redirectTrailingSlash("///evil.com/path");
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/evil.com/path", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashDirectWithNull() {
+    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
+    Result result = controller.redirectTrailingSlash(null);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashDirectWithEmpty() {
+    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
+    Result result = controller.redirectTrailingSlash("");
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashDirectWithOnlySlashes() {
+    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
+    Result result = controller.redirectTrailingSlash("////");
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashDirectWithNormalPath() {
+    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
+    Result result = controller.redirectTrailingSlash("dataset/urn:li:dataset:1");
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/dataset/urn:li:dataset:1", result.redirectLocation().orElse(""));
   }
 
   @Test

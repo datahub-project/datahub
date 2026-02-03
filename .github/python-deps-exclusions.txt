@@ -1,0 +1,18 @@
+# Python Dependency Pinning Exclusions
+#
+# Packages listed here are ALLOWED to remain unpinned or use lower-bound-only
+# pinning (e.g., package>=1.0) despite the strict pinning policy.
+#
+# FORMAT:
+#   - One package name per line (case-sensitive)
+#   - Lines starting with # are comments
+#   - Empty lines are ignored
+#
+# Changes to exclusions get reviewed as part of the PR
+#
+# ============================================================================
+# CURRENT EXCLUSIONS:
+# ============================================================================
+acryl-datahub
+datahub-agent-context
+
