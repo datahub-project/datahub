@@ -1,4 +1,6 @@
 import re
+from dataclasses import dataclass, field
+from typing import Optional, Pattern
 
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -280,6 +282,65 @@ JDBC_DATABASE_PATH_PATTERN = re.compile(r"jdbc:[^:]+://[^/]+/([^?;]+)")
 # Alternative sheet ID pattern using \w shorthand (matches 25+ chars)
 # Used for lenient sheet ID validation
 SHEET_ID_LENIENT_PATTERN = re.compile(r"^[-\w]{25,}$")
+
+
+# ========================================
+# Platform Configuration for Database Lineage
+# ========================================
+
+
+@dataclass
+class PlatformConfig:
+    """Configuration for a supported database platform."""
+
+    platform_id: str  # DataHub platform name (e.g., "bigquery", "snowflake")
+    default_schema: Optional[str]  # Default schema name (e.g., "public" for Postgres)
+    jdbc_prefix: str  # JDBC URL prefix (e.g., "jdbc:bigquery://")
+    supports_schemas: bool  # Whether platform uses schemas (MySQL doesn't)
+    direct_patterns: list[Pattern] = field(default_factory=list)
+    jdbc_patterns: list[Pattern] = field(default_factory=list)
+
+
+# Platform configurations for database lineage detection
+SUPPORTED_PLATFORMS = {
+    "bigquery": PlatformConfig(
+        platform_id="bigquery",
+        default_schema=None,  # BigQuery uses dataset, not schema
+        jdbc_prefix="jdbc:bigquery://",
+        supports_schemas=False,
+        direct_patterns=[BIGQUERY_DIRECT_PATTERN],
+        jdbc_patterns=[BIGQUERY_JDBC_PATTERN],
+    ),
+    "snowflake": PlatformConfig(
+        platform_id="snowflake",
+        default_schema=None,  # Schema must be specified in Snowflake
+        jdbc_prefix="jdbc:snowflake://",
+        supports_schemas=True,
+        direct_patterns=[SNOWFLAKE_DIRECT_PATTERN],
+        jdbc_patterns=[SNOWFLAKE_JDBC_PATTERN],
+    ),
+    "postgres": PlatformConfig(
+        platform_id="postgres",
+        default_schema="public",
+        jdbc_prefix="jdbc:postgresql://",
+        supports_schemas=True,
+        jdbc_patterns=[POSTGRES_MYSQL_JDBC_PATTERN],
+    ),
+    "mysql": PlatformConfig(
+        platform_id="mysql",
+        default_schema=None,  # MySQL doesn't use schemas
+        jdbc_prefix="jdbc:mysql://",
+        supports_schemas=False,
+        jdbc_patterns=[POSTGRES_MYSQL_JDBC_PATTERN],
+    ),
+    "redshift": PlatformConfig(
+        platform_id="redshift",
+        default_schema="public",
+        jdbc_prefix="jdbc:redshift://",
+        supports_schemas=True,
+        jdbc_patterns=[REDSHIFT_JDBC_PATTERN],
+    ),
+}
 
 
 # ========================================

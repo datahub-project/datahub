@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from datetime import datetime, timedelta
 from typing import (
@@ -18,6 +19,7 @@ import numpy as np
 import pandas as pd
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import make_data_platform_urn
@@ -40,8 +42,6 @@ from datahub.ingestion.source.google_sheets.config import (
 )
 from datahub.ingestion.source.google_sheets.constants import (
     A1_RANGE_PATTERN,
-    BIGQUERY_DIRECT_PATTERN,
-    BIGQUERY_JDBC_PATTERN,
     CELL_COLUMN_PATTERN,
     DATE_PATTERNS,
     DRIVE_API_FIELDS,
@@ -68,20 +68,18 @@ from datahub.ingestion.source.google_sheets.constants import (
     PERMISSION_ROLE_OWNER,
     PERMISSION_ROLE_READER,
     PERMISSION_ROLE_WRITER,
-    POSTGRES_MYSQL_JDBC_PATTERN,
-    REDSHIFT_JDBC_PATTERN,
     SHEET_ID_LENIENT_PATTERN,
     SINGLE_CELL_PATTERN,
-    SNOWFLAKE_DIRECT_PATTERN,
-    SNOWFLAKE_JDBC_PATTERN,
     SQL_PREVIEW_MAX_LENGTH,
     SQL_TABLE_PATTERN,
     SUBTYPE_GOOGLE_SHEETS,
     SUBTYPE_GOOGLE_SHEETS_SPREADSHEET,
     SUBTYPE_GOOGLE_SHEETS_TAB,
     SUBTYPE_PLATFORM,
+    SUPPORTED_PLATFORMS,
     TRANSFORM_OPERATION_IMPORTRANGE,
     TYPE_INFERENCE_SAMPLE_SIZE,
+    PlatformConfig,
 )
 from datahub.ingestion.source.google_sheets.drive_api import DriveAPIClient
 from datahub.ingestion.source.google_sheets.header_detection import HeaderDetector
@@ -97,8 +95,6 @@ from datahub.ingestion.source.google_sheets.models import (
     SheetData,
     SheetPathResult,
     SheetUsageStatistics,
-    Spreadsheet,
-    SpreadsheetProperties,
     parse_spreadsheet,
     parse_values_response,
 )
@@ -328,9 +324,10 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
                 continue
 
             try:
-                default_schema = None
-                if result.platform in ["postgres", "redshift"]:
-                    default_schema = "public"
+                platform_config = SUPPORTED_PLATFORMS.get(result.platform)
+                default_schema = (
+                    platform_config.default_schema if platform_config else None
+                )
 
                 aggregator.add_view_definition(
                     view_urn=dataset_urn,
@@ -520,16 +517,27 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
             return SheetPathResult(
                 full_path=full_path, folder_path_parts=folder_path_parts
             )
-        except Exception as e:
+        except HttpError as e:
+            if e.resp.status in [403, 404]:
+                self.report.report_warning(
+                    f"Access denied or not found for folder path: {sheet_id}"
+                )
+                return SheetPathResult(full_path=f"/{sheet_id}", folder_path_parts=[])
             self.report.report_warning(
-                "Error getting sheet path", context=sheet_id, exc=e
+                "API error getting sheet path", context=sheet_id, exc=e
+            )
+            return SheetPathResult(full_path=f"/{sheet_id}", folder_path_parts=[])
+        except (ValueError, TypeError, KeyError, IndexError) as e:
+            self.report.report_warning(
+                "Error parsing folder path", context=sheet_id, exc=e
             )
             return SheetPathResult(full_path=f"/{sheet_id}", folder_path_parts=[])
 
-    def _get_sheet_metadata(self, sheet_id: str) -> SheetData:
+    def _get_sheet_metadata(self, sheet_id: str) -> Optional[SheetData]:
         """Get detailed metadata for a specific Google Sheet.
 
         Returns SheetData model with spreadsheet, usage_stats, and named_ranges.
+        Returns None if sheet is inaccessible or fetch fails.
         """
         try:
             self.drive_client._rate_limit()
@@ -555,25 +563,34 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
                 usage_stats=usage_stats,
                 named_ranges=named_ranges,
             )
-        except Exception as e:
+        except HttpError as e:
+            if e.resp.status == 403:
+                self.report.report_failure(
+                    message=f"Permission denied for sheet {sheet_id}", exc=e
+                )
+            elif e.resp.status == 404:
+                self.report.report_failure(
+                    message=f"Sheet not found: {sheet_id}", exc=e
+                )
+            else:
+                self.report.report_failure(
+                    message="API error fetching sheet metadata", context=sheet_id, exc=e
+                )
+            return None
+
+        except (ValueError, TypeError, KeyError) as e:
             self.report.report_failure(
-                message="Error fetching sheet metadata for", context=sheet_id, exc=e
+                message="Error parsing sheet metadata", context=sheet_id, exc=e
             )
+            return None
 
-            return SheetData(
-                spreadsheet=Spreadsheet(
-                    spreadsheetId=sheet_id,
-                    properties=SpreadsheetProperties(title=sheet_id),
-                    sheets=[],
-                ),
-                usage_stats=None,
-                named_ranges=[],
-            )
+    def _get_sheet_usage_stats(self, sheet_id: str) -> Optional[SheetUsageStatistics]:
+        """Get usage statistics for a Google Sheet using Drive Activity API.
 
-    def _get_sheet_usage_stats(self, sheet_id: str) -> SheetUsageStatistics:
-        """Get usage statistics for a Google Sheet using Drive Activity API."""
+        Returns None if service unavailable or fetch fails.
+        """
         if not self.drive_activity_service:
-            return SheetUsageStatistics(view_count=0, unique_user_count=0)
+            return None
 
         try:
             start_time = (
@@ -617,11 +634,20 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
                 if response.activities
                 else None,
             )
-        except Exception as e:
+        except HttpError as e:
+            if e.resp.status in [403, 404]:
+                logger.debug(f"Usage stats unavailable for {sheet_id}: {e.resp.status}")
+                return None
             self.report.report_failure(
-                message="Error fetching usage stats for sheet", context=sheet_id, exc=e
+                message="API error fetching usage stats", context=sheet_id, exc=e
             )
-            return SheetUsageStatistics(view_count=0, unique_user_count=0)
+            return None
+
+        except (ValueError, TypeError, KeyError) as e:
+            self.report.report_warning(
+                message="Error parsing usage stats", context=sheet_id, exc=e
+            )
+            return None
 
     def _get_sheet_schema(
         self,
@@ -916,73 +942,101 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
         return None
 
     def _extract_bigquery_references(self, formula: str) -> List[DatabaseReference]:
-        """Extract database table references from formulas.
+        """Extract database table references from formulas using platform configurations.
 
         Returns:
             List of DatabaseReference objects with platform and table_identifier
         """
         db_refs: List[DatabaseReference] = []
 
-        # BigQuery
-        for match in BIGQUERY_DIRECT_PATTERN.finditer(formula):
-            project_id = match.group(1)
-            dataset_id = match.group(2)
-            table_id = match.group(3)
-            db_refs.append(
-                DatabaseReference.create_bigquery(project_id, dataset_id, table_id)
-            )
+        for platform_key, platform_config in SUPPORTED_PLATFORMS.items():
+            # Check direct patterns
+            for pattern in platform_config.direct_patterns:
+                # Special handling for Snowflake to avoid false positives
+                if platform_key == "snowflake":
+                    if (
+                        "snowflake" not in formula.lower()
+                        and "jdbc:snowflake" not in formula.lower()
+                    ):
+                        continue
 
-        for match in BIGQUERY_JDBC_PATTERN.finditer(formula):
-            project_id = match.group(1)
-            dataset_id = match.group(2)
-            table_id = match.group(3)
-            db_refs.append(
-                DatabaseReference.create_bigquery(project_id, dataset_id, table_id)
-            )
+                for match in pattern.finditer(formula):
+                    db_ref = self._create_database_reference_from_match(
+                        platform_key, platform_config, match, formula, is_jdbc=False
+                    )
+                    if db_ref:
+                        db_refs.append(db_ref)
 
-        # Snowflake (only process if keyword detected to avoid false positives)
-        sf_matches = SNOWFLAKE_DIRECT_PATTERN.finditer(formula)
-        if "snowflake" in formula.lower() or "jdbc:snowflake" in formula.lower():
-            for match in sf_matches:
+            # Check JDBC patterns
+            for pattern in platform_config.jdbc_patterns:
+                for match in pattern.finditer(formula):
+                    db_ref = self._create_database_reference_from_match(
+                        platform_key, platform_config, match, formula, is_jdbc=True
+                    )
+                    if db_ref:
+                        db_refs.append(db_ref)
+
+        return db_refs
+
+    def _create_database_reference_from_match(
+        self,
+        platform_key: str,
+        platform_config: PlatformConfig,
+        match: re.Match,
+        formula: str,
+        is_jdbc: bool = False,
+    ) -> Optional[DatabaseReference]:
+        """Create DatabaseReference from regex match using platform config."""
+        if platform_key == "bigquery":
+            project = match.group(1)
+            dataset = match.group(2)
+            table = match.group(3)
+            return DatabaseReference.create_bigquery(project, dataset, table)
+
+        elif platform_key == "snowflake":
+            if is_jdbc:
+                database = match.group(2)
+                schema = match.group(3)
+                return DatabaseReference.create_snowflake(database, schema, None)
+            else:
                 database = match.group(1)
                 schema = match.group(2)
                 table = match.group(3)
-                db_refs.append(
-                    DatabaseReference.create_snowflake(database, schema, table)
-                )
+                return DatabaseReference.create_snowflake(database, schema, table)
 
-        for match in SNOWFLAKE_JDBC_PATTERN.finditer(formula):
-            database = match.group(2)
-            schema = match.group(3)
-            db_refs.append(DatabaseReference.create_snowflake(database, schema, None))
+        elif platform_key in ["postgres", "mysql"]:
+            if is_jdbc:
+                jdbc_platform = match.group(1).lower()
+                # Verify this pattern matches the platform we're processing
+                if (platform_key == "postgres" and jdbc_platform != "postgresql") or (
+                    platform_key == "mysql" and jdbc_platform != "mysql"
+                ):
+                    return None
 
-        # Postgres/MySQL
-        for match in POSTGRES_MYSQL_JDBC_PATTERN.finditer(formula):
-            platform_name = match.group(1).lower()
-            database = match.group(2)
-            table_match = SQL_TABLE_PATTERN.search(formula)
-            if table_match:
+                database = match.group(2)
+                table_match = SQL_TABLE_PATTERN.search(formula)
+                if not table_match:
+                    return None
                 table = table_match.group(1)
-                if platform_name == "postgresql":
-                    # Postgres uses schema.table format, default to public schema
-                    db_refs.append(
-                        DatabaseReference.create_postgres(database, "public", table)
-                    )
-                else:
-                    # MySQL uses database.table (no schema concept)
-                    db_refs.append(DatabaseReference.create_mysql(database, table))
 
-        # Redshift
-        for match in REDSHIFT_JDBC_PATTERN.finditer(formula):
+                if platform_key == "postgres":
+                    return DatabaseReference.create_postgres(
+                        database, platform_config.default_schema or "public", table
+                    )
+                else:  # mysql
+                    return DatabaseReference.create_mysql(database, table)
+
+        elif platform_key == "redshift":
             database = match.group(1)
             table_match = SQL_TABLE_PATTERN.search(formula)
-            if table_match:
-                table = table_match.group(1)
-                db_refs.append(
-                    DatabaseReference.create_redshift(database, "public", table)
-                )
+            if not table_match:
+                return None
+            table = table_match.group(1)
+            return DatabaseReference.create_redshift(
+                database, platform_config.default_schema or "public", table
+            )
 
-        return db_refs
+        return None
 
     def _get_sheet_formulas(
         self, sheet_id: str, sheet_name: str
@@ -1581,6 +1635,11 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
             self.processed_sheets.add(spreadsheet_id)
 
             sheet_data = self._get_sheet_metadata(spreadsheet_id)
+            if sheet_data is None:
+                logger.warning(
+                    f"Skipping sheet {spreadsheet_id} - failed to fetch metadata"
+                )
+                continue
 
             spreadsheet_container_urn = self.metadata_builder.get_container_urn(
                 f"spreadsheet_{spreadsheet_id}"
@@ -1749,6 +1808,9 @@ class GoogleSheetsSource(StatefulIngestionSourceBase):
             self.processed_sheets.add(sheet_id)
 
             sheet_data = self._get_sheet_metadata(sheet_id)
+            if sheet_data is None:
+                logger.warning(f"Skipping sheet {sheet_id} - failed to fetch metadata")
+                continue
 
             dataset_urn = builder.make_dataset_urn_with_platform_instance(
                 self.platform, sheet_id, self.config.platform_instance, self.config.env
