@@ -1,7 +1,16 @@
 import pytest
 
+from datahub.emitter.mce_builder import datahub_guid
+from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
+from datahub.ingestion.source.common.subtypes import JobContainerSubTypes
+from datahub.ingestion.source.sql.stored_procedures.base import (
+    BaseProcedure,
+    _get_procedure_flow_name,
+    generate_procedure_lineage,
+)
 from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
 from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
     NumberTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -206,12 +215,6 @@ END;
 
 def test_oracle_procedure_to_procedure_lineage():
     """Test that Oracle procedure dependencies are converted to DataJob lineage edges."""
-    from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
-    from datahub.ingestion.source.sql.stored_procedures.base import (
-        BaseProcedure,
-        generate_procedure_lineage,
-    )
-
     schema_resolver = SchemaResolver(platform="oracle", env="PROD")
 
     source_urn = DatasetUrn("oracle", "testdb.testschema.source_table").urn()
@@ -278,8 +281,6 @@ END;
 
     assert len(lineage_mcps) == 1
 
-    from datahub.metadata.schema_classes import DataJobInputOutputClass
-
     datajob_input_output = lineage_mcps[0].aspect
     assert isinstance(datajob_input_output, DataJobInputOutputClass)
 
@@ -295,13 +296,6 @@ END;
 
 def test_oracle_procedure_to_procedure_lineage_with_overloaded_procedures():
     """Test that overloaded procedures (with argument signatures) generate correct URNs with hash suffixes."""
-    from datahub.emitter.mce_builder import datahub_guid
-    from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
-    from datahub.ingestion.source.sql.stored_procedures.base import (
-        BaseProcedure,
-        generate_procedure_lineage,
-    )
-
     schema_resolver = SchemaResolver(platform="oracle", env="PROD")
 
     source_urn = DatasetUrn("oracle", "testdb.testschema.source_table").urn()
@@ -376,8 +370,6 @@ END;
     )
 
     assert len(lineage_mcps) == 1
-
-    from datahub.metadata.schema_classes import DataJobInputOutputClass
 
     datajob_input_output = lineage_mcps[0].aspect
     assert isinstance(datajob_input_output, DataJobInputOutputClass)
@@ -519,3 +511,109 @@ END;
 
     assert "orcl.hr.employees" in input_dataset_urn.lower()
     assert input_dataset_urn == employees_urn
+
+
+def test_oracle_procedure_flow_name_without_database():
+    """
+    Test that procedure flow names are correct for two-tier sources without database names.
+    Functions and procedures should have separate containers.
+    """
+    database_key = DatabaseKey(
+        database="",  # Empty database for two-tier sources
+        platform="oracle",
+        instance=None,
+        env="PROD",
+    )
+
+    schema_key = SchemaKey(
+        database="",  # Empty database
+        schema="hr",
+        platform="oracle",
+        instance=None,
+        env="PROD",
+    )
+
+    # Test procedure flow name
+    proc_flow_name = _get_procedure_flow_name(
+        database_key, schema_key, JobContainerSubTypes.STORED_PROCEDURE
+    )
+    assert proc_flow_name == "hr.stored_procedures"
+    assert not proc_flow_name.startswith(".")
+
+    # Test function flow name
+    func_flow_name = _get_procedure_flow_name(
+        database_key, schema_key, JobContainerSubTypes.FUNCTION
+    )
+    assert func_flow_name == "hr.functions"
+    assert not func_flow_name.startswith(".")
+
+
+def test_oracle_procedure_flow_name_with_database():
+    """
+    Test that procedure flow names include database when configured.
+    Functions and procedures should have separate containers.
+    """
+    database_key = DatabaseKey(
+        database="orcl",
+        platform="oracle",
+        instance=None,
+        env="PROD",
+    )
+
+    schema_key = SchemaKey(
+        database="orcl",
+        schema="hr",
+        platform="oracle",
+        instance=None,
+        env="PROD",
+    )
+
+    # Test procedure flow name
+    proc_flow_name = _get_procedure_flow_name(
+        database_key, schema_key, JobContainerSubTypes.STORED_PROCEDURE
+    )
+    assert proc_flow_name == "orcl.hr.stored_procedures"
+
+    # Test function flow name
+    func_flow_name = _get_procedure_flow_name(
+        database_key, schema_key, JobContainerSubTypes.FUNCTION
+    )
+    assert func_flow_name == "orcl.hr.functions"
+
+
+def test_oracle_function_subtype():
+    """
+    Test that Oracle functions get the FUNCTION subtype instead of STORED_PROCEDURE.
+    """
+    # Create a function
+    oracle_function = BaseProcedure(
+        name="get_employee_salary",
+        language="SQL",
+        argument_signature="employee_id NUMBER",
+        return_type="NUMBER",
+        procedure_definition="RETURN (SELECT salary FROM employees WHERE id = employee_id);",
+        created=None,
+        last_altered=None,
+        comment="Returns employee salary",
+        extra_properties={"object_type": "FUNCTION", "status": "VALID"},
+        subtype=JobContainerSubTypes.FUNCTION,
+    )
+
+    # Create a procedure
+    oracle_procedure = BaseProcedure(
+        name="update_employee_salary",
+        language="SQL",
+        argument_signature="employee_id NUMBER, new_salary NUMBER",
+        return_type=None,
+        procedure_definition="UPDATE employees SET salary = new_salary WHERE id = employee_id;",
+        created=None,
+        last_altered=None,
+        comment="Updates employee salary",
+        extra_properties={"object_type": "PROCEDURE", "status": "VALID"},
+        subtype=JobContainerSubTypes.STORED_PROCEDURE,
+    )
+
+    # Verify subtypes are correct
+    assert oracle_function.subtype == JobContainerSubTypes.FUNCTION
+    assert oracle_procedure.subtype == JobContainerSubTypes.STORED_PROCEDURE
+    assert oracle_function.subtype != oracle_procedure.subtype

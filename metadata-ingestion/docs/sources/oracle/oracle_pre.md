@@ -106,3 +106,27 @@ By default, Oracle URNs are formatted as `schema.table` (e.g., `HR.EMPLOYEES`).
 - All assets (tables, views, stored procedures) will use the same URN format for consistent lineage
 - Once you've ingested with a particular setting, changing it will create new URNs and break existing lineage
 - The `add_database_name_to_urn` flag only has an effect when you specify `database` in your config (not when using `service_name`)
+
+#### Stored Procedures and Functions
+
+The Oracle connector ingests both stored procedures and functions as DataJob entities with distinct subtypes and separate containers:
+
+- **Stored Procedures** (object_type = `PROCEDURE`, `PACKAGE`):
+  - Appear with subtype "Stored Procedure"
+  - Organized in `{schema}.stored_procedures` container
+- **Functions** (object_type = `FUNCTION`):
+  - Appear with subtype "Function"
+  - Organized in `{schema}.functions` container
+
+**Container Examples:**
+
+- Procedures: `urn:li:dataFlow:(oracle,hr.stored_procedures,PROD)`
+- Functions: `urn:li:dataFlow:(oracle,hr.functions,PROD)`
+
+This separation allows you to:
+
+- Browse functions and procedures independently in the DataHub UI
+- Filter by subtype or container
+- Distinguish functions (which return values and are typically used in queries) from procedures (which perform operations)
+
+Both types support full lineage extraction from their SQL definitions, including cross-type lineage (e.g., a procedure calling a function).

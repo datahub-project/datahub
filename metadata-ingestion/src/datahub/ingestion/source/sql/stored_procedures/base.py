@@ -50,6 +50,7 @@ class BaseProcedure:
     extra_properties: Optional[Dict[str, str]]
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
+    subtype: str = JobContainerSubTypes.STORED_PROCEDURE
 
     def get_procedure_identifier(
         self,
@@ -65,7 +66,7 @@ class BaseProcedure:
     def to_urn(self, database_key: DatabaseKey, schema_key: Optional[SchemaKey]) -> str:
         return make_data_job_urn(
             orchestrator=database_key.platform,
-            flow_id=_get_procedure_flow_name(database_key, schema_key),
+            flow_id=_get_procedure_flow_name(database_key, schema_key, self.subtype),
             job_id=self.get_procedure_identifier(),
             cluster=database_key.env or DEFAULT_ENV,
             platform_instance=database_key.instance,
@@ -73,11 +74,11 @@ class BaseProcedure:
 
 
 def _generate_flow_workunits(
-    database_key: DatabaseKey, schema_key: Optional[SchemaKey]
+    database_key: DatabaseKey, schema_key: Optional[SchemaKey], subtype: str
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate flow workunits for database and schema"""
+    """Generate flow workunits for database and schema with specific subtype"""
 
-    procedure_flow_name = _get_procedure_flow_name(database_key, schema_key)
+    procedure_flow_name = _get_procedure_flow_name(database_key, schema_key, subtype)
 
     flow_urn = make_data_flow_urn(
         orchestrator=database_key.platform,
@@ -112,21 +113,33 @@ def _generate_flow_workunits(
             ),
         ).as_workunit()
 
-    yield MetadataChangeProposalWrapper(
-        entityUrn=flow_urn,
-        aspect=ContainerClass(container=database_key.as_urn()),
-    ).as_workunit()
+    # Only set parent container if database name exists
+    # For two-tier sources without database names, flow is top-level
+    if database_key.database:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=ContainerClass(container=database_key.as_urn()),
+        ).as_workunit()
 
 
 def _get_procedure_flow_name(
-    database_key: DatabaseKey, schema_key: Optional[SchemaKey]
+    database_key: DatabaseKey, schema_key: Optional[SchemaKey], subtype: str
 ) -> str:
+    # Determine container suffix based on subtype
+    container_suffix = (
+        "functions" if subtype == JobContainerSubTypes.FUNCTION else "stored_procedures"
+    )
+
     if schema_key:
-        procedure_flow_name = (
-            f"{schema_key.database}.{schema_key.db_schema}.stored_procedures"
-        )
+        # For two-tier sources without database names, don't include empty database prefix
+        if schema_key.database:
+            procedure_flow_name = (
+                f"{schema_key.database}.{schema_key.db_schema}.{container_suffix}"
+            )
+        else:
+            procedure_flow_name = f"{schema_key.db_schema}.{container_suffix}"
     else:
-        procedure_flow_name = f"{database_key.database}.stored_procedures"
+        procedure_flow_name = f"{database_key.database}.{container_suffix}"
     return procedure_flow_name
 
 
@@ -143,7 +156,7 @@ def _generate_job_workunits(
         entityUrn=job_urn,
         aspect=DataJobInfoClass(
             name=procedure.name,
-            type=JobContainerSubTypes.STORED_PROCEDURE,
+            type=procedure.subtype,
             description=procedure.comment,
             customProperties=procedure.extra_properties,
         ),
@@ -152,7 +165,7 @@ def _generate_job_workunits(
     yield MetadataChangeProposalWrapper(
         entityUrn=job_urn,
         aspect=SubTypesClass(
-            typeNames=[JobContainerSubTypes.STORED_PROCEDURE],
+            typeNames=[procedure.subtype],
         ),
     ).as_workunit()
 
@@ -231,11 +244,12 @@ def _parse_procedure_dependencies(
         dep = dep.strip()
 
         # Parse "SCHEMA.NAME (TYPE)" format - match PROCEDURE, FUNCTION, or PACKAGE
-        match = re.match(r"^([^(]+)\s*\((?:PROCEDURE|FUNCTION|PACKAGE)\)$", dep)
+        match = re.match(r"^([^(]+)\s*\((PROCEDURE|FUNCTION|PACKAGE)\)$", dep)
         if not match:
             continue
 
         full_name = match.group(1).strip()
+        dep_type = match.group(2).strip()
         parts = full_name.split(".")
 
         if len(parts) != 2:
@@ -250,6 +264,13 @@ def _parse_procedure_dependencies(
         if procedure_registry and registry_key in procedure_registry:
             job_id = procedure_registry[registry_key]
 
+        # Determine subtype based on Oracle object_type
+        dep_subtype = (
+            JobContainerSubTypes.FUNCTION
+            if dep_type == "FUNCTION"
+            else JobContainerSubTypes.STORED_PROCEDURE
+        )
+
         # Create DataJob URN for the referenced procedure/function
         dep_job_urn = make_data_job_urn(
             orchestrator=database_key.platform,
@@ -263,6 +284,7 @@ def _parse_procedure_dependencies(
                     env=database_key.env,
                     backcompat_env_as_instance=database_key.backcompat_env_as_instance,
                 ),
+                dep_subtype,
             ),
             job_id=job_id,
             cluster=database_key.env or DEFAULT_ENV,
@@ -330,10 +352,11 @@ def generate_procedure_lineage(
 def generate_procedure_container_workunits(
     database_key: DatabaseKey,
     schema_key: Optional[SchemaKey],
+    subtype: str,
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate container workunits for database and schema"""
+    """Generate container workunits for database and schema with specific subtype"""
 
-    yield from _generate_flow_workunits(database_key, schema_key)
+    yield from _generate_flow_workunits(database_key, schema_key, subtype)
 
 
 def generate_procedure_workunits(

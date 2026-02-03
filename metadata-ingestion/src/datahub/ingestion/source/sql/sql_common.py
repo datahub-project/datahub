@@ -3,6 +3,7 @@ import datetime
 import functools
 import logging
 import traceback
+from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import partial
 from typing import (
@@ -1551,24 +1552,36 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
     ) -> Iterable[MetadataWorkUnit]:
         if procedures:
-            yield from generate_procedure_container_workunits(
-                database_key=gen_database_key(
-                    database=db_name,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
-                schema_key=gen_schema_key(
-                    db_name=db_name,
-                    schema=schema,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
+            # Group procedures by subtype to create separate containers
+            procedures_by_subtype: Dict[str, List[BaseProcedure]] = defaultdict(list)
+            for proc in procedures:
+                procedures_by_subtype[proc.subtype].append(proc)
+
+            database_key = gen_database_key(
+                database=db_name,
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
             )
+            schema_key = gen_schema_key(
+                db_name=db_name,
+                schema=schema,
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            # Create separate containers for each subtype
+            for subtype in procedures_by_subtype:
+                yield from generate_procedure_container_workunits(
+                    database_key=database_key,
+                    schema_key=schema_key,
+                    subtype=subtype,
+                )
 
         # Build procedure registry for resolving procedure-to-procedure lineage
         # Maps "schema.procedure_name" -> full identifier (with hash if overloaded)
+        # This registry includes ALL procedures/functions regardless of subtype
         procedure_registry: Dict[str, str] = {}
         for proc in procedures:
             registry_key = f"{schema.lower()}.{proc.name.lower()}"

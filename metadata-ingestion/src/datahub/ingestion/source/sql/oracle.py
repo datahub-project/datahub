@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 import platform
 import re
 import sys
@@ -44,6 +45,7 @@ from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
+    JobContainerSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.sql_common import (
@@ -1001,8 +1003,6 @@ class OracleSource(SQLAlchemySource):
     @classmethod
     def test_connection(cls, config_dict: dict) -> TestConnectionReport:
         """Test Oracle connection."""
-        import os
-
         # Force thin mode in test environments to avoid Oracle Client issues
         os.environ["ORACLE_CLIENT_LIBRARY_DIR"] = ""
         os.environ["TNS_ADMIN"] = ""
@@ -1203,6 +1203,13 @@ class OracleSource(SQLAlchemySource):
                     if self.config.add_database_name_to_urn and self.config.database:
                         default_db = self.config.database
 
+                    # Determine subtype based on Oracle object_type
+                    subtype = (
+                        JobContainerSubTypes.FUNCTION
+                        if row.type == "FUNCTION"
+                        else JobContainerSubTypes.STORED_PROCEDURE
+                    )
+
                     base_procedures.append(
                         BaseProcedure(
                             name=row.name,
@@ -1216,6 +1223,7 @@ class OracleSource(SQLAlchemySource):
                             extra_properties=extra_props,
                             default_db=default_db,
                             default_schema=normalized_schema,
+                            subtype=subtype,
                         )
                     )
 

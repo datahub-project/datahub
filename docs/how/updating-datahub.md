@@ -64,7 +64,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.
 - #14968: Added an ingestion source for IBM Db2 databases.
 - #15824: The Databricks ingestion source now additionally supports authentication via M2M OAuth or Databricks unified authentication. The Azure authentication method now supports profiling as well as ingesting lineage from system tables.
-- #16067: Oracle ingestion source improvements: Added procedure-to-procedure lineage support, improved PL/SQL parsing for control flow keywords (WHILE, LOOP, EXCEPTION, etc.), and fixed overloaded procedure handling.
+- #16067: Oracle ingestion source improvements: Added procedure-to-procedure lineage support, improved PL/SQL parsing for control flow keywords (WHILE, LOOP, EXCEPTION, etc.), fixed overloaded procedure handling, and added distinct subtypes and separate containers for functions vs procedures. **Note:** Functions are now organized in `{schema}.functions` containers while procedures remain in `{schema}.stored_procedures` containers. This is a breaking change that will affect function URNs - re-ingestion is required for functions to appear in the correct container.
 
 ## 1.3.0
 
