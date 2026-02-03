@@ -21,6 +21,16 @@
     displayName: Azure Data Lake (Gen 2)
     type: FILE_SYSTEM
     logoUrl: "assets/platforms/adlslogo.png"
+- entityUrn: urn:li:dataPlatform:azure-data-factory
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: azure-data-factory
+    displayName: Azure Data Factory
+    type: OTHERS
+    logoUrl: "assets/platforms/azuredatafactorylogo.svg"
 - entityUrn: urn:li:dataPlatform:airflow
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -80,6 +90,16 @@
     displayName: Dagster
     type: OTHERS
     logoUrl: "assets/platforms/dagsterlogo.svg"
+- entityUrn: urn:li:dataPlatform:dataplex
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dataplex
+    displayName: Dataplex
+    type: OTHERS
+    logoUrl: "assets/platforms/dataplexlogo.svg"
 - entityUrn: urn:li:dataPlatform:external
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -228,7 +248,7 @@
     name: mariadb
     displayName: MariaDB
     type: RELATIONAL_DB
-    logoUrl: "assets/platforms/mariadblogo.png"
+    logoUrl: "assets/platforms/mariadblogo.svg"
 - entityUrn: urn:li:dataPlatform:OpenApi
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -497,7 +517,7 @@
     name: powerbi
     displayName: Power BI
     type: OTHERS
-    logoUrl: "assets/platforms/powerbilogo.png"
+    logoUrl: "assets/platforms/powerbilogo.svg"
 - entityUrn: urn:li:dataPlatform:presto-on-hive
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -756,7 +776,7 @@
     name: neo4j
     displayName: Neo4j
     type: OTHERS
-    logoUrl: "assets/platforms/neo4j.png"
+    logoUrl: "assets/platforms/neo4j.svg"
 - entityUrn: urn:li:dataPlatform:vertexai
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -817,6 +837,16 @@
     displayName: Informatica
     type: OTHERS
     logoUrl: "assets/platforms/informaticalogo.png"
+- entityUrn: urn:li:dataPlatform:snaplogic
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: snaplogic
+    displayName: SnapLogic
+    type: OTHERS
+    logoUrl: "assets/platforms/snaplogic.svg"
 - entityUrn: urn:li:dataPlatform:google_sheets
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -847,6 +877,16 @@
     displayName: Notion
     type: OTHERS
     logoUrl: "assets/platforms/notionlogo.png"
+- entityUrn: urn:li:dataPlatform:fabric-onelake
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: fabric-onelake
+    displayName: Fabric OneLake
+    type: OTHERS
+    logoUrl: "assets/platforms/fabriconelakelogo.png"
 - entityUrn: urn:li:dataPlatform:datahub
   entityType: dataPlatform
   aspectName: dataPlatformInfo

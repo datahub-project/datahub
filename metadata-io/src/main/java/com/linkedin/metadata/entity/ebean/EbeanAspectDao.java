@@ -11,7 +11,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.SystemAspectValidator;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
@@ -89,17 +91,23 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   private final String batchGetMethod;
   @Nullable private final MetricUtils metricUtils;
+  @Getter @Nonnull private final List<SystemAspectValidator> systemAspectValidators;
+  @Getter @Nullable private final AspectSizeValidationConfiguration validationConfig;
 
   public EbeanAspectDao(
       @Nonnull final Database server,
       EbeanConfiguration ebeanConfiguration,
-      MetricUtils metricUtils) {
+      MetricUtils metricUtils,
+      @Nonnull List<SystemAspectValidator> systemAspectValidators,
+      @Nullable AspectSizeValidationConfiguration validationConfig) {
     this.server = server;
     this.batchGetMethod =
         ebeanConfiguration.getBatchGetMethod() != null
             ? ebeanConfiguration.getBatchGetMethod()
             : "IN";
     this.metricUtils = metricUtils;
+    this.systemAspectValidators = systemAspectValidators;
+    this.validationConfig = validationConfig;
   }
 
   @Override
@@ -112,9 +120,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       return true;
     }
     if (!AspectStorageValidationUtil.checkV2TableExists(server)) {
-      log.error(
-          "GMS is on a newer version than your storage layer. Please refer to "
-              + "https://docs.datahub.com/docs/advanced/no-code-upgrade to view the upgrade guide.");
+      log.error("Table metadata_aspect_v2 does not exist.");
       canWrite = false;
       return false;
     } else {
@@ -205,7 +211,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       results = server.find(EbeanAspectV2.class).where().idIn(keys).findList();
     }
 
-    return toUrnAspectMap(opContext.getEntityRegistry(), results);
+    return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
   }
 
   @Override
@@ -1013,23 +1019,32 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     return ebeanAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList());
   }
 
-  private static Map<String, SystemAspect> toAspectMap(
-      @Nonnull EntityRegistry entityRegistry, Set<EbeanAspectV2> beans) {
+  private Map<String, SystemAspect> toAspectMap(
+      @Nonnull EntityRegistry entityRegistry,
+      Set<EbeanAspectV2> beans,
+      @Nullable io.datahubproject.metadata.context.OperationContext opContext) {
     return beans.stream()
         .map(bean -> Map.entry(bean.getAspect(), bean))
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
-                e -> EbeanSystemAspect.builder().forUpdate(e.getValue(), entityRegistry)));
+                e ->
+                    EbeanSystemAspect.builder()
+                        .systemAspectValidators(systemAspectValidators)
+                        .validationConfig(validationConfig)
+                        .operationContext(opContext)
+                        .forUpdate(e.getValue(), entityRegistry)));
   }
 
-  private static Map<String, Map<String, SystemAspect>> toUrnAspectMap(
-      @Nonnull EntityRegistry entityRegistry, Collection<EbeanAspectV2> beans) {
+  private Map<String, Map<String, SystemAspect>> toUrnAspectMap(
+      @Nonnull EntityRegistry entityRegistry,
+      Collection<EbeanAspectV2> beans,
+      @Nullable io.datahubproject.metadata.context.OperationContext opContext) {
     return beans.stream()
         .collect(Collectors.groupingBy(EbeanAspectV2::getUrn, Collectors.toSet()))
         .entrySet()
         .stream()
-        .map(e -> Map.entry(e.getKey(), toAspectMap(entityRegistry, e.getValue())))
+        .map(e -> Map.entry(e.getKey(), toAspectMap(entityRegistry, e.getValue(), opContext)))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }

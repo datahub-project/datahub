@@ -53,7 +53,7 @@ buildscript {
   ext.playVersion = '2.8.22'
   ext.playScalaVersion = '2.13'
   ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
-  ext.log4jVersion = '2.23.1'
+  ext.log4jVersion = '2.25.3'
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.5.21'
   ext.hadoop3Version = '3.3.6'
@@ -128,7 +128,7 @@ project.ext.externalDependency = [
     'avroCompiler': 'org.apache.avro:avro-compiler:1.11.4',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.25',
     'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.3.2',
-    'awsSdk2Bom': 'software.amazon.awssdk:bom:2.23.6',
+    'awsSdk2Bom': 'software.amazon.awssdk:bom:2.30.33',
     'awsS3': "software.amazon.awssdk:s3:$awsSdk2Version",
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.15',
     'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.6.5',
@@ -229,8 +229,8 @@ project.ext.externalDependency = [
     'gcpCloudSqlConnector': 'com.google.cloud.sql:mysql-socket-factory-connector-j-8:1.25.3',
     'testContainersNeo4j': 'org.testcontainers:neo4j:' + testContainersVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
-    'nettyReactor': 'io.projectreactor.netty:reactor-netty-http:1.2.12',
-    'nettyCore': 'io.projectreactor.netty:reactor-netty-core:1.2.12',
+    'nettyReactor': 'io.projectreactor.netty:reactor-netty-http:1.2.13',
+    'nettyCore': 'io.projectreactor.netty:reactor-netty-core:1.2.13',
     'neo4jApocCore': 'org.neo4j.procedure:apoc-core:' + neo4jApocVersion,
     'neo4jApocCommon': 'org.neo4j.procedure:apoc-common:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
@@ -517,11 +517,28 @@ subprojects {
       preserveFileTimestamps = false
     }*/
 
+    // Exclude unwanted transitive dependencies from log4j (fixed in logging-parent 12.0.0)
+    // See: https://github.com/apache/logging-log4j2/issues/3066
+    configurations.all {
+      exclude group: 'biz.aQute.bnd', module: 'biz.aQute.bnd.annotation'
+      exclude group: 'org.jspecify', module: 'jspecify'
+    }
+
     dependencies {
       implementation externalDependency.annotationApi
       constraints {
         implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
-        implementation('io.netty:netty-all:4.1.128.Final')
+        implementation('io.netty:netty-all:4.1.130.Final')
+        implementation('io.netty:netty-codec:4.1.130.Final') // CVE-2025-58057
+        implementation('io.netty:netty-resolver-dns-native-macos:4.1.130.Final')
+        implementation('io.netty:netty-transport-native-epoll:4.1.130.Final')
+        implementation('io.netty:netty-transport-native-kqueue:4.1.130.Final')
+        implementation('io.projectreactor.netty:reactor-netty-core:1.2.13')
+        implementation('io.projectreactor.netty:reactor-netty-http:1.2.13')
+        implementation("org.apache.logging.log4j:log4j-core:$log4jVersion") // GHSA-vc5p-v9hr-52mj
+        implementation("org.apache.logging.log4j:log4j-jul:$log4jVersion")
+        implementation('org.jline:jline:3.25.1') // CVE-2023-50572: OOM in GroovyEngine.execute
+        implementation('org.apache.commons:commons-configuration2:2.10.1') // GHSA-xjp4-hw94-mvp5: StackOverflowError
         implementation('org.apache.commons:commons-compress:1.27.1')
         implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
