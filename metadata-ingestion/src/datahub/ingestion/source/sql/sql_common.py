@@ -1241,7 +1241,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 default_schema=default_schema,
             )
         elif not view_definition:
-            logger.warning(f"[VIEW-DEF] Empty view definition for {dataset_name}")
+            logger.warning(f"[VIEW-DEF] No view definition for {dataset_name}")
         elif not self.config.include_view_lineage:
             logger.debug(
                 f"[VIEW-DEF] Skipping {dataset_name}: include_view_lineage=False"
