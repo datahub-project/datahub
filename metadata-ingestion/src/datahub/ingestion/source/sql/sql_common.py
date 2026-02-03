@@ -1117,9 +1117,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
             view_names = inspector.get_view_names(schema)
-            logger.debug(
-                f"[VIEW-DISCOVERY] Schema {schema}: found {len(view_names)} views"
-            )
             for view in view_names:
                 dataset_name = self.get_identifier(
                     schema=schema, entity=view, inspector=inspector
@@ -1170,27 +1167,23 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         # into a dataset identifier string and then parsed back out.
         return self.get_db_schema(dataset_identifier)
 
-    def get_view_downstream_urn(
+    def _add_view_to_aggregator(
         self,
         view_urn: str,
         view_definition: str,
-        schema: str,
-    ) -> Optional[str]:
-        """Get the downstream URN for a view definition.
+        default_db: Optional[str],
+        default_schema: Optional[str],
+    ) -> None:
+        """Add a view definition to the aggregator for lineage processing.
 
-        Override this method in subclasses to customize the downstream URN for views.
-        For example, ClickHouse materialized views with TO clause have a separate
-        target table as the actual downstream.
-
-        Args:
-            view_urn: The URN of the view being processed.
-            view_definition: The SQL definition of the view.
-            schema: The schema (database) the view belongs to.
-
-        Returns:
-            The downstream URN if different from view_urn, or None to use view_urn.
+        Override this method in subclasses to customize how view lineage is registered.
         """
-        return None
+        self.aggregator.add_view_definition(
+            view_urn=view_urn,
+            view_definition=view_definition,
+            default_db=default_db,
+            default_schema=default_schema,
+        )
 
     def _process_view(
         self,
@@ -1248,27 +1241,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     exc=e,
                 )
 
-            # Allow sources to override the downstream URN (e.g., for ClickHouse MVs
-            # with TO clause where the actual downstream is a separate target table).
-            downstream_urn = self.get_view_downstream_urn(
-                view_urn=dataset_urn,
-                view_definition=view_definition,
-                schema=schema,
-            )
-
-            self.aggregator.add_view_definition(
+            self._add_view_to_aggregator(
                 view_urn=dataset_urn,
                 view_definition=view_definition,
                 default_db=default_db,
                 default_schema=default_schema,
-                downstream_urn=downstream_urn,
             )
         elif not view_definition:
             logger.warning(f"Empty view definition for {dataset_name}")
-        elif not self.config.include_view_lineage:
-            logger.debug(
-                f"Skipping view lineage for {dataset_name}: include_view_lineage=False"
-            )
 
         dataset_snapshot = DatasetSnapshotClass(
             urn=dataset_urn,

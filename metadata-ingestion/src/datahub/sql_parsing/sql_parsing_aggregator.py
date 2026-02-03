@@ -120,10 +120,6 @@ class ViewDefinition:
     view_definition: str
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
-    # If set, this URN will be used as the downstream instead of the view_urn.
-    # Useful for cases like ClickHouse MVs with TO clause where the actual
-    # downstream is a separate target table.
-    downstream_urn: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -821,7 +817,6 @@ class SqlParsingAggregator(Closeable):
         view_definition: str,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
-        downstream_urn: Optional[Union[DatasetUrn, UrnStr]] = None,
     ) -> None:
         """Add a view definition to the aggregator.
 
@@ -830,15 +825,6 @@ class SqlParsingAggregator(Closeable):
 
         The actual processing of view definitions is deferred until output time,
         since all schemas will be registered at that point.
-
-        Args:
-            view_urn: The URN of the view being defined.
-            view_definition: The SQL definition of the view.
-            default_db: Default database for resolving unqualified table names.
-            default_schema: Default schema for resolving unqualified table names.
-            downstream_urn: If provided, use this as the downstream URN instead of
-                view_urn. Useful for cases like ClickHouse materialized views with
-                TO clause where the actual downstream is a separate target table.
         """
 
         self.report.num_view_definitions += 1
@@ -847,7 +833,6 @@ class SqlParsingAggregator(Closeable):
             view_definition=view_definition,
             default_db=default_db,
             default_schema=default_schema,
-            downstream_urn=str(downstream_urn) if downstream_urn else None,
         )
 
     def add_observed_query(
@@ -1195,12 +1180,7 @@ class SqlParsingAggregator(Closeable):
         elif parsed.debug_info.column_error:
             self.report.num_views_column_failed += 1
 
-        # Determine the actual downstream URN.
-        # If the caller provided a downstream_urn override (e.g., for ClickHouse MVs
-        # with TO clause), use that instead of the view_urn.
-        downstream_urn = view_definition.downstream_urn or view_urn
-
-        query_fingerprint = self._view_query_id(downstream_urn)
+        query_fingerprint = self._view_query_id(view_urn)
         formatted_view_definition = self._maybe_format_query(
             view_definition.view_definition
         )
@@ -1223,87 +1203,7 @@ class SqlParsingAggregator(Closeable):
         )
 
         # Register the query's lineage.
-        self._lineage_map.for_mutation(downstream_urn, OrderedSet()).add(
-            query_fingerprint
-        )
-
-        # If the downstream differs from the view (e.g., MV with separate target table),
-        # also register view → target table lineage with column-level mappings.
-        # This enables column lineage visibility from the view to the target table in the UI.
-        if downstream_urn != view_urn:
-            view_to_target_cll = self._create_view_to_target_column_lineage(
-                view_urn, downstream_urn, parsed.column_lineage or []
-            )
-            if view_to_target_cll:
-                view_to_target_fingerprint = (
-                    f"view_to_target_{self._view_query_id(view_urn)}"
-                )
-                self._add_to_query_map(
-                    QueryMetadata(
-                        query_id=view_to_target_fingerprint,
-                        formatted_query_string=formatted_view_definition,
-                        session_id=_MISSING_SESSION_ID,
-                        query_type=QueryType.CREATE_VIEW,
-                        lineage_type=models.DatasetLineageTypeClass.VIEW,
-                        latest_timestamp=None,
-                        actor=None,
-                        upstreams=[view_urn],
-                        column_lineage=view_to_target_cll,
-                        column_usage={},
-                        confidence_score=parsed.debug_info.confidence,
-                    )
-                )
-                self._lineage_map.for_mutation(downstream_urn, OrderedSet()).add(
-                    view_to_target_fingerprint
-                )
-
-    def _create_view_to_target_column_lineage(
-        self,
-        view_urn: UrnStr,
-        target_urn: UrnStr,
-        source_column_lineage: List[ColumnLineageInfo],
-    ) -> List[ColumnLineageInfo]:
-        """Create column lineage mappings from view columns to target table columns.
-
-        When a view's downstream differs from the view itself (e.g., ClickHouse MVs
-        with TO clause), this creates 1:1 column mappings so that column-level
-        lineage is visible from the view to the target table in the UI.
-
-        Args:
-            view_urn: The URN of the view
-            target_urn: The URN of the target table
-            source_column_lineage: The column lineage from source tables to target table
-
-        Returns:
-            List of ColumnLineageInfo entries mapping view columns to target table columns
-        """
-        column_lineage: List[ColumnLineageInfo] = []
-
-        # Extract unique downstream column names from the source column lineage
-        downstream_columns: Set[str] = set()
-        for cll_info in source_column_lineage:
-            if cll_info.downstream.column:
-                downstream_columns.add(cll_info.downstream.column)
-
-        # Create 1:1 mappings from view columns to target table columns
-        for column_name in downstream_columns:
-            column_lineage.append(
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=target_urn,
-                        column=column_name,
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=view_urn,
-                            column=column_name,
-                        )
-                    ],
-                    logic=None,
-                )
-            )
-
-        return column_lineage
+        self._lineage_map.for_mutation(view_urn, OrderedSet()).add(query_fingerprint)
 
     def _run_sql_parser(
         self,

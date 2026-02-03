@@ -384,7 +384,25 @@ def _extract_table_names(
     )
 
 
-# ClickHouse dictionary functions that take a dictionary name as first argument.
+# ==============================================================================
+# ClickHouse-specific helpers
+# ==============================================================================
+# ClickHouse has unique SQL features that require special handling:
+# 1. Dictionary functions (DICTGET, etc.) - first arg is dict name, not a table
+# 2. Materialized views with TO clause - output goes to target table, not MV
+# 3. ARRAY JOIN pseudo-tables - may create unresolvable table references
+
+
+def _clickhouse_should_use_lenient_resolution(dialect: sqlglot.Dialect) -> bool:
+    """Check if lenient table resolution should be used for this dialect.
+
+    ClickHouse may have unresolvable table references from ARRAY JOIN pseudo-tables
+    or complex CTE scopes. In these cases, we skip rather than fail.
+    """
+    return is_dialect_instance(dialect, "clickhouse")
+
+
+# Dictionary functions that take a dictionary name as first argument.
 # These are NOT table references and should be excluded from lineage.
 # See: https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions
 _CLICKHOUSE_DICTIONARY_FUNCTIONS = frozenset(
@@ -435,6 +453,36 @@ def _is_in_clickhouse_dict_function(table: sqlglot.exp.Table) -> bool:
             break
         parent = parent.parent
     return False
+
+
+def _clickhouse_extract_to_tables(
+    statement: sqlglot.Expression,
+    dialect: sqlglot.Dialect,
+) -> OrderedSet[_TableName]:
+    """Extract TO tables from ClickHouse CREATE MATERIALIZED VIEW ... TO statements.
+
+    In ClickHouse, materialized views can write to a separate target table:
+        CREATE MATERIALIZED VIEW mv_name TO target_table AS SELECT ...
+
+    The actual output is target_table, not mv_name. This function extracts
+    the TO tables so they can be used as the output instead of the MV name.
+    """
+    if not is_dialect_instance(dialect, "clickhouse"):
+        return OrderedSet()
+
+    return _extract_table_names(
+        (
+            to_prop.this
+            for to_prop in statement.find_all(sqlglot.exp.ToTableProperty)
+            if isinstance(to_prop.this, sqlglot.exp.Table)
+        ),
+        dialect,
+    )
+
+
+# ==============================================================================
+# End ClickHouse-specific helpers
+# ==============================================================================
 
 
 def _build_tsql_update_alias_map(
@@ -549,19 +597,8 @@ def _table_level_lineage(
         return table
 
     # Generate table-level lineage.
-    # ClickHouse-specific: For CREATE MATERIALIZED VIEW ... TO target_table,
-    # the actual output is the target table, not the view itself.
     is_clickhouse = is_dialect_instance(dialect, "clickhouse")
-    clickhouse_to_tables: OrderedSet[_TableName] = OrderedSet()
-    if is_clickhouse:
-        clickhouse_to_tables = _extract_table_names(
-            (
-                to_prop.this
-                for to_prop in statement.find_all(sqlglot.exp.ToTableProperty)
-                if isinstance(to_prop.this, sqlglot.exp.Table)
-            ),
-            dialect,
-        )
+    clickhouse_to_tables = _clickhouse_extract_to_tables(statement, dialect)
 
     modified = (
         _extract_table_names(
@@ -585,7 +622,7 @@ def _table_level_lineage(
             # For statements that include a column list, like
             # CREATE DDL statements and `INSERT INTO table (col1, col2) SELECT ...`
             # the table name is nested inside a Schema object.
-            # ClickHouse: Skip if there's a TO table (use that instead).
+            # ClickHouse: Skip MV name if there's a TO table (use TO table instead).
             (
                 expr.this.this
                 for expr in statement.find_all(
@@ -594,11 +631,11 @@ def _table_level_lineage(
                 )
                 if isinstance(expr.this, sqlglot.exp.Schema)
                 and isinstance(expr.this.this, sqlglot.exp.Table)
-                and not clickhouse_to_tables  # Skip MV name if TO table exists
+                and not (is_clickhouse and clickhouse_to_tables)
             ),
             dialect,
         )
-        | clickhouse_to_tables  # Add ClickHouse TO tables as output
+        | clickhouse_to_tables
         | _extract_table_names(
             # For drop statements, we only want it if a table/view is being dropped.
             # Other "kinds" will not have table.name populated.
@@ -1972,9 +2009,7 @@ def _sqlglot_lineage_inner(
     out_urns = sorted({table_name_urn_mapping[table] for table in modified})
     column_lineage_urns = None
     if column_lineage:
-        # Use lenient table resolution for dialects with pseudo-tables (e.g., ARRAY JOIN)
-        # that may create unresolvable table references.
-        use_strict_resolution = not is_dialect_instance(dialect, "clickhouse")
+        use_lenient_resolution = _clickhouse_should_use_lenient_resolution(dialect)
         try:
             column_lineage_urns = [
                 translated
@@ -1984,7 +2019,7 @@ def _sqlglot_lineage_inner(
                         table_name_urn_mapping,
                         internal_col_lineage,
                         dialect=dialect,
-                        strict=use_strict_resolution,
+                        strict=not use_lenient_resolution,
                     )
                 )
                 is not None

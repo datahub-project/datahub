@@ -134,52 +134,6 @@ def test_get_view_definition_returns_empty_when_not_found():
 # Query log extraction tests
 
 
-def test_query_log_table_validation_valid():
-    """Test that valid query_log_table values are accepted."""
-    # Standard table name
-    config = ClickHouseConfig.model_validate(
-        {"host_port": "localhost:8123", "query_log_table": "system.query_log"}
-    )
-    assert config.query_log_table == "system.query_log"
-
-    # Custom view
-    config = ClickHouseConfig.model_validate(
-        {"host_port": "localhost:8123", "query_log_table": "monitoring.query_log_view"}
-    )
-    assert config.query_log_table == "monitoring.query_log_view"
-
-    # Simple table name
-    config = ClickHouseConfig.model_validate(
-        {"host_port": "localhost:8123", "query_log_table": "query_log"}
-    )
-    assert config.query_log_table == "query_log"
-
-
-def test_query_log_table_validation_invalid():
-    """Test that invalid query_log_table values are rejected (SQL injection prevention)."""
-
-    # SQL injection attempt with semicolon
-    with pytest.raises(ValueError, match="Invalid query_log_table"):
-        ClickHouseConfig.model_validate(
-            {
-                "host_port": "localhost:8123",
-                "query_log_table": "system.query_log; DROP TABLE users;--",
-            }
-        )
-
-    # SQL injection with quotes
-    with pytest.raises(ValueError, match="Invalid query_log_table"):
-        ClickHouseConfig.model_validate(
-            {"host_port": "localhost:8123", "query_log_table": "system'--"}
-        )
-
-    # SQL injection with parentheses
-    with pytest.raises(ValueError, match="Invalid query_log_table"):
-        ClickHouseConfig.model_validate(
-            {"host_port": "localhost:8123", "query_log_table": "system.query_log()"}
-        )
-
-
 def test_query_log_deny_usernames_validation_valid():
     """Test that valid usernames are accepted."""
     config = ClickHouseConfig.model_validate(
@@ -340,49 +294,6 @@ WHERE type = 'QueryFinish'
   AND event_time < '2024-01-08 00:00:00'
   AND query_kind IN ('Insert', 'Create', 'Select')
   AND user != 'system' AND user != 'default'
-  AND query NOT LIKE '%system.%'
-ORDER BY event_time ASC
-"""
-        assert query == expected
-
-
-def test_build_query_log_query_custom_table():
-    """Test _build_query_log_query uses custom query_log_table."""
-    config = ClickHouseConfig.model_validate(
-        {
-            "host_port": "localhost:8123",
-            "include_query_log_lineage": True,
-            "start_time": "2024-01-01T00:00:00Z",
-            "end_time": "2024-01-08T00:00:00Z",
-            "query_log_table": "monitoring.query_log_view",
-        }
-    )
-
-    with patch.object(ClickHouseSource, "__init__", lambda x, y, z: None):
-        source = ClickHouseSource.__new__(ClickHouseSource)
-        source.config = config
-
-        query = source._build_query_log_query()
-
-        expected = """
-SELECT
-    query_id,
-    query,
-    query_kind,
-    user,
-    event_time,
-    query_duration_ms,
-    read_rows,
-    written_rows,
-    current_database,
-    normalized_query_hash
-FROM monitoring.query_log_view
-WHERE type = 'QueryFinish'
-  AND is_initial_query = 1
-  AND event_time >= '2024-01-01 00:00:00'
-  AND event_time < '2024-01-08 00:00:00'
-  AND query_kind IN ('Insert', 'Create', 'Select')
-  AND 1=1
   AND query NOT LIKE '%system.%'
 ORDER BY event_time ASC
 """

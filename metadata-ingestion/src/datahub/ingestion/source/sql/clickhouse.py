@@ -22,7 +22,7 @@ from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs, LaxStr
+from datahub.configuration.common import HiddenFromDocs, LaxStr
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
@@ -105,19 +105,6 @@ register_custom_type(custom_types.common.Map, MapTypeClass)
 register_custom_type(custom_types.common.Tuple, UnionTypeClass)
 
 
-def _is_valid_sql_identifier(value: str) -> bool:
-    """Check if value is a safe SQL identifier (e.g., 'schema.table').
-
-    Uses Python's str.isidentifier() which allows: letters, digits, underscores,
-    starting with letter or underscore. This prevents SQL injection.
-    """
-    if not value:
-        return False
-    # Split by dot for schema.table format, validate each part
-    parts = value.split(".")
-    return all(part.isidentifier() for part in parts)
-
-
 def _is_valid_username(value: str) -> bool:
     """Check if value is a safe username (alphanumeric, underscores, hyphens)."""
     if not value:
@@ -193,28 +180,21 @@ class ClickHouseConfig(
     include_query_log_lineage: bool = Field(
         default=False,
         description="Whether to extract lineage from query_log (INSERT/CREATE queries). "
-        "This complements the definition-based lineage from views/MVs.",
+        "This complements the definition-based lineage from views/materialized views.",
     )
     include_usage_statistics: bool = Field(
         default=False,
-        description="Whether to extract usage statistics from query_log (SELECT queries).",
+        description="Whether to extract usage statistics from query_log. "
+        "Tracks which tables and columns are queried by SELECT statements.",
     )
     include_query_log_operations: bool = Field(
         default=False,
-        description="Whether to emit operation aspects from query_log.",
-    )
-    query_log_table: str = Field(
-        default="system.query_log",
-        description="The query log table to read from. "
-        "Can be customized to a view for clustered setups.",
+        description="Whether to show recent write activity on datasets. "
+        "Displays INSERT, UPDATE, DELETE history in the dataset's activity tab.",
     )
     query_log_deny_usernames: List[str] = Field(
         default=[],
         description="List of ClickHouse usernames to exclude from query log extraction.",
-    )
-    user_email_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for user emails/usernames to filter in usage.",
     )
     temporary_tables_pattern: List[str] = Field(
         default=[
@@ -229,17 +209,6 @@ class ClickHouseConfig(
         default=10,
         description="Number of top queries to save to each table for usage statistics.",
     )
-
-    @field_validator("query_log_table")
-    @classmethod
-    def validate_query_log_table(cls, v: str) -> str:
-        """Validate query_log_table to prevent SQL injection."""
-        if not _is_valid_sql_identifier(v):
-            raise ValueError(
-                f"Invalid query_log_table '{v}'. "
-                "Must be a valid SQL identifier (e.g., 'system.query_log')."
-            )
-        return v
 
     @field_validator("query_log_deny_usernames")
     @classmethod
@@ -414,33 +383,22 @@ def get_view_names(self, connection, schema=None, **kw):
 @reflection.cache  # type: ignore
 def _get_schema_column_info(self, connection, schema=None, **kw):
     all_columns = defaultdict(list)
-    if schema:
-        query = text(
-            """
-            SELECT database
-                 , table AS table_name
-                 , name
-                 , type
-                 , comment
-              FROM system.columns
-             WHERE database = :schema
-             ORDER BY database, table, position
-            """
-        )
-        result = connection.execute(query, {"schema": schema})
-    else:
-        query = text(
-            """
-            SELECT database
-                 , table AS table_name
-                 , name
-                 , type
-                 , comment
-              FROM system.columns
-             ORDER BY database, table, position
-            """
-        )
-        result = connection.execute(query)
+
+    where_clause = "WHERE database = :schema" if schema else ""
+    params = {"schema": schema} if schema else {}
+
+    query = text(f"""
+        SELECT database
+             , table AS table_name
+             , name
+             , type
+             , comment
+          FROM system.columns
+         {where_clause}
+         ORDER BY database, table, position
+    """)
+    result = connection.execute(query, params)
+
     for col in result:
         key = (col.database, col.table_name)
         all_columns[key].append(col)
@@ -453,16 +411,7 @@ def _get_clickhouse_columns(self, connection, table_name, schema=None, **kw):
         connection, schema, info_cache=info_cache
     )
     key = (schema, table_name)
-    if key not in all_schema_columns:
-        # Some tables (e.g., distributed log shards like s3queue_log_5, session_log_2)
-        # exist in system.tables but have no entries in system.columns.
-        # Return empty list to allow ingestion to continue.
-        logger.debug(
-            f"No columns found for table '{schema}.{table_name}' in system.columns. "
-            "This may be a distributed shard or virtual table."
-        )
-        return []
-    return all_schema_columns[key]
+    return all_schema_columns.get(key, [])
 
 
 def _get_column_info(self, name, format_type, comment):
@@ -520,29 +469,22 @@ def get_view_definition(self, connection, view_name, schema=None, **kw):
     ClickHouse stores the full CREATE statement in system.tables.create_table_query.
     We return the full statement and let the SQL parser extract the SELECT portion.
     """
-    if schema:
-        query = text(
-            """
-            SELECT create_table_query
-            FROM system.tables
-            WHERE database = :schema
-              AND name = :view_name
-              AND engine LIKE '%View'
-            """
-        )
-        result = connection.execute(
-            query, {"schema": schema, "view_name": view_name}
-        ).fetchone()
-    else:
-        query = text(
-            """
-            SELECT create_table_query
-            FROM system.tables
-            WHERE name = :view_name
-              AND engine LIKE '%View'
-            """
-        )
-        result = connection.execute(query, {"view_name": view_name}).fetchone()
+    schema_clause = "AND database = :schema" if schema else ""
+    params = (
+        {"view_name": view_name, "schema": schema}
+        if schema
+        else {"view_name": view_name}
+    )
+
+    query = text(f"""
+        SELECT create_table_query
+          FROM system.tables
+         WHERE name = :view_name
+           AND engine LIKE '%View'
+           {schema_clause}
+    """)
+    result = connection.execute(query, params).fetchone()
+
     if result and result[0]:
         return result[0]
     return ""
@@ -638,35 +580,59 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         config = ClickHouseConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_view_downstream_urn(
+    def _add_view_to_aggregator(
         self,
         view_urn: str,
         view_definition: str,
-        schema: str,
-    ) -> Optional[str]:
-        """Get the downstream URN for ClickHouse materialized views with TO clause.
+        default_db: Optional[str],
+        default_schema: Optional[str],
+    ) -> None:
+        """Override to handle ClickHouse materialized views with TO clause.
 
         ClickHouse materialized views can specify a separate target table using the
-        TO clause: CREATE MATERIALIZED VIEW mv TO target_table AS SELECT ...
-        The target table stores the actual data, while the MV is just a trigger.
-        For lineage, we want source → target_table (not source → mv).
+        TO clause: CREATE MATERIALIZED VIEW view_name TO target_table AS SELECT ...
+        The target table stores the actual data, while the materialized view is just a trigger.
+        For lineage, we want source → target_table (not source → materialized view).
         """
-        view_def_upper = view_definition.upper()
-        if "MATERIALIZED VIEW" not in view_def_upper:
+        to_table_urn = self._extract_to_table_urn(view_urn, view_definition, default_db)
+        if to_table_urn:
+            # Register lineage to the TO table instead of the MV
+            self.aggregator.add_view_definition(
+                view_urn=to_table_urn,
+                view_definition=view_definition,
+                default_db=default_db,
+                default_schema=default_schema,
+            )
+            # Also add MV → TO table relationship
+            self.aggregator.add_known_lineage_mapping(
+                upstream_urn=view_urn,
+                downstream_urn=to_table_urn,
+                lineage_type=DatasetLineageTypeClass.VIEW,
+            )
+        else:
+            super()._add_view_to_aggregator(
+                view_urn=view_urn,
+                view_definition=view_definition,
+                default_db=default_db,
+                default_schema=default_schema,
+            )
+
+    def _extract_to_table_urn(
+        self,
+        view_urn: str,
+        view_definition: str,
+        default_db: Optional[str],
+    ) -> Optional[str]:
+        """Extract the TO table URN from a ClickHouse materialized view definition."""
+        if "MATERIALIZED VIEW" not in view_definition.upper():
             return None
 
-        # Check for TO clause pattern
-        to_match = re.search(r"\bTO\s+(\S+)", view_def_upper)
-        if not to_match:
+        # Extract target table from TO clause (case-insensitive)
+        match = re.search(r"\bTO\s+(\S+)", view_definition, re.IGNORECASE)
+        if not match:
             return None
 
-        # Extract the target table name from the TO clause
-        # The match is in uppercase, so we need to find the original case
-        to_match_original = re.search(r"\bTO\s+(\S+)", view_definition, re.IGNORECASE)
-        if not to_match_original:
-            return None
-
-        target_table = to_match_original.group(1)
+        target_table = match.group(1)
         # Remove backticks or quotes if present
         target_table = target_table.strip("`\"'")
 
@@ -675,16 +641,18 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             # Fully qualified: db.table
             target_dataset_name = target_table
         else:
-            # Unqualified: use the same schema as the view
-            target_dataset_name = f"{schema}.{target_table}"
+            # Unqualified: use the default database
+            if default_db:
+                target_dataset_name = f"{default_db}.{target_table}"
+            else:
+                target_dataset_name = target_table
 
-        target_urn = builder.make_dataset_urn_with_platform_instance(
+        return builder.make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=target_dataset_name,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
         )
-        return target_urn
 
     def _should_extract_query_log(self) -> bool:
         """Check if any query log extraction feature is enabled."""
@@ -712,7 +680,6 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                 bucket_duration=self.config.bucket_duration,
                 start_time=start_time,
                 end_time=end_time,
-                user_email_pattern=self.config.user_email_pattern,
                 top_n_queries=self.config.top_n_queries,
             ),
             generate_operations=self.config.include_query_log_operations,
@@ -748,10 +715,9 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         query_kinds = ["'Insert'", "'Create'", "'Select'"]
         query_kinds_clause = ", ".join(query_kinds)
 
-        # Security: query_log_table and usernames are validated by Pydantic field validators
-        # (validate_query_log_table, validate_query_log_deny_usernames) to only allow safe
-        # SQL identifiers [a-zA-Z0-9_.], preventing SQL injection. Table names cannot be
-        # parameterized in SQL, so input validation is the standard approach.
+        # Security: usernames are validated by Pydantic field validator
+        # (validate_query_log_deny_usernames) to only allow safe characters [a-zA-Z0-9_-],
+        # preventing SQL injection.
         return f"""
 SELECT
     query_id,
@@ -764,7 +730,7 @@ SELECT
     written_rows,
     current_database,
     normalized_query_hash
-FROM {self.config.query_log_table}
+FROM system.query_log
 WHERE type = 'QueryFinish'
   AND is_initial_query = 1
   AND event_time >= '{start_time_str}'
