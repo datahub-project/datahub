@@ -145,7 +145,9 @@ class QualifiedNameParser:
     def get_segments(self, table_name: str) -> Dict:
         segments = table_name.split(self.split_char)
         segments.reverse()
-        self.segments_dict = dict(zip(list(reversed(self.names)), segments))
+        self.segments_dict = dict(
+            zip(list(reversed(self.names)), segments, strict=False)
+        )
         return self.segments_dict
 
     def get_full_qualified_name(self, database_name: str, table_name: str) -> str:

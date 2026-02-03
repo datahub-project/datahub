@@ -1206,7 +1206,7 @@ class Document(
         embedding_chunks = []
         current_offset = 0
 
-        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=False)):
             chunk_text = chunk.get("text", "")
             chunk_length = len(chunk_text)
 

@@ -1469,7 +1469,9 @@ def _try_extract_select(
                 # Create new SELECT with INSERT column names as explicit Alias nodes
                 # This ensures the alias survives sqlglot's optimizer
                 new_selects = []
-                for insert_col, select_expr in zip(insert_columns, select_expressions):
+                for insert_col, select_expr in zip(
+                    insert_columns, select_expressions, strict=False
+                ):
                     insert_col_name = (
                         insert_col.alias_or_name
                         if hasattr(insert_col, "alias_or_name")
