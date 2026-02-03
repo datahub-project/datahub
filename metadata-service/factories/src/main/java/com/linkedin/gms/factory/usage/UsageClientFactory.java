@@ -18,73 +18,73 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class UsageClientFactory {
 
-  @Value("${DATAHUB_GMS_HOST:localhost}")
-  private String gmsHost;
+    @Value("${DATAHUB_GMS_HOST:localhost}")
+    private String gmsHost;
 
-  @Value("${DATAHUB_GMS_PORT:8080}")
-  private int gmsPort;
+    @Value("${DATAHUB_GMS_PORT:8080}")
+    private int gmsPort;
 
-  @Value("${DATAHUB_GMS_USE_SSL:false}")
-  private boolean gmsUseSSL;
+    @Value("${DATAHUB_GMS_USE_SSL:false}")
+    private boolean gmsUseSSL;
 
-  @Value("${DATAHUB_GMS_SSL_PROTOCOL:#{null}}")
-  private String gmsSslProtocol;
+    @Value("${DATAHUB_GMS_SSL_PROTOCOL:#{null}}")
+    private String gmsSslProtocol;
 
-  @Value("${DATAHUB_GMS_SSL_TRUSTSTORE_PATH:#{null}}")
-  private String gmsSslTrustStorePath;
+    @Value("${DATAHUB_GMS_SSL_TRUSTSTORE_PATH:#{null}}")
+    private String gmsSslTrustStorePath;
 
-  @Value("${DATAHUB_GMS_SSL_TRUSTSTORE_PASSWORD:#{null}}")
-  private String gmsSslTrustStorePass;
+    @Value("${DATAHUB_GMS_SSL_TRUSTSTORE_PASSWORD:#{null}}")
+    private String gmsSslTrustStorePass;
 
-  @Value("${DATAHUB_GMS_SSL_TRUSTSTORE_TYPE:#{null}}")
-  private String gmsSslTrustStoreType;
+    @Value("${DATAHUB_GMS_SSL_TRUSTSTORE_TYPE:#{null}}")
+    private String gmsSslTrustStoreType;
 
-  @Value("${SERVER_SSL_KEY_STORE:#{null}}")
-  private String serverSslTrustStorePath;
+    @Value("${SERVER_SSL_KEY_STORE:#{null}}")
+    private String serverSslTrustStorePath;
 
-  @Value("${SERVER_SSL_KEY_STORE_PASSWORD:#{null}}")
-  private String serverSslTrustStorePass;
+    @Value("${SERVER_SSL_KEY_STORE_PASSWORD:#{null}}")
+    private String serverSslTrustStorePass;
 
-  @Value("${SERVER_SSL_KEY_STORE_TYPE:#{null}}")
-  private String serverSslTrustStoreType;
+    @Value("${SERVER_SSL_KEY_STORE_TYPE:#{null}}")
+    private String serverSslTrustStoreType;
 
-  @Value("${usageClient.retryInterval:2}")
-  private int retryInterval;
+    @Value("${usageClient.retryInterval:2}")
+    private int retryInterval;
 
-  @Value("${usageClient.numRetries:0}")
-  private int numRetries;
+    @Value("${usageClient.numRetries:0}")
+    private int numRetries;
 
-  @Value("${usageClient.timeoutMs:3000}")
-  private long timeoutMs;
+    @Value("${usageClient.timeoutMs:3000}")
+    private long timeoutMs;
 
-  @Autowired
-  @Qualifier("configurationProvider")
-  private ConfigurationProvider configurationProvider;
+    @Autowired
+    @Qualifier("configurationProvider")
+    private ConfigurationProvider configurationProvider;
 
-  @Bean("usageClient")
-  public RestliUsageClient getUsageClient(MetricUtils metricUtils) {
-    Map<String, String> params = new HashMap<>();
-    params.put(HttpClientFactory.HTTP_REQUEST_TIMEOUT, String.valueOf(timeoutMs));
+    @Bean("usageClient")
+    public RestliUsageClient getUsageClient(MetricUtils metricUtils) {
+        Map<String, String> params = new HashMap<>();
+        params.put(HttpClientFactory.HTTP_REQUEST_TIMEOUT, String.valueOf(timeoutMs));
 
-    Client restClient =
-        DefaultRestliClientFactory.getRestLiClient(
-            gmsHost,
-            gmsPort,
-            null,
-            gmsUseSSL,
-            gmsSslProtocol,
-            params,
-            gmsSslTrustStorePath,
-            gmsSslTrustStorePass,
-            gmsSslTrustStoreType,
-            serverSslTrustStorePath,
-            serverSslTrustStorePass,
-            serverSslTrustStoreType);
-    return new RestliUsageClient(
-        restClient,
-        new ExponentialBackoff(retryInterval),
-        numRetries,
-        configurationProvider.getCache().getClient().getUsageClient(),
-        metricUtils);
-  }
+        Client restClient =
+                DefaultRestliClientFactory.getRestLiClient(
+                        gmsHost,
+                        gmsPort,
+                        null,
+                        gmsUseSSL,
+                        gmsSslProtocol,
+                        params,
+                        gmsSslTrustStorePath,
+                        gmsSslTrustStorePass,
+                        gmsSslTrustStoreType,
+                        serverSslTrustStorePath,
+                        serverSslTrustStorePass,
+                        serverSslTrustStoreType);
+        return new RestliUsageClient(
+                restClient,
+                new ExponentialBackoff(retryInterval),
+                numRetries,
+                configurationProvider.getCache().getClient().getUsageClient(),
+                metricUtils);
+    }
 }
