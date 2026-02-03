@@ -40,6 +40,7 @@ from datahub.cli.state_cli import state
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration.common import should_show_stack_trace
+from datahub.configuration.env_vars import get_password, get_username
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.utilities._custom_package_loader import model_version_name
@@ -145,8 +146,8 @@ def _validate_init_inputs(
         click.UsageError: If inputs are invalid or inconsistent
     """
     # Check if credentials will come from CLI args or env vars
-    username_provided = username or os.environ.get("DATAHUB_USERNAME")
-    password_provided = password or os.environ.get("DATAHUB_PASSWORD")
+    username_provided = username or get_username()
+    password_provided = password or get_password()
     token_provided = token or os.environ.get("DATAHUB_GMS_TOKEN")
 
     # Auto-detect token generation mode
@@ -314,8 +315,8 @@ def init(
     host_value = fixup_gms_url(host_value)
 
     # Determine token acquisition mode (check both CLI args and env vars)
-    username_provided = username or os.environ.get("DATAHUB_USERNAME")
-    password_provided = password or os.environ.get("DATAHUB_PASSWORD")
+    username_provided = username or get_username()
+    password_provided = password or get_password()
     should_generate_token = bool(username_provided and password_provided)
 
     if should_generate_token or use_password:
