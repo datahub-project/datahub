@@ -1815,11 +1815,6 @@ def test_make_assertion_result_from_freshness(
     assert mcp.aspect.result.type == expected
 
 
-# =============================================================================
-# Tests for catalog.json stats extraction (row_count, size_in_bytes)
-# =============================================================================
-
-
 def _create_manifest_entity(
     name: str = "my_model",
     materialized: str = "table",

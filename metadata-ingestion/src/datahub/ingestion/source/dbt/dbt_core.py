@@ -172,6 +172,40 @@ def get_columns(
     return columns
 
 
+def _extract_catalog_stats(
+    catalog_node: Optional[Dict[str, Any]],
+) -> Tuple[Optional[int], Optional[int]]:
+    """Extract row_count and size_in_bytes from catalog stats.
+
+    Returns:
+        Tuple of (row_count, size_in_bytes), either can be None if not available.
+    """
+    if catalog_node is None:
+        return None, None
+
+    catalog_stats = catalog_node.get("stats", {})
+    row_count: Optional[int] = None
+    size_in_bytes: Optional[int] = None
+
+    # Extract row count (num_rows)
+    num_rows_stat = catalog_stats.get("num_rows", {})
+    if num_rows_stat.get("include", False) and num_rows_stat.get("value") is not None:
+        try:
+            row_count = int(num_rows_stat["value"])
+        except (ValueError, TypeError):
+            pass
+
+    # Extract size in bytes (num_bytes)
+    num_bytes_stat = catalog_stats.get("num_bytes", {})
+    if num_bytes_stat.get("include", False) and num_bytes_stat.get("value") is not None:
+        try:
+            size_in_bytes = int(num_bytes_stat["value"])
+        except (ValueError, TypeError):
+            pass
+
+    return row_count, size_in_bytes
+
+
 def extract_dbt_entities(
     all_manifest_entities: Dict[str, Dict[str, Any]],
     all_catalog_entities: Optional[Dict[str, Dict[str, Any]]],
@@ -233,32 +267,7 @@ def extract_dbt_entities(
             catalog_type = catalog_node["metadata"]["type"]
 
         # Extract stats from catalog (e.g., num_rows, num_bytes from BigQuery/Snowflake)
-        row_count: Optional[int] = None
-        size_in_bytes: Optional[int] = None
-        if catalog_node is not None:
-            catalog_stats = catalog_node.get("stats", {})
-
-            # Extract row count (num_rows)
-            num_rows_stat = catalog_stats.get("num_rows", {})
-            if (
-                num_rows_stat.get("include", False)
-                and num_rows_stat.get("value") is not None
-            ):
-                try:
-                    row_count = int(num_rows_stat["value"])
-                except (ValueError, TypeError):
-                    pass
-
-            # Extract size in bytes (num_bytes)
-            num_bytes_stat = catalog_stats.get("num_bytes", {})
-            if (
-                num_bytes_stat.get("include", False)
-                and num_bytes_stat.get("value") is not None
-            ):
-                try:
-                    size_in_bytes = int(num_bytes_stat["value"])
-                except (ValueError, TypeError):
-                    pass
+        row_count, size_in_bytes = _extract_catalog_stats(catalog_node)
 
         # initialize comment to "" for consistency with descriptions
         # (since dbt null/undefined descriptions as "")

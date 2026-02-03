@@ -226,6 +226,29 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643871600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 100,
+            "columnCount": 7,
+            "sizeInBytes": 3970
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -460,6 +483,29 @@
                     }
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643871600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 99,
+            "columnCount": 9,
+            "sizeInBytes": 7366
         }
     },
     "systemMetadata": {
@@ -1092,6 +1138,29 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643871600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 100,
+            "columnCount": 3,
+            "sizeInBytes": 1986
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -1237,6 +1306,29 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643871600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 99,
+            "columnCount": 4,
+            "sizeInBytes": 3406
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -1372,6 +1464,29 @@
                     }
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643871600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 113,
+            "columnCount": 4,
+            "sizeInBytes": 4158
         }
     },
     "systemMetadata": {
