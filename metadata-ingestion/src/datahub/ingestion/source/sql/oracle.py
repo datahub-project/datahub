@@ -4,7 +4,18 @@ import platform
 import re
 import sys
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, NoReturn, Optional, Tuple, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    NoReturn,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 from unittest.mock import patch
 
 import oracledb
@@ -37,6 +48,7 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
+    SQLCommonConfig,
     SqlWorkUnit,
     get_schema_metadata,
     make_sqlalchemy_type,
@@ -1101,6 +1113,32 @@ class OracleSource(SQLAlchemySource):
             DataDictionaryMode.DBA.value,
         ):
             raise ValueError(f"Invalid tables_prefix: {tables_prefix}")
+
+    def loop_stored_procedures(
+        self,
+        inspector: Inspector,
+        schema: str,
+        config: Union[SQLCommonConfig, Type[SQLCommonConfig]],
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Override parent to ensure db_name respects add_database_name_to_urn config.
+        This ensures stored procedure lineage URNs match table URNs.
+        """
+        # Get the actual database name for queries
+        actual_db_name = self.get_db_name(inspector)
+
+        # Determine what db_name to use for URN generation
+        # Only use database name if add_database_name_to_urn is True AND database is configured
+        if self.config.add_database_name_to_urn and self.config.database:
+            db_name_for_urns = self.config.database
+        else:
+            # Use empty string to indicate no database in URNs
+            # This matches how tables are ingested when add_database_name_to_urn is False
+            db_name_for_urns = ""
+
+        procedures = self.fetch_procedures_for_schema(inspector, schema, actual_db_name)
+        if procedures:
+            yield from self._process_procedures(procedures, db_name_for_urns, schema)
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str

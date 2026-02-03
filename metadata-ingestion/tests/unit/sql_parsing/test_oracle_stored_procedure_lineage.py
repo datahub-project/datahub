@@ -396,3 +396,126 @@ END;
     # Verify calc_func (with signature) has the correct hash
     calc_urn = [u for u in input_job_urns if "calc_func" in u.lower()][0]
     assert calc_hash in calc_urn
+
+    # Verify calc_func (with signature) has the correct hash
+    calc_urn = [u for u in input_job_urns if "calc_func" in u.lower()][0]
+    assert calc_hash in calc_urn
+
+
+def test_oracle_dataset_urn_format_without_database_name():
+    """
+    Test that dataset URNs in lineage don't include database name when default_db is None.
+    This validates the fix for URN mismatch between tables and stored procedure lineage.
+    """
+    schema_resolver = SchemaResolver(platform="oracle", env="PROD")
+
+    employees_urn = DatasetUrn("oracle", "hr.employees").urn()
+    schema_resolver.add_schema_metadata(
+        urn=employees_urn,
+        schema_metadata=SchemaMetadataClass(
+            schemaName="employees",
+            platform="urn:li:dataPlatform:oracle",
+            version=0,
+            hash="",
+            platformSchema=SchemalessClass(),
+            fields=[
+                SchemaFieldClass(
+                    fieldPath="employee_id",
+                    type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                    nativeDataType="NUMBER",
+                ),
+                SchemaFieldClass(
+                    fieldPath="department_id",
+                    type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                    nativeDataType="NUMBER",
+                ),
+            ],
+        ),
+    )
+
+    code = """
+BEGIN
+  INSERT INTO temp_employees (employee_id, department_id)
+  SELECT employee_id, department_id
+  FROM employees
+  WHERE department_id = 100;
+END;
+"""
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db=None,
+        default_schema="hr",
+        code=code,
+        is_temp_table=lambda t: t.startswith("temp_"),
+        raise_=False,
+        procedure_name="load_employees",
+    )
+
+    assert result is not None
+    assert len(result.inputDatasets) == 1
+
+    input_dataset_urn = result.inputDatasets[0]
+
+    assert "hr.employees" in input_dataset_urn.lower()
+    assert "orcl" not in input_dataset_urn.lower()
+    assert input_dataset_urn == employees_urn
+
+
+def test_oracle_dataset_urn_format_with_database_name():
+    """
+    Test that dataset URNs in lineage DO include database name when default_db is set.
+    This validates the behavior when add_database_name_to_urn=True.
+    """
+    schema_resolver = SchemaResolver(platform="oracle", env="PROD")
+
+    employees_urn = DatasetUrn("oracle", "orcl.hr.employees").urn()
+    schema_resolver.add_schema_metadata(
+        urn=employees_urn,
+        schema_metadata=SchemaMetadataClass(
+            schemaName="employees",
+            platform="urn:li:dataPlatform:oracle",
+            version=0,
+            hash="",
+            platformSchema=SchemalessClass(),
+            fields=[
+                SchemaFieldClass(
+                    fieldPath="employee_id",
+                    type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                    nativeDataType="NUMBER",
+                ),
+                SchemaFieldClass(
+                    fieldPath="department_id",
+                    type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                    nativeDataType="NUMBER",
+                ),
+            ],
+        ),
+    )
+
+    code = """
+BEGIN
+  INSERT INTO temp_employees (employee_id, department_id)
+  SELECT employee_id, department_id
+  FROM employees
+  WHERE department_id = 100;
+END;
+"""
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="orcl",
+        default_schema="hr",
+        code=code,
+        is_temp_table=lambda t: t.startswith("temp_"),
+        raise_=False,
+        procedure_name="load_employees",
+    )
+
+    assert result is not None
+    assert len(result.inputDatasets) == 1
+
+    input_dataset_urn = result.inputDatasets[0]
+
+    assert "orcl.hr.employees" in input_dataset_urn.lower()
+    assert input_dataset_urn == employees_urn
