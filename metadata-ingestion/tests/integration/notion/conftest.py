@@ -13,6 +13,21 @@ if TYPE_CHECKING:
     from notion_client import Client
 
 
+def should_cleanup_pages() -> bool:
+    """Check if test pages should be cleaned up (archived) after tests.
+
+    Controlled by NOTION_TEST_CLEANUP environment variable:
+    - If set to "false", "0", "no", or "disabled": pages will NOT be archived
+    - Otherwise (default): pages will be archived after tests complete
+
+    Returns:
+        bool: True if cleanup should be performed, False otherwise
+    """
+    cleanup_env = os.environ.get("NOTION_TEST_CLEANUP", "true")
+    cleanup_lower = cleanup_env.lower().strip()
+    return cleanup_lower not in ("false", "0", "no", "disabled", "off")
+
+
 def pytest_collection_modifyitems(config, items):
     """Skip all Notion integration tests if NOTION_API_KEY is not set."""
     notion_api_key = os.environ.get("NOTION_API_KEY")
@@ -124,12 +139,24 @@ def notion_test_root_page(
 
     yield test_root_page_id
 
-    # Note: Pages are NOT archived so you can view them in Notion
-    # To clean up manually, archive the Test Root Page in Notion
-    print(
-        f"\n✓ Test Root Page and all children remain in Notion for viewing: {test_root_page_id}"
-    )
-    print(f"   View at: https://www.notion.so/{test_root_page_id.replace('-', '')}")
+    # Cleanup: Archive the test root page (and all children) if cleanup is enabled
+    if should_cleanup_pages():
+        try:
+            notion_client.pages.update(
+                page_id=test_root_page_id,
+                archived=True,
+            )
+            print(f"\n✓ Archived Test Root Page and all children: {test_root_page_id}")
+        except Exception as e:
+            print(f"\n⚠ Failed to archive Test Root Page: {e}")
+    else:
+        print(
+            f"\n✓ Test Root Page and all children remain in Notion for viewing: {test_root_page_id}"
+        )
+        print(f"   View at: https://www.notion.so/{test_root_page_id.replace('-', '')}")
+        print(
+            f"   (Cleanup disabled via NOTION_TEST_CLEANUP={os.environ.get('NOTION_TEST_CLEANUP', 'true')})"
+        )
 
 
 @pytest.fixture(scope="session")
@@ -146,7 +173,7 @@ def test_page_synced_blocks(
         str: Page ID of the created test page
 
     Cleanup:
-        Pages remain in Notion for viewing (not archived)
+        Archives the test page after tests complete (unless NOTION_TEST_CLEANUP is disabled)
     """
     # Create a new page under Test Root Page
     page_response = notion_client.pages.create(
@@ -286,7 +313,18 @@ def test_page_synced_blocks(
 
     yield page_id
 
-    # Note: Pages remain in Notion for viewing (not archived)
+    # Cleanup: Archive the test page if cleanup is enabled
+    if should_cleanup_pages():
+        try:
+            notion_client.pages.update(
+                page_id=page_id,
+                archived=True,
+            )
+            print(f"  ✓ Archived test page: Synced Blocks ({page_id})")
+        except Exception as e:
+            print(f"  ⚠ Failed to archive test page {page_id}: {e}")
+    else:
+        print(f"  ℹ Test page remains in Notion (cleanup disabled): {page_id}")
 
 
 @pytest.fixture(scope="session")
@@ -322,20 +360,35 @@ def test_page_numbered_lists(
                 "object": "block",
                 "type": "heading_2",
                 "heading_2": {
-                    "rich_text": [{"type": "text", "text": {"content": "Test Content"}}]
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "Numbered Lists Test"}}
+                    ]
                 },
             },
             {
                 "object": "block",
-                "type": "paragraph",
-                "paragraph": {
+                "type": "numbered_list_item",
+                "numbered_list_item": {
                     "rich_text": [
-                        {
-                            "type": "text",
-                            "text": {
-                                "content": "This page tests the monkeypatches are applied correctly."
-                            },
-                        }
+                        {"type": "text", "text": {"content": "First numbered item"}}
+                    ]
+                },
+            },
+            {
+                "object": "block",
+                "type": "numbered_list_item",
+                "numbered_list_item": {
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "Second numbered item"}}
+                    ]
+                },
+            },
+            {
+                "object": "block",
+                "type": "numbered_list_item",
+                "numbered_list_item": {
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "Third numbered item"}}
                     ]
                 },
             },
@@ -349,7 +402,18 @@ def test_page_numbered_lists(
 
     yield page_id
 
-    # Note: Pages remain in Notion for viewing (not archived)
+    # Cleanup: Archive the test page if cleanup is enabled
+    if should_cleanup_pages():
+        try:
+            notion_client.pages.update(
+                page_id=page_id,
+                archived=True,
+            )
+            print(f"  ✓ Archived test page: Simple Content ({page_id})")
+        except Exception as e:
+            print(f"  ⚠ Failed to archive test page {page_id}: {e}")
+    else:
+        print(f"  ℹ Test page remains in Notion (cleanup disabled): {page_id}")
 
 
 @pytest.fixture(scope="session")
@@ -453,7 +517,18 @@ def test_page_complex_content(
 
     yield page_id
 
-    # Note: Pages remain in Notion for viewing (not archived)
+    # Cleanup: Archive the test page if cleanup is enabled
+    if should_cleanup_pages():
+        try:
+            notion_client.pages.update(
+                page_id=page_id,
+                archived=True,
+            )
+            print(f"  ✓ Archived test page: Complex Content ({page_id})")
+        except Exception as e:
+            print(f"  ⚠ Failed to archive test page {page_id}: {e}")
+    else:
+        print(f"  ℹ Test page remains in Notion (cleanup disabled): {page_id}")
 
 
 @pytest.fixture(scope="session")

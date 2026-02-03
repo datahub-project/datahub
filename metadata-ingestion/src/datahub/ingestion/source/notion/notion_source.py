@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Type, Union
@@ -359,19 +360,17 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.stateful_ingestion and self.config.stateful_ingestion.enabled:
             self._initialize_state_tracking()
 
-        # Validate embedding configuration early
+        # Validate embedding configuration
         if self.config.embedding.provider is not None:
-            self._validate_embedding_config_early()
+            self._validate_embedding_config()
 
-    def _validate_embedding_config_early(self) -> None:
-        """Validate embedding config early with clear warnings (non-blocking).
+    def _validate_embedding_config(self) -> None:
+        """Validate embedding config with clear warnings (non-blocking).
 
         Design: Embedding failures don't block ingestion, but users should
         know upfront if credentials are missing.
         """
         if self.config.embedding.provider == "bedrock":
-            import os
-
             has_creds = bool(os.environ.get("AWS_ACCESS_KEY_ID"))
             has_profile = bool(os.environ.get("AWS_PROFILE"))
             has_config = Path.home().joinpath(".aws", "credentials").exists()
@@ -717,26 +716,34 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def _monkeypatch_syncblock_from_dict(self) -> None:
-        """Monkeypatch unstructured-ingest to skip synced blocks gracefully.
+        """Monkeypatch unstructured-ingest to handle synced blocks correctly.
 
-        ROOT CAUSE: unstructured-ingest v0.7.2's synced block implementation is
-        incompatible with the actual Notion API format:
-        - Notion API: Children are NOT nested in synced_block object
-        - unstructured-ingest: OriginalSyncedBlock.from_dict() requires data["children"]
-        - Result: KeyError when processing synced blocks
+        ROOT CAUSE: unstructured-ingest v0.7.2 has TWO bugs with synced blocks:
 
-        WORKAROUND: Make OriginalSyncedBlock.from_dict() default children to empty list.
-        This allows pages with synced blocks to be ingested, but synced block content
-        will be missing (since Notion API doesn't provide it in the expected format).
+        1. SyncBlock.from_dict() dispatcher logic is backwards:
+           - Checks `if "synced_from" in data:` which is ALWAYS True
+           - Should check if synced_from VALUE is not null
 
-        LIMITATION: Pages with synced blocks will be ingested, but the synced block
-        content itself will be missing from the ingested text. To fully support synced
-        blocks, the connector would need to use the Notion API directly instead of
-        relying on unstructured-ingest.
+        2. Notion API structure mismatch:
+           - Original blocks (synced_from=null): May not have children in initial fetch
+           - Reference blocks (synced_from={block_id}): Point to original, no children
+
+        Notion API format:
+        - Original synced block: {"synced_from": null, "children": [...]}
+        - Reference synced block: {"synced_from": {"block_id": "..."}}
+
+        WORKAROUND: Patch SyncBlock.from_dict() dispatcher to:
+        1. Check if synced_from VALUE is not null (reference block)
+        2. Handle missing children gracefully for original blocks
+
+        LIMITATION: If children are not fetched for original blocks, content will
+        be missing. Full support requires fetching children separately via Notion API.
         """
         try:
-            from unstructured_ingest.processes.connectors.notion.types.blocks import (
+            from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
+                DuplicateSyncedBlock,
                 OriginalSyncedBlock,
+                SyncBlock,
             )
 
             # Capture report in closure for use in monkeypatch
@@ -745,43 +752,46 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             # Track if synced blocks are encountered for reporting
             synced_blocks_encountered = False
 
-            def patched_from_dict(cls: Type[Any], data: dict) -> Any:
+            def patched_sync_block_from_dict(cls: Type[Any], data: dict) -> Any:
                 nonlocal synced_blocks_encountered
-                # Default children to empty list if not present
-                # Notion API doesn't nest children inside synced_block object
+
+                # Check if synced_from VALUE is not null (reference block)
+                synced_from_value = data.get("synced_from")
+
+                if synced_from_value is not None:
+                    # Reference block pointing to original synced block
+                    # Pass the synced_from object (contains block_id)
+                    return DuplicateSyncedBlock.from_dict(synced_from_value)
+
+                # synced_from is null - this is an original synced block
+                # Children may not be present in initial listing (fetched separately)
                 children = data.get("children", [])
 
-                if not children:
-                    # Synced block has no children in the API response
-                    # Content is missing due to unstructured-ingest limitation
-                    if not synced_blocks_encountered:  # Log and report only once
-                        logger.warning(
-                            "Encountered synced blocks during ingestion. "
-                            "Synced block content will be skipped due to unstructured-ingest v0.7.2 limitation. "
-                            "Pages will be ingested but synced block content will be missing."
-                        )
-                        # Report to ingestion summary
-                        report.report_warning(
-                            title="Synced Blocks Limitation",
-                            message="Pages with synced blocks were encountered during ingestion. "
-                            "The pages were ingested successfully, but synced block content is missing. "
-                            "This is a known limitation of the current connector version due to unstructured-ingest v0.7.2 compatibility.",
-                        )
+                if not children and not synced_blocks_encountered:
+                    logger.warning(
+                        "Encountered synced blocks during ingestion. "
+                        "Synced block content will be skipped due to unstructured-ingest v0.7.2 limitation. "
+                        "Pages will be ingested but synced block content will be missing."
+                    )
+                    report.report_warning(
+                        title="Synced Blocks Limitation",
+                        message="Pages with synced blocks were encountered during ingestion. "
+                        "The pages were ingested successfully, but synced block content is missing. "
+                        "This is a known limitation of the current connector version due to unstructured-ingest v0.7.2 compatibility.",
+                    )
                     synced_blocks_encountered = True
 
-                return cls(children=children)
+                return OriginalSyncedBlock(synced_from=None, children=children)
 
-            OriginalSyncedBlock.from_dict = classmethod(patched_from_dict)
+            SyncBlock.from_dict = classmethod(patched_sync_block_from_dict)
             logger.info(
-                "Applied monkeypatch to OriginalSyncedBlock for synced blocks compatibility"
+                "Applied monkeypatch to SyncBlock for synced blocks compatibility (original + reference)"
             )
 
         except ImportError as e:
-            logger.warning(
-                f"OriginalSyncedBlock class not found - skipping monkeypatch: {e}"
-            )
+            logger.warning(f"SyncBlock class not found - skipping monkeypatch: {e}")
         except Exception as e:
-            logger.warning(f"Failed to apply OriginalSyncedBlock monkeypatch: {e}")
+            logger.warning(f"Failed to apply SyncBlock monkeypatch: {e}")
 
     @staticmethod
     def _monkeypatch_numbered_list_item_new_fields():
@@ -802,12 +812,11 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
             def patched_from_dict(cls: Type[Any], data: dict) -> Any:
                 data_copy = data.copy()
-                # Filter new fields from nested numbered_list_item data
-                list_data = data_copy.get("numbered_list_item", {})
-                if isinstance(list_data, dict):
-                    list_data.pop("list_start_index", None)
-                    list_data.pop("list_format", None)
-                    data_copy["numbered_list_item"] = list_data
+                # Filter new fields that may appear in the numbered_list_item dict contents.
+                # Note: Block.from_dict extracts data["numbered_list_item"] and passes it here,
+                # so 'data' is the contents of numbered_list_item, not the full block structure.
+                data_copy.pop("list_start_index", None)
+                data_copy.pop("list_format", None)
                 return original_from_dict(cls, data_copy)
 
             NumberedListItem.from_dict = classmethod(patched_from_dict)
