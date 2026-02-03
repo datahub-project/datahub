@@ -11,8 +11,12 @@ import com.datahub.authentication.Authentication;
 import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.metadata.utils.BasePathUtils;
+import com.linkedin.restli.client.Client;
+import com.linkedin.restli.client.RestClient;
 import com.typesafe.config.ConfigFactory;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -455,5 +459,148 @@ public class AuthModuleTest {
     boolean result = module.doesMetadataServiceUseSsl(config);
     // The result depends on the environment variable, so we just verify it doesn't throw
     assertNotNull(Boolean.valueOf(result));
+  }
+
+  @Test
+  public void testBuildRestliClient_NoTls() throws Exception {
+    Map<String, Object> cfg = new HashMap<>();
+    cfg.put("metadataService.host", "localhost");
+    cfg.put("metadataService.port", 8080);
+    cfg.put("metadataService.useSsl", false);
+    cfg.put("metadataService.basePath", "");
+    cfg.put("metadataService.basePathEnabled", false);
+
+    var config = ConfigFactory.parseMap(cfg);
+    var module = new AuthModule(mockEnvironment, config);
+
+    try (MockedStatic<DefaultRestliClientFactory> mockStatic =
+        mockStatic(DefaultRestliClientFactory.class)) {
+
+      RestClient mockClient = mock(RestClient.class);
+
+      mockStatic
+          .when(
+              () ->
+                  DefaultRestliClientFactory.getRestLiClient(
+                      eq("localhost"),
+                      eq(8080),
+                      eq(""),
+                      eq(false),
+                      any(), // SSL protocol (string)
+                      isNull(), // truststore path
+                      isNull(), // truststore password
+                      isNull(), // truststore type
+                      isNull(), // keystore path
+                      isNull(), // keystore password
+                      isNull() // keystore type
+                      ))
+          .thenReturn(mockClient);
+
+      Method m = AuthModule.class.getDeclaredMethod("buildRestliClient");
+      m.setAccessible(true);
+
+      Client client = (Client) m.invoke(module);
+
+      assertNotNull(client);
+      assertSame(mockClient, client);
+    }
+  }
+
+  @Test
+  public void testBuildRestliClient_MutualTls() throws Exception {
+    Map<String, Object> cfg = new HashMap<>();
+    cfg.put("metadataService.host", "localhost");
+    cfg.put("metadataService.port", 443);
+    cfg.put("metadataService.useSsl", true);
+    cfg.put("metadataService.basePath", "/gms");
+    cfg.put("metadataService.basePathEnabled", true);
+
+    // Truststore
+    cfg.put("metadataService.truststore.path", "/tmp/ts.jks");
+    cfg.put("metadataService.truststore.password", "tspass");
+    cfg.put("metadataService.truststore.type", "JKS");
+
+    // Keystore
+    cfg.put("metadataService.keystore.path", "/tmp/ks.jks");
+    cfg.put("metadataService.keystore.password", "kspass");
+    cfg.put("metadataService.keystore.type", "PKCS12");
+
+    var config = ConfigFactory.parseMap(cfg);
+    var module = new AuthModule(mockEnvironment, config);
+
+    try (MockedStatic<DefaultRestliClientFactory> mockStatic =
+        mockStatic(DefaultRestliClientFactory.class)) {
+
+      RestClient mockClient = mock(RestClient.class);
+
+      mockStatic
+          .when(
+              () ->
+                  DefaultRestliClientFactory.getRestLiClient(
+                      eq("localhost"),
+                      eq(443),
+                      eq("/gms"),
+                      eq(true),
+                      any(),
+                      eq("/tmp/ts.jks"), // truststore
+                      eq("tspass"),
+                      eq("JKS"),
+                      eq("/tmp/ks.jks"), // keystore
+                      eq("kspass"),
+                      eq("PKCS12")))
+          .thenReturn(mockClient);
+
+      Method m = AuthModule.class.getDeclaredMethod("buildRestliClient");
+      m.setAccessible(true);
+
+      Client client = (Client) m.invoke(module);
+
+      assertSame(mockClient, client);
+    }
+  }
+
+  @Test
+  public void testBuildRestliClient_BasePathDisabled() throws Exception {
+    Map<String, Object> cfg = new HashMap<>();
+    cfg.put("metadataService.host", "localhost");
+    cfg.put("metadataService.port", 8080);
+    cfg.put("metadataService.useSsl", false);
+
+    // basePathEnabled = false
+    cfg.put("metadataService.basePath", "/ignored");
+    cfg.put("metadataService.basePathEnabled", false);
+
+    var config = ConfigFactory.parseMap(cfg);
+    var module = new AuthModule(mockEnvironment, config);
+
+    try (MockedStatic<DefaultRestliClientFactory> mockStatic =
+        mockStatic(DefaultRestliClientFactory.class)) {
+
+      RestClient mockClient = mock(RestClient.class);
+
+      mockStatic
+          .when(
+              () ->
+                  DefaultRestliClientFactory.getRestLiClient(
+                      eq("localhost"),
+                      eq(8080),
+                      eq(""), // resolved base path
+                      eq(false),
+                      any(),
+                      isNull(),
+                      isNull(),
+                      isNull(),
+                      isNull(),
+                      isNull(),
+                      isNull()))
+          .thenReturn(mockClient);
+
+      Method m = AuthModule.class.getDeclaredMethod("buildRestliClient");
+      m.setAccessible(true);
+
+      Client client = (Client) m.invoke(module);
+
+      assertSame(mockClient, client);
+    }
   }
 }
