@@ -413,6 +413,16 @@ except ImportError as e:
         make_shim_command("actions", "run `pip install acryl-datahub-actions`")
     )
 
+try:
+    from datahub_agent_context.cli import agent
+
+    datahub.add_command(agent)
+except ImportError as e:
+    logger.debug(f"Failed to load datahub-agent-context framework: {e}")
+    datahub.add_command(
+        make_shim_command("agent", "run `pip install datahub-agent-context`")
+    )
+
 # Adding telemetry and upgrade decorators to all commands
 enable_auto_decorators(datahub)
 
