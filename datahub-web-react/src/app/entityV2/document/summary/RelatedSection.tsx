@@ -98,9 +98,8 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
 
-    // Entity types that can be related (based on RelatedAsset.pdl)
-    // I don't love this, but I do want to enable searching for documents
-    // as well, even though not supported in the primary search bar yet.
+    // Entity types that can be related (must match backend RelatedAsset.pdl)
+    // Note: CorpUser, CorpGroup, StructuredProperty, and DataPlatform are NOT supported
     const allowedEntityTypes: EntityType[] = [
         EntityType.Container,
         EntityType.Dataset,
@@ -109,19 +108,17 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
         EntityType.Dashboard,
         EntityType.Chart,
         EntityType.Application,
-        EntityType.DataPlatform,
         EntityType.Mlmodel,
         EntityType.MlmodelGroup,
         EntityType.MlprimaryKey,
+        EntityType.Mlfeature,
         EntityType.MlfeatureTable,
-        EntityType.CorpUser,
-        EntityType.CorpGroup,
         EntityType.DataProduct,
         EntityType.Domain,
         EntityType.GlossaryTerm,
         EntityType.GlossaryNode,
         EntityType.Tag,
-        EntityType.Document, // Also allow documents
+        EntityType.Document, // Handled separately via relatedDocuments
     ];
 
     // Combine all related entities

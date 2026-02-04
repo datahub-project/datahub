@@ -83,3 +83,125 @@ export function createDefaultDocumentInput(options?: {
         settings: { showInGlobalContext: options?.showInGlobalContext ?? true },
     };
 }
+
+/**
+ * Entity types that are NOT allowed as related assets.
+ * - corpuser/corpgroup: Not supported by the backend RelatedAsset.pdl schema
+ * - structuredproperty: Supported by backend but doesn't display properly
+ *   (GraphQL entityPreview fragment doesn't fetch definition.displayName)
+ * - dataplatform: Not supported by the backend RelatedAsset.pdl schema
+ */
+export const DISALLOWED_RELATED_ASSET_TYPES = ['corpuser', 'corpgroup', 'structuredproperty', 'dataplatform'];
+
+/**
+ * Checks if a string has balanced parentheses.
+ * Used to validate URNs before processing, as malformed URNs
+ * with unbalanced parentheses can cause backend errors.
+ *
+ * @param str - The string to check
+ * @returns true if parentheses are balanced, false otherwise
+ */
+export function hasBalancedParens(str: string): boolean {
+    let count = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str[i];
+        if (char === '(') count += 1;
+        else if (char === ')') count -= 1;
+        if (count < 0) return false;
+    }
+    return count === 0;
+}
+
+/**
+ * Checks if a URN is valid for use as a related asset.
+ * Validates that:
+ * 1. The URN has balanced parentheses
+ * 2. The entity type is not in the disallowed list
+ *
+ * @param urn - The URN to validate
+ * @returns true if the URN can be used as a related asset
+ */
+export function isAllowedRelatedAssetUrn(urn: string): boolean {
+    // Check for balanced parentheses
+    if (!hasBalancedParens(urn)) {
+        return false;
+    }
+
+    // Extract entity type from URN (format: urn:li:entityType:...)
+    const parts = urn.split(':');
+    if (parts.length < 3) {
+        return false;
+    }
+
+    const entityType = parts[2].toLowerCase();
+    return !DISALLOWED_RELATED_ASSET_TYPES.includes(entityType);
+}
+
+/**
+ * Extracts a URN from a markdown link, properly handling nested parentheses.
+ * Markdown links have the format: [text](url)
+ * URNs can have nested parens like: urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,PROD),task)
+ *
+ * This function finds the balanced closing paren for the markdown link,
+ * correctly handling any level of nesting within the URN.
+ *
+ * @param content - The full markdown content
+ * @param startIndex - The index of the opening '(' of the markdown link
+ * @returns The extracted URN, or null if not a valid URN or unbalanced parens
+ */
+function extractUrnFromMarkdownLink(content: string, startIndex: number): string | null {
+    let parenCount = 1;
+    let i = startIndex + 1; // Start after the opening '('
+
+    while (i < content.length && parenCount > 0) {
+        if (content[i] === '(') {
+            parenCount++;
+        } else if (content[i] === ')') {
+            parenCount--;
+        }
+        i++;
+    }
+
+    if (parenCount !== 0) {
+        return null; // Unbalanced parentheses
+    }
+
+    // Extract the content between the parens (excluding the final closing paren)
+    const urn = content.slice(startIndex + 1, i - 1);
+
+    // Validate it's a URN
+    if (!urn.startsWith('urn:li:')) {
+        return null;
+    }
+
+    return urn;
+}
+
+/**
+ * Extracts all URNs from markdown content that are in link format.
+ * Handles URNs with deeply nested parentheses (e.g., DataJob URNs).
+ *
+ * Pattern: [display text](urn:li:entityType:...)
+ *
+ * @param content - The markdown content to search
+ * @returns Array of extracted URNs
+ */
+export function extractUrnsFromMarkdown(content: string): string[] {
+    const urns: string[] = [];
+
+    // Find all markdown links: [text](
+    const linkPattern = /\[[^\]]+\]\(/g;
+    let match: RegExpExecArray | null;
+
+    // eslint-disable-next-line no-cond-assign
+    while ((match = linkPattern.exec(content)) !== null) {
+        const openParenIndex = match.index + match[0].length - 1;
+        const urn = extractUrnFromMarkdownLink(content, openParenIndex);
+
+        if (urn && !urns.includes(urn)) {
+            urns.push(urn);
+        }
+    }
+
+    return urns;
+}
