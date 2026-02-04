@@ -105,6 +105,58 @@ public class DomainsAssociationsMapperTest {
     assertEquals(result.getDomains().get(0).getDomain().getUrn(), TEST_DOMAIN_URN_1);
   }
 
+  @Test
+  public void testMapWithManyDomains() throws Exception {
+    QueryContext mockContext = TestUtils.getMockAllowContext();
+    Domains input = new Domains();
+    UrnArray domainUrns = new UrnArray();
+    domainUrns.add(UrnUtils.getUrn(TEST_DOMAIN_URN_1));
+    domainUrns.add(UrnUtils.getUrn(TEST_DOMAIN_URN_2));
+    domainUrns.add(UrnUtils.getUrn("urn:li:domain:finance"));
+    domainUrns.add(UrnUtils.getUrn("urn:li:domain:sales"));
+    domainUrns.add(UrnUtils.getUrn("urn:li:domain:operations"));
+    input.setDomains(domainUrns);
+    Urn entityUrn = UrnUtils.getUrn(TEST_ENTITY_URN);
+
+    DomainsAssociations result = DomainsAssociationsMapper.map(mockContext, input, entityUrn);
+
+    assertNotNull(result);
+    assertEquals(result.getDomains().size(), 5);
+  }
+
+  @Test
+  public void testInstanceMapMethod() throws Exception {
+    QueryContext mockContext = TestUtils.getMockAllowContext();
+    Domains input = createTestDomains();
+    Urn entityUrn = UrnUtils.getUrn(TEST_ENTITY_URN);
+
+    DomainsAssociations result =
+        DomainsAssociationsMapper.INSTANCE.apply(mockContext, input, entityUrn);
+
+    assertNotNull(result);
+    assertEquals(result.getDomains().size(), 2);
+  }
+
+  @Test
+  public void testMapPreservesOrder() throws Exception {
+    QueryContext mockContext = TestUtils.getMockAllowContext();
+    Domains input = new Domains();
+    UrnArray domainUrns = new UrnArray();
+    domainUrns.add(UrnUtils.getUrn("urn:li:domain:alpha"));
+    domainUrns.add(UrnUtils.getUrn("urn:li:domain:beta"));
+    domainUrns.add(UrnUtils.getUrn("urn:li:domain:gamma"));
+    input.setDomains(domainUrns);
+    Urn entityUrn = UrnUtils.getUrn(TEST_ENTITY_URN);
+
+    DomainsAssociations result = DomainsAssociationsMapper.map(mockContext, input, entityUrn);
+
+    assertNotNull(result);
+    assertEquals(result.getDomains().size(), 3);
+    assertEquals(result.getDomains().get(0).getDomain().getUrn(), "urn:li:domain:alpha");
+    assertEquals(result.getDomains().get(1).getDomain().getUrn(), "urn:li:domain:beta");
+    assertEquals(result.getDomains().get(2).getDomain().getUrn(), "urn:li:domain:gamma");
+  }
+
   private Domains createTestDomains() {
     Domains domains = new Domains();
     UrnArray domainUrns = new UrnArray();

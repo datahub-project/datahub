@@ -231,4 +231,71 @@ public class RemoveDomainsResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
   }
+
+  @Test
+  public void testGetSuccessRemoveAllDomains() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    final Domains originalDomains = new Domains();
+    final UrnArray existingDomains = new UrnArray();
+    existingDomains.add(UrnUtils.getUrn(TEST_DOMAIN_1_URN));
+    originalDomains.setDomains(existingDomains);
+
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
+                Mockito.eq("domains"),
+                Mockito.eq(0L)))
+        .thenReturn(originalDomains);
+
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
+
+    RemoveDomainsResolver resolver = new RemoveDomainsResolver(mockClient, mockService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("entityUrn"))).thenReturn(TEST_ENTITY_URN);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("domainUrns")))
+        .thenReturn(ImmutableList.of(TEST_DOMAIN_1_URN));
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+  }
+
+  @Test
+  public void testGetSuccessRemoveDuplicateDomainUrns() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    final Domains originalDomains = new Domains();
+    final UrnArray existingDomains = new UrnArray();
+    existingDomains.add(UrnUtils.getUrn(TEST_DOMAIN_1_URN));
+    existingDomains.add(UrnUtils.getUrn(TEST_DOMAIN_2_URN));
+    originalDomains.setDomains(existingDomains);
+
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
+                Mockito.eq("domains"),
+                Mockito.eq(0L)))
+        .thenReturn(originalDomains);
+
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
+
+    RemoveDomainsResolver resolver = new RemoveDomainsResolver(mockClient, mockService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("entityUrn"))).thenReturn(TEST_ENTITY_URN);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("domainUrns")))
+        .thenReturn(ImmutableList.of(TEST_DOMAIN_1_URN, TEST_DOMAIN_1_URN));
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+  }
 }

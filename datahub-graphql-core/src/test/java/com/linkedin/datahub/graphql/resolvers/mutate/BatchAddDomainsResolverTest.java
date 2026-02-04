@@ -303,4 +303,93 @@ public class BatchAddDomainsResolverTest {
     Mockito.verify(mockService, Mockito.times(0))
         .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
   }
+
+  @Test
+  public void testGetSuccessMultipleResourcesMultipleDomains() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    final Domains existingDomains1 = new Domains();
+    final UrnArray existingDomainUrns1 = new UrnArray();
+    existingDomainUrns1.add(UrnUtils.getUrn("urn:li:domain:finance"));
+    existingDomains1.setDomains(existingDomainUrns1);
+
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
+                Mockito.eq(DOMAINS_ASPECT_NAME),
+                Mockito.eq(0L)))
+        .thenReturn(existingDomains1);
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
+                Mockito.eq(DOMAINS_ASPECT_NAME),
+                Mockito.eq(0L)))
+        .thenReturn(null);
+
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true)))
+        .thenReturn(true);
+
+    BatchAddDomainsResolver resolver = new BatchAddDomainsResolver(mockService, mockClient);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    BatchAddDomainsInput input =
+        new BatchAddDomainsInput(
+            ImmutableList.of(TEST_DOMAIN_1_URN, TEST_DOMAIN_2_URN),
+            ImmutableList.of(
+                new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
+                new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+    verifyIngestProposal(mockService, 1);
+  }
+
+  @Test
+  public void testGetSuccessAddDuplicateDomains() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    final Domains existingDomains1 = new Domains();
+    final UrnArray existingDomainUrns1 = new UrnArray();
+    existingDomainUrns1.add(UrnUtils.getUrn(TEST_DOMAIN_1_URN));
+    existingDomains1.setDomains(existingDomainUrns1);
+
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
+                Mockito.eq(DOMAINS_ASPECT_NAME),
+                Mockito.eq(0L)))
+        .thenReturn(existingDomains1);
+
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
+        .thenReturn(true);
+
+    BatchAddDomainsResolver resolver = new BatchAddDomainsResolver(mockService, mockClient);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    BatchAddDomainsInput input =
+        new BatchAddDomainsInput(
+            ImmutableList.of(TEST_DOMAIN_1_URN),
+            ImmutableList.of(new ResourceRefInput(TEST_ENTITY_URN_1, null, null)));
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+    verifyIngestProposal(mockService, 1);
+  }
 }

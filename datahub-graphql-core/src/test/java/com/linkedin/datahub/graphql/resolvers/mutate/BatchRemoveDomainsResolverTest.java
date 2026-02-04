@@ -273,4 +273,97 @@ public class BatchRemoveDomainsResolverTest {
     assertTrue(resolver.get(mockEnv).get());
     verifyIngestProposal(mockService, 1);
   }
+
+  @Test
+  public void testGetSuccessMultipleResourcesDifferentDomains() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+
+    final Domains existingDomains1 = new Domains();
+    final UrnArray existingDomainUrns1 = new UrnArray();
+    existingDomainUrns1.add(UrnUtils.getUrn(TEST_DOMAIN_1_URN));
+    existingDomainUrns1.add(UrnUtils.getUrn(TEST_DOMAIN_2_URN));
+    existingDomains1.setDomains(existingDomainUrns1);
+
+    final Domains existingDomains2 = new Domains();
+    final UrnArray existingDomainUrns2 = new UrnArray();
+    existingDomainUrns2.add(UrnUtils.getUrn(TEST_DOMAIN_1_URN));
+    existingDomains2.setDomains(existingDomainUrns2);
+
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
+                Mockito.eq(DOMAINS_ASPECT_NAME),
+                Mockito.eq(0L)))
+        .thenReturn(existingDomains1);
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
+                Mockito.eq(DOMAINS_ASPECT_NAME),
+                Mockito.eq(0L)))
+        .thenReturn(existingDomains2);
+
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+        .thenReturn(true);
+
+    BatchRemoveDomainsResolver resolver = new BatchRemoveDomainsResolver(mockService, null);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    BatchRemoveDomainsInput input =
+        new BatchRemoveDomainsInput(
+            ImmutableList.of(TEST_DOMAIN_1_URN),
+            ImmutableList.of(
+                new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
+                new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+    verifyIngestProposal(mockService, 1);
+  }
+
+  @Test
+  public void testGetSuccessRemoveFromMultipleResourcesNoDomains() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
+                Mockito.eq(DOMAINS_ASPECT_NAME),
+                Mockito.eq(0L)))
+        .thenReturn(null);
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
+                Mockito.eq(DOMAINS_ASPECT_NAME),
+                Mockito.eq(0L)))
+        .thenReturn(null);
+
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+        .thenReturn(true);
+
+    BatchRemoveDomainsResolver resolver = new BatchRemoveDomainsResolver(mockService, null);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    BatchRemoveDomainsInput input =
+        new BatchRemoveDomainsInput(
+            ImmutableList.of(TEST_DOMAIN_1_URN),
+            ImmutableList.of(
+                new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
+                new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+    verifyIngestProposal(mockService, 1);
+  }
 }
