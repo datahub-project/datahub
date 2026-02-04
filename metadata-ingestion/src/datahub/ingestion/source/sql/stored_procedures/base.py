@@ -23,6 +23,7 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
 from datahub.metadata.schema_classes import (
     ContainerClass,
+    ContainerPropertiesClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataPlatformInstanceClass,
@@ -118,6 +119,44 @@ def _generate_flow_workunits(
     if database_key.database:
         yield MetadataChangeProposalWrapper(
             entityUrn=flow_urn,
+            aspect=ContainerClass(container=database_key.as_urn()),
+        ).as_workunit()
+
+    # Create the Container entity that DataJobs reference
+    # This is the actual container that appears in browse paths
+    container_key = schema_key or database_key
+    container_urn = container_key.as_urn()
+
+    yield MetadataChangeProposalWrapper(
+        entityUrn=container_urn,
+        aspect=ContainerPropertiesClass(
+            name=procedure_flow_name,
+        ),
+    ).as_workunit()
+
+    yield MetadataChangeProposalWrapper(
+        entityUrn=container_urn,
+        aspect=SubTypesClass(
+            typeNames=[FlowContainerSubTypes.MSSQL_PROCEDURE_CONTAINER],
+        ),
+    ).as_workunit()
+
+    if database_key.instance:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=container_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=make_data_platform_urn(database_key.platform),
+                instance=make_dataplatform_instance_urn(
+                    platform=database_key.platform,
+                    instance=database_key.instance,
+                ),
+            ),
+        ).as_workunit()
+
+    # Set parent container for the Container entity if database exists
+    if database_key.database and schema_key:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=container_urn,
             aspect=ContainerClass(container=database_key.as_urn()),
         ).as_workunit()
 
