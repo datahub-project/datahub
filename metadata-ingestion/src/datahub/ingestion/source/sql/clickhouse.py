@@ -741,7 +741,7 @@ WHERE type = 'QueryFinish'
   AND {user_filter_clause}
   AND query NOT LIKE '%system.%'
   -- Skip INSERT without SELECT (e.g., INSERT FORMAT, INSERT VALUES) - no lineage value
-  AND NOT (query_kind = 'Insert' AND position(query, ' SELECT ') = 0)
+  AND NOT (query_kind = 'Insert' AND positionCaseInsensitive(query, ' SELECT ') = 0)
 ORDER BY event_time ASC
 """
 
