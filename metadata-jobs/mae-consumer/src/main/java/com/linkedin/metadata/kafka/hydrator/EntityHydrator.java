@@ -57,6 +57,11 @@ public class EntityHydrator {
                           .filter(aspectName -> !EXCLUDED_ASPECTS.contains(aspectName))
                           .collect(Collectors.toSet()))
               .orElse(Set.of());
+      if (urnObj.getEntityKey() == null) {
+        // If the user somehow navigated to the https://datahub.domain/entityType/urn:li:entityType
+        // then there is no any chance we could resolve the entity
+        return Optional.empty();
+      }
       entityResponse = entityClient.getV2(systemOperationContext, urnObj, aspectNames);
     } catch (RemoteInvocationException | URISyntaxException e) {
       log.error("Error while calling GMS to hydrate entity for urn {}", urn);
