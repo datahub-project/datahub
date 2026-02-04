@@ -6,11 +6,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Test;
@@ -114,10 +117,13 @@ public class TestTypeTest {
       testMapperMock.when(() -> TestMapper.map(entityResponse2)).thenReturn(mockTest2);
 
       // Execute
-      List<DataFetcherResult<Test>> results = testType.batchLoad(urns, mockQueryContext);
+      List<DataFetcherResult<Test>> results =
+          testType.batchLoadWithoutAuthorization(urns, mockQueryContext);
 
       // Verify
       assertEquals(results.size(), 2);
+      assertNotNull(results.get(0));
+      assertNotNull(results.get(1));
       assertEquals(results.get(0).getData().getUrn(), testUrn1.toString());
       assertEquals(results.get(1).getData().getUrn(), testUrn2.toString());
     }
@@ -150,11 +156,14 @@ public class TestTypeTest {
       testMapperMock.when(() -> TestMapper.map(entityResponse1)).thenReturn(mockTest1);
 
       // Execute
-      List<DataFetcherResult<Test>> results = testType.batchLoad(urns, mockQueryContext);
+      List<DataFetcherResult<Test>> results =
+          testType.batchLoadWithoutAuthorization(urns, mockQueryContext);
 
-      // Verify - only one result should be returned (null result filtered out)
-      assertEquals(results.size(), 1);
+      // Verify - result list size matches input (nulls preserved for missing entities)
+      assertEquals(results.size(), 2);
+      assertNotNull(results.get(0));
       assertEquals(results.get(0).getData().getUrn(), testUrn1.toString());
+      assertNull(results.get(1)); // Missing entity returns null
     }
   }
 
@@ -188,11 +197,16 @@ public class TestTypeTest {
           .thenReturn(null); // TestMapper returns null
 
       // Execute
-      List<DataFetcherResult<Test>> results = testType.batchLoad(urns, mockQueryContext);
+      List<DataFetcherResult<Test>> results =
+          testType.batchLoadWithoutAuthorization(urns, mockQueryContext);
 
-      // Verify - only one result should be returned (null result filtered out)
-      assertEquals(results.size(), 1);
+      // Verify - result list size matches input (nulls preserved for mapper returning null)
+      assertEquals(results.size(), 2);
+      assertNotNull(results.get(0));
       assertEquals(results.get(0).getData().getUrn(), testUrn1.toString());
+      // Second result has null data because mapper returned null
+      assertNotNull(results.get(1));
+      assertNull(results.get(1).getData());
     }
   }
 
@@ -210,7 +224,7 @@ public class TestTypeTest {
 
     // Execute & Verify
     try {
-      testType.batchLoad(urns, mockQueryContext);
+      testType.batchLoadWithoutAuthorization(urns, mockQueryContext);
     } catch (Exception exception) {
       assertTrue(exception.getMessage().contains("Failed to batch load Tests"));
     }
@@ -223,7 +237,7 @@ public class TestTypeTest {
 
     // Execute & Verify
     try {
-      testType.batchLoad(urns, mockQueryContext);
+      testType.batchLoadWithoutAuthorization(urns, mockQueryContext);
     } catch (Exception exception) {
       assertTrue(exception.getMessage().contains("Failed to convert urn string"));
     }
@@ -242,10 +256,56 @@ public class TestTypeTest {
         .thenReturn(new HashMap<>());
 
     // Execute
-    List<DataFetcherResult<Test>> results = testType.batchLoad(urns, mockQueryContext);
+    List<DataFetcherResult<Test>> results =
+        testType.batchLoadWithoutAuthorization(urns, mockQueryContext);
 
     // Verify
     assertTrue(results.isEmpty());
+  }
+
+  @org.testng.annotations.Test
+  public void testBatchLoadWithAuthorization() throws Exception {
+    // Setup - test authorization integration via batchLoad
+    List<String> urns = Arrays.asList(testUrn1.toString(), testUrn2.toString());
+
+    EntityResponse entityResponse1 = createMockEntityResponse(testUrn1, true);
+    EntityResponse entityResponse2 = createMockEntityResponse(testUrn2, true);
+
+    Map<Urn, EntityResponse> entityResponseMap =
+        ImmutableMap.of(
+            testUrn1, entityResponse1,
+            testUrn2, entityResponse2);
+
+    when(mockEntityClient.batchGetV2(
+            eq(mockQueryContext.getOperationContext()),
+            eq(Constants.TEST_ENTITY_NAME),
+            any(HashSet.class),
+            eq(TestType.ASPECTS_TO_FETCH)))
+        .thenReturn(entityResponseMap);
+
+    // Mock TestMapper and AuthorizationUtils
+    try (MockedStatic<TestMapper> testMapperMock = mockStatic(TestMapper.class);
+        MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+
+      Test mockTest1 = createMockTest(testUrn1.toString());
+      Test mockTest2 = createMockTest(testUrn2.toString());
+
+      testMapperMock.when(() -> TestMapper.map(entityResponse1)).thenReturn(mockTest1);
+      testMapperMock.when(() -> TestMapper.map(entityResponse2)).thenReturn(mockTest2);
+
+      // Mock all URNs as authorized
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), any(Urn.class))).thenReturn(true);
+
+      // Execute - use batchLoad with authorization
+      List<DataFetcherResult<Test>> results = testType.batchLoad(urns, mockQueryContext);
+
+      // Verify - both entities should be returned
+      assertEquals(results.size(), 2);
+      assertNotNull(results.get(0));
+      assertNotNull(results.get(1));
+      assertEquals(results.get(0).getData().getUrn(), testUrn1.toString());
+      assertEquals(results.get(1).getData().getUrn(), testUrn2.toString());
+    }
   }
 
   private EntityResponse createMockEntityResponse(Urn urn, boolean hasTestInfo) {

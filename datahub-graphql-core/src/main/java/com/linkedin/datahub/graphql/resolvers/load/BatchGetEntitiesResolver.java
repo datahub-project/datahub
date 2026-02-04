@@ -9,11 +9,11 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -51,39 +51,49 @@ public class BatchGetEntitiesResolver implements DataFetcher<CompletableFuture<L
     }
 
     List<CompletableFuture<List<Entity>>> entitiesFutures = new ArrayList<>();
+    List<List<Entity>> inputEntitiesPerFuture = new ArrayList<>();
 
     for (Map.Entry<EntityType, List<Entity>> entry : entityTypeToEntities.entrySet()) {
       CompletableFuture<List<Entity>> entitiesFuture =
           BatchLoadUtils.batchLoadEntitiesOfSameType(
               entry.getValue(), _entityTypes, environment.getDataLoaderRegistry());
       entitiesFutures.add(entitiesFuture);
+      inputEntitiesPerFuture.add(entry.getValue());
     }
 
     return CompletableFuture.allOf(entitiesFutures.toArray(new CompletableFuture[0]))
         .thenApply(
             v -> {
               Entity[] finalEntityList = new Entity[entities.size()];
-              // Returned objects can be either of type Entity or wrapped as
-              // DataFetcherResult<Entity>
-              // Therefore we need to be working with raw Objects in this area of the code
-              List<Object> returnedList =
-                  entitiesFutures.stream()
-                      .flatMap(future -> future.join().stream())
-                      .collect(Collectors.toList());
-              for (Object element : returnedList) {
-                Entity entity = null;
-                if (element instanceof DataFetcherResult) {
-                  entity = ((DataFetcherResult<Entity>) element).getData();
-                } else if (element instanceof Entity) {
-                  entity = (Entity) element;
-                } else {
-                  throw new RuntimeException(
-                      String.format(
-                          "Cannot process entity because it is neither an Entity not a DataFetcherResult. %s",
-                          element));
-                }
-                for (int idx : entityIndexMap.get(entity.getUrn())) {
-                  finalEntityList[idx] = entity;
+
+              // Process each batch of results with corresponding input entities
+              Iterator<List<Entity>> inputIterator = inputEntitiesPerFuture.iterator();
+              for (CompletableFuture<List<Entity>> future : entitiesFutures) {
+                List<Entity> inputEntities = inputIterator.next();
+                List<Object> loadedEntities = (List<Object>) (List<?>) future.join();
+
+                // DataLoader preserves order, so match by position
+                Iterator<Entity> inputEntityIterator = inputEntities.iterator();
+                for (Object element : loadedEntities) {
+                  Entity entity = null;
+                  if (element == null) {
+                    // Entity doesn't exist, leave as null
+                  } else if (element instanceof DataFetcherResult) {
+                    entity = ((DataFetcherResult<Entity>) element).getData();
+                  } else if (element instanceof Entity) {
+                    entity = (Entity) element;
+                  } else {
+                    throw new RuntimeException(
+                        String.format(
+                            "Cannot process entity because it is neither an Entity nor a DataFetcherResult. %s",
+                            element));
+                  }
+
+                  // Use INPUT entity's URN for lookup (loaded entity may have encrypted URN)
+                  String urn = inputEntityIterator.next().getUrn();
+                  for (int idx : entityIndexMap.get(urn)) {
+                    finalEntityList[idx] = entity;
+                  }
                 }
               }
               return Arrays.asList(finalEntityList);

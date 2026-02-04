@@ -28,7 +28,6 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +67,7 @@ public class BusinessAttributeType implements SearchableEntityType<BusinessAttri
   }
 
   @Override
-  public List<DataFetcherResult<BusinessAttribute>> batchLoad(
+  public List<DataFetcherResult<BusinessAttribute>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> businessAttributeUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -81,19 +80,8 @@ public class BusinessAttributeType implements SearchableEntityType<BusinessAttri
               new HashSet<>(businessAttributeUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : businessAttributeUrns) {
-        gmsResults.add(businessAttributeMap.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<BusinessAttribute>newResult()
-                          .data(BusinessAttributeMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(
+          urns, businessAttributeMap, BusinessAttributeMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Business Attributes", e);
     }

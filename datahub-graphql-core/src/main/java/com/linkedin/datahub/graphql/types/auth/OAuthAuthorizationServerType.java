@@ -12,7 +12,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +58,7 @@ public class OAuthAuthorizationServerType
   }
 
   @Override
-  public List<DataFetcherResult<OAuthAuthorizationServer>> batchLoad(
+  public List<DataFetcherResult<OAuthAuthorizationServer>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> serverUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     try {
@@ -70,19 +69,8 @@ public class OAuthAuthorizationServerType
               new HashSet<>(serverUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : serverUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<OAuthAuthorizationServer>newResult()
-                          .data(OAuthAuthorizationServerMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(
+          urns, entities, OAuthAuthorizationServerMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load OAuthAuthorizationServers", e);
     }

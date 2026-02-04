@@ -23,6 +23,7 @@ import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.LogicalOperator;
+import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -396,8 +397,17 @@ public class DataHubViewTypeTest {
             Mockito.eq(com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
-    assertNull(result.get(0));
-    assertNull(result.get(1));
+    // Unauthorized entities return Restricted entities instead of null
+    assertNotNull(result.get(0));
+    Object data0 = result.get(0).getData();
+    assertNotNull(data0);
+    assertTrue(data0 instanceof Restricted);
+    assertEquals(((Restricted) data0).getType(), EntityType.RESTRICTED);
+    assertNotNull(result.get(1));
+    Object data1 = result.get(1).getData();
+    assertNotNull(data1);
+    assertTrue(data1 instanceof Restricted);
+    assertEquals(((Restricted) data1).getType(), EntityType.RESTRICTED);
   }
 
   @Test
@@ -465,7 +475,12 @@ public class DataHubViewTypeTest {
     assertEquals(result.size(), 2);
     assertNotNull(result.get(0).getData());
     assertEquals(result.get(0).getData().getUrn(), TEST_VIEW_URN);
-    assertNull(result.get(1));
+    // Unauthorized entity returns Restricted entity instead of null
+    assertNotNull(result.get(1));
+    Object data1 = result.get(1).getData();
+    assertNotNull(data1);
+    assertTrue(data1 instanceof Restricted);
+    assertEquals(((Restricted) data1).getType(), EntityType.RESTRICTED);
   }
 
   private OperationContext createUserContextWithViewAuth(Authorizer authorizer) {

@@ -13,7 +13,6 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +44,7 @@ public class DataHubFileType
   }
 
   @Override
-  public List<DataFetcherResult<DataHubFile>> batchLoad(
+  public List<DataFetcherResult<DataHubFile>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> fileUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
@@ -57,19 +56,7 @@ public class DataHubFileType
               new HashSet<>(fileUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
-      for (Urn urn : fileUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<DataHubFile>newResult()
-                          .data(DataHubFileMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, DataHubFileMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load DataHub Files", e);
     }

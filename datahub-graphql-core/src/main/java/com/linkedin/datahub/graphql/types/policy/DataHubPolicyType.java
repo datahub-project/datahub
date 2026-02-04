@@ -12,7 +12,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +43,7 @@ public class DataHubPolicyType
   }
 
   @Override
-  public List<DataFetcherResult<DataHubPolicy>> batchLoad(
+  public List<DataFetcherResult<DataHubPolicy>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> roleUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
@@ -56,19 +55,7 @@ public class DataHubPolicyType
               new HashSet<>(roleUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : roleUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<DataHubPolicy>newResult()
-                          .data(DataHubPolicyMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, DataHubPolicyMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Roles", e);
     }

@@ -9,7 +9,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +52,7 @@ public class IngestionSourceType
    * @throws Exception if an error occurs while loading the entities.
    */
   @Override
-  public List<DataFetcherResult<IngestionSource>> batchLoad(
+  public List<DataFetcherResult<IngestionSource>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> ingestionSourceUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -66,19 +65,7 @@ public class IngestionSourceType
               new HashSet<>(ingestionSourceUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : ingestionSourceUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<IngestionSource>newResult()
-                          .data(IngestionSourceMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, IngestionSourceMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Ingestion sources", e);
     }

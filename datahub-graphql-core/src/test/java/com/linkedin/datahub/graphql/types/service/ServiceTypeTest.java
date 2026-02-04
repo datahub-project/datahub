@@ -118,7 +118,9 @@ public class ServiceTypeTest {
             eq(ServiceType.ASPECTS_TO_FETCH)))
         .thenReturn(ImmutableMap.of(serviceUrn, entityResponse));
 
-    List<DataFetcherResult<Service>> results = serviceType.batchLoad(urns, queryContext);
+    // Use batchLoadWithoutAuthorization to test raw data fetching
+    List<DataFetcherResult<Service>> results =
+        serviceType.batchLoadWithoutAuthorization(urns, queryContext);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);
@@ -149,7 +151,9 @@ public class ServiceTypeTest {
             eq(ServiceType.ASPECTS_TO_FETCH)))
         .thenReturn(ImmutableMap.of(serviceUrn1, response1, serviceUrn2, response2));
 
-    List<DataFetcherResult<Service>> results = serviceType.batchLoad(urns, queryContext);
+    // Use batchLoadWithoutAuthorization to test raw data fetching
+    List<DataFetcherResult<Service>> results =
+        serviceType.batchLoadWithoutAuthorization(urns, queryContext);
 
     assertNotNull(results);
     assertEquals(results.size(), 2);
@@ -169,7 +173,9 @@ public class ServiceTypeTest {
             eq(ServiceType.ASPECTS_TO_FETCH)))
         .thenReturn(Collections.emptyMap());
 
-    List<DataFetcherResult<Service>> results = serviceType.batchLoad(urns, queryContext);
+    // Use batchLoadWithoutAuthorization to test raw data fetching
+    List<DataFetcherResult<Service>> results =
+        serviceType.batchLoadWithoutAuthorization(urns, queryContext);
 
     assertNotNull(results);
     assertEquals(results.size(), 0);
@@ -187,7 +193,9 @@ public class ServiceTypeTest {
             eq(ServiceType.ASPECTS_TO_FETCH)))
         .thenReturn(Collections.emptyMap());
 
-    List<DataFetcherResult<Service>> results = serviceType.batchLoad(urns, queryContext);
+    // Use batchLoadWithoutAuthorization to test raw data fetching
+    List<DataFetcherResult<Service>> results =
+        serviceType.batchLoadWithoutAuthorization(urns, queryContext);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);
@@ -212,7 +220,9 @@ public class ServiceTypeTest {
             eq(ServiceType.ASPECTS_TO_FETCH)))
         .thenReturn(ImmutableMap.of(serviceUrn1, response1));
 
-    List<DataFetcherResult<Service>> results = serviceType.batchLoad(urns, queryContext);
+    // Use batchLoadWithoutAuthorization to test raw data fetching
+    List<DataFetcherResult<Service>> results =
+        serviceType.batchLoadWithoutAuthorization(urns, queryContext);
 
     assertNotNull(results);
     assertEquals(results.size(), 2);
@@ -232,7 +242,10 @@ public class ServiceTypeTest {
             eq(ServiceType.ASPECTS_TO_FETCH)))
         .thenThrow(new RemoteInvocationException("Batch get failed"));
 
-    assertThrows(RuntimeException.class, () -> serviceType.batchLoad(urns, queryContext));
+    // Use batchLoadWithoutAuthorization to test exception handling
+    assertThrows(
+        RuntimeException.class,
+        () -> serviceType.batchLoadWithoutAuthorization(urns, queryContext));
   }
 
   @Test
@@ -258,7 +271,9 @@ public class ServiceTypeTest {
             eq(ServiceType.ASPECTS_TO_FETCH)))
         .thenReturn(ImmutableMap.of(serviceUrn1, response1, serviceUrn2, response2));
 
-    List<DataFetcherResult<Service>> results = serviceType.batchLoad(urns, queryContext);
+    // Use batchLoadWithoutAuthorization to test raw data fetching
+    List<DataFetcherResult<Service>> results =
+        serviceType.batchLoadWithoutAuthorization(urns, queryContext);
 
     assertNotNull(results);
     assertEquals(results.size(), 2);

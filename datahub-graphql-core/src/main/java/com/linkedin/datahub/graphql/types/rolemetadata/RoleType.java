@@ -21,7 +21,6 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -64,7 +63,7 @@ public class RoleType
   }
 
   @Override
-  public List<DataFetcherResult<Role>> batchLoad(
+  public List<DataFetcherResult<Role>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> externalRolesUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -77,19 +76,7 @@ public class RoleType
               new HashSet<>(externalRolesUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : externalRolesUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<Role>newResult()
-                          .data(RoleMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, RoleMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Role", e);
     }

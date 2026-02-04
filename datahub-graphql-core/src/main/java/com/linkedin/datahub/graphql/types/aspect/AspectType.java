@@ -1,9 +1,8 @@
 package com.linkedin.datahub.graphql.types.aspect;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
-
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.VersionedAspectKey;
 import com.linkedin.datahub.graphql.generated.Aspect;
@@ -15,6 +14,7 @@ import com.linkedin.restli.client.RestLiResponseException;
 import graphql.execution.DataFetcherResult;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -36,15 +36,32 @@ public class AspectType implements LoadableType<Aspect, VersionedAspectKey> {
     return AspectType.class.getSimpleName();
   }
 
+  @Override
+  public Function<VersionedAspectKey, Urn> getKeyToUrn() {
+    return key -> UrnUtils.getUrn(key.getUrn());
+  }
+
+  /**
+   * Override batchLoad to skip authorization checks. AspectType returns Aspect objects (not Entity
+   * objects), so the default batchLoad behavior of returning Restricted entities for unauthorized
+   * access would cause a type mismatch. Aspects inherit authorization from their parent entity.
+   */
+  @Override
+  public List<DataFetcherResult<Aspect>> batchLoad(
+      @Nonnull List<VersionedAspectKey> keys, @Nonnull QueryContext context) throws Exception {
+    return batchLoadWithoutAuthorization(keys, context);
+  }
+
   /**
    * Retrieves an list of aspects given a list of {@link VersionedAspectKey} structs. The list
    * returned is expected to be of same length of the list of keys, where nulls are provided in
    * place of an aspect object if an entity cannot be found.
    *
-   * @param keys to retrieve
+   * @param keys to retrieve (already filtered to authorized keys)
    * @param context the {@link QueryContext} corresponding to the request.
    */
-  public List<DataFetcherResult<Aspect>> batchLoad(
+  @Override
+  public List<DataFetcherResult<Aspect>> batchLoadWithoutAuthorization(
       @Nonnull List<VersionedAspectKey> keys, @Nonnull QueryContext context) throws Exception {
 
     try {
@@ -56,13 +73,11 @@ public class AspectType implements LoadableType<Aspect, VersionedAspectKey> {
                   Urn entityUrn = Urn.createFromString(key.getUrn());
 
                   Map<Urn, EntityResponse> response =
-                      canView(context.getOperationContext(), entityUrn)
-                          ? _entityClient.batchGetV2(
-                              context.getOperationContext(),
-                              entityUrn.getEntityType(),
-                              ImmutableSet.of(entityUrn),
-                              ImmutableSet.of(key.getAspectName()))
-                          : Map.of();
+                      _entityClient.batchGetV2(
+                          context.getOperationContext(),
+                          entityUrn.getEntityType(),
+                          ImmutableSet.of(entityUrn),
+                          ImmutableSet.of(key.getAspectName()));
 
                   EntityResponse entityResponse = response.get(entityUrn);
 

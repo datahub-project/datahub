@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.dataset;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -16,13 +15,14 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class VersionedDatasetType
     implements com.linkedin.datahub.graphql.types.EntityType<VersionedDataset, VersionedUrn> {
@@ -53,9 +53,16 @@ public class VersionedDatasetType
   private static final String ENTITY_NAME = "dataset";
 
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
 
   public VersionedDatasetType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public VersionedDatasetType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
     _entityClient = entityClient;
+    _restrictedService = restrictedService;
   }
 
   @Override
@@ -74,30 +81,37 @@ public class VersionedDatasetType
   }
 
   @Override
-  public List<DataFetcherResult<VersionedDataset>> batchLoad(
+  public Function<VersionedUrn, Urn> getKeyToUrn() {
+    return VersionedUrn::getUrn;
+  }
+
+  @Override
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
+
+  @Override
+  public List<DataFetcherResult<VersionedDataset>> batchLoadWithoutAuthorization(
       @Nonnull final List<VersionedUrn> versionedUrns, @Nonnull final QueryContext context) {
     try {
       final Map<Urn, EntityResponse> datasetMap =
           _entityClient.batchGetVersionedV2(
               context.getOperationContext(),
               Constants.DATASET_ENTITY_NAME,
-              versionedUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn.getUrn()))
-                  .collect(Collectors.toSet()),
+              Set.copyOf(versionedUrns),
               ASPECTS_TO_RESOLVE);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (VersionedUrn versionedUrn : versionedUrns) {
-        gmsResults.add(datasetMap.getOrDefault(versionedUrn.getUrn(), null));
-      }
-      return gmsResults.stream()
+      return versionedUrns.stream()
           .map(
-              gmsDataset ->
-                  gmsDataset == null
-                      ? null
-                      : DataFetcherResult.<VersionedDataset>newResult()
-                          .data(VersionedDatasetMapper.map(context, gmsDataset))
-                          .build())
+              versionedUrn -> {
+                EntityResponse response = datasetMap.get(versionedUrn.getUrn());
+                if (response == null) {
+                  return null;
+                }
+                return DataFetcherResult.<VersionedDataset>newResult()
+                    .data(VersionedDatasetMapper.map(context, response))
+                    .build();
+              })
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Datasets", e);

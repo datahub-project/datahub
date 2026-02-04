@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.tag;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -34,6 +33,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -52,9 +52,16 @@ public class TagType
   private static final Set<String> FACET_FIELDS = Collections.emptySet();
 
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
 
   public TagType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public TagType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
     _entityClient = entityClient;
+    _restrictedService = restrictedService;
   }
 
   @Override
@@ -78,34 +85,20 @@ public class TagType
   }
 
   @Override
-  public List<DataFetcherResult<Tag>> batchLoad(
-      final List<String> urns, final QueryContext context) {
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
 
-    final List<Urn> tagUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
-
+  @Override
+  public List<DataFetcherResult<Tag>> batchLoadWithoutAuthorization(
+      @Nonnull final List<String> urnStrs, @Nonnull final QueryContext context) {
     try {
-      final Map<Urn, EntityResponse> tagMap =
-          _entityClient.batchGetV2(
-              context.getOperationContext(),
-              TAG_ENTITY_NAME,
-              tagUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
-              null);
+      final Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
-      for (Urn urn : tagUrns) {
-        gmsResults.add(tagMap.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsTag ->
-                  gmsTag == null
-                      ? null
-                      : DataFetcherResult.<Tag>newResult()
-                          .data(TagMapper.map(context, gmsTag))
-                          .build())
-          .collect(Collectors.toList());
+      final Map<Urn, EntityResponse> tagMap =
+          _entityClient.batchGetV2(context.getOperationContext(), TAG_ENTITY_NAME, urns, null);
+
+      return mapResponsesToBatchResults(urnStrs, tagMap, TagMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Tags", e);
     }

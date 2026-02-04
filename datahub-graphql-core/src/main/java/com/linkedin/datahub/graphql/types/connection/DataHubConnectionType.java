@@ -60,7 +60,7 @@ public class DataHubConnectionType
   }
 
   @Override
-  public List<DataFetcherResult<DataHubConnection>> batchLoad(
+  public List<DataFetcherResult<DataHubConnection>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> connectionUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());

@@ -78,8 +78,8 @@ public class CorpUserType
   }
 
   @Override
-  public List<DataFetcherResult<CorpUser>> batchLoad(
-      final List<String> urns, final QueryContext context) {
+  public List<DataFetcherResult<CorpUser>> batchLoadWithoutAuthorization(
+      @Nonnull final List<String> urns, @Nonnull final QueryContext context) {
     try {
       final List<Urn> corpUserUrns =
           urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());

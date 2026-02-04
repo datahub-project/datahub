@@ -23,7 +23,6 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -47,8 +46,8 @@ public class DataPlatformType
   }
 
   @Override
-  public List<DataFetcherResult<DataPlatform>> batchLoad(
-      final List<String> urns, final QueryContext context) {
+  public List<DataFetcherResult<DataPlatform>> batchLoadWithoutAuthorization(
+      @Nonnull final List<String> urns, @Nonnull final QueryContext context) {
 
     final List<Urn> dataPlatformUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -61,20 +60,7 @@ public class DataPlatformType
               new HashSet<>(dataPlatformUrns),
               null);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : dataPlatformUrns) {
-        gmsResults.add(dataPlatformMap.getOrDefault(urn, null));
-      }
-
-      return gmsResults.stream()
-          .map(
-              gmsPlatform ->
-                  gmsPlatform == null
-                      ? null
-                      : DataFetcherResult.<DataPlatform>newResult()
-                          .data(DataPlatformMapper.map(context, gmsPlatform))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, dataPlatformMap, DataPlatformMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Data Platforms", e);
     }

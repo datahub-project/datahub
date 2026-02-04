@@ -13,13 +13,11 @@ import com.linkedin.datahub.graphql.generated.RemoteExecutor;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 public class RemoteExecutorType
@@ -47,7 +45,7 @@ public class RemoteExecutorType
   }
 
   @Override
-  public List<DataFetcherResult<RemoteExecutor>> batchLoad(
+  public List<DataFetcherResult<RemoteExecutor>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> remoteExecutors = urns.stream().map(UrnUtils::getUrn).toList();
 
@@ -59,19 +57,7 @@ public class RemoteExecutorType
               new HashSet<>(remoteExecutors),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : remoteExecutors) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<RemoteExecutor>newResult()
-                          .data(RemoteExecutorMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, RemoteExecutorMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Remote Executors", e);
     }

@@ -1,7 +1,5 @@
 package com.linkedin.datahub.graphql.types.knowledge;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
-
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -19,8 +17,8 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -53,9 +51,16 @@ public class DocumentType
           Constants.DOCUMENTATION_ASPECT_NAME);
 
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
 
   public DocumentType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public DocumentType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
     _entityClient = entityClient;
+    _restrictedService = restrictedService;
   }
 
   @Override
@@ -74,33 +79,24 @@ public class DocumentType
   }
 
   @Override
-  public List<DataFetcherResult<Document>> batchLoad(
-      @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
-    final List<Urn> documentUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
 
+  @Override
+  public List<DataFetcherResult<Document>> batchLoadWithoutAuthorization(
+      @Nonnull List<String> urnStrs, @Nonnull QueryContext context) throws Exception {
     try {
+      final Set<Urn> urns = urnStrs.stream().map(this::getUrn).collect(Collectors.toSet());
+
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               Constants.DOCUMENT_ENTITY_NAME,
-              documentUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
+              urns,
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
-      for (Urn urn : documentUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<Document>newResult()
-                          .data(DocumentMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urnStrs, entities, DocumentMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Documents", e);
     }

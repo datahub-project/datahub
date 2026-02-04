@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.chart;
 
 import static com.linkedin.datahub.graphql.Constants.*;
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -45,6 +44,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -93,9 +93,16 @@ public class ChartType
       ImmutableSet.of("access", "queryType", "tool", "type");
 
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
 
   public ChartType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public ChartType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
     _entityClient = entityClient;
+    _restrictedService = restrictedService;
   }
 
   @Override
@@ -119,33 +126,21 @@ public class ChartType
   }
 
   @Override
-  public List<DataFetcherResult<Chart>> batchLoad(
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
+
+  @Override
+  public List<DataFetcherResult<Chart>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urnStrs, @Nonnull QueryContext context) throws Exception {
-    final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     try {
+      final Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
 
       final Map<Urn, EntityResponse> chartMap =
           _entityClient.batchGetV2(
-              context.getOperationContext(),
-              CHART_ENTITY_NAME,
-              urns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
-              ASPECTS_TO_RESOLVE);
+              context.getOperationContext(), CHART_ENTITY_NAME, urns, ASPECTS_TO_RESOLVE);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
-      for (Urn urn : urns) {
-        gmsResults.add(chartMap.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsChart ->
-                  gmsChart == null
-                      ? null
-                      : DataFetcherResult.<Chart>newResult()
-                          .data(ChartMapper.map(context, gmsChart))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urnStrs, chartMap, ChartMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Charts", e);
     }

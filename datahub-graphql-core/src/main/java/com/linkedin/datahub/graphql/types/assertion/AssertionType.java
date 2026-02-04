@@ -11,7 +11,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +52,7 @@ public class AssertionType
   }
 
   @Override
-  public List<DataFetcherResult<Assertion>> batchLoad(
+  public List<DataFetcherResult<Assertion>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> assertionUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
@@ -65,19 +64,7 @@ public class AssertionType
               new HashSet<>(assertionUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
-      for (Urn urn : assertionUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<Assertion>newResult()
-                          .data(AssertionMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, AssertionMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Assertions", e);
     }

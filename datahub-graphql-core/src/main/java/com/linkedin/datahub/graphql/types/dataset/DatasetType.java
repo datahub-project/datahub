@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataset;
 
 import static com.linkedin.datahub.graphql.Constants.*;
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -46,6 +45,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -103,9 +103,16 @@ public class DatasetType
   private static final String ENTITY_NAME = "dataset";
 
   private final EntityClient entityClient;
+  @Nullable private final RestrictedService restrictedService;
 
   public DatasetType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public DatasetType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
     this.entityClient = entityClient;
+    this.restrictedService = restrictedService;
   }
 
   @Override
@@ -134,33 +141,24 @@ public class DatasetType
   }
 
   @Override
-  public List<DataFetcherResult<Dataset>> batchLoad(
+  public RestrictedService getRestrictedService() {
+    return restrictedService;
+  }
+
+  @Override
+  public List<DataFetcherResult<Dataset>> batchLoadWithoutAuthorization(
       @Nonnull final List<String> urnStrs, @Nonnull final QueryContext context) {
     try {
-      final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+      final Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
 
       final Map<Urn, EntityResponse> datasetMap =
           entityClient.batchGetV2(
               context.getOperationContext(),
               Constants.DATASET_ENTITY_NAME,
-              urns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
+              urns,
               ASPECTS_TO_RESOLVE);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
-      for (Urn urn : urns) {
-        gmsResults.add(datasetMap.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsDataset ->
-                  gmsDataset == null
-                      ? null
-                      : DataFetcherResult.<Dataset>newResult()
-                          .data(DatasetMapper.map(context, gmsDataset))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urnStrs, datasetMap, DatasetMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Datasets", e);
     }

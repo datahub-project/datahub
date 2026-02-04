@@ -12,7 +12,6 @@ import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +45,7 @@ public class OwnershipType
   }
 
   @Override
-  public List<DataFetcherResult<OwnershipTypeEntity>> batchLoad(
+  public List<DataFetcherResult<OwnershipTypeEntity>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> ownershipTypeUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -59,19 +58,7 @@ public class OwnershipType
               new HashSet<>(ownershipTypeUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : ownershipTypeUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<OwnershipTypeEntity>newResult()
-                          .data(OwnershipTypeMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, OwnershipTypeMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Custom Ownership Types", e);
     }

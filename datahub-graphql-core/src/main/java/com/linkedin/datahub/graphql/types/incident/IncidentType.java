@@ -11,7 +11,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +46,7 @@ public class IncidentType
   }
 
   @Override
-  public List<DataFetcherResult<Incident>> batchLoad(
+  public List<DataFetcherResult<Incident>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> incidentUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
@@ -59,19 +58,7 @@ public class IncidentType
               new HashSet<>(incidentUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : incidentUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<Incident>newResult()
-                          .data(IncidentMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, IncidentMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Incidents", e);
     }

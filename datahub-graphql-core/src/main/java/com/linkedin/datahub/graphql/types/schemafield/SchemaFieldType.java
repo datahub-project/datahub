@@ -61,7 +61,7 @@ public class SchemaFieldType
   }
 
   @Override
-  public List<DataFetcherResult<SchemaFieldEntity>> batchLoad(
+  public List<DataFetcherResult<SchemaFieldEntity>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> schemaFieldUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());

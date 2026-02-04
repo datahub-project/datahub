@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.dataproduct;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME;
 
@@ -22,7 +21,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,10 +29,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.NotImplementedException;
 
-@RequiredArgsConstructor
 public class DataProductType
     implements SearchableEntityType<DataProduct, String>,
         com.linkedin.datahub.graphql.types.EntityType<DataProduct, String> {
@@ -53,6 +50,17 @@ public class DataProductType
           SHARE_ASPECT_NAME,
           ORIGIN_ASPECT_NAME);
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
+
+  public DataProductType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public DataProductType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
+    _entityClient = entityClient;
+    _restrictedService = restrictedService;
+  }
 
   @Override
   public EntityType type() {
@@ -70,34 +78,21 @@ public class DataProductType
   }
 
   @Override
-  public List<DataFetcherResult<DataProduct>> batchLoad(
-      @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
-    final List<Urn> dataProductUrns =
-        urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
 
+  @Override
+  public List<DataFetcherResult<DataProduct>> batchLoadWithoutAuthorization(
+      @Nonnull List<String> urnStrs, @Nonnull QueryContext context) throws Exception {
     try {
+      final Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
-              context.getOperationContext(),
-              DATA_PRODUCT_ENTITY_NAME,
-              dataProductUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
-              ASPECTS_TO_FETCH);
+              context.getOperationContext(), DATA_PRODUCT_ENTITY_NAME, urns, ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
-      for (Urn urn : dataProductUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<DataProduct>newResult()
-                          .data(DataProductMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urnStrs, entities, DataProductMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Data Products", e);
     }

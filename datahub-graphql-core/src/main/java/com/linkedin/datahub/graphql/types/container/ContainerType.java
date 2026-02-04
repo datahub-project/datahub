@@ -22,7 +22,6 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +81,7 @@ public class ContainerType
   }
 
   @Override
-  public List<DataFetcherResult<Container>> batchLoad(
+  public List<DataFetcherResult<Container>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> containerUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
@@ -94,19 +93,7 @@ public class ContainerType
               new HashSet<>(containerUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
-      for (Urn urn : containerUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<Container>newResult()
-                          .data(ContainerMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, ContainerMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Container", e);
     }
