@@ -235,4 +235,40 @@ public class BatchAddDomainsResolverTest {
     Mockito.verify(mockService, Mockito.times(0))
         .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
   }
+
+  @Test
+  public void testGetFailureIngestProposalThrowsException() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
+                Mockito.eq(DOMAINS_ASPECT_NAME),
+                Mockito.eq(0L)))
+        .thenReturn(null);
+
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
+        .thenReturn(true);
+
+    Mockito.doThrow(new RuntimeException("Ingest failed"))
+        .when(mockService)
+        .ingestProposal(any(), any(AspectsBatchImpl.class), Mockito.anyBoolean());
+
+    BatchAddDomainsResolver resolver = new BatchAddDomainsResolver(mockService, mockClient);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    BatchAddDomainsInput input =
+        new BatchAddDomainsInput(
+            ImmutableList.of(TEST_DOMAIN_1_URN),
+            ImmutableList.of(new ResourceRefInput(TEST_ENTITY_URN_1, null, null)));
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
 }

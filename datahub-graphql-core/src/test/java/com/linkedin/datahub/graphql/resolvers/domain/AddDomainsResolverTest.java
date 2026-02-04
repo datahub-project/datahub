@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
@@ -13,6 +14,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -147,6 +149,40 @@ public class AddDomainsResolverTest {
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockDenyContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("entityUrn"))).thenReturn(TEST_ENTITY_URN);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("domainUrns")))
+        .thenReturn(ImmutableList.of(TEST_DOMAIN_1_URN));
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testGetFailureIngestProposalThrowsException() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
+                Mockito.eq(DOMAINS_ASPECT_NAME),
+                Mockito.eq(0L)))
+        .thenReturn(null);
+
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
+        .thenReturn(true);
+
+    Mockito.doThrow(new RuntimeException("Ingest failed"))
+        .when(mockService)
+        .ingestProposal(any(), any(AspectsBatchImpl.class), Mockito.anyBoolean());
+
+    AddDomainsResolver resolver = new AddDomainsResolver(mockClient, mockService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("entityUrn"))).thenReturn(TEST_ENTITY_URN);
     Mockito.when(mockEnv.getArgument(Mockito.eq("domainUrns")))
         .thenReturn(ImmutableList.of(TEST_DOMAIN_1_URN));
