@@ -429,12 +429,6 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def get_dashboard_info(self, dashboard_id: int) -> dict:
-        """Fetch dashboard details from the detail endpoint.
-
-        The list endpoint doesn't return position_json (which contains chart IDs),
-        so we need to fetch the detail endpoint to get this information for
-        dashboard-to-chart lineage.
-        """
         dashboard_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dashboard/{dashboard_id}",
             timeout=self.config.timeout,
@@ -591,7 +585,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             ):
                 dashboard_details = self.get_dashboard_info(int(dashboard_id))
                 if dashboard_details.get("result"):
-                    # Merge position_json from detail response into dashboard_data
                     dashboard_data["position_json"] = dashboard_details["result"].get(
                         "position_json"
                     )
