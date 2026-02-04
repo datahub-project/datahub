@@ -2,7 +2,6 @@ import dataclasses
 import json
 import logging
 import pathlib
-from datetime import datetime, timezone
 from typing import Dict, Optional
 
 import click
@@ -161,7 +160,6 @@ def save_capability_report(summary: CapabilitySummary, output_dir: str) -> None:
 
     summary_dict = dataclasses.asdict(summary)
     summary_dict["generated_by"] = "metadata-ingestion/scripts/capability_summary.py"
-    summary_dict["generated_at"] = datetime.now(timezone.utc).isoformat()
     summary_json = json.dumps(summary_dict, indent=2, sort_keys=True)
 
     summary_file = output_path / "capability_summary.json"
