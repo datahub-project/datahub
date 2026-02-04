@@ -99,6 +99,9 @@ coverage*.xml
 **/.claude/agents/
 **/.claude/*.md
 
+# Marge checkpoint files (session-specific, not to be committed)
+marge_checkpoints/
+
 # Environment files with credentials
 .env*
 *.env
