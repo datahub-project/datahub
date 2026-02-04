@@ -128,9 +128,12 @@ class SetAttributionTransformer(BaseTransformer):
     - MetadataChangeEventClass (MCE): Always UPSERT (MCEs are inherently upsert operations)
 
     **Outputs:**
-    - Always produces MetadataChangeProposalClass (MCP) with:
+    - For supported records, produces MetadataChangeProposalClass (MCP) with:
       - changeType: PATCH
       - aspect: GenericAspectClass containing GenericJsonPatch serialized as JSON
+    - EndOfStream, record types other than MCPW/MCP/MCE, and unsupported aspects
+      are passed through unchanged. Records that fail validation or patch parsing
+      are also passed through unchanged.
 
     **Modes:**
     This transformer supports two modes controlled by the `patch_mode` configuration:
@@ -634,7 +637,21 @@ class SetAttributionTransformer(BaseTransformer):
     def transform(
         self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
-        """Transform records by converting UPSERT aspects to PATCH with attribution."""
+        """Transform records by converting UPSERT aspects to PATCH with attribution.
+
+        Implementation: Iterates over the given record envelopes. EndOfStream is
+        yielded unchanged. Each record is dispatched by type: MetadataChangeProposalWrapper
+        (MCPW), MetadataChangeProposalClass (MCP), or MetadataChangeEventClass (MCE).
+        Only the supported aspects (globalTags, ownership, glossaryTerms) are
+        transformed; any other aspect or record type is yielded unchanged.
+
+        For supported aspects, PATCH inputs are handled by adding attribution to
+        existing patch operations via _add_attribution_to_patch_mcp. UPSERT inputs
+        are converted to a single PATCH MCP with attribution via _convert_aspect_to_patch_mcp.
+        MCEs are handled by _process_mce_envelope, which may emit one or more PATCH
+        MCPs per snapshot (one per supported aspect). If patch parsing fails or
+        required fields are missing, the original envelope is yielded unchanged.
+        """
         for envelope in record_envelopes:
             if isinstance(envelope.record, EndOfStream):
                 logger.debug("Received EndOfStream, passing through")

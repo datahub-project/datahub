@@ -634,14 +634,16 @@ def test_mixed_supported_and_unsupported_aspects(transformer):
         changeType=ChangeTypeClass.UPSERT,
     )
 
+    eos = EndOfStream()
     envelopes = [
         RecordEnvelope(record=mcpw_unsupported1, metadata={}),
         RecordEnvelope(record=mcpw_supported, metadata={}),
         RecordEnvelope(record=mcpw_unsupported2, metadata={}),
+        RecordEnvelope(record=eos, metadata={}),
     ]
     results = list(transformer.transform(envelopes))
 
-    assert len(results) == 3
+    assert len(results) == 4
     assert results[0].record == mcpw_unsupported1
     mcp_result = results[1].record
     assert isinstance(mcp_result, MetadataChangeProposalClass)
@@ -672,6 +674,7 @@ def test_mixed_supported_and_unsupported_aspects(transformer):
     }
     assert patch_dict == expected_patch_dict
     assert results[2].record == mcpw_unsupported2
+    assert results[3].record is eos
 
 
 def test_end_of_stream_passthrough(transformer):
