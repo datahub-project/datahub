@@ -419,22 +419,23 @@ def _is_in_clickhouse_dict_function(table: sqlglot.exp.Table) -> bool:
     dictionary name (e.g., 'default.subscriptions') as the first argument. sqlglot
     parses this as a Table node, but it's not a real table reference for lineage.
     """
-    parent = table
-    while parent := parent.parent:
-        if isinstance(parent, sqlglot.exp.Anonymous):
-            func_name = parent.this
+    node: Optional[sqlglot.exp.Expression] = table.parent
+    while node is not None:
+        if isinstance(node, sqlglot.exp.Anonymous):
+            func_name = node.this
             if (
                 isinstance(func_name, str)
                 and func_name.lower() in _CLICKHOUSE_DICTIONARY_FUNCTIONS
-                and parent.expressions
+                and node.expressions
             ):
-                first_arg = parent.expressions[0]
+                first_arg = node.expressions[0]
                 if first_arg is table or (
                     hasattr(first_arg, "find")
                     and table in list(first_arg.find_all(sqlglot.exp.Table))
                 ):
                     return True
             break
+        node = node.parent
     return False
 
 

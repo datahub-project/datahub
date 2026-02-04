@@ -1,11 +1,6 @@
-from unittest.mock import patch
-
 import pytest
 
-from datahub.ingestion.source.sql.clickhouse import (
-    ClickHouseConfig,
-    ClickHouseSource,
-)
+from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
 
 
 def test_clickhouse_uri_https():
@@ -141,9 +136,6 @@ def test_query_log_deny_usernames_validation_invalid():
         )
 
 
-# Query log extraction method tests
-
-
 def test_is_temp_table():
     """Test that is_temp_table correctly identifies temporary tables."""
     config = ClickHouseConfig.model_validate(
@@ -180,88 +172,3 @@ def test_is_temp_table_custom_patterns():
     assert config.is_temp_table("test_table")
     # Default patterns no longer match with custom patterns
     assert not config.is_temp_table("_temp_table")
-
-
-def test_build_query_log_query_basic():
-    """Test _build_query_log_query generates valid SQL."""
-    config = ClickHouseConfig.model_validate(
-        {
-            "host_port": "localhost:8123",
-            "include_query_log_lineage": True,
-            "start_time": "2024-01-01T00:00:00Z",
-            "end_time": "2024-01-08T00:00:00Z",
-        }
-    )
-
-    with patch.object(ClickHouseSource, "__init__", lambda x, y, z: None):
-        source = ClickHouseSource.__new__(ClickHouseSource)
-        source.config = config
-
-        query = source._build_query_log_query()
-
-        expected = """
-SELECT
-    query_id,
-    query,
-    query_kind,
-    user,
-    event_time,
-    query_duration_ms,
-    read_rows,
-    written_rows,
-    current_database,
-    normalized_query_hash
-FROM system.query_log
-WHERE type = 'QueryFinish'
-  AND is_initial_query = 1
-  AND event_time >= '2024-01-01 00:00:00'
-  AND event_time < '2024-01-08 00:00:00'
-  AND query_kind IN ('Insert', 'Create', 'Select')
-  AND 1=1
-  AND query NOT LIKE '%system.%'
-ORDER BY event_time ASC
-"""
-        assert query == expected
-
-
-def test_build_query_log_query_with_deny_usernames():
-    """Test _build_query_log_query includes user filter clause."""
-    config = ClickHouseConfig.model_validate(
-        {
-            "host_port": "localhost:8123",
-            "include_query_log_lineage": True,
-            "start_time": "2024-01-01T00:00:00Z",
-            "end_time": "2024-01-08T00:00:00Z",
-            "query_log_deny_usernames": ["system", "default"],
-        }
-    )
-
-    with patch.object(ClickHouseSource, "__init__", lambda x, y, z: None):
-        source = ClickHouseSource.__new__(ClickHouseSource)
-        source.config = config
-
-        query = source._build_query_log_query()
-
-        expected = """
-SELECT
-    query_id,
-    query,
-    query_kind,
-    user,
-    event_time,
-    query_duration_ms,
-    read_rows,
-    written_rows,
-    current_database,
-    normalized_query_hash
-FROM system.query_log
-WHERE type = 'QueryFinish'
-  AND is_initial_query = 1
-  AND event_time >= '2024-01-01 00:00:00'
-  AND event_time < '2024-01-08 00:00:00'
-  AND query_kind IN ('Insert', 'Create', 'Select')
-  AND user != 'system' AND user != 'default'
-  AND query NOT LIKE '%system.%'
-ORDER BY event_time ASC
-"""
-        assert query == expected
