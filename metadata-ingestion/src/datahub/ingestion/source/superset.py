@@ -427,6 +427,25 @@ class SupersetSource(StatefulIngestionSourceBase):
             return {}
         return dataset_response.json()
 
+    @lru_cache(maxsize=None)
+    def get_dashboard_info(self, dashboard_id: int) -> dict:
+        """Fetch dashboard details from the detail endpoint.
+
+        The list endpoint doesn't return position_json (which contains chart IDs),
+        so we need to fetch the detail endpoint to get this information for
+        dashboard-to-chart lineage.
+        """
+        dashboard_response = self.session.get(
+            f"{self.config.connect_uri}/api/v1/dashboard/{dashboard_id}",
+            timeout=self.config.timeout,
+        )
+        if dashboard_response.status_code != 200:
+            logger.warning(
+                f"Failed to get dashboard info for {dashboard_id}: {dashboard_response.text}"
+            )
+            return {}
+        return dashboard_response.json()
+
     def get_datasource_urn_from_id(
         self, dataset_response: dict, platform_instance: str
     ) -> str:
@@ -564,6 +583,18 @@ class SupersetSource(StatefulIngestionSourceBase):
                     f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by dashboard_pattern"
                 )
                 return
+
+            # Fetch dashboard details to get position_json (contains chart IDs for lineage).
+            # The list endpoint may not return position_json depending on the Superset/Preset version.
+            if "position_json" not in dashboard_data or not dashboard_data.get(
+                "position_json"
+            ):
+                dashboard_details = self.get_dashboard_info(int(dashboard_id))
+                if dashboard_details.get("result"):
+                    # Merge position_json from detail response into dashboard_data
+                    dashboard_data["position_json"] = dashboard_details["result"].get(
+                        "position_json"
+                    )
 
             if self.config.database_pattern != AllowDenyPattern.allow_all():
                 raw_position_data = dashboard_data.get("position_json", "{}")

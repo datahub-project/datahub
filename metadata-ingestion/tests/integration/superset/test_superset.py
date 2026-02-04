@@ -746,6 +746,29 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ],
             },
         },
+        # Dashboard detail endpoints - needed for position_json when list endpoint doesn't return it
+        "mock://mock-domain.superset.com/api/v1/dashboard/1": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "result": {
+                    "id": 1,
+                    "dashboard_title": "test_dashboard_title_1",
+                    "position_json": '{"CHART-test-1": {"meta": { "chartId": "10" }}, "CHART-test-2": {"meta": { "chartId": "11" }}}',
+                }
+            },
+        },
+        "mock://mock-domain.superset.com/api/v1/dashboard/2": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "result": {
+                    "id": 2,
+                    "dashboard_title": "test_dashboard_title_2",
+                    "position_json": '{"CHART-test-3": {"meta": { "chartId": "12" }}, "CHART-test-4": {"meta": { "chartId": "13" }}}',
+                }
+            },
+        },
     }
 
     api_vs_response.update(override_data)
