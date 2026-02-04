@@ -1,6 +1,9 @@
 import json
 from unittest.mock import ANY
 
+import pytest
+from pydantic import ValidationError
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_patch_builder import UNIT_SEPARATOR, _Patch
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
@@ -26,6 +29,59 @@ SAMPLE_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.my-table,PROD)"
 )
 ATTRIBUTION_SOURCE = "urn:li:platformResource:ingestion"
+
+
+# Test SetAttributionConfig URN validation
+def test_config_valid_urns():
+    """Valid URNs for attribution_source and actor are accepted."""
+    config = SetAttributionConfig(
+        attribution_source=ATTRIBUTION_SOURCE,
+        actor="urn:li:corpuser:datahub",
+    )
+    assert config.attribution_source == ATTRIBUTION_SOURCE
+    assert config.actor == "urn:li:corpuser:datahub"
+
+
+def test_config_default_actor_is_valid_urn():
+    """Default actor is a valid URN and passes validation."""
+    config = SetAttributionConfig(attribution_source=ATTRIBUTION_SOURCE)
+    assert config.actor == "urn:li:corpuser:datahub"
+
+
+def test_config_invalid_attribution_source_raises():
+    """Invalid attribution_source (not a URN) raises ValidationError."""
+    with pytest.raises(ValidationError, match="urn:li:"):
+        SetAttributionConfig(
+            attribution_source="not-a-urn",
+            actor="urn:li:corpuser:datahub",
+        )
+
+
+def test_config_empty_attribution_source_raises():
+    """Empty attribution_source (required field) raises ValidationError."""
+    with pytest.raises(ValidationError, match="non-empty"):
+        SetAttributionConfig(
+            attribution_source="",
+            actor="urn:li:corpuser:datahub",
+        )
+
+
+def test_config_invalid_actor_raises():
+    """Invalid actor (not a URN) raises ValidationError."""
+    with pytest.raises(ValidationError, match="urn:li:"):
+        SetAttributionConfig(
+            attribution_source=ATTRIBUTION_SOURCE,
+            actor="not-a-urn",
+        )
+
+
+def test_config_actor_none_allowed():
+    """Explicit actor=None is allowed (optional field)."""
+    config = SetAttributionConfig(
+        attribution_source=ATTRIBUTION_SOURCE,
+        actor=None,
+    )
+    assert config.actor is None
 
 
 # Test _Patch serialization

@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Any, Dict, Iterable, List, Literal, Optional, Union, cast
 
+from pydantic import field_validator
 from pydantic.fields import Field
 from typing_extensions import assert_never
 
@@ -37,6 +38,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.urn import guess_entity_type
 
+URN_PREFIX = "urn:li:"
 logger = logging.getLogger(__name__)
 
 # Supported aspects configuration
@@ -89,6 +91,30 @@ class SetAttributionConfig(ConfigModel):
         default=False,
         description="If False (upsert mode), replaces all items for the attribution source. If True (patch mode), creates patch operations within the scope of the attribution source.",
     )
+
+    @field_validator("attribution_source", mode="after")
+    @classmethod
+    def validate_attribution_source_urn(cls, v: str) -> str:
+        """Validate required attribution_source is a non-empty URN (urn:li:)."""
+        if not v or not v.strip():
+            raise ValueError("attribution_source is required and must be non-empty")
+        if not v.strip().startswith(URN_PREFIX):
+            raise ValueError(
+                f"attribution_source must be a URN starting with '{URN_PREFIX}', got: {v!r}"
+            )
+        return v
+
+    @field_validator("actor", mode="after")
+    @classmethod
+    def validate_actor_urn(cls, v: Optional[str]) -> Optional[str]:
+        """Validate optional actor, when set, is a URN (urn:li:)."""
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return v
+        if not v.strip().startswith(URN_PREFIX):
+            raise ValueError(
+                f"actor must be a URN starting with '{URN_PREFIX}', got: {v!r}"
+            )
+        return v
 
 
 class SetAttributionTransformer(BaseTransformer):
