@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, Iterable, List, Literal, Optional, Union, cast
+from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple, Union, cast
 
 from pydantic import field_validator
 from pydantic.fields import Field
@@ -536,6 +536,84 @@ class SetAttributionTransformer(BaseTransformer):
             auditHeader=audit_header,
         )
 
+    def _process_mce_envelope(
+        self,
+        envelope: RecordEnvelope,
+        mce: MetadataChangeEventClass,
+    ) -> Iterable[RecordEnvelope]:
+        """Process an MCE: collect all supported aspects and yield one PATCH MCP per aspect."""
+        if not mce.proposedSnapshot:
+            logger.warning("MCE has no proposedSnapshot, passing through unchanged")
+            yield envelope
+            return
+
+        # An MCE can have multiple aspects in its proposedSnapshot (e.g. both
+        # globalTags and ownership); we must collect all supported aspects
+        # and emit one PATCH MCP per aspect.
+        snapshot = mce.proposedSnapshot
+        entity_urn = snapshot.urn
+        entity_type = guess_entity_type(entity_urn)
+        logger.debug(f"MCE entity={entity_urn}, entity_type={entity_type}")
+
+        mce_aspects: List[
+            Tuple[
+                Literal["globalTags", "ownership", "glossaryTerms"],
+                Union[GlobalTagsClass, OwnershipClass, GlossaryTermsClass],
+            ]
+        ] = []
+        for supported_aspect in SUPPORTED_ASPECTS:
+            aspect_type = ASPECT_MAP.get(supported_aspect)
+            if aspect_type:
+                aspect_obj = builder.get_aspect_if_available(mce, aspect_type)
+                if aspect_obj:
+                    aspect_name = cast(
+                        Literal["globalTags", "ownership", "glossaryTerms"],
+                        supported_aspect,
+                    )
+                    aspect = cast(
+                        Union[GlobalTagsClass, OwnershipClass, GlossaryTermsClass],
+                        aspect_obj,
+                    )
+                    mce_aspects.append((aspect_name, aspect))
+                    logger.debug(
+                        f"Found {aspect_name} aspect in MCE, will convert to PATCH"
+                    )
+
+        if not mce_aspects:
+            logger.debug(
+                f"No aspects supported by this transformer found in MCE for entity {entity_urn}, passing through"
+            )
+            yield envelope
+            return
+
+        system_metadata = mce.systemMetadata
+        audit_header = None
+        for aspect_name, aspect in mce_aspects:
+            aspect_name_literal = cast(
+                Literal["globalTags", "ownership", "glossaryTerms"],
+                aspect_name,
+            )
+            patch_mcp = self._convert_aspect_to_patch_mcp(
+                entity_urn=entity_urn,
+                entity_type=entity_type,
+                aspect_name=aspect_name_literal,
+                aspect=aspect,
+                system_metadata=system_metadata,
+                audit_header=audit_header,
+            )
+            record_metadata = _update_work_unit_id(
+                envelope=envelope,
+                urn=entity_urn,
+                aspect_name=aspect_name,
+            )
+            logger.debug(
+                f"Successfully converted {aspect_name} to PATCH MCP for entity {entity_urn}"
+            )
+            yield RecordEnvelope(
+                record=patch_mcp,
+                metadata=record_metadata,
+            )
+
     def transform(
         self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
@@ -715,54 +793,9 @@ class SetAttributionTransformer(BaseTransformer):
                     )
 
             elif isinstance(envelope.record, MetadataChangeEventClass):
-                # Handle MCE
-                mce = envelope.record
                 logger.debug("Processing MCE")
-                if not mce.proposedSnapshot:
-                    logger.warning(
-                        "MCE has no proposedSnapshot, passing through unchanged"
-                    )
-                    yield envelope
-                    continue
-
-                # Extract aspect from MCE
-                snapshot = mce.proposedSnapshot
-                entity_urn = snapshot.urn
-                entity_type = guess_entity_type(entity_urn)
-                logger.debug(f"MCE entity={entity_urn}, entity_type={entity_type}")
-
-                # Check each supported aspect
-                for supported_aspect in SUPPORTED_ASPECTS:
-                    aspect_type = ASPECT_MAP.get(supported_aspect)
-                    if aspect_type:
-                        aspect_obj = builder.get_aspect_if_available(mce, aspect_type)
-                        if aspect_obj:
-                            # Type narrowing: supported_aspect is guaranteed to be in SUPPORTED_ASPECTS
-                            aspect_name = cast(
-                                Literal["globalTags", "ownership", "glossaryTerms"],
-                                supported_aspect,
-                            )
-                            # Type narrowing: aspect_obj is guaranteed to be one of the supported aspects
-                            aspect = cast(
-                                Union[
-                                    GlobalTagsClass, OwnershipClass, GlossaryTermsClass
-                                ],
-                                aspect_obj,
-                            )
-                            system_metadata = mce.systemMetadata
-                            # MCE doesn't have auditHeader, use None
-                            audit_header = None
-                            logger.debug(
-                                f"Found {aspect_name} aspect in MCE, will convert to PATCH"
-                            )
-                            break
-
-                if not aspect_name:
-                    logger.debug(
-                        f"No aspects supported by this transformer found in MCE for entity {entity_urn}, passing through"
-                    )
-                    yield envelope
-                    continue
+                yield from self._process_mce_envelope(envelope, envelope.record)
+                continue
             else:
                 # Not a supported record type, pass through
                 logger.debug(

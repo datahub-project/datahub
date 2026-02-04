@@ -588,6 +588,45 @@ def test_mce_input_conversion():
     assert result.aspectName == "globalTags"
 
 
+def test_mce_input_multiple_aspects():
+    """MCE with multiple supported aspects yields one PATCH MCP per aspect."""
+    from datahub.metadata.schema_classes import DatasetSnapshotClass
+
+    config = SetAttributionConfig(
+        attribution_source=ATTRIBUTION_SOURCE,
+        patch_mode=False,
+    )
+    ctx = PipelineContext(run_id="test")
+    transformer = SetAttributionTransformer(config, ctx)
+
+    tags = GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:tagA")])
+    ownership = OwnershipClass(
+        owners=[
+            OwnerClass(
+                owner="urn:li:corpuser:datahub",
+                type=OwnershipTypeClass.TECHNICAL_OWNER,
+            )
+        ]
+    )
+    mce = MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=SAMPLE_URN,
+            aspects=[tags, ownership],
+        )
+    )
+
+    envelope = RecordEnvelope(record=mce, metadata={})
+    results = list(transformer.transform([envelope]))
+
+    assert len(results) == 2
+    aspect_names = {r.record.aspectName for r in results}
+    assert aspect_names == {"globalTags", "ownership"}
+    for r in results:
+        assert isinstance(r.record, MetadataChangeProposalClass)
+        assert r.record.changeType == ChangeTypeClass.PATCH
+        assert r.record.entityUrn == SAMPLE_URN
+
+
 # Test edge cases
 def test_empty_aspect():
     """Test handling of empty aspect."""
