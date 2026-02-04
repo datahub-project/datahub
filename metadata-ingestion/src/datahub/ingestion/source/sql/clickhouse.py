@@ -799,7 +799,11 @@ ORDER BY event_time ASC
                 session_id=row.get("query_id"),
                 timestamp=event_time,
                 user=CorpUserUrn(user) if user else None,
-                default_db=row.get("current_database"),
+                # Don't pass current_database as default_db. ClickHouse uses 2-level
+                # naming (database.table), but sqlglot expects 3-level (database.schema.table).
+                # Passing current_database causes sqlglot to prepend it to already-qualified
+                # names, creating incorrect URNs like "default.analytics_marts.table".
+                default_db=None,
                 query_hash=str(row.get("normalized_query_hash", "")),
             )
         except Exception as e:
