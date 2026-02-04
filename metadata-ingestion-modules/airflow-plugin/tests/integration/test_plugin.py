@@ -794,7 +794,10 @@ test_cases_airflow2 = [
     DagTestCase("athena_operator", v2_only=True),
     DagTestCase("bigquery_insert_job_operator", v2_only=True),
     DagTestCase(
-        "bigquery_insert_job_operator_dev_cluster", v2_only=True, cluster="DEV"
+        "bigquery_insert_job_operator",
+        v2_only=True,
+        cluster="DEV",
+        test_variant="_dev_cluster",
     ),
     DagTestCase("teradata_operator", v2_only=True),
 ]
@@ -826,8 +829,15 @@ test_cases_airflow3 = [
     DagTestCase("datahub_emitter_operator_jinja_template_dag"),
     DagTestCase("athena_operator"),
     DagTestCase("bigquery_insert_job_operator"),
-    DagTestCase("bigquery_insert_job_operator_dev_cluster", cluster="DEV"),
+    DagTestCase(
+        "bigquery_insert_job_operator", cluster="DEV", test_variant="_dev_cluster"
+    ),
     DagTestCase("teradata_operator"),
+    DagTestCase("athena_operator", cluster="DEV", test_variant="_dev_cluster"),
+    DagTestCase("teradata_operator", cluster="DEV", test_variant="_dev_cluster"),
+    DagTestCase(
+        "snowflake_operator", cluster="DEV", test_variant="_dev_cluster", success=False
+    ),
 ]
 
 

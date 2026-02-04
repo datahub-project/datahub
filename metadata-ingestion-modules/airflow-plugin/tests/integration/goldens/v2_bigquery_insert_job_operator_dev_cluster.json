@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV)",
+    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
@@ -17,15 +17,15 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=bigquery_insert_job_operator_dev_cluster",
-            "name": "bigquery_insert_job_operator_dev_cluster",
+            "externalUrl": "http://airflow.example.com/tree?dag_id=bigquery_insert_job_operator",
+            "name": "bigquery_insert_job_operator",
             "env": "DEV"
         }
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV)",
+    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -36,7 +36,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV)",
+    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -60,7 +60,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV)",
+    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -71,7 +71,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV)",
+    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -82,7 +82,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),select_with_destination_config)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),select_with_destination_config)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -93,7 +93,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),insert_query_without_destination)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),insert_query_without_destination)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -104,14 +104,14 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV)",
+    "entityUrn": "urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "bigquery_insert_job_operator_dev_cluster"
+                    "id": "bigquery_insert_job_operator"
                 }
             ]
         }
@@ -119,7 +119,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),select_with_destination_config)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),select_with_destination_config)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -139,7 +139,7 @@
                 "outlets": "[]",
                 "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.41.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n                SELECT\\n                    id,\\n                    month,\\n                    total_cost,\\n                    area,\\n                    total_cost / area as cost_per_area\\n                FROM `test_project.test_dataset.costs`\\n                WHERE total_cost > 50\\n                \"}"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator_dev_cluster&_flt_3_task_id=select_with_destination_config",
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator&_flt_3_task_id=select_with_destination_config",
             "name": "select_with_destination_config",
             "type": {
                 "string": "COMMAND"
@@ -150,7 +150,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),select_with_destination_config)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),select_with_destination_config)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -187,7 +187,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),select_with_destination_config)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),select_with_destination_config)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -211,7 +211,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),select_with_destination_config)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),select_with_destination_config)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -222,7 +222,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:7edb6237f73d55f668224c28cd71574b",
+    "entityUrn": "urn:li:dataProcessInstance:405daac7bcc500d47abb0deb3132a0fe",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
@@ -233,7 +233,7 @@
                 "try_number": "0",
                 "state": "running",
                 "task_id": "select_with_destination_config",
-                "dag_id": "bigquery_insert_job_operator_dev_cluster",
+                "dag_id": "bigquery_insert_job_operator",
                 "duration": "<duration>",
                 "end_date": "<end_date>",
                 "execution_date": "2023-09-27 21:34:38+00:00",
@@ -241,14 +241,14 @@
                 "max_tries": "0",
                 "external_executor_id": "None",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=select_with_destination_config&dag_id=bigquery_insert_job_operator_dev_cluster&map_index=-1",
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=select_with_destination_config&dag_id=bigquery_insert_job_operator&map_index=-1",
                 "orchestrator": "airflow"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=select_with_destination_config&dag_id=bigquery_insert_job_operator_dev_cluster&map_index=-1",
-            "name": "bigquery_insert_job_operator_dev_cluster_select_with_destination_config_manual_run_test",
+            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=select_with_destination_config&dag_id=bigquery_insert_job_operator&map_index=-1",
+            "name": "bigquery_insert_job_operator_select_with_destination_config_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1770054710467,
+                "time": 1770183562535,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -256,19 +256,19 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:7edb6237f73d55f668224c28cd71574b",
+    "entityUrn": "urn:li:dataProcessInstance:405daac7bcc500d47abb0deb3132a0fe",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),select_with_destination_config)",
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),select_with_destination_config)",
             "upstreamInstances": []
         }
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:7edb6237f73d55f668224c28cd71574b",
+    "entityUrn": "urn:li:dataProcessInstance:405daac7bcc500d47abb0deb3132a0fe",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
@@ -281,7 +281,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:7edb6237f73d55f668224c28cd71574b",
+    "entityUrn": "urn:li:dataProcessInstance:405daac7bcc500d47abb0deb3132a0fe",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceOutput",
     "aspect": {
@@ -320,12 +320,12 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:7edb6237f73d55f668224c28cd71574b",
+    "entityUrn": "urn:li:dataProcessInstance:405daac7bcc500d47abb0deb3132a0fe",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1770054710467,
+            "timestampMillis": 1770183562535,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -342,20 +342,20 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1770054710689,
+            "timestampMillis": 1770183562764,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1770054710689
+            "lastUpdatedTimestamp": 1770183562764
         }
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),select_with_destination_config)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),select_with_destination_config)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -375,7 +375,7 @@
                 "outlets": "[]",
                 "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.41.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n                SELECT\\n                    id,\\n                    month,\\n                    total_cost,\\n                    area,\\n                    total_cost / area as cost_per_area\\n                FROM `test_project.test_dataset.costs`\\n                WHERE total_cost > 50\\n                \"}"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator_dev_cluster&_flt_3_task_id=select_with_destination_config",
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator&_flt_3_task_id=select_with_destination_config",
             "name": "select_with_destination_config",
             "type": {
                 "string": "COMMAND"
@@ -386,7 +386,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),select_with_destination_config)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),select_with_destination_config)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -397,7 +397,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),select_with_destination_config)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),select_with_destination_config)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -534,7 +534,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),select_with_destination_config)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),select_with_destination_config)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -558,7 +558,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),select_with_destination_config)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),select_with_destination_config)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -569,12 +569,12 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:7edb6237f73d55f668224c28cd71574b",
+    "entityUrn": "urn:li:dataProcessInstance:405daac7bcc500d47abb0deb3132a0fe",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1770054710695,
+            "timestampMillis": 1770183562769,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -589,7 +589,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:7edb6237f73d55f668224c28cd71574b",
+    "entityUrn": "urn:li:dataProcessInstance:405daac7bcc500d47abb0deb3132a0fe",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
@@ -602,7 +602,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:7edb6237f73d55f668224c28cd71574b",
+    "entityUrn": "urn:li:dataProcessInstance:405daac7bcc500d47abb0deb3132a0fe",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceOutput",
     "aspect": {
@@ -620,20 +620,20 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1770054710755,
+            "timestampMillis": 1770183562833,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1770054710755
+            "lastUpdatedTimestamp": 1770183562833
         }
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),insert_query_without_destination)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),insert_query_without_destination)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -653,7 +653,7 @@
                 "outlets": "[]",
                 "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.41.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n                INSERT INTO `test_project.test_dataset.processed_costs`\\n                (id, month, total_cost, area, cost_per_area)\\n                SELECT\\n                    id,\\n                    month,\\n                    total_cost,\\n                    area,\\n                    total_cost / area as cost_per_area\\n                FROM `test_project.test_dataset.costs`\\n                WHERE total_cost > 100\\n                \"}"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator_dev_cluster&_flt_3_task_id=insert_query_without_destination",
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator&_flt_3_task_id=insert_query_without_destination",
             "name": "insert_query_without_destination",
             "type": {
                 "string": "COMMAND"
@@ -664,7 +664,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),insert_query_without_destination)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),insert_query_without_destination)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -701,7 +701,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),insert_query_without_destination)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),insert_query_without_destination)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -725,7 +725,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),insert_query_without_destination)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),insert_query_without_destination)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -736,7 +736,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:8c5a790f79e5af6cae09d68e481dcaf0",
+    "entityUrn": "urn:li:dataProcessInstance:83e92eb9ca0626412bcf864ebedf1cfc",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
@@ -747,7 +747,7 @@
                 "try_number": "0",
                 "state": "running",
                 "task_id": "insert_query_without_destination",
-                "dag_id": "bigquery_insert_job_operator_dev_cluster",
+                "dag_id": "bigquery_insert_job_operator",
                 "duration": "<duration>",
                 "end_date": "<end_date>",
                 "execution_date": "2023-09-27 21:34:38+00:00",
@@ -755,14 +755,14 @@
                 "max_tries": "0",
                 "external_executor_id": "None",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=insert_query_without_destination&dag_id=bigquery_insert_job_operator_dev_cluster&map_index=-1",
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=insert_query_without_destination&dag_id=bigquery_insert_job_operator&map_index=-1",
                 "orchestrator": "airflow"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=insert_query_without_destination&dag_id=bigquery_insert_job_operator_dev_cluster&map_index=-1",
-            "name": "bigquery_insert_job_operator_dev_cluster_insert_query_without_destination_manual_run_test",
+            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=insert_query_without_destination&dag_id=bigquery_insert_job_operator&map_index=-1",
+            "name": "bigquery_insert_job_operator_insert_query_without_destination_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1770054715237,
+                "time": 1770183567859,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -770,19 +770,19 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:8c5a790f79e5af6cae09d68e481dcaf0",
+    "entityUrn": "urn:li:dataProcessInstance:83e92eb9ca0626412bcf864ebedf1cfc",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),insert_query_without_destination)",
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),insert_query_without_destination)",
             "upstreamInstances": []
         }
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:8c5a790f79e5af6cae09d68e481dcaf0",
+    "entityUrn": "urn:li:dataProcessInstance:83e92eb9ca0626412bcf864ebedf1cfc",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
@@ -795,7 +795,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:8c5a790f79e5af6cae09d68e481dcaf0",
+    "entityUrn": "urn:li:dataProcessInstance:83e92eb9ca0626412bcf864ebedf1cfc",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceOutput",
     "aspect": {
@@ -834,12 +834,12 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:8c5a790f79e5af6cae09d68e481dcaf0",
+    "entityUrn": "urn:li:dataProcessInstance:83e92eb9ca0626412bcf864ebedf1cfc",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1770054715237,
+            "timestampMillis": 1770183567859,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -856,20 +856,20 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1770054715461,
+            "timestampMillis": 1770183568108,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1770054715461
+            "lastUpdatedTimestamp": 1770183568108
         }
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),insert_query_without_destination)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),insert_query_without_destination)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -889,7 +889,7 @@
                 "outlets": "[]",
                 "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.41.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n                INSERT INTO `test_project.test_dataset.processed_costs`\\n                (id, month, total_cost, area, cost_per_area)\\n                SELECT\\n                    id,\\n                    month,\\n                    total_cost,\\n                    area,\\n                    total_cost / area as cost_per_area\\n                FROM `test_project.test_dataset.costs`\\n                WHERE total_cost > 100\\n                \"}"
             },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator_dev_cluster&_flt_3_task_id=insert_query_without_destination",
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=bigquery_insert_job_operator&_flt_3_task_id=insert_query_without_destination",
             "name": "insert_query_without_destination",
             "type": {
                 "string": "COMMAND"
@@ -900,7 +900,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),insert_query_without_destination)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),insert_query_without_destination)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -911,7 +911,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),insert_query_without_destination)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),insert_query_without_destination)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -1068,7 +1068,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),insert_query_without_destination)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),insert_query_without_destination)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -1092,7 +1092,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator_dev_cluster,DEV),insert_query_without_destination)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bigquery_insert_job_operator,DEV),insert_query_without_destination)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -1103,12 +1103,12 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:8c5a790f79e5af6cae09d68e481dcaf0",
+    "entityUrn": "urn:li:dataProcessInstance:83e92eb9ca0626412bcf864ebedf1cfc",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1770054715471,
+            "timestampMillis": 1770183568119,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1123,7 +1123,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:8c5a790f79e5af6cae09d68e481dcaf0",
+    "entityUrn": "urn:li:dataProcessInstance:83e92eb9ca0626412bcf864ebedf1cfc",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
@@ -1136,7 +1136,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:8c5a790f79e5af6cae09d68e481dcaf0",
+    "entityUrn": "urn:li:dataProcessInstance:83e92eb9ca0626412bcf864ebedf1cfc",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceOutput",
     "aspect": {
@@ -1154,14 +1154,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1770054715581,
+            "timestampMillis": 1770183568228,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1770054715581
+            "lastUpdatedTimestamp": 1770183568228
         }
     }
 }

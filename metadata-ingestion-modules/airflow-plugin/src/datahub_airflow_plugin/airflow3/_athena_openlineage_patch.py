@@ -96,12 +96,23 @@ def patch_athena_operator() -> None:
                             f"default_db={default_database}): {rendered_query[:200] if rendered_query else 'None'}"
                         )
 
+                        from datahub_airflow_plugin.datahub_listener import (
+                            get_airflow_plugin_listener,
+                        )
+
+                        listener = get_airflow_plugin_listener()
+                        env = (
+                            listener.config.cluster
+                            if (listener and listener.config)
+                            else builder.DEFAULT_ENV
+                        )
+
                         # Use DataHub's SQL parser
                         sql_parsing_result = create_lineage_sql_parsed_result(
                             query=rendered_query,
                             platform=platform,
                             platform_instance=None,
-                            env=builder.DEFAULT_ENV,
+                            env=env,
                             default_db=default_database,
                             default_schema=None,
                         )
