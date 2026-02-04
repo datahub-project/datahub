@@ -2220,6 +2220,24 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     ),
     # casewhen -> case when
     (re.compile(r"\bcasewhen\b", re.IGNORECASE), "case when"),
+    # case when<alias>. -> case when <alias>. (e.g., "case whenq11.col" -> "case when q11.col")
+    # More specific than generic when<alias>. to ensure case when is handled first
+    (re.compile(r"\bcase\s+when([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"case when \1."),
+    # case when<identifier><operator> -> case when <identifier> <operator> (no space before operator)
+    # e.g., "case whenarr_down>" -> "case when arr_down >"
+    (
+        re.compile(r"\bcase\s+when([a-z][a-z0-9_]+)(>|<|=|!)", re.IGNORECASE),
+        r"case when \1 \2",
+    ),
+    # case when<identifier> <keyword> -> case when <identifier> <keyword>
+    # e.g., "case whenarr_down then" -> "case when arr_down then"
+    (
+        re.compile(
+            r"\bcase\s+when([a-z][a-z0-9_]+)\s+(then|and|or|is\b|in\b|not\b|between\b)",
+            re.IGNORECASE,
+        ),
+        r"case when \1 \2",
+    ),
     # distinctcase -> distinct case
     (re.compile(r"\bdistinctcase\b", re.IGNORECASE), "distinct case"),
     # elsenull -> else null
@@ -2248,9 +2266,14 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     (re.compile(r"\belse([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"else \1."),
     # when<identifier> followed by space/operator -> when <identifier>
     # e.g., "whene_r6m06nuq then" -> "when e_r6m06nuq then"
-    # Negative lookbehind to avoid matching "when" that's already fine
     (
         re.compile(r"\bwhen([a-z][a-z0-9_]+)\s+(then|and|or|>|<|=|!)", re.IGNORECASE),
+        r"when \1 \2",
+    ),
+    # when<identifier><operator> -> when <identifier> <operator> (no space before operator)
+    # e.g., "whenarr_down>" -> "when arr_down >"
+    (
+        re.compile(r"\bwhen([a-z][a-z0-9_]+)(>|<|=|!)", re.IGNORECASE),
         r"when \1 \2",
     ),
     # from<schema>.<table> or from<schema>.t_ (Sigma temp table pattern)
