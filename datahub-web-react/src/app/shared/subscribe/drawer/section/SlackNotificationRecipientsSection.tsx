@@ -279,7 +279,7 @@ export default function SlackNotificationRecipientSection() {
                                 <a
                                     target="_blank"
                                     rel="noreferrer"
-                                    href="https://datahubproject.io/docs/managed-datahub/slack/saas-slack-setup/#how-to-find-user-id-in-slack"
+                                    href="https://docs.datahub.com/docs/managed-datahub/slack/saas-slack-setup/#how-to-find-user-id-in-slack"
                                 >
                                     {' '}
                                     See instructions.

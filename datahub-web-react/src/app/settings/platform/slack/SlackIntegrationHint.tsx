@@ -71,7 +71,7 @@ export const SlackIntegrationHint = ({ visible }: Props) => {
                     <div>
                         👉{' '}
                         <a
-                            href="https://datahubproject.io/docs/managed-datahub/slack/saas-slack-setup/"
+                            href="https://docs.datahub.com/docs/managed-datahub/slack/saas-slack-setup/"
                             target="_blank"
                             rel="noopener noreferrer"
                         >
