@@ -16,8 +16,7 @@ from snowflake.connector.network import (
     OAUTH_AUTHENTICATOR,
 )
 from tenacity import (
-    RetryError,
-    retry,
+    Retrying,
     retry_if_exception,
     stop_after_attempt,
     wait_exponential,
@@ -460,39 +459,31 @@ class SnowflakeConnection(Closeable):
         This retry is specific because write-based retries could lead to side effects. ACCOUNT_USAGE has read-only views,
         so it is safe to retry them.
         """
-
-        @retry(
+        retryer = Retrying(
             retry=retry_if_exception(
                 lambda e: _is_retryable_account_usage_error(e, query)
             ),
-            stop=stop_after_attempt(3),
-            wait=wait_exponential(multiplier=1, min=2, max=10),
+            stop=stop_after_attempt(4),
+            wait=wait_exponential(multiplier=10, min=20, max=60),
             before_sleep=before_sleep_log(logger, logging.WARNING),
             reraise=True,
         )
-        def _execute():
-            return self._connection.cursor(DictCursor).execute(query)
 
-        try:
-            resp = _execute()
-            if resp is not None and resp.rowcount is not None:
-                logger.info(
-                    f"Query #{query_num} got {resp.rowcount} row(s) back from Snowflake",
-                    stacklevel=2,
-                )
-            return resp
-        except RetryError as retry_err:
-            # If all retries failed, raise the original exception with its original traceback.
-            exc = retry_err.last_attempt.exception()
-            assert exc is not None
-            raise exc  # noqa: B904
+        for attempt in retryer:
+            with attempt:
+                resp = self._connection.cursor(DictCursor).execute(query)
+                if resp is not None and resp.rowcount is not None:
+                    logger.info(
+                        f"Query #{query_num} got {resp.rowcount} row(s) back from Snowflake"
+                    )
+                return resp
 
     def query(self, query: str) -> Any:
         try:
             # We often run multiple queries in parallel across multiple threads,
             # so we need to number them to help with log readability.
             query_num = self.get_query_no()
-            logger.info(f"Query #{query_num}: {query.rstrip()}", stacklevel=2)
+            logger.info(f"Query #{query_num}: {query.rstrip()}")
 
             return self._execute_query_with_retry(query, query_num)
 

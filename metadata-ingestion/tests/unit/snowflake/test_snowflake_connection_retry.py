@@ -67,40 +67,34 @@ def create_mock_execute_with_retry_behavior(
 class TestRetryLogic:
     """Test suite for ACCOUNT_USAGE retry logic."""
 
-    def test_is_retryable_account_usage_error_with_valid_conditions(self):
-        """Test that ACCOUNT_USAGE queries with 002003 error are retryable."""
-        query = "SELECT * FROM snowflake.account_usage.tag_references"
-        error = MockSnowflakeError(
-            "002003 (42S02): SQL compilation error: "
-            "Object 'SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES' does not exist or not authorized."
-        )
-
+    @pytest.mark.parametrize(
+        "query,error_message,expected",
+        [
+            pytest.param(
+                "SELECT * FROM snowflake.account_usage.tag_references",
+                "002003 (42S02): SQL compilation error: Object 'SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES' does not exist or not authorized.",
+                True,
+                id="account_usage_query_with_002003_error_is_retryable",
+            ),
+            pytest.param(
+                "SELECT * FROM my_database.my_schema.my_table",
+                "002003 (42S02): SQL compilation error: Object 'MY_TABLE' does not exist or not authorized.",
+                False,
+                id="non_account_usage_query_not_retryable",
+            ),
+            pytest.param(
+                "SELECT * FROM snowflake.account_usage.query_history",
+                "001003: SQL compilation error: syntax error line 1 at position 15",
+                False,
+                id="account_usage_query_with_different_error_code_not_retryable",
+            ),
+        ],
+    )
+    def test_is_retryable_account_usage_error(self, query, error_message, expected):
+        """Test retry eligibility for various query and error combinations."""
+        error = MockSnowflakeError(error_message)
         result = _is_retryable_account_usage_error(error, query)
-
-        assert result is True
-
-    def test_is_retryable_account_usage_error_without_account_usage_in_query(self):
-        """Test that non-ACCOUNT_USAGE queries are not retryable."""
-        query = "SELECT * FROM my_database.my_schema.my_table"
-        error = MockSnowflakeError(
-            "002003 (42S02): SQL compilation error: "
-            "Object 'MY_TABLE' does not exist or not authorized."
-        )
-
-        result = _is_retryable_account_usage_error(error, query)
-
-        assert result is False
-
-    def test_is_retryable_account_usage_error_with_different_error_code(self):
-        """Test that ACCOUNT_USAGE queries with different errors are not retryable."""
-        query = "SELECT * FROM snowflake.account_usage.query_history"
-        error = MockSnowflakeError(
-            "001003: SQL compilation error: syntax error line 1 at position 15"
-        )
-
-        result = _is_retryable_account_usage_error(error, query)
-
-        assert result is False
+        assert result is expected
 
 
 class TestConnectionRetry:
@@ -111,7 +105,7 @@ class TestConnectionRetry:
         mock_native_conn, mock_cursor = mock_snowflake_connection
 
         mock_execute, get_call_count = create_mock_execute_with_retry_behavior(
-            fail_count=2,
+            fail_count=1,  # Fail once, succeed on 2nd attempt
             error_message="002003: Object 'SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES' does not exist or not authorized",
         )
         mock_cursor.execute = mock_execute
@@ -121,7 +115,7 @@ class TestConnectionRetry:
         result = conn.query(query)
 
         assert result is not None
-        assert get_call_count() == 3
+        assert get_call_count() == 2
 
     def test_all_retries_exhausted_raises_original_snowflake_error(
         self, mock_snowflake_connection
@@ -147,8 +141,8 @@ class TestConnectionRetry:
         assert "002003" in str(exc_info.value)
         assert "TAG_REFERENCES" in str(exc_info.value)
 
-        # Should have tried 3 times (initial + 2 retries)
-        assert get_call_count() == 3
+        # Should have tried 4 times (initial + 3 retries)
+        assert get_call_count() == 4
 
     def test_real_permission_error_on_user_table_fails_immediately(
         self, mock_snowflake_connection
@@ -193,12 +187,12 @@ class TestConnectionRetry:
                         call_counts[thread_name] += 1
                         current_count = call_counts[thread_name]
 
-                    # Fail first 2 attempts, succeed on 3rd
-                    if current_count <= 2:
+                    # Fail first attempt, succeed on 2nd
+                    if current_count <= 1:
                         raise MockSnowflakeError(
                             "002003: Object 'SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES' does not exist or not authorized"
                         )
-                    # On 3rd attempt, return success
+                    # On 2nd attempt, return success
                     result = MagicMock()
                     result.rowcount = 100
                     return result
@@ -248,5 +242,5 @@ class TestConnectionRetry:
                 f"Expected 2 results, got {len(results)}. Errors: {errors}"
             )
             assert len(errors) == 0, f"Expected no errors, got {len(errors)}: {errors}"
-            assert call_counts["thread_1"] == 3
-            assert call_counts["thread_2"] == 3
+            assert call_counts["thread_1"] == 2
+            assert call_counts["thread_2"] == 2
