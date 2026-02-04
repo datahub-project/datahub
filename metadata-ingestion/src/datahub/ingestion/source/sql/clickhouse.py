@@ -809,7 +809,10 @@ ORDER BY event_time ASC
                 query_hash=str(row.get("normalized_query_hash", "")),
             )
         except Exception as e:
-            logger.debug(f"Failed to parse query log row: {e}")
+            self.report.warning(
+                "Failed to parse query log row",
+                context=f"query_id={row.get('query_id', 'unknown')}: {e}",
+            )
             return None
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
