@@ -6,6 +6,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.connection import create_workspace_client
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 
@@ -15,11 +16,9 @@ class UnityCatalogConnectionTest:
         self.config = config
         self.report = UnityCatalogReport()
         self.proxy = UnityCatalogApiProxy(
-            self.config.workspace_url,
-            self.config.profiling.warehouse_id,
+            create_workspace_client(self.config),
             report=self.report,
             databricks_api_page_size=self.config.databricks_api_page_size,
-            personal_access_token=self.config.token,
         )
 
     def get_connection_test(self) -> TestConnectionReport:

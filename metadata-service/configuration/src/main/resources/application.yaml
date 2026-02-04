@@ -75,6 +75,9 @@ authentication:
   # The max duration of a UI session in milliseconds. Defaults to 1 day.
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
 
+  # The max duration of a password reset token in milliseconds. Defaults to 1 day.
+  passwordResetTokenExpirationMs: ${PASSWORD_RESET_TOKEN_EXPIRATION_MS:86400000}
+
 # Authorization-related configurations.
 authorization:
   # Configurations for the default DataHub policies-based authorizer.
@@ -165,6 +168,23 @@ datahub:
     presignedUploadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_UPLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
     presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
     assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
+
+  validation:
+    aspectSize:
+      prePatch:
+        enabled: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED:false}
+        warnSizeBytes: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_WARN_SIZE_BYTES:}
+        maxSizeBytes: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES:16000000}
+        oversizedRemediation: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED_REMEDIATION:IGNORE}
+      postPatch:
+        enabled: ${DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_ENABLED:false}
+        warnSizeBytes: ${DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_WARN_SIZE_BYTES:}
+        maxSizeBytes: ${DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_MAX_SIZE_BYTES:16000000}
+        oversizedRemediation: ${DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED_REMEDIATION:IGNORE}
+      metrics:
+        # Size bucket boundaries for distribution tracking (in bytes)
+        # Default: 1MB, 5MB, 10MB, 15MB creates buckets: 0-1MB, 1-5MB, 5-10MB, 10-15MB, 15MB+
+        sizeBuckets: ${DATAHUB_ASPECT_SIZE_METRICS_BUCKETS:1048576,5242880,10485760,15728640}
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
@@ -389,16 +409,30 @@ elasticsearch:
           efConstruction: ${ELASTICSEARCH_SEMANTIC_EF_CONSTRUCTION:128}
           m: ${ELASTICSEARCH_SEMANTIC_M:16}
       # Embedding provider configuration for generating query embeddings
-      # Supports AWS Bedrock with automatic credential resolution (AWS_PROFILE, EC2 instance roles, etc.)
+      # Supports three providers: "aws-bedrock", "openai", "cohere"
       embeddingProvider:
-        # Provider type: "aws-bedrock" (currently only Bedrock is supported)
+        # Provider type: "aws-bedrock", "openai", or "cohere"
         type: ${EMBEDDING_PROVIDER_TYPE:aws-bedrock}
+
+        # AWS Bedrock configuration (used when type is "aws-bedrock")
         # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
         awsRegion: ${EMBEDDING_PROVIDER_AWS_REGION:us-west-2}
         # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions)
         modelId: ${EMBEDDING_PROVIDER_MODEL_ID:cohere.embed-english-v3}
         # Maximum text length before truncation (Cohere enforces 2048 character limit)
         maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
+
+        # OpenAI configuration (used when type is "openai")
+        openai:
+          apiKey: ${OPENAI_API_KEY:}
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+          endpoint: ${OPENAI_EMBEDDING_ENDPOINT:https://api.openai.com/v1/embeddings}
+
+        # Cohere configuration (used when type is "cohere")
+        cohere:
+          apiKey: ${COHERE_API_KEY:}
+          model: ${COHERE_EMBEDDING_MODEL:embed-english-v3.0}
+          endpoint: ${COHERE_EMBEDDING_ENDPOINT:https://api.cohere.ai/v1/embed}
   # Multi-client shim configuration
   shim:
     # Enable the search client shim (false = use legacy RestHighLevelClient)

@@ -68,6 +68,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     emptyState,
     descriptionMaxWidth,
     dataTestId,
+    visibilityDeps,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -78,7 +79,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         isVisible,
         close: closeDropdown,
         toggle: toggleDropdown,
-    } = useSelectDropdown(false, selectRef, dropdownRef);
+    } = useSelectDropdown(false, selectRef, dropdownRef, visibilityDeps);
 
     const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values || []);
     const [tempValues, setTempValues] = useState<string[]>(values || []);

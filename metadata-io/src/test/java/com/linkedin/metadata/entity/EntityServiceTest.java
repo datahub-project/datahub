@@ -10,6 +10,12 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionNote;
+import com.linkedin.assertion.AssertionStdOperator;
+import com.linkedin.assertion.AssertionType;
+import com.linkedin.assertion.DatasetAssertionInfo;
+import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Owner;
@@ -93,6 +99,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import jakarta.annotation.Nonnull;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -3186,6 +3193,116 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
       // Verify Future.get() was called
       verify(mockFuture, times(1)).get();
     }
+  }
+
+  @Test
+  public void testAssertionInfoPatchPreservesNote() throws Exception {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:testAssertionInfoPatch");
+    Urn datasetUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:testPlatform,assertionInfoPatch,PROD)");
+
+    AssertionNote note =
+        new AssertionNote()
+            .setContent("keep me")
+            .setLastModified(new AuditStamp().setTime(1).setActor(new CorpuserUrn("test-user")));
+
+    DatasetAssertionInfo initialDatasetAssertion =
+        new DatasetAssertionInfo()
+            .setDataset(datasetUrn)
+            .setScope(DatasetAssertionScope.DATASET_ROWS)
+            .setOperator(AssertionStdOperator.BETWEEN);
+
+    AssertionInfo initialInfo =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setDatasetAssertion(initialDatasetAssertion)
+            .setNote(note)
+            .setCustomProperties(new StringMap(Map.of("expectation_suite_name", "initial")));
+
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+
+    ChangeItemImpl initialAspect =
+        ChangeItemImpl.builder()
+            .urn(assertionUrn)
+            .aspectName(ASSERTION_INFO_ASPECT_NAME)
+            .recordTemplate(initialInfo)
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
+
+    GenericJsonPatch.PatchOp typePatch = new GenericJsonPatch.PatchOp();
+    typePatch.setOp(PatchOperationType.ADD.getValue());
+    typePatch.setPath("/type");
+    typePatch.setValue("DATASET");
+
+    GenericJsonPatch.PatchOp datasetAssertionPatch = new GenericJsonPatch.PatchOp();
+    datasetAssertionPatch.setOp(PatchOperationType.ADD.getValue());
+    datasetAssertionPatch.setPath("/datasetAssertion");
+    datasetAssertionPatch.setValue(
+        Map.of(
+            "dataset",
+            datasetUrn.toString(),
+            "scope",
+            DatasetAssertionScope.DATASET_SCHEMA.toString(),
+            "operator",
+            AssertionStdOperator.EQUAL_TO.toString()));
+
+    GenericJsonPatch.PatchOp expectationSuitePatch = new GenericJsonPatch.PatchOp();
+    expectationSuitePatch.setOp(PatchOperationType.ADD.getValue());
+    expectationSuitePatch.setPath("/customProperties/expectation_suite_name");
+    expectationSuitePatch.setValue("updated");
+
+    GenericJsonPatch genericPatch =
+        GenericJsonPatch.builder()
+            .patch(List.of(typePatch, datasetAssertionPatch, expectationSuitePatch))
+            .forceGenericPatch(true)
+            .build();
+    ObjectMapper objectMapper = new ObjectMapper();
+    GenericAspect patchAspect =
+        new GenericAspect()
+            .setValue(
+                ByteString.copyString(
+                    objectMapper.writeValueAsString(genericPatch), StandardCharsets.UTF_8));
+    MetadataChangeProposal patchProposal =
+        new MetadataChangeProposal()
+            .setEntityType(ASSERTION_ENTITY_NAME)
+            .setEntityUrn(assertionUrn)
+            .setAspectName(ASSERTION_INFO_ASPECT_NAME)
+            .setChangeType(ChangeType.PATCH)
+            .setAspect(patchAspect);
+    PatchItemImpl patchItem =
+        PatchItemImpl.builder()
+            .build(patchProposal, AuditStampUtils.createDefaultAuditStamp(), _testEntityRegistry);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(initialAspect))
+            .build(opContext),
+        false,
+        true);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(patchItem))
+            .build(opContext),
+        false,
+        true);
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, ASSERTION_ENTITY_NAME, assertionUrn, ASSERTION_INFO_ASPECT_NAME);
+    AssertionInfo patchedInfo = new AssertionInfo(envelopedAspect.getValue().data());
+
+    assertEquals(patchedInfo.getNote().getContent(), "keep me");
+    assertEquals(patchedInfo.getCustomProperties().get("expectation_suite_name"), "updated");
+    assertEquals(
+        patchedInfo.getDatasetAssertion().getScope(), DatasetAssertionScope.DATASET_SCHEMA);
+    assertEquals(patchedInfo.getDatasetAssertion().getOperator(), AssertionStdOperator.EQUAL_TO);
   }
 
   @Test

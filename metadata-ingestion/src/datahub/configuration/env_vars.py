@@ -34,6 +34,16 @@ def get_gms_token() -> Optional[str]:
     return os.getenv("DATAHUB_GMS_TOKEN")
 
 
+def get_username() -> Optional[str]:
+    """Username for generating access tokens."""
+    return os.getenv("DATAHUB_USERNAME")
+
+
+def get_password() -> Optional[str]:
+    """Password for generating access tokens."""
+    return os.getenv("DATAHUB_PASSWORD")
+
+
 def get_system_client_id() -> Optional[str]:
     """System client ID for OAuth/auth."""
     return os.getenv("DATAHUB_SYSTEM_CLIENT_ID")
@@ -177,6 +187,16 @@ def get_disable_secret_masking() -> bool:
 def get_sql_agg_query_log() -> str:
     """SQL aggregator query logging level."""
     return os.getenv("DATAHUB_SQL_AGG_QUERY_LOG", "DISABLED")
+
+
+def get_sql_agg_skip_joins() -> bool:
+    """Skip join processing in SQL aggregator (default: False)."""
+    return os.getenv("DATAHUB_SQL_AGG_SKIP_JOINS", "").lower() == "true"
+
+
+def get_sql_parse_cache_size() -> int:
+    """SQL parse result cache size (number of entries)."""
+    return int(os.getenv("DATAHUB_SQL_PARSE_CACHE_SIZE", "1000"))
 
 
 def get_dataset_urn_to_lower() -> str:

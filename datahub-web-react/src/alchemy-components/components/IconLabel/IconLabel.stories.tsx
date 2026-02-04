@@ -64,9 +64,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 // Sandbox Story
-export const sandbox: Story = {
-    render: (props) => <IconLabel {...props} />,
-};
+export const sandbox: Story = {};
 
 // Example Stories
 export const withIcon: Story = {
