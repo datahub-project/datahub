@@ -298,3 +298,61 @@ WHERE type = 'QueryFinish'
 ORDER BY event_time ASC
 """
         assert query == expected
+
+
+# _parse_query_log_row tests
+
+
+def test_parse_query_log_row_basic():
+    """Test _parse_query_log_row parses a valid row correctly."""
+    from datetime import datetime, timezone
+
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+        }
+    )
+
+    with patch.object(ClickHouseSource, "__init__", lambda x, y, z: None):
+        source = ClickHouseSource.__new__(ClickHouseSource)
+        source.config = config
+
+        row = {
+            "event_time": datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc),
+            "query": "INSERT INTO target SELECT * FROM source",
+            "query_id": "abc-123",
+            "user": "analyst",
+            "current_database": "analytics",
+            "normalized_query_hash": 12345,
+        }
+
+        result = source._parse_query_log_row(row)
+
+        assert result is not None
+        assert result.query == "INSERT INTO target SELECT * FROM source"
+        assert result.session_id == "abc-123"
+        assert result.default_db == "analytics"
+        assert result.query_hash == "12345"
+
+
+def test_parse_query_log_row_invalid_row():
+    """Test _parse_query_log_row returns None for invalid rows."""
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+        }
+    )
+
+    with patch.object(ClickHouseSource, "__init__", lambda x, y, z: None):
+        source = ClickHouseSource.__new__(ClickHouseSource)
+        source.config = config
+
+        # Missing required 'query' field
+        row = {
+            "event_time": "2024-01-15",
+        }
+
+        result = source._parse_query_log_row(row)
+
+        assert result is None
