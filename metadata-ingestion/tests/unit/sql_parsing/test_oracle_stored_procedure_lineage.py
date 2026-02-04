@@ -268,7 +268,6 @@ END;
 
     job_urn = procedure.to_urn(database_key, schema_key)
 
-    # Parse Oracle-specific procedure dependencies
     upstream_deps = (
         procedure.extra_properties.get("upstream_dependencies", "")
         if procedure.extra_properties
@@ -300,8 +299,17 @@ END;
     assert len(datajob_input_output.inputDatajobs) == 2
 
     input_job_urns = datajob_input_output.inputDatajobs
-    assert any("helper_proc" in urn.lower() for urn in input_job_urns)
-    assert any("calc_func" in urn.lower() for urn in input_job_urns)
+
+    helper_proc_urns = [u for u in input_job_urns if "helper_proc" in u.lower()]
+    calc_func_urns = [u for u in input_job_urns if "calc_func" in u.lower()]
+
+    assert len(helper_proc_urns) == 1, "Expected exactly one helper_proc URN"
+    assert len(calc_func_urns) == 1, "Expected exactly one calc_func URN"
+
+    assert helper_proc_urns[0].startswith("urn:li:dataJob:")
+    assert calc_func_urns[0].startswith("urn:li:dataJob:")
+    assert "testdb.stored_procedures" in helper_proc_urns[0]
+    assert "testdb.stored_procedures" in calc_func_urns[0]
 
 
 def test_oracle_procedure_to_procedure_lineage_with_overloaded_procedures():
@@ -407,10 +415,6 @@ END;
     calc_urn = [u for u in input_job_urns if "calc_func" in u.lower()][0]
     assert calc_hash in calc_urn
 
-    # Verify calc_func (with signature) has the correct hash
-    calc_urn = [u for u in input_job_urns if "calc_func" in u.lower()][0]
-    assert calc_hash in calc_urn
-
 
 def test_oracle_dataset_urn_format_without_database_name():
     """
@@ -467,6 +471,8 @@ END;
 
     input_dataset_urn = result.inputDatasets[0]
 
+    assert input_dataset_urn.startswith("urn:li:dataset:")
+    assert "(urn:li:dataPlatform:oracle," in input_dataset_urn
     assert "hr.employees" in input_dataset_urn.lower()
     assert "orcl" not in input_dataset_urn.lower()
     assert input_dataset_urn == employees_urn
@@ -527,6 +533,8 @@ END;
 
     input_dataset_urn = result.inputDatasets[0]
 
+    assert input_dataset_urn.startswith("urn:li:dataset:")
+    assert "(urn:li:dataPlatform:oracle," in input_dataset_urn
     assert "orcl.hr.employees" in input_dataset_urn.lower()
     assert input_dataset_urn == employees_urn
 
@@ -551,7 +559,6 @@ def test_oracle_procedure_flow_name_without_database():
         env="PROD",
     )
 
-    # Test procedure flow name (functions and procedures use same container)
     flow_name = _get_procedure_flow_name(database_key, schema_key)
     assert flow_name == "hr.stored_procedures"
     assert not flow_name.startswith(".")
@@ -577,7 +584,6 @@ def test_oracle_procedure_flow_name_with_database():
         env="PROD",
     )
 
-    # Test procedure flow name (functions and procedures use same container)
     flow_name = _get_procedure_flow_name(database_key, schema_key)
     assert flow_name == "orcl.hr.stored_procedures"
 
@@ -587,7 +593,6 @@ def test_oracle_procedure_flow_name_without_schema_key():
     Test that procedure flow names handle empty database correctly when schema_key is None.
     This edge case ensures no leading dots in flow names.
     """
-    # Test with empty database
     database_key_empty = DatabaseKey(
         database="",
         platform="oracle",
@@ -599,7 +604,6 @@ def test_oracle_procedure_flow_name_without_schema_key():
     assert flow_name == "stored_procedures"
     assert not flow_name.startswith(".")
 
-    # Test with non-empty database
     database_key_with_db = DatabaseKey(
         database="orcl",
         platform="oracle",
@@ -615,7 +619,6 @@ def test_oracle_function_subtype():
     """
     Test that Oracle functions get the FUNCTION subtype instead of STORED_PROCEDURE.
     """
-    # Create a function
     oracle_function = BaseProcedure(
         name="get_employee_salary",
         language="SQL",
@@ -629,7 +632,6 @@ def test_oracle_function_subtype():
         subtype=JobContainerSubTypes.FUNCTION,
     )
 
-    # Create a procedure
     oracle_procedure = BaseProcedure(
         name="update_employee_salary",
         language="SQL",
@@ -643,7 +645,126 @@ def test_oracle_function_subtype():
         subtype=JobContainerSubTypes.STORED_PROCEDURE,
     )
 
-    # Verify subtypes are correct
     assert oracle_function.subtype == JobContainerSubTypes.FUNCTION
     assert oracle_procedure.subtype == JobContainerSubTypes.STORED_PROCEDURE
     assert oracle_function.subtype != oracle_procedure.subtype
+
+
+def test_oracle_parse_dependencies_empty_string():
+    """Test that empty dependency strings return empty list."""
+    database_key = DatabaseKey(
+        database="ORCL", platform="oracle", instance=None, env="PROD"
+    )
+    schema_key = SchemaKey(
+        database="ORCL", schema="hr", platform="oracle", instance=None, env="PROD"
+    )
+
+    result = _parse_oracle_procedure_dependencies("", database_key, schema_key, None)
+    assert result == []
+
+    result = _parse_oracle_procedure_dependencies("   ", database_key, schema_key, None)
+    assert result == []
+
+
+def test_oracle_parse_dependencies_malformed_format():
+    """Test that completely malformed dependency strings raise ValueError."""
+    database_key = DatabaseKey(
+        database="ORCL", platform="oracle", instance=None, env="PROD"
+    )
+    schema_key = SchemaKey(
+        database="ORCL", schema="hr", platform="oracle", instance=None, env="PROD"
+    )
+
+    # Completely malformed - no parentheses
+    with pytest.raises(ValueError, match="Failed to parse any valid dependencies"):
+        _parse_oracle_procedure_dependencies(
+            "INVALID_FORMAT", database_key, schema_key, None
+        )
+
+    # Malformed - wrong format
+    with pytest.raises(ValueError, match="Failed to parse any valid dependencies"):
+        _parse_oracle_procedure_dependencies(
+            "SCHEMA.NAME.TOOMANY (PROCEDURE)", database_key, schema_key, None
+        )
+
+    # Malformed - invalid type
+    with pytest.raises(ValueError, match="Failed to parse any valid dependencies"):
+        _parse_oracle_procedure_dependencies(
+            "HR.PROC (INVALID_TYPE)", database_key, schema_key, None
+        )
+
+
+def test_oracle_parse_dependencies_partial_malformed():
+    """Test that partially malformed dependencies skip invalid entries but process valid ones."""
+    database_key = DatabaseKey(
+        database="ORCL", platform="oracle", instance=None, env="PROD"
+    )
+    schema_key = SchemaKey(
+        database="ORCL", schema="hr", platform="oracle", instance=None, env="PROD"
+    )
+
+    # Mix of valid and invalid entries
+    deps = "HR.VALID_PROC (PROCEDURE), INVALID_FORMAT, HR.VALID_FUNC (FUNCTION)"
+    result = _parse_oracle_procedure_dependencies(deps, database_key, schema_key, None)
+
+    assert len(result) == 2
+    assert any("valid_proc" in urn.lower() for urn in result)
+    assert any("valid_func" in urn.lower() for urn in result)
+
+
+def test_oracle_parse_dependencies_cross_schema():
+    """Test that dependencies from different schemas are correctly parsed."""
+    database_key = DatabaseKey(
+        database="ORCL", platform="oracle", instance=None, env="PROD"
+    )
+    schema_key = SchemaKey(
+        database="ORCL", schema="hr", platform="oracle", instance=None, env="PROD"
+    )
+
+    # Dependencies from different schemas
+    deps = "HR.PROC1 (PROCEDURE), FINANCE.PROC2 (PROCEDURE), SALES.FUNC1 (FUNCTION)"
+    result = _parse_oracle_procedure_dependencies(deps, database_key, schema_key, None)
+
+    assert len(result) == 3
+    assert any("hr.stored_procedures" in urn for urn in result)
+    assert any("finance.stored_procedures" in urn for urn in result)
+    assert any("sales.stored_procedures" in urn for urn in result)
+
+
+def test_oracle_parse_dependencies_case_sensitivity():
+    """Test that dependency parsing handles mixed case correctly."""
+    database_key = DatabaseKey(
+        database="ORCL", platform="oracle", instance=None, env="PROD"
+    )
+    schema_key = SchemaKey(
+        database="ORCL", schema="hr", platform="oracle", instance=None, env="PROD"
+    )
+
+    # Mixed case inputs
+    deps = "HR.MyProc (PROCEDURE), Hr.MyFunc (FUNCTION), hr.my_pkg (PACKAGE)"
+    result = _parse_oracle_procedure_dependencies(deps, database_key, schema_key, None)
+
+    assert len(result) == 3
+    # All URNs should be normalized to lowercase
+    assert all("hr.stored_procedures" in urn for urn in result)
+    assert any("myproc" in urn.lower() for urn in result)
+    assert any("myfunc" in urn.lower() for urn in result)
+    assert any("my_pkg" in urn.lower() for urn in result)
+
+
+def test_oracle_parse_dependencies_whitespace_handling():
+    """Test that dependency parsing handles various whitespace patterns."""
+    database_key = DatabaseKey(
+        database="ORCL", platform="oracle", instance=None, env="PROD"
+    )
+    schema_key = SchemaKey(
+        database="ORCL", schema="hr", platform="oracle", instance=None, env="PROD"
+    )
+
+    # Various whitespace patterns
+    deps = "  HR.PROC1   (PROCEDURE)  ,   HR.FUNC1  ( FUNCTION )  "
+    result = _parse_oracle_procedure_dependencies(deps, database_key, schema_key, None)
+
+    assert len(result) == 2
+    assert any("proc1" in urn.lower() for urn in result)
+    assert any("func1" in urn.lower() for urn in result)

@@ -937,16 +937,21 @@ def _parse_oracle_procedure_dependencies(
     Parse Oracle ALL_DEPENDENCIES string to DataJob URNs.
 
     Format: "SCHEMA.NAME (TYPE)" where TYPE is PROCEDURE, FUNCTION, or PACKAGE.
+
+    Raises:
+        ValueError: If dependencies_str is completely malformed (no valid entries found)
     """
     if not dependencies_str.strip():
         return []
 
     input_jobs = []
+    deps = [d.strip() for d in dependencies_str.split(",") if d.strip()]
 
-    for dep in dependencies_str.split(","):
-        dep = dep.strip()
+    if not deps:
+        return []
 
-        match = re.match(r"^([^(]+)\s*\((PROCEDURE|FUNCTION|PACKAGE)\)$", dep)
+    for dep in deps:
+        match = re.match(r"^([^(]+)\s*\(\s*(PROCEDURE|FUNCTION|PACKAGE)\s*\)$", dep)
         if not match:
             continue
 
@@ -983,6 +988,11 @@ def _parse_oracle_procedure_dependencies(
         )
 
         input_jobs.append(dep_job_urn)
+
+    if not input_jobs and deps:
+        raise ValueError(
+            f"Failed to parse any valid dependencies from: {dependencies_str[:100]}"
+        )
 
     return input_jobs
 
@@ -1200,13 +1210,10 @@ class OracleSource(SQLAlchemySource):
         for correct container hierarchy, but BaseProcedure.default_db controls
         whether the database appears in the procedure's URN.
         """
-        # Get the actual database name for container hierarchy and queries
         actual_db_name = self.get_db_name(inspector)
 
         procedures = self.fetch_procedures_for_schema(inspector, schema, actual_db_name)
         if procedures:
-            # Always pass actual database name for container hierarchy
-            # The BaseProcedure.default_db (set in get_procedures_for_schema) controls URN format
             yield from self._process_procedures(procedures, actual_db_name, schema)
 
     def _process_procedure(
@@ -1241,6 +1248,7 @@ class OracleSource(SQLAlchemySource):
                     logger.warning(
                         f"Failed to parse Oracle procedure dependencies for {procedure.name}: {e}"
                     )
+                    additional_input_jobs = None
 
         try:
             yield from generate_procedure_workunits(
@@ -1340,11 +1348,8 @@ class OracleSource(SQLAlchemySource):
                                 dependencies["downstream"]
                             )
 
-                    # Set default_db based on add_database_name_to_urn config
-                    # This ensures stored procedure lineage URNs match table URNs
                     default_db = self._get_procedure_default_db()
 
-                    # Determine subtype based on Oracle object_type
                     subtype = (
                         JobContainerSubTypes.FUNCTION
                         if row.type == "FUNCTION"
