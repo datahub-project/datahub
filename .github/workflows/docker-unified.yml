@@ -46,7 +46,7 @@ env:
   DATAHUB_INGESTION_BASE_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion-base"
 
   DOCKER_CACHE: "DEPOT"
-  DEPOT_PROJECT_ID: "s0gr1cr3jd"
+  DEPOT_PROJECT_ID: "7dvq42m3cg"
   HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
   # Include Wolfi variants for releases, or when PR has 'build-wolfi-variant' label
   # Wolfi uses glibc and supports full dependencies including prophet/spacy
