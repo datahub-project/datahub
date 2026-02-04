@@ -17,22 +17,6 @@ from datahub.metadata.schema_classes import (
 class TestDataQualityMonitoringResultModel:
     """Test the Pydantic model for DMF results."""
 
-    def test_parses_argument_names_as_list(self):
-        """Model should parse ARGUMENT_NAMES when already a list."""
-        row = {
-            "MEASUREMENT_TIME": datetime.now(),
-            "METRIC_NAME": "null_check",
-            "TABLE_NAME": "orders",
-            "TABLE_SCHEMA": "public",
-            "TABLE_DATABASE": "my_db",
-            "VALUE": 1,
-            "REFERENCE_ID": "ref_abc123",
-            "ARGUMENT_NAMES": ["amount", "quantity"],
-        }
-        result = DataQualityMonitoringResult.model_validate(row)
-        assert result.REFERENCE_ID == "ref_abc123"
-        assert result.ARGUMENT_NAMES == ["amount", "quantity"]
-
     def test_parses_argument_names_from_json_string(self):
         """Model should parse ARGUMENT_NAMES from JSON string (Snowflake format)."""
         row = {
@@ -43,10 +27,11 @@ class TestDataQualityMonitoringResultModel:
             "TABLE_DATABASE": "my_db",
             "VALUE": 1,
             "REFERENCE_ID": "ref_abc123",
-            "ARGUMENT_NAMES": '["EMAIL", "ID"]',
+            "ARGUMENT_NAMES": '["amount", "quantity"]',
         }
         result = DataQualityMonitoringResult.model_validate(row)
-        assert result.ARGUMENT_NAMES == ["EMAIL", "ID"]
+        assert result.REFERENCE_ID == "ref_abc123"
+        assert result.ARGUMENT_NAMES == ["amount", "quantity"]
 
     def test_parses_empty_argument_names(self):
         """Model should return empty list for empty JSON array."""
@@ -116,7 +101,7 @@ class TestExternalDmfGuidGeneration:
             TABLE_DATABASE="my_db",
             VALUE=1,
             REFERENCE_ID="ref_abc123",
-            ARGUMENT_NAMES=[],
+            ARGUMENT_NAMES="[]",
         )
         guid1 = handler._generate_external_dmf_guid(result)
         guid2 = handler._generate_external_dmf_guid(result)
@@ -132,7 +117,7 @@ class TestExternalDmfGuidGeneration:
             TABLE_DATABASE="my_db",
             VALUE=1,
             REFERENCE_ID="ref_123",
-            ARGUMENT_NAMES=[],
+            ARGUMENT_NAMES="[]",
         )
         result2 = DataQualityMonitoringResult(
             MEASUREMENT_TIME=datetime.now(),
@@ -142,7 +127,7 @@ class TestExternalDmfGuidGeneration:
             TABLE_DATABASE="my_db",
             VALUE=1,
             REFERENCE_ID="ref_456",
-            ARGUMENT_NAMES=[],
+            ARGUMENT_NAMES="[]",
         )
         guid1 = handler._generate_external_dmf_guid(result1)
         guid2 = handler._generate_external_dmf_guid(result2)
@@ -178,7 +163,7 @@ class TestExternalDmfGuidGeneration:
             TABLE_DATABASE="my_db",
             VALUE=1,
             REFERENCE_ID="ref_abc123",
-            ARGUMENT_NAMES=[],
+            ARGUMENT_NAMES="[]",
         )
 
         guid_with = handler_with._generate_external_dmf_guid(result)

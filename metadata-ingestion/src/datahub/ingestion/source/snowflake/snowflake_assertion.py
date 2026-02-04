@@ -57,8 +57,6 @@ class DataQualityMonitoringResult(BaseModel):
 
         Snowflake returns this column as a JSON-encoded string like '["col1", "col2"]'.
         """
-        if isinstance(v, list):
-            return v
         if isinstance(v, str):
             try:
                 parsed = json.loads(v)
