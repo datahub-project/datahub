@@ -388,6 +388,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def _parse_sql_task(self, task: SqlParsingTask) -> Tuple[str, SqlParsingResult]:
         """Parse a single SQL query and return (element_id, result)."""
         try:
+            logger.debug(
+                f"[SQL_PARSE_DEBUG] element_id={task.element_id}, "
+                f"platform={task.platform}, default_db={task.default_db}, "
+                f"default_schema={task.default_schema}, query_preview={task.query[:200]!r}..."
+            )
             result = create_lineage_sql_parsed_result(
                 query=task.query.strip(),
                 default_db=task.default_db,
@@ -395,6 +400,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 platform=task.platform,
                 env=task.env,
                 platform_instance=task.platform_instance,
+            )
+            logger.debug(
+                f"[SQL_PARSE_RESULT] element_id={task.element_id}, "
+                f"in_tables={result.in_tables}, out_tables={result.out_tables}"
             )
             return (task.element_id, result)
         except Exception as e:
@@ -531,6 +540,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Add remaining sql parser in_tables as direct input of element
         for in_table_urn in sql_parser_in_tables:
             inputs[in_table_urn] = []
+
+        if inputs:
+            logger.debug(
+                f"[LINEAGE_DEBUG] element={element.name}, workbook={workbook.name}, "
+                f"inputs={list(inputs.keys())}"
+            )
 
         return inputs
 

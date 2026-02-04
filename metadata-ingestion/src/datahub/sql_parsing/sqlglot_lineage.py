@@ -170,12 +170,18 @@ def _table_name_from_sqlglot_table(
     # Extract parts tuple for multi-part table names (for schema resolver compatibility)
     parts_tuple = tuple(p.name for p in table.parts) if table.parts else None
 
-    return _TableName(
+    result = _TableName(
         database=table.catalog or default_db,
         db_schema=table.db or default_schema,
         table=table_name,
         parts=parts_tuple,
     )
+    logger.debug(
+        f"[TABLE_EXTRACT_DEBUG] table.catalog={table.catalog}, table.db={table.db}, "
+        f"table.name={table.name}, default_db={default_db}, default_schema={default_schema}, "
+        f"result={result}"
+    )
+    return result
 
 
 Urn = str
