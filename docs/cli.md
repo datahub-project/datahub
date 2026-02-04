@@ -24,7 +24,7 @@ source venv/bin/activate         # activate the environment
 Once inside the virtual environment, install `datahub` using the following commands
 
 ```shell
-# Requires Python 3.9+
+# Requires Python 3.10+
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
 # validate that the install was successful
@@ -205,6 +205,112 @@ failure_log:
     filename: ./path/to/failure.json
 ```
 
+#### ingest --record (Beta)
+
+:::note Beta Feature
+Recording and replay is currently in beta. The feature is stable for debugging purposes but the archive format may change in future releases.
+:::
+
+The `--record` option enables recording of all HTTP requests and database queries during ingestion. This creates an encrypted archive that can be replayed offline for debugging.
+
+```shell
+# Record an ingestion run with password protection
+datahub ingest -c ./recipe.yaml --record --record-password mysecret
+
+# Record to a specific local directory
+export INGESTION_ARTIFACT_DIR=/path/to/recordings
+datahub ingest -c ./recipe.yaml --record --record-password mysecret --no-s3-upload
+
+# Record and upload directly to S3
+datahub ingest -c ./recipe.yaml --record --record-password mysecret \
+    --record-output-path s3://my-bucket/recordings/my-run.zip
+```
+
+Recording options:
+
+| Option                  | Description                                                                                                |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--record`              | Enable recording of the ingestion run                                                                      |
+| `--record-password`     | Password for encrypting the archive. Can also be set via `DATAHUB_RECORDING_PASSWORD` environment variable |
+| `--record-output-path`  | Path to save the recording archive. Use local path or S3 URL (`s3://bucket/path/file.zip`)                 |
+| `--no-s3-upload`        | Disable S3 upload (save locally only)                                                                      |
+| `--no-secret-redaction` | Keep actual credentials in recording (use with caution, for local debugging only)                          |
+
+The recording creates an encrypted ZIP archive containing HTTP cassettes, database query recordings, and a redacted recipe. This archive can be replayed using `datahub ingest replay`.
+
+**Installation:** Recording requires the `debug-recording` plugin:
+
+```shell
+pip install 'acryl-datahub[debug-recording]'
+```
+
+➡️ [Learn more about recording and debugging ingestion](./how/debug-ingestion-recording.md)
+
+### ingest replay (Beta)
+
+The `ingest replay` command replays a recorded ingestion run for debugging. This allows you to reproduce issues in an air-gapped environment without network access.
+
+```shell
+# Replay from local file
+datahub ingest replay ./recording.zip --password mysecret
+
+# Replay from S3
+datahub ingest replay s3://bucket/recordings/run-id.zip --password mysecret
+
+# Replay with live sink (emit to real DataHub instance)
+datahub ingest replay ./recording.zip --password mysecret --live-sink --server http://localhost:8080
+```
+
+Replay options:
+
+| Option        | Description                                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--password`  | Password for decrypting the archive. Can also be set via `DATAHUB_RECORDING_PASSWORD` environment variable |
+| `--live-sink` | Emit to real GMS server instead of using recorded responses                                                |
+| `--server`    | GMS server URL when using `--live-sink`                                                                    |
+| `--report-to` | Path to write the report file                                                                              |
+
+### recording (Beta)
+
+The `recording` command group provides utilities for working with recording archives.
+
+```shell
+# View archive metadata
+datahub recording info recording.zip --password mysecret
+
+# Extract archive contents
+datahub recording extract recording.zip --password mysecret --output-dir ./extracted
+
+# List archive contents
+datahub recording list recording.zip --password mysecret
+```
+
+#### recording info
+
+Display metadata about a recording archive including run ID, source type, creation time, and whether an exception was captured.
+
+```shell
+datahub recording info recording.zip --password mysecret
+```
+
+Use `--json` for machine-readable output.
+
+#### recording extract
+
+Extract a recording archive to inspect its contents:
+
+```shell
+datahub recording extract recording.zip --password mysecret --output-dir ./extracted
+```
+
+#### recording list
+
+List the files contained in a recording archive:
+
+```shell
+datahub recording list recording.zip --password mysecret
+```
+
 ### ingest deploy
 
 The `ingest deploy` command instructs the cli to upload an ingestion recipe to DataHub to be run by DataHub's [UI Ingestion](./ui-ingestion.md).
@@ -295,7 +401,7 @@ For more information on setting up remote executors, see the [Remote Executor Se
 
 #### Using deployment section
 
-As an alternative to configuring settings from the CLI, all of these settings can also be set in the `deployment` field of the recipe.
+As an alternative to configuring settings from the CLI, they can also be set in the `deployment` field of the recipe.
 
 ```yml
 # deployment_recipe.yml
@@ -305,6 +411,8 @@ deployment:
   time_zone: "Europe/London"
   executor_id: "remote-executor-pool-1" # Optional: specify remote executor
   cli_version: "0.15.0.1" # Optional: specify CLI version
+  extra_pip: '["polars==1.35.2"]'
+  extra_env: "VAR1=value1,VAR2=value2"
 
 source: ...
 ```
@@ -317,7 +425,7 @@ CLI options will override corresponding values in the deployment section.
 
 #### Deployment Configuration Options
 
-All deployment options that can be specified via CLI flags can also be configured in the `deployment` section:
+These deployment options that can be specified via CLI flags can also be configured in the `deployment` section:
 
 | Field         | CLI Option      | Description                     | Default            |
 | ------------- | --------------- | ------------------------------- | ------------------ |
@@ -326,6 +434,8 @@ All deployment options that can be specified via CLI flags can also be configure
 | `time_zone`   | `--time-zone`   | Timezone for scheduled runs     | `"UTC"`            |
 | `executor_id` | `--executor-id` | Target executor for ingestion   | `"default"`        |
 | `cli_version` | `--cli-version` | CLI version for ingestion       | Server default     |
+| `extra_pip`   | `--extra-pip`   | Extra pip packages              | None               |
+| `extra_env`   | `--extra-env`   | Extra environment variables     | None               |
 
 #### Batch Deployment
 
@@ -342,27 +452,48 @@ ls recipe_directory/*.yml | xargs -n 1 -I {} datahub ingest deploy --executor-id
 ### init
 
 The init command is used to tell `datahub` about where your DataHub instance is located. The CLI will point to localhost DataHub by default.
-Running `datahub init` will allow you to customize the datahub instance you are communicating with. It has an optional `--use-password` option which allows to initialise the config using username, password. We foresee this mainly being used by admins as majority of organisations will be using SSO and there won't be any passwords to use.
 
 **_Note_**: Provide your GMS instance's host when the prompt asks you for the DataHub host.
 
-```
-# locally hosted example
+#### Interactive Mode
+
+```shell
+# Interactive mode - prompts for input
 datahub init
 /Users/user/.datahubenv already exists. Overwrite? [y/N]: y
 Configure which datahub instance to connect to
 Enter your DataHub host [http://localhost:8080]: http://localhost:8080
 Enter your DataHub access token []:
-
-# acryl example
-datahub init
-/Users/user/.datahubenv already exists. Overwrite? [y/N]: y
-Configure which datahub instance to connect to
-Enter your DataHub host [http://localhost:8080]: https://<your-instance-id>.acryl.io/gms
-Enter your DataHub access token []: <token generated from https://<your-instance-id>.acryl.io/settings/tokens>
 ```
 
-You can pass `--use-password` flag to use user/password to generate the token automatically.
+#### Non-Interactive Mode with Username/Password
+
+The CLI can automatically generate tokens from your username and password credentials. This is useful for quickstart instances, automation, and CI/CD pipelines.
+
+```shell
+# Quickstart (local instance with default credentials)
+datahub init --username datahub --password datahub
+
+# Custom credentials with longer token duration
+datahub init --username alice --password secret --token-duration ONE_MONTH
+
+# For long-running jobs or CI/CD
+datahub init --username alice --password secret --token-duration ONE_WEEK
+```
+
+#### DataHub Cloud Example
+
+For DataHub Cloud (Acryl-hosted) instances, you can use an existing token:
+
+```shell
+# Interactive
+datahub init
+Enter your DataHub host [http://localhost:8080]: https://<your-instance-id>.acryl.io/gms
+Enter your DataHub access token []: <token generated from https://<your-instance-id>.acryl.io/settings/tokens>
+
+# Non-interactive
+datahub init --host https://<your-instance-id>.acryl.io/gms --token <your-token>
+```
 
 #### Environment variables supported
 
@@ -374,12 +505,16 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `DATAHUB_GMS_PORT` (default `8080`) - Set to a port of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
 - `DATAHUB_GMS_PROTOCOL` (default `http`) - Set to a protocol like `http` or `https`. Prefer using `DATAHUB_GMS_URL` to set the URL.
 - `DATAHUB_GMS_TOKEN` (default `None`) - Used for communicating with DataHub Cloud.
+- `DATAHUB_USERNAME` (default `None`) - Username for generating access tokens via `datahub init`. Used with `DATAHUB_PASSWORD` for non-interactive authentication.
+- `DATAHUB_PASSWORD` (default `None`) - Password for generating access tokens via `datahub init`. Used with `DATAHUB_USERNAME` for non-interactive authentication.
 - `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
 - `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
 - `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI. This exposes sensitive information in logs, enabling on production instances should be avoided especially if UI ingestion is in use as logs can be made available for runs through the UI.
 - `DATAHUB_VERSION` (default `head`) - Set to a specific version to run quickstart with the particular version of docker images.
 - `ACTIONS_VERSION` (default `head`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
 - `DATAHUB_ACTIONS_IMAGE` (default `acryldata/datahub-actions`) - Set to `-slim` to run a slimmer actions container without pyspark/deequ features.
+- `DATAHUB_RECORDING_PASSWORD` - Password for encrypting/decrypting recording archives. Used by `--record` and `--replay` commands.
+- `INGESTION_ARTIFACT_DIR` - Directory to save recordings when S3 upload is disabled. If not set, recordings are saved to a temp directory.
 
 ```shell
 DATAHUB_SKIP_CONFIG=false
@@ -972,7 +1107,7 @@ Please see our [Integrations page](https://docs.datahub.com/integrations) if you
 | [kafka-connect](./generated/ingestion/sources/kafka-connect.md)                                | `pip install 'acryl-datahub[kafka-connect]'`               | Kafka connect source                    |
 | [ldap](./generated/ingestion/sources/ldap.md)                                                  | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                             |
 | [looker](./generated/ingestion/sources/looker.md)                                              | `pip install 'acryl-datahub[looker]'`                      | Looker source                           |
-| [lookml](./generated/ingestion/sources/looker.md#module-lookml)                                | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+     |
+| [lookml](./generated/ingestion/sources/looker.md#module-lookml)                                | `pip install 'acryl-datahub[lookml]'`                      | LookML source                           |
 | [metabase](./generated/ingestion/sources/metabase.md)                                          | `pip install 'acryl-datahub[metabase]'`                    | Metabase source                         |
 | [mode](./generated/ingestion/sources/mode.md)                                                  | `pip install 'acryl-datahub[mode]'`                        | Mode Analytics source                   |
 | [mongodb](./generated/ingestion/sources/mongodb.md)                                            | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                          |
@@ -995,6 +1130,12 @@ Please see our [Integrations page](https://docs.datahub.com/integrations) if you
 | [nifi](./generated/ingestion/sources/nifi.md)                                                  | `pip install 'acryl-datahub[nifi]'`                        | NiFi source                             |
 | [powerbi](./generated/ingestion/sources/powerbi.md#module-powerbi)                             | `pip install 'acryl-datahub[powerbi]'`                     | Microsoft Power BI source               |
 | [powerbi-report-server](./generated/ingestion/sources/powerbi.md#module-powerbi-report-server) | `pip install 'acryl-datahub[powerbi-report-server]'`       | Microsoft Power BI Report Server source |
+
+### Debug/Utility Plugins
+
+| Plugin Name     | Install Command                                | Provides                                              |
+| --------------- | ---------------------------------------------- | ----------------------------------------------------- |
+| debug-recording | `pip install 'acryl-datahub[debug-recording]'` | Record and replay ingestion runs for debugging (Beta) |
 
 ### Sinks
 

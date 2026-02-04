@@ -32,9 +32,9 @@ import org.springframework.kafka.config.TopicBuilder;
 @Slf4j
 public class CreateKafkaTopicsStep implements UpgradeStep {
 
-  private final OperationContext _opContext;
-  private final KafkaConfiguration _kafkaConfiguration;
-  private final KafkaProperties _kafkaProperties;
+  private final OperationContext opContext;
+  private final KafkaConfiguration kafkaConfiguration;
+  private final KafkaProperties kafkaProperties;
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -42,9 +42,9 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
       OperationContext opContext,
       KafkaConfiguration kafkaConfiguration,
       KafkaProperties kafkaProperties) {
-    this._opContext = opContext;
-    this._kafkaConfiguration = kafkaConfiguration;
-    this._kafkaProperties = kafkaProperties;
+    this.opContext = opContext;
+    this.kafkaConfiguration = kafkaConfiguration;
+    this.kafkaProperties = kafkaProperties;
   }
 
   @Override
@@ -55,12 +55,12 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
-      if (_kafkaConfiguration.getSetup() == null) {
+      if (kafkaConfiguration.getSetup() == null) {
         log.warn("Kafka setup configuration is null - skipping topic creation");
         return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);
       }
 
-      if (!_kafkaConfiguration.getSetup().isPreCreateTopics()) {
+      if (!kafkaConfiguration.getSetup().isPreCreateTopics()) {
         log.info("Skipping Kafka topic creation as preCreateTopics is false");
         return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);
       }
@@ -73,23 +73,23 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
             "KafkaConfiguration setup: {}",
             OBJECT_MAPPER
                 .writerWithDefaultPrettyPrinter()
-                .writeValueAsString(_kafkaConfiguration.getSetup()));
+                .writeValueAsString(kafkaConfiguration.getSetup()));
         log.info(
             "KafkaConfiguration topics: {}",
             OBJECT_MAPPER
                 .writerWithDefaultPrettyPrinter()
-                .writeValueAsString(_kafkaConfiguration.getTopics()));
+                .writeValueAsString(kafkaConfiguration.getTopics()));
         log.info(
             "KafkaConfiguration topicDefaults: {}",
             OBJECT_MAPPER
                 .writerWithDefaultPrettyPrinter()
-                .writeValueAsString(_kafkaConfiguration.getTopicDefaults()));
+                .writeValueAsString(kafkaConfiguration.getTopicDefaults()));
 
         // Create AdminClient using AdminClientFactory
         AdminClient adminClient = createAdminClient();
 
         // Get topic configurations
-        TopicsConfiguration topicsConfig = _kafkaConfiguration.getTopics();
+        TopicsConfiguration topicsConfig = kafkaConfiguration.getTopics();
         if (topicsConfig == null) {
           log.warn("Topics configuration is null - skipping topic creation");
           return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);
@@ -133,7 +133,7 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
           // Check if topic already exists
           if (existingTopics.contains(topicName)) {
             // Check if auto-increase is enabled before checking/increasing partitions
-            if (_kafkaConfiguration.getSetup().isAutoIncreasePartitions()) {
+            if (kafkaConfiguration.getSetup().isAutoIncreasePartitions()) {
               if (currentPartitionCounts.containsKey(topicName)) {
                 int currentPartitions = currentPartitionCounts.get(topicName);
                 int desiredPartitions = topicConfig.getPartitions();
@@ -271,7 +271,7 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
     // Batch API call to get partition counts for all existing topics
     Map<String, Integer> currentPartitionCounts = new HashMap<>();
     if (!existingConfiguredTopics.isEmpty()
-        && _kafkaConfiguration.getSetup().isAutoIncreasePartitions()) {
+        && kafkaConfiguration.getSetup().isAutoIncreasePartitions()) {
       try {
         DescribeTopicsResult describeResult = adminClient.describeTopics(existingConfiguredTopics);
         Map<String, TopicDescription> topicDescriptions = describeResult.allTopicNames().get();
@@ -299,6 +299,6 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
    */
   protected AdminClient createAdminClient() {
     return buildKafkaAdminClient(
-        _kafkaConfiguration, _kafkaProperties, "datahub-upgrade-kafka-setup");
+        kafkaConfiguration, kafkaProperties, "datahub-upgrade-kafka-setup");
   }
 }

@@ -2935,5 +2935,118 @@
       "runId": "accounts-application-ingestion",
       "lastRunId": "no-run-id-provided"
     }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "document",
+    "entityUrn": "urn:li:document:cypress-external-doc-test",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+      "json": {
+        "title": "Cypress External Document",
+        "description": "Initial description for external document test",
+        "source": {
+          "sourceType": "EXTERNAL",
+          "externalUrl": "https://confluence.example.com/docs/cypress-test",
+          "externalId": "cypress-external-doc-test"
+        },
+        "status": {
+          "state": "PUBLISHED"
+        },
+        "contents": {
+          "text": "This is an external document created for Cypress testing."
+        },
+        "created": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-cypress-external-documents",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "document",
+    "entityUrn": "urn:li:document:cypress-external-doc-test",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:notion"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-cypress-external-documents",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "document",
+    "entityUrn": "urn:li:document:cypress-external-doc-test",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "documentSettings",
+    "aspect": {
+      "json": {
+        "showInGlobalContext": false,
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-cypress-external-documents",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "document",
+    "entityUrn": "urn:li:document:cypress-external-doc-test",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:datahub",
+            "type": "DATAOWNER"
+          }
+        ],
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-cypress-external-documents",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
   }
 ]
