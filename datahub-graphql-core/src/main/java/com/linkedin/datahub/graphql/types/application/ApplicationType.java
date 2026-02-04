@@ -28,7 +28,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -72,7 +71,7 @@ public class ApplicationType
   }
 
   @Override
-  public List<DataFetcherResult<Application>> batchLoad(
+  public List<DataFetcherResult<Application>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> applicationUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -85,19 +84,7 @@ public class ApplicationType
               new HashSet<>(applicationUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
-      for (Urn urn : applicationUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<Application>newResult()
-                          .data(ApplicationMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, ApplicationMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Applications", e);
     }

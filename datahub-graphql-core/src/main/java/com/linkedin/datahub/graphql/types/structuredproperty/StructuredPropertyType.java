@@ -20,7 +20,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -60,7 +59,7 @@ public class StructuredPropertyType
   }
 
   @Override
-  public List<DataFetcherResult<StructuredPropertyEntity>> batchLoad(
+  public List<DataFetcherResult<StructuredPropertyEntity>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> extendedPropertyUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -73,19 +72,7 @@ public class StructuredPropertyType
               new HashSet<>(extendedPropertyUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : extendedPropertyUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<StructuredPropertyEntity>newResult()
-                          .data(StructuredPropertyMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, StructuredPropertyMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Queries", e);
     }

@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.dashboard;
 
 import static com.linkedin.datahub.graphql.Constants.*;
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -46,6 +45,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -91,9 +91,16 @@ public class DashboardType
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "tool");
 
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
 
   public DashboardType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public DashboardType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
     _entityClient = entityClient;
+    _restrictedService = restrictedService;
   }
 
   @Override
@@ -117,32 +124,24 @@ public class DashboardType
   }
 
   @Override
-  public List<DataFetcherResult<Dashboard>> batchLoad(
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
+
+  @Override
+  public List<DataFetcherResult<Dashboard>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urnStrs, @Nonnull QueryContext context) throws Exception {
-    final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     try {
+      final Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+
       final Map<Urn, EntityResponse> dashboardMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               Constants.DASHBOARD_ENTITY_NAME,
-              urns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
+              urns,
               ASPECTS_TO_RESOLVE);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
-      for (Urn urn : urns) {
-        gmsResults.add(dashboardMap.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsDashboard ->
-                  gmsDashboard == null
-                      ? null
-                      : DataFetcherResult.<Dashboard>newResult()
-                          .data(DashboardMapper.map(context, gmsDashboard))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urnStrs, dashboardMap, DashboardMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Dashboards", e);
     }

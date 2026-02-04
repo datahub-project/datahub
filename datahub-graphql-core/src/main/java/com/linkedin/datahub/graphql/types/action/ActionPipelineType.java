@@ -54,7 +54,7 @@ public class ActionPipelineType
   }
 
   @Override
-  public List<DataFetcherResult<ActionPipeline>> batchLoad(
+  public List<DataFetcherResult<ActionPipeline>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     if (AuthorizationUtils.canManageActionPipelines(context)) {
 

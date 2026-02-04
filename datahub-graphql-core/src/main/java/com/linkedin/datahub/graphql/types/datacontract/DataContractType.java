@@ -11,7 +11,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +51,7 @@ public class DataContractType
   }
 
   @Override
-  public List<DataFetcherResult<DataContract>> batchLoad(
+  public List<DataFetcherResult<DataContract>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> dataContractUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -65,19 +64,7 @@ public class DataContractType
               new HashSet<>(dataContractUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : dataContractUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<DataContract>newResult()
-                          .data(DataContractMapper.mapContract(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, DataContractMapper::mapContract, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Data Contracts", e);
     }

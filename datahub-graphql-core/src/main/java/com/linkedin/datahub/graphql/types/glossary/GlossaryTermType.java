@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.glossary;
 
 import static com.linkedin.datahub.graphql.Constants.*;
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -32,7 +31,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -66,9 +65,16 @@ public class GlossaryTermType
           ORIGIN_ASPECT_NAME);
 
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
 
   public GlossaryTermType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public GlossaryTermType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
     _entityClient = entityClient;
+    _restrictedService = restrictedService;
   }
 
   @Override
@@ -87,34 +93,21 @@ public class GlossaryTermType
   }
 
   @Override
-  public List<DataFetcherResult<GlossaryTerm>> batchLoad(
-      final List<String> urns, final QueryContext context) {
-    final List<Urn> glossaryTermUrns =
-        urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
 
+  @Override
+  public List<DataFetcherResult<GlossaryTerm>> batchLoadWithoutAuthorization(
+      @Nonnull final List<String> urnStrs, @Nonnull final QueryContext context) {
     try {
+      final Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+
       final Map<Urn, EntityResponse> glossaryTermMap =
           _entityClient.batchGetV2(
-              context.getOperationContext(),
-              GLOSSARY_TERM_ENTITY_NAME,
-              glossaryTermUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
-              ASPECTS_TO_RESOLVE);
+              context.getOperationContext(), GLOSSARY_TERM_ENTITY_NAME, urns, ASPECTS_TO_RESOLVE);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
-      for (Urn urn : glossaryTermUrns) {
-        gmsResults.add(glossaryTermMap.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsGlossaryTerm ->
-                  gmsGlossaryTerm == null
-                      ? null
-                      : DataFetcherResult.<GlossaryTerm>newResult()
-                          .data(GlossaryTermMapper.map(context, gmsGlossaryTerm))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urnStrs, glossaryTermMap, GlossaryTermMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load GlossaryTerms", e);
     }

@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.post;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.POST_INFO_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
@@ -14,20 +13,30 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import lombok.RequiredArgsConstructor;
+import javax.annotation.Nullable;
 
-@RequiredArgsConstructor
 public class PostType implements EntityType<Post, String> {
   public static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(POST_INFO_ASPECT_NAME);
 
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
+
+  public PostType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public PostType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
+    _entityClient = entityClient;
+    _restrictedService = restrictedService;
+  }
 
   @Override
   public com.linkedin.datahub.graphql.generated.EntityType type() {
@@ -45,36 +54,23 @@ public class PostType implements EntityType<Post, String> {
   }
 
   @Override
-  public List<DataFetcherResult<Post>> batchLoad(
-      @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
+
+  @Override
+  public List<DataFetcherResult<Post>> batchLoadWithoutAuthorization(
+      @Nonnull List<String> urnStrs, @Nonnull QueryContext context) throws Exception {
     try {
-      final List<Urn> postUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+      final Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
 
       final Map<Urn, EntityResponse> postMap =
           _entityClient.batchGetV2(
-              context.getOperationContext(),
-              Constants.POST_ENTITY_NAME,
-              postUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
-              ASPECTS_TO_FETCH);
+              context.getOperationContext(), Constants.POST_ENTITY_NAME, urns, ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
-      for (Urn urn : postUrns) {
-        gmsResults.add(postMap.getOrDefault(urn, null));
-      }
-
-      return gmsResults.stream()
-          .map(
-              gmsPost ->
-                  gmsPost == null
-                      ? null
-                      : DataFetcherResult.<Post>newResult()
-                          .data(PostMapper.map(context, gmsPost))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urnStrs, postMap, PostMapper::map, context);
     } catch (Exception e) {
-      throw new RuntimeException("Failed to batch load Queries", e);
+      throw new RuntimeException("Failed to batch load Posts", e);
     }
   }
 }

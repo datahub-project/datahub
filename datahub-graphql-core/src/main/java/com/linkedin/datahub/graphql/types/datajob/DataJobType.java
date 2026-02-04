@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.datajob;
 
 import static com.linkedin.datahub.graphql.Constants.*;
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -46,6 +45,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -89,9 +89,16 @@ public class DataJobType
           LINEAGE_FEATURES_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
 
   public DataJobType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public DataJobType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
     _entityClient = entityClient;
+    _restrictedService = restrictedService;
   }
 
   @Override
@@ -115,33 +122,24 @@ public class DataJobType
   }
 
   @Override
-  public List<DataFetcherResult<DataJob>> batchLoad(
-      final List<String> urnStrs, @Nonnull final QueryContext context) throws Exception {
-    final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
+
+  @Override
+  public List<DataFetcherResult<DataJob>> batchLoadWithoutAuthorization(
+      @Nonnull final List<String> urnStrs, @Nonnull final QueryContext context) throws Exception {
     try {
+      final Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
 
       final Map<Urn, EntityResponse> dataJobMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               Constants.DATA_JOB_ENTITY_NAME,
-              urns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
+              urns,
               ASPECTS_TO_RESOLVE);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
-      for (Urn urn : urns) {
-        gmsResults.add(dataJobMap.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsDataJob ->
-                  gmsDataJob == null
-                      ? null
-                      : DataFetcherResult.<DataJob>newResult()
-                          .data(DataJobMapper.map(context, gmsDataJob))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urnStrs, dataJobMap, DataJobMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Data Jobs", e);
     }

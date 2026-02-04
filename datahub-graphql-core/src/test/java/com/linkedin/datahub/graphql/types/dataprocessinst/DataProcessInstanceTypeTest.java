@@ -165,7 +165,8 @@ public class DataProcessInstanceTypeTest {
 
     QueryContext mockContext = getMockAllowContext();
     List<DataFetcherResult<DataProcessInstance>> result =
-        type.batchLoad(ImmutableList.of(TEST_DPI_1_URN, TEST_DPI_2_URN), mockContext);
+        type.batchLoadWithoutAuthorization(
+            ImmutableList.of(TEST_DPI_1_URN, TEST_DPI_2_URN), mockContext);
 
     // Verify response
     Mockito.verify(client, Mockito.times(1))
@@ -177,12 +178,13 @@ public class DataProcessInstanceTypeTest {
 
     assertEquals(result.size(), 2);
 
+    assertNotNull(result.get(0));
     DataProcessInstance dpi1 = result.get(0).getData();
     assertEquals(dpi1.getUrn(), TEST_DPI_1_URN);
     assertEquals(dpi1.getName(), "Test DPI");
     assertEquals(dpi1.getType(), EntityType.DATA_PROCESS_INSTANCE);
 
-    // Assert second element is null
+    // Assert second element is null (missing from response)
     assertNull(result.get(1));
   }
 
@@ -195,7 +197,8 @@ public class DataProcessInstanceTypeTest {
     DataProcessInstanceType type = new DataProcessInstanceType(mockClient, mockFeatureFlags);
 
     List<DataFetcherResult<DataProcessInstance>> result =
-        type.batchLoad(ImmutableList.of(TEST_INSTANCE_URN), getMockAllowContext());
+        type.batchLoadWithoutAuthorization(
+            ImmutableList.of(TEST_INSTANCE_URN), getMockAllowContext());
 
     assertEquals(result.size(), 1);
   }
@@ -207,11 +210,14 @@ public class DataProcessInstanceTypeTest {
     Mockito.when(mockFeatureFlags.isDataProcessInstanceEntityEnabled()).thenReturn(false);
 
     DataProcessInstanceType type = new DataProcessInstanceType(mockClient, mockFeatureFlags);
-
     List<DataFetcherResult<DataProcessInstance>> result =
-        type.batchLoad(ImmutableList.of(TEST_INSTANCE_URN), getMockAllowContext());
+        type.batchLoadWithoutAuthorization(
+            ImmutableList.of(TEST_INSTANCE_URN), getMockAllowContext());
 
-    assertEquals(result.size(), 0);
+    // Result list size matches input (null returned for each requested URN when feature flag
+    // disabled)
+    assertEquals(result.size(), 1);
+    assertNull(result.get(0)); // Null result when feature flag is disabled
 
     Mockito.verify(mockClient, Mockito.never())
         .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());
@@ -228,7 +234,7 @@ public class DataProcessInstanceTypeTest {
         .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());
 
     DataProcessInstanceType type = new DataProcessInstanceType(mockClient, mockFeatureFlags);
-    type.batchLoad(ImmutableList.of(TEST_INSTANCE_URN), getMockAllowContext());
+    type.batchLoadWithoutAuthorization(ImmutableList.of(TEST_INSTANCE_URN), getMockAllowContext());
   }
 
   @Test

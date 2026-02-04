@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.view;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -12,21 +11,31 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import lombok.RequiredArgsConstructor;
+import javax.annotation.Nullable;
 
-@RequiredArgsConstructor
 public class DataHubViewType
     implements com.linkedin.datahub.graphql.types.EntityType<DataHubView, String> {
   public static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(DATAHUB_VIEW_INFO_ASPECT_NAME);
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
+
+  public DataHubViewType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public DataHubViewType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
+    _entityClient = entityClient;
+    _restrictedService = restrictedService;
+  }
 
   @Override
   public EntityType type() {
@@ -44,33 +53,21 @@ public class DataHubViewType
   }
 
   @Override
-  public List<DataFetcherResult<DataHubView>> batchLoad(
-      @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
-    final List<Urn> viewUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
 
+  @Override
+  public List<DataFetcherResult<DataHubView>> batchLoadWithoutAuthorization(
+      @Nonnull List<String> urnStrs, @Nonnull QueryContext context) throws Exception {
     try {
+      final Set<Urn> urns = urnStrs.stream().map(this::getUrn).collect(Collectors.toSet());
+
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
-              context.getOperationContext(),
-              DATAHUB_VIEW_ENTITY_NAME,
-              viewUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
-              ASPECTS_TO_FETCH);
+              context.getOperationContext(), DATAHUB_VIEW_ENTITY_NAME, urns, ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : viewUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<DataHubView>newResult()
-                          .data(DataHubViewMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urnStrs, entities, DataHubViewMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Views", e);
     }

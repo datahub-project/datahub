@@ -89,8 +89,10 @@ public class MonitorTypeTest {
 
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    // Use batchLoadWithoutAuthorization to test raw data fetching
     List<DataFetcherResult<Monitor>> result =
-        type.batchLoad(ImmutableList.of(TEST_MONITOR_URN, TEST_MONITOR_URN_2), mockContext);
+        type.batchLoadWithoutAuthorization(
+            ImmutableList.of(TEST_MONITOR_URN, TEST_MONITOR_URN_2), mockContext);
 
     // Verify response
     Mockito.verify(client, Mockito.times(1))
@@ -129,11 +131,13 @@ public class MonitorTypeTest {
         new com.linkedin.datahub.graphql.types.monitor.MonitorType(
             mockClient, assertionMonitorsConfiguration);
 
-    // Execute Batch load
+    // Execute Batch load - use batchLoadWithoutAuthorization to test raw data fetching
     QueryContext context = Mockito.mock(QueryContext.class);
     Mockito.when(context.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     assertThrows(
         RuntimeException.class,
-        () -> type.batchLoad(ImmutableList.of(TEST_MONITOR_URN, TEST_MONITOR_URN_2), context));
+        () ->
+            type.batchLoadWithoutAuthorization(
+                ImmutableList.of(TEST_MONITOR_URN, TEST_MONITOR_URN_2), context));
   }
 }

@@ -49,7 +49,7 @@ public class RemoteExecutorPoolType
   }
 
   @Override
-  public List<DataFetcherResult<RemoteExecutorPool>> batchLoad(
+  public List<DataFetcherResult<RemoteExecutorPool>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final OperationContext opContext = context.getOperationContext();
     final List<Urn> remoteExecutorPools = urns.stream().map(UrnUtils::getUrn).toList();

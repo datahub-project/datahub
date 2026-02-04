@@ -14,7 +14,6 @@ import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.subscription.SubscriptionInfo;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +50,7 @@ public class SubscriptionType
   }
 
   @Override
-  public List<DataFetcherResult<DataHubSubscription>> batchLoad(
+  public List<DataFetcherResult<DataHubSubscription>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> subscriptionUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
@@ -63,19 +62,7 @@ public class SubscriptionType
               new HashSet<>(subscriptionUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
-      for (Urn urn : subscriptionUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<DataHubSubscription>newResult()
-                          .data(mapSubscription(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, this::mapSubscription, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Subscriptions", e);
     }

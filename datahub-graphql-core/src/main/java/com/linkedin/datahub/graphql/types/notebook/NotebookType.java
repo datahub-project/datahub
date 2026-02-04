@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.notebook;
 
 import static com.linkedin.datahub.graphql.Constants.*;
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -44,6 +43,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -77,9 +77,15 @@ public class NotebookType
           ORIGIN_ASPECT_NAME);
 
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
 
   public NotebookType(EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public NotebookType(EntityClient entityClient, @Nullable RestrictedService restrictedService) {
     _entityClient = entityClient;
+    _restrictedService = restrictedService;
   }
 
   @Override
@@ -168,29 +174,21 @@ public class NotebookType
   }
 
   @Override
-  public List<DataFetcherResult<Notebook>> batchLoad(
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
+
+  @Override
+  public List<DataFetcherResult<Notebook>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urnStrs, @Nonnull QueryContext context) throws Exception {
-    final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     try {
+      final Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+
       final Map<Urn, EntityResponse> notebookMap =
           _entityClient.batchGetV2(
-              context.getOperationContext(),
-              NOTEBOOK_ENTITY_NAME,
-              urns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
-              ASPECTS_TO_RESOLVE);
+              context.getOperationContext(), NOTEBOOK_ENTITY_NAME, urns, ASPECTS_TO_RESOLVE);
 
-      return urns.stream()
-          .map(urn -> notebookMap.getOrDefault(urn, null))
-          .map(
-              entityResponse ->
-                  entityResponse == null
-                      ? null
-                      : DataFetcherResult.<Notebook>newResult()
-                          .data(NotebookMapper.map(context, entityResponse))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urnStrs, notebookMap, NotebookMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Notebook", e);
     }

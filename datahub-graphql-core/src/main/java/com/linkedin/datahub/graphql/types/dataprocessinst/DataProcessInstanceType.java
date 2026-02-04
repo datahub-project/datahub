@@ -14,8 +14,6 @@ import com.linkedin.datahub.graphql.types.dataprocessinst.mappers.DataProcessIns
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -64,38 +62,25 @@ public class DataProcessInstanceType
   }
 
   @Override
-  public List<DataFetcherResult<DataProcessInstance>> batchLoad(
+  public List<DataFetcherResult<DataProcessInstance>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> dataProcessInstanceUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
-      Map<Urn, EntityResponse> entities = new HashMap<>();
-      if (_featureFlags.isDataProcessInstanceEntityEnabled()) {
-        entities =
-            _entityClient.batchGetV2(
-                context.getOperationContext(),
-                DATA_PROCESS_INSTANCE_ENTITY_NAME,
-                new HashSet<>(dataProcessInstanceUrns),
-                ASPECTS_TO_FETCH);
+      // If feature flag is disabled, return nulls for all requested URNs
+      if (!_featureFlags.isDataProcessInstanceEntityEnabled()) {
+        return urns.stream().map(urn -> (DataFetcherResult<DataProcessInstance>) null).toList();
       }
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : dataProcessInstanceUrns) {
-        if (_featureFlags.isDataProcessInstanceEntityEnabled()) {
-          gmsResults.add(entities.getOrDefault(urn, null));
-        }
-      }
+      final Map<Urn, EntityResponse> entities =
+          _entityClient.batchGetV2(
+              context.getOperationContext(),
+              DATA_PROCESS_INSTANCE_ENTITY_NAME,
+              new HashSet<>(dataProcessInstanceUrns),
+              ASPECTS_TO_FETCH);
 
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<DataProcessInstance>newResult()
-                          .data(DataProcessInstanceMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, DataProcessInstanceMapper::map, context);
 
     } catch (Exception e) {
       throw new RuntimeException("Failed to load Data Process Instance entity", e);

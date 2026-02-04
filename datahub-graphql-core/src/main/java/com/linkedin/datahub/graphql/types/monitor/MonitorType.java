@@ -61,7 +61,7 @@ public class MonitorType implements com.linkedin.datahub.graphql.types.EntityTyp
   }
 
   @Override
-  public List<DataFetcherResult<Monitor>> batchLoad(
+  public List<DataFetcherResult<Monitor>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> monitorUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 

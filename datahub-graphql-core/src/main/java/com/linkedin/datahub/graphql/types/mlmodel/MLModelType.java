@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
 import static com.linkedin.datahub.graphql.Constants.*;
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +31,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,9 +45,16 @@ public class MLModelType
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
 
   public MLModelType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public MLModelType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
     _entityClient = entityClient;
+    _restrictedService = restrictedService;
   }
 
   @Override
@@ -66,34 +73,20 @@ public class MLModelType
   }
 
   @Override
-  public List<DataFetcherResult<MLModel>> batchLoad(
-      final List<String> urns, final QueryContext context) throws Exception {
-    final List<Urn> mlModelUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
 
+  @Override
+  public List<DataFetcherResult<MLModel>> batchLoadWithoutAuthorization(
+      @Nonnull final List<String> urnStrs, @Nonnull final QueryContext context) throws Exception {
     try {
+      final Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+
       final Map<Urn, EntityResponse> mlModelMap =
-          _entityClient.batchGetV2(
-              context.getOperationContext(),
-              ML_MODEL_ENTITY_NAME,
-              mlModelUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
-              null);
+          _entityClient.batchGetV2(context.getOperationContext(), ML_MODEL_ENTITY_NAME, urns, null);
 
-      final List<EntityResponse> gmsResults =
-          mlModelUrns.stream()
-              .map(modelUrn -> mlModelMap.getOrDefault(modelUrn, null))
-              .collect(Collectors.toList());
-
-      return gmsResults.stream()
-          .map(
-              gmsMlModel ->
-                  gmsMlModel == null
-                      ? null
-                      : DataFetcherResult.<MLModel>newResult()
-                          .data(MLModelMapper.map(context, gmsMlModel))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urnStrs, mlModelMap, MLModelMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load MLModels", e);
     }

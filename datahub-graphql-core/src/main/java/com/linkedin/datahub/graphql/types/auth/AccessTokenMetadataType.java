@@ -12,7 +12,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +46,7 @@ public class AccessTokenMetadataType
   }
 
   @Override
-  public List<DataFetcherResult<AccessTokenMetadata>> batchLoad(
+  public List<DataFetcherResult<AccessTokenMetadata>> batchLoadWithoutAuthorization(
       @Nonnull List<String> keys, @Nonnull QueryContext context) throws Exception {
     final List<Urn> tokenInfoUrns =
         keys.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -60,19 +59,7 @@ public class AccessTokenMetadataType
               new HashSet<>(tokenInfoUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(keys.size());
-      for (Urn urn : tokenInfoUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<AccessTokenMetadata>newResult()
-                          .data(AccessTokenMetadataMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(keys, entities, AccessTokenMetadataMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Access Token Info", e);
     }

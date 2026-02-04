@@ -109,8 +109,9 @@ public class OAuthAuthorizationServerTypeTest {
             any()))
         .thenReturn(ImmutableMap.of(serverUrn, entityResponse));
 
+    // Use batchLoadWithoutAuthorization to test raw data fetching
     List<DataFetcherResult<OAuthAuthorizationServer>> results =
-        serverType.batchLoad(urns, queryContext);
+        serverType.batchLoadWithoutAuthorization(urns, queryContext);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);
@@ -140,8 +141,9 @@ public class OAuthAuthorizationServerTypeTest {
             any()))
         .thenReturn(ImmutableMap.of(serverUrn1, response1, serverUrn2, response2));
 
+    // Use batchLoadWithoutAuthorization to test raw data fetching
     List<DataFetcherResult<OAuthAuthorizationServer>> results =
-        serverType.batchLoad(urns, queryContext);
+        serverType.batchLoadWithoutAuthorization(urns, queryContext);
 
     assertNotNull(results);
     assertEquals(results.size(), 2);
@@ -160,8 +162,9 @@ public class OAuthAuthorizationServerTypeTest {
             any()))
         .thenReturn(Collections.emptyMap());
 
+    // Use batchLoadWithoutAuthorization to test raw data fetching
     List<DataFetcherResult<OAuthAuthorizationServer>> results =
-        serverType.batchLoad(urns, queryContext);
+        serverType.batchLoadWithoutAuthorization(urns, queryContext);
 
     assertNotNull(results);
     assertEquals(results.size(), 0);
@@ -178,8 +181,9 @@ public class OAuthAuthorizationServerTypeTest {
             any()))
         .thenReturn(Collections.emptyMap());
 
+    // Use batchLoadWithoutAuthorization to test raw data fetching
     List<DataFetcherResult<OAuthAuthorizationServer>> results =
-        serverType.batchLoad(urns, queryContext);
+        serverType.batchLoadWithoutAuthorization(urns, queryContext);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);
@@ -202,8 +206,9 @@ public class OAuthAuthorizationServerTypeTest {
             any()))
         .thenReturn(ImmutableMap.of(serverUrn1, response1));
 
+    // Use batchLoadWithoutAuthorization to test raw data fetching
     List<DataFetcherResult<OAuthAuthorizationServer>> results =
-        serverType.batchLoad(urns, queryContext);
+        serverType.batchLoadWithoutAuthorization(urns, queryContext);
 
     assertNotNull(results);
     assertEquals(results.size(), 2);
@@ -223,7 +228,9 @@ public class OAuthAuthorizationServerTypeTest {
             any()))
         .thenThrow(new RemoteInvocationException("Batch get failed"));
 
-    assertThrows(RuntimeException.class, () -> serverType.batchLoad(urns, queryContext));
+    // Use batchLoadWithoutAuthorization to test exception handling
+    assertThrows(
+        RuntimeException.class, () -> serverType.batchLoadWithoutAuthorization(urns, queryContext));
   }
 
   @Test
@@ -246,8 +253,9 @@ public class OAuthAuthorizationServerTypeTest {
             any()))
         .thenReturn(ImmutableMap.of(serverUrn1, response1, serverUrn2, response2));
 
+    // Use batchLoadWithoutAuthorization to test raw data fetching
     List<DataFetcherResult<OAuthAuthorizationServer>> results =
-        serverType.batchLoad(urns, queryContext);
+        serverType.batchLoadWithoutAuthorization(urns, queryContext);
 
     assertNotNull(results);
     assertEquals(results.size(), 2);
@@ -276,8 +284,9 @@ public class OAuthAuthorizationServerTypeTest {
             any()))
         .thenReturn(ImmutableMap.of(serverUrn, response));
 
+    // Use batchLoadWithoutAuthorization to test raw data fetching
     List<DataFetcherResult<OAuthAuthorizationServer>> results =
-        serverType.batchLoad(urns, queryContext);
+        serverType.batchLoadWithoutAuthorization(urns, queryContext);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);

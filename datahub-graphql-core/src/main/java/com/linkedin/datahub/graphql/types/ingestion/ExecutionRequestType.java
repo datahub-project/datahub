@@ -11,7 +11,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +72,7 @@ public class ExecutionRequestType
    * @throws Exception if an error occurs while loading the entities.
    */
   @Override
-  public List<DataFetcherResult<ExecutionRequest>> batchLoad(
+  public List<DataFetcherResult<ExecutionRequest>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> executionRunUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -86,19 +85,7 @@ public class ExecutionRequestType
               new HashSet<>(executionRunUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : executionRunUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<ExecutionRequest>newResult()
-                          .data(ExecutionRequestMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, ExecutionRequestMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Execution requests", e);
     }

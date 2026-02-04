@@ -13,7 +13,6 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +45,7 @@ public class PageModuleType
   }
 
   @Override
-  public List<DataFetcherResult<DataHubPageModule>> batchLoad(
+  public List<DataFetcherResult<DataHubPageModule>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> moduleUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
@@ -58,19 +57,7 @@ public class PageModuleType
               new HashSet<>(moduleUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
-      for (Urn urn : moduleUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<DataHubPageModule>newResult()
-                          .data(PageModuleMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, PageModuleMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Page Modules", e);
     }

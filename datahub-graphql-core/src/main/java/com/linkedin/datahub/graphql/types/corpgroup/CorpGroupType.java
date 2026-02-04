@@ -75,8 +75,8 @@ public class CorpGroupType
   }
 
   @Override
-  public List<DataFetcherResult<CorpGroup>> batchLoad(
-      final List<String> urns, final QueryContext context) {
+  public List<DataFetcherResult<CorpGroup>> batchLoadWithoutAuthorization(
+      @Nonnull final List<String> urns, @Nonnull final QueryContext context) {
     try {
       final List<Urn> corpGroupUrns =
           urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -88,19 +88,7 @@ public class CorpGroupType
               new HashSet<>(corpGroupUrns),
               null);
 
-      final List<EntityResponse> results = new ArrayList<>(urns.size());
-      for (Urn urn : corpGroupUrns) {
-        results.add(corpGroupMap.getOrDefault(urn, null));
-      }
-      return results.stream()
-          .map(
-              gmsCorpGroup ->
-                  gmsCorpGroup == null
-                      ? null
-                      : DataFetcherResult.<CorpGroup>newResult()
-                          .data(CorpGroupMapper.map(context, gmsCorpGroup))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, corpGroupMap, CorpGroupMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load CorpGroup", e);
     }

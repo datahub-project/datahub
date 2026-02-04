@@ -13,7 +13,6 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +45,7 @@ public class DataTypeType
   }
 
   @Override
-  public List<DataFetcherResult<DataTypeEntity>> batchLoad(
+  public List<DataFetcherResult<DataTypeEntity>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> dataTypeUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
@@ -58,19 +57,7 @@ public class DataTypeType
               new HashSet<>(dataTypeUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : dataTypeUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<DataTypeEntity>newResult()
-                          .data(DataTypeEntityMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, DataTypeEntityMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load data type entities", e);
     }

@@ -12,7 +12,6 @@ import com.linkedin.datahub.graphql.generated.Form;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +48,7 @@ public class FormType implements com.linkedin.datahub.graphql.types.EntityType<F
   }
 
   @Override
-  public List<DataFetcherResult<Form>> batchLoad(
+  public List<DataFetcherResult<Form>> batchLoadWithoutAuthorization(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
     final List<Urn> formUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
@@ -61,19 +60,7 @@ public class FormType implements com.linkedin.datahub.graphql.types.EntityType<F
               new HashSet<>(formUrns),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : formUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<Form>newResult()
-                          .data(FormMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, FormMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Forms", e);
     }

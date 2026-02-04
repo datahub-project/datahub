@@ -95,7 +95,7 @@ public class ERModelRelationshipType
   }
 
   @Override
-  public List<DataFetcherResult<ERModelRelationship>> batchLoad(
+  public List<DataFetcherResult<ERModelRelationship>> batchLoadWithoutAuthorization(
       @Nonnull final List<String> urns, @Nonnull final QueryContext context) throws Exception {
     final List<Urn> ermodelrelationUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -108,19 +108,7 @@ public class ERModelRelationshipType
               new HashSet<>(ermodelrelationUrns),
               ASPECTS_TO_RESOLVE);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : ermodelrelationUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<ERModelRelationship>newResult()
-                          .data(ERModelRelationMapper.map(context, gmsResult))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urns, entities, ERModelRelationMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to load erModelRelationship entity", e);
     }

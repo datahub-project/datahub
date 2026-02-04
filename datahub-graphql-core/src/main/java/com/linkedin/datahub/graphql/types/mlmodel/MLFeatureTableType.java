@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
 import static com.linkedin.datahub.graphql.Constants.*;
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +31,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,9 +46,16 @@ public class MLFeatureTableType
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("platform", "name");
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
 
   public MLFeatureTableType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public MLFeatureTableType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
     _entityClient = entityClient;
+    _restrictedService = restrictedService;
   }
 
   @Override
@@ -67,35 +74,22 @@ public class MLFeatureTableType
   }
 
   @Override
-  public List<DataFetcherResult<MLFeatureTable>> batchLoad(
-      final List<String> urns, final QueryContext context) throws Exception {
-    final List<Urn> mlFeatureTableUrns =
-        urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
 
+  @Override
+  public List<DataFetcherResult<MLFeatureTable>> batchLoadWithoutAuthorization(
+      @Nonnull final List<String> urnStrs, @Nonnull final QueryContext context) throws Exception {
     try {
+      final Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+
       final Map<Urn, EntityResponse> mlFeatureTableMap =
           _entityClient.batchGetV2(
-              context.getOperationContext(),
-              ML_FEATURE_TABLE_ENTITY_NAME,
-              mlFeatureTableUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
-              null);
+              context.getOperationContext(), ML_FEATURE_TABLE_ENTITY_NAME, urns, null);
 
-      final List<EntityResponse> gmsResults =
-          mlFeatureTableUrns.stream()
-              .map(featureTableUrn -> mlFeatureTableMap.getOrDefault(featureTableUrn, null))
-              .collect(Collectors.toList());
-
-      return gmsResults.stream()
-          .map(
-              gmsMlFeatureTable ->
-                  gmsMlFeatureTable == null
-                      ? null
-                      : DataFetcherResult.<MLFeatureTable>newResult()
-                          .data(MLFeatureTableMapper.map(context, gmsMlFeatureTable))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(
+          urnStrs, mlFeatureTableMap, MLFeatureTableMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load MLFeatureTables", e);
     }

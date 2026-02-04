@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -24,6 +23,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,9 +36,16 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey, Stri
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
 
   public MLPrimaryKeyType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public MLPrimaryKeyType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
     _entityClient = entityClient;
+    _restrictedService = restrictedService;
   }
 
   @Override
@@ -57,36 +64,21 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey, Stri
   }
 
   @Override
-  public List<DataFetcherResult<MLPrimaryKey>> batchLoad(
-      final List<String> urns, @Nonnull final QueryContext context) throws Exception {
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
 
-    final List<Urn> mlPrimaryKeyUrns =
-        urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
-
+  @Override
+  public List<DataFetcherResult<MLPrimaryKey>> batchLoadWithoutAuthorization(
+      @Nonnull final List<String> urnStrs, @Nonnull final QueryContext context) throws Exception {
     try {
+      final Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+
       final Map<Urn, EntityResponse> mlPrimaryKeyMap =
           _entityClient.batchGetV2(
-              context.getOperationContext(),
-              ML_PRIMARY_KEY_ENTITY_NAME,
-              mlPrimaryKeyUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
-              null);
+              context.getOperationContext(), ML_PRIMARY_KEY_ENTITY_NAME, urns, null);
 
-      final List<EntityResponse> gmsResults =
-          mlPrimaryKeyUrns.stream()
-              .map(primaryKeyUrn -> mlPrimaryKeyMap.getOrDefault(primaryKeyUrn, null))
-              .collect(Collectors.toList());
-
-      return gmsResults.stream()
-          .map(
-              gmsMlPrimaryKey ->
-                  gmsMlPrimaryKey == null
-                      ? null
-                      : DataFetcherResult.<MLPrimaryKey>newResult()
-                          .data(MLPrimaryKeyMapper.map(context, gmsMlPrimaryKey))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urnStrs, mlPrimaryKeyMap, MLPrimaryKeyMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load MLPrimaryKeys", e);
     }

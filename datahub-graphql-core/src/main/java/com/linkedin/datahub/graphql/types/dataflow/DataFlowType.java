@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataflow;
 
 import static com.linkedin.datahub.graphql.Constants.*;
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -46,6 +45,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -87,9 +87,16 @@ public class DataFlowType
           LINEAGE_FEATURES_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("orchestrator", "cluster");
   private final EntityClient _entityClient;
+  @Nullable private final RestrictedService _restrictedService;
 
   public DataFlowType(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public DataFlowType(
+      final EntityClient entityClient, @Nullable final RestrictedService restrictedService) {
     _entityClient = entityClient;
+    _restrictedService = restrictedService;
   }
 
   @Override
@@ -113,32 +120,24 @@ public class DataFlowType
   }
 
   @Override
-  public List<DataFetcherResult<DataFlow>> batchLoad(
-      final List<String> urnStrs, @Nonnull final QueryContext context) throws Exception {
-    final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+  public RestrictedService getRestrictedService() {
+    return _restrictedService;
+  }
+
+  @Override
+  public List<DataFetcherResult<DataFlow>> batchLoadWithoutAuthorization(
+      @Nonnull final List<String> urnStrs, @Nonnull final QueryContext context) throws Exception {
     try {
+      final Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+
       final Map<Urn, EntityResponse> dataFlowMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               Constants.DATA_FLOW_ENTITY_NAME,
-              urns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
+              urns,
               ASPECTS_TO_RESOLVE);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
-      for (Urn urn : urns) {
-        gmsResults.add(dataFlowMap.getOrDefault(urn, null));
-      }
-      return gmsResults.stream()
-          .map(
-              gmsDataFlow ->
-                  gmsDataFlow == null
-                      ? null
-                      : DataFetcherResult.<DataFlow>newResult()
-                          .data(DataFlowMapper.map(context, gmsDataFlow))
-                          .build())
-          .collect(Collectors.toList());
+      return mapResponsesToBatchResults(urnStrs, dataFlowMap, DataFlowMapper::map, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Data Flows", e);
     }
