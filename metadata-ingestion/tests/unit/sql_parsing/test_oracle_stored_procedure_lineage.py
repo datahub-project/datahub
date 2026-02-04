@@ -581,6 +581,45 @@ def test_oracle_procedure_flow_name_with_database():
     assert func_flow_name == "orcl.hr.functions"
 
 
+def test_oracle_procedure_flow_name_without_schema_key():
+    """
+    Test that procedure flow names handle empty database correctly when schema_key is None.
+    This edge case ensures no leading dots in flow names.
+    """
+    # Test with empty database
+    database_key_empty = DatabaseKey(
+        database="",
+        platform="oracle",
+        instance=None,
+        env="PROD",
+    )
+
+    proc_flow_name = _get_procedure_flow_name(
+        database_key_empty, None, JobContainerSubTypes.STORED_PROCEDURE
+    )
+    assert proc_flow_name == "stored_procedures"
+    assert not proc_flow_name.startswith(".")
+
+    func_flow_name = _get_procedure_flow_name(
+        database_key_empty, None, JobContainerSubTypes.FUNCTION
+    )
+    assert func_flow_name == "functions"
+    assert not func_flow_name.startswith(".")
+
+    # Test with non-empty database
+    database_key_with_db = DatabaseKey(
+        database="orcl",
+        platform="oracle",
+        instance=None,
+        env="PROD",
+    )
+
+    proc_flow_name_with_db = _get_procedure_flow_name(
+        database_key_with_db, None, JobContainerSubTypes.STORED_PROCEDURE
+    )
+    assert proc_flow_name_with_db == "orcl.stored_procedures"
+
+
 def test_oracle_function_subtype():
     """
     Test that Oracle functions get the FUNCTION subtype instead of STORED_PROCEDURE.

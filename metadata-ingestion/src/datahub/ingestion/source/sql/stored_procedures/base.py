@@ -139,7 +139,11 @@ def _get_procedure_flow_name(
         else:
             procedure_flow_name = f"{schema_key.db_schema}.{container_suffix}"
     else:
-        procedure_flow_name = f"{database_key.database}.{container_suffix}"
+        # Handle case where database_key.database might be empty
+        if database_key.database:
+            procedure_flow_name = f"{database_key.database}.{container_suffix}"
+        else:
+            procedure_flow_name = container_suffix
     return procedure_flow_name
 
 
