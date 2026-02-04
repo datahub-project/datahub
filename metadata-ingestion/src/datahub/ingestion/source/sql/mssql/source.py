@@ -4,7 +4,7 @@ import urllib.parse
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
 import sqlalchemy.dialects.mssql
-from pydantic import ValidationInfo, field_validator
+from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
@@ -59,7 +59,9 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
 )
 from datahub.metadata.schema_classes import DataJobInputOutputClass
 from datahub.metadata.urns import DatasetUrn
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedList
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.urns.error import InvalidUrnError
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -149,6 +151,49 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         description="Indicates if the SQL Server instance is running on AWS RDS. When None (default), automatic detection will be attempted using server name analysis.",
     )
 
+    include_query_lineage: bool = Field(
+        default=False,
+        description=(
+            "Enable query-based lineage extraction from Query Store or DMVs. "
+            "Query Store is preferred (SQL Server 2016+) and must be enabled on the database. "
+            "Falls back to DMV-based extraction (sys.dm_exec_cached_plans) for older versions. "
+            "Requires VIEW SERVER STATE permission. See documentation for setup instructions."
+        ),
+    )
+
+    max_queries_to_extract: int = Field(
+        default=1000,
+        description=(
+            "Maximum number of queries to extract for lineage analysis. "
+            "Queries are prioritized by execution time and frequency."
+        ),
+    )
+
+    min_query_calls: int = Field(
+        default=1,
+        description=(
+            "Minimum number of executions required for a query to be included. "
+            "Set higher to focus on frequently-used queries."
+        ),
+    )
+
+    query_exclude_patterns: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "SQL LIKE patterns to exclude from query extraction. "
+            "Example: ['%sys.%', '%temp_%'] to exclude system and temp tables."
+        ),
+    )
+
+    include_usage_statistics: bool = Field(
+        default=False,
+        description=(
+            "Generate usage statistics from query history. Requires include_query_lineage to be enabled. "
+            "Collects metrics like unique user counts, query frequencies, and column access patterns. "
+            "Statistics appear in DataHub UI under the Dataset Profile > Usage tab."
+        ),
+    )
+
     @field_validator("uri_args", mode="after")
     @classmethod
     def validate_uri_args(
@@ -165,6 +210,68 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
                 "uri_args is not supported for source type 'mssql'. Use source type 'mssql-odbc' instead."
             )
         return v
+
+    @field_validator("max_queries_to_extract")
+    @classmethod
+    def validate_max_queries_to_extract(cls, value: int) -> int:
+        """Validate max_queries_to_extract is within reasonable range."""
+        if value <= 0:
+            raise ValueError(
+                "max_queries_to_extract must be positive. "
+                "Please set it to a value >= 1 (e.g., 1000)."
+            )
+        if value > 10000:
+            raise ValueError(
+                "max_queries_to_extract must be <= 10000 to avoid memory issues. "
+                "Please reduce the value to 10000 or less."
+            )
+        return value
+
+    @field_validator("min_query_calls")
+    @classmethod
+    def validate_min_query_calls(cls, value: int) -> int:
+        """Validate min_query_calls is non-negative."""
+        if value < 0:
+            raise ValueError(
+                "min_query_calls must be non-negative. "
+                "Please set it to 0 or a positive integer (e.g., 1)."
+            )
+        return value
+
+    @field_validator("query_exclude_patterns")
+    @classmethod
+    def validate_query_exclude_patterns(
+        cls, value: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        """Validate query_exclude_patterns has reasonable limits."""
+        if value is None:
+            return value
+
+        if len(value) > 100:
+            raise ValueError(
+                "query_exclude_patterns must have <= 100 patterns to avoid performance issues. "
+                f"Please reduce from {len(value)} to 100 or fewer patterns."
+            )
+
+        for pattern in value:
+            if len(pattern) > 500:
+                raise ValueError(
+                    f"Pattern '{pattern[:50]}...' exceeds 500 characters (length: {len(pattern)}). "
+                    "Use shorter patterns to avoid performance issues. "
+                    "Please simplify your pattern or split it into multiple shorter patterns."
+                )
+
+        return value
+
+    @model_validator(mode="after")
+    def validate_usage_statistics_dependency(self) -> "SQLServerConfig":
+        """Validate that include_usage_statistics requires include_query_lineage."""
+        if self.include_usage_statistics and not self.include_query_lineage:
+            raise ValueError(
+                "include_usage_statistics requires include_query_lineage to be enabled. "
+                "Please add 'include_query_lineage: true' to your configuration."
+            )
+        return self
 
     def get_sql_alchemy_url(
         self,
@@ -267,6 +374,51 @@ class SQLServerSource(SQLAlchemySource):
                 title="Potential issue with lineage",
                 message="Lineage may not resolve accurately because 'convert_urns_to_lowercase' is False. To ensure lineage correct, set 'convert_urns_to_lowercase' to True.",
             )
+
+        self.sql_aggregator: Optional[SqlParsingAggregator] = None
+        if self.config.include_query_lineage:
+            if self.config.include_usage_statistics and self.ctx.graph is None:
+                error_message = (
+                    "Usage statistics generation requires a DataHub graph connection (ctx.graph). "
+                    "You have enabled 'include_usage_statistics: true' but no graph connection is available. "
+                    "Please provide a graph connection in your pipeline configuration or disable usage statistics."
+                )
+                logger.error(error_message)
+                self.report.report_failure(
+                    message=error_message,
+                    context="usage_statistics_graph_validation_failed",
+                )
+                raise ValueError(error_message)
+
+            try:
+                self.sql_aggregator = SqlParsingAggregator(
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                    graph=self.ctx.graph,
+                    generate_lineage=True,
+                    generate_queries=True,
+                    generate_usage_statistics=self.config.include_usage_statistics,
+                    usage_config=self.config
+                    if self.config.include_usage_statistics
+                    else None,
+                )
+                logger.info(
+                    "SQL parsing aggregator initialized for query-based lineage"
+                )
+            except Exception as e:
+                error_message = (
+                    f"Failed to initialize SQL parsing aggregator for query-based lineage: {e}. "
+                    f"You have explicitly enabled 'include_query_lineage: true' in your configuration. "
+                    f"Common causes: missing DataHub graph connection, insufficient permissions, "
+                    f"or missing dependencies. Please check your configuration and try again."
+                )
+                logger.error(error_message)
+                self.report.report_failure(
+                    message=error_message,
+                    context="sql_aggregator_init_failed",
+                )
+                raise RuntimeError(error_message) from e
 
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
@@ -1452,6 +1604,87 @@ class SQLServerSource(SQLAlchemySource):
 
             yield mcp
 
+    def _get_query_based_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Extract and emit query-based lineage from Query Store or DMVs.
+
+        This supplements view and stored procedure lineage with lineage extracted
+        from executed queries (INSERT INTO SELECT, CTAS, etc.).
+        """
+        logger.info(
+            "Starting query-based lineage extraction from SQL Server query history"
+        )
+
+        for inspector in self.get_inspectors():
+            if self.sql_aggregator is None:
+                logger.warning(
+                    "SQL aggregator not initialized, skipping query-based lineage extraction. "
+                    "Check initialization errors above."
+                )
+                self.report.report_warning(
+                    message=(
+                        "Query-based lineage was enabled but SQL aggregator failed to initialize. "
+                        "No query-based lineage will be extracted. Check earlier error messages."
+                    ),
+                    context="query_lineage_skipped",
+                )
+                return
+
+            # Import here to avoid circular dependency
+            from datahub.ingestion.source.sql.mssql.lineage import MSSQLLineageExtractor
+
+            with inspector.engine.connect() as connection:
+                lineage_extractor = MSSQLLineageExtractor(
+                    config=self.config,
+                    connection=connection,
+                    report=self.report,
+                    sql_aggregator=self.sql_aggregator,
+                    default_schema="dbo",
+                )
+
+                try:
+                    lineage_extractor.populate_lineage_from_queries()
+                except Exception as e:
+                    logger.error(
+                        f"Failed to populate lineage from queries: {e}. "
+                        "Continuing with other lineage sources."
+                    )
+                    self.report.report_failure(
+                        message=(
+                            f"Query lineage extraction failed: {e}. "
+                            "Check that Query Store is enabled or VIEW SERVER STATE permission is granted. "
+                            "See documentation for setup instructions: "
+                            "https://datahubproject.io/docs/generated/ingestion/sources/mssql"
+                        ),
+                        context="query_lineage_extraction_failed",
+                    )
+
+        with PerfTimer() as timer:
+            mcp_count = 0
+            if self.sql_aggregator:
+                try:
+                    mcp: MetadataChangeProposalWrapper
+                    for mcp in self.sql_aggregator.gen_metadata():
+                        yield mcp.as_workunit()
+                        mcp_count += 1
+                except Exception as e:
+                    logger.error(
+                        f"Failed to generate metadata from SQL aggregator: {e}"
+                    )
+                    self.report.report_failure(
+                        message=(
+                            f"Lineage metadata generation failed: {e}. "
+                            "This may indicate issues with the DataHub graph connection or schema resolution. "
+                            "Check your graph configuration and ensure all required schemas are accessible."
+                        ),
+                        context="lineage_metadata_generation_failed",
+                    )
+
+        logger.info(
+            f"Generated {mcp_count} lineage workunits from queries "
+            f"in {timer.elapsed_seconds():.2f} seconds"
+        )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from super().get_workunits_internal()
 
@@ -1485,6 +1718,9 @@ class SQLServerSource(SQLAlchemySource):
                         )
                     ):
                         yield workunit
+
+        if self.config.include_query_lineage and self.sql_aggregator:
+            yield from self._get_query_based_lineage_workunits()
 
     def _report_procedure_failure(self, procedure_name: str) -> None:
         """Report a stored procedure lineage extraction failure to the aggregator."""
@@ -1616,3 +1852,8 @@ class SQLServerSource(SQLAlchemySource):
             raise RuntimeError(
                 "Unable to get database name from Sqlalchemy inspector"
             ) from e
+
+    def close(self) -> None:
+        if self.sql_aggregator:
+            self.sql_aggregator.close()
+        super().close()
