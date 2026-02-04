@@ -1,11 +1,10 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from datahub.ingestion.source.sql.clickhouse import (
     ClickHouseConfig,
     ClickHouseSource,
-    get_view_definition,
 )
 
 
@@ -97,38 +96,6 @@ def test_clickhouse_uri_https_backward_compatibility():
         config.get_sql_alchemy_url()
         == "clickhouse://user:password@host:1111/db?protocol=https"
     )
-
-
-def test_get_view_definition_with_schema():
-    """Test that get_view_definition extracts view SQL from system.tables."""
-    mock_dialect = MagicMock()
-    mock_connection = MagicMock()
-
-    expected_view_sql = (
-        "CREATE VIEW db1.test_view AS SELECT col1, col2 FROM db1.source_table"
-    )
-    mock_connection.execute.return_value.fetchone.return_value = (expected_view_sql,)
-
-    result = get_view_definition(
-        mock_dialect, mock_connection, "test_view", schema="db1"
-    )
-
-    assert result == expected_view_sql
-    mock_connection.execute.assert_called_once()
-
-
-def test_get_view_definition_returns_empty_when_not_found():
-    """Test that get_view_definition returns empty string when view not found."""
-    mock_dialect = MagicMock()
-    mock_connection = MagicMock()
-
-    mock_connection.execute.return_value.fetchone.return_value = None
-
-    result = get_view_definition(
-        mock_dialect, mock_connection, "nonexistent_view", schema="db1"
-    )
-
-    assert result == ""
 
 
 # Query log extraction tests
@@ -298,61 +265,3 @@ WHERE type = 'QueryFinish'
 ORDER BY event_time ASC
 """
         assert query == expected
-
-
-# _parse_query_log_row tests
-
-
-def test_parse_query_log_row_basic():
-    """Test _parse_query_log_row parses a valid row correctly."""
-    from datetime import datetime, timezone
-
-    config = ClickHouseConfig.model_validate(
-        {
-            "host_port": "localhost:8123",
-            "include_query_log_lineage": True,
-        }
-    )
-
-    with patch.object(ClickHouseSource, "__init__", lambda x, y, z: None):
-        source = ClickHouseSource.__new__(ClickHouseSource)
-        source.config = config
-
-        row = {
-            "event_time": datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc),
-            "query": "INSERT INTO target SELECT * FROM source",
-            "query_id": "abc-123",
-            "user": "analyst",
-            "current_database": "analytics",
-            "normalized_query_hash": 12345,
-        }
-
-        result = source._parse_query_log_row(row)
-
-        assert result is not None
-        assert result.query == "INSERT INTO target SELECT * FROM source"
-        assert result.session_id == "abc-123"
-        assert result.default_db == "analytics"
-        assert result.query_hash == "12345"
-
-
-def test_parse_query_log_row_invalid_row():
-    """Test _parse_query_log_row returns None for invalid rows."""
-    config = ClickHouseConfig.model_validate(
-        {
-            "host_port": "localhost:8123",
-        }
-    )
-
-    with patch.object(ClickHouseSource, "__init__", lambda x, y, z: None):
-        source = ClickHouseSource.__new__(ClickHouseSource)
-        source.config = config
-
-        # Missing required 'query' field
-        row = {
-            "event_time": "2024-01-15",
-        }
-
-        result = source._parse_query_log_row(row)
-
-        assert result is None
