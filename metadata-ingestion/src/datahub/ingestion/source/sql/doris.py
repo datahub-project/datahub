@@ -47,7 +47,6 @@ warnings.filterwarnings(
     category=SAWarning,
 )
 
-# Register Doris-specific data types
 HLL = make_sqlalchemy_type("HLL")
 register_custom_type(HLL, BytesTypeClass)
 
@@ -256,7 +255,7 @@ class DorisSource(MySQLSource):
             return []
 
         self.report.report_warning(
-            f"{db_name}.{schema}",
             "Stored procedures not supported in Doris (information_schema.ROUTINES is always empty).",
+            context=f"{db_name}.{schema}",
         )
         return []

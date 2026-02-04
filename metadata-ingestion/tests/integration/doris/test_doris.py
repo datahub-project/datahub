@@ -41,7 +41,6 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "doris"
     ) as docker_services:
-        # Wait for Doris FE to be ready
         print("Waiting for Doris FE to start...")
         try:
             wait_for_port(
@@ -53,12 +52,10 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             )
             print("Doris FE is ready!")
         except Exception:
-            # Print logs for debugging
             print("ERROR: Doris FE failed to start. Container logs:")
             subprocess.run("docker logs testdoris-fe 2>&1 | tail -50", shell=True)
             raise
 
-        # Wait for BE to register with FE by polling SHOW BACKENDS
         max_wait = 120 if os.getenv("CI") == "true" else 60
         print("Waiting for BE to register with FE...")
         be_ready = False
@@ -82,14 +79,11 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
                 f"WARNING: BE registration not confirmed after {max_wait}s, proceeding anyway"
             )
 
-        # Give a few extra seconds for cluster to fully stabilize
         time.sleep(5)
 
-        # Run setup script to create database and tables
         setup_sql = test_resources_dir / "setup" / "setup.sql"
         setup_cmd = f"docker exec -i testdoris-fe mysql -h 127.0.0.1 -P {DORIS_PORT} -u root < {setup_sql}"
 
-        # Retry setup a few times as BE might still be registering
         setup_success = False
         for attempt in range(5):
             result = subprocess.run(
@@ -130,18 +124,15 @@ def test_doris_ingest(
     config_file,
     golden_file,
 ):
-    # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / config_file).resolve()
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
-    # Ignore timestamp field profile values (min/max/sampleValues) as they use NOW() in SQL
     ignore_paths = [
         r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['min'\]",
         r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['max'\]",
         r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",
     ]
 
-    # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "doris_mces.json",
@@ -153,7 +144,6 @@ def test_doris_ingest(
 @pytest.mark.parametrize(
     "config_dict, is_success, expected_error",
     [
-        # Success case
         (
             {
                 "host_port": "localhost:59030",
@@ -164,7 +154,6 @@ def test_doris_ingest(
             True,
             None,
         ),
-        # Wrong port (connection refused)
         (
             {
                 "host_port": "localhost:59999",
@@ -175,7 +164,6 @@ def test_doris_ingest(
             False,
             "Connection refused",
         ),
-        # Wrong credentials (access denied)
         (
             {
                 "host_port": "localhost:59030",
@@ -186,7 +174,6 @@ def test_doris_ingest(
             False,
             "Access denied",
         ),
-        # Non-existent database
         (
             {
                 "host_port": "localhost:59030",

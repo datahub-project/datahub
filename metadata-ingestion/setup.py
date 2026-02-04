@@ -616,10 +616,9 @@ plugins: Dict[str, Set[str]] = {
     "mongodb": {"pymongo>=4.8.0,<5.0.0", "packaging<26.0.0"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc<6.0.0"},
-    "mysql": sql_common | mysql | aws_common,
-    # mariadb should have same dependency as mysql
-    "mariadb": sql_common | mysql | aws_common,
-    "doris": sql_common | mysql | aws_common,  # Apache Doris uses MySQL protocol
+    "mysql": mysql_common,
+    "mariadb": mysql_common,
+    "doris": mysql_common,
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
