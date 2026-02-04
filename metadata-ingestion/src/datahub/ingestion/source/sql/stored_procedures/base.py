@@ -371,9 +371,12 @@ def generate_procedure_workunits(
                 schema_resolver=schema_resolver,
                 procedure=procedure,
                 procedure_job_urn=job_urn,
-                default_db=procedure.default_db or database_key.database,
+                default_db=procedure.default_db
+                if procedure.default_db is not None
+                else database_key.database,
                 default_schema=procedure.default_schema
-                or (schema_key.db_schema if schema_key else None),
+                if procedure.default_schema is not None
+                else (schema_key.db_schema if schema_key else None),
                 database_key=database_key,
                 schema_key=schema_key,
                 procedure_registry=procedure_registry,
