@@ -746,7 +746,6 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ],
             },
         },
-        # Dashboard detail endpoints - needed for position_json when list endpoint doesn't return it
         "mock://mock-domain.superset.com/api/v1/dashboard/1": {
             "method": "GET",
             "status_code": 200,
@@ -1384,4 +1383,121 @@ def test_superset_aggregate_chart(
         pytestconfig,
         output_path=tmp_path / "superset_aggregate_mces.json",
         golden_path=test_resources_dir / "golden_test_aggregate_ingest.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_superset_ingest_without_position_json_in_list(
+    pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock: Any
+) -> None:
+    """Test that dashboard-to-chart lineage works when position_json is not in list response."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
+
+    dashboard_list_without_position_json = {
+        "mock://mock-domain.superset.com/api/v1/dashboard/": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "count": 2,
+                "result": [
+                    {
+                        "id": 1,
+                        "changed_by": {
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owners1",
+                        },
+                        "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+                        "dashboard_title": "test_dashboard_title_1",
+                        "url": "/dashboard/test_dashboard_url_1",
+                        "status": "published",
+                        "published": True,
+                        "tags": [
+                            {"id": 47, "name": "owner:4", "type": 3},
+                            {"id": 2, "name": "type:dashboard", "type": 2},
+                            {"id": 25, "name": "owner:18", "type": 3},
+                            {"id": 45, "name": "Data Team", "type": 1},
+                        ],
+                        "owners": [
+                            {
+                                "first_name": "Test",
+                                "id": 1,
+                                "last_name": "Owner1",
+                            },
+                            {
+                                "first_name": "Test",
+                                "id": 2,
+                                "last_name": "Owner2",
+                            },
+                        ],
+                        "certified_by": "Certification team",
+                        "certification_details": "Approved",
+                    },
+                    {
+                        "id": 2,
+                        "changed_by": {
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owners2",
+                        },
+                        "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+                        "dashboard_title": "test_dashboard_title_2",
+                        "url": "/dashboard/test_dashboard_url_2",
+                        "status": "draft",
+                        "published": False,
+                        "tags": [
+                            {"id": 44, "name": "owner:4", "type": 3},
+                            {"id": 33, "name": "type:dashboard", "type": 2},
+                            {"id": 213, "name": "Marketing", "type": 1},
+                        ],
+                        "owners": [
+                            {
+                                "first_name": "Test",
+                                "id": 4,
+                                "last_name": "Owner4",
+                            }
+                        ],
+                        "certified_by": "",
+                        "certification_details": "",
+                    },
+                ],
+            },
+        },
+    }
+
+    register_mock_api(
+        request_mock=requests_mock, override_data=dashboard_list_without_position_json
+    )
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "superset-test",
+            "source": {
+                "type": "superset",
+                "config": {
+                    "connect_uri": "mock://mock-domain.superset.com/",
+                    "username": "test_username",
+                    "password": "test_password",
+                    "provider": "db",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/superset_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    golden_file = "golden_test_ingest.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "superset_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
     )
