@@ -621,6 +621,8 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
         res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
         res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isEnabled;
+        // Temporary TODO: Remove this once tests are updated to accommodate lineage v3.
+        res.body.data.appConfig.featureFlags.lineageGraphV3 = false;
       });
     } else if (hasOperationName(req, "getMe")) {
       req.alias = "gqlgetMeQuery";
