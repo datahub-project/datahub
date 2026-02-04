@@ -109,24 +109,35 @@ By default, Oracle URNs are formatted as `schema.table` (e.g., `HR.EMPLOYEES`).
 
 #### Stored Procedures and Functions
 
-The Oracle connector ingests both stored procedures and functions as DataJob entities with distinct subtypes and separate containers:
+The Oracle connector ingests both stored procedures and functions as DataJob entities with distinct subtypes:
 
 - **Stored Procedures** (object_type = `PROCEDURE`, `PACKAGE`):
   - Appear with subtype "Stored Procedure"
-  - Organized in `{schema}.stored_procedures` container
 - **Functions** (object_type = `FUNCTION`):
   - Appear with subtype "Function"
-  - Organized in `{schema}.functions` container
 
-**Container Examples:**
+**Container Hierarchy:**
 
-- Procedures: `urn:li:dataFlow:(oracle,hr.stored_procedures,PROD)`
-- Functions: `urn:li:dataFlow:(oracle,hr.functions,PROD)`
+Stored procedures and functions are organized together in a hierarchy matching tables and views:
 
-This separation allows you to:
+```
+Database (e.g., ORCL or PMOBSTOT)
+  └── Schema (e.g., HR)
+      ├── Tables and Views
+      └── stored_procedures (Flow container for all procedures and functions)
+          ├── Individual procedures
+          └── Individual functions
+```
 
-- Browse functions and procedures independently in the DataHub UI
-- Filter by subtype or container
-- Distinguish functions (which return values and are typically used in queries) from procedures (which perform operations)
+**Container URN Example:**
 
-Both types support full lineage extraction from their SQL definitions, including cross-type lineage (e.g., a procedure calling a function).
+- All procedures and functions: `urn:li:dataFlow:(oracle,hr.stored_procedures,PROD)`
+
+**Benefits:**
+
+- Filter by subtype in the DataHub UI to distinguish functions from procedures
+- Functions and procedures are organized together in the same container (consistent with PostgreSQL, MySQL, and Snowflake)
+- Consistent browse path hierarchy with tables and views
+- Full lineage extraction from SQL definitions, including cross-type lineage (e.g., a procedure calling a function)
+
+**Note:** Functions return values and are typically used in queries, while procedures perform operations. Both are captured with their distinct subtypes for identification.

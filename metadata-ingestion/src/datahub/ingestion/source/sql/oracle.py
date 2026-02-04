@@ -1194,10 +1194,12 @@ class OracleSource(SQLAlchemySource):
 
                     # Set default_db based on add_database_name_to_urn config
                     # This ensures stored procedure lineage URNs match table URNs
-                    # Only use database name if explicitly set in config, matching get_identifier() behavior
-                    default_db = None
+                    # Use empty string (not None) when database should not appear in URNs
+                    # None would cause fallback to database_key.database, breaking lineage matching
                     if self.config.add_database_name_to_urn and self.config.database:
                         default_db = self.config.database
+                    else:
+                        default_db = ""  # Empty string for schema_resolver, not None
 
                     # Determine subtype based on Oracle object_type
                     subtype = (

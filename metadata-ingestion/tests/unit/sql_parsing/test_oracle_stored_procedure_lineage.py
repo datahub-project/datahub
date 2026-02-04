@@ -533,19 +533,10 @@ def test_oracle_procedure_flow_name_without_database():
         env="PROD",
     )
 
-    # Test procedure flow name
-    proc_flow_name = _get_procedure_flow_name(
-        database_key, schema_key, JobContainerSubTypes.STORED_PROCEDURE
-    )
-    assert proc_flow_name == "hr.stored_procedures"
-    assert not proc_flow_name.startswith(".")
-
-    # Test function flow name
-    func_flow_name = _get_procedure_flow_name(
-        database_key, schema_key, JobContainerSubTypes.FUNCTION
-    )
-    assert func_flow_name == "hr.functions"
-    assert not func_flow_name.startswith(".")
+    # Test procedure flow name (functions and procedures use same container)
+    flow_name = _get_procedure_flow_name(database_key, schema_key)
+    assert flow_name == "hr.stored_procedures"
+    assert not flow_name.startswith(".")
 
 
 def test_oracle_procedure_flow_name_with_database():
@@ -568,17 +559,9 @@ def test_oracle_procedure_flow_name_with_database():
         env="PROD",
     )
 
-    # Test procedure flow name
-    proc_flow_name = _get_procedure_flow_name(
-        database_key, schema_key, JobContainerSubTypes.STORED_PROCEDURE
-    )
-    assert proc_flow_name == "orcl.hr.stored_procedures"
-
-    # Test function flow name
-    func_flow_name = _get_procedure_flow_name(
-        database_key, schema_key, JobContainerSubTypes.FUNCTION
-    )
-    assert func_flow_name == "orcl.hr.functions"
+    # Test procedure flow name (functions and procedures use same container)
+    flow_name = _get_procedure_flow_name(database_key, schema_key)
+    assert flow_name == "orcl.hr.stored_procedures"
 
 
 def test_oracle_procedure_flow_name_without_schema_key():
@@ -594,17 +577,9 @@ def test_oracle_procedure_flow_name_without_schema_key():
         env="PROD",
     )
 
-    proc_flow_name = _get_procedure_flow_name(
-        database_key_empty, None, JobContainerSubTypes.STORED_PROCEDURE
-    )
-    assert proc_flow_name == "stored_procedures"
-    assert not proc_flow_name.startswith(".")
-
-    func_flow_name = _get_procedure_flow_name(
-        database_key_empty, None, JobContainerSubTypes.FUNCTION
-    )
-    assert func_flow_name == "functions"
-    assert not func_flow_name.startswith(".")
+    flow_name = _get_procedure_flow_name(database_key_empty, None)
+    assert flow_name == "stored_procedures"
+    assert not flow_name.startswith(".")
 
     # Test with non-empty database
     database_key_with_db = DatabaseKey(
@@ -614,9 +589,7 @@ def test_oracle_procedure_flow_name_without_schema_key():
         env="PROD",
     )
 
-    proc_flow_name_with_db = _get_procedure_flow_name(
-        database_key_with_db, None, JobContainerSubTypes.STORED_PROCEDURE
-    )
+    proc_flow_name_with_db = _get_procedure_flow_name(database_key_with_db, None)
     assert proc_flow_name_with_db == "orcl.stored_procedures"
 
 

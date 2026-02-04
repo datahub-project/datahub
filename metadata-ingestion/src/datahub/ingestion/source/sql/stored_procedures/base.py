@@ -66,7 +66,7 @@ class BaseProcedure:
     def to_urn(self, database_key: DatabaseKey, schema_key: Optional[SchemaKey]) -> str:
         return make_data_job_urn(
             orchestrator=database_key.platform,
-            flow_id=_get_procedure_flow_name(database_key, schema_key, self.subtype),
+            flow_id=_get_procedure_flow_name(database_key, schema_key),
             job_id=self.get_procedure_identifier(),
             cluster=database_key.env or DEFAULT_ENV,
             platform_instance=database_key.instance,
@@ -78,7 +78,7 @@ def _generate_flow_workunits(
 ) -> Iterable[MetadataWorkUnit]:
     """Generate flow workunits for database and schema with specific subtype"""
 
-    procedure_flow_name = _get_procedure_flow_name(database_key, schema_key, subtype)
+    procedure_flow_name = _get_procedure_flow_name(database_key, schema_key)
 
     flow_urn = make_data_flow_urn(
         orchestrator=database_key.platform,
@@ -123,12 +123,11 @@ def _generate_flow_workunits(
 
 
 def _get_procedure_flow_name(
-    database_key: DatabaseKey, schema_key: Optional[SchemaKey], subtype: str
+    database_key: DatabaseKey, schema_key: Optional[SchemaKey]
 ) -> str:
-    # Determine container suffix based on subtype
-    container_suffix = (
-        "functions" if subtype == JobContainerSubTypes.FUNCTION else "stored_procedures"
-    )
+    # All procedures and functions go in the same "stored_procedures" container
+    # Individual procedures/functions will have their own subtype for identification
+    container_suffix = "stored_procedures"
 
     if schema_key:
         # For two-tier sources without database names, don't include empty database prefix
@@ -253,7 +252,6 @@ def _parse_procedure_dependencies(
             continue
 
         full_name = match.group(1).strip()
-        dep_type = match.group(2).strip()
         parts = full_name.split(".")
 
         if len(parts) != 2:
@@ -268,14 +266,8 @@ def _parse_procedure_dependencies(
         if procedure_registry and registry_key in procedure_registry:
             job_id = procedure_registry[registry_key]
 
-        # Determine subtype based on Oracle object_type
-        dep_subtype = (
-            JobContainerSubTypes.FUNCTION
-            if dep_type == "FUNCTION"
-            else JobContainerSubTypes.STORED_PROCEDURE
-        )
-
         # Create DataJob URN for the referenced procedure/function
+        # All procedures and functions use the same flow container
         dep_job_urn = make_data_job_urn(
             orchestrator=database_key.platform,
             flow_id=_get_procedure_flow_name(
@@ -288,7 +280,6 @@ def _parse_procedure_dependencies(
                     env=database_key.env,
                     backcompat_env_as_instance=database_key.backcompat_env_as_instance,
                 ),
-                dep_subtype,
             ),
             job_id=job_id,
             cluster=database_key.env or DEFAULT_ENV,

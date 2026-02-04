@@ -3,7 +3,6 @@ import datetime
 import functools
 import logging
 import traceback
-from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import partial
 from typing import (
@@ -57,6 +56,7 @@ from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    JobContainerSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
@@ -1552,11 +1552,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
     ) -> Iterable[MetadataWorkUnit]:
         if procedures:
-            # Group procedures by subtype to create separate containers
-            procedures_by_subtype: Dict[str, List[BaseProcedure]] = defaultdict(list)
-            for proc in procedures:
-                procedures_by_subtype[proc.subtype].append(proc)
-
             database_key = gen_database_key(
                 database=db_name,
                 platform=self.platform,
@@ -1571,13 +1566,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 env=self.config.env,
             )
 
-            # Create separate containers for each subtype
-            for subtype in procedures_by_subtype:
-                yield from generate_procedure_container_workunits(
-                    database_key=database_key,
-                    schema_key=schema_key,
-                    subtype=subtype,
-                )
+            # Create a single stored_procedures container for all procedures and functions
+            # Individual procedures/functions will have their own subtype (FUNCTION or STORED_PROCEDURE)
+            yield from generate_procedure_container_workunits(
+                database_key=database_key,
+                schema_key=schema_key,
+                subtype=JobContainerSubTypes.STORED_PROCEDURE,
+            )
 
         # Build procedure registry for resolving procedure-to-procedure lineage
         # Maps "schema.procedure_name" -> full identifier (with hash if overloaded)
