@@ -16,5 +16,5 @@ export const IdentitiesContent = () => {
         return null;
     }
 
-    return inviteUsersEnabled ? <ManageUsersAndGroups /> : <ManageIdentities version="v2" />;
+    return inviteUsersEnabled ? <ManageUsersAndGroups version="v2" /> : <ManageIdentities version="v2" />;
 };
