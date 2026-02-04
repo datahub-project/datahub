@@ -594,19 +594,21 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         The target table stores the actual data, while the materialized view is just a trigger.
         For lineage, we want source → target_table (not source → materialized view).
         """
-        to_table_urn = self._extract_to_table_urn(view_urn, view_definition, default_db)
-        if to_table_urn:
-            # Register lineage to the TO table instead of the MV
+        target_table_urn = self._extract_to_table_urn(
+            view_urn, view_definition, default_db
+        )
+        if target_table_urn:
+            # Register lineage to the target table instead of the view
             self.aggregator.add_view_definition(
-                view_urn=to_table_urn,
+                view_urn=target_table_urn,
                 view_definition=view_definition,
                 default_db=default_db,
                 default_schema=default_schema,
             )
-            # Also add MV → TO table relationship
+            # Also add view → target table relationship
             self.aggregator.add_known_lineage_mapping(
                 upstream_urn=view_urn,
-                downstream_urn=to_table_urn,
+                downstream_urn=target_table_urn,
                 lineage_type=DatasetLineageTypeClass.VIEW,
             )
         else:
@@ -750,13 +752,11 @@ ORDER BY event_time ASC
         engine = create_engine(url, **self.config.options)
 
         query = self._build_query_log_query()
-        logger.info("Fetching query log from ClickHouse...")
-        logger.debug(f"Query log SQL: {query[:200]}...")
+        logger.info("Fetching query log from ClickHouse")
 
         try:
             result = engine.execute(text(query))
             rows = list(result)
-            logger.info(f"Fetched {len(rows)} queries from query_log")
         except Exception as e:
             self.report.report_failure(
                 "query_log_extraction",
@@ -787,9 +787,9 @@ ORDER BY event_time ASC
     def _parse_query_log_row(self, row: Dict) -> Optional[ObservedQuery]:
         """Parse a query_log row into an ObservedQuery."""
         try:
-            timestamp = row["event_time"]
-            if isinstance(timestamp, datetime):
-                timestamp = timestamp.astimezone(timezone.utc)
+            event_time = row["event_time"]
+            if isinstance(event_time, datetime):
+                event_time = event_time.astimezone(timezone.utc)
 
             query = row["query"]
             user = row.get("user", "")
@@ -797,7 +797,7 @@ ORDER BY event_time ASC
             return ObservedQuery(
                 query=query,
                 session_id=row.get("query_id"),
-                timestamp=timestamp,
+                timestamp=event_time,
                 user=CorpUserUrn(user) if user else None,
                 default_db=row.get("current_database"),
                 query_hash=str(row.get("normalized_query_hash", "")),

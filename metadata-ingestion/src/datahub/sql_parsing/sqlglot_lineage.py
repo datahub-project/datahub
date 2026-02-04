@@ -389,7 +389,7 @@ def _extract_table_names(
 # ==============================================================================
 # ClickHouse has unique SQL features that require special handling:
 # 1. Dictionary functions (DICTGET, etc.) - first arg is dict name, not a table
-# 2. Materialized views with TO clause - output goes to target table, not MV
+# 2. Materialized views with TO clause - output goes to target table, not the view
 # 3. ARRAY JOIN pseudo-tables - may create unresolvable table references
 
 
@@ -413,36 +413,28 @@ _CLICKHOUSE_DICTIONARY_FUNCTIONS = frozenset(
 
 
 def _is_in_clickhouse_dict_function(table: sqlglot.exp.Table) -> bool:
-    """Check if a Table node is actually a dictionary reference in a ClickHouse dict function.
+    """Check if a Table node is a dictionary reference in a ClickHouse dict function.
 
     ClickHouse dictionary functions like DICTGET(dict_name, attr_name, key) take a
     dictionary name (e.g., 'default.subscriptions') as the first argument. sqlglot
     parses this as a Table node, but it's not a real table reference for lineage.
-
-    Returns True if the table should be excluded from lineage extraction.
     """
-    # Walk up the parent chain to find if we're inside an Anonymous function
-    parent = table.parent
-    while parent is not None:
+    parent = table
+    while parent := parent.parent:
         if isinstance(parent, sqlglot.exp.Anonymous):
             func_name = parent.this
             if (
                 isinstance(func_name, str)
                 and func_name.lower() in _CLICKHOUSE_DICTIONARY_FUNCTIONS
+                and parent.expressions
             ):
-                # Check if this table is the first argument (the dictionary name)
-                if parent.expressions and len(parent.expressions) > 0:
-                    first_arg = parent.expressions[0]
-                    # The table could be the first arg directly or nested inside it
-                    if first_arg is table or (
-                        hasattr(first_arg, "find")
-                        and table in list(first_arg.find_all(sqlglot.exp.Table))
-                    ):
-                        return True
-            # Even if not a known dict function, Anonymous functions with table-like
-            # first args are suspicious - but we'll be conservative and only filter known ones
+                first_arg = parent.expressions[0]
+                if first_arg is table or (
+                    hasattr(first_arg, "find")
+                    and table in list(first_arg.find_all(sqlglot.exp.Table))
+                ):
+                    return True
             break
-        parent = parent.parent
     return False
 
 
@@ -456,7 +448,7 @@ def _clickhouse_extract_to_tables(
         CREATE MATERIALIZED VIEW mv_name TO target_table AS SELECT ...
 
     The actual output is target_table, not mv_name. This function extracts
-    the TO tables so they can be used as the output instead of the MV name.
+    the TO tables so they can be used as the output instead of the view name.
     """
     if not is_dialect_instance(dialect, "clickhouse"):
         return OrderedSet()
@@ -480,7 +472,7 @@ def _is_clickhouse_non_input(
     Excludes:
     - Dictionary references inside DICTGET functions (not real tables)
     - TO table references (they are outputs, not inputs)
-    - MV name in Schema when TO table exists (MV name is not an input)
+    - Materialized view name when TO table exists (not an input)
     """
     return (
         _is_in_clickhouse_dict_function(table)
@@ -501,26 +493,20 @@ def _clickhouse_filter_column_lineage(
     """
     filtered = []
     for col_lineage in column_lineage:
-        # Check if downstream table is resolvable (if present)
-        if col_lineage.downstream.table:
-            if col_lineage.downstream.table not in table_name_urn_mapping:
-                logger.debug(
-                    f"Filtering column lineage with unresolvable downstream: "
-                    f"{col_lineage.downstream.table}"
-                )
-                continue
+        # Skip if downstream table is unresolvable
+        if (
+            col_lineage.downstream.table
+            and col_lineage.downstream.table not in table_name_urn_mapping
+        ):
+            continue
 
-        # Filter out unresolvable upstreams
-        resolved_upstreams = []
-        for upstream in col_lineage.upstreams:
-            if upstream.table in table_name_urn_mapping:
-                resolved_upstreams.append(upstream)
-            else:
-                logger.debug(
-                    f"Filtering upstream with unresolvable table: {upstream.table}"
-                )
+        # Keep only resolvable upstreams
+        resolved_upstreams = [
+            upstream
+            for upstream in col_lineage.upstreams
+            if upstream.table in table_name_urn_mapping
+        ]
 
-        # Keep the entry with filtered upstreams
         filtered.append(
             _ColumnLineageInfo(
                 downstream=col_lineage.downstream,
@@ -649,7 +635,7 @@ def _table_level_lineage(
         return table
 
     # Generate table-level lineage.
-    # ClickHouse: Extract TO tables from MV definitions (empty for other dialects)
+    # ClickHouse: Extract TO tables from materialized view definitions (empty for other dialects)
     clickhouse_to_tables = _clickhouse_extract_to_tables(statement, dialect)
 
     modified = (
@@ -674,7 +660,7 @@ def _table_level_lineage(
             # For statements that include a column list, like
             # CREATE DDL statements and `INSERT INTO table (col1, col2) SELECT ...`
             # the table name is nested inside a Schema object.
-            # ClickHouse: Skip MV name when TO table exists (use TO table instead).
+            # ClickHouse: Skip view name when TO table exists (use TO table instead).
             (
                 expr.this.this
                 for expr in statement.find_all(
