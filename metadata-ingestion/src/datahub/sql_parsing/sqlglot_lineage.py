@@ -492,12 +492,16 @@ def _clickhouse_filter_column_lineage(
     KeyError during translation.
     """
     filtered = []
+    dropped_downstream = 0
+    dropped_upstream = 0
+
     for col_lineage in column_lineage:
         # Skip if downstream table is unresolvable
         if (
             col_lineage.downstream.table
             and col_lineage.downstream.table not in table_name_urn_mapping
         ):
+            dropped_downstream += 1
             continue
 
         # Keep only resolvable upstreams
@@ -506,6 +510,7 @@ def _clickhouse_filter_column_lineage(
             for upstream in col_lineage.upstreams
             if upstream.table in table_name_urn_mapping
         ]
+        dropped_upstream += len(col_lineage.upstreams) - len(resolved_upstreams)
 
         filtered.append(
             _ColumnLineageInfo(
@@ -513,6 +518,12 @@ def _clickhouse_filter_column_lineage(
                 upstreams=resolved_upstreams,
                 logic=col_lineage.logic,
             )
+        )
+
+    if dropped_downstream or dropped_upstream:
+        logger.debug(
+            f"ClickHouse column lineage filter: kept {len(filtered)}/{len(column_lineage)} entries, "
+            f"dropped {dropped_downstream} unresolvable downstreams, {dropped_upstream} unresolvable upstreams"
         )
 
     return filtered
