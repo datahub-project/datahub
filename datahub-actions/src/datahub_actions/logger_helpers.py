@@ -56,7 +56,7 @@ def configure_logging() -> None:
     - DATAHUB_LOG_FORMAT: If set to "json", uses logger_json.ini for JSON output.
       Otherwise, uses logger.ini for standard text format.
     """
-    config_dir = Path(__file__).parent.parent
+    config_dir = Path(__file__).parent
 
     reset_logging()
 

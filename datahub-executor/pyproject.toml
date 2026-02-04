@@ -44,6 +44,8 @@ dependencies = [
   "h11 >= 0.16", # Older versions h11 vulnerable to CVE-2025-43859.
   "azure-identity==1.21.0",
   "aws-msk-iam-sasl-signer-python==1.0.2",
+  # For JSON logging support
+  "python-json-logger>=4.0.0",
   # NOTE: observe-models is intentionally NOT in core deps - it pulls in prophet (~300MB+)
   # Use the 'observe' extra for full ML monitoring support
 ]
