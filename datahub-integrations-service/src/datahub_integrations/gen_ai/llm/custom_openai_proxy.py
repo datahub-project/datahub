@@ -22,6 +22,7 @@ from loguru import logger
 from pydantic import SecretStr
 
 from datahub_integrations.gen_ai.llm.base import LLMWrapper
+from datahub_integrations.gen_ai.llm.daily_limiter import get_daily_token_limiter
 from datahub_integrations.gen_ai.llm.exceptions import (
     LlmAuthenticationException,
     LlmInputTooLongException,
@@ -232,6 +233,9 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
         - Prompt caching (Bedrock cachePoint markers -> OpenAI automatic caching)
         - Response format conversion (langchain AIMessage -> Bedrock output structure)
         """
+        # Fail fast if daily token limit already exceeded
+        get_daily_token_limiter().check()
+
         # Force client reinitialization if environment variable is set
         force_reinitialize = get_boolean_env_variable("FORCE_CLIENT_REINITIALIZE")
         if force_reinitialize:
@@ -287,6 +291,7 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
                 extra={
                     "provider": self.provider_name,
                     "model": self.model_name,
+                    "ai_module": ai_module.value,
                     "duration_seconds": round(timer.elapsed_seconds(), 3),
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,

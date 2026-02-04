@@ -218,3 +218,9 @@ The DataHub Integrations Service provides integrations between DataHub and exter
 | Environment Variable    | Default                                                | Unit/Type | Components               | Description                                                                                                                                                              |
 | ----------------------- | ------------------------------------------------------ | --------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `TERM_SUGGESTION_MODEL` | `bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for term suggestion / classification automation. Supports models from AWS bedrock (prefix: `bedrock/`) or Google Vertex AI (prefix: `google_vertexai/`) |
+
+#### AI Usage Controls
+
+| Environment Variable      | Default      | Unit/Type | Components               | Description                                                                                                                                                                         |
+| ------------------------- | ------------ | --------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GENAI_DAILY_TOKEN_LIMIT` | `20,000,000` | integer   | [`Integrations Service`] | Maximum total LLM tokens allowed per day across all AI features (chatbot, documentation generation, term suggestions). Resets daily at midnight UTC. Set to 0 to disable the limit. |

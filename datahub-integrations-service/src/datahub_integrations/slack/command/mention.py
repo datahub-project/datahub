@@ -26,6 +26,7 @@ from datahub_integrations.chat.chat_history import (
     Message,
 )
 from datahub_integrations.chat.types import ChatType, NextMessage
+from datahub_integrations.gen_ai.llm.exceptions import LlmDailyLimitExceededException
 from datahub_integrations.observability import BotCommand, BotPlatform, otel_instrument
 from datahub_integrations.slack.command.mention_helpers import (
     DATAHUB_FEEDBACK_PROMPT,
@@ -256,6 +257,8 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
             ):
                 # Keeping this for now, however this case should not appear with context reducers.
                 text = f":x: Uh, oh ! Looks like I fetched too much information here. Please try asking your question in a new thread.\n\n_Reference: message_id={event.message_ts}_"
+            elif isinstance(e, LlmDailyLimitExceededException):
+                text = f":warning: AI features have reached their daily usage limit. Please try again later.\n\n_Reference: message_id={event.message_ts}_"
             else:
                 text = f":x: Encountered an internal error\n\n_Reference: message_id={event.message_ts}_"
             app.client.chat_update(

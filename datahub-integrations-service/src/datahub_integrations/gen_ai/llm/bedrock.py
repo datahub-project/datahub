@@ -10,6 +10,7 @@ from datahub_integrations.gen_ai.llm.base import LLMWrapper
 from datahub_integrations.gen_ai.llm.bedrock_stream_aggregator import (
     aggregate_converse_stream,
 )
+from datahub_integrations.gen_ai.llm.daily_limiter import get_daily_token_limiter
 from datahub_integrations.gen_ai.llm.exceptions import (
     LlmAuthenticationException,
     LlmInputTooLongException,
@@ -62,6 +63,8 @@ class BedrockLLMWrapper(LLMWrapper):
 
         Catches Bedrock-specific exceptions and translates them to standardized LlmException types.
         """
+        # Fail fast if daily token limit already exceeded
+        get_daily_token_limiter().check()
 
         kwargs: Dict[str, Any] = {
             "modelId": self.model_name,
@@ -133,6 +136,7 @@ class BedrockLLMWrapper(LLMWrapper):
                 extra={
                     "provider": "bedrock",
                     "model": self.model_name,
+                    "ai_module": ai_module.value,
                     "duration_seconds": round(timer.elapsed_seconds(), 3),
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,
@@ -173,6 +177,11 @@ class BedrockLLMWrapper(LLMWrapper):
                 ),
                 ai_module=ai_module,
                 success=True,
+            )
+
+            # Record usage for daily token limit tracking
+            get_daily_token_limiter().record_usage(
+                input_tokens + output_tokens + cache_read_tokens + cache_write_tokens
             )
 
             # Note: stopReason == "max_tokens" is a valid response, not an error

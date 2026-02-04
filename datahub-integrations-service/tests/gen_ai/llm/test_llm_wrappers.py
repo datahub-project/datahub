@@ -36,6 +36,35 @@ from datahub_integrations.gen_ai.llm.utils import parse_model_id
 from datahub_integrations.observability.metrics_constants import AIModule
 
 
+@pytest.fixture(autouse=True)
+def mock_daily_token_limiter():
+    """Auto-mock the daily token limiter for all tests to avoid interference."""
+    mock_limiter = MagicMock()
+    with (
+        patch(
+            "datahub_integrations.gen_ai.llm.bedrock.get_daily_token_limiter",
+            return_value=mock_limiter,
+        ),
+        patch(
+            "datahub_integrations.gen_ai.llm.openai.get_daily_token_limiter",
+            return_value=mock_limiter,
+        ),
+        patch(
+            "datahub_integrations.gen_ai.llm.gemini.get_daily_token_limiter",
+            return_value=mock_limiter,
+        ),
+        patch(
+            "datahub_integrations.gen_ai.llm.custom_openai_proxy.get_daily_token_limiter",
+            return_value=mock_limiter,
+        ),
+        patch(
+            "datahub_integrations.gen_ai.llm.base.get_daily_token_limiter",
+            return_value=mock_limiter,
+        ),
+    ):
+        yield mock_limiter
+
+
 class TestBedrockLLMWrapper:
     """Tests for BedrockLLMWrapper - native Bedrock API pass-through."""
 

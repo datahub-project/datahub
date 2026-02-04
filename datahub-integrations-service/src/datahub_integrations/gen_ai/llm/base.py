@@ -50,6 +50,7 @@ from datahub.cli.env_utils import get_boolean_env_variable
 from langchain_core.messages import AIMessage, ToolMessage
 from loguru import logger
 
+from datahub_integrations.gen_ai.llm.daily_limiter import get_daily_token_limiter
 from datahub_integrations.gen_ai.llm.types import ConverseResponse, TokenUsage
 from datahub_integrations.gen_ai.llm.utils import is_verbose_llm_logging_enabled
 from datahub_integrations.gen_ai.model_config import (
@@ -782,3 +783,6 @@ class LLMWrapper(ABC, HasProviderAndModelInfo):
             ai_module=ai_module,
             success=True,
         )
+
+        # Record usage for daily token limit tracking
+        get_daily_token_limiter().record_usage(total_tokens)

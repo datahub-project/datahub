@@ -51,6 +51,7 @@ from datahub_integrations.chat.datahub_ai_conversation_client import (
 )
 from datahub_integrations.chat.types import ChatType, NextMessage
 from datahub_integrations.chat.utils import combine_contexts
+from datahub_integrations.gen_ai.llm.exceptions import LlmDailyLimitExceededException
 from datahub_integrations.mcp.mcp_server import mcp
 from datahub_integrations.mcp_integration.external_mcp_manager import (
     ExternalMCPManager,
@@ -534,6 +535,14 @@ mutation DisableUserPlugin($input: UpdateUserAiPluginSettingsInput!) {
                         f"We couldn't connect to AI plugin **{e.plugin_name}** and have disconnected it. "
                         f"You can reconnect it in [AI Connections Settings]({settings_url})."
                     )
+                )
+            except LlmDailyLimitExceededException:
+                # Handle daily token limit gracefully with user-friendly message
+                logger.opt(exception=True).warning(
+                    "Daily LLM token limit exceeded during chat generation"
+                )
+                next_message_container[0] = NextMessage(
+                    text="AI features have reached their daily usage limit. Please try again later."
                 )
             except Exception as e:
                 logger.exception("Error during message generation")
