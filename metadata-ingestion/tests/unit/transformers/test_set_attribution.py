@@ -31,57 +31,79 @@ SAMPLE_URN = (
 ATTRIBUTION_SOURCE = "urn:li:platformResource:ingestion"
 
 
-# Test SetAttributionConfig URN validation
-def test_config_valid_urns():
-    """Valid URNs for attribution_source and actor are accepted."""
+@pytest.fixture
+def pipeline_context():
+    return PipelineContext(run_id="test")
+
+
+@pytest.fixture
+def transformer(pipeline_context):
     config = SetAttributionConfig(
         attribution_source=ATTRIBUTION_SOURCE,
         actor="urn:li:corpuser:datahub",
+        patch_mode=False,
     )
-    assert config.attribution_source == ATTRIBUTION_SOURCE
-    assert config.actor == "urn:li:corpuser:datahub"
+    return SetAttributionTransformer(config, pipeline_context)
 
 
-def test_config_default_actor_is_valid_urn():
-    """Default actor is a valid URN and passes validation."""
-    config = SetAttributionConfig(attribution_source=ATTRIBUTION_SOURCE)
-    assert config.actor == "urn:li:corpuser:datahub"
-
-
-def test_config_invalid_attribution_source_raises():
-    """Invalid attribution_source (not a URN) raises ValidationError."""
-    with pytest.raises(ValidationError, match="urn:li:"):
-        SetAttributionConfig(
-            attribution_source="not-a-urn",
-            actor="urn:li:corpuser:datahub",
-        )
-
-
-def test_config_empty_attribution_source_raises():
-    """Empty attribution_source (required field) raises ValidationError."""
-    with pytest.raises(ValidationError, match="non-empty"):
-        SetAttributionConfig(
-            attribution_source="",
-            actor="urn:li:corpuser:datahub",
-        )
-
-
-def test_config_invalid_actor_raises():
-    """Invalid actor (not a URN) raises ValidationError."""
-    with pytest.raises(ValidationError, match="urn:li:"):
-        SetAttributionConfig(
-            attribution_source=ATTRIBUTION_SOURCE,
-            actor="not-a-urn",
-        )
-
-
-def test_config_actor_none_allowed():
-    """Explicit actor=None is allowed (optional field)."""
+@pytest.fixture
+def transformer_patch_mode(pipeline_context):
     config = SetAttributionConfig(
         attribution_source=ATTRIBUTION_SOURCE,
-        actor=None,
+        actor="urn:li:corpuser:datahub",
+        patch_mode=True,
     )
-    assert config.actor is None
+    return SetAttributionTransformer(config, pipeline_context)
+
+
+def transform_one(transformer, record):
+    """Run transformer on a single record and return the single output record."""
+    envelope = RecordEnvelope(record=record, metadata={})
+    results = list(transformer.transform([envelope]))
+    assert len(results) == 1
+    return results[0].record
+
+
+# Test SetAttributionConfig URN validation
+@pytest.mark.parametrize(
+    "kwargs,match",
+    [
+        (
+            {"attribution_source": "not-a-urn", "actor": "urn:li:corpuser:datahub"},
+            "urn:li:",
+        ),
+        (
+            {"attribution_source": "", "actor": "urn:li:corpuser:datahub"},
+            "non-empty",
+        ),
+        ({"attribution_source": ATTRIBUTION_SOURCE, "actor": "not-a-urn"}, "urn:li:"),
+    ],
+)
+def test_config_invalid_raises(kwargs, match):
+    """Invalid URN or empty required field raises ValidationError."""
+    with pytest.raises(ValidationError, match=match):
+        SetAttributionConfig(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "kwargs,expected_actor",
+    [
+        (
+            {
+                "attribution_source": ATTRIBUTION_SOURCE,
+                "actor": "urn:li:corpuser:datahub",
+            },
+            "urn:li:corpuser:datahub",
+        ),
+        ({"attribution_source": ATTRIBUTION_SOURCE}, "urn:li:corpuser:datahub"),
+        ({"attribution_source": ATTRIBUTION_SOURCE, "actor": None}, None),
+    ],
+)
+def test_config_valid(kwargs, expected_actor):
+    """Valid config is accepted; actor default or explicit."""
+    config = SetAttributionConfig(**kwargs)
+    assert config.attribution_source == ATTRIBUTION_SOURCE
+    assert config.actor == expected_actor
 
 
 # Test _Patch serialization
@@ -101,17 +123,8 @@ def test_patch_to_obj():
 
 
 # Test GlobalTags transformer
-def test_global_tags_upsert_mode():
+def test_global_tags_upsert_mode(transformer):
     """Test GlobalTags transformation in upsert mode."""
-    config = SetAttributionConfig(
-        attribution_source=ATTRIBUTION_SOURCE,
-        actor="urn:li:corpuser:datahub",
-        patch_mode=False,
-    )
-    ctx = PipelineContext(run_id="test")
-    transformer = SetAttributionTransformer(config, ctx)
-
-    # Create input with tags
     tags = GlobalTagsClass(
         tags=[
             TagAssociationClass(tag="urn:li:tag:tagA"),
@@ -126,11 +139,7 @@ def test_global_tags_upsert_mode():
         changeType=ChangeTypeClass.UPSERT,
     )
 
-    envelope = RecordEnvelope(record=mcpw, metadata={})
-    results = list(transformer.transform([envelope]))
-
-    assert len(results) == 1
-    result = results[0].record
+    result = transform_one(transformer, mcpw)
     assert isinstance(result, MetadataChangeProposalClass)
     assert result.changeType == ChangeTypeClass.PATCH
     assert result.aspectName == "globalTags"
@@ -171,16 +180,8 @@ def test_global_tags_upsert_mode():
     assert patch_dict == expected_patch_dict
 
 
-def test_global_tags_patch_mode():
+def test_global_tags_patch_mode(transformer_patch_mode):
     """Test GlobalTags transformation in patch mode."""
-    config = SetAttributionConfig(
-        attribution_source=ATTRIBUTION_SOURCE,
-        actor="urn:li:corpuser:datahub",
-        patch_mode=True,
-    )
-    ctx = PipelineContext(run_id="test")
-    transformer = SetAttributionTransformer(config, ctx)
-
     tags = GlobalTagsClass(
         tags=[
             TagAssociationClass(tag="urn:li:tag:tagA"),
@@ -195,11 +196,7 @@ def test_global_tags_patch_mode():
         changeType=ChangeTypeClass.UPSERT,
     )
 
-    envelope = RecordEnvelope(record=mcpw, metadata={})
-    results = list(transformer.transform([envelope]))
-
-    assert len(results) == 1
-    result = results[0].record
+    result = transform_one(transformer_patch_mode, mcpw)
     assert isinstance(result, MetadataChangeProposalClass)
     assert result.changeType == ChangeTypeClass.PATCH
     assert result.aspect is not None
@@ -241,7 +238,7 @@ def test_global_tags_patch_mode():
     assert patch_dict == expected_patch_dict
 
 
-def test_global_tags_with_source_detail():
+def test_global_tags_with_source_detail(pipeline_context):
     """Test GlobalTags with sourceDetail map."""
     config = SetAttributionConfig(
         attribution_source=ATTRIBUTION_SOURCE,
@@ -249,8 +246,7 @@ def test_global_tags_with_source_detail():
         source_detail={"pipeline_id": "my-pipeline", "version": "1.0"},
         patch_mode=False,
     )
-    ctx = PipelineContext(run_id="test")
-    transformer = SetAttributionTransformer(config, ctx)
+    transformer = SetAttributionTransformer(config, pipeline_context)
 
     tags = GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:tagA")])
     mcpw = MetadataChangeProposalWrapper(
@@ -261,10 +257,7 @@ def test_global_tags_with_source_detail():
         changeType=ChangeTypeClass.UPSERT,
     )
 
-    envelope = RecordEnvelope(record=mcpw, metadata={})
-    results = list(transformer.transform([envelope]))
-
-    result = results[0].record
+    result = transform_one(transformer, mcpw)
     assert result.aspect is not None
     patch_dict = json.loads(result.aspect.value.decode())
     tag_value = patch_dict["patch"][0]["value"]["urn:li:tag:tagA"]
@@ -276,15 +269,8 @@ def test_global_tags_with_source_detail():
 
 
 # Test Ownership transformer
-def test_ownership_upsert_mode():
+def test_ownership_upsert_mode(transformer):
     """Test Ownership transformation in upsert mode."""
-    config = SetAttributionConfig(
-        attribution_source=ATTRIBUTION_SOURCE,
-        patch_mode=False,
-    )
-    ctx = PipelineContext(run_id="test")
-    transformer = SetAttributionTransformer(config, ctx)
-
     owners = OwnershipClass(
         owners=[
             OwnerClass(
@@ -305,11 +291,7 @@ def test_ownership_upsert_mode():
         changeType=ChangeTypeClass.UPSERT,
     )
 
-    envelope = RecordEnvelope(record=mcpw, metadata={})
-    results = list(transformer.transform([envelope]))
-
-    assert len(results) == 1
-    result = results[0].record
+    result = transform_one(transformer, mcpw)
     assert isinstance(result, MetadataChangeProposalClass)
     assert result.changeType == ChangeTypeClass.PATCH
     assert result.aspectName == "ownership"
@@ -352,16 +334,9 @@ def test_ownership_upsert_mode():
 
 
 # Test GlossaryTerms transformer
-def test_glossary_terms_upsert_mode():
+def test_glossary_terms_upsert_mode(transformer):
     """Test GlossaryTerms transformation in upsert mode."""
     from datahub.metadata.schema_classes import AuditStampClass
-
-    config = SetAttributionConfig(
-        attribution_source=ATTRIBUTION_SOURCE,
-        patch_mode=False,
-    )
-    ctx = PipelineContext(run_id="test")
-    transformer = SetAttributionTransformer(config, ctx)
 
     terms = GlossaryTermsClass(
         terms=[
@@ -378,11 +353,7 @@ def test_glossary_terms_upsert_mode():
         changeType=ChangeTypeClass.UPSERT,
     )
 
-    envelope = RecordEnvelope(record=mcpw, metadata={})
-    results = list(transformer.transform([envelope]))
-
-    assert len(results) == 1
-    result = results[0].record
+    result = transform_one(transformer, mcpw)
     assert isinstance(result, MetadataChangeProposalClass)
     assert result.changeType == ChangeTypeClass.PATCH
     assert result.aspectName == "glossaryTerms"
@@ -397,15 +368,8 @@ def test_glossary_terms_upsert_mode():
 
 
 # Test PATCH input handling
-def test_patch_input_with_attribution():
+def test_patch_input_with_attribution(transformer):
     """Test that PATCH inputs have attribution added while preserving semantics."""
-    config = SetAttributionConfig(
-        attribution_source=ATTRIBUTION_SOURCE,
-        patch_mode=False,
-    )
-    ctx = PipelineContext(run_id="test")
-    transformer = SetAttributionTransformer(config, ctx)
-
     # Create a PATCH MCP with existing patch operations
     existing_patch = {
         "arrayPrimaryKeys": {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]},
@@ -434,18 +398,12 @@ def test_patch_input_with_attribution():
         changeType=ChangeTypeClass.PATCH,
     )
 
-    envelope = RecordEnvelope(record=mcp, metadata={})
-    results = list(transformer.transform([envelope]))
-
-    assert len(results) == 1
-    result = results[0].record
+    result = transform_one(transformer, mcp)
     assert isinstance(result, MetadataChangeProposalClass)
     assert result.changeType == ChangeTypeClass.PATCH
     assert result.aspect is not None
 
-    # Verify attribution was added
     patch_dict = json.loads(result.aspect.value.decode())
-
     expected_patch_dict = {
         "arrayPrimaryKeys": existing_patch["arrayPrimaryKeys"],
         "patch": [
@@ -465,19 +423,11 @@ def test_patch_input_with_attribution():
         ],
         "forceGenericPatch": True,
     }
-
     assert patch_dict == expected_patch_dict
 
 
-def test_patch_input_different_attribution_source():
+def test_patch_input_different_attribution_source(transformer):
     """Test that PATCH inputs with different attribution source pass through unchanged."""
-    config = SetAttributionConfig(
-        attribution_source=ATTRIBUTION_SOURCE,
-        patch_mode=False,
-    )
-    ctx = PipelineContext(run_id="test")
-    transformer = SetAttributionTransformer(config, ctx)
-
     # Create a PATCH MCP with existing patch operations using a different attribution source
     different_source = "urn:li:platformResource:different-source"
     existing_patch = {
@@ -511,31 +461,17 @@ def test_patch_input_different_attribution_source():
         changeType=ChangeTypeClass.PATCH,
     )
 
-    envelope = RecordEnvelope(record=mcp, metadata={})
-    results = list(transformer.transform([envelope]))
-
-    assert len(results) == 1
-    result = results[0].record
+    result = transform_one(transformer, mcp)
     assert isinstance(result, MetadataChangeProposalClass)
     assert result.changeType == ChangeTypeClass.PATCH
     assert result.aspect is not None
 
-    # Verify patch operations pass through unchanged (different attribution source)
     patch_dict = json.loads(result.aspect.value.decode())
-
-    # Should be identical to input since attribution source doesn't match
     assert patch_dict == existing_patch
 
 
-def test_patch_input_unsupported_content_type():
+def test_patch_input_unsupported_content_type(transformer):
     """Test that PATCH inputs with unsupported content type pass through."""
-    config = SetAttributionConfig(
-        attribution_source=ATTRIBUTION_SOURCE,
-        patch_mode=False,
-    )
-    ctx = PipelineContext(run_id="test")
-    transformer = SetAttributionTransformer(config, ctx)
-
     # Create a PATCH MCP with wrong content type
     patch_aspect = GenericAspectClass(
         value=json.dumps({"patch": []}).encode(),
@@ -549,27 +485,15 @@ def test_patch_input_unsupported_content_type():
         changeType=ChangeTypeClass.PATCH,
     )
 
-    envelope = RecordEnvelope(record=mcp, metadata={})
-    results = list(transformer.transform([envelope]))
-
-    # Should pass through unchanged
-    assert len(results) == 1
-    assert results[0].record == mcp
+    result = transform_one(transformer, mcp)
+    assert result == mcp
 
 
 # Test MCE input handling
-def test_mce_input_conversion():
+def test_mce_input_conversion(transformer):
     """Test MCE input conversion to PATCH MCP."""
     from datahub.metadata.schema_classes import DatasetSnapshotClass
 
-    config = SetAttributionConfig(
-        attribution_source=ATTRIBUTION_SOURCE,
-        patch_mode=False,
-    )
-    ctx = PipelineContext(run_id="test")
-    transformer = SetAttributionTransformer(config, ctx)
-
-    # Create MCE with GlobalTags
     tags = GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:tagA")])
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
@@ -578,26 +502,15 @@ def test_mce_input_conversion():
         )
     )
 
-    envelope = RecordEnvelope(record=mce, metadata={})
-    results = list(transformer.transform([envelope]))
-
-    assert len(results) == 1
-    result = results[0].record
+    result = transform_one(transformer, mce)
     assert isinstance(result, MetadataChangeProposalClass)
     assert result.changeType == ChangeTypeClass.PATCH
     assert result.aspectName == "globalTags"
 
 
-def test_mce_input_multiple_aspects():
+def test_mce_input_multiple_aspects(transformer):
     """MCE with multiple supported aspects yields one PATCH MCP per aspect."""
     from datahub.metadata.schema_classes import DatasetSnapshotClass
-
-    config = SetAttributionConfig(
-        attribution_source=ATTRIBUTION_SOURCE,
-        patch_mode=False,
-    )
-    ctx = PipelineContext(run_id="test")
-    transformer = SetAttributionTransformer(config, ctx)
 
     tags = GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:tagA")])
     ownership = OwnershipClass(
@@ -628,15 +541,8 @@ def test_mce_input_multiple_aspects():
 
 
 # Test edge cases
-def test_empty_aspect():
+def test_empty_aspect(transformer):
     """Test handling of empty aspect."""
-    config = SetAttributionConfig(
-        attribution_source=ATTRIBUTION_SOURCE,
-        patch_mode=False,
-    )
-    ctx = PipelineContext(run_id="test")
-    transformer = SetAttributionTransformer(config, ctx)
-
     tags = GlobalTagsClass(tags=[])
     mcpw = MetadataChangeProposalWrapper(
         entityUrn=SAMPLE_URN,
@@ -646,11 +552,7 @@ def test_empty_aspect():
         changeType=ChangeTypeClass.UPSERT,
     )
 
-    envelope = RecordEnvelope(record=mcpw, metadata={})
-    results = list(transformer.transform([envelope]))
-
-    assert len(results) == 1
-    result = results[0].record
+    result = transform_one(transformer, mcpw)
     assert result.aspect is not None
     patch_dict = json.loads(result.aspect.value.decode())
 
@@ -669,15 +571,8 @@ def test_empty_aspect():
     assert patch_dict == expected_patch_dict
 
 
-def test_unsupported_aspect_passthrough():
+def test_unsupported_aspect_passthrough(transformer):
     """Test that unsupported aspects pass through unchanged."""
-    config = SetAttributionConfig(
-        attribution_source=ATTRIBUTION_SOURCE,
-        patch_mode=False,
-    )
-    ctx = PipelineContext(run_id="test")
-    transformer = SetAttributionTransformer(config, ctx)
-
     from datahub.metadata.schema_classes import StatusClass
 
     status = StatusClass(removed=False)
@@ -689,42 +584,19 @@ def test_unsupported_aspect_passthrough():
         changeType=ChangeTypeClass.UPSERT,
     )
 
-    envelope = RecordEnvelope(record=mcpw, metadata={})
-    results = list(transformer.transform([envelope]))
-
-    # Should pass through unchanged
-    assert len(results) == 1
-    assert results[0].record == mcpw
+    result = transform_one(transformer, mcpw)
+    assert result == mcpw
 
 
-def test_end_of_stream_passthrough():
+def test_end_of_stream_passthrough(transformer):
     """Test that EndOfStream passes through."""
-    config = SetAttributionConfig(
-        attribution_source=ATTRIBUTION_SOURCE,
-        patch_mode=False,
-    )
-    ctx = PipelineContext(run_id="test")
-    transformer = SetAttributionTransformer(config, ctx)
-
     eos = EndOfStream()
-    envelope = RecordEnvelope(record=eos, metadata={})
-    results = list(transformer.transform([envelope]))
-
-    assert len(results) == 1
-    assert results[0].record == eos
+    result = transform_one(transformer, eos)
+    assert result == eos
 
 
-def test_attribution_overwrite_warning():
+def test_attribution_overwrite_warning(transformer):
     """Test that overwriting existing attribution logs a warning."""
-    config = SetAttributionConfig(
-        attribution_source=ATTRIBUTION_SOURCE,
-        patch_mode=False,
-    )
-    ctx = PipelineContext(run_id="test")
-    transformer = SetAttributionTransformer(config, ctx)
-
-    # Create tag - the transformer will add attribution
-    # If there was existing attribution, it would be overwritten
     tags = GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:tagA")])
     mcpw = MetadataChangeProposalWrapper(
         entityUrn=SAMPLE_URN,
@@ -734,12 +606,7 @@ def test_attribution_overwrite_warning():
         changeType=ChangeTypeClass.UPSERT,
     )
 
-    envelope = RecordEnvelope(record=mcpw, metadata={})
-    # Should not raise, but overwrite attribution
-    results = list(transformer.transform([envelope]))
-
-    assert len(results) == 1
-    result = results[0].record
+    result = transform_one(transformer, mcpw)
     assert result.aspect is not None
     patch_dict = json.loads(result.aspect.value.decode())
 

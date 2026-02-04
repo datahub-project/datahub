@@ -11,6 +11,8 @@ from datahub.emitter.mcp_patch_builder import (
 )
 from datahub.metadata.schema_classes import GenericAspectClass
 
+TAGS_ARRAY_PRIMARY_KEYS = {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]}
+
 
 def test_patch_to_obj():
     """Test _Patch serialization to dictionary."""
@@ -27,99 +29,77 @@ def test_patch_to_obj():
     assert result == {"op": "remove", "path": "/tags/test", "value": {}}
 
 
-def test_patch_quote_unquote_path_component():
+@pytest.mark.parametrize(
+    "value,quoted",
+    [
+        ("test", "test"),
+        ("test/path", "test~1path"),
+        ("test~tilde", "test~0tilde"),
+        ("test~1/path", "test~01~1path"),
+    ],
+)
+def test_patch_quote_unquote_path_component(value, quoted):
     """Test _Patch quote/unquote path component methods."""
-    # Simple values
-    assert _Patch.quote_path_component("test") == "test"
-    assert _Patch.unquote_path_component("test") == "test"
-
-    # Values with slashes
-    assert _Patch.quote_path_component("test/path") == "test~1path"
-    assert _Patch.unquote_path_component("test~1path") == "test/path"
-
-    # Values with tildes
-    assert _Patch.quote_path_component("test~tilde") == "test~0tilde"
-    assert _Patch.unquote_path_component("test~0tilde") == "test~tilde"
-
-    # Values with both slashes and tildes
-    # Note: "~1" in input is a literal "~" followed by "1", not an escaped "/"
-    # So we escape "~" to "~0" first, then "/" to "~1"
-    assert _Patch.quote_path_component("test~1/path") == "test~01~1path"
-    assert _Patch.unquote_path_component("test~01~1path") == "test~1/path"
-
-    # Round-trip test
-    test_values = ["simple", "with/slash", "with~tilde", "complex~1/path"]
-    for value in test_values:
-        quoted = _Patch.quote_path_component(value)
-        unquoted = _Patch.unquote_path_component(quoted)
-        assert unquoted == value, f"Round-trip failed for: {value}"
+    assert _Patch.quote_path_component(value) == quoted
+    assert _Patch.unquote_path_component(quoted) == value
 
 
-def test_parse_patch_path():
+@pytest.mark.parametrize(
+    "value", ["simple", "with/slash", "with~tilde", "complex~1/path"]
+)
+def test_patch_quote_unquote_round_trip(value):
+    """Round-trip: value -> quoted -> unquoted == value."""
+    quoted = _Patch.quote_path_component(value)
+    unquoted = _Patch.unquote_path_component(quoted)
+    assert unquoted == value
+
+
+@pytest.mark.parametrize(
+    "path_str,expected",
+    [
+        ("/tags/test", ("tags", "test")),
+        ("/tags/urn:li:tag:test", ("tags", "urn:li:tag:test")),
+        ("/tags/test~1path", ("tags", "test/path")),
+        ("/tags/test~0tilde", ("tags", "test~tilde")),
+        (
+            "/tags/urn:li:tag:test/attribution",
+            ("tags", "urn:li:tag:test", "attribution"),
+        ),
+    ],
+)
+def test_parse_patch_path(path_str, expected):
     """Test parsing JSON Patch path strings to PatchPath tuples."""
-    # Simple path
-    assert parse_patch_path("/tags/test") == ("tags", "test")
-    assert parse_patch_path("/tags/urn:li:tag:test") == ("tags", "urn:li:tag:test")
+    assert parse_patch_path(path_str) == expected
 
-    # Path with quoted characters
-    assert parse_patch_path("/tags/test~1path") == ("tags", "test/path")
-    assert parse_patch_path("/tags/test~0tilde") == ("tags", "test~tilde")
 
-    # Complex path
-    assert parse_patch_path("/tags/urn:li:tag:test/attribution") == (
-        "tags",
-        "urn:li:tag:test",
-        "attribution",
-    )
-
-    # Invalid paths
+def test_parse_patch_path_invalid():
+    """Invalid path (no leading slash) raises ValueError."""
     with pytest.raises(ValueError, match="must start with"):
         parse_patch_path("tags/test")
 
 
-def test_generic_json_patch_to_dict():
+@pytest.mark.parametrize(
+    "force_generic_patch,expected_force", [(False, False), (True, True)]
+)
+def test_generic_json_patch_to_dict(force_generic_patch, expected_force):
     """Test GenericJsonPatch serialization."""
     patch_ops = [
         _Patch(op="add", path=("tags", "test1"), value={"tag": "urn:li:tag:test1"}),
         _Patch(op="add", path=("tags", "test2"), value={"tag": "urn:li:tag:test2"}),
     ]
-    array_primary_keys = {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]}
     patch = GenericJsonPatch(
-        array_primary_keys=array_primary_keys,
+        array_primary_keys=TAGS_ARRAY_PRIMARY_KEYS,
         patch=patch_ops,
-        force_generic_patch=False,
+        force_generic_patch=force_generic_patch,
     )
 
     result = patch.to_dict()
-    assert result["arrayPrimaryKeys"] == {
-        "tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]
-    }
+    assert result["arrayPrimaryKeys"] == TAGS_ARRAY_PRIMARY_KEYS
     assert len(result["patch"]) == 2
     assert result["patch"][0]["op"] == "add"
     assert result["patch"][0]["path"] == "/tags/test1"
     assert result["patch"][1]["path"] == "/tags/test2"
-    assert result["forceGenericPatch"] is False
-
-
-def test_generic_json_patch_to_dict_force_generic_patch_true():
-    """Test GenericJsonPatch serialization with force_generic_patch=True."""
-    patch_ops = [
-        _Patch(op="add", path=("tags", "test1"), value={"tag": "urn:li:tag:test1"}),
-        _Patch(op="add", path=("tags", "test2"), value={"tag": "urn:li:tag:test2"}),
-    ]
-    array_primary_keys = {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]}
-    patch = GenericJsonPatch(
-        array_primary_keys=array_primary_keys,
-        patch=patch_ops,
-        force_generic_patch=True,
-    )
-
-    result = patch.to_dict()
-    assert result["arrayPrimaryKeys"] == {
-        "tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]
-    }
-    assert len(result["patch"]) == 2
-    assert result["forceGenericPatch"] is True
+    assert result["forceGenericPatch"] is expected_force
 
 
 def test_generic_json_patch_to_generic_aspect():
@@ -127,9 +107,8 @@ def test_generic_json_patch_to_generic_aspect():
     patch_ops = [
         _Patch(op="add", path=("tags", "test"), value={"tag": "urn:li:tag:test"})
     ]
-    array_primary_keys = {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]}
     patch = GenericJsonPatch(
-        array_primary_keys=array_primary_keys,
+        array_primary_keys=TAGS_ARRAY_PRIMARY_KEYS,
         patch=patch_ops,
     )
 
@@ -148,7 +127,7 @@ def test_generic_json_patch_to_generic_aspect():
 def test_generic_json_patch_from_dict():
     """Test creating GenericJsonPatch from dictionary."""
     patch_dict = {
-        "arrayPrimaryKeys": {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]},
+        "arrayPrimaryKeys": TAGS_ARRAY_PRIMARY_KEYS,
         "patch": [
             {"op": "add", "path": "/tags/test1", "value": {"tag": "urn:li:tag:test1"}},
             {"op": "add", "path": "/tags/test2", "value": {"tag": "urn:li:tag:test2"}},
@@ -158,9 +137,7 @@ def test_generic_json_patch_from_dict():
 
     patch = GenericJsonPatch.from_dict(patch_dict)
 
-    assert patch.array_primary_keys == {
-        "tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]
-    }
+    assert patch.array_primary_keys == TAGS_ARRAY_PRIMARY_KEYS
     assert len(patch.patch) == 2
     assert patch.patch[0].op == "add"
     assert patch.patch[0].path == ("tags", "test1")
@@ -200,7 +177,7 @@ def test_generic_json_patch_from_dict_invalid_op():
 def test_generic_json_patch_round_trip():
     """Test round-trip conversion: dict -> GenericJsonPatch -> dict."""
     original_dict = {
-        "arrayPrimaryKeys": {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]},
+        "arrayPrimaryKeys": TAGS_ARRAY_PRIMARY_KEYS,
         "patch": [
             {"op": "add", "path": "/tags/test1", "value": {"tag": "urn:li:tag:test1"}},
             {"op": "remove", "path": "/tags/test2"},
@@ -238,17 +215,13 @@ def test_generic_json_patch_with_unit_separator():
             value={"tag": "urn:li:tag:test", "attribution": {"source": "test"}},
         )
     ]
-    array_primary_keys = {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]}
     patch = GenericJsonPatch(
-        array_primary_keys=array_primary_keys,
+        array_primary_keys=TAGS_ARRAY_PRIMARY_KEYS,
         patch=patch_ops,
     )
 
     result = patch.to_dict()
-    assert result["arrayPrimaryKeys"]["tags"] == [
-        f"attribution{UNIT_SEPARATOR}source",
-        "tag",
-    ]
+    assert result["arrayPrimaryKeys"] == TAGS_ARRAY_PRIMARY_KEYS
     # Verify UNIT_SEPARATOR is preserved in JSON (may be escaped as \u241f)
     json_str = json.dumps(result)
     assert UNIT_SEPARATOR in json_str or "\\u241f" in json_str or "\u241f" in json_str
