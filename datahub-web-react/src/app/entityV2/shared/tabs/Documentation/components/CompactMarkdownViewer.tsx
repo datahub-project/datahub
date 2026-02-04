@@ -130,7 +130,7 @@ export default function CompactMarkdownViewer({
 
     return (
         <MarkdownContainer lineLimit={lineLimit}>
-            <MarkdownViewContainer scrollableY={scrollableY} ref={measuredRef}>
+            <MarkdownViewContainer scrollableY={scrollableY} ref={measuredRef} data-testid="compact-markdown-viewver">
                 <StyledEditor
                     customStyle={customStyle}
                     limit={isShowingMore ? null : lineLimit}
