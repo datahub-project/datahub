@@ -1,6 +1,8 @@
 import functools
 import logging
 import sys
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -23,6 +25,41 @@ from datahub.ingestion.source.sigma.data_classes import (
 # Logger instance
 logger = logging.getLogger(__name__)
 
+# Rate limiting constants
+RATE_LIMIT_THRESHOLD = 5  # Enable rate limiting when max_workers > this value
+RATE_LIMIT_REQUESTS_PER_SECOND = 10.0  # Max requests per second when rate limiting
+
+
+class RateLimiter:
+    """Thread-safe rate limiter using token bucket algorithm."""
+
+    def __init__(self, requests_per_second: float):
+        self.requests_per_second = requests_per_second
+        self.tokens = requests_per_second  # Start with full bucket
+        self.last_update = time.monotonic()
+        self.lock = threading.Lock()
+
+    def acquire(self) -> None:
+        """Block until a request can be made."""
+        with self.lock:
+            now = time.monotonic()
+            # Add tokens based on time passed
+            time_passed = now - self.last_update
+            self.tokens = min(
+                self.requests_per_second,
+                self.tokens + time_passed * self.requests_per_second,
+            )
+            self.last_update = now
+
+            if self.tokens >= 1:
+                self.tokens -= 1
+            else:
+                # Wait for enough time to get a token
+                wait_time = (1 - self.tokens) / self.requests_per_second
+                time.sleep(wait_time)
+                self.tokens = 0
+                self.last_update = time.monotonic()
+
 
 class SigmaAPI:
     def __init__(self, config: SigmaSourceConfig, report: SigmaSourceReport) -> None:
@@ -32,6 +69,19 @@ class SigmaAPI:
         self.users: Dict[str, str] = {}
         self.session = requests.Session()
         self.refresh_token: Optional[str] = None
+
+        # Enable rate limiting when max_workers > threshold to avoid API rate limits
+        if self.config.max_workers > RATE_LIMIT_THRESHOLD:
+            self.rate_limiter: Optional[RateLimiter] = RateLimiter(
+                RATE_LIMIT_REQUESTS_PER_SECOND
+            )
+            logger.info(
+                f"Rate limiting enabled: {RATE_LIMIT_REQUESTS_PER_SECOND} requests/sec "
+                f"(max_workers={self.config.max_workers} > threshold={RATE_LIMIT_THRESHOLD})"
+            )
+        else:
+            self.rate_limiter = None
+
         # Test connection by generating access token
         logger.info(f"Trying to connect to {self.config.api_url}")
         self._generate_token()
@@ -88,10 +138,16 @@ class SigmaAPI:
             )
 
     def _get_api_call(self, url: str) -> requests.Response:
+        # Apply rate limiting if enabled
+        if self.rate_limiter:
+            self.rate_limiter.acquire()
+
         get_response = self.session.get(url)
         if get_response.status_code == 401 and self.refresh_token:
             logger.debug("Access token might expired. Refreshing access token.")
             self._refresh_access_token()
+            if self.rate_limiter:
+                self.rate_limiter.acquire()
             get_response = self.session.get(url)
         return get_response
 
