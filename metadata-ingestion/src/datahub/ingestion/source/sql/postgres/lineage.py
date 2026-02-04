@@ -155,7 +155,7 @@ class PostgresLineageExtractor:
 
         query, params = PostgresQuery.get_query_history(
             database=self.config.database,
-            limit=self.config.max_queries_to_extract or 1000,
+            limit=self.config.max_queries_to_extract,
             min_calls=self.config.min_query_calls,
             exclude_patterns=self.config.query_exclude_patterns,
         )
@@ -233,14 +233,23 @@ class PostgresLineageExtractor:
                 except (
                     SqlUnderstandingError,
                     UnsupportedStatementTypeError,
-                    ValueError,
-                    KeyError,
                 ) as e:
                     logger.warning(
                         "Failed to parse query %s: %s. Query: %s...",
                         query_entry.query_id,
                         e,
                         query_entry.query_text[:100],
+                    )
+                    self.queries_failed += 1
+                except (ValueError, KeyError) as e:
+                    logger.error(
+                        "Unexpected error processing query %s: %s (%s). Query: %s... "
+                        "This may indicate a bug - please report this issue.",
+                        query_entry.query_id,
+                        e,
+                        type(e).__name__,
+                        query_entry.query_text[:100],
+                        exc_info=True,
                     )
                     self.queries_failed += 1
 

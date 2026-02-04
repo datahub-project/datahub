@@ -161,7 +161,7 @@ def test_query_exclude_patterns_validation():
 
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
 def test_sql_aggregator_initialization_failure(create_engine_mock):
-    """Test that SQL aggregator initialization failure is handled gracefully."""
+    """Test that SQL aggregator initialization failure fails loudly when feature is explicitly enabled."""
     with patch(
         "datahub.ingestion.source.sql.postgres.source.SqlParsingAggregator"
     ) as mock_aggregator:
@@ -170,43 +170,44 @@ def test_sql_aggregator_initialization_failure(create_engine_mock):
         config = PostgresConfig.model_validate(
             {**_base_config(), "include_query_lineage": True}
         )
-        source = PostgresSource(config, PipelineContext(run_id="test"))
 
-        assert source.sql_aggregator is None
-        assert source.report.failures
-        failure_messages = [f.message for f in source.report.failures]
-        assert any("explicitly enabled" in msg.lower() for msg in failure_messages), (
+        # Should raise RuntimeError when the explicitly enabled feature fails to initialize
+        with pytest.raises(RuntimeError) as exc_info:
+            PostgresSource(config, PipelineContext(run_id="test"))
+
+        error_message = str(exc_info.value)
+        assert "explicitly enabled" in error_message.lower(), (
             "Should mention feature was explicitly enabled"
         )
-        assert any("failed to start" in msg.lower() for msg in failure_messages), (
-            "Should mention initialization failure"
+        assert "include_query_lineage: true" in error_message, (
+            "Should mention the config flag"
         )
 
 
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
-def test_sql_aggregator_none_reports_warning(create_engine_mock):
-    """Test that attempting lineage extraction with None aggregator reports warning."""
-    with patch(
-        "datahub.ingestion.source.sql.postgres.source.SqlParsingAggregator"
-    ) as mock_aggregator:
-        mock_aggregator.side_effect = Exception("Aggregator init failed")
+def test_usage_statistics_requires_graph_connection(create_engine_mock):
+    """Test that usage statistics validation fails when graph connection is missing."""
+    config = PostgresConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+            "include_usage_statistics": True,
+        }
+    )
 
-        config = PostgresConfig.model_validate(
-            {**_base_config(), "include_query_lineage": True}
-        )
-        source = PostgresSource(config, PipelineContext(run_id="test"))
+    ctx = PipelineContext(run_id="test")
+    assert ctx.graph is None, "Test setup: context should not have graph"
 
-        mock_inspector = MagicMock()
-        mock_inspector.engine.connect.return_value.__enter__.return_value = MagicMock()
+    with pytest.raises(ValueError) as exc_info:
+        PostgresSource(config, ctx)
 
-        with patch.object(source, "get_inspectors", return_value=[mock_inspector]):
-            list(source._get_query_based_lineage_workunits())
-
-            assert source.report.warnings
-            warning_reasons = [w.message for w in source.report.warnings]
-            assert any(
-                "failed to initialize" in reason.lower() for reason in warning_reasons
-            ), "Should report warning about failed initialization"
+    error_message = str(exc_info.value)
+    assert "graph connection" in error_message.lower(), (
+        "Should mention graph connection requirement"
+    )
+    assert "include_usage_statistics" in error_message.lower(), (
+        "Should mention the usage statistics flag"
+    )
 
 
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
@@ -236,6 +237,21 @@ def test_query_lineage_extraction_failure(create_engine_mock):
             list(source._get_query_based_lineage_workunits())
 
             assert source.report.failures
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_view_lineage_empty_returns_iterator(create_engine_mock):
+    """Test that _get_view_lineage_workunits returns empty iterator, not None."""
+    config = PostgresConfig.model_validate({**_base_config()})
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    mock_inspector = MagicMock()
+
+    # Mock _get_view_lineage_elements to return empty dict
+    with patch.object(source, "_get_view_lineage_elements", return_value={}):
+        # This should not crash even though lineage_elements is empty
+        workunits = list(source._get_view_lineage_workunits(mock_inspector))
+        assert workunits == [], "Should return empty list, not crash with None"
 
 
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
