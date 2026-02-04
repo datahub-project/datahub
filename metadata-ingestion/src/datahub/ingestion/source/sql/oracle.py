@@ -1121,24 +1121,20 @@ class OracleSource(SQLAlchemySource):
         config: Union[SQLCommonConfig, Type[SQLCommonConfig]],
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Override parent to ensure db_name respects add_database_name_to_urn config.
-        This ensures stored procedure lineage URNs match table URNs.
-        """
-        # Get the actual database name for queries
-        actual_db_name = self.get_db_name(inspector)
+        Override parent to ensure stored procedure URNs match table URNs.
 
-        # Determine what db_name to use for URN generation
-        # Only use database name if add_database_name_to_urn is True AND database is configured
-        if self.config.add_database_name_to_urn and self.config.database:
-            db_name_for_urns = self.config.database
-        else:
-            # Use empty string to indicate no database in URNs
-            # This matches how tables are ingested when add_database_name_to_urn is False
-            db_name_for_urns = ""
+        For Oracle, we always pass the actual database name to _process_procedures
+        for correct container hierarchy, but BaseProcedure.default_db controls
+        whether the database appears in the procedure's URN.
+        """
+        # Get the actual database name for container hierarchy and queries
+        actual_db_name = self.get_db_name(inspector)
 
         procedures = self.fetch_procedures_for_schema(inspector, schema, actual_db_name)
         if procedures:
-            yield from self._process_procedures(procedures, db_name_for_urns, schema)
+            # Always pass actual database name for container hierarchy
+            # The BaseProcedure.default_db (set in get_procedures_for_schema) controls URN format
+            yield from self._process_procedures(procedures, actual_db_name, schema)
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
