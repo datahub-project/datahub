@@ -63,6 +63,11 @@ module.exports = {
               type: "doc",
               id: "docs/dev-guides/agent-context/langchain",
             },
+            {
+              label: "Snowflake",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/snowflake",
+            },
           ],
         },
         {
