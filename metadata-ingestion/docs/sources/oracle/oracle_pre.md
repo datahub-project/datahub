@@ -121,7 +121,7 @@ The Oracle connector ingests both stored procedures and functions as DataJob ent
 Stored procedures and functions are organized together in a hierarchy matching tables and views:
 
 ```
-Database (e.g., ORCL or PMOBSTOT)
+Database (e.g., ORCL)
   └── Schema (e.g., HR)
       ├── Tables and Views
       └── stored_procedures (Flow container for all procedures and functions)

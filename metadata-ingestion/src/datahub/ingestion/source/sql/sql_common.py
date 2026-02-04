@@ -1594,6 +1594,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         db_name: str,
         procedure_registry: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        """
+        Process a single stored procedure.
+
+        Override this method in subclasses to add source-specific logic like
+        procedure-to-procedure lineage from system metadata.
+        """
         try:
             yield from generate_procedure_workunits(
                 procedure=procedure,
@@ -1611,7 +1617,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     env=self.config.env,
                 ),
                 schema_resolver=self.get_schema_resolver(),
-                procedure_registry=procedure_registry,
             )
         except Exception as e:
             self.report.warning(

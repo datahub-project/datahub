@@ -1,5 +1,4 @@
 import logging
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Dict, Iterable, List, Optional
@@ -36,9 +35,24 @@ from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger = logging.getLogger(__name__)
 
+# Container name for stored procedures and functions
+STORED_PROCEDURES_CONTAINER = "stored_procedures"
+
 
 @dataclass
 class BaseProcedure:
+    """
+    Base class for stored procedure/function metadata.
+
+    Important: default_db and default_schema use a three-value logic:
+    - None: Use fallback from database_key/schema_key
+    - Empty string (""): Explicitly no database/schema in lineage URNs
+    - Non-empty string: Use this specific value in lineage URNs
+
+    This distinction is critical for two-tier vs three-tier SQL sources
+    to ensure procedure lineage URNs match table/view URN formats.
+    """
+
     name: str
     procedure_definition: Optional[str]
     created: Optional[datetime]
@@ -125,9 +139,9 @@ def _generate_flow_workunits(
 def _get_procedure_flow_name(
     database_key: DatabaseKey, schema_key: Optional[SchemaKey]
 ) -> str:
-    # All procedures and functions go in the same "stored_procedures" container
+    # All procedures and functions go in the same container
     # Individual procedures/functions will have their own subtype for identification
-    container_suffix = "stored_procedures"
+    container_suffix = STORED_PROCEDURES_CONTAINER
 
     if schema_key:
         # For two-tier sources without database names, don't include empty database prefix
@@ -217,80 +231,6 @@ def _generate_job_workunits(
         ).as_workunit()
 
 
-def _parse_procedure_dependencies(
-    dependencies_str: str,
-    database_key: DatabaseKey,
-    schema_key: Optional[SchemaKey],
-    procedure_registry: Optional[Dict[str, str]] = None,
-) -> List[str]:
-    """
-    Parse Oracle/SQL Server dependencies string and convert to DataJob URNs.
-
-    Args:
-        dependencies_str: Comma-separated string like "SCHEMA.PROC_NAME (PROCEDURE), SCHEMA.FUNC_NAME (FUNCTION)"
-        database_key: Database key for platform/instance/env information
-        schema_key: Schema key for schema context
-        procedure_registry: Optional mapping of "schema.procedure_name" -> full_job_id (with hash if overloaded)
-
-    Returns:
-        List of DataJob URNs for the referenced procedures/functions
-
-    Note:
-        For overloaded procedures (multiple signatures), the URN will only match if a procedure_registry
-        is provided. Otherwise, only the procedure name is used, which may not match the actual URN
-        if the procedure has an argument signature hash.
-    """
-    input_jobs = []
-
-    # Split by comma
-    for dep in dependencies_str.split(","):
-        dep = dep.strip()
-
-        # Parse "SCHEMA.NAME (TYPE)" format - match PROCEDURE, FUNCTION, or PACKAGE
-        match = re.match(r"^([^(]+)\s*\((PROCEDURE|FUNCTION|PACKAGE)\)$", dep)
-        if not match:
-            continue
-
-        full_name = match.group(1).strip()
-        parts = full_name.split(".")
-
-        if len(parts) != 2:
-            continue
-
-        dep_schema, dep_name = parts
-
-        # Try to look up the full identifier (with hash) from the registry
-        registry_key = f"{dep_schema.lower()}.{dep_name.lower()}"
-        job_id = dep_name.lower()
-
-        if procedure_registry and registry_key in procedure_registry:
-            job_id = procedure_registry[registry_key]
-
-        # Create DataJob URN for the referenced procedure/function
-        # All procedures and functions use the same flow container
-        dep_job_urn = make_data_job_urn(
-            orchestrator=database_key.platform,
-            flow_id=_get_procedure_flow_name(
-                database_key,
-                SchemaKey(
-                    database=database_key.database,
-                    schema=dep_schema.lower(),
-                    platform=database_key.platform,
-                    instance=database_key.instance,
-                    env=database_key.env,
-                    backcompat_env_as_instance=database_key.backcompat_env_as_instance,
-                ),
-            ),
-            job_id=job_id,
-            cluster=database_key.env or DEFAULT_ENV,
-            platform_instance=database_key.instance,
-        )
-
-        input_jobs.append(dep_job_urn)
-
-    return input_jobs
-
-
 def generate_procedure_lineage(
     *,
     schema_resolver: SchemaResolver,
@@ -301,9 +241,7 @@ def generate_procedure_lineage(
     is_temp_table: Callable[[str], bool] = lambda _: False,
     raise_: bool = False,
     report_failure: Optional[Callable[[str], None]] = None,
-    database_key: Optional[DatabaseKey] = None,
-    schema_key: Optional[SchemaKey] = None,
-    procedure_registry: Optional[Dict[str, str]] = None,
+    additional_input_jobs: Optional[List[str]] = None,
 ) -> Iterable[MetadataChangeProposalWrapper]:
     if procedure.procedure_definition and procedure.language == "SQL":
         datajob_input_output = parse_procedure_code(
@@ -316,19 +254,11 @@ def generate_procedure_lineage(
             procedure_name=procedure.name,
         )
 
-        # Add procedure-to-procedure lineage from Oracle/SQL Server dependencies
-        if datajob_input_output and procedure.extra_properties and database_key:
-            upstream_deps = procedure.extra_properties.get("upstream_dependencies", "")
-            if upstream_deps:
-                input_datajobs = _parse_procedure_dependencies(
-                    upstream_deps, database_key, schema_key, procedure_registry
-                )
-                if input_datajobs:
-                    # Add to existing inputDatajobs or create new list
-                    if datajob_input_output.inputDatajobs:
-                        datajob_input_output.inputDatajobs.extend(input_datajobs)
-                    else:
-                        datajob_input_output.inputDatajobs = input_datajobs
+        if datajob_input_output and additional_input_jobs:
+            if datajob_input_output.inputDatajobs:
+                datajob_input_output.inputDatajobs.extend(additional_input_jobs)
+            else:
+                datajob_input_output.inputDatajobs = additional_input_jobs
 
         if datajob_input_output:
             yield MetadataChangeProposalWrapper(
@@ -349,8 +279,6 @@ def generate_procedure_container_workunits(
     schema_key: Optional[SchemaKey],
     subtype: str,
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate container workunits for database and schema with specific subtype"""
-
     yield from _generate_flow_workunits(database_key, schema_key, subtype)
 
 
@@ -359,7 +287,7 @@ def generate_procedure_workunits(
     database_key: DatabaseKey,
     schema_key: Optional[SchemaKey],
     schema_resolver: Optional[SchemaResolver],
-    procedure_registry: Optional[Dict[str, str]] = None,
+    additional_input_jobs: Optional[List[str]] = None,
 ) -> Iterable[MetadataWorkUnit]:
     yield from _generate_job_workunits(database_key, schema_key, procedure)
 
@@ -377,8 +305,6 @@ def generate_procedure_workunits(
                 default_schema=procedure.default_schema
                 if procedure.default_schema is not None
                 else (schema_key.db_schema if schema_key else None),
-                database_key=database_key,
-                schema_key=schema_key,
-                procedure_registry=procedure_registry,
+                additional_input_jobs=additional_input_jobs,
             )
         )

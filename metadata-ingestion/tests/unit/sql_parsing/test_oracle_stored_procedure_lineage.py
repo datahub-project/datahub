@@ -3,6 +3,7 @@ import pytest
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.source.common.subtypes import JobContainerSubTypes
+from datahub.ingestion.source.sql.oracle import _parse_oracle_procedure_dependencies
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
     _get_procedure_flow_name,
@@ -267,6 +268,16 @@ END;
 
     job_urn = procedure.to_urn(database_key, schema_key)
 
+    # Parse Oracle-specific procedure dependencies
+    upstream_deps = (
+        procedure.extra_properties.get("upstream_dependencies", "")
+        if procedure.extra_properties
+        else ""
+    )
+    additional_input_jobs = _parse_oracle_procedure_dependencies(
+        upstream_deps, database_key, schema_key, procedure_registry=None
+    )
+
     lineage_mcps = list(
         generate_procedure_lineage(
             schema_resolver=schema_resolver,
@@ -274,8 +285,7 @@ END;
             procedure_job_urn=job_urn,
             default_db="testdb",
             default_schema="testschema",
-            database_key=database_key,
-            schema_key=schema_key,
+            additional_input_jobs=additional_input_jobs,
         )
     )
 
@@ -356,6 +366,16 @@ END;
 
     job_urn = procedure.to_urn(database_key, schema_key)
 
+    # Parse Oracle-specific procedure dependencies with overload resolution
+    upstream_deps = (
+        procedure.extra_properties.get("upstream_dependencies", "")
+        if procedure.extra_properties
+        else ""
+    )
+    additional_input_jobs = _parse_oracle_procedure_dependencies(
+        upstream_deps, database_key, schema_key, procedure_registry
+    )
+
     lineage_mcps = list(
         generate_procedure_lineage(
             schema_resolver=schema_resolver,
@@ -363,9 +383,7 @@ END;
             procedure_job_urn=job_urn,
             default_db="testdb",
             default_schema="testschema",
-            database_key=database_key,
-            schema_key=schema_key,
-            procedure_registry=procedure_registry,
+            additional_input_jobs=additional_input_jobs,
         )
     )
 

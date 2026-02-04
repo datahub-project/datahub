@@ -30,8 +30,13 @@ from sqlalchemy.types import FLOAT, INTEGER, TIMESTAMP
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    DEFAULT_ENV,
+    make_data_job_urn,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -58,7 +63,15 @@ from datahub.ingestion.source.sql.sql_common import (
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
 )
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.sql_utils import (
+    gen_database_key,
+    gen_schema_key,
+)
+from datahub.ingestion.source.sql.stored_procedures.base import (
+    BaseProcedure,
+    _get_procedure_flow_name,
+    generate_procedure_workunits,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 # Oracle uses SQL aggregator for usage and lineage like SQL Server
@@ -914,6 +927,69 @@ class OracleInspectorObjectWrapper:
 # when parsing stored procedures and materialized views, similar to SQL Server
 
 
+def _parse_oracle_procedure_dependencies(
+    dependencies_str: str,
+    database_key: DatabaseKey,
+    schema_key: Optional[SchemaKey],
+    procedure_registry: Optional[Dict[str, str]] = None,
+) -> List[str]:
+    """
+    Parse Oracle ALL_DEPENDENCIES string to DataJob URNs.
+
+    Format: "SCHEMA.NAME (TYPE)" where TYPE is PROCEDURE, FUNCTION, or PACKAGE.
+    """
+    if not dependencies_str or not dependencies_str.strip():
+        return []
+
+    if database_key is None:
+        raise ValueError("database_key is required for parsing procedure dependencies")
+
+    input_jobs = []
+
+    for dep in dependencies_str.split(","):
+        dep = dep.strip()
+
+        match = re.match(r"^([^(]+)\s*\((PROCEDURE|FUNCTION|PACKAGE)\)$", dep)
+        if not match:
+            continue
+
+        full_name = match.group(1).strip()
+        parts = full_name.split(".")
+
+        if len(parts) != 2:
+            continue
+
+        dep_schema, dep_name = parts
+
+        registry_key = f"{dep_schema.lower()}.{dep_name.lower()}"
+        job_id = dep_name.lower()
+
+        if procedure_registry and registry_key in procedure_registry:
+            job_id = procedure_registry[registry_key]
+
+        dep_job_urn = make_data_job_urn(
+            orchestrator=database_key.platform,
+            flow_id=_get_procedure_flow_name(
+                database_key,
+                SchemaKey(
+                    database=database_key.database,
+                    schema=dep_schema.lower(),
+                    platform=database_key.platform,
+                    instance=database_key.instance,
+                    env=database_key.env,
+                    backcompat_env_as_instance=database_key.backcompat_env_as_instance,
+                ),
+            ),
+            job_id=job_id,
+            cluster=database_key.env or DEFAULT_ENV,
+            platform_instance=database_key.instance,
+        )
+
+        input_jobs.append(dep_job_urn)
+
+    return input_jobs
+
+
 @platform_name("Oracle")
 @config_class(OracleConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -1135,6 +1211,66 @@ class OracleSource(SQLAlchemySource):
             # Always pass actual database name for container hierarchy
             # The BaseProcedure.default_db (set in get_procedures_for_schema) controls URN format
             yield from self._process_procedures(procedures, actual_db_name, schema)
+
+    def _process_procedure(
+        self,
+        procedure: BaseProcedure,
+        schema: str,
+        db_name: str,
+        procedure_registry: Optional[Dict[str, str]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        additional_input_jobs: Optional[List[str]] = None
+        if procedure.extra_properties and procedure_registry:
+            upstream_deps = procedure.extra_properties.get("upstream_dependencies", "")
+            if upstream_deps:
+                try:
+                    database_key = gen_database_key(
+                        database=db_name,
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
+                    schema_key = gen_schema_key(
+                        db_name=db_name,
+                        schema=schema,
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
+                    additional_input_jobs = _parse_oracle_procedure_dependencies(
+                        upstream_deps, database_key, schema_key, procedure_registry
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to parse Oracle procedure dependencies for {procedure.name}: {e}"
+                    )
+
+        try:
+            yield from generate_procedure_workunits(
+                procedure=procedure,
+                database_key=gen_database_key(
+                    database=db_name,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_key=gen_schema_key(
+                    db_name=db_name,
+                    schema=schema,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_resolver=self.get_schema_resolver(),
+                additional_input_jobs=additional_input_jobs,
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to emit stored procedure",
+                message=f"Failed to process stored procedure {schema}.{procedure.name}",
+                context=f"{db_name}.{schema}.{procedure.name}",
+                exc=e,
+            )
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
