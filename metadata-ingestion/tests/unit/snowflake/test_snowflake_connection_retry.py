@@ -232,11 +232,6 @@ class TestConnectionRetry:
             thread1.join()
             thread2.join()
 
-            # Debug: print errors if any
-            if errors:
-                for thread_name, error in errors:
-                    print(f"{thread_name} error: {error}")
-
             # Both threads should succeed after retries
             assert len(results) == 2, (
                 f"Expected 2 results, got {len(results)}. Errors: {errors}"
