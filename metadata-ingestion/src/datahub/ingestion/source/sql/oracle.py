@@ -1248,7 +1248,8 @@ class OracleSource(SQLAlchemySource):
                     )
                 except (ValueError, KeyError, AttributeError) as e:
                     logger.warning(
-                        f"Failed to parse Oracle procedure dependencies for {procedure.name}: {e}"
+                        f"Failed to parse Oracle procedure dependencies for {procedure.name}: {e}. "
+                        f"Dependencies string: {upstream_deps[:200]}"
                     )
                     additional_input_jobs = None
 

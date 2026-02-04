@@ -306,10 +306,18 @@ END;
     assert len(helper_proc_urns) == 1, "Expected exactly one helper_proc URN"
     assert len(calc_func_urns) == 1, "Expected exactly one calc_func URN"
 
-    assert helper_proc_urns[0].startswith("urn:li:dataJob:")
-    assert calc_func_urns[0].startswith("urn:li:dataJob:")
-    assert "testdb.stored_procedures" in helper_proc_urns[0]
-    assert "testdb.stored_procedures" in calc_func_urns[0]
+    assert helper_proc_urns[0].startswith("urn:li:dataJob:"), (
+        f"helper_proc URN should start with 'urn:li:dataJob:', got: {helper_proc_urns[0]}"
+    )
+    assert calc_func_urns[0].startswith("urn:li:dataJob:"), (
+        f"calc_func URN should start with 'urn:li:dataJob:', got: {calc_func_urns[0]}"
+    )
+    assert "testdb.stored_procedures" in helper_proc_urns[0], (
+        f"helper_proc URN should contain 'testdb.stored_procedures', got: {helper_proc_urns[0]}"
+    )
+    assert "testdb.stored_procedures" in calc_func_urns[0], (
+        f"calc_func URN should contain 'testdb.stored_procedures', got: {calc_func_urns[0]}"
+    )
 
 
 def test_oracle_procedure_to_procedure_lineage_with_overloaded_procedures():
@@ -471,11 +479,21 @@ END;
 
     input_dataset_urn = result.inputDatasets[0]
 
-    assert input_dataset_urn.startswith("urn:li:dataset:")
-    assert "(urn:li:dataPlatform:oracle," in input_dataset_urn
-    assert "hr.employees" in input_dataset_urn.lower()
-    assert "orcl" not in input_dataset_urn.lower()
-    assert input_dataset_urn == employees_urn
+    assert input_dataset_urn.startswith("urn:li:dataset:"), (
+        f"Dataset URN should start with 'urn:li:dataset:', got: {input_dataset_urn}"
+    )
+    assert "(urn:li:dataPlatform:oracle," in input_dataset_urn, (
+        f"Dataset URN should contain platform identifier, got: {input_dataset_urn}"
+    )
+    assert "hr.employees" in input_dataset_urn.lower(), (
+        f"Dataset URN should contain 'hr.employees', got: {input_dataset_urn}"
+    )
+    assert "orcl" not in input_dataset_urn.lower(), (
+        f"Dataset URN should NOT contain database name 'orcl' when default_db=None, got: {input_dataset_urn}"
+    )
+    assert input_dataset_urn == employees_urn, (
+        f"Dataset URN should match expected URN. Expected: {employees_urn}, got: {input_dataset_urn}"
+    )
 
 
 def test_oracle_dataset_urn_format_with_database_name():
@@ -533,10 +551,18 @@ END;
 
     input_dataset_urn = result.inputDatasets[0]
 
-    assert input_dataset_urn.startswith("urn:li:dataset:")
-    assert "(urn:li:dataPlatform:oracle," in input_dataset_urn
-    assert "orcl.hr.employees" in input_dataset_urn.lower()
-    assert input_dataset_urn == employees_urn
+    assert input_dataset_urn.startswith("urn:li:dataset:"), (
+        f"Dataset URN should start with 'urn:li:dataset:', got: {input_dataset_urn}"
+    )
+    assert "(urn:li:dataPlatform:oracle," in input_dataset_urn, (
+        f"Dataset URN should contain platform identifier, got: {input_dataset_urn}"
+    )
+    assert "orcl.hr.employees" in input_dataset_urn.lower(), (
+        f"Dataset URN should contain 'orcl.hr.employees' when default_db='orcl', got: {input_dataset_urn}"
+    )
+    assert input_dataset_urn == employees_urn, (
+        f"Dataset URN should match expected URN. Expected: {employees_urn}, got: {input_dataset_urn}"
+    )
 
 
 def test_oracle_procedure_flow_name_without_database():
