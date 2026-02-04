@@ -115,6 +115,9 @@ RETRY_MAX_TIMES = 3
 RETRY_STATUS_CODES = [429, 500, 502, 503, 504]
 RETRY_BACKOFF_FACTOR = 1
 RETRY_ALLOWED_METHODS = ["GET"]
+CONNECTION_POOL_BUFFER = (
+    10  # Extra connections beyond max_threads for concurrent requests
+)
 
 
 chart_type_from_viz_type = {
@@ -345,7 +348,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             raise_on_status=False,
         )
         # Set connection pool size to match max_threads to avoid "Connection pool is full" warnings
-        pool_size = self.config.max_threads + 10  # Add buffer for concurrent requests
+        pool_size = self.config.max_threads + CONNECTION_POOL_BUFFER
         adapter = HTTPAdapter(
             max_retries=retry_strategy,
             pool_connections=pool_size,
