@@ -10,11 +10,12 @@ from datahub_agent_context.mcp_tools.entities import get_entities, list_schema_f
 
 
 @pytest.fixture
-def mock_graph():
-    """Create a mock DataHubGraph."""
+def mock_client():
+    """Create a mock DataHubClient."""
     mock = Mock()
-    mock.execute_graphql = Mock()
-    mock.exists = Mock()
+    mock._graph = Mock()
+    mock.graph.execute_graphql = Mock()
+    mock.graph.exists = Mock()
     return mock
 
 
@@ -33,64 +34,68 @@ def sample_entity_response():
 class TestGetEntitiesSingleURN:
     """Tests for get_entities with single URN."""
 
-    def test_single_urn_as_string(self, mock_graph, sample_entity_response):
+    def test_single_urn_as_string(self, mock_client, sample_entity_response):
         """Test passing a single URN as string returns a single dict."""
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
 
-        mock_graph.exists.return_value = True
-        mock_graph.execute_graphql.return_value = {"entity": sample_entity_response}
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": sample_entity_response
+        }
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = get_entities(urn)
         assert isinstance(result, dict)
         assert result["urn"] == urn
         assert result["name"] == "table"
-        mock_graph.exists.assert_called_once_with(urn)
+        mock_client._graph.exists.assert_called_once_with(urn)
 
-    def test_single_urn_not_found_raises_error(self, mock_graph):
+    def test_single_urn_not_found_raises_error(self, mock_client):
         """Test that single URN not found raises ItemNotFoundError."""
         urn = (
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.nonexistent,PROD)"
         )
 
-        mock_graph.exists.return_value = False
+        mock_client._graph.exists.return_value = False
 
         with pytest.raises(ItemNotFoundError, match="Entity .* not found"):
-            with DataHubContext(mock_graph):
+            with DataHubContext(mock_client):
                 get_entities(urn)
 
-    def test_single_urn_graphql_error_raises(self, mock_graph):
+    def test_single_urn_graphql_error_raises(self, mock_client):
         """Test that GraphQL error for single URN raises exception."""
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
 
-        mock_graph.exists.return_value = True
-        mock_graph.execute_graphql.side_effect = Exception("GraphQL error")
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.side_effect = Exception("GraphQL error")
 
         with pytest.raises(Exception, match="GraphQL error"):
-            with DataHubContext(mock_graph):
+            with DataHubContext(mock_client):
                 get_entities(urn)
 
 
 class TestGetEntitiesMultipleURNs:
     """Tests for get_entities with multiple URNs."""
 
-    def test_multiple_urns_as_list(self, mock_graph, sample_entity_response):
+    def test_multiple_urns_as_list(self, mock_client, sample_entity_response):
         """Test passing multiple URNs as list returns array."""
         urns = [
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table1,PROD)",
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table2,PROD)",
         ]
 
-        mock_graph.exists.return_value = True
-        mock_graph.execute_graphql.return_value = {"entity": sample_entity_response}
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": sample_entity_response
+        }
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = get_entities(urns)
         assert isinstance(result, list)
         assert len(result) == 2
         assert all(isinstance(r, dict) for r in result)
 
-    def test_multiple_urns_partial_failure(self, mock_graph, sample_entity_response):
+    def test_multiple_urns_partial_failure(self, mock_client, sample_entity_response):
         """Test that partial failures return error objects in array."""
         urns = [
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table1,PROD)",
@@ -98,10 +103,12 @@ class TestGetEntitiesMultipleURNs:
         ]
 
         # First exists, second doesn't
-        mock_graph.exists.side_effect = [True, False]
-        mock_graph.execute_graphql.return_value = {"entity": sample_entity_response}
+        mock_client._graph.exists.side_effect = [True, False]
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": sample_entity_response
+        }
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = get_entities(urns)
         assert isinstance(result, list)
         assert len(result) == 2
@@ -112,28 +119,32 @@ class TestGetEntitiesMultipleURNs:
 class TestGetEntitiesJSONParsing:
     """Tests for JSON array parsing in get_entities."""
 
-    def test_json_array_string(self, mock_graph, sample_entity_response):
+    def test_json_array_string(self, mock_client, sample_entity_response):
         """Test parsing JSON array string."""
         urns_json = '["urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table1,PROD)", "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table2,PROD)"]'
 
-        mock_graph.exists.return_value = True
-        mock_graph.execute_graphql.return_value = {"entity": sample_entity_response}
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": sample_entity_response
+        }
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = get_entities(urns_json)
         assert isinstance(result, list)
         assert len(result) == 2
 
     def test_malformed_json_treated_as_single_urn(
-        self, mock_graph, sample_entity_response
+        self, mock_client, sample_entity_response
     ):
         """Test malformed JSON is repaired by json_repair and treated as list."""
         urns_malformed = '["incomplete'
 
-        mock_graph.exists.return_value = True
-        mock_graph.execute_graphql.return_value = {"entity": sample_entity_response}
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": sample_entity_response
+        }
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = get_entities(urns_malformed)
         # json_repair successfully repairs this to ["incomplete"], so treated as list
         assert isinstance(result, list)
@@ -142,12 +153,12 @@ class TestGetEntitiesJSONParsing:
 class TestGetEntitiesQueryEntity:
     """Tests for Query entity handling."""
 
-    def test_query_entity_uses_different_gql(self, mock_graph):
+    def test_query_entity_uses_different_gql(self, mock_client):
         """Test that Query entities use query_entity_gql."""
         urn = "urn:li:query:test123"
 
-        mock_graph.exists.return_value = True
-        mock_graph.execute_graphql.return_value = {
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
             "entity": {
                 "urn": urn,
                 "type": "QUERY",
@@ -155,11 +166,11 @@ class TestGetEntitiesQueryEntity:
             }
         }
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = get_entities(urn)
         assert result["urn"] == urn
         # Verify the correct operation name was used
-        call_args = mock_graph.execute_graphql.call_args
+        call_args = mock_client._graph.execute_graphql.call_args
         assert call_args.kwargs.get("operation_name") == "GetQueryEntity"
 
 
@@ -192,14 +203,16 @@ class TestListSchemaFields:
             },
         }
 
-    def test_list_all_fields(self, mock_graph, sample_dataset_with_schema):
+    def test_list_all_fields(self, mock_client, sample_dataset_with_schema):
         """Test listing all fields without filtering."""
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
 
-        mock_graph.exists.return_value = True
-        mock_graph.execute_graphql.return_value = {"entity": sample_dataset_with_schema}
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": sample_dataset_with_schema
+        }
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = list_schema_fields(urn)
         assert result["urn"] == urn
         assert result["totalFields"] == 3
@@ -208,15 +221,17 @@ class TestListSchemaFields:
         assert result["matchingCount"] is None
 
     def test_list_fields_with_keyword_filter(
-        self, mock_graph, sample_dataset_with_schema
+        self, mock_client, sample_dataset_with_schema
     ):
         """Test filtering fields by keyword."""
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
 
-        mock_graph.exists.return_value = True
-        mock_graph.execute_graphql.return_value = {"entity": sample_dataset_with_schema}
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": sample_dataset_with_schema
+        }
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = list_schema_fields(urn, keywords="user")
         assert result["urn"] == urn
         assert result["totalFields"] == 3
@@ -228,51 +243,55 @@ class TestListSchemaFields:
         )
 
     def test_list_fields_with_multiple_keywords(
-        self, mock_graph, sample_dataset_with_schema
+        self, mock_client, sample_dataset_with_schema
     ):
         """Test filtering with multiple keywords (OR logic)."""
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
 
-        mock_graph.exists.return_value = True
-        mock_graph.execute_graphql.return_value = {"entity": sample_dataset_with_schema}
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": sample_dataset_with_schema
+        }
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = list_schema_fields(urn, keywords=["email", "timestamp"])
         assert result["urn"] == urn
         assert result["matchingCount"] >= 2  # email and created_at
 
-    def test_list_fields_with_pagination(self, mock_graph, sample_dataset_with_schema):
+    def test_list_fields_with_pagination(self, mock_client, sample_dataset_with_schema):
         """Test pagination with limit and offset."""
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
 
-        mock_graph.exists.return_value = True
-        mock_graph.execute_graphql.return_value = {"entity": sample_dataset_with_schema}
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": sample_dataset_with_schema
+        }
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = list_schema_fields(urn, limit=2, offset=0)
         assert result["returned"] <= 2
         assert result["offset"] == 0
 
-    def test_list_fields_entity_not_found(self, mock_graph):
+    def test_list_fields_entity_not_found(self, mock_client):
         """Test that non-existent entity raises error."""
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.fake,PROD)"
 
-        mock_graph.exists.return_value = False
+        mock_client._graph.exists.return_value = False
 
         with pytest.raises(ItemNotFoundError):
-            with DataHubContext(mock_graph):
+            with DataHubContext(mock_client):
                 list_schema_fields(urn)
 
-    def test_list_fields_empty_schema(self, mock_graph):
+    def test_list_fields_empty_schema(self, mock_client):
         """Test handling of dataset with no schema fields."""
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
 
-        mock_graph.exists.return_value = True
-        mock_graph.execute_graphql.return_value = {
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
             "entity": {"urn": urn, "schemaMetadata": {"fields": []}}
         }
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = list_schema_fields(urn)
         assert result["totalFields"] == 0
         assert result["returned"] == 0

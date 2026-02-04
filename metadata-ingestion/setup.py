@@ -718,8 +718,6 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
-    # Agent plugins
-    "snowflake-agent": {f"datahub-agent-context{_self_pin}[snowflake]"},
     # Debug/utility plugins
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard
