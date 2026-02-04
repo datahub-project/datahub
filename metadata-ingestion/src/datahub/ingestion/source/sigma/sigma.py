@@ -400,6 +400,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 platform=task.platform,
                 env=task.env,
                 platform_instance=task.platform_instance,
+                column_lineage_batch_size=self.config.column_lineage_batch_size,
             )
             logger.debug(
                 f"[SQL_PARSE_RESULT] element_id={task.element_id}, "
@@ -447,7 +448,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if not tasks:
             return
 
-        num_threads = min(self.config.sql_parsing_threads, len(tasks))
+        num_threads = min(self.config.max_workers, len(tasks))
         logger.info(
             f"Parsing SQL for {len(tasks)} elements using {num_threads} threads"
         )
@@ -517,6 +518,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         platform=data_source_platform_details.data_source_platform,
                         env=data_source_platform_details.env,
                         platform_instance=data_source_platform_details.platform_instance,
+                        column_lineage_batch_size=self.config.column_lineage_batch_size,
                     ).in_tables
                 except Exception:
                     logger.debug(f"Unable to parse query of element {element.name}")

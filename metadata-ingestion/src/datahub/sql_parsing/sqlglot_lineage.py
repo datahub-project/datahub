@@ -803,7 +803,17 @@ def _select_statement_cll(
     table_name_schema_mapping: Dict[_TableName, SchemaInfo],
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
+    column_lineage_batch_size: int = 0,
 ) -> List[_ColumnLineageInfo]:
+    """Generate column-level lineage for a SELECT statement.
+
+    Args:
+        column_lineage_batch_size: Process columns in batches of this size.
+            Set to 0 (default) to process all columns at once.
+            Batching reduces peak memory for wide queries (100+ columns).
+    """
+    import gc
+
     column_lineage: List[_ColumnLineageInfo] = []
 
     try:
@@ -812,80 +822,94 @@ def _select_statement_cll(
         ]
         logger.debug("output columns: %s", [col[0] for col in output_columns])
 
-        for output_col, _original_col_expression in output_columns:
+        # Filter out columns we can't process
+        processable_columns = []
+        for output_col, original_col_expression in output_columns:
             if not output_col or output_col == "*":
-                # If schema information is available, the * will be expanded to the actual columns.
-                # Otherwise, we can't process it.
                 continue
-
             if is_dialect_instance(dialect, "bigquery") and output_col.lower() in {
                 "_partitiontime",
                 "_partitiondate",
             }:
-                # These are not real columns, just a way to filter by partition.
-                # TODO: We should add these columns to the schema info instead.
-                # Once that's done, we should actually generate lineage for these
-                # if they appear in the output.
                 continue
+            processable_columns.append((output_col, original_col_expression))
 
-            lineage_node = sqlglot.lineage.lineage(
-                output_col,
-                statement,
-                dialect=dialect,
-                scope=root_scope,
-                trim_selects=False,
-                # We don't need to pass the schema in here, since we've already qualified the columns.
-            )
+        # Process columns (in batches if batch_size > 0)
+        total_columns = len(processable_columns)
+        batch_size = (
+            column_lineage_batch_size
+            if column_lineage_batch_size > 0
+            else total_columns
+        )
 
-            # Generate SELECT lineage.
-            direct_raw_col_upstreams = _get_direct_raw_col_upstreams(
-                lineage_node,
-                dialect,
-                default_db,
-                default_schema,
-            )
+        for batch_start in range(0, total_columns, batch_size):
+            batch_end = min(batch_start + batch_size, total_columns)
+            batch = processable_columns[batch_start:batch_end]
 
-            # Fuzzy resolve the output column.
-            original_col_expression = lineage_node.expression
-            if output_col.startswith("_col_"):
-                # This is the format sqlglot uses for unnamed columns e.g. 'count(id)' -> 'count(id) AS _col_0'
-                # This is a bit jank since we're relying on sqlglot internals, but it seems to be
-                # the best way to do it.
-                output_col = original_col_expression.this.sql(dialect=dialect)
-
-            output_col = column_resolver.schema_aware_fuzzy_column_resolve(
-                output_table, output_col
-            )
-
-            # Guess the output column type.
-            output_col_type = None
-            if original_col_expression.type:
-                output_col_type = original_col_expression.type
-
-            # Resolve upstream columns - table names should already be qualified from placeholder processing
-            direct_resolved_col_upstreams = {
-                _ColumnRef(
-                    table=edge.table,
-                    column=column_resolver.schema_aware_fuzzy_column_resolve(
-                        edge.table, edge.column
-                    ),
+            if column_lineage_batch_size > 0 and total_columns > batch_size:
+                logger.debug(
+                    f"Processing column lineage batch {batch_start}-{batch_end} of {total_columns}"
                 )
-                for edge in direct_raw_col_upstreams
-            }
 
-            if not direct_resolved_col_upstreams:
-                logger.debug(f'  "{output_col}" has no upstreams')
-            column_lineage.append(
-                _ColumnLineageInfo(
-                    downstream=_DownstreamColumnRef(
-                        table=output_table,
-                        column=output_col,
-                        column_type=output_col_type,
-                    ),
-                    upstreams=sorted(direct_resolved_col_upstreams),
-                    logic=_get_column_transformation(lineage_node, dialect),
+            for output_col, _original_col_expression in batch:
+                lineage_node = sqlglot.lineage.lineage(
+                    output_col,
+                    statement,
+                    dialect=dialect,
+                    scope=root_scope,
+                    trim_selects=False,
                 )
-            )
+
+                # Generate SELECT lineage.
+                direct_raw_col_upstreams = _get_direct_raw_col_upstreams(
+                    lineage_node,
+                    dialect,
+                    default_db,
+                    default_schema,
+                )
+
+                # Fuzzy resolve the output column.
+                original_col_expression = lineage_node.expression
+                if output_col.startswith("_col_"):
+                    output_col = original_col_expression.this.sql(dialect=dialect)
+
+                output_col = column_resolver.schema_aware_fuzzy_column_resolve(
+                    output_table, output_col
+                )
+
+                # Guess the output column type.
+                output_col_type = None
+                if original_col_expression.type:
+                    output_col_type = original_col_expression.type
+
+                # Resolve upstream columns
+                direct_resolved_col_upstreams = {
+                    _ColumnRef(
+                        table=edge.table,
+                        column=column_resolver.schema_aware_fuzzy_column_resolve(
+                            edge.table, edge.column
+                        ),
+                    )
+                    for edge in direct_raw_col_upstreams
+                }
+
+                if not direct_resolved_col_upstreams:
+                    logger.debug(f'  "{output_col}" has no upstreams')
+                column_lineage.append(
+                    _ColumnLineageInfo(
+                        downstream=_DownstreamColumnRef(
+                            table=output_table,
+                            column=output_col,
+                            column_type=output_col_type,
+                        ),
+                        upstreams=sorted(direct_resolved_col_upstreams),
+                        logic=_get_column_transformation(lineage_node, dialect),
+                    )
+                )
+
+            # After each batch, allow garbage collection to reduce peak memory
+            if column_lineage_batch_size > 0 and batch_end < total_columns:
+                gc.collect()
 
         # TODO: Also extract referenced columns (aka auxiliary / non-SELECT lineage)
     except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
@@ -911,6 +935,7 @@ def _column_level_lineage(
     table_name_schema_mapping: Dict[_TableName, SchemaInfo],
     default_db: Optional[str],
     default_schema: Optional[str],
+    column_lineage_batch_size: int = 0,
 ) -> _ColumnLineageWithDebugInfo:
     # Simplify the input statement for column-level lineage generation.
     try:
@@ -977,6 +1002,7 @@ def _column_level_lineage(
         table_name_schema_mapping=table_name_schema_mapping,
         default_db=default_db,
         default_schema=default_schema,
+        column_lineage_batch_size=column_lineage_batch_size,
     )
 
     joins: Optional[List[_JoinInfo]] = None
@@ -1674,6 +1700,7 @@ def _sqlglot_lineage_inner(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
+    column_lineage_batch_size: int = 0,
 ) -> SqlParsingResult:
     if override_dialect:
         dialect = get_dialect(override_dialect)
@@ -1798,6 +1825,7 @@ def _sqlglot_lineage_inner(
                 table_name_schema_mapping=table_name_schema_mapping,
                 default_db=default_db,
                 default_schema=default_schema,
+                column_lineage_batch_size=column_lineage_batch_size,
             )
             column_lineage = column_lineage_debug_info.column_lineage
             joins = column_lineage_debug_info.joins
@@ -1866,6 +1894,7 @@ def _sqlglot_lineage_nocache(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
+    column_lineage_batch_size: int = 0,
 ) -> SqlParsingResult:
     """Parse a SQL statement and generate lineage information.
 
@@ -1900,6 +1929,8 @@ def _sqlglot_lineage_nocache(
         default_db: The default database to use for unqualified table names.
         default_schema: The default schema to use for unqualified table names.
         override_dialect: Override the dialect provided by 'schema_resolver'.
+        column_lineage_batch_size: Process columns in batches of this size.
+            Set to 0 (default) to process all columns at once.
 
     Returns:
         A SqlParsingResult object containing the parsed lineage information.
@@ -1925,6 +1956,7 @@ def _sqlglot_lineage_nocache(
             default_db=default_db,
             default_schema=default_schema,
             override_dialect=override_dialect,
+            column_lineage_batch_size=column_lineage_batch_size,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
@@ -1963,10 +1995,17 @@ def sqlglot_lineage(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
+    column_lineage_batch_size: int = 0,
 ) -> SqlParsingResult:
-    if schema_resolver.includes_temp_tables():
+    # Use uncached version when temp tables are present or batching is enabled
+    if schema_resolver.includes_temp_tables() or column_lineage_batch_size > 0:
         return _sqlglot_lineage_nocache(
-            sql, schema_resolver, default_db, default_schema, override_dialect
+            sql,
+            schema_resolver,
+            default_db,
+            default_schema,
+            override_dialect,
+            column_lineage_batch_size,
         )
     else:
         return _sqlglot_lineage_cached(
@@ -2023,6 +2062,7 @@ def create_lineage_sql_parsed_result(
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
     override_dialect: Optional[DialectOrStr] = None,
+    column_lineage_batch_size: int = 0,
 ) -> SqlParsingResult:
     schema_resolver = create_schema_resolver(
         platform=platform,
@@ -2043,6 +2083,7 @@ def create_lineage_sql_parsed_result(
             default_db=default_db,
             default_schema=default_schema,
             override_dialect=override_dialect,
+            column_lineage_batch_size=column_lineage_batch_size,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)

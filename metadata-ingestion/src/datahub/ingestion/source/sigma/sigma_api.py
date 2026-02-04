@@ -1,7 +1,8 @@
 import functools
 import logging
 import sys
-from typing import Any, Dict, List, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
@@ -344,6 +345,14 @@ class SigmaAPI:
             )
         return None
 
+    def _fetch_element_lineage_data(
+        self, element: Element, workbook: Workbook
+    ) -> Tuple[str, Dict[str, str], Optional[str]]:
+        """Fetch upstream sources and SQL query for an element. Used for parallel fetching."""
+        upstream_sources = self._get_element_upstream_sources(element, workbook)
+        query = self._get_element_sql_query(element, workbook)
+        return (element.elementId, upstream_sources, query)
+
     def get_page_elements(self, workbook: Workbook, page: Page) -> List[Element]:
         try:
             elements: List[Element] = []
@@ -351,6 +360,8 @@ class SigmaAPI:
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages/{page.pageId}/elements"
             )
             response.raise_for_status()
+
+            # First pass: create all elements without lineage data
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
                 if not element_dict.get(Constant.NAME):
                     element_dict[Constant.NAME] = (
@@ -360,15 +371,29 @@ class SigmaAPI:
                     f"{workbook.url}?:nodeId={element_dict[Constant.ELEMENTID]}&:fullScreen=true"
                 )
                 element = Element.model_validate(element_dict)
-                if (
-                    self.config.extract_lineage
-                    and self.config.workbook_lineage_pattern.allowed(workbook.name)
-                ):
-                    element.upstream_sources = self._get_element_upstream_sources(
-                        element, workbook
-                    )
-                    element.query = self._get_element_sql_query(element, workbook)
                 elements.append(element)
+
+            # Second pass: fetch lineage data in parallel if needed
+            if (
+                self.config.extract_lineage
+                and self.config.workbook_lineage_pattern.allowed(workbook.name)
+                and elements
+            ):
+                element_map = {e.elementId: e for e in elements}
+                num_threads = min(self.config.max_workers, len(elements))
+
+                with ThreadPoolExecutor(max_workers=num_threads) as executor:
+                    futures = {
+                        executor.submit(
+                            self._fetch_element_lineage_data, element, workbook
+                        ): element
+                        for element in elements
+                    }
+                    for future in as_completed(futures):
+                        element_id, upstream_sources, query = future.result()
+                        element_map[element_id].upstream_sources = upstream_sources
+                        element_map[element_id].query = query
+
             return elements
         except Exception as e:
             self._log_http_error(

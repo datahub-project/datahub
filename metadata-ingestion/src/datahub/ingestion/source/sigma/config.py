@@ -183,10 +183,15 @@ class SigmaSourceConfig(
         default={},
         description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.",
     )
-    sql_parsing_threads: int = pydantic.Field(
-        default=10,
-        description="Number of parallel threads for SQL parsing. "
-        "Increase for faster lineage extraction when using chart_sources_platform_mapping.",
+    max_workers: int = pydantic.Field(
+        default=20,
+        description="Number of parallel threads for API calls and SQL parsing. "
+        "Controls parallelism for fetching element data and lineage extraction.",
+    )
+    column_lineage_batch_size: int = pydantic.Field(
+        default=20,
+        description="Number of columns to process per batch during column-level lineage computation. "
+        "Batching reduces peak memory for wide queries (100+ columns). Set to 0 to disable batching.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Sigma Stateful Ingestion Config."
