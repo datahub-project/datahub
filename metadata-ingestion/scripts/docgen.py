@@ -296,7 +296,6 @@ class PluginMetrics:
     loaded: int = 0
     generated: int = 0
     failed: int = 0
-    missing_capability_data: int = 0
 
 
 @dataclasses.dataclass
@@ -352,8 +351,8 @@ def generate(  # noqa: C901
                     plugin_name, plugin_data, out_dir=out_dir
                 )
             else:
-                logger.warning(f"Plugin {plugin_name} not found in capability data")
-                plugin_metrics.missing_capability_data += 1
+                logger.error(f"Plugin {plugin_name} not found in capability data")
+                plugin_metrics.failed += 1
                 continue
         except Exception as e:
             logger.error(
@@ -389,12 +388,7 @@ def generate(  # noqa: C901
                 if file_name == "README":
                     # README goes as platform level docs
                     # all other docs are assumed to be plugin level
-                    if platform_name not in platforms:
-                        logger.warning(
-                            f"Platform '{platform_name}' not found when processing README file {path}. Skipping."
-                        )
-                    else:
-                        platforms[platform_name].custom_docs_pre = final_markdown
+                    platforms[platform_name].custom_docs_pre = final_markdown
 
                 elif "_" in file_name:
                     plugin_doc_parts = file_name.split("_")
@@ -403,15 +397,7 @@ def generate(  # noqa: C901
                             f"{file_name} needs to be of the form <plugin>_pre.md or <plugin>_post.md"
                         )
                     plugin_name, suffix = plugin_doc_parts
-                    if platform_name not in platforms:
-                        logger.warning(
-                            f"Platform '{platform_name}' not found when processing doc file {path}. Skipping."
-                        )
-                    elif plugin_name not in platforms[platform_name].plugins:
-                        logger.warning(
-                            f"Plugin '{plugin_name}' not found in platform '{platform_name}' when processing doc file {path}. Skipping."
-                        )
-                    elif suffix == "pre":
+                    if suffix == "pre":
                         platforms[platform_name].plugins[
                             plugin_name
                         ].custom_docs_pre = final_markdown
@@ -425,33 +411,16 @@ def generate(  # noqa: C901
                         )
 
                 else:  # assume this is the platform post.
-                    if platform_name not in platforms:
-                        logger.warning(
-                            f"Platform '{platform_name}' not found when processing doc file {path}. Skipping."
-                        )
-                    elif file_name not in platforms[platform_name].plugins:
-                        logger.warning(
-                            f"Plugin '{file_name}' not found in platform '{platform_name}' when processing doc file {path}. Skipping."
-                        )
-                    else:
-                        platforms[platform_name].plugins[
-                            file_name
-                        ].custom_docs_post = final_markdown
+                    # TODO: Probably need better error checking here.
+                    platforms[platform_name].plugins[
+                        file_name
+                    ].custom_docs_post = final_markdown
             elif yml_match := re.search("/docs/sources/(.*)/(.*)_recipe.yml", path):
                 platform_name = yml_match.group(1).lower()
                 plugin_name = yml_match.group(2)
-                if platform_name not in platforms:
-                    logger.warning(
-                        f"Platform '{platform_name}' not found when processing recipe file {path}. Skipping."
-                    )
-                elif plugin_name not in platforms[platform_name].plugins:
-                    logger.warning(
-                        f"Plugin '{plugin_name}' not found in platform '{platform_name}' when processing recipe file {path}. Skipping."
-                    )
-                else:
-                    platforms[platform_name].plugins[
-                        plugin_name
-                    ].starter_recipe = pathlib.Path(path).read_text()
+                platforms[platform_name].plugins[
+                    plugin_name
+                ].starter_recipe = pathlib.Path(path).read_text()
 
     sources_dir = f"{out_dir}/sources"
     os.makedirs(sources_dir, exist_ok=True)
@@ -622,7 +591,6 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
         )
     )
     print("############################################")
-    # Only exit with error code if there were actual failures (exceptions), not just missing capability data
     if plugin_metrics.failed > 0:
         sys.exit(1)
 
