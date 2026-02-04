@@ -79,6 +79,22 @@ def test_parse_patch_path_invalid():
 
 
 @pytest.mark.parametrize(
+    "path_str",
+    [
+        "/tags//attribution",
+        "/tags/",
+        "//tags",
+        "/a//b",
+        "/a//b//c",
+    ],
+)
+def test_parse_patch_path_empty_components(path_str: str) -> None:
+    """Paths with empty components (e.g. // or trailing /) raise ValueError."""
+    with pytest.raises(ValueError, match="empty component"):
+        parse_patch_path(path_str)
+
+
+@pytest.mark.parametrize(
     "force_generic_patch,expected_force", [(False, False), (True, True)]
 )
 def test_generic_json_patch_to_dict(force_generic_patch, expected_force):
@@ -122,6 +138,25 @@ def test_generic_json_patch_to_generic_aspect():
     assert len(decoded["patch"]) == 1
     assert decoded["patch"][0]["op"] == "add"
     assert decoded["patch"][0]["path"] == "/tags/test"
+
+
+def test_generic_json_patch_to_generic_aspect_serialization_error() -> None:
+    """Non-JSON-serializable patch value raises ValueError with clear context."""
+    patch_ops = [
+        _Patch(
+            op="add",
+            path=("tags", "test"),
+            value={"tag": "urn:li:tag:test", "nested": object()},
+        )
+    ]
+    patch = GenericJsonPatch(
+        array_primary_keys=TAGS_ARRAY_PRIMARY_KEYS,
+        patch=patch_ops,
+    )
+    with pytest.raises(
+        ValueError, match="Failed to serialize GenericJsonPatch to JSON"
+    ):
+        patch.to_generic_aspect()
 
 
 def test_generic_json_patch_from_dict():
@@ -171,6 +206,16 @@ def test_generic_json_patch_from_dict_invalid_op():
     }
 
     with pytest.raises(ValueError, match="Unsupported patch operation"):
+        GenericJsonPatch.from_dict(patch_dict)
+
+
+def test_generic_json_patch_from_dict_empty_path_component() -> None:
+    """GenericJsonPatch.from_dict raises when a patch path has empty components."""
+    patch_dict = {
+        "arrayPrimaryKeys": {"tags": ["tag"]},
+        "patch": [{"op": "add", "path": "/tags//attribution", "value": {}}],
+    }
+    with pytest.raises(ValueError, match="empty component"):
         GenericJsonPatch.from_dict(patch_dict)
 
 

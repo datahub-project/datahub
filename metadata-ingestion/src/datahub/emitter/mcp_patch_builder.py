@@ -185,11 +185,12 @@ def parse_patch_path(path_str: str) -> PatchPath:
     if not path_str.startswith("/"):
         raise ValueError(f"Patch path must start with '/': {path_str}")
     parts = path_str[1:].split("/")
-    # Unquote each part
     unquoted_parts = []
     for part in parts:
         if not part:
-            continue
+            raise ValueError(
+                f"Patch path has empty component (invalid '//' or leading/trailing '/'): {path_str!r}"
+            )
         unquoted = _Patch.unquote_path_component(part)
         unquoted_parts.append(unquoted)
     return tuple(unquoted_parts)
@@ -220,10 +221,15 @@ class GenericJsonPatch:
 
     def to_generic_aspect(self) -> GenericAspectClass:
         """Serialize to GenericAspectClass for use in MetadataChangeProposalClass."""
+        try:
+            payload = pre_json_transform(_recursive_to_obj(self.to_dict()))
+            serialized = json.dumps(payload).encode()
+        except (TypeError, ValueError) as e:
+            raise ValueError(
+                f"Failed to serialize GenericJsonPatch to JSON: {e}"
+            ) from e
         return GenericAspectClass(
-            value=json.dumps(
-                pre_json_transform(_recursive_to_obj(self.to_dict()))
-            ).encode(),
+            value=serialized,
             contentType=JSON_PATCH_CONTENT_TYPE,
         )
 
