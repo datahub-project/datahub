@@ -2,7 +2,7 @@ import logging
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata._urns.urn_defs import CorpUserUrn, GlossaryNodeUrn
+from datahub.metadata.urns import CorpUserUrn, GlossaryNodeUrn
 from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
