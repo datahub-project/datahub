@@ -2,7 +2,7 @@ import json
 from unittest.mock import ANY
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_patch_builder import UNIT_SEPARATOR, GenericJsonPatch, _Patch
+from datahub.emitter.mcp_patch_builder import UNIT_SEPARATOR, _Patch
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.transformer.set_attribution import (
     SetAttributionConfig,
@@ -28,7 +28,7 @@ SAMPLE_URN = (
 ATTRIBUTION_SOURCE = "urn:li:platformResource:ingestion"
 
 
-# Test GenericJsonPatch and _Patch classes
+# Test _Patch serialization
 def test_patch_to_obj():
     """Test _Patch serialization."""
     op = _Patch(op="add", path=("tags", "test"), value={"tag": "urn:li:tag:test"})
@@ -42,47 +42,6 @@ def test_patch_to_obj():
     op_no_value = _Patch(op="remove", path=("tags", "test"), value={})
     result = op_no_value.to_obj()
     assert result == {"op": "remove", "path": "/tags/test", "value": {}}
-
-
-def test_generic_json_patch_to_dict():
-    """Test GenericJsonPatch serialization."""
-    patch_ops = [
-        _Patch(op="add", path=("tags", "test1"), value={"tag": "urn:li:tag:test1"}),
-        _Patch(op="add", path=("tags", "test2"), value={"tag": "urn:li:tag:test2"}),
-    ]
-    array_primary_keys = {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]}
-    patch = GenericJsonPatch(
-        array_primary_keys=array_primary_keys,
-        patch=patch_ops,
-        force_generic_patch=True,
-    )
-
-    result = patch.to_dict()
-    assert result["arrayPrimaryKeys"] == {
-        "tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]
-    }
-    assert len(result["patch"]) == 2
-    assert result["forceGenericPatch"] is True
-
-
-def test_generic_json_patch_to_generic_aspect():
-    """Test GenericJsonPatch conversion to GenericAspectClass."""
-    patch_ops = [
-        _Patch(op="add", path=("tags", "test"), value={"tag": "urn:li:tag:test"})
-    ]
-    array_primary_keys = {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]}
-    patch = GenericJsonPatch(
-        array_primary_keys=array_primary_keys,
-        patch=patch_ops,
-    )
-
-    aspect = patch.to_generic_aspect()
-    assert isinstance(aspect, GenericAspectClass)
-    assert aspect.contentType == "application/json-patch+json"
-    # Verify JSON is valid
-    decoded = json.loads(aspect.value.decode())
-    assert "arrayPrimaryKeys" in decoded
-    assert "patch" in decoded
 
 
 # Test GlobalTags transformer

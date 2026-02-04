@@ -101,6 +101,27 @@ def test_generic_json_patch_to_dict():
     assert result["forceGenericPatch"] is False
 
 
+def test_generic_json_patch_to_dict_force_generic_patch_true():
+    """Test GenericJsonPatch serialization with force_generic_patch=True."""
+    patch_ops = [
+        _Patch(op="add", path=("tags", "test1"), value={"tag": "urn:li:tag:test1"}),
+        _Patch(op="add", path=("tags", "test2"), value={"tag": "urn:li:tag:test2"}),
+    ]
+    array_primary_keys = {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]}
+    patch = GenericJsonPatch(
+        array_primary_keys=array_primary_keys,
+        patch=patch_ops,
+        force_generic_patch=True,
+    )
+
+    result = patch.to_dict()
+    assert result["arrayPrimaryKeys"] == {
+        "tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]
+    }
+    assert len(result["patch"]) == 2
+    assert result["forceGenericPatch"] is True
+
+
 def test_generic_json_patch_to_generic_aspect():
     """Test GenericJsonPatch conversion to GenericAspectClass."""
     patch_ops = [
