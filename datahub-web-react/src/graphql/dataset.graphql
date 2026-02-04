@@ -40,6 +40,33 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
     }
 }
 
+query getDataProfilesSummary($urn: String!, $limit: Int, $startTime: Long, $endTime: Long, $filters: FilterInput) {
+    dataset(urn: $urn) {
+        urn
+        type
+        datasetProfiles(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime, filter: $filters) {
+            ...datasetProfileSummaryFields
+        }
+    }
+}
+
+query getLatestPartitionProfiles($urn: String!) {
+    dataset(urn: $urn) {
+        urn
+        type
+        latestPartitionProfiles {
+            timestampMillis
+            partitionProfiles {
+                partition
+                rowCount
+                columnCount
+                sizeInBytes
+                partitionCount
+            }
+        }
+    }
+}
+
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
         ...nonSiblingDatasetFields
@@ -107,23 +134,7 @@ fragment nonSiblingDatasetFields on Dataset {
         }
     }
     datasetProfiles(limit: 1) {
-        rowCount
-        columnCount
-        sizeInBytes
-        timestampMillis
-        fieldProfiles {
-            fieldPath
-            uniqueCount
-            uniqueProportion
-            nullCount
-            nullProportion
-            min
-            max
-            mean
-            median
-            stdev
-            sampleValues
-        }
+        ...datasetProfileSummaryFields
     }
     latestFullTableProfile: datasetProfiles(
         limit: 1
@@ -133,7 +144,7 @@ fragment nonSiblingDatasetFields on Dataset {
             ]
         }
     ) {
-        ...datasetProfileFields
+        ...datasetProfileSummaryFields
     }
     latestPartitionProfile: datasetProfiles(
         limit: 1
@@ -148,7 +159,7 @@ fragment nonSiblingDatasetFields on Dataset {
             ]
         }
     ) {
-        ...datasetProfileFields
+        ...datasetProfileSummaryFields
     }
     health {
         ...entityHealth
@@ -387,7 +398,7 @@ query getDatasetRuns($urn: String!, $start: Int!, $count: Int!, $direction: Rela
 
 fragment datasetSchema on Dataset {
     schemaMetadata(version: 0) {
-        ...schemaMetadataFields
+        ...schemaMetadataLightFields
     }
     editableSchemaMetadata {
         editableSchemaFieldInfo {

@@ -10,7 +10,10 @@ export default function QuickFiltersProvider({ children }: { children: React.Rea
     const userContext = useUserContext();
     const viewUrn = userContext.localState?.selectedViewUrn;
 
-    const { data, refetch } = useGetQuickFiltersQuery({ variables: { input: { viewUrn } } });
+    const { data } = useGetQuickFiltersQuery({
+        variables: { input: { viewUrn } },
+        fetchPolicy: 'cache-first',
+    });
     const [quickFilters, setQuickFilters] = useState<QuickFilter[] | null>(null);
     const [selectedQuickFilter, setSelectedQuickFilter] = useState<QuickFilter | null>(null);
 
@@ -19,15 +22,6 @@ export default function QuickFiltersProvider({ children }: { children: React.Rea
             setQuickFilters(data.getQuickFilters.quickFilters as QuickFilter[]);
         }
     }, [data, quickFilters]);
-
-    // refetch and update quick filters whenever viewUrn changes
-    useEffect(() => {
-        refetch({ input: { viewUrn } }).then((result) => {
-            if (result.data.getQuickFilters?.quickFilters) {
-                setQuickFilters(result.data.getQuickFilters.quickFilters as QuickFilter[]);
-            }
-        });
-    }, [viewUrn, refetch]);
 
     return (
         <QuickFiltersContext.Provider

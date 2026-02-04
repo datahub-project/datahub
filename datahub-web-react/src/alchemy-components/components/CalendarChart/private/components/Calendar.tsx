@@ -7,7 +7,8 @@ export function Calendar<ValueType>({ data }: CalendarProps<ValueType>) {
     return (
         <>
             {data.map((month, monthIndex) => {
-                return <Month key={month.key} month={month} monthIndex={monthIndex} />;
+                const uniqueKey = month.weeks[0]?.key ? `${month.key}-${month.weeks[0].key}` : month.key;
+                return <Month key={uniqueKey} month={month} monthIndex={monthIndex} />;
             })}
         </>
     );

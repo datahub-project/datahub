@@ -11,7 +11,7 @@ import { DataHubView, DataHubViewType, EntityType, LogicalOperator } from '@type
  *  In the future, we will need to consider pagination, or bumping this
  *  limit if we find that this maximum is reached.
  */
-export const DEFAULT_LIST_VIEWS_PAGE_SIZE = 1000;
+export const DEFAULT_LIST_VIEWS_PAGE_SIZE = 50;
 
 /**
  * Converts an instance of the View builder state

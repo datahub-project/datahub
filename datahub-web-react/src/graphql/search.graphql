@@ -1476,6 +1476,25 @@ query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!) {
     }
 }
 
+query getStructuredPropertiesForColumns($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        searchResults {
+            entity {
+                __typename
+                ... on StructuredPropertyEntity {
+                    urn
+                    type
+                    exists
+                    definition {
+                        displayName
+                        qualifiedName
+                    }
+                }
+            }
+        }
+    }
+}
+
 query getSearchCount($input: SearchAcrossEntitiesInput!) {
     searchAcrossEntities(input: $input) {
         total

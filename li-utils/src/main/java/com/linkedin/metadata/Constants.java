@@ -174,6 +174,7 @@ public class Constants {
   public static final String EDITABLE_SCHEMA_METADATA_ASPECT_NAME = "editableSchemaMetadata";
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
   public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
+  public static final String LATEST_PARTITION_PROFILES_ASPECT_NAME = "latestPartitionProfiles";
   public static final String DATASET_USAGE_STATISTICS_ASPECT_NAME = "datasetUsageStatistics";
   public static final String DATASET_OPERATION_ASPECT_NAME = "operation";
 

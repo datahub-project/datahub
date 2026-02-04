@@ -3,19 +3,19 @@ import {
     getNotHiddenPropertyFilter,
     getShowInColumnsTablePropertyFilter,
 } from '@src/app/govern/structuredProperties/utils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType } from '@src/types.generated';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useGetStructuredPropertiesForColumnsQuery } from '@src/graphql/search.generated';
+import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
 
 export const useGetTableColumnProperties = () => {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const inputs = {
         types: [EntityType.StructuredProperty],
         query: '',
         start: 0,
         count: 50,
-        searchFlags: { skipCache: true },
+        searchFlags: { skipCache: false },
         orFilters: [
             {
                 and: [
@@ -28,12 +28,17 @@ export const useGetTableColumnProperties = () => {
     };
 
     // Execute search
-    const { data } = useGetSearchResultsForMultipleQuery({
+    const { data } = useGetStructuredPropertiesForColumnsQuery({
         variables: {
             input: inputs,
         },
         fetchPolicy: 'cache-first',
     });
 
-    return data?.searchAcrossEntities?.searchResults;
+    const results = data?.searchAcrossEntities?.searchResults || [];
+    return results
+        .filter((result) => result.entity?.__typename === 'StructuredPropertyEntity')
+        .map((result) => ({
+            entity: result.entity as StructuredPropertyEntity,
+        }));
 };

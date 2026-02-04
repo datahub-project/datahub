@@ -35,6 +35,7 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
         }
     }, [loading, enabledTabs, selectedTab, routeToTab]);
 
+    const activeTabName = selectedTab?.name;
     const finalTabs: Tab[] = tabs.map((t) => ({
         key: t.name,
         name: t.name,
@@ -43,7 +44,7 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
                 <t.component
                     properties={t.properties}
                     contextType={TabContextType.PROFILE}
-                    renderType={TabRenderType.DEFAULT}
+                    renderType={t.name === activeTabName ? TabRenderType.DEFAULT : TabRenderType.LAZY}
                 />
             </TabContent>
         ),

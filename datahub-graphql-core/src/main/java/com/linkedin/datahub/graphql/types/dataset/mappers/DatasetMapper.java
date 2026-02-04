@@ -66,6 +66,7 @@ import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.structured.StructuredProperties;
+import com.linkedin.datahub.graphql.types.dataset.mappers.LatestPartitionProfilesMapper;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -200,6 +201,11 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         (entity, dataMap) ->
             entity.setVersionProperties(
                 VersionPropertiesMapper.map(context, new VersionProperties(dataMap))));
+    mappingHelper.mapToResult(
+        LATEST_PARTITION_PROFILES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setLatestPartitionProfiles(
+                LatestPartitionProfilesMapper.map(context, dataMap)));
     mappingHelper.mapToResult(
         LOGICAL_PARENT_ASPECT_NAME,
         (entity, dataMap) ->

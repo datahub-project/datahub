@@ -5,7 +5,9 @@ import {
     useStatsSectionsContext,
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
 import ColumnStatsV2 from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/columnStats/ColumnStatsV2';
-import ChangeHistoryGraph from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/ChangeHistoryGraph';
+import FileStatsSummary from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/FileStatsSummary/FileStatsSummary';
+import PartitionCoverageSummary from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/PartitionCoverageSummary/PartitionCoverageSummary';
+import SchemaChangeSummary from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/SchemaChangeSummary/SchemaChangeSummary';
 import QueryCountChart from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/QueryCountGraph/QueryCountChart';
 import StorageSizeGraph from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/StorageSizeGraph/StorageSizeGraph';
 import RowsAndUsers from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/historical/RowsAndUsers';
@@ -19,7 +21,9 @@ export const useGetStatsSections = () => {
         rowsAndUsers: <RowsAndUsers />,
         queries: <QueryCountChart />,
         storage: <StorageSizeGraph />,
-        changes: <ChangeHistoryGraph />,
+        fileStats: <FileStatsSummary />,
+        changes: <SchemaChangeSummary />,
+        partitionCoverage: <PartitionCoverageSummary />,
         columnStats: <ColumnStatsV2 />,
     };
 

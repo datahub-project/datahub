@@ -24,7 +24,9 @@ import io.opentelemetry.api.trace.Span;
 import jakarta.inject.Inject;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -60,6 +62,7 @@ public class GraphQLController {
   private OperationContext systemOperationContext;
 
   private static final int MAX_LOG_WIDTH = 512;
+  private static final long DEFAULT_SLOW_QUERY_THRESHOLD_MS = 5000;
 
   @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> postGraphQL(
@@ -162,11 +165,20 @@ public class GraphQLController {
             long totalDuration = submitMetrics(executionResult);
             String executionTook = totalDuration > 0 ? " in " + totalDuration + " ms" : "";
             log.info("Executed operation {}" + executionTook, queryName);
+            Object tracingInstrumentation = executionResult.getExtensions().get("tracing");
             // Remove tracing from response to reduce bulk, not used by the frontend
             executionResult.getExtensions().remove("tracing");
             String responseBodyStr =
                 new ObjectMapper().writeValueAsString(executionResult.toSpecification());
             log.info("Operation {} execution result size: {}", queryName, responseBodyStr.length());
+            logSlowQuery(
+                totalDuration,
+                queryName,
+                operationName,
+                query,
+                variables,
+                tracingInstrumentation,
+                responseBodyStr.length());
             log.trace("Execution result: {}", responseBodyStr);
             return new ResponseEntity<>(responseBodyStr, HttpStatus.OK);
           } catch (IllegalArgumentException | JsonProcessingException e) {
@@ -246,5 +258,86 @@ public class GraphQLController {
     }
 
     return -1;
+  }
+
+  private long getSlowQueryThresholdMs() {
+    String raw =
+        System.getenv()
+            .getOrDefault(
+                "DATAHUB_GRAPHQL_SLOW_QUERY_THRESHOLD_MS",
+                Long.toString(DEFAULT_SLOW_QUERY_THRESHOLD_MS));
+    try {
+      long value = Long.parseLong(raw);
+      return value > 0 ? value : DEFAULT_SLOW_QUERY_THRESHOLD_MS;
+    } catch (NumberFormatException e) {
+      return DEFAULT_SLOW_QUERY_THRESHOLD_MS;
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private void logSlowQuery(
+      long totalDurationMs,
+      String queryName,
+      String operationName,
+      String query,
+      Map<String, Object> variables,
+      Object tracingInstrumentation,
+      int responseSize) {
+    if (totalDurationMs <= 0) {
+      return;
+    }
+    long thresholdMs = getSlowQueryThresholdMs();
+    if (totalDurationMs < thresholdMs) {
+      return;
+    }
+
+    log.warn(
+        "Slow GraphQL operation {} (operationName {}) took {} ms; response size {} bytes",
+        queryName,
+        operationName,
+        totalDurationMs,
+        responseSize);
+    log.warn("Slow GraphQL query: {}", StringUtils.abbreviate(query, MAX_LOG_WIDTH));
+    log.debug("Slow GraphQL variables: {}", variables);
+
+    if (!(tracingInstrumentation instanceof Map)) {
+      return;
+    }
+    Map<String, Object> tracingMap = (Map<String, Object>) tracingInstrumentation;
+    Object executionObj = tracingMap.get("execution");
+    if (!(executionObj instanceof Map)) {
+      return;
+    }
+    Object resolversObj = ((Map<String, Object>) executionObj).get("resolvers");
+    if (!(resolversObj instanceof List)) {
+      return;
+    }
+    List<Map<String, Object>> resolverList = new ArrayList<>();
+    for (Object resolverObj : (List<?>) resolversObj) {
+      if (resolverObj instanceof Map) {
+        Map<String, Object> resolver = (Map<String, Object>) resolverObj;
+        if (resolver.get("duration") instanceof Number) {
+          resolverList.add(resolver);
+        }
+      }
+    }
+    resolverList.sort(
+        Comparator.comparingLong(
+                (Map<String, Object> resolver) ->
+                    ((Number) resolver.get("duration")).longValue())
+            .reversed());
+
+    int limit = Math.min(5, resolverList.size());
+    for (int i = 0; i < limit; i++) {
+      Map<String, Object> resolver = resolverList.get(i);
+      long durationMs =
+          TimeUnit.NANOSECONDS.toMillis(((Number) resolver.get("duration")).longValue());
+      log.warn(
+          "Slow GraphQL resolver: parentType={}, field={}, path={}, durationMs={}",
+          resolver.get("parentType"),
+          resolver.get("fieldName"),
+          resolver.get("path"),
+          durationMs);
+    }
   }
 }

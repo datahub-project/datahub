@@ -74,8 +74,10 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTH
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
+ARG UV_EXTRA_INDEX_URL=
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+ENV UV_EXTRA_INDEX_URL=${UV_EXTRA_INDEX_URL}
 
 USER datahub
 WORKDIR $HOME
@@ -159,16 +161,22 @@ COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/action
 USER datahub
 
 ARG RELEASE_VERSION
+ARG SKIP_VERSION_UPDATE=0
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
-    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 && \
-    python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
+    if [ "$SKIP_VERSION_UPDATE" = "1" ]; then \
+        echo "Skipping version update (SKIP_VERSION_UPDATE=1)"; \
+    else \
+        python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 && \
+        python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1; \
+    fi
 
 # For the datahub-actions build, we explicitly want to retain the uv cache.
 # This speeds up the process of creating venvs at runtime.
 # Because uv uses hardlinks for installing packages, keeping the cache around does not
 # really impact image size.
 RUN uv pip install -e '/metadata-ingestion/' -e '/datahub-actions/[all]'
+RUN uv pip install -e '/metadata-ingestion/[iceberg]'
 
 # =============================================================================
 # PRE-BUILD BUNDLED INGESTION VENVS

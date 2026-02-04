@@ -57,12 +57,15 @@ const DEFAULT_SCHEMA_FILTER_TYPES = [
     SchemaFilterType.Terms,
 ];
 
+const MAX_FIELDS_FOR_SCHEMA_VERSIONING = 5000;
+
 export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderType; properties?: any }) => {
     const entityRegistry = useEntityRegistry();
     const { urn, entityData } = useEntityData();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     // Dynamically load the schema + editable schema information.
-    const { entityWithSchema, loading, refetch } = useGetEntityWithSchema();
+    const shouldSkipSchemaFetch = renderType === TabRenderType.LAZY;
+    const { entityWithSchema, loading, refetch } = useGetEntityWithSchema(shouldSkipSchemaFetch);
     let schemaMetadata: any = entityWithSchema?.schemaMetadata || undefined;
     let editableSchemaMetadata: any = entityWithSchema?.editableSchemaMetadata || undefined;
     const separateSiblings = useIsSeparateSiblingsMode();
@@ -111,6 +114,12 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
 
     // Do not show semantic version (dropdown or in change history drawer) if we are on combined siblings page
     const hideSemanticVersions = !separateSiblings && !!siblingUrn;
+    const schemaFieldCount = schemaMetadata?.fields?.length || 0;
+    const skipSchemaVersioning =
+        !urn ||
+        hideSemanticVersions ||
+        renderType === TabRenderType.LAZY ||
+        schemaFieldCount > MAX_FIELDS_FOR_SCHEMA_VERSIONING;
     const {
         selectedVersion,
         versionList,
@@ -120,7 +129,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
     } = useSchemaVersioning({
         datasetUrn: urn,
         urlParam: SEMANTIC_VERSION_PARAM,
-        skip: !urn || hideSemanticVersions,
+        skip: skipSchemaVersioning,
     });
 
     let editMode = true;
@@ -189,6 +198,10 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
         }
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
     }, [loading]);
+
+    if (shouldSkipSchemaFetch) {
+        return null;
+    }
 
     if (renderType === TabRenderType.COMPACT) {
         if (loading && !schemaMetadata) {

@@ -20,9 +20,10 @@ export function AxisBottomMonths<ValueType>({ labelProps }: AxisBottomMonthsProp
                 const yLabel = DAYS_IN_WEEK * (squareSize + squareGap) + margin.top + axisTopMargin;
                 const xLabel = weeksBefore * (squareSize + squareGap) + squareGap * monthIndex + margin.left;
 
+                const uniqueKey = month.weeks[0]?.key ? `${month.key}-${month.weeks[0].key}` : month.key;
                 return (
                     <TickLabel
-                        key={`axis-bottom-${month.key}`}
+                        key={`axis-bottom-${uniqueKey}`}
                         text={month.label}
                         x={xLabel}
                         y={yLabel}

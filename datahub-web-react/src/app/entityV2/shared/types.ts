@@ -4,6 +4,10 @@ export enum TabRenderType {
      */
     DEFAULT,
     /**
+     * A lazy tab rendered only when active.
+     */
+    LAZY,
+    /**
      * A compact tab
      */
     COMPACT,

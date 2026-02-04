@@ -49,10 +49,13 @@ ENV LD_LIBRARY_PATH="/lib:/lib64"
 
 FROM base AS prod-install
 COPY datahub-upgrade/build/libs/datahub-upgrade.jar /datahub/datahub-upgrade/bin/
+RUN chmod 644 /datahub/datahub-upgrade/bin/datahub-upgrade.jar
 COPY docker/datahub-upgrade/start.sh /datahub/datahub-upgrade/scripts/start.sh
+RUN chmod 755 /datahub/datahub-upgrade/scripts/start.sh
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-upgrade/scripts/prometheus-config.yaml
-RUN chmod +x /datahub/datahub-upgrade/scripts/start.sh
+RUN chmod 644 /datahub/datahub-upgrade/scripts/prometheus-config.yaml
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
+RUN chmod 644 /datahub/datahub-gms/resources/entity-registry.yml
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.

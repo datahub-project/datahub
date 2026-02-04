@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.PartitionSpec;
+import com.linkedin.datahub.graphql.generated.PartitionType;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
 import com.linkedin.dataset.DatasetFieldProfile;
 import com.linkedin.dataset.DatasetProfile;
@@ -38,7 +40,18 @@ public class DatasetProfileMapper
     result.setRowCount(gmsProfile.getRowCount());
     result.setColumnCount(gmsProfile.getColumnCount());
     result.setSizeInBytes(gmsProfile.getSizeInBytes());
+    result.setTotalFiles(gmsProfile.getTotalFiles());
+    result.setTotalManifestFiles(gmsProfile.getTotalManifestFiles());
+    result.setTotalDeleteFiles(gmsProfile.getTotalDeleteFiles());
+    result.setTotalFilesLessThan100Mb(gmsProfile.getTotalFilesLessThan100Mb());
+    result.setTotalPartitions(gmsProfile.getTotalPartitions());
+    if (gmsProfile.hasAvgFileSizeBytes()) {
+      result.setAvgFileSizeBytes(gmsProfile.getAvgFileSizeBytes().floatValue());
+    }
     result.setTimestampMillis(gmsProfile.getTimestampMillis());
+    if (gmsProfile.hasPartitionSpec()) {
+      result.setPartitionSpec(mapPartitionSpec(gmsProfile.getPartitionSpec()));
+    }
     if (gmsProfile.hasFieldProfiles()) {
       result.setFieldProfiles(
           gmsProfile.getFieldProfiles().stream()
@@ -47,6 +60,14 @@ public class DatasetProfileMapper
     }
 
     return result;
+  }
+
+  private static PartitionSpec mapPartitionSpec(
+      com.linkedin.timeseries.PartitionSpec gmsPartitionSpec) {
+    PartitionSpec partitionSpec = new PartitionSpec();
+    partitionSpec.setPartition(gmsPartitionSpec.getPartition());
+    partitionSpec.setType(PartitionType.valueOf(gmsPartitionSpec.getType().name()));
+    return partitionSpec;
   }
 
   private static com.linkedin.datahub.graphql.generated.DatasetFieldProfile mapFieldProfile(

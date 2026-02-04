@@ -20,14 +20,17 @@ import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.entity.SearchIndicesService;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.entity.Aspect;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -345,6 +348,10 @@ public class UpdateIndicesService implements SearchIndicesService {
       return;
     }
 
+    // Ensure key-aspect searchable fields (e.g., dataset.platform) are always present in the
+    // search document, even when the current aspect does not include them.
+    addKeyAspectSearchFields(opContext, event, searchDocument.get());
+
     final String docId = elasticSearchService.getIndexConvention().getEntityDocumentId(urn);
 
     if (searchDiffMode
@@ -356,6 +363,8 @@ public class UpdateIndicesService implements SearchIndicesService {
           previousSearchDocument =
               searchDocumentTransformer.transformAspect(
                   opContext, urn, previousAspect, aspectSpec, false, event.getAuditStamp());
+          previousSearchDocument.ifPresent(
+              doc -> addKeyAspectSearchFields(opContext, event, doc));
         } catch (Exception e) {
           log.error(
               "Error in getting documents from previous aspect state for urn: {} for aspect {}, continuing without diffing.",
@@ -393,6 +402,45 @@ public class UpdateIndicesService implements SearchIndicesService {
             .toString();
 
     elasticSearchService.upsertDocument(opContext, entityName, finalDocument, docId);
+  }
+
+  private void addKeyAspectSearchFields(
+      @Nonnull OperationContext opContext, @Nonnull MCLItem event, @Nonnull ObjectNode searchDoc) {
+    final EntitySpec entitySpec = event.getEntitySpec();
+    final String keyAspectName = entitySpec.getKeyAspectName();
+    if (event.getAspectSpec().getName().equals(keyAspectName)) {
+      return;
+    }
+
+    AspectSpec keyAspectSpec = entitySpec.getAspectSpec(keyAspectName);
+    if (keyAspectSpec == null || keyAspectSpec.getSearchableFieldSpecs().isEmpty()) {
+      return;
+    }
+
+    Aspect keyAspect =
+        opContext
+            .getRetrieverContext()
+            .getAspectRetriever()
+            .getLatestAspectObject(event.getUrn(), keyAspectName);
+    if (keyAspect == null) {
+      return;
+    }
+
+    RecordTemplate keyAspectRecord =
+        RecordUtils.toRecordTemplate(keyAspectSpec.getDataTemplateClass(), keyAspect.data());
+
+    Map<SearchableFieldSpec, List<Object>> extractedSearchableFields =
+        com.linkedin.metadata.models.extractor.FieldExtractor.extractFields(
+            keyAspectRecord, keyAspectSpec.getSearchableFieldSpecs());
+
+    extractedSearchableFields.forEach(
+        (fieldSpec, values) -> {
+          String fieldName = fieldSpec.getSearchableAnnotation().getFieldName();
+          if (!searchDoc.has(fieldName) || searchDoc.get(fieldName).isNull()) {
+            searchDocumentTransformer.setSearchableValue(
+                fieldSpec, values, searchDoc, false, event.getAuditStamp());
+          }
+        });
   }
 
   /** Process snapshot and update time-series index */

@@ -83,8 +83,11 @@ public class KafkaEventProducer extends EventProducer {
     }
 
     String topic = getMetadataChangeLogTopicName(aspectSpec);
+    // Use a null key for timeseries MCLs to distribute across partitions.
+    // Versioned MCLs keep the urn key to preserve per-entity ordering.
+    final String recordKey = aspectSpec.isTimeseries() ? null : urn.toString();
     return _producer.send(
-        new ProducerRecord(topic, urn.toString(), record),
+        new ProducerRecord(topic, recordKey, record),
         _kafkaHealthChecker.getKafkaCallBack(metricUtils, "MCL", urn.toString()));
   }
 

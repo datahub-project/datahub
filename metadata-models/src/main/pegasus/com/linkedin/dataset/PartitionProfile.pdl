@@ -1,0 +1,31 @@
+namespace com.linkedin.dataset
+
+/**
+ * Profile statistics for a single partition of a dataset.
+ */
+record PartitionProfile {
+  /**
+   * Partition identifier.
+   */
+  partition: string
+
+  /**
+   * Total number of rows in this partition.
+   */
+  rowCount: optional long
+
+  /**
+   * Total number of columns (schema fields) in this partition.
+   */
+  columnCount: optional long
+
+  /**
+   * Storage size in bytes for this partition.
+   */
+  sizeInBytes: optional long
+
+  /**
+   * Number of underlying partitions aggregated into this profile.
+   */
+  partitionCount: optional long
+}

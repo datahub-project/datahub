@@ -18,7 +18,7 @@ import { Message } from '@app/shared/Message';
 import { formatBytes } from '@app/shared/formatNumber';
 import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
 
-import { useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
+import { useGetDataProfilesSummaryLazyQuery } from '@graphql/dataset.generated';
 
 // TODO: Reuse stat sections.
 const StatSection = styled.div`
@@ -55,7 +55,8 @@ export type Props = {
 };
 
 export default function HistoricalStats({ urn, lookbackWindow }: Props) {
-    const [getDataProfiles, { data: profilesData, loading: profilesLoading }] = useGetDataProfilesLazyQuery();
+    const [getDataProfiles, { data: profilesData, loading: profilesLoading }] =
+        useGetDataProfilesSummaryLazyQuery();
 
     /**
      * Perform initial fetch of default lookback window stats.

@@ -1784,6 +1784,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   ): [DatasetProfile!]
 
   """
+  Latest partition profiles for the dataset.
+  """
+  latestPartitionProfiles: LatestPartitionProfiles
+
+  """
   Operational events for an entity.
   """
   operations(
@@ -7735,6 +7740,36 @@ type DatasetProfile implements TimeSeriesAspect {
   sizeInBytes: Long
 
   """
+  Total number of data and delete files in the current snapshot
+  """
+  totalFiles: Long
+
+  """
+  Total number of manifest files in the current snapshot
+  """
+  totalManifestFiles: Long
+
+  """
+  Total number of delete files in the current snapshot
+  """
+  totalDeleteFiles: Long
+
+  """
+  Total number of files smaller than 100MB
+  """
+  totalFilesLessThan100Mb: Long
+
+  """
+  Total number of partitions present in the current snapshot
+  """
+  totalPartitions: Long
+
+  """
+  Average file size in bytes across files with a known size
+  """
+  avgFileSizeBytes: Float
+
+  """
   An optional set of per field statistics obtained in the profile
   """
   fieldProfiles: [DatasetFieldProfile!]
@@ -7862,6 +7897,25 @@ type PartitionSpec {
   The optional time window partition information - required if type is TIMESTAMP_FIELD.
   """
   timePartition: TimeWindow
+}
+
+"""
+Profile statistics for a single partition.
+"""
+type PartitionProfile {
+  partition: String!
+  rowCount: Long
+  columnCount: Long
+  sizeInBytes: Long
+  partitionCount: Long
+}
+
+"""
+Latest partition profiles snapshot.
+"""
+type LatestPartitionProfiles {
+  timestampMillis: Long!
+  partitionProfiles: [PartitionProfile!]!
 }
 
 enum PartitionType {

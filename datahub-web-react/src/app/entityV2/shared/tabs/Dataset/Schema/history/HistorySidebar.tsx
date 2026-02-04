@@ -1,5 +1,6 @@
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { Drawer } from 'antd';
+import dayjs from 'dayjs';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -63,10 +64,12 @@ interface Props {
     siblingUrn?: string;
     versionList: SemanticVersionStruct[];
     hideSemanticVersions: boolean;
+    filterDay?: string;
 }
 
-const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSemanticVersions }: Props) => {
+const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSemanticVersions, filterDay }: Props) => {
     const { data: entityTimelineData } = useGetTimelineQuery({
+        skip: !open,
         variables: {
             input: {
                 urn,
@@ -75,7 +78,7 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
         },
     });
     const { data: siblingTimelineData } = useGetTimelineQuery({
-        skip: !siblingUrn,
+        skip: !open || !siblingUrn,
         variables: {
             input: {
                 urn: siblingUrn || '',
@@ -85,7 +88,7 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
     });
 
     const { entityPlatform, siblingPlatform } = useGetSiblingPlatforms();
-    const transactionEntries: ChangeTransactionEntry[] = [
+    const allEntries: ChangeTransactionEntry[] = [
         ...(entityTimelineData?.getTimeline?.changeTransactions?.map((transaction) =>
             makeTransactionEntry(transaction, hideSemanticVersions ? [] : versionList, entityPlatform ?? undefined),
         ) || []),
@@ -93,6 +96,9 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
             makeTransactionEntry(transaction, [], siblingPlatform ?? undefined),
         ) || []),
     ].sort((a, b) => a.transaction.timestampMillis - b.transaction.timestampMillis);
+    const transactionEntries = filterDay
+        ? allEntries.filter((entry) => dayjs(entry.transaction.timestampMillis).format('YYYY-MM-DD') === filterDay)
+        : allEntries;
 
     return (
         <StyledDrawer
