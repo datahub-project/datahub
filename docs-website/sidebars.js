@@ -408,6 +408,11 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          label: "Service Accounts",
+          type: "doc",
+          id: "docs/features/feature-guides/service-accounts",
+        },
+        {
           label: "Sync Status",
           type: "doc",
           id: "docs/sync-status",

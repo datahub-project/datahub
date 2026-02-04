@@ -284,6 +284,7 @@ snowflake_common = {
     "pandas<3.0.0",
     "cryptography<47.0.0",
     "msal<2.0.0",
+    "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
     *classification_lib,
 }
