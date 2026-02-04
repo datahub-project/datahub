@@ -1,0 +1,56 @@
+{
+    "query_type": "CREATE_TABLE_AS_SELECT",
+    "query_type_props": {
+        "kind": "TABLE"
+    },
+    "query_fingerprint": "f8435b6e7e56561b8bdea4ebb819853c4798889b53ddb0a55ac6fbcbfcf9ce6d",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.source_table,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.target_table,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.target_table,PROD)",
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.source_table,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"SOURCE_TABLE\".\"ID\" AS \"ID\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.target_table,PROD)",
+                "column": "name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.source_table,PROD)",
+                    "column": "name"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"SOURCE_TABLE\".\"NAME\" AS \"NAME\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "CREATE OR REPLACE TABLE my_db.my_schema.target_table TAG (cost_center=?) AS SELECT id, name FROM my_db.my_schema.source_table"
+    }
+}
