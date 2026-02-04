@@ -229,7 +229,8 @@ public class SystemUpdateConfig {
             systemUpdateCDCMode, // Use system update CDC mode
             featureFlags.getPreProcessHooks(),
             ebeanMaxTransactionRetry,
-            enableBrowsePathV2);
+            enableBrowsePathV2,
+            null); // metricUtils
 
     if (throttleSensors != null
         && !throttleSensors.isEmpty()

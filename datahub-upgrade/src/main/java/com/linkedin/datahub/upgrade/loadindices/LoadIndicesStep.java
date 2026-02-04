@@ -176,7 +176,13 @@ public class LoadIndicesStep implements UpgradeStep {
 
     try {
       // Create EbeanAspectDao for streaming
-      EbeanAspectDao aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
+      EbeanAspectDao aspectDao =
+          new EbeanAspectDao(
+              server,
+              EbeanConfiguration.testDefault,
+              null,
+              java.util.Collections.emptyList(),
+              null);
       aspectDao.setConnectionValidated(true);
 
       // Process data using streaming approach (no cursor pagination needed!)

@@ -887,6 +887,16 @@
     displayName: Notion
     type: OTHERS
     logoUrl: "assets/platforms/notionlogo.png"
+- entityUrn: urn:li:dataPlatform:fabric-onelake
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: fabric-onelake
+    displayName: Fabric OneLake
+    type: OTHERS
+    logoUrl: "assets/platforms/fabriconelakelogo.png"
 - entityUrn: urn:li:dataPlatform:datahub
   entityType: dataPlatform
   aspectName: dataPlatformInfo

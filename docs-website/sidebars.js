@@ -51,6 +51,26 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          label: "Agent Context Kit",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/dev-guides/agent-context/agent-context",
+          },
+          items: [
+            {
+              label: "Langchain",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/langchain",
+            },
+            {
+              label: "Snowflake",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/snowflake",
+            },
+          ],
+        },
+        {
           label: "Assertions (Data Quality)",
           type: "category",
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
@@ -388,6 +408,11 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          label: "Service Accounts",
+          type: "doc",
+          id: "docs/features/feature-guides/service-accounts",
+        },
+        {
           label: "Sync Status",
           type: "doc",
           id: "docs/sync-status",
@@ -529,6 +554,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_16",
         "docs/managed-datahub/release-notes/v_0_3_15",
         "docs/managed-datahub/release-notes/v_0_3_14",
         "docs/managed-datahub/release-notes/v_0_3_13",
@@ -1191,6 +1217,7 @@ module.exports = {
             "docs/dev-guides/semantic-search/README",
             "docs/dev-guides/semantic-search/ARCHITECTURE",
             "docs/dev-guides/semantic-search/CONFIGURATION",
+            "docs/dev-guides/semantic-search/SWITCHING_PROVIDERS",
           ],
         },
         "docs/modeling/extending-the-metadata-model",
