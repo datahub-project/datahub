@@ -237,4 +237,40 @@ public class BatchRemoveDomainsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
+
+  @Test
+  public void testGetSuccessRemoveMultipleDomains() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+
+    final Domains existingDomains = new Domains();
+    final UrnArray existingDomainUrns = new UrnArray();
+    existingDomainUrns.add(UrnUtils.getUrn(TEST_DOMAIN_1_URN));
+    existingDomainUrns.add(UrnUtils.getUrn(TEST_DOMAIN_2_URN));
+    existingDomains.setDomains(existingDomainUrns);
+
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
+                Mockito.eq(DOMAINS_ASPECT_NAME),
+                Mockito.eq(0L)))
+        .thenReturn(existingDomains);
+
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+        .thenReturn(true);
+
+    BatchRemoveDomainsResolver resolver = new BatchRemoveDomainsResolver(mockService, null);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    BatchRemoveDomainsInput input =
+        new BatchRemoveDomainsInput(
+            ImmutableList.of(TEST_DOMAIN_1_URN, TEST_DOMAIN_2_URN),
+            ImmutableList.of(new ResourceRefInput(TEST_ENTITY_URN_1, null, null)));
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+    verifyIngestProposal(mockService, 1);
+  }
 }

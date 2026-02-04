@@ -190,4 +190,28 @@ public class AddDomainsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
+
+  @Test
+  public void testGetFailureMultipleDomainsOneMissing() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true)))
+        .thenReturn(false);
+
+    AddDomainsResolver resolver = new AddDomainsResolver(mockClient, mockService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("entityUrn"))).thenReturn(TEST_ENTITY_URN);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("domainUrns")))
+        .thenReturn(ImmutableList.of(TEST_DOMAIN_1_URN, TEST_DOMAIN_2_URN));
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
 }
