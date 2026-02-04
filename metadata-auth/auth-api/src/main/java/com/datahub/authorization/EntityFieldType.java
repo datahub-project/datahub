@@ -33,4 +33,10 @@ public enum EntityFieldType {
   TAG,
   /** Container of the entity */
   CONTAINER,
+  /** Parent domain of the entity (only applies to domain entities) */
+  PARENT_DOMAIN,
+  /**
+   * Parent glossary node of the entity (only applies to glossary node and glossary term entities)
+   */
+  PARENT_GLOSSARY_NODE,
 }

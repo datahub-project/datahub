@@ -241,13 +241,69 @@ When organizing domains hierarchically:
 - Domain hierarchies are primarily for organizational clarity in the UI
 - Deleting a parent domain does not automatically delete or reassign child domains
 
-### Permissions
+### Access Control and Permissions
 
-Managing domains requires the "Manage Domains" platform privilege. This includes:
+Domains support fine-grained access control through domain-specific privileges, enabling distributed management and visibility control of domain hierarchies:
 
-- Creating new domains
-- Modifying domain properties
-- Assigning assets to domains
-- Deleting domains
+#### Manage Direct Domain Children
 
-Individual asset assignment can also be controlled by "Edit Domain" metadata policies on specific entity types.
+Users with this privilege on a domain can:
+
+- Create new child domains directly under this domain
+- Edit child domains directly under this domain
+- Delete child domains directly under this domain
+- Cannot affect grandchild domains or deeper descendants
+
+**Use case**: Department leads managing their immediate sub-domains, like a VP of Engineering managing "Data Engineering" and "Platform Engineering" domains under the top-level "Engineering" domain.
+
+#### Manage All Domain Children
+
+Users with this privilege on a domain can:
+
+- Create, edit, and delete any child domain in the entire subtree
+- Manage nested hierarchies of any depth
+- Full control over the domain and all descendants
+
+**Use case**: Executive leadership managing an entire business unit's domain structure (e.g., CFO managing all Finance sub-domains at any level).
+
+#### View Direct Domain Children
+
+Users with this privilege on a domain can:
+
+- View child domains directly under this domain
+- Cannot view grandchild domains or deeper descendants
+
+**Use case**: Restricting visibility to immediate child domains while hiding deeper organizational structure
+
+#### View All Domain Children
+
+Users with this privilege on a domain can:
+
+- View any child domain in the entire subtree
+- Access nested hierarchies of any depth
+- Full read access to the domain and all descendants
+
+**Use case**: Granting read-only access to an entire domain hierarchy based on organizational affiliation (e.g., all employees in Finance can view all Finance sub-domains) without requiring explicit policies for each sub-domain
+
+#### Global Privilege: Manage Domains
+
+Users with this platform-level privilege can:
+
+- Manage any domain across the entire organization
+- Create root-level domains
+- Full administrative control over all domains
+- Assign assets to any domain
+- View all domain content
+
+**Use case**: DataHub administrators and data governance teams with organization-wide responsibilities.
+
+These privileges are checked hierarchically - if you have permission on a parent domain, it may grant permissions on children depending on the privilege type. The recursive privileges (`MANAGE_ALL_DOMAIN_CHILDREN` and `VIEW_ALL_DOMAIN_CHILDREN`) walk up the domain hierarchy to check if any ancestor domain grants recursive rights.
+
+View privileges are particularly useful for implementing access control based on organizational structure - for example, restricting domain visibility by operating company or business unit without the overhead of managing explicit policies for every sub-domain.
+
+#### Asset Assignment Permissions
+
+Individual asset assignment to domains can be controlled by:
+
+- The "Edit Domain" privilege on specific entity types
+- The domain management privileges described above when the asset is itself a domain entity

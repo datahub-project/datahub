@@ -56,7 +56,11 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!AuthorizationUtils.canCreateDomains(context)) {
+          // Check authorization - need CREATE_DOMAINS/MANAGE_DOMAINS platform privilege,
+          // OR if creating a child domain, need MANAGE_DOMAIN_CHILDREN or
+          // MANAGE_ALL_DOMAIN_CHILDREN on the parent
+          if (!AuthorizationUtils.canCreateDomains(context)
+              && !DomainUtils.canManageChildDomains(context, parentDomain, _entityClient)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
