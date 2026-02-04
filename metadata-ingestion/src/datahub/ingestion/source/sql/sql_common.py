@@ -1599,6 +1599,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         Override this method in subclasses to add source-specific logic like
         procedure-to-procedure lineage from system metadata.
+
+        Args:
+            procedure: Stored procedure metadata
+            schema: Schema name containing the procedure
+            db_name: Database name
+            procedure_registry: Map of "schema.procedure_name" -> full DataJob identifier
+                               (with hash suffix if overloaded). Used for resolving
+                               procedure-to-procedure lineage dependencies.
         """
         try:
             yield from generate_procedure_workunits(

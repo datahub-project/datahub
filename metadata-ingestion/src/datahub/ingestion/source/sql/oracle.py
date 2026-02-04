@@ -938,11 +938,8 @@ def _parse_oracle_procedure_dependencies(
 
     Format: "SCHEMA.NAME (TYPE)" where TYPE is PROCEDURE, FUNCTION, or PACKAGE.
     """
-    if not dependencies_str or not dependencies_str.strip():
+    if not dependencies_str.strip():
         return []
-
-    if database_key is None:
-        raise ValueError("database_key is required for parsing procedure dependencies")
 
     input_jobs = []
 
@@ -1240,7 +1237,7 @@ class OracleSource(SQLAlchemySource):
                     additional_input_jobs = _parse_oracle_procedure_dependencies(
                         upstream_deps, database_key, schema_key, procedure_registry
                     )
-                except Exception as e:
+                except (ValueError, KeyError, AttributeError) as e:
                     logger.warning(
                         f"Failed to parse Oracle procedure dependencies for {procedure.name}: {e}"
                     )
@@ -1271,6 +1268,21 @@ class OracleSource(SQLAlchemySource):
                 context=f"{db_name}.{schema}.{procedure.name}",
                 exc=e,
             )
+
+    def _get_procedure_default_db(self) -> Optional[str]:
+        """
+        Determine the default_db value for procedure lineage URN generation.
+
+        Returns one of three values to control how database names appear in lineage URNs:
+        - None: Fallback to database_key.database (inherits from connection)
+        - "": Explicitly exclude database from URNs (two-tier: schema.table)
+        - str: Use specific database name in URNs (three-tier: database.schema.table)
+
+        This ensures procedure lineage URNs match the URN format of tables/views.
+        """
+        if self.config.add_database_name_to_urn and self.config.database:
+            return self.config.database
+        return ""
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
@@ -1330,12 +1342,7 @@ class OracleSource(SQLAlchemySource):
 
                     # Set default_db based on add_database_name_to_urn config
                     # This ensures stored procedure lineage URNs match table URNs
-                    # Use empty string (not None) when database should not appear in URNs
-                    # None would cause fallback to database_key.database, breaking lineage matching
-                    if self.config.add_database_name_to_urn and self.config.database:
-                        default_db = self.config.database
-                    else:
-                        default_db = ""  # Empty string for schema_resolver, not None
+                    default_db = self._get_procedure_default_db()
 
                     # Determine subtype based on Oracle object_type
                     subtype = (

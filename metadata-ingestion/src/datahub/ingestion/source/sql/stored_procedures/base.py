@@ -90,7 +90,12 @@ class BaseProcedure:
 def _generate_flow_workunits(
     database_key: DatabaseKey, schema_key: Optional[SchemaKey], subtype: str
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate flow workunits for database and schema with specific subtype"""
+    """
+    Create DataFlow container that groups procedures/functions by schema.
+
+    The flow acts as a logical parent for all stored procedures and functions
+    in a schema, enabling consistent organization in DataHub's browse UI.
+    """
 
     procedure_flow_name = _get_procedure_flow_name(database_key, schema_key)
 
@@ -139,25 +144,18 @@ def _generate_flow_workunits(
 def _get_procedure_flow_name(
     database_key: DatabaseKey, schema_key: Optional[SchemaKey]
 ) -> str:
-    # All procedures and functions go in the same container
-    # Individual procedures/functions will have their own subtype for identification
-    container_suffix = STORED_PROCEDURES_CONTAINER
+    """Build flow name from database, schema, and container suffix, omitting empty parts."""
+    parts = []
 
     if schema_key:
-        # For two-tier sources without database names, don't include empty database prefix
         if schema_key.database:
-            procedure_flow_name = (
-                f"{schema_key.database}.{schema_key.db_schema}.{container_suffix}"
-            )
-        else:
-            procedure_flow_name = f"{schema_key.db_schema}.{container_suffix}"
-    else:
-        # Handle case where database_key.database might be empty
-        if database_key.database:
-            procedure_flow_name = f"{database_key.database}.{container_suffix}"
-        else:
-            procedure_flow_name = container_suffix
-    return procedure_flow_name
+            parts.append(schema_key.database)
+        parts.append(schema_key.db_schema)
+    elif database_key.database:
+        parts.append(database_key.database)
+
+    parts.append(STORED_PROCEDURES_CONTAINER)
+    return ".".join(parts)
 
 
 def _generate_job_workunits(
