@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-01T19:48:54.520487+00:00",
+  "generated_at": "2026-02-03T05:09:29.378106+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -998,6 +998,12 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Optionally enabled via `extract_table_tags` to extract dynamoDB table tags as DataHub tags",
           "subtype_modifier": null,
           "supported": true
         },
