@@ -364,13 +364,13 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": ".analytics_schema.stored_procedures"
+            "name": "analytics_schema.stored_procedures"
         }
     },
     "systemMetadata": {
@@ -381,7 +381,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -398,45 +398,8 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-usage-lineage-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-usage-lineage-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -460,7 +423,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -478,7 +441,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -494,7 +457,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
     "changeType": "UPSERT",
     "aspectName": "dataTransformLogic",
     "aspect": {
@@ -517,7 +480,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -542,7 +505,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -566,7 +529,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -584,7 +547,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -600,7 +563,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
     "changeType": "UPSERT",
     "aspectName": "dataTransformLogic",
     "aspect": {
@@ -623,7 +586,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1355,13 +1318,13 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(oracle,hr_schema.functions,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": ".hr_schema.stored_procedures"
+            "name": "hr_schema.functions"
         }
     },
     "systemMetadata": {
@@ -1372,7 +1335,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(oracle,hr_schema.functions,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1390,12 +1353,13 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(oracle,hr_schema.stored_procedures,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
-            "container": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
+            "customProperties": {},
+            "name": "hr_schema.stored_procedures"
         }
     },
     "systemMetadata": {
@@ -1406,16 +1370,13 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(oracle,hr_schema.stored_procedures,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "subTypes",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
-                }
+            "typeNames": [
+                "Procedures Container"
             ]
         }
     },
@@ -1427,7 +1388,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,hr_schema.functions,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -1439,7 +1400,7 @@
             },
             "name": "CALCULATE_ANNUAL_SALARY",
             "type": {
-                "string": "Stored Procedure"
+                "string": "Function"
             }
         }
     },
@@ -1451,13 +1412,13 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,hr_schema.functions,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
         "json": {
             "typeNames": [
-                "Stored Procedure"
+                "Function"
             ]
         }
     },
@@ -1469,7 +1430,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,hr_schema.functions,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1485,7 +1446,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,hr_schema.functions,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
     "changeType": "UPSERT",
     "aspectName": "dataTransformLogic",
     "aspect": {
@@ -1508,7 +1469,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,hr_schema.functions,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1533,7 +1494,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -1557,7 +1518,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1575,7 +1536,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1591,7 +1552,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
     "changeType": "UPSERT",
     "aspectName": "dataTransformLogic",
     "aspect": {
@@ -1614,7 +1575,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -2286,13 +2247,13 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(oracle,sales_schema.functions,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": ".sales_schema.stored_procedures"
+            "name": "sales_schema.functions"
         }
     },
     "systemMetadata": {
@@ -2303,7 +2264,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(oracle,sales_schema.functions,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -2321,12 +2282,13 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(oracle,sales_schema.stored_procedures,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
-            "container": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
+            "customProperties": {},
+            "name": "sales_schema.stored_procedures"
         }
     },
     "systemMetadata": {
@@ -2337,16 +2299,13 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(oracle,sales_schema.stored_procedures,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "subTypes",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
-                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
-                }
+            "typeNames": [
+                "Procedures Container"
             ]
         }
     },
@@ -2358,7 +2317,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,sales_schema.functions,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -2370,7 +2329,7 @@
             },
             "name": "GET_ORDER_TOTAL",
             "type": {
-                "string": "Stored Procedure"
+                "string": "Function"
             }
         }
     },
@@ -2382,13 +2341,13 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,sales_schema.functions,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
         "json": {
             "typeNames": [
-                "Stored Procedure"
+                "Function"
             ]
         }
     },
@@ -2400,7 +2359,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,sales_schema.functions,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -2416,7 +2375,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,sales_schema.functions,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
     "changeType": "UPSERT",
     "aspectName": "dataTransformLogic",
     "aspect": {
@@ -2439,7 +2398,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,sales_schema.functions,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -2449,6 +2408,10 @@
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_total,PROD)"
+            ],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(oracle,sys.stored_procedures,PROD),standard)",
+                "urn:li:dataJob:(urn:li:dataFlow:(oracle,sys.stored_procedures,PROD),sys_stub_for_purity_analysis)"
             ],
             "fineGrainedLineages": [
                 {
@@ -2475,7 +2438,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,sales_schema.functions,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -2500,7 +2463,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -2524,7 +2487,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -2542,7 +2505,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -2558,7 +2521,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
     "changeType": "UPSERT",
     "aspectName": "dataTransformLogic",
     "aspect": {
@@ -2581,7 +2544,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -2594,6 +2557,10 @@
                 "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_emp_name,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_sales_rep_id,PROD)"
+            ],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(oracle,sys.stored_procedures,PROD),standard)",
+                "urn:li:dataJob:(urn:li:dataFlow:(oracle,sys.stored_procedures,PROD),sys_stub_for_purity_analysis)"
             ],
             "fineGrainedLineages": [
                 {
@@ -2632,7 +2599,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -19069,7 +19036,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -19085,7 +19052,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(oracle,hr_schema.functions,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -19101,7 +19068,39 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(oracle,hr_schema.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-usage-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(oracle,sales_schema.functions,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-usage-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(oracle,sales_schema.stored_procedures,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -19117,7 +19116,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -19133,7 +19132,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -19149,7 +19148,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,hr_schema.functions,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -19165,7 +19164,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -19181,7 +19180,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,sales_schema.functions,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -19197,7 +19196,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
