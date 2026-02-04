@@ -768,3 +768,31 @@ def test_oracle_parse_dependencies_whitespace_handling():
     assert len(result) == 2
     assert any("proc1" in urn.lower() for urn in result)
     assert any("func1" in urn.lower() for urn in result)
+
+
+def test_oracle_parse_dependencies_circular_reference():
+    """Test that circular dependencies (A→B, B→A) are parsed correctly without errors."""
+    database_key = DatabaseKey(
+        database="ORCL", platform="oracle", instance=None, env="PROD"
+    )
+    schema_key = SchemaKey(
+        database="ORCL", schema="hr", platform="oracle", instance=None, env="PROD"
+    )
+
+    # Proc A depends on Proc B
+    deps_a = "HR.PROC_B (PROCEDURE)"
+    result_a = _parse_oracle_procedure_dependencies(
+        deps_a, database_key, schema_key, None
+    )
+
+    # Proc B depends on Proc A (circular)
+    deps_b = "HR.PROC_A (PROCEDURE)"
+    result_b = _parse_oracle_procedure_dependencies(
+        deps_b, database_key, schema_key, None
+    )
+
+    # Both should parse successfully
+    assert len(result_a) == 1
+    assert len(result_b) == 1
+    assert "proc_b" in result_a[0].lower()
+    assert "proc_a" in result_b[0].lower()

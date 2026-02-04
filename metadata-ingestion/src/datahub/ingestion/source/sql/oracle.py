@@ -963,6 +963,7 @@ def _parse_oracle_procedure_dependencies(
 
         dep_schema, dep_name = parts
 
+        # Normalize to lowercase for case-insensitive matching (Oracle default behavior)
         registry_key = f"{dep_schema.lower()}.{dep_name.lower()}"
         job_id = dep_name.lower()
 
@@ -991,7 +992,8 @@ def _parse_oracle_procedure_dependencies(
 
     if not input_jobs and deps:
         raise ValueError(
-            f"Failed to parse any valid dependencies from: {dependencies_str[:100]}"
+            f"Failed to parse any valid dependencies from: {dependencies_str[:100]}. "
+            f"Expected format: 'SCHEMA.NAME (TYPE)' where TYPE is PROCEDURE, FUNCTION, or PACKAGE"
         )
 
     return input_jobs
