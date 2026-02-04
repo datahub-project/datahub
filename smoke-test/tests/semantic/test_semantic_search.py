@@ -178,6 +178,7 @@ def create_ingestion_recipe(auth_session, doc_ids: list[str], tmp_dir: Path) -> 
     Returns path to the recipe file.
     """
     recipe = {
+        "pipeline_name": "smoke-test-semantic-search",
         "source": {
             "type": "datahub-documents",
             "config": {
@@ -270,15 +271,21 @@ def verify_semantic_content(auth_session, urn: str) -> dict[str, Any]:
     if not embeddings:
         raise Exception(f"No embeddings found in semanticContent for {urn}")
 
-    # Check for the expected embedding field
-    cohere_embed = embeddings.get("cohere_embed_v3")
-    if not cohere_embed:
+    # Find the first embedding field dynamically - supports any model key
+    # (cohere_embed_v3, text_embedding_3_small, etc.)
+    embedding_keys = list(embeddings.keys())
+    if not embedding_keys:
+        raise Exception(f"No embedding keys found in semanticContent for {urn}")
+
+    model_embedding_key = embedding_keys[0]
+    model_embed = embeddings.get(model_embedding_key)
+    if not model_embed:
         raise Exception(
-            f"No cohere_embed_v3 embeddings found. Available fields: {list(embeddings.keys())}"
+            f"No embeddings found for key '{model_embedding_key}'. Available fields: {embedding_keys}"
         )
 
-    chunks = cohere_embed.get("chunks", [])
-    total_chunks = cohere_embed.get("totalChunks", 0)
+    chunks = model_embed.get("chunks", [])
+    total_chunks = model_embed.get("totalChunks", 0)
 
     logger.info(
         f"  ✓ Found semanticContent with {len(chunks)} chunks (totalChunks: {total_chunks})"
