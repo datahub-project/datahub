@@ -174,6 +174,7 @@ def get_columns(
 
 def _extract_catalog_stats(
     catalog_node: Optional[Dict[str, Any]],
+    node_name: Optional[str] = None,
 ) -> Tuple[Optional[int], Optional[int]]:
     """Extract row_count and size_in_bytes from catalog stats.
 
@@ -192,16 +193,16 @@ def _extract_catalog_stats(
     if num_rows_stat.get("include", False) and num_rows_stat.get("value") is not None:
         try:
             row_count = int(num_rows_stat["value"])
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse num_rows stat for {node_name}: {e}")
 
     # Extract size in bytes (num_bytes)
     num_bytes_stat = catalog_stats.get("num_bytes", {})
     if num_bytes_stat.get("include", False) and num_bytes_stat.get("value") is not None:
         try:
             size_in_bytes = int(num_bytes_stat["value"])
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse num_bytes stat for {node_name}: {e}")
 
     return row_count, size_in_bytes
 
@@ -267,7 +268,7 @@ def extract_dbt_entities(
             catalog_type = catalog_node["metadata"]["type"]
 
         # Extract stats from catalog (e.g., num_rows, num_bytes from BigQuery/Snowflake)
-        row_count, size_in_bytes = _extract_catalog_stats(catalog_node)
+        row_count, size_in_bytes = _extract_catalog_stats(catalog_node, node_name=key)
 
         # initialize comment to "" for consistency with descriptions
         # (since dbt null/undefined descriptions as "")
@@ -609,6 +610,16 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 dbt_version=dbt_catalog_metadata.get("dbt_version", "unknown"),
                 project_name=dbt_catalog_metadata.get("project_name", "unknown"),
             )
+            # Parse and store catalog's generated_at for use in DatasetProfile timestamps
+            if generated_at_str := dbt_catalog_metadata.get("generated_at"):
+                try:
+                    self.report.catalog_generated_at = parse_dbt_timestamp(
+                        generated_at_str
+                    )
+                except Exception:
+                    logger.debug(
+                        f"Failed to parse catalog generated_at: {generated_at_str}"
+                    )
         else:
             self.report.warning(
                 title="No catalog file configured",
