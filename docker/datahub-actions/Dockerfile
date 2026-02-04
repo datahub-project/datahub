@@ -17,6 +17,9 @@ FROM ubuntu:24.04 AS python-base
 ARG UBUNTU_REPO_URL=http://ports.ubuntu.com/ubuntu-ports
 RUN if [ "${UBUNTU_REPO_URL}" != "http://ports.ubuntu.com/ubuntu-ports" ] ; then sed -i "s#http.*://ports.ubuntu.com/ubuntu-ports#${UBUNTU_REPO_URL}#g" /etc/apt/sources.list ; fi
 
+ARG DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND}
+
 ENV HOME=/home/datahub
 RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
     if [ -n "$existing_group" ] && [ "$existing_group" != "datahub" ]; then \
@@ -78,6 +81,7 @@ ARG UV_EXTRA_INDEX_URL=
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
 ENV UV_EXTRA_INDEX_URL=${UV_EXTRA_INDEX_URL}
+ENV UV_CACHE_DIR=/tmp/uv-cache
 
 USER datahub
 WORKDIR $HOME
@@ -150,7 +154,7 @@ COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
 USER datahub
-RUN echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+RUN DATAHUB_SKIP_METADATA_MODELS=1 /bin/sh -c 'echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\\-e" | uv pip install -r /dev/stdin'
 USER 0
 
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
@@ -175,8 +179,8 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 # This speeds up the process of creating venvs at runtime.
 # Because uv uses hardlinks for installing packages, keeping the cache around does not
 # really impact image size.
-RUN uv pip install -e '/metadata-ingestion/' -e '/datahub-actions/[all]'
-RUN uv pip install -e '/metadata-ingestion/[iceberg]'
+RUN DATAHUB_SKIP_METADATA_MODELS=1 uv pip install -e '/metadata-ingestion/' -e '/datahub-actions/[all]'
+RUN DATAHUB_SKIP_METADATA_MODELS=1 uv pip install -e '/metadata-ingestion/[iceberg]'
 
 # =============================================================================
 # PRE-BUILD BUNDLED INGESTION VENVS
