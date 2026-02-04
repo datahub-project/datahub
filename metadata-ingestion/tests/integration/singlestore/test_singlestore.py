@@ -72,7 +72,7 @@ def test_singlestore_ingest_no_db(
     [
         (
             {
-                "host_port": "localhost:53308",
+                "host_port": "localhost:53311",
                 "database": "northwind",
                 "username": "root",
                 "password": "example",

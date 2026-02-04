@@ -5,7 +5,7 @@ source:
   config:
     username: root
     password: example
-    host_port: localhost:53308
+    host_port: localhost:53311
     database: ss_types_test
     profiling:
       enabled: True
