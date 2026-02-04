@@ -253,11 +253,3 @@ class PostgresLineageExtractor:
 
         self.report.num_queries_parsed = self.queries_parsed
         self.report.num_queries_parse_failures = self.queries_failed
-
-    def extract_usage_statistics(self) -> dict[str, int]:
-        """Extract usage statistics from query history."""
-        return {
-            "total_queries_extracted": self.queries_extracted,
-            "total_queries_parsed": self.queries_parsed,
-            "total_queries_failed": self.queries_failed,
-        }

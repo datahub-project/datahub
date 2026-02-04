@@ -632,3 +632,8 @@ class PostgresSource(SQLAlchemySource):
                     )
                 )
             return base_procedures
+
+    def close(self) -> None:
+        if self.sql_aggregator:
+            self.sql_aggregator.close()
+        super().close()

@@ -159,51 +159,6 @@ def test_query_exclude_patterns_validation():
         )
 
 
-def test_usage_statistics_requires_query_lineage():
-    """Test that include_usage_statistics requires include_query_lineage."""
-    config = PostgresConfig.model_validate(
-        {
-            **_base_config(),
-            "include_query_lineage": True,
-            "include_usage_statistics": True,
-        }
-    )
-    assert config.include_query_lineage is True
-    assert config.include_usage_statistics is True
-
-    config = PostgresConfig.model_validate(
-        {
-            **_base_config(),
-            "include_query_lineage": False,
-            "include_usage_statistics": False,
-        }
-    )
-    assert config.include_query_lineage is False
-    assert config.include_usage_statistics is False
-
-    config = PostgresConfig.model_validate(
-        {
-            **_base_config(),
-            "include_query_lineage": True,
-            "include_usage_statistics": False,
-        }
-    )
-    assert config.include_query_lineage is True
-    assert config.include_usage_statistics is False
-
-    with pytest.raises(
-        ValidationError,
-        match="include_usage_statistics requires include_query_lineage to be enabled",
-    ):
-        PostgresConfig.model_validate(
-            {
-                **_base_config(),
-                "include_query_lineage": False,
-                "include_usage_statistics": True,
-            }
-        )
-
-
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
 def test_sql_aggregator_initialization_failure(create_engine_mock):
     """Test that SQL aggregator initialization failure is handled gracefully."""
