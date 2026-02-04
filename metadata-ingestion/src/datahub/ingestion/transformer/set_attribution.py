@@ -250,6 +250,16 @@ class SetAttributionTransformer(BaseTransformer):
         # Fallback to string conversion
         return str(value)
 
+    def _item_to_dict(
+        self,
+        item: Union[TagAssociationClass, OwnerClass, GlossaryTermAssociationClass],
+    ) -> Dict[str, Any]:
+        """Convert item to dict without attribution."""
+        assert hasattr(item, "to_obj"), (
+            f"Item must have to_obj() method, got type: {type(item).__name__}"
+        )
+        return item.to_obj()
+
     def _build_item_with_attribution(
         self,
         aspect_name: Literal["globalTags", "ownership", "glossaryTerms"],
@@ -272,25 +282,22 @@ class SetAttributionTransformer(BaseTransformer):
         config = ASPECT_CONFIG[aspect_name]
         attribution_field = config["attribution_field"]
 
-        # Convert item to dict
-        # Items are DictWrapper objects (TagAssociationClass, OwnerClass, GlossaryTermAssociationClass)
-        # which always have to_obj() method
-        assert hasattr(item, "to_obj"), (
-            f"Item from {aspect_name} must have to_obj() method, "
-            f"got type: {type(item).__name__}"
-        )
-        item_dict = item.to_obj()
-
-        # Get existing attribution if present
+        item_dict = self._item_to_dict(item)
         existing_attribution = item_dict.get(attribution_field)
-
-        # Build new attribution
         attribution = self._build_attribution(item, existing_attribution)
-
-        # Update item dict with attribution
         item_dict[attribution_field] = attribution
-
         return item_dict
+
+    def _build_item_value(
+        self,
+        aspect_name: Literal["globalTags", "ownership", "glossaryTerms"],
+        item: Union[TagAssociationClass, OwnerClass, GlossaryTermAssociationClass],
+        add_attribution: bool,
+    ) -> Dict[str, Any]:
+        """Build item as dict, with or without attribution."""
+        if add_attribution:
+            return self._build_item_with_attribution(aspect_name, item)
+        return self._item_to_dict(item)
 
     def _create_patch_ops_for_aspect(
         self,
@@ -298,34 +305,34 @@ class SetAttributionTransformer(BaseTransformer):
         items: List[
             Union[TagAssociationClass, OwnerClass, GlossaryTermAssociationClass]
         ],
+        add_attribution: bool = True,
     ) -> List[_Patch]:
-        """Create patch operations for items in an aspect."""
+        """Create patch operations for items in an aspect.
+
+        When add_attribution is False, item values are raw dicts (no attribution).
+        """
         config = ASPECT_CONFIG[aspect_name]
         array_field = config["array_field"]
 
         if self.config.patch_mode:
-            # Patch mode: operations within the scope of the attribution source
             if not items:
-                return []  # No items, no operations in patch mode
+                return []
             patch_ops = []
             for item in items:
                 item_id = self._get_item_id(aspect_name, item)
                 path = build_patch_path_tuple(
                     array_field, self.config.attribution_source, item_id
                 )
-                value = self._build_item_with_attribution(aspect_name, item)
+                value = self._build_item_value(aspect_name, item, add_attribution)
                 patch_ops.append(_Patch(op="add", path=path, value=value))
             return patch_ops
         else:
-            # Upsert mode: single operation with map of all items
-            # Even if empty, create a patch operation with empty map
             items_map = {}
             for item in items:
                 item_id = self._get_item_id(aspect_name, item)
-                items_map[item_id] = self._build_item_with_attribution(
-                    aspect_name, item
+                items_map[item_id] = self._build_item_value(
+                    aspect_name, item, add_attribution
                 )
-
             path = build_patch_path_tuple(array_field, self.config.attribution_source)
             return [_Patch(op="add", path=path, value=items_map)]
 
@@ -338,6 +345,72 @@ class SetAttributionTransformer(BaseTransformer):
         # Use UNIT_SEPARATOR for nested path in attribution.source
         return [f"attribution{UNIT_SEPARATOR}source", item_id_field]
 
+    def _build_mcp_from_patch_ops_with_attribution(
+        self,
+        entity_urn: str,
+        entity_type: str,
+        aspect_name: Literal["globalTags", "ownership", "glossaryTerms"],
+        patch_ops: List[_Patch],
+        array_primary_keys: Dict[str, List[str]],
+        force_generic_patch: bool,
+        system_metadata: Optional[SystemMetadataClass],
+        audit_header: Optional[KafkaAuditHeaderClass],
+        source: Literal["upsert", "patch"],
+    ) -> MetadataChangeProposalClass:
+        """Single path: add attribution to patch ops and build PATCH MCP.
+
+        UPSERT and PATCH inputs are normalized to patch ops first; this function
+        adds attribution (to all ops when source='upsert', or only to ops for our
+        attribution source when source='patch') and builds the MCP.
+        """
+        config = ASPECT_CONFIG[aspect_name]
+        array_field = config["array_field"]
+        attribution_field = config["attribution_field"]
+
+        new_patch_ops: List[_Patch] = []
+        for patch_op in patch_ops:
+            op = patch_op.op
+            path_tuple = patch_op.path
+            value = patch_op.value
+
+            if source == "patch":
+                is_our_array_field = (
+                    len(path_tuple) > 0
+                    and path_tuple[0] == array_field
+                    and len(path_tuple) > 1
+                    and path_tuple[1] == self.config.attribution_source
+                )
+                add_attribution_to_this_op = (
+                    op == "add" and value is not None and is_our_array_field
+                )
+            else:
+                add_attribution_to_this_op = op == "add" and value is not None
+
+            if add_attribution_to_this_op and isinstance(value, dict):
+                updated_value = self._add_attribution_to_patch_operation_value(
+                    aspect_name, value, attribution_field
+                )
+                new_patch_ops.append(
+                    _Patch(op=op, path=path_tuple, value=updated_value)
+                )
+            else:
+                new_patch_ops.append(_Patch(op=op, path=path_tuple, value=value))
+
+        generic_json_patch = GenericJsonPatch(
+            array_primary_keys=array_primary_keys,
+            patch=new_patch_ops,
+            force_generic_patch=force_generic_patch,
+        )
+        return MetadataChangeProposalClass(
+            entityUrn=entity_urn,
+            entityType=entity_type,
+            changeType=ChangeTypeClass.PATCH,
+            aspectName=aspect_name,
+            aspect=generic_json_patch.to_generic_aspect(),
+            systemMetadata=system_metadata,
+            auditHeader=audit_header,
+        )
+
     def _add_attribution_to_patch_mcp(
         self,
         entity_urn: str,
@@ -347,7 +420,7 @@ class SetAttributionTransformer(BaseTransformer):
         system_metadata: Optional[SystemMetadataClass] = None,
         audit_header: Optional[KafkaAuditHeaderClass] = None,
     ) -> Optional[MetadataChangeProposalClass]:
-        """Add attribution to an existing PATCH MCP while preserving original semantics."""
+        """Add attribution to an existing PATCH MCP (normalize to patch ops, then single path)."""
         if not isinstance(patch_aspect, GenericAspectClass):
             logger.warning(
                 f"PATCH aspect is not GenericAspectClass, cannot add attribution: {aspect_name}"
@@ -361,72 +434,22 @@ class SetAttributionTransformer(BaseTransformer):
             return None
 
         try:
-            # Parse existing GenericJsonPatch
             patch_dict = json.loads(patch_aspect.value.decode())
-
-            # Parse existing GenericJsonPatch to get _Patch instances
             existing_generic_patch = GenericJsonPatch.from_dict(patch_dict)
-
-            # Process each patch operation to add attribution
-            config = ASPECT_CONFIG[aspect_name]
-            array_field = config["array_field"]
-            attribution_field = config["attribution_field"]
-            new_patch_ops = []
-            for patch_op in existing_generic_patch.patch:
-                op = patch_op.op
-                path_tuple = patch_op.path
-                value = patch_op.value
-
-                # Check if this path is for our array field
-                # Path tuple format: (array_field, attribution_source, ...)
-                is_our_array_field = (
-                    len(path_tuple) > 0
-                    and path_tuple[0] == array_field
-                    and len(path_tuple) > 1
-                    and path_tuple[1] == self.config.attribution_source
-                )
-
-                # For "add" operations that add items to our array field, add attribution
-                if op == "add" and value is not None and is_our_array_field:
-                    # Add attribution to the patch operation value
-                    # The value is either a single item (dict) or a map of items (dict with URN keys)
-                    if isinstance(value, dict):
-                        updated_value = self._add_attribution_to_patch_operation_value(
-                            aspect_name, value, attribution_field
-                        )
-                        new_patch_ops.append(
-                            _Patch(op=op, path=path_tuple, value=updated_value)
-                        )
-                    else:
-                        # Keep original value if we can't process it (shouldn't happen for our aspects)
-                        new_patch_ops.append(
-                            _Patch(op=op, path=path_tuple, value=value)
-                        )
-                else:
-                    # Not our array field or not an "add" operation, keep original
-                    new_patch_ops.append(_Patch(op=op, path=path_tuple, value=value))
-
-            # Create new GenericJsonPatch with updated operations
-            # If array_primary_keys is non-empty, force_generic_patch should be True for consistency
             force_generic = (
                 bool(existing_generic_patch.array_primary_keys)
                 or existing_generic_patch.force_generic_patch
             )
-            generic_json_patch = GenericJsonPatch(
+            return self._build_mcp_from_patch_ops_with_attribution(
+                entity_urn=entity_urn,
+                entity_type=entity_type,
+                aspect_name=aspect_name,
+                patch_ops=existing_generic_patch.patch,
                 array_primary_keys=existing_generic_patch.array_primary_keys,
-                patch=new_patch_ops,
                 force_generic_patch=force_generic,
-            )
-
-            # Create MCP
-            return MetadataChangeProposalClass(
-                entityUrn=entity_urn,
-                entityType=entity_type,
-                changeType=ChangeTypeClass.PATCH,
-                aspectName=aspect_name,
-                aspect=generic_json_patch.to_generic_aspect(),
-                systemMetadata=system_metadata,
-                auditHeader=audit_header,
+                system_metadata=system_metadata,
+                audit_header=audit_header,
+                source="patch",
             )
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             logger.warning(
@@ -458,6 +481,8 @@ class SetAttributionTransformer(BaseTransformer):
         assert isinstance(patch_operation_value, dict), (
             "patch_operation_value must be a dict"
         )
+        if not patch_operation_value:
+            return patch_operation_value
         # Check if this is a map of items (upsert mode) or a single item
         # If keys look like URNs, it's likely a map
         urn_keys = [
@@ -503,37 +528,26 @@ class SetAttributionTransformer(BaseTransformer):
         system_metadata: Optional[SystemMetadataClass] = None,
         audit_header: Optional[KafkaAuditHeaderClass] = None,
     ) -> MetadataChangeProposalClass:
-        """Convert an aspect to a PATCH MCP with attribution."""
-        # Extract items from aspect
+        """Convert an aspect to a PATCH MCP (normalize to patch ops without attribution, then single path)."""
         items = self._extract_items_from_aspect(aspect_name, aspect)
-
-        # Create patch operations
-        patch_ops = self._create_patch_ops_for_aspect(aspect_name, items)
-
-        # Build array primary keys
+        patch_ops = self._create_patch_ops_for_aspect(
+            aspect_name, items, add_attribution=False
+        )
         array_primary_keys = {
             ASPECT_CONFIG[aspect_name]["array_field"]: self._get_array_primary_keys(
                 aspect_name
             )
         }
-
-        # Create GenericJsonPatch
-        # When array_primary_keys is non-empty, force_generic_patch should be True for consistency
-        generic_json_patch = GenericJsonPatch(
+        return self._build_mcp_from_patch_ops_with_attribution(
+            entity_urn=entity_urn,
+            entity_type=entity_type,
+            aspect_name=aspect_name,
+            patch_ops=patch_ops,
             array_primary_keys=array_primary_keys,
-            patch=patch_ops,
             force_generic_patch=True,
-        )
-
-        # Create MCP
-        return MetadataChangeProposalClass(
-            entityUrn=entity_urn,
-            entityType=entity_type,
-            changeType=ChangeTypeClass.PATCH,
-            aspectName=aspect_name,
-            aspect=generic_json_patch.to_generic_aspect(),
-            systemMetadata=system_metadata,
-            auditHeader=audit_header,
+            system_metadata=system_metadata,
+            audit_header=audit_header,
+            source="upsert",
         )
 
     def _process_mce_envelope(
