@@ -1,12 +1,17 @@
-"""Integration tests for Dataplex source with mocked API and golden file validation."""
+"""Integration tests for Dataplex source with mocked API and golden file validation.
+
+This tests the Dataplex source using the Entries API (Universal Catalog) which is
+the only supported API for metadata extraction.
+"""
 
 import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from unittest.mock import Mock, patch
 
 from freezegun import freeze_time
 from google.cloud import dataplex_v1
+from google.protobuf import struct_pb2
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import run_and_get_pipeline
@@ -14,178 +19,212 @@ from tests.test_helpers.state_helpers import run_and_get_pipeline
 FROZEN_TIME = "2024-01-15 12:00:00"
 
 
-def dataplex_recipe(mcp_output_path: str) -> Dict[str, Any]:
-    """Create a test recipe for Dataplex ingestion."""
+def dataplex_entries_recipe(mcp_output_path: str) -> Dict[str, Any]:
+    """Create a test recipe for Dataplex ingestion using Entries API."""
     return {
         "source": {
             "type": "dataplex",
             "config": {
                 "project_ids": ["test-project"],
-                "location": "us-central1",
-                "include_entities": True,
+                "entries_location": "us",
                 "include_lineage": False,  # Disable lineage for simpler test
+                "include_schema": True,
             },
         },
         "sink": {"type": "file", "config": {"filename": mcp_output_path}},
     }
 
 
-def create_mock_lake(
-    lake_id: str, display_name: Optional[str] = None, description: Optional[str] = None
+def create_mock_entry_group(
+    project_id: str,
+    location: str,
+    entry_group_id: str,
 ) -> Mock:
-    """Create a mock Dataplex Lake."""
-    lake = Mock(spec=dataplex_v1.Lake)
-    lake.name = f"projects/test-project/locations/us-central1/lakes/{lake_id}"
-    lake.display_name = display_name or f"{lake_id} Display"
-    lake.description = description or f"Description for {lake_id}"
-    lake.create_time = datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
-    lake.update_time = datetime.datetime(2024, 1, 10, tzinfo=datetime.timezone.utc)
-    lake.labels = {"env": "test", "team": "data"}
-    return lake
-
-
-def create_mock_zone(
-    lake_id: str,
-    zone_id: str,
-    zone_type: int = dataplex_v1.Zone.Type.RAW,
-) -> Mock:
-    """Create a mock Dataplex Zone."""
-    zone = Mock(spec=dataplex_v1.Zone)
-    zone.name = (
-        f"projects/test-project/locations/us-central1/lakes/{lake_id}/zones/{zone_id}"
+    """Create a mock Dataplex Entry Group."""
+    entry_group = Mock(spec=dataplex_v1.EntryGroup)
+    entry_group.name = (
+        f"projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}"
     )
-    zone.display_name = f"{zone_id} Display"
-    zone.description = f"Description for {zone_id}"
-    zone.type_ = zone_type
-    zone.create_time = datetime.datetime(2024, 1, 2, tzinfo=datetime.timezone.utc)
-    zone.update_time = datetime.datetime(2024, 1, 11, tzinfo=datetime.timezone.utc)
-    zone.labels = {"zone_type": "raw", "owner": "data-team"}
-    return zone
+    entry_group.display_name = f"{entry_group_id} Display"
+    entry_group.description = f"Description for {entry_group_id}"
+    entry_group.create_time = datetime.datetime(
+        2024, 1, 1, tzinfo=datetime.timezone.utc
+    )
+    entry_group.update_time = datetime.datetime(
+        2024, 1, 10, tzinfo=datetime.timezone.utc
+    )
+    return entry_group
 
 
-def create_mock_asset(
-    lake_id: str,
-    zone_id: str,
-    asset_id: str,
-    resource_type: int = dataplex_v1.Asset.ResourceSpec.Type.BIGQUERY_DATASET,
+def create_mock_entry(
+    project_id: str,
+    location: str,
+    entry_group_id: str,
+    entry_id: str,
+    fqn: str,
+    entry_type: str = "projects/test-project/locations/us/entryTypes/bigquery-table",
+    description: str = "",
 ) -> Mock:
-    """Create a mock Dataplex Asset."""
-    asset = Mock(spec=dataplex_v1.Asset)
-    asset.name = f"projects/test-project/locations/us-central1/lakes/{lake_id}/zones/{zone_id}/assets/{asset_id}"
-    asset.display_name = f"{asset_id} Display"
-    asset.description = f"Description for {asset_id}"
+    """Create a mock Dataplex Entry from Universal Catalog.
 
-    # Create resource spec
-    resource_spec = Mock()
-    resource_spec.type_ = resource_type
-    resource_spec.name = f"test_dataset_{asset_id}"
-    asset.resource_spec = resource_spec
+    Args:
+        project_id: GCP project ID
+        location: GCP location
+        entry_group_id: Entry group ID
+        entry_id: Entry ID (typically the table/object name)
+        fqn: Fully qualified name (e.g., "bigquery:project.dataset.table")
+        entry_type: Entry type identifier
+        description: Entry description
+    """
+    entry = Mock(spec=dataplex_v1.Entry)
+    entry.name = f"projects/{project_id}/locations/{location}/entryGroups/{entry_group_id}/entries/{entry_id}"
+    entry.fully_qualified_name = fqn
+    entry.entry_type = entry_type
+    entry.parent_entry = None  # Explicitly set to None to avoid Mock object issues
 
-    asset.create_time = datetime.datetime(2024, 1, 3, tzinfo=datetime.timezone.utc)
-    asset.update_time = datetime.datetime(2024, 1, 12, tzinfo=datetime.timezone.utc)
-    asset.labels = {"asset_type": "dataset"}
-    return asset
+    # Create entry_source with timestamps and description
+    entry_source = Mock()
+    entry_source.create_time = datetime.datetime(
+        2024, 1, 4, tzinfo=datetime.timezone.utc
+    )
+    entry_source.update_time = datetime.datetime(
+        2024, 1, 13, tzinfo=datetime.timezone.utc
+    )
+    entry_source.description = description
+    # Explicitly set optional fields to None to avoid Mock object issues
+    entry_source.resource = None
+    entry_source.system = None
+    entry_source.platform = None
+    entry.entry_source = entry_source
+
+    # Create empty aspects (tests can populate these as needed)
+    entry.aspects = {}
+
+    return entry
 
 
-def create_mock_entity(
-    lake_id: str, zone_id: str, asset_id: str, entity_id: str
+def create_mock_entry_with_schema(
+    project_id: str,
+    location: str,
+    entry_group_id: str,
+    entry_id: str,
+    fqn: str,
+    columns: list[tuple[str, str, str]],  # List of (name, type, description)
+    entry_type: str = "projects/test-project/locations/us/entryTypes/bigquery-table",
+    description: str = "",
 ) -> Mock:
-    """Create a mock Dataplex Entity."""
-    entity = Mock(spec=dataplex_v1.Entity)
-    entity.name = f"projects/test-project/locations/us-central1/lakes/{lake_id}/zones/{zone_id}/entities/{entity_id}"
-    entity.id = entity_id
-    entity.asset = asset_id
-    entity.data_path = f"gs://test-bucket/data/{entity_id}"
-    entity.system = dataplex_v1.StorageSystem.BIGQUERY
-    entity.type_ = dataplex_v1.Entity.Type.TABLE
-    entity.format_ = Mock()
-    entity.format_.format_ = dataplex_v1.StorageFormat.Format.PARQUET
+    """Create a mock Dataplex Entry with schema from Universal Catalog.
 
-    # Create schema
-    schema = Mock()
-    schema_field = Mock()
-    schema_field.name = "test_column"
-    schema_field.type_ = dataplex_v1.Schema.Type.STRING
-    schema_field.mode = dataplex_v1.Schema.Mode.REQUIRED
-    schema_field.description = "Test column description"
-    schema.fields = [schema_field]
-    entity.schema_ = schema
+    Args:
+        project_id: GCP project ID
+        location: GCP location
+        entry_group_id: Entry group ID
+        entry_id: Entry ID
+        fqn: Fully qualified name
+        columns: List of (column_name, column_type, column_description)
+        entry_type: Entry type identifier
+        description: Entry description
+    """
+    entry = create_mock_entry(
+        project_id, location, entry_group_id, entry_id, fqn, entry_type, description
+    )
 
-    entity.create_time = datetime.datetime(2024, 1, 4, tzinfo=datetime.timezone.utc)
-    entity.update_time = datetime.datetime(2024, 1, 13, tzinfo=datetime.timezone.utc)
-    return entity
+    # Create schema aspect with columns
+    schema_struct = struct_pb2.Struct()
+
+    # Build columns list for the schema
+    columns_list = []
+    for col_name, col_type, col_desc in columns:
+        col_struct = {
+            "column": col_name,
+            "dataType": col_type,
+            "description": col_desc,
+            "mode": "NULLABLE",
+        }
+        columns_list.append(col_struct)
+
+    schema_struct.update({"columns": columns_list})
+
+    # Create aspect with schema
+    schema_aspect = Mock()
+    schema_aspect.data = schema_struct
+
+    entry.aspects = {"schema": schema_aspect}
+
+    return entry
 
 
 @freeze_time(FROZEN_TIME)
 @patch("google.auth.default")
-@patch("google.cloud.dataplex_v1.DataplexServiceClient")
-@patch("google.cloud.dataplex_v1.MetadataServiceClient")
 @patch("google.cloud.dataplex_v1.CatalogServiceClient")
 @patch("google.cloud.datacatalog.lineage_v1.LineageClient")
-def test_dataplex_integration_with_golden_file(
+def test_dataplex_entries_integration(
     mock_lineage_client_class,
     mock_catalog_client_class,
-    mock_metadata_client_class,
-    mock_dataplex_client_class,
     mock_google_auth,
     pytestconfig,
     tmp_path,
 ):
-    """Test Dataplex source with mocked API and golden file validation."""
+    """Test Dataplex source with Entries API (Universal Catalog) and golden file validation."""
 
     # Mock Google Application Default Credentials
     mock_credentials = Mock()
     mock_google_auth.return_value = (mock_credentials, "test-project")
 
     # Setup mock clients
-    mock_dataplex_client = Mock()
-    mock_dataplex_client_class.return_value = mock_dataplex_client
-
-    mock_metadata_client = Mock()
-    mock_metadata_client_class.return_value = mock_metadata_client
-
     mock_catalog_client = Mock()
     mock_catalog_client_class.return_value = mock_catalog_client
-    # Mock empty entry groups to skip Entries API processing
-    mock_catalog_client.list_entry_groups.return_value = []
 
     mock_lineage_client = Mock()
     mock_lineage_client_class.return_value = mock_lineage_client
 
-    # Create mock data hierarchy
-    mock_lake = create_mock_lake("test-lake-1", "Test Lake", "A test lake")
-    mock_zone = create_mock_zone(
-        "test-lake-1",
-        "test-zone-1",
-        dataplex_v1.Zone.Type.RAW,  # type: ignore[arg-type]
+    # Create mock entry group (system entry group like @bigquery)
+    mock_entry_group = create_mock_entry_group("test-project", "us", "@bigquery")
+
+    # Create mock entries
+    mock_entry1 = create_mock_entry_with_schema(
+        project_id="test-project",
+        location="us",
+        entry_group_id="@bigquery",
+        entry_id="customers",
+        fqn="bigquery:test-project.analytics.customers",
+        columns=[
+            ("id", "INT64", "Customer ID"),
+            ("name", "STRING", "Customer name"),
+            ("email", "STRING", "Customer email address"),
+            ("created_at", "TIMESTAMP", "Account creation timestamp"),
+        ],
+        description="Customer master data table",
     )
-    mock_asset = create_mock_asset(
-        "test-lake-1",
-        "test-zone-1",
-        "test-asset-1",
-        dataplex_v1.Asset.ResourceSpec.Type.BIGQUERY_DATASET,  # type: ignore[arg-type]
-    )
-    mock_entity = create_mock_entity(
-        "test-lake-1", "test-zone-1", "test-asset-1", "test-entity-1"
+
+    mock_entry2 = create_mock_entry_with_schema(
+        project_id="test-project",
+        location="us",
+        entry_group_id="@bigquery",
+        entry_id="orders",
+        fqn="bigquery:test-project.analytics.orders",
+        columns=[
+            ("order_id", "INT64", "Order ID"),
+            ("customer_id", "INT64", "Customer ID reference"),
+            ("total_amount", "FLOAT64", "Order total amount"),
+            ("order_date", "DATE", "Order date"),
+        ],
+        description="Orders transaction table",
     )
 
     # Configure mock responses
-    mock_dataplex_client.list_lakes.return_value = [mock_lake]
-    mock_dataplex_client.list_zones.return_value = [mock_zone]
-    mock_dataplex_client.list_assets.return_value = [mock_asset]
-    mock_dataplex_client.get_asset.return_value = mock_asset
-
-    # MetadataServiceClient is used for listing entities
-    mock_metadata_client.list_entities.return_value = [mock_entity]
-
-    # Setup paths
-    mcp_output_path = tmp_path / "dataplex_mces.json"
-    mcp_golden_path = (
-        Path(__file__).parent / "golden" / "dataplex_integration_golden.json"
+    mock_catalog_client.list_entry_groups.return_value = [mock_entry_group]
+    mock_catalog_client.list_entries.return_value = [mock_entry1, mock_entry2]
+    mock_catalog_client.get_entry.side_effect = lambda request: (
+        mock_entry1 if "customers" in request.name else mock_entry2
     )
 
+    # Setup paths
+    mcp_output_path = tmp_path / "dataplex_entries_mces.json"
+    mcp_golden_path = Path(__file__).parent / "golden" / "dataplex_entries_golden.json"
+
     # Run pipeline
-    pipeline_config = dataplex_recipe(str(mcp_output_path))
+    pipeline_config = dataplex_entries_recipe(str(mcp_output_path))
     run_and_get_pipeline(pipeline_config)
 
     # Validate against golden file
@@ -198,77 +237,79 @@ def test_dataplex_integration_with_golden_file(
 
 @freeze_time(FROZEN_TIME)
 @patch("google.auth.default")
-@patch("google.cloud.dataplex_v1.DataplexServiceClient")
-@patch("google.cloud.dataplex_v1.MetadataServiceClient")
 @patch("google.cloud.dataplex_v1.CatalogServiceClient")
 @patch("google.cloud.datacatalog.lineage_v1.LineageClient")
-def test_dataplex_integration_multiple_lakes(
+def test_dataplex_multiple_entry_groups(
     mock_lineage_client_class,
     mock_catalog_client_class,
-    mock_metadata_client_class,
-    mock_dataplex_client_class,
     mock_google_auth,
     pytestconfig,
     tmp_path,
 ):
-    """Test Dataplex source with multiple lakes."""
+    """Test Dataplex source with multiple entry groups (BigQuery and custom)."""
 
     # Mock Google Application Default Credentials
     mock_credentials = Mock()
     mock_google_auth.return_value = (mock_credentials, "test-project")
 
     # Setup mock clients
-    mock_dataplex_client = Mock()
-    mock_dataplex_client_class.return_value = mock_dataplex_client
-
-    mock_metadata_client = Mock()
-    mock_metadata_client_class.return_value = mock_metadata_client
-
     mock_catalog_client = Mock()
     mock_catalog_client_class.return_value = mock_catalog_client
-    # Mock empty entry groups to skip Entries API processing
-    mock_catalog_client.list_entry_groups.return_value = []
 
     mock_lineage_client = Mock()
     mock_lineage_client_class.return_value = mock_lineage_client
 
-    # Create multiple lakes
-    mock_lake1 = create_mock_lake("test-lake-1", "Test Lake 1", "First test lake")
-    mock_lake2 = create_mock_lake("test-lake-2", "Test Lake 2", "Second test lake")
+    # Create mock entry groups
+    mock_bigquery_group = create_mock_entry_group("test-project", "us", "@bigquery")
+    mock_custom_group = create_mock_entry_group("test-project", "us", "custom-catalog")
 
-    # Create zones for each lake
-    mock_zone1 = create_mock_zone("test-lake-1", "raw-zone")
-    mock_zone2 = create_mock_zone(
-        "test-lake-2",
-        "curated-zone",
-        dataplex_v1.Zone.Type.CURATED,  # type: ignore[arg-type]
+    # Create mock entries for BigQuery group
+    mock_bq_entry = create_mock_entry(
+        project_id="test-project",
+        location="us",
+        entry_group_id="@bigquery",
+        entry_id="sales_data",
+        fqn="bigquery:test-project.warehouse.sales_data",
+        description="Sales data table",
+    )
+
+    # Create mock entry for custom group (GCS)
+    mock_gcs_entry = create_mock_entry(
+        project_id="test-project",
+        location="us",
+        entry_group_id="custom-catalog",
+        entry_id="data_export",
+        fqn="gcs:my-bucket/exports/data_export.parquet",
+        entry_type="projects/test-project/locations/us/entryTypes/gcs-fileset",
+        description="Exported data file",
     )
 
     # Configure mock responses
-    mock_dataplex_client.list_lakes.return_value = [mock_lake1, mock_lake2]
+    mock_catalog_client.list_entry_groups.return_value = [
+        mock_bigquery_group,
+        mock_custom_group,
+    ]
 
-    def list_zones_side_effect(*args, **kwargs):
-        parent = kwargs.get("parent", "")
-        if "test-lake-1" in parent:
-            return [mock_zone1]
-        elif "test-lake-2" in parent:
-            return [mock_zone2]
+    def list_entries_side_effect(request):
+        if "@bigquery" in request.parent:
+            return [mock_bq_entry]
+        elif "custom-catalog" in request.parent:
+            return [mock_gcs_entry]
         return []
 
-    mock_dataplex_client.list_zones.side_effect = list_zones_side_effect
-    mock_dataplex_client.list_assets.return_value = []
-
-    # MetadataServiceClient is used for listing entities
-    mock_metadata_client.list_entities.return_value = []
+    mock_catalog_client.list_entries.side_effect = list_entries_side_effect
+    mock_catalog_client.get_entry.side_effect = lambda request: (
+        mock_bq_entry if "sales_data" in request.name else mock_gcs_entry
+    )
 
     # Setup paths
-    mcp_output_path = tmp_path / "dataplex_multi_lake_mces.json"
+    mcp_output_path = tmp_path / "dataplex_multi_group_mces.json"
     mcp_golden_path = (
-        Path(__file__).parent / "golden" / "dataplex_multi_lake_golden.json"
+        Path(__file__).parent / "golden" / "dataplex_multi_entry_groups_golden.json"
     )
 
     # Run pipeline
-    pipeline_config = dataplex_recipe(str(mcp_output_path))
+    pipeline_config = dataplex_entries_recipe(str(mcp_output_path))
     run_and_get_pipeline(pipeline_config)
 
     # Validate against golden file
@@ -277,3 +318,43 @@ def test_dataplex_integration_multiple_lakes(
         output_path=str(mcp_output_path),
         golden_path=str(mcp_golden_path),
     )
+
+
+@freeze_time(FROZEN_TIME)
+@patch("google.auth.default")
+@patch("google.cloud.dataplex_v1.CatalogServiceClient")
+@patch("google.cloud.datacatalog.lineage_v1.LineageClient")
+def test_dataplex_empty_catalog(
+    mock_lineage_client_class,
+    mock_catalog_client_class,
+    mock_google_auth,
+    tmp_path,
+):
+    """Test Dataplex source with empty catalog (no entry groups)."""
+
+    # Mock Google Application Default Credentials
+    mock_credentials = Mock()
+    mock_google_auth.return_value = (mock_credentials, "test-project")
+
+    # Setup mock clients
+    mock_catalog_client = Mock()
+    mock_catalog_client_class.return_value = mock_catalog_client
+
+    mock_lineage_client = Mock()
+    mock_lineage_client_class.return_value = mock_lineage_client
+
+    # Configure mock responses - empty entry groups
+    mock_catalog_client.list_entry_groups.return_value = []
+
+    # Setup paths
+    mcp_output_path = tmp_path / "dataplex_empty_mces.json"
+
+    # Run pipeline
+    pipeline_config = dataplex_entries_recipe(str(mcp_output_path))
+    pipeline = run_and_get_pipeline(pipeline_config)
+
+    # Verify pipeline completed without errors
+    assert pipeline.source.get_report().failures == []
+
+    # Output file should exist but be empty or contain minimal data
+    assert mcp_output_path.exists()
