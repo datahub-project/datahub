@@ -89,6 +89,7 @@ query documentSemanticSearch(
     count
     total
     searchResults {
+      score                                                        #[NEWER_GMS]
       entity {
         ... on Document {
           ...DocumentSearchInfo
