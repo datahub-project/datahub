@@ -227,3 +227,23 @@ def get_lineage_config() -> DatahubLineageConfig:
         dag_filter_pattern=dag_filter_pattern,
         enable_datajob_lineage=enable_lineage,
     )
+
+
+def get_configured_env() -> str:
+    """
+    Get the configured DataHub cluster/environment name.
+
+    Uses cached config from the listener when available, otherwise reads
+    directly from config.
+
+    Returns:
+        The configured cluster name
+    """
+    from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
+
+    listener = get_airflow_plugin_listener()
+    if listener and listener.config:
+        return listener.config.cluster
+
+    # Fallback: listener disabled or failed to initialize
+    return get_lineage_config().cluster

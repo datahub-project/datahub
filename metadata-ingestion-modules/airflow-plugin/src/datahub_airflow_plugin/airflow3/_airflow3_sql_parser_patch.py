@@ -28,8 +28,8 @@ except ImportError:
     AIRFLOW3_IMPORTS_AVAILABLE = False
 
 # DataHub imports (always available)
-import datahub.emitter.mce_builder as builder
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub_airflow_plugin._config import get_configured_env
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
 
@@ -159,11 +159,7 @@ def _datahub_generate_openlineage_metadata_from_sql(
         # Run DataHub's SQL parser
         listener = get_airflow_plugin_listener()
         graph = listener.graph if listener else None
-        env = (
-            listener.config.cluster
-            if (listener and listener.config)
-            else builder.DEFAULT_ENV
-        )
+        env = get_configured_env()
 
         logger.debug(
             "Running DataHub SQL parser %s (platform=%s, default db=%s, schema=%s): %s",
