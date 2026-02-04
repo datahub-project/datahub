@@ -2,11 +2,11 @@
 import logging
 import os
 
-import requests
-
 import datahub.metadata.schema_classes as models
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+import requests
 from datahub.metadata.urns import IncidentUrn
+
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
