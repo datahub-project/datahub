@@ -465,6 +465,7 @@ def _clickhouse_extract_to_tables(
 
 def _is_clickhouse_non_input(
     table: sqlglot.exp.Table,
+    dialect: sqlglot.Dialect,
     has_to_table: bool,
 ) -> bool:
     """Check if a table should be excluded from input tables for ClickHouse.
@@ -473,7 +474,12 @@ def _is_clickhouse_non_input(
     - Dictionary references inside DICTGET functions (not real tables)
     - TO table references (they are outputs, not inputs)
     - Materialized view name when TO table exists (not an input)
+
+    Returns False for non-ClickHouse dialects (no filtering applied).
     """
+    if not is_dialect_instance(dialect, "clickhouse"):
+        return False
+
     return (
         _is_in_clickhouse_dict_function(table)
         or isinstance(table.parent, sqlglot.exp.ToTableProperty)
@@ -707,7 +713,9 @@ def _table_level_lineage(
                 table
                 for table in statement.find_all(sqlglot.exp.Table)
                 if not isinstance(table.parent, sqlglot.exp.Drop)
-                and not _is_clickhouse_non_input(table, bool(clickhouse_to_tables))
+                and not _is_clickhouse_non_input(
+                    table, dialect, bool(clickhouse_to_tables)
+                )
             ),
             dialect,
         )
