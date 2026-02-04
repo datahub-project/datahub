@@ -63,6 +63,11 @@ module.exports = {
               type: "doc",
               id: "docs/dev-guides/agent-context/langchain",
             },
+            {
+              label: "Snowflake",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/snowflake",
+            },
           ],
         },
         {
@@ -1207,6 +1212,7 @@ module.exports = {
             "docs/dev-guides/semantic-search/README",
             "docs/dev-guides/semantic-search/ARCHITECTURE",
             "docs/dev-guides/semantic-search/CONFIGURATION",
+            "docs/dev-guides/semantic-search/SWITCHING_PROVIDERS",
           ],
         },
         "docs/modeling/extending-the-metadata-model",
