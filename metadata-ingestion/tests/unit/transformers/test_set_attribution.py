@@ -1,4 +1,5 @@
 import json
+from typing import cast
 from unittest.mock import ANY
 
 import pytest
@@ -572,7 +573,7 @@ def test_empty_aspect(transformer):
 
 
 def test_unsupported_aspect_passthrough(transformer):
-    """Test that unsupported aspects pass through unchanged."""
+    """Test that unsupported aspects in MCPW pass through unchanged."""
     from datahub.metadata.schema_classes import StatusClass
 
     status = StatusClass(removed=False)
@@ -586,6 +587,91 @@ def test_unsupported_aspect_passthrough(transformer):
 
     result = transform_one(transformer, mcpw)
     assert result == mcpw
+
+
+def test_unsupported_aspect_passthrough_mcp(transformer):
+    """Test that unsupported aspects in MCP pass through unchanged."""
+    from datahub.metadata.schema_classes import StatusClass
+
+    status = StatusClass(removed=False)
+    mcp = MetadataChangeProposalClass(
+        entityUrn=SAMPLE_URN,
+        entityType="dataset",
+        aspectName="status",
+        aspect=cast(GenericAspectClass, status),
+        changeType=ChangeTypeClass.UPSERT,
+    )
+
+    result = transform_one(transformer, mcp)
+    assert result == mcp
+
+
+def test_mixed_supported_and_unsupported_aspects(transformer):
+    """Test that a mix of supported and unsupported aspects: supported are transformed, unsupported pass through."""
+    from datahub.metadata.schema_classes import StatusClass
+
+    status = StatusClass(removed=False)
+    mcpw_unsupported1 = MetadataChangeProposalWrapper(
+        entityUrn=SAMPLE_URN,
+        entityType="dataset",
+        aspectName="status",
+        aspect=status,
+        changeType=ChangeTypeClass.UPSERT,
+    )
+    tags = GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:tagA")])
+    mcpw_supported = MetadataChangeProposalWrapper(
+        entityUrn=SAMPLE_URN,
+        entityType="dataset",
+        aspectName="globalTags",
+        aspect=tags,
+        changeType=ChangeTypeClass.UPSERT,
+    )
+    mcpw_unsupported2 = MetadataChangeProposalWrapper(
+        entityUrn=SAMPLE_URN,
+        entityType="dataset",
+        aspectName="status",
+        aspect=status,
+        changeType=ChangeTypeClass.UPSERT,
+    )
+
+    envelopes = [
+        RecordEnvelope(record=mcpw_unsupported1, metadata={}),
+        RecordEnvelope(record=mcpw_supported, metadata={}),
+        RecordEnvelope(record=mcpw_unsupported2, metadata={}),
+    ]
+    results = list(transformer.transform(envelopes))
+
+    assert len(results) == 3
+    assert results[0].record == mcpw_unsupported1
+    mcp_result = results[1].record
+    assert isinstance(mcp_result, MetadataChangeProposalClass)
+    assert mcp_result.entityUrn == SAMPLE_URN
+    assert mcp_result.changeType == ChangeTypeClass.PATCH
+    assert mcp_result.aspectName == "globalTags"
+    assert mcp_result.aspect is not None
+    patch_dict = json.loads(mcp_result.aspect.value.decode())
+    expected_patch_dict = {
+        "arrayPrimaryKeys": {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]},
+        "patch": [
+            {
+                "op": "add",
+                "path": f"/tags/{ATTRIBUTION_SOURCE}",
+                "value": {
+                    "urn:li:tag:tagA": {
+                        "tag": "urn:li:tag:tagA",
+                        "attribution": {
+                            "time": ANY,
+                            "actor": "urn:li:corpuser:datahub",
+                            "source": ATTRIBUTION_SOURCE,
+                        },
+                    },
+                },
+            }
+        ],
+        "forceGenericPatch": True,
+    }
+    assert patch_dict == expected_patch_dict
+    assert results[2].record == mcpw_unsupported2
 
 
 def test_end_of_stream_passthrough(transformer):

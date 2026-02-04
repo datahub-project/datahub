@@ -423,13 +423,15 @@ class SetAttributionTransformer(BaseTransformer):
         """Add attribution to an existing PATCH MCP (normalize to patch ops, then single path)."""
         if not isinstance(patch_aspect, GenericAspectClass):
             logger.warning(
-                f"PATCH aspect is not GenericAspectClass, cannot add attribution: {aspect_name}"
+                f"PATCH aspect for entity {entity_urn} is not GenericAspectClass, "
+                f"cannot add attribution: {aspect_name}"
             )
             return None
 
         if patch_aspect.contentType != JSON_PATCH_CONTENT_TYPE:
             logger.warning(
-                f"PATCH aspect has unexpected content type: {patch_aspect.contentType}"
+                f"PATCH aspect for entity {entity_urn} has unexpected content type: "
+                f"{patch_aspect.contentType}, aspect {aspect_name}"
             )
             return None
 
@@ -453,7 +455,8 @@ class SetAttributionTransformer(BaseTransformer):
             )
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             logger.warning(
-                f"Failed to parse PATCH aspect for {aspect_name}: {e}. Passing through unchanged."
+                f"Failed to parse PATCH aspect for entity {entity_urn}, aspect {aspect_name}: "
+                f"{e}. Passing through unchanged."
             )
             return None
 
@@ -712,7 +715,7 @@ class SetAttributionTransformer(BaseTransformer):
                         else:
                             # If we can't parse the patch, pass through unchanged
                             logger.warning(
-                                f"Failed to parse PATCH aspect for {aspect_name} in MCPW, passing through unchanged"
+                                f"Failed to parse PATCH aspect for entity {entity_urn}, aspect {aspect_name} in MCPW, passing through unchanged"
                             )
                             yield envelope
                     else:
@@ -790,7 +793,7 @@ class SetAttributionTransformer(BaseTransformer):
                         else:
                             # If we can't parse the patch, pass through unchanged
                             logger.warning(
-                                f"Failed to parse PATCH aspect for {aspect_name} in MCP, passing through unchanged"
+                                f"Failed to parse PATCH aspect for entity {entity_urn}, aspect {aspect_name} in MCP, passing through unchanged"
                             )
                             yield envelope
                     else:
