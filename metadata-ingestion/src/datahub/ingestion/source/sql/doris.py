@@ -240,9 +240,16 @@ class DorisSource(MySQLSource):
 
             for db in databases:
                 if self.config.database_pattern.allowed(db):
-                    db_engine = self._create_patched_engine(db)
-                    with db_engine.connect() as db_conn:
-                        yield inspect(db_conn)
+                    try:
+                        db_engine = self._create_patched_engine(db)
+                        with db_engine.connect() as db_conn:
+                            yield inspect(db_conn)
+                    except Exception as e:
+                        self.report.failure(
+                            title="Failed to connect to database",
+                            message=f"Skipping database due to connection error: {e}",
+                            context=db,
+                        )
 
     def get_platform(self) -> str:
         return "doris"
