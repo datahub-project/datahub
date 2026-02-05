@@ -5,11 +5,12 @@ the only supported API for metadata extraction.
 """
 
 import datetime
+import json
 from pathlib import Path
 from typing import Any, Dict
 from unittest.mock import Mock, patch
 
-from freezegun import freeze_time
+import time_machine
 from google.cloud import dataplex_v1
 from google.protobuf import struct_pb2
 
@@ -154,7 +155,7 @@ def create_mock_entry_with_schema(
     return entry
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch("google.auth.default")
 @patch("google.cloud.dataplex_v1.CatalogServiceClient")
 @patch("google.cloud.datacatalog.lineage_v1.LineageClient")
@@ -235,7 +236,7 @@ def test_dataplex_entries_integration(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch("google.auth.default")
 @patch("google.cloud.dataplex_v1.CatalogServiceClient")
 @patch("google.cloud.datacatalog.lineage_v1.LineageClient")
@@ -320,7 +321,7 @@ def test_dataplex_multiple_entry_groups(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch("google.auth.default")
 @patch("google.cloud.dataplex_v1.CatalogServiceClient")
 @patch("google.cloud.datacatalog.lineage_v1.LineageClient")
@@ -358,3 +359,215 @@ def test_dataplex_empty_catalog(
 
     # Output file should exist but be empty or contain minimal data
     assert mcp_output_path.exists()
+
+
+def dataplex_lineage_recipe(
+    mcp_output_path: str, project_id: str = "test-project"
+) -> Dict[str, Any]:
+    """Create a test recipe for Dataplex ingestion with lineage enabled."""
+    return {
+        "source": {
+            "type": "dataplex",
+            "config": {
+                "project_ids": [project_id],
+                "entries_location": "us",
+                "include_lineage": True,
+                "include_schema": False,
+            },
+        },
+        "sink": {"type": "file", "config": {"filename": mcp_output_path}},
+    }
+
+
+def create_mock_lineage_link(source_fqn: str, target_fqn: str) -> Mock:
+    """Create a mock lineage link between source and target."""
+    link = Mock()
+    link.source = Mock()
+    link.source.fully_qualified_name = source_fqn
+    link.target = Mock()
+    link.target.fully_qualified_name = target_fqn
+    return link
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@patch("google.auth.default")
+@patch("google.cloud.dataplex_v1.CatalogServiceClient")
+@patch("datahub.ingestion.source.dataplex.dataplex.LineageClient")
+def test_dataplex_lineage_same_table_name_different_datasets(
+    mock_lineage_client_class,
+    mock_catalog_client_class,
+    mock_google_auth,
+    tmp_path,
+):
+    """Test that lineage correctly distinguishes tables with same name in different datasets.
+
+    Scenario:
+    - test-project.analytics.customers (BigQuery table)
+    - test-project.sales.customers (BigQuery table) - same table name 'customers', different dataset
+    - test-project.abc.users (BigQuery table) - source table
+
+    Lineage relationship:
+    - test-project.abc.users -> test-project.analytics.customers (ONLY this relationship exists)
+    - test-project.sales.customers has NO lineage relationship with test-project.abc.users
+
+
+    - Lineage map now uses full dataset_id (test-project.analytics.customers, test-project.sales.customers)
+    - Only test-project.analytics.customers gets the lineage from test-project.abc.users
+    """
+    # Mock Google Application Default Credentials
+    mock_credentials = Mock()
+    mock_google_auth.return_value = (mock_credentials, "test-project")
+
+    # Setup mock clients
+    mock_catalog_client = Mock()
+    mock_catalog_client_class.return_value = mock_catalog_client
+
+    mock_lineage_client = Mock()
+    mock_lineage_client_class.return_value = mock_lineage_client
+
+    # Create mock entry group
+    mock_entry_group = create_mock_entry_group("test-project", "us", "@bigquery")
+
+    # test-project.analytics.customers - target table that receives lineage from test-project.abc.users
+    mock_analytics_customers = create_mock_entry(
+        project_id="test-project",
+        location="us",
+        entry_group_id="@bigquery",
+        entry_id="analytics_customers",  # Unique entry_id (Dataplex assigns unique IDs)
+        fqn="bigquery:test-project.analytics.customers",
+        description="Analytics customers table",
+    )
+
+    # test-project.sales.customers - same table name, different dataset, NO lineage
+    mock_sales_customers = create_mock_entry(
+        project_id="test-project",
+        location="us",
+        entry_group_id="@bigquery",
+        entry_id="sales_customers",  # Unique entry_id (Dataplex assigns unique IDs)
+        fqn="bigquery:test-project.sales.customers",
+        description="Sales customers table",
+    )
+
+    # test-project.abc.users - source table that has lineage ONLY to analytics.customers
+    mock_users = create_mock_entry(
+        project_id="test-project",
+        location="us",
+        entry_group_id="@bigquery",
+        entry_id="abc_users",
+        fqn="bigquery:test-project.abc.users",
+        description="Users source table",
+    )
+
+    # Create entry map for get_entry mock
+    entry_map = {
+        mock_analytics_customers.name: mock_analytics_customers,
+        mock_sales_customers.name: mock_sales_customers,
+        mock_users.name: mock_users,
+    }
+
+    # Configure catalog mock responses
+    mock_catalog_client.list_entry_groups.return_value = [mock_entry_group]
+    mock_catalog_client.list_entries.return_value = [
+        mock_analytics_customers,
+        mock_sales_customers,
+        mock_users,
+    ]
+
+    def get_entry_side_effect(request):
+        return entry_map.get(request.name, mock_users)
+
+    mock_catalog_client.get_entry.side_effect = get_entry_side_effect
+
+    # Configure lineage mock
+    # test-project.abc.users -> test-project.analytics.customers (ONLY this relationship)
+    # test-project.sales.customers should NOT get any lineage
+    def search_links_side_effect(request):
+        # The request is a SearchLinksRequest protobuf object
+        # With protobuf, unset fields return empty objects, so check fully_qualified_name value
+        target_fqn = getattr(
+            getattr(request, "target", None), "fully_qualified_name", ""
+        )
+        source_fqn = getattr(
+            getattr(request, "source", None), "fully_qualified_name", ""
+        )
+
+        # Check for target (upstream lineage search)
+        if target_fqn:
+            # Only analytics.customers has upstream lineage from users
+            if target_fqn == "bigquery:test-project.analytics.customers":
+                return [
+                    create_mock_lineage_link(
+                        source_fqn="bigquery:test-project.abc.users",
+                        target_fqn="bigquery:test-project.analytics.customers",
+                    )
+                ]
+            # All other tables (including sales.customers) have NO upstream lineage
+            return []
+        # Check for source (downstream lineage search)
+        elif source_fqn:
+            # users feeds into analytics.customers only
+            if source_fqn == "bigquery:test-project.abc.users":
+                return [
+                    create_mock_lineage_link(
+                        source_fqn="bigquery:test-project.abc.users",
+                        target_fqn="bigquery:test-project.analytics.customers",
+                    )
+                ]
+        return []
+
+    mock_lineage_client.search_links.side_effect = search_links_side_effect
+
+    # Setup paths
+    mcp_output_path = tmp_path / "dataplex_lineage_collision_test.json"
+
+    # Run pipeline with lineage enabled
+    pipeline_config = dataplex_lineage_recipe(
+        str(mcp_output_path), project_id="test-project"
+    )
+    pipeline = run_and_get_pipeline(pipeline_config)
+
+    # Verify pipeline completed without errors
+    assert pipeline.source.get_report().failures == []
+
+    # Read the output and verify lineage is correctly assigned
+    with open(mcp_output_path) as f:
+        mcps = json.load(f)
+
+    # Find lineage aspects
+    lineage_aspects = [
+        mcp for mcp in mcps if mcp.get("aspectName") == "upstreamLineage"
+    ]
+
+    # Verify lineage for analytics.customers
+    analytics_lineage = [
+        mcp
+        for mcp in lineage_aspects
+        if "analytics.customers" in mcp.get("entityUrn", "")
+    ]
+
+    # Verify NO lineage for sales.customers (key assertion for bug fix)
+    sales_lineage = [
+        mcp for mcp in lineage_aspects if "sales.customers" in mcp.get("entityUrn", "")
+    ]
+
+    # test-project.analytics.customers SHOULD have lineage from test-project.abc.users
+    assert len(analytics_lineage) == 1, (
+        f"Expected exactly 1 lineage aspect for test-project.analytics.customers, "
+        f"got {len(analytics_lineage)}"
+    )
+
+    # test-project.sales.customers should NOT have lineage (this is the key assertion)
+    # Before the fix, this would incorrectly have lineage because the map used
+    # table name only ('customers') instead of full path ('test-project.sales.customers')
+    assert len(sales_lineage) == 0, (
+        f"Expected 0 lineage aspects for test-project.sales.customers (collision bug!), "
+        f"got {len(sales_lineage)}. This indicates the lineage map is using "
+        f"table name instead of full dataset_id as key."
+    )
+
+    # Verify the lineage points to the correct upstream (test-project.abc.users)
+    analytics_upstream = analytics_lineage[0]["aspect"]["json"]["upstreams"]
+    assert len(analytics_upstream) == 1
+    assert "abc.users" in analytics_upstream[0]["dataset"], (
+        f"Expected upstream to be test-project.abc.users, got {analytics_upstream[0]['dataset']}"
+    )

@@ -815,3 +815,274 @@ def test_batched_lineage_memory_cleanup() -> None:
 
     # After processing, lineage map should be empty (cleared after last batch)
     assert len(extractor.lineage_map) == 0
+
+
+class TestLineageMapKeyCollision:
+    """Tests for lineage map key collision fix.
+
+    These tests verify that the lineage map uses full dataset_id (project.dataset.table)
+    as the key, not just the table name. This prevents incorrect lineage assignment
+    when multiple tables have the same name but exist in different datasets.
+
+    Scenario being tested:
+    - test-project.analytics.customers (table)
+    - test-project.sales.customers (table) - same table name, different dataset
+    - test-project.abc.users (source table)
+
+    Lineage: test-project.abc.users -> test-project.analytics.customers (only this relationship)
+    test-project.sales.customers should NOT get lineage from test-project.abc.users
+    """
+
+    def test_lineage_map_uses_full_dataset_id_as_key(self) -> None:
+        """Test that lineage map keys use full dataset_id, not table name.
+
+        This is the core test for the collision bug fix. The lineage map
+        must use 'test-project.analytics.customers' as key, not 'customers'.
+        """
+        config = DataplexConfig(
+            project_ids=["test-project"],
+            include_lineage=True,
+        )
+        report = DataplexReport()
+        mock_client = MagicMock()
+
+        # Mock lineage: users -> analytics.customers ONLY
+        def mock_search_links(request):
+            target_fqn = getattr(
+                getattr(request, "target", None), "fully_qualified_name", ""
+            )
+            # Only analytics.customers has upstream from users
+            if target_fqn == "bigquery:test-project.analytics.customers":
+                mock_link = MagicMock()
+                mock_link.source.fully_qualified_name = (
+                    "bigquery:test-project.abc.users"
+                )
+                return [mock_link]
+            # sales.customers and others have NO lineage
+            return []
+
+        mock_client.search_links.side_effect = mock_search_links
+
+        extractor = DataplexLineageExtractor(
+            config=config, report=report, lineage_client=mock_client
+        )
+
+        # Create entries with same table name but different datasets
+        entries = [
+            EntryDataTuple(
+                entry_id="analytics_customers",
+                source_platform="bigquery",
+                dataset_id="test-project.analytics.customers",  # Full path
+            ),
+            EntryDataTuple(
+                entry_id="sales_customers",
+                source_platform="bigquery",
+                dataset_id="test-project.sales.customers",  # Same table name, different dataset
+            ),
+            EntryDataTuple(
+                entry_id="abc_users",
+                source_platform="bigquery",
+                dataset_id="test-project.abc.users",
+            ),
+        ]
+
+        # Build lineage map
+        lineage_map = extractor.build_lineage_map("test-project", entries)
+
+        # KEY ASSERTION: Lineage map should have full dataset_id as key
+        assert "test-project.analytics.customers" in lineage_map, (
+            "Lineage map should use full dataset_id 'test-project.analytics.customers' as key"
+        )
+
+        # sales.customers should NOT be in the map (no lineage)
+        assert "test-project.sales.customers" not in lineage_map, (
+            "test-project.sales.customers should not have lineage"
+        )
+
+        # Verify analytics.customers has correct upstream
+        analytics_edges = lineage_map["test-project.analytics.customers"]
+        assert len(analytics_edges) == 1
+        edge = next(iter(analytics_edges))
+        assert edge.entry_id == "test-project.abc.users"
+
+    def test_same_table_name_different_datasets_no_collision(self) -> None:
+        """Test that tables with same name in different datasets don't collide.
+
+        Scenario:
+        - test-project.analytics.customers -> has lineage from test-project.abc.users
+        - test-project.sales.customers -> has NO lineage
+
+        Before fix: Both would get lineage because map used 'customers' as key
+        After fix: Only analytics.customers gets lineage
+        """
+        config = DataplexConfig(
+            project_ids=["test-project"],
+            include_lineage=True,
+            batch_size=None,  # Disable batching for simplicity
+        )
+        report = DataplexReport()
+        mock_client = MagicMock()
+
+        # Track which FQNs are queried for lineage
+        queried_fqns = []
+
+        def mock_search_links(request):
+            target_fqn = getattr(
+                getattr(request, "target", None), "fully_qualified_name", ""
+            )
+            if target_fqn:
+                queried_fqns.append(target_fqn)
+                # Only analytics.customers has upstream
+                if target_fqn == "bigquery:test-project.analytics.customers":
+                    mock_link = MagicMock()
+                    mock_link.source.fully_qualified_name = (
+                        "bigquery:test-project.abc.users"
+                    )
+                    return [mock_link]
+            return []
+
+        mock_client.search_links.side_effect = mock_search_links
+
+        extractor = DataplexLineageExtractor(
+            config=config, report=report, lineage_client=mock_client
+        )
+
+        # Two tables with same name 'customers' in different datasets
+        entries = [
+            EntryDataTuple(
+                entry_id="customers_analytics",
+                source_platform="bigquery",
+                dataset_id="test-project.analytics.customers",
+            ),
+            EntryDataTuple(
+                entry_id="customers_sales",
+                source_platform="bigquery",
+                dataset_id="test-project.sales.customers",
+            ),
+        ]
+
+        # Get lineage workunits
+        workunits = list(extractor.get_lineage_workunits("test-project", entries))
+
+        # Should have exactly 1 workunit (for analytics.customers only)
+        assert len(workunits) == 1, (
+            f"Expected 1 workunit for analytics.customers, got {len(workunits)}. "
+            "If we got 2, the collision bug exists (sales.customers incorrectly got lineage)."
+        )
+
+        # Verify the workunit is for analytics.customers
+        workunit = workunits[0]
+        entity_urn = workunit.metadata.entityUrn  # type: ignore[union-attr]
+        assert "analytics.customers" in entity_urn, (
+            f"Workunit should be for analytics.customers, got {entity_urn}"
+        )
+        assert "sales.customers" not in entity_urn, (
+            "sales.customers should not have a lineage workunit"
+        )
+
+    def test_lineage_lookup_uses_full_dataset_id(self) -> None:
+        """Test that get_lineage_for_table uses full dataset_id for lookup.
+
+        The lineage map is keyed by full dataset_id, so lookups must use
+        the same key format to find the correct lineage.
+        """
+        config = DataplexConfig(
+            project_ids=["test-project"],
+            include_lineage=True,
+        )
+        report = DataplexReport()
+
+        extractor = DataplexLineageExtractor(
+            config=config, report=report, lineage_client=None
+        )
+
+        # Manually populate lineage map with full dataset_id keys
+        edge = LineageEdge(
+            entry_id="test-project.abc.users",
+            audit_stamp=datetime.datetime.now(datetime.timezone.utc),
+            lineage_type=DatasetLineageTypeClass.TRANSFORMED,
+        )
+        extractor.lineage_map["test-project.analytics.customers"] = {edge}
+
+        # Lookup with full dataset_id should find lineage
+        result = extractor.get_lineage_for_table(
+            "test-project.analytics.customers",
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
+            "bigquery",
+        )
+        assert result is not None, (
+            "Lookup with full dataset_id 'test-project.analytics.customers' should find lineage"
+        )
+
+        # Lookup with just table name should NOT find lineage
+        result_by_table_name = extractor.get_lineage_for_table(
+            "customers",  # Just table name
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,customers,PROD)",
+            "bigquery",
+        )
+        assert result_by_table_name is None, (
+            "Lookup with just table name 'customers' should NOT find lineage"
+        )
+
+        # Lookup with different dataset (same table name) should NOT find lineage
+        result_different_dataset = extractor.get_lineage_for_table(
+            "test-project.sales.customers",  # Different dataset, same table name
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.sales.customers,PROD)",
+            "bigquery",
+        )
+        assert result_different_dataset is None, (
+            "Lookup with 'test-project.sales.customers' should NOT find lineage for analytics.customers"
+        )
+
+    def test_build_lineage_map_stores_correct_keys(self) -> None:
+        """Test that build_lineage_map stores entries with correct full path keys."""
+        config = DataplexConfig(
+            project_ids=["test-project"],
+            include_lineage=True,
+        )
+        report = DataplexReport()
+        mock_client = MagicMock()
+
+        # Mock: users feeds into analytics.customers
+        def mock_search_links(request):
+            target_fqn = getattr(
+                getattr(request, "target", None), "fully_qualified_name", ""
+            )
+            if target_fqn and "analytics.customers" in target_fqn:
+                mock_link = MagicMock()
+                mock_link.source.fully_qualified_name = (
+                    "bigquery:test-project.abc.users"
+                )
+                return [mock_link]
+            return []
+
+        mock_client.search_links.side_effect = mock_search_links
+
+        extractor = DataplexLineageExtractor(
+            config=config, report=report, lineage_client=mock_client
+        )
+
+        entries = [
+            EntryDataTuple(
+                entry_id="analytics_customers",
+                source_platform="bigquery",
+                dataset_id="test-project.analytics.customers",
+            ),
+        ]
+
+        lineage_map = extractor.build_lineage_map("test-project", entries)
+
+        # Verify the key format
+        keys = list(lineage_map.keys())
+        assert len(keys) == 1
+        assert keys[0] == "test-project.analytics.customers", (
+            f"Key should be full path 'test-project.analytics.customers', got '{keys[0]}'"
+        )
+
+        # Verify the value (upstream entry)
+        edges = lineage_map["test-project.analytics.customers"]
+        assert len(edges) == 1
+        edge = next(iter(edges))
+        assert edge.entry_id == "test-project.abc.users", (
+            f"Upstream should be 'test-project.abc.users', got '{edge.entry_id}'"
+        )
