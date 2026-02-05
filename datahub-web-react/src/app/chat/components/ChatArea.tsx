@@ -204,6 +204,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
 }) => {
     const [inputValue, setInputValue] = useState('');
     const hasAutoSentInitialMessage = useRef(false);
+    const [isAutoSending, setIsAutoSending] = useState(!!initialMessage);
     const appConfig = useAppConfig();
     const themeConfig = useTheme();
     const isModeSelectEnabled = useIsAskDataHubModeSelectEnabled();
@@ -293,6 +294,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                 }
                 handleSendMessage(initialMessage);
                 updateInputValue('');
+                setIsAutoSending(false);
             }, 100);
         }
     }, [initialMessage, loading, conversation, handleSendMessage, messages.length, setTitle, updateInputValue]);
@@ -338,7 +340,8 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
         );
     }
 
-    const showEmptyState = messages.length === 0;
+    // Don't show empty state if we're about to auto-send an initial message
+    const showEmptyState = messages.length === 0 && !isAutoSending;
 
     return (
         <Container>

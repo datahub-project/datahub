@@ -86,10 +86,18 @@ export const ChatPage = () => {
     // Store it in a ref so it persists across navigation
     const initialMessageRef = useRef<string | undefined>(location.state?.initialMessage);
 
-    // Update ref if location state changes (only on first mount)
+    const [featureFlags] = useState<ChatFeatureFlags>({
+        verboseMode: false,
+    });
+
+    const [hasAutoCreated, setHasAutoCreated] = useState(false);
+
+    // Update ref if location state changes
     useEffect(() => {
-        if (location.state?.initialMessage && !initialMessageRef.current) {
+        if (location.state?.initialMessage) {
             initialMessageRef.current = location.state.initialMessage;
+            // Reset hasAutoCreated so a new conversation will be created for this message
+            setHasAutoCreated(false);
         }
     }, [location.state]);
 
@@ -99,12 +107,6 @@ export const ChatPage = () => {
             history.replace(location.pathname + location.search);
         }
     }, [location.state, history, location]);
-
-    const [featureFlags] = useState<ChatFeatureFlags>({
-        verboseMode: false,
-    });
-
-    const [hasAutoCreated, setHasAutoCreated] = useState(false);
     // Allow multiple optimistic conversations so parallel creates don't overwrite each other
     const [optimisticConversations, setOptimisticConversations] = useState<ConversationListItem[]>([]);
     const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);

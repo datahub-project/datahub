@@ -8,6 +8,7 @@ import {
 } from '@app/searchV2/searchBarV2/constants';
 import { Option } from '@app/searchV2/searchBarV2/types';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
+import formatAskDataHubMessage from '@app/searchV2/utils/formatAskDataHubMessage';
 import { useAppConfig } from '@app/useAppConfig';
 import { PageRoutes } from '@conf/Global';
 import analytics, { Event, EventType } from '@src/app/analytics';
@@ -31,7 +32,7 @@ export default function useSelectOption(
             // Handle "Ask DataHub" option
             if (option.type === ASK_DATAHUB_OPTION_TYPE) {
                 const query = value.replace('ask_datahub:', '');
-                history.push(PageRoutes.AI_CHAT, { initialMessage: `Help me find data related to ${query}` });
+                history.push(PageRoutes.AI_CHAT, { initialMessage: formatAskDataHubMessage(query) });
                 onClear();
                 analytics.event({
                     type: EventType.SelectAutoCompleteOption,
