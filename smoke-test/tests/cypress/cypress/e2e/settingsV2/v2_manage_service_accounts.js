@@ -107,14 +107,16 @@ describe("manage service accounts", () => {
     const cancelTestId = getUniqueTestId();
     const cancelServiceAccountName = `Cancel Test ${cancelTestId}`;
 
-    setFeatureFlags(false);
+    setFeatureFlags(true);
     cy.loginWithCredentials();
     cy.skipIntroducePage();
 
     navigateToServiceAccountsTab();
 
     // Click create button
-    cy.get('[data-testid="create-service-account-button"]').click();
+    cy.get('[data-testid="create-service-account-button"]', { timeout: 10000 })
+      .should("be.visible")
+      .click();
     cy.get('[data-testid="create-service-account-modal"]').should("be.visible");
 
     // Fill in name but cancel
@@ -135,14 +137,16 @@ describe("manage service accounts", () => {
     const keepTestId = getUniqueTestId();
     const keepServiceAccountName = `Keep Test ${keepTestId}`;
 
-    setFeatureFlags(false);
+    setFeatureFlags(true);
     cy.loginWithCredentials();
     cy.skipIntroducePage();
 
     navigateToServiceAccountsTab();
 
     // First create a service account
-    cy.get('[data-testid="create-service-account-button"]').click();
+    cy.get('[data-testid="create-service-account-button"]', { timeout: 10000 })
+      .should("be.visible")
+      .click();
     cy.get('[data-testid="create-service-account-modal"]').should("be.visible");
     cy.get('[data-testid="service-account-display-name-input"]').type(
       keepServiceAccountName,
