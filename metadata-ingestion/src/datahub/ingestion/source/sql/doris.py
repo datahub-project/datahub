@@ -229,7 +229,7 @@ class DorisSource(MySQLSource):
 
         return engine
 
-    def get_inspectors(self):
+    def get_inspectors(self) -> Iterable[Inspector]:
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
 
