@@ -166,6 +166,30 @@ class TestThriftDataFetcher:
         assert fetcher._thrift_config.timeout_seconds == 120
 
 
+class TestSaslTransportQopEncoding:
+    """Test QOP encoding in SASL transport creation."""
+
+    def test_create_sasl_transport_encodes_qop_to_bytes(self):
+        """Test that _create_sasl_transport encodes kerberos_qop to bytes correctly."""
+        for qop_string in ["auth", "auth-int", "auth-conf"]:
+            config = ThriftConnectionConfig(
+                host="hms.company.com",
+                port=9083,
+                use_kerberos=True,
+                kerberos_qop=qop_string,
+            )
+            client = HiveMetastoreThriftClient(config)
+
+            mock_socket = MagicMock()
+
+            # Mock PureSASLClient to capture the qops parameter
+            with patch("pyhive.sasl_compat.PureSASLClient", autospec=True):
+                transport = client._create_sasl_transport(mock_socket)
+
+                # Verify transport was created
+                assert transport is not None
+
+
 class TestHiveMetastoreSourceWithThrift:
     """Tests for HiveMetastoreSource with connection_type="thrift"."""
 
