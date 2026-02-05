@@ -70,6 +70,19 @@ class MSSQLQuery:
         return params
 
     @staticmethod
+    def _finalize_query(
+        query_template: str,
+        exclude_patterns: Optional[List[str]],
+        limit: int,
+        min_calls: int,
+    ) -> Tuple[TextClause, dict]:
+        """Finalize query by building params and wrapping in TextClause."""
+        params = MSSQLQuery._build_exclude_params(
+            exclude_patterns, {"limit": limit, "min_calls": min_calls}
+        )
+        return text(query_template), params
+
+    @staticmethod
     def check_query_store_enabled() -> TextClause:
         """Check if Query Store is enabled for the current database."""
         return text("""
@@ -131,11 +144,7 @@ class MSSQLQuery:
             ORDER BY SUM(rs.avg_duration * rs.count_executions) DESC
         """
 
-        params = MSSQLQuery._build_exclude_params(
-            exclude_patterns, {"limit": limit, "min_calls": min_calls}
-        )
-
-        return text(query), params
+        return MSSQLQuery._finalize_query(query, exclude_patterns, limit, min_calls)
 
     @staticmethod
     def get_query_history_from_dmv(
@@ -175,11 +184,7 @@ class MSSQLQuery:
             ORDER BY qs.total_elapsed_time DESC
         """
 
-        params = MSSQLQuery._build_exclude_params(
-            exclude_patterns, {"limit": limit, "min_calls": min_calls}
-        )
-
-        return text(query), params
+        return MSSQLQuery._finalize_query(query, exclude_patterns, limit, min_calls)
 
     @staticmethod
     def get_mssql_version() -> TextClause:

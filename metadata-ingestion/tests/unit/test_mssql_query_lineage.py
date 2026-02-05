@@ -128,12 +128,9 @@ def test_mssql_query_extraction_failure_reports_error(create_engine_mock):
             "statement", "params", "orig"
         )
 
-        # Mock get_inspectors to return our mock inspector
         with patch.object(source, "get_inspectors", return_value=[inspector_mock]):
-            # Should complete without raising, but report the failure
             list(source._get_query_based_lineage_workunits())
 
-        # Should have reported the failure
         assert len(source.report.failures) > 0
         failure_messages = [f.message for f in source.report.failures.values()]
         assert any(
@@ -151,7 +148,6 @@ def test_mssql_source_has_close_method(create_engine_mock):
     assert hasattr(source, "close")
     assert callable(source.close)
 
-    # Should not crash when calling close
     source.close()
 
 
@@ -574,7 +570,6 @@ def test_mssql_lineage_extractor_populate_lineage():
         config, conn_mock, report, sql_aggregator_mock, "dbo"
     )
 
-    # Create test queries
     queries = [
         MSSQLQueryEntry(
             query_id="1",
@@ -588,7 +583,6 @@ def test_mssql_lineage_extractor_populate_lineage():
 
     extractor.populate_lineage_from_queries(queries, aggregator_mock, "mssql")
 
-    # Verify aggregator was called
     aggregator_mock.add.assert_called_once()
     call_args = aggregator_mock.add.call_args[0][0]
     assert call_args.query == "SELECT * FROM users"
@@ -608,7 +602,6 @@ def test_mssql_query_entry_avg_exec_time():
 
     assert entry.avg_exec_time_ms == 50.0
 
-    # Test zero execution count
     entry_zero = MSSQLQueryEntry(
         query_id="2",
         query_text="SELECT 1",
@@ -1359,3 +1352,193 @@ def test_mssql_query_parameterized_patterns():
     assert query_str.count("%sys.%") == 0  # Should be parameterized, not in query text
     assert query_str.count("%temp%") == 0
     assert query_str.count("%msdb.%") == 0
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_query_store_disabled_mid_ingestion(create_engine_mock):
+    """Test graceful handling when Query Store is disabled during ingestion."""
+    config = SQLServerConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+        }
+    )
+    report = SQLSourceReport()
+
+    inspector_mock = Mock()
+    engine_mock = inspector_mock.engine
+    connection_mock = Mock()
+
+    result_enabled = Mock()
+    result_enabled.fetchone.return_value = {"is_enabled": True}
+
+    result_disabled = Mock()
+    result_disabled.fetchone.return_value = {"is_enabled": False}
+
+    connection_mock.execute.side_effect = [
+        result_enabled,
+        ProgrammingError("Query Store is not enabled", None, None),
+    ]
+
+    sql_aggregator_mock = Mock()
+    engine_mock.connect.return_value.__enter__.return_value = connection_mock
+
+    extractor = MSSQLLineageExtractor(
+        config=config,
+        report=report,
+        inspector=inspector_mock,
+        platform_instance=None,
+        sql_aggregator=sql_aggregator_mock,
+    )
+
+    queries = extractor.extract_query_history()
+
+    assert queries == []
+    assert report.failures
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_invalid_like_patterns_triple_percent(create_engine_mock):
+    """Test validation rejects triple percent wildcards (redundant)."""
+    with pytest.raises(ValueError, match="redundant wildcards"):
+        SQLServerConfig.model_validate(
+            {
+                **_base_config(),
+                "include_query_lineage": True,
+                "query_exclude_patterns": ["%%%sys%%%"],
+            }
+        )
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_invalid_like_patterns_nested_brackets(create_engine_mock):
+    """Test validation rejects nested brackets (invalid SQL LIKE)."""
+    with pytest.raises(ValueError, match="nested brackets"):
+        SQLServerConfig.model_validate(
+            {
+                **_base_config(),
+                "include_query_lineage": True,
+                "query_exclude_patterns": ["[[abc]]"],
+            }
+        )
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_connection_timeout_during_extraction(create_engine_mock):
+    """Test handling of connection timeout during query extraction."""
+    config = SQLServerConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+        }
+    )
+    report = SQLSourceReport()
+
+    inspector_mock = Mock()
+    engine_mock = inspector_mock.engine
+    connection_mock = Mock()
+
+    connection_mock.execute.side_effect = OperationalError(
+        "Timeout expired", None, None
+    )
+
+    sql_aggregator_mock = Mock()
+    engine_mock.connect.return_value.__enter__.return_value = connection_mock
+
+    extractor = MSSQLLineageExtractor(
+        config=config,
+        report=report,
+        inspector=inspector_mock,
+        platform_instance=None,
+        sql_aggregator=sql_aggregator_mock,
+    )
+
+    queries = extractor.extract_query_history()
+
+    assert queries == []
+    assert report.failures
+    assert any("Timeout expired" in str(f) for f in report.failures.values())
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_unicode_emoji_in_query_text(create_engine_mock):
+    """Test extraction handles Unicode and emoji in query text."""
+    config = SQLServerConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+        }
+    )
+    report = SQLSourceReport()
+
+    inspector_mock = Mock()
+    engine_mock = inspector_mock.engine
+    connection_mock = Mock()
+
+    query_with_unicode = "SELECT * FROM users WHERE name = 'José 🎉 テスト'"
+
+    result_mock = Mock()
+    result_mock.fetchall.return_value = [
+        {
+            "query_id": "1",
+            "query_text": query_with_unicode,
+            "execution_count": 10,
+            "total_exec_time_ms": 100.0,
+            "database_name": "TestDB",
+            "user_name": None,
+        }
+    ]
+
+    connection_mock.execute.return_value = result_mock
+
+    sql_aggregator_mock = Mock()
+    engine_mock.connect.return_value.__enter__.return_value = connection_mock
+
+    extractor = MSSQLLineageExtractor(
+        config=config,
+        report=report,
+        inspector=inspector_mock,
+        platform_instance=None,
+        sql_aggregator=sql_aggregator_mock,
+    )
+
+    queries = extractor.extract_query_history()
+
+    assert len(queries) == 1
+    assert queries[0].query_text == query_with_unicode
+    assert "José" in queries[0].query_text
+    assert "🎉" in queries[0].query_text
+    assert "テスト" in queries[0].query_text
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_exactly_100_exclude_patterns_boundary(create_engine_mock):
+    """Test boundary condition: exactly 100 exclude patterns (max allowed)."""
+    patterns = [f"%pattern_{i}%" for i in range(100)]
+
+    config = SQLServerConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+            "query_exclude_patterns": patterns,
+        }
+    )
+
+    assert len(config.query_exclude_patterns) == 100
+    assert config.query_exclude_patterns[0] == "%pattern_0%"
+    assert config.query_exclude_patterns[99] == "%pattern_99%"
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_over_100_exclude_patterns_rejected(create_engine_mock):
+    """Test validation rejects more than 100 exclude patterns."""
+    patterns = [f"%pattern_{i}%" for i in range(101)]
+
+    with pytest.raises(ValueError, match="must have <= 100 patterns"):
+        SQLServerConfig.model_validate(
+            {
+                **_base_config(),
+                "include_query_lineage": True,
+                "query_exclude_patterns": patterns,
+            }
+        )
