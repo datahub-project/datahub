@@ -1731,7 +1731,7 @@ def _translate_internal_column_lineage(
 ) -> ColumnLineageInfo:
     downstream_urn = None
     if raw_column_lineage.downstream.table:
-        downstream_urn = table_name_urn_mapping[raw_column_lineage.downstream.table]
+        downstream_urn = table_name_urn_mapping.get(raw_column_lineage.downstream.table)
     return ColumnLineageInfo(
         downstream=DownstreamColumnRef(
             table=downstream_urn,
@@ -1758,6 +1758,7 @@ def _translate_internal_column_lineage(
                 column=upstream.column,
             )
             for upstream in raw_column_lineage.upstreams
+            if upstream.table in table_name_urn_mapping
         ],
         logic=raw_column_lineage.logic,
     )
