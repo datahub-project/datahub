@@ -70,3 +70,94 @@ export function emitFeedbackEvent(params: EmitFeedbackEventParams): boolean {
 
     return true;
 }
+
+export interface EmitCopyEventParams {
+    conversationUrn: string;
+    messageId: string;
+    chatLocation: ChatLocationType;
+    agentName?: string;
+}
+
+/**
+ * Emits a chat message copy analytics event.
+ * Returns true if the event was emitted, false if missing required params.
+ */
+export function emitCopyEvent(params: EmitCopyEventParams): boolean {
+    const { conversationUrn, messageId, chatLocation, agentName } = params;
+
+    if (!conversationUrn || !chatLocation) {
+        return false;
+    }
+
+    analytics.event({
+        type: EventType.ChatMessageCopyEvent,
+        conversationUrn,
+        messageId,
+        chatLocation,
+        agentName,
+    });
+
+    return true;
+}
+
+export interface EmitSourcesEventParams {
+    conversationUrn: string;
+    messageId: string;
+    action: 'expand' | 'collapse';
+    sourceCount: number;
+    chatLocation: ChatLocationType;
+    agentName?: string;
+}
+
+/**
+ * Emits a chat message sources expand/collapse analytics event.
+ * Returns true if the event was emitted, false if missing required params.
+ */
+export function emitSourcesEvent(params: EmitSourcesEventParams): boolean {
+    const { conversationUrn, messageId, action, sourceCount, chatLocation, agentName } = params;
+
+    if (!conversationUrn || !chatLocation) {
+        return false;
+    }
+
+    analytics.event({
+        type: EventType.ChatMessageSourcesEvent,
+        conversationUrn,
+        messageId,
+        action,
+        sourceCount,
+        chatLocation,
+        agentName,
+    });
+
+    return true;
+}
+
+export interface EmitOpenInChatEventParams {
+    conversationUrn: string;
+    messageId: string;
+    chatLocation: ChatLocationType;
+    agentName?: string;
+}
+
+/**
+ * Emits a chat message open in chat analytics event.
+ * Returns true if the event was emitted, false if missing required params.
+ */
+export function emitOpenInChatEvent(params: EmitOpenInChatEventParams): boolean {
+    const { conversationUrn, messageId, chatLocation, agentName } = params;
+
+    if (!conversationUrn || !chatLocation) {
+        return false;
+    }
+
+    analytics.event({
+        type: EventType.ChatMessageOpenInChatEvent,
+        conversationUrn,
+        messageId,
+        chatLocation,
+        agentName,
+    });
+
+    return true;
+}

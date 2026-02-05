@@ -3,8 +3,10 @@ import { CaretDown, CaretRight } from '@phosphor-icons/react';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { ChatLocationType } from '@app/analytics';
 import { ReferenceCard } from '@app/chat/components/references/ReferenceCard';
 import { StackedEntityLogos } from '@app/chat/components/references/StackedEntityLogos';
+import { emitSourcesEvent } from '@app/chat/utils/chatFeedbackUtils';
 import { extractUrnsFromMarkdown } from '@app/chat/utils/extractUrnsFromMarkdown';
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
 
@@ -76,6 +78,11 @@ interface Props {
     onEntitySelect: (entity: Entity | null) => void;
     /** Optional content to render on the right side of the header (e.g., reaction buttons) */
     rightContent?: React.ReactNode;
+    /** Tracking props for sources expand/collapse analytics */
+    conversationUrn?: string;
+    messageId?: string;
+    chatLocation?: ChatLocationType;
+    agentName?: string;
 }
 
 export const MessageReferences: React.FC<Props> = ({
@@ -83,6 +90,10 @@ export const MessageReferences: React.FC<Props> = ({
     selectedEntityUrn,
     onEntitySelect,
     rightContent,
+    conversationUrn,
+    messageId,
+    chatLocation,
+    agentName,
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -97,7 +108,20 @@ export const MessageReferences: React.FC<Props> = ({
     const hasSources = urns.length > 0 && (loading || entities.length > 0);
 
     const handleToggle = () => {
-        setIsExpanded(!isExpanded);
+        const newIsExpanded = !isExpanded;
+        setIsExpanded(newIsExpanded);
+
+        // Emit sources tracking event
+        if (conversationUrn && messageId && chatLocation) {
+            emitSourcesEvent({
+                conversationUrn,
+                messageId,
+                action: newIsExpanded ? 'expand' : 'collapse',
+                sourceCount: entities.length,
+                chatLocation,
+                agentName,
+            });
+        }
     };
 
     const handleEntityClick = (entity: Entity) => {

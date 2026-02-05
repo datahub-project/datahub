@@ -12,6 +12,7 @@ import { ReactionButtons } from '@app/chat/components/messages/ReactionButtons';
 import { MessageReferences } from '@app/chat/components/references/MessageReferences';
 import { useChatMessageReaction } from '@app/chat/hooks/useChatMessageReaction';
 import { ChatMessageAction, ChatVariant } from '@app/chat/types';
+import { emitCopyEvent, emitOpenInChatEvent, generateMessageId } from '@app/chat/utils/chatFeedbackUtils';
 import { convertUrnLinksToSpans } from '@app/chat/utils/markdownUtils';
 import { parseMessageContent } from '@app/chat/utils/parseMessageContent';
 import { extractTypeFromUrn } from '@app/entity/shared/utils';
@@ -131,6 +132,12 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
             chatLocation,
             agentName: message.agentName ?? undefined,
         });
+
+    // Generate message ID for tracking
+    const messageId = useMemo(
+        () => generateMessageId(message.time, message.content?.text),
+        [message.time, message.content?.text],
+    );
 
     // Memoize parsing to avoid re-parsing on every render (matches pattern used in MessageReferences)
     const parts = useMemo(() => {
@@ -270,6 +277,16 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
             await navigator.clipboard.writeText(messageText);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
+
+            // Emit copy tracking event
+            if (conversationUrn && chatLocation) {
+                emitCopyEvent({
+                    conversationUrn,
+                    messageId,
+                    chatLocation,
+                    agentName: message.agentName ?? undefined,
+                });
+            }
         } catch {
             // Swallow errors to avoid breaking UX; matches handleCopyCode semantics
         }
@@ -284,6 +301,15 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
 
     const handleOpenInChat = () => {
         if (conversationUrn) {
+            // Emit open in chat tracking event
+            if (chatLocation) {
+                emitOpenInChatEvent({
+                    conversationUrn,
+                    messageId,
+                    chatLocation,
+                    agentName: message.agentName ?? undefined,
+                });
+            }
             history.push(`${PageRoutes.AI_CHAT}?conversation=${conversationUrn}`);
         }
     };
@@ -354,6 +380,10 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
                                         {copyButton}
                                     </>
                                 }
+                                conversationUrn={conversationUrn}
+                                messageId={messageId}
+                                chatLocation={chatLocation}
+                                agentName={message.agentName ?? undefined}
                             />
                         ) : (
                             <>

@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import analytics, { ChatLocationType, EventType } from '@app/analytics';
-import { emitFeedbackEvent, emitReactionEvent, generateMessageId } from '@app/chat/utils/chatFeedbackUtils';
+import {
+    emitCopyEvent,
+    emitFeedbackEvent,
+    emitOpenInChatEvent,
+    emitReactionEvent,
+    emitSourcesEvent,
+    generateMessageId,
+} from '@app/chat/utils/chatFeedbackUtils';
 
 // Mock analytics
 vi.mock('@app/analytics', () => ({
@@ -11,6 +18,9 @@ vi.mock('@app/analytics', () => ({
     EventType: {
         ChatMessageReactionEvent: 'ChatMessageReactionEvent',
         ChatMessageFeedbackEvent: 'ChatMessageFeedbackEvent',
+        ChatMessageCopyEvent: 'ChatMessageCopyEvent',
+        ChatMessageSourcesEvent: 'ChatMessageSourcesEvent',
+        ChatMessageOpenInChatEvent: 'ChatMessageOpenInChatEvent',
     },
 }));
 
@@ -203,6 +213,186 @@ describe('chatFeedbackUtils', () => {
                     }),
                 );
             });
+        });
+    });
+
+    describe('emitCopyEvent', () => {
+        const validParams = {
+            conversationUrn: 'urn:li:dataHubAiConversation:123',
+            messageId: '1234567890-Hello',
+            chatLocation: 'ask_datahub_ui' as ChatLocationType,
+        };
+
+        it('should emit analytics event with correct params', () => {
+            const result = emitCopyEvent(validParams);
+
+            expect(result).toBe(true);
+            expect(analytics.event).toHaveBeenCalledWith({
+                type: EventType.ChatMessageCopyEvent,
+                conversationUrn: validParams.conversationUrn,
+                messageId: validParams.messageId,
+                chatLocation: validParams.chatLocation,
+            });
+        });
+
+        it('should include agentName when provided', () => {
+            const result = emitCopyEvent({
+                ...validParams,
+                agentName: 'AskDataHubAuto',
+            });
+
+            expect(result).toBe(true);
+            expect(analytics.event).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    agentName: 'AskDataHubAuto',
+                }),
+            );
+        });
+
+        it('should return false if conversationUrn is missing', () => {
+            const result = emitCopyEvent({
+                ...validParams,
+                conversationUrn: '',
+            });
+
+            expect(result).toBe(false);
+            expect(analytics.event).not.toHaveBeenCalled();
+        });
+
+        it('should return false if chatLocation is missing', () => {
+            const result = emitCopyEvent({
+                ...validParams,
+                chatLocation: '' as ChatLocationType,
+            });
+
+            expect(result).toBe(false);
+            expect(analytics.event).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('emitSourcesEvent', () => {
+        const validParams = {
+            conversationUrn: 'urn:li:dataHubAiConversation:123',
+            messageId: '1234567890-Hello',
+            action: 'expand' as const,
+            sourceCount: 3,
+            chatLocation: 'ask_datahub_ui' as ChatLocationType,
+        };
+
+        it('should emit analytics event with correct params for expand', () => {
+            const result = emitSourcesEvent(validParams);
+
+            expect(result).toBe(true);
+            expect(analytics.event).toHaveBeenCalledWith({
+                type: EventType.ChatMessageSourcesEvent,
+                conversationUrn: validParams.conversationUrn,
+                messageId: validParams.messageId,
+                action: 'expand',
+                sourceCount: 3,
+                chatLocation: validParams.chatLocation,
+            });
+        });
+
+        it('should emit analytics event with correct params for collapse', () => {
+            const result = emitSourcesEvent({
+                ...validParams,
+                action: 'collapse',
+            });
+
+            expect(result).toBe(true);
+            expect(analytics.event).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    action: 'collapse',
+                }),
+            );
+        });
+
+        it('should include agentName when provided', () => {
+            const result = emitSourcesEvent({
+                ...validParams,
+                agentName: 'AskDataHubResearch',
+            });
+
+            expect(result).toBe(true);
+            expect(analytics.event).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    agentName: 'AskDataHubResearch',
+                }),
+            );
+        });
+
+        it('should return false if conversationUrn is missing', () => {
+            const result = emitSourcesEvent({
+                ...validParams,
+                conversationUrn: '',
+            });
+
+            expect(result).toBe(false);
+            expect(analytics.event).not.toHaveBeenCalled();
+        });
+
+        it('should return false if chatLocation is missing', () => {
+            const result = emitSourcesEvent({
+                ...validParams,
+                chatLocation: '' as ChatLocationType,
+            });
+
+            expect(result).toBe(false);
+            expect(analytics.event).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('emitOpenInChatEvent', () => {
+        const validParams = {
+            conversationUrn: 'urn:li:dataHubAiConversation:123',
+            messageId: '1234567890-Hello',
+            chatLocation: 'ask_datahub_tab' as ChatLocationType,
+        };
+
+        it('should emit analytics event with correct params', () => {
+            const result = emitOpenInChatEvent(validParams);
+
+            expect(result).toBe(true);
+            expect(analytics.event).toHaveBeenCalledWith({
+                type: EventType.ChatMessageOpenInChatEvent,
+                conversationUrn: validParams.conversationUrn,
+                messageId: validParams.messageId,
+                chatLocation: validParams.chatLocation,
+            });
+        });
+
+        it('should include agentName when provided', () => {
+            const result = emitOpenInChatEvent({
+                ...validParams,
+                agentName: 'AskDataHubFast',
+            });
+
+            expect(result).toBe(true);
+            expect(analytics.event).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    agentName: 'AskDataHubFast',
+                }),
+            );
+        });
+
+        it('should return false if conversationUrn is missing', () => {
+            const result = emitOpenInChatEvent({
+                ...validParams,
+                conversationUrn: '',
+            });
+
+            expect(result).toBe(false);
+            expect(analytics.event).not.toHaveBeenCalled();
+        });
+
+        it('should return false if chatLocation is missing', () => {
+            const result = emitOpenInChatEvent({
+                ...validParams,
+                chatLocation: '' as ChatLocationType,
+            });
+
+            expect(result).toBe(false);
+            expect(analytics.event).not.toHaveBeenCalled();
         });
     });
 });

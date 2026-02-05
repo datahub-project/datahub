@@ -276,6 +276,9 @@ export enum EventType {
     StopDataHubChatResponseEvent,
     ChatMessageReactionEvent,
     ChatMessageFeedbackEvent,
+    ChatMessageCopyEvent,
+    ChatMessageSourcesEvent,
+    ChatMessageOpenInChatEvent,
     FileUploadAttemptEvent,
     FileUploadFailedEvent,
     FileUploadSucceededEvent,
@@ -2125,6 +2128,41 @@ export interface ChatMessageFeedbackEvent extends BaseEvent {
     agentName?: string; // The agent mode selected by the user
 }
 
+/**
+ * Logged when a user copies a chat message.
+ */
+export interface ChatMessageCopyEvent extends BaseEvent {
+    type: EventType.ChatMessageCopyEvent;
+    conversationUrn: string;
+    messageId: string;
+    chatLocation: ChatLocationType;
+    agentName?: string; // The agent mode selected by the user
+}
+
+/**
+ * Logged when a user expands or collapses sources in a chat message.
+ */
+export interface ChatMessageSourcesEvent extends BaseEvent {
+    type: EventType.ChatMessageSourcesEvent;
+    conversationUrn: string;
+    messageId: string;
+    action: 'expand' | 'collapse';
+    sourceCount: number; // Number of sources/entities in the message
+    chatLocation: ChatLocationType;
+    agentName?: string; // The agent mode selected by the user
+}
+
+/**
+ * Logged when a user clicks "Open in Chat" to open a conversation in the full chat view.
+ */
+export interface ChatMessageOpenInChatEvent extends BaseEvent {
+    type: EventType.ChatMessageOpenInChatEvent;
+    conversationUrn: string;
+    messageId: string;
+    chatLocation: ChatLocationType;
+    agentName?: string; // The agent mode selected by the user
+}
+
 interface GoToLogicalParentEvent extends BaseEvent {
     type: EventType.GoToLogicalParentEvent;
     entityUrn: string;
@@ -2552,6 +2590,9 @@ export type Event =
     | StopDataHubChatResponseEvent
     | ChatMessageReactionEvent
     | ChatMessageFeedbackEvent
+    | ChatMessageCopyEvent
+    | ChatMessageSourcesEvent
+    | ChatMessageOpenInChatEvent
     | FileUploadAttemptEvent
     | FileUploadFailedEvent
     | FileUploadSucceededEvent
