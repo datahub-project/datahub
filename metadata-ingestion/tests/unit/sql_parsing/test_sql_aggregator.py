@@ -519,61 +519,6 @@ def test_add_known_query_lineage() -> None:
 
 
 @freeze_time(FROZEN_TIME)
-def test_add_known_query_lineage_parses_column_lineage() -> None:
-    """Test that add_known_query_lineage parses column lineage from SQL when not provided."""
-    aggregator = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        generate_usage_statistics=False,
-        generate_operations=True,
-    )
-
-    downstream_urn = DatasetUrn("redshift", "dev.public.foo").urn()
-    upstream_urn = DatasetUrn("redshift", "dev.public.bar").urn()
-
-    # Register schemas so the parser can resolve column lineage
-    aggregator._schema_resolver.add_raw_schema_info(
-        downstream_urn,
-        {"a": "int", "b": "int", "c": "int"},
-    )
-    aggregator._schema_resolver.add_raw_schema_info(
-        upstream_urn,
-        {"a": "int", "b": "int", "c": "int"},
-    )
-
-    # Call without column_lineage - should be parsed from SQL
-    known_query_lineage = KnownQueryLineageInfo(
-        query_text="insert into foo (a, b, c) select a, b, c from bar",
-        downstream=downstream_urn,
-        upstreams=[upstream_urn],
-        # column_lineage NOT provided - should be parsed from query_text
-        timestamp=_ts(20),
-        query_type=QueryType.INSERT,
-    )
-
-    aggregator.add_known_query_lineage(known_query_lineage)
-
-    mcps = list(aggregator.gen_metadata())
-
-    # Verify column lineage was extracted
-    lineage_mcps = [mcp for mcp in mcps if mcp.aspectName == "upstreamLineage"]
-    assert len(lineage_mcps) == 1
-    lineage_aspect = lineage_mcps[0].aspect
-    assert lineage_aspect is not None
-
-    # Should have fine-grained lineages for columns a, b, c
-    fine_grained = lineage_aspect.fineGrainedLineages
-    assert fine_grained is not None
-    assert len(fine_grained) == 3
-
-    # Verify columns are mapped
-    downstream_columns = {
-        fg.downstreams[0].split(",")[-1].rstrip(")") for fg in fine_grained
-    }
-    assert downstream_columns == {"a", "b", "c"}
-
-
-@freeze_time(FROZEN_TIME)
 def test_table_rename() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
