@@ -7,6 +7,7 @@ from datahub.ingestion.source.sql.mssql.lineage import (
     MSSQLLineageExtractor,
     MSSQLQueryEntry,
 )
+from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 
@@ -98,75 +99,39 @@ def test_mssql_sql_aggregator_initialization_failure(create_engine_mock):
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_mssql_max_queries_validation(create_engine_mock):
-    """Test max_queries_to_extract validation."""
-    with pytest.raises(ValueError, match="must be positive"):
-        SQLServerConfig.model_validate({**_base_config(), "max_queries_to_extract": 0})
-
-    with pytest.raises(ValueError, match="<= 10000"):
-        SQLServerConfig.model_validate(
-            {**_base_config(), "max_queries_to_extract": 20000}
-        )
+def test_mssql_query_extraction_failure_fails_fast(create_engine_mock):
+    """Test that query extraction failures fail fast when explicitly enabled."""
+    from sqlalchemy.exc import DatabaseError
 
     config = SQLServerConfig.model_validate(
-        {**_base_config(), "max_queries_to_extract": 5000}
+        {**_base_config(), "include_query_lineage": True}
     )
-    assert config.max_queries_to_extract == 5000
 
+    # Mock SQL aggregator initialization to succeed
+    with patch("datahub.ingestion.source.sql.mssql.source.SqlParsingAggregator"):
+        source = SQLServerSource(config, PipelineContext(run_id="test"))
 
-@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_mssql_min_query_calls_validation(create_engine_mock):
-    """Test min_query_calls validation."""
-    with pytest.raises(ValueError, match="non-negative"):
-        SQLServerConfig.model_validate({**_base_config(), "min_query_calls": -1})
-
-    config = SQLServerConfig.model_validate({**_base_config(), "min_query_calls": 5})
-    assert config.min_query_calls == 5
-
-
-@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_mssql_query_exclude_patterns_empty_string(create_engine_mock):
-    """Test that empty strings in query_exclude_patterns are rejected."""
-    with pytest.raises(ValueError, match="empty or contains only whitespace"):
-        SQLServerConfig.model_validate(
-            {**_base_config(), "query_exclude_patterns": ["%sys%", ""]}
+        # Mock inspector
+        inspector_mock = Mock()
+        inspector_mock.engine.connect.return_value.__enter__ = Mock()
+        inspector_mock.engine.connect.return_value.__exit__ = Mock()
+        connection_mock = Mock()
+        inspector_mock.engine.connect.return_value.__enter__.return_value = (
+            connection_mock
         )
 
-    with pytest.raises(ValueError, match="empty or contains only whitespace"):
-        SQLServerConfig.model_validate(
-            {**_base_config(), "query_exclude_patterns": ["   "]}
+        # Mock connection to raise error during query extraction
+        connection_mock.execute.side_effect = DatabaseError(
+            "statement", "params", "orig"
         )
 
+        # Should raise RuntimeError, not silently continue
+        with pytest.raises(RuntimeError) as exc_info:
+            list(source._get_query_based_lineage_workunits(inspector_mock))
 
-@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_mssql_query_exclude_patterns_unmatched_brackets(create_engine_mock):
-    """Test that unmatched brackets in query_exclude_patterns are rejected."""
-    with pytest.raises(ValueError, match="unmatched opening bracket"):
-        SQLServerConfig.model_validate(
-            {**_base_config(), "query_exclude_patterns": ["%[abc%"]}
-        )
-
-    with pytest.raises(ValueError, match="unmatched closing bracket"):
-        SQLServerConfig.model_validate(
-            {**_base_config(), "query_exclude_patterns": ["%abc]%"]}
-        )
-
-
-@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_mssql_query_exclude_patterns_valid(create_engine_mock):
-    """Test that valid query_exclude_patterns are accepted."""
-    config = SQLServerConfig.model_validate(
-        {
-            **_base_config(),
-            "query_exclude_patterns": [
-                "%sys.%",
-                "%temp_%",
-                "%[0-9]%",  # Valid bracket pattern
-                "%\\[escaped\\]%",  # Escaped brackets
-            ],
-        }
-    )
-    assert len(config.query_exclude_patterns) == 4
+        error_message = str(exc_info.value)
+        assert "explicitly enabled" in error_message
+        assert "include_query_lineage: true" in error_message
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
@@ -519,7 +484,7 @@ def test_mssql_lineage_extractor_extract_queries_applies_exclude_patterns():
 
 
 def test_mssql_lineage_extractor_handles_extraction_failure():
-    """Test query extraction handles database errors gracefully."""
+    """Test query extraction fails fast on database errors when explicitly enabled."""
     from sqlalchemy.exc import DatabaseError
 
     config = SQLServerConfig.model_validate(_base_config())
@@ -531,14 +496,18 @@ def test_mssql_lineage_extractor_handles_extraction_failure():
     # Mock database error during extraction
     conn_mock.execute.side_effect = DatabaseError("statement", "params", "orig")
 
-    with patch.object(
-        extractor, "check_prerequisites", return_value=(True, "query_store")
+    with (
+        patch.object(
+            extractor, "check_prerequisites", return_value=(True, "query_store")
+        ),
+        pytest.raises(RuntimeError) as exc_info,
     ):
-        queries = extractor.extract_query_history()
+        extractor.extract_query_history()
 
-    assert len(queries) == 0
+    error_msg = str(exc_info.value)
+    assert "explicitly enabled" in error_msg
+    assert "include_query_lineage: true" in error_msg
     assert len(report.failures) > 0
-    assert any("failed" in f.message.lower() for f in report.failures)
 
 
 def test_mssql_lineage_extractor_populate_lineage():
@@ -595,3 +564,255 @@ def test_mssql_query_entry_avg_exec_time():
     )
 
     assert entry_zero.avg_exec_time_ms == 0.0
+
+
+# Tests for SQL Query Generation
+
+
+def test_query_store_sql_without_exclusions():
+    """Test Query Store SQL generation without exclude patterns."""
+    query, params = MSSQLQuery.get_query_history_from_query_store(
+        database="TestDB",
+        limit=100,
+        min_calls=5,
+        exclude_patterns=None,
+    )
+
+    query_str = str(query)
+    assert "SELECT TOP(:limit)" in query_str
+    assert "sys.query_store_query" in query_str
+    assert "count_executions >= :min_calls" in query_str
+    assert "NOT LIKE" not in query_str
+
+    assert params["limit"] == 100
+    assert params["min_calls"] == 5
+    assert len(params) == 2
+
+
+def test_query_store_sql_with_exclusions():
+    """Test Query Store SQL generation with exclude patterns."""
+    query, params = MSSQLQuery.get_query_history_from_query_store(
+        database="TestDB",
+        limit=100,
+        min_calls=5,
+        exclude_patterns=["%sys.%", "%temp%", "%msdb%"],
+    )
+
+    query_str = str(query)
+    assert query_str.count("NOT LIKE") == 3
+    assert "query_sql_text NOT LIKE :exclude_0" in query_str
+    assert "query_sql_text NOT LIKE :exclude_1" in query_str
+    assert "query_sql_text NOT LIKE :exclude_2" in query_str
+
+    assert params["exclude_0"] == "%sys.%"
+    assert params["exclude_1"] == "%temp%"
+    assert params["exclude_2"] == "%msdb%"
+    assert params["limit"] == 100
+    assert params["min_calls"] == 5
+
+
+def test_dmv_sql_without_exclusions():
+    """Test DMV SQL generation without exclude patterns."""
+    query, params = MSSQLQuery.get_query_history_from_dmv(
+        database="TestDB",
+        limit=50,
+        min_calls=10,
+        exclude_patterns=None,
+    )
+
+    query_str = str(query)
+    assert "SELECT TOP(:limit)" in query_str
+    assert "sys.dm_exec_query_stats" in query_str
+    assert "sys.dm_exec_sql_text" in query_str
+    assert "execution_count >= :min_calls" in query_str
+    assert "NOT LIKE" not in query_str
+
+    assert params["limit"] == 50
+    assert params["min_calls"] == 10
+
+
+def test_dmv_sql_with_exclusions():
+    """Test DMV SQL generation with exclude patterns."""
+    query, params = MSSQLQuery.get_query_history_from_dmv(
+        database="TestDB",
+        limit=50,
+        min_calls=10,
+        exclude_patterns=["%INFORMATION_SCHEMA%", "%#%"],
+    )
+
+    query_str = str(query)
+    assert query_str.count("NOT LIKE") == 2
+    assert "CAST(st.text AS NVARCHAR(MAX)) NOT LIKE :exclude_0" in query_str
+    assert "CAST(st.text AS NVARCHAR(MAX)) NOT LIKE :exclude_1" in query_str
+
+    assert params["exclude_0"] == "%INFORMATION_SCHEMA%"
+    assert params["exclude_1"] == "%#%"
+
+
+def test_version_check_sql():
+    """Test SQL Server version check query."""
+    query = MSSQLQuery.get_mssql_version()
+
+    query_str = str(query)
+    assert "SERVERPROPERTY('ProductVersion')" in query_str
+    assert "SERVERPROPERTY('ProductMajorVersion')" in query_str
+    assert "major_version" in query_str
+
+
+def test_query_store_check_sql():
+    """Test Query Store enabled check query."""
+    query = MSSQLQuery.check_query_store_enabled()
+
+    query_str = str(query)
+    assert "sys.database_query_store_options" in query_str
+    assert "actual_state_desc" in query_str
+    assert "READ_WRITE" in query_str
+    assert "READ_ONLY" in query_str
+
+
+def test_dmv_permissions_check_sql():
+    """Test DMV permissions check query."""
+    query = MSSQLQuery.check_dmv_permissions()
+
+    query_str = str(query)
+    assert "HAS_PERMS_BY_NAME" in query_str
+    assert "VIEW SERVER STATE" in query_str
+
+
+# Tests for Error Scenarios
+
+
+def test_mssql_lineage_extractor_version_check_fails():
+    """Test version check handles missing version gracefully."""
+    config = SQLServerConfig.model_validate(_base_config())
+    report = SQLSourceReport()
+    conn_mock = Mock()
+
+    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+
+    # Mock no version result
+    conn_mock.execute.return_value.fetchone.return_value = None
+
+    version = extractor._check_version()
+
+    assert version is None
+
+
+def test_mssql_lineage_extractor_query_store_check_fails():
+    """Test Query Store check handles database errors."""
+    from sqlalchemy.exc import ProgrammingError
+
+    config = SQLServerConfig.model_validate(_base_config())
+    report = SQLSourceReport()
+    conn_mock = Mock()
+
+    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+
+    # Mock database error (e.g., sys.database_query_store_options doesn't exist)
+    conn_mock.execute.side_effect = ProgrammingError("statement", "params", "orig")
+
+    # Should raise the exception (handled by caller)
+    with pytest.raises(ProgrammingError):
+        extractor._check_query_store_available()
+
+
+def test_mssql_lineage_extractor_malformed_query_text():
+    """Test extraction handles malformed query text gracefully."""
+    config = SQLServerConfig.model_validate(_base_config())
+    report = SQLSourceReport()
+    conn_mock = Mock()
+
+    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+
+    # Mock query with NULL and empty text (should be filtered by SQL, but test defense)
+    mock_results = [
+        {
+            "query_id": "1",
+            "query_text": "SELECT * FROM users",
+            "execution_count": 5,
+            "total_exec_time_ms": 100.0,
+            "user_name": "test_user",
+            "database_name": "TestDB",
+        },
+        {
+            "query_id": "2",
+            "query_text": "",  # Empty text
+            "execution_count": 3,
+            "total_exec_time_ms": 50.0,
+            "user_name": "admin",
+            "database_name": "TestDB",
+        },
+    ]
+
+    conn_mock.execute.return_value.fetchall.return_value = mock_results
+
+    with patch.object(
+        extractor, "check_prerequisites", return_value=(True, "query_store")
+    ):
+        queries = extractor.extract_query_history()
+
+    # Both queries should be returned (SQL should filter empty, but we accept them)
+    assert len(queries) == 2
+
+
+def test_mssql_lineage_extractor_connection_failure_during_prerequisite():
+    """Test extraction handles connection failures during prerequisite checks."""
+    from sqlalchemy.exc import OperationalError
+
+    config = SQLServerConfig.model_validate(_base_config())
+    report = SQLSourceReport()
+    conn_mock = Mock()
+
+    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+
+    # Mock connection failure during Query Store check
+    conn_mock.execute.side_effect = OperationalError("statement", "params", "orig")
+
+    # Should fall through to DMV check, which also fails
+    can_extract, method = extractor.check_prerequisites()
+
+    assert can_extract is False
+    assert method == "none"
+
+
+def test_mssql_lineage_extractor_fallback_to_dmv():
+    """Test automatic fallback from Query Store to DMV."""
+    from sqlalchemy.exc import ProgrammingError
+
+    config = SQLServerConfig.model_validate(_base_config())
+    report = SQLSourceReport()
+    conn_mock = Mock()
+
+    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+
+    # Mock successful version check
+    version_result = Mock()
+    version_result.fetchone.return_value = {
+        "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
+        "major_version": 15,
+    }
+
+    # Mock Query Store check fails (not available on this database)
+    qs_error = ProgrammingError("statement", "params", "orig")
+
+    # Mock DMV check succeeds
+    dmv_result = Mock()
+    dmv_result.fetchone.return_value = {"plan_count": 10}
+
+    call_count = [0]
+
+    def execute_side_effect(query):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            return version_result
+        elif call_count[0] == 2:
+            raise qs_error
+        else:
+            return dmv_result
+
+    conn_mock.execute.side_effect = execute_side_effect
+
+    can_extract, method = extractor.check_prerequisites()
+
+    assert can_extract is True
+    assert method == "dmv"

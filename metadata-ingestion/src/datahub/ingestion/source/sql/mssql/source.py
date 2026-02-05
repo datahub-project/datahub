@@ -110,7 +110,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     include_descriptions: bool = Field(
         default=True, description="Include table descriptions information."
     )
-    # Soft deprecation: use_odbc is removed, source type determines ODBC mode
     _use_odbc_removed = pydantic_removed_field("use_odbc")
     uri_args: Dict[str, str] = Field(
         default={},
@@ -267,7 +266,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
                     "Please simplify your pattern or split it into multiple shorter patterns."
                 )
 
-            # Validate SQL LIKE pattern syntax
             bracket_depth = 0
             for j, char in enumerate(pattern):
                 if char == "[" and (j == 0 or pattern[j - 1] != "\\"):
@@ -387,7 +385,6 @@ class SQLServerSource(SQLAlchemySource):
         self, config: SQLServerConfig, ctx: PipelineContext, is_odbc: bool = False
     ):
         super().__init__(config, ctx, "mssql")
-        # Cache the table and column descriptions
         self.config: SQLServerConfig = config
         self._is_odbc = is_odbc
         self.current_database = None
@@ -540,7 +537,6 @@ class SQLServerSource(SQLAlchemySource):
         description, properties, location_urn = super().get_table_properties(
             inspector, schema, table
         )
-        # Update description if available.
         db_name: str = self.get_db_name(inspector)
         description = self.table_descriptions.get(
             f"{db_name}.{schema}.{table}", description
@@ -554,7 +550,6 @@ class SQLServerSource(SQLAlchemySource):
         columns: List[Dict] = super()._get_columns(
             dataset_name, inspector, schema, table
         )
-        # Update column description if available.
         db_name: str = self.get_db_name(inspector)
         for column in columns:
             description: Optional[str] = self.column_descriptions.get(
@@ -696,7 +691,6 @@ class SQLServerSource(SQLAlchemySource):
     ) -> Dict[str, Dict[str, Any]]:
         jobs: Dict[str, Dict[str, Any]] = {}
 
-        # First, get all jobs
         jobs_result = conn.execute("EXEC msdb.dbo.sp_help_job")
         jobs_data = {}
 
@@ -714,7 +708,6 @@ class SQLServerSource(SQLAlchemySource):
                 "enabled": row.get("enabled", 1),
             }
 
-        # Now get job steps for each job, filtering by database
         for job_id, job_info in jobs_data.items():
             try:
                 steps_result = conn.execute(
@@ -724,7 +717,6 @@ class SQLServerSource(SQLAlchemySource):
                 job_steps = {}
                 # Use .mappings() for dictionary-like access (SQLAlchemy 1.4+ compatibility)
                 for step_row in steps_result.mappings():
-                    # Only include steps that run against our target database
                     step_database = step_row.get("database_name", "")
                     if step_database.lower() == db_name.lower() or not step_database:
                         step_data = {
@@ -741,7 +733,6 @@ class SQLServerSource(SQLAlchemySource):
                         }
                         job_steps[step_row["step_id"]] = step_data
 
-                # Only add job if it has relevant steps
                 if job_steps:
                     jobs[job_info["name"]] = job_steps
 
@@ -944,7 +935,6 @@ class SQLServerSource(SQLAlchemySource):
         for property_name, property_value in properties.items():
             data_job.add_property(property_name, str(property_value))
         if self.config.include_lineage:
-            # These will be used to construct lineage
             self.stored_procedures.append(procedure)
         yield from self.construct_job_workunits(
             data_job,
@@ -1286,27 +1276,30 @@ class SQLServerSource(SQLAlchemySource):
         if not upstream_urns:
             return []
 
-        filtered = []
+        verified_real_tables = []
 
         for urn in upstream_urns:
             try:
                 dataset_urn = DatasetUrn.from_string(urn)
                 table_name = dataset_urn.name
 
-                # dataset_urn.name includes platform_instance, but discovered_datasets doesn't
+                # DataHub URNs embed platform_instance in dataset name for cross-environment uniqueness,
+                # but our internal tracking (discovered_datasets, schema_resolver) stores names without
+                # platform_instance since it's environment metadata tracked separately. Strip prefix
+                # to match internal format for accurate alias detection.
                 if platform_instance and table_name.startswith(f"{platform_instance}."):
                     table_name = table_name[len(platform_instance) + 1 :]
 
                 if not self.is_temp_table(table_name):
-                    filtered.append(urn)
+                    verified_real_tables.append(urn)
             except (InvalidUrnError, ValueError) as e:
                 # Keep URNs we can't parse to preserve data integrity.
                 # If truly malformed, downstream systems will reject with clear errors.
                 # If our parser has a bug, we don't silently lose valid data.
                 logger.warning("Error parsing URN %s: %s", urn, e)
-                filtered.append(urn)
+                verified_real_tables.append(urn)
 
-        return filtered
+        return verified_real_tables
 
     def _remap_column_lineage_for_alias(
         self,
@@ -1670,14 +1663,19 @@ class SQLServerSource(SQLAlchemySource):
 
                 try:
                     lineage_extractor.populate_lineage_from_queries()
+                except RuntimeError:
+                    # RuntimeError indicates user explicitly enabled query lineage but it failed
+                    # Re-raise to fail fast rather than silently continuing
+                    raise
                 except Exception as e:
+                    # Unexpected errors - log and continue with other lineage sources
                     logger.error(
-                        f"Failed to populate lineage from queries: {e}. "
+                        f"Unexpected error during query lineage extraction: {e}. "
                         "Continuing with other lineage sources."
                     )
                     self.report.report_failure(
                         message=(
-                            f"Query lineage extraction failed: {e}. "
+                            f"Query lineage extraction failed with unexpected error: {e}. "
                             "Check that Query Store is enabled or VIEW SERVER STATE permission is granted. "
                             "See documentation for setup instructions: "
                             "https://datahubproject.io/docs/generated/ingestion/sources/mssql"

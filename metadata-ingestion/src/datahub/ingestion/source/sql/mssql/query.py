@@ -1,6 +1,9 @@
 import logging
 from typing import List, Optional, Tuple
 
+from sqlalchemy import text
+from sqlalchemy.sql.elements import TextClause
+
 logger = logging.getLogger(__name__)
 
 
@@ -8,24 +11,24 @@ class MSSQLQuery:
     """SQL queries for extracting query history from MS SQL Server."""
 
     @staticmethod
-    def check_query_store_enabled() -> str:
+    def check_query_store_enabled() -> TextClause:
         """Check if Query Store is enabled for the current database."""
-        return """
+        return text("""
             SELECT 
                 CASE 
                     WHEN actual_state_desc IN ('READ_WRITE', 'READ_ONLY') THEN 1
                     ELSE 0
                 END AS is_enabled
             FROM sys.database_query_store_options
-        """
+        """)
 
     @staticmethod
-    def check_dmv_permissions() -> str:
+    def check_dmv_permissions() -> TextClause:
         """Check if user has VIEW SERVER STATE permission for DMVs."""
-        return """
+        return text("""
             SELECT 
                 HAS_PERMS_BY_NAME(NULL, NULL, 'VIEW SERVER STATE') AS has_view_server_state
-        """
+        """)
 
     @staticmethod
     def get_query_history_from_query_store(
@@ -33,7 +36,7 @@ class MSSQLQuery:
         limit: int,
         min_calls: int,
         exclude_patterns: Optional[List[str]],
-    ) -> Tuple[str, dict]:
+    ) -> Tuple[TextClause, dict]:
         """
         Extract query history from Query Store (SQL Server 2016+).
 
@@ -66,7 +69,7 @@ class MSSQLQuery:
                 rs.count_executions >= :min_calls
                 {exclude_clause}
                 AND qt.query_sql_text IS NOT NULL
-                AND LEN(qt.query_sql_text) > 0
+                AND LEN(qt.query_sql_text) > 0  -- Filters empty strings and whitespace-only queries (LEN ignores trailing spaces)
             GROUP BY q.query_id, qt.query_sql_text
             HAVING SUM(rs.count_executions) >= :min_calls
             ORDER BY SUM(rs.avg_duration * rs.count_executions) DESC
@@ -77,7 +80,7 @@ class MSSQLQuery:
             for i, pattern in enumerate(exclude_patterns):
                 params[f"exclude_{i}"] = pattern
 
-        return query, params
+        return text(query), params
 
     @staticmethod
     def get_query_history_from_dmv(
@@ -85,7 +88,7 @@ class MSSQLQuery:
         limit: int,
         min_calls: int,
         exclude_patterns: Optional[List[str]],
-    ) -> Tuple[str, dict]:
+    ) -> Tuple[TextClause, dict]:
         """
         Extract query history from Dynamic Management Views (DMVs).
 
@@ -117,7 +120,7 @@ class MSSQLQuery:
                 qs.execution_count >= :min_calls
                 {exclude_clause}
                 AND st.text IS NOT NULL
-                AND LEN(st.text) > 0
+                AND LEN(st.text) > 0  -- Filters empty strings and whitespace-only queries (LEN ignores trailing spaces)
                 AND st.dbid = DB_ID()
             ORDER BY qs.total_elapsed_time DESC
         """
@@ -127,13 +130,13 @@ class MSSQLQuery:
             for i, pattern in enumerate(exclude_patterns):
                 params[f"exclude_{i}"] = pattern
 
-        return query, params
+        return text(query), params
 
     @staticmethod
-    def get_mssql_version() -> str:
+    def get_mssql_version() -> TextClause:
         """Get SQL Server version number."""
-        return """
+        return text("""
             SELECT 
                 CAST(SERVERPROPERTY('ProductVersion') AS VARCHAR) AS version,
                 CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) AS major_version
-        """
+        """)
