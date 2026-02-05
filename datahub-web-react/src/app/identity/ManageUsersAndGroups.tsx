@@ -12,10 +12,12 @@ import {
 import { GroupList } from '@app/identity/group/GroupList';
 import { ServiceAccountList } from '@app/identity/serviceAccount';
 import InviteUsersModal from '@app/identity/user/InviteUsersModal';
-import { UserList } from '@app/identity/user/UserListV2';
+import { UserListWrapper } from '@app/identity/user/UserListWrapper';
+import ViewInviteTokenModal from '@app/identity/user/ViewInviteTokenModal';
 import { markRecommendedUsersAsSeen } from '@app/identity/user/recommendedUsersLocalStorage';
 import { checkIsSsoEnabled } from '@app/settingsV2/platform/sso/utils';
 import { AlchemyRoutedTabs } from '@app/shared/AlchemyRoutedTabs';
+import { useIsInviteUsersEnabled } from '@app/useAppConfig';
 
 import { useListServiceAccountsQuery } from '@graphql/auth.generated';
 import { useListGroupsQuery } from '@graphql/group.generated';
@@ -41,6 +43,7 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
     const canManageUsers = authenticatedUser?.platformPrivileges?.manageIdentities || false;
     const canManageUserCredentials = authenticatedUser?.platformPrivileges?.manageUserCredentials || false;
     const canManageServiceAccounts = authenticatedUser?.platformPrivileges?.manageServiceAccounts || false;
+    const inviteUsersEnabled = useIsInviteUsersEnabled();
 
     // Check SSO configuration status
     const { data: ssoSettings } = useGetSsoSettingsQuery();
@@ -98,7 +101,7 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
             {
                 name: TabType.Users,
                 path: TabType.Users.toLocaleLowerCase(),
-                content: <UserList />,
+                content: <UserListWrapper />,
                 tabType: TabType.Users,
                 customTitle: <TabTitleWithCount name={TabType.Users} count={userCount} />,
                 display: {
@@ -160,8 +163,11 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
             <Content>
                 <AlchemyRoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
             </Content>
-            {canManageUsers && (
+            {canManageUsers && inviteUsersEnabled && (
                 <InviteUsersModal open={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />
+            )}
+            {canManageUsers && !inviteUsersEnabled && (
+                <ViewInviteTokenModal open={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />
             )}
         </PageContainer>
     );
