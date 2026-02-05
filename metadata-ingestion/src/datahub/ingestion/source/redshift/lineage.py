@@ -46,8 +46,8 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     TableRename,
 )
 from datahub.sql_parsing.sqlglot_lineage import (
-    _preprocess_dms_update_query,
-    _preprocess_query_for_sigma,
+    preprocess_dms_update_query,
+    preprocess_query_for_sigma,
 )
 from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 from datahub.utilities.perf_timer import PerfTimer
@@ -673,8 +673,8 @@ class RedshiftSqlLineage(Closeable):
         - Sigma Computing generates SQL with missing spaces between keywords
         - AWS DMS UPDATE queries reference staging tables without FROM clauses
         """
-        query = _preprocess_query_for_sigma(query)
-        query = _preprocess_dms_update_query(query)
+        query = preprocess_query_for_sigma(query)
+        query = preprocess_dms_update_query(query)
         return query
 
     def _process_sql_parser_lineage(self, lineage_row: LineageRow) -> None:

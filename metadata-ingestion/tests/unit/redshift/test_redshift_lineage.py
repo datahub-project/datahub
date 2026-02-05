@@ -425,3 +425,52 @@ def test_build():
 
     # Test build method doesn't raise exception
     lineage_extractor.build(connection, all_tables, db_schemas)
+
+
+class TestSigmaTempTableDetection:
+    """Tests for Sigma Computing temp table detection."""
+
+    def test_sigma_materialization_table(self):
+        """Sigma materialization tables (sigma.t_mat_*) should be detected."""
+        lineage_extractor = get_lineage_extractor()
+        assert lineage_extractor._is_sigma_temp_table("sigma.t_mat_12345") is True
+        assert lineage_extractor._is_sigma_temp_table("sigma.t_mat_abc") is True
+        assert lineage_extractor._is_sigma_temp_table("SIGMA.T_MAT_XYZ") is True
+
+    def test_sigma_timestamp_temp_table(self):
+        """Sigma timestamp-based temp tables (sigma.t_*_<10+ digit timestamp>) should be detected."""
+        lineage_extractor = get_lineage_extractor()
+        # Valid timestamp patterns (10+ digits)
+        assert (
+            lineage_extractor._is_sigma_temp_table("sigma.t_something_1234567890")
+            is True
+        )
+        assert (
+            lineage_extractor._is_sigma_temp_table("sigma.t_query_1709123456789")
+            is True
+        )
+        assert lineage_extractor._is_sigma_temp_table("SIGMA.T_ABC_9999999999") is True
+
+    def test_sigma_non_temp_tables(self):
+        """Regular Sigma tables should not be detected as temp tables."""
+        lineage_extractor = get_lineage_extractor()
+        # Not in sigma schema
+        assert lineage_extractor._is_sigma_temp_table("public.t_mat_12345") is False
+        assert (
+            lineage_extractor._is_sigma_temp_table("other.t_something_1234567890")
+            is False
+        )
+        # In sigma schema but doesn't match patterns
+        assert lineage_extractor._is_sigma_temp_table("sigma.regular_table") is False
+        assert (
+            lineage_extractor._is_sigma_temp_table("sigma.t_short_123") is False
+        )  # timestamp too short
+        assert lineage_extractor._is_sigma_temp_table("sigma.users") is False
+
+    def test_is_temp_table_with_sigma_patterns(self):
+        """_is_temp_table should detect Sigma temp tables."""
+        lineage_extractor = get_lineage_extractor()
+        # Sigma temp tables should be filtered regardless of known_urns
+        lineage_extractor.known_urns = set()
+        assert lineage_extractor._is_temp_table("sigma.t_mat_12345") is True
+        assert lineage_extractor._is_temp_table("sigma.t_query_1709123456789") is True
