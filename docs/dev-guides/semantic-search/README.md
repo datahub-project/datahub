@@ -153,11 +153,12 @@ query SemanticSearch($input: SearchAcrossEntitiesInput!) {
 
 ## Documentation Index
 
-| File               | Description                                   |
-| ------------------ | --------------------------------------------- |
-| `README.md`        | This documentation - overview and quick start |
-| `ARCHITECTURE.md`  | Detailed architecture and design decisions    |
-| `CONFIGURATION.md` | Configuration options and embedding models    |
+| File                     | Description                                     |
+| ------------------------ | ----------------------------------------------- |
+| `README.md`              | This documentation - overview and quick start   |
+| `ARCHITECTURE.md`        | Detailed architecture and design decisions      |
+| `CONFIGURATION.md`       | Configuration options and embedding models      |
+| `SWITCHING_PROVIDERS.md` | Guide for switching between embedding providers |
 
 ## Testing
 

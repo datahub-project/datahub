@@ -408,6 +408,11 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          label: "Service Accounts",
+          type: "doc",
+          id: "docs/features/feature-guides/service-accounts",
+        },
+        {
           label: "Sync Status",
           type: "doc",
           id: "docs/sync-status",
@@ -1212,6 +1217,7 @@ module.exports = {
             "docs/dev-guides/semantic-search/README",
             "docs/dev-guides/semantic-search/ARCHITECTURE",
             "docs/dev-guides/semantic-search/CONFIGURATION",
+            "docs/dev-guides/semantic-search/SWITCHING_PROVIDERS",
           ],
         },
         "docs/modeling/extending-the-metadata-model",

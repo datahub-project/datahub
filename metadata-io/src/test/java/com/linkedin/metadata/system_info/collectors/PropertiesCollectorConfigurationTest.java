@@ -70,6 +70,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.sslContext.keyStorePassword",
           // Services encryption
           "secretService.encryptionKey",
+          // Embedding provider API keys
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.apiKey",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.apiKey",
           // Environment variables that may contain sensitive paths/credentials
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD", // Current directory may contain sensitive info
@@ -927,6 +930,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.awsRegion",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.modelId",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.maxCharacterLength",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.model",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.endpoint",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.model",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.endpoint",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
           "metadataChangeLog.consumer.batch.size"

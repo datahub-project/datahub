@@ -21,21 +21,80 @@ ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION=1024
 
 ### Application Configuration
 
-In `metadata-service/configuration/src/main/resources/application.yaml`:
+In `metadata-service/configuration/src/main/resources/application.yaml`, you need to configure:
+
+1. **Semantic search settings** - Enable the feature and specify which entities support it
+2. **Index model mappings** - Define the embedding model(s) and their vector dimensions
+3. **Embedding provider** - Configure credentials for generating query embeddings
+
+#### Index Model Mappings
+
+The `models:` section defines the structure of the semantic index. **You must add a mapping for each embedding model you plan to use.** The model key (e.g., `cohere_embed_v3`) must match the key used when ingesting document embeddings.
 
 ```yaml
 elasticsearch:
-  search:
+  entityIndex:
     semanticSearch:
       enabled: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED:false}
       enabledEntities: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES:document}
+
+      # Define index mappings for each embedding model you use
       models:
+        # Example: AWS Bedrock with Cohere
         cohere_embed_v3:
-          vectorDimension: ${ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION:1024}
+          vectorDimension: 1024
           knnEngine: faiss
           spaceType: cosinesimil
           efConstruction: 128
           m: 16
+```
+
+**Common model configurations:**
+
+| Model                         | Key                      | Dimensions |
+| ----------------------------- | ------------------------ | ---------- |
+| AWS Bedrock Cohere            | `cohere_embed_v3`        | 1024       |
+| OpenAI text-embedding-3-small | `text_embedding_3_small` | 1536       |
+| OpenAI text-embedding-3-large | `text_embedding_3_large` | 3072       |
+| Cohere embed-english-v3.0     | `embed_english_v3_0`     | 1024       |
+
+> **Important:** The model key is derived from `EMBEDDING_PROVIDER_MODEL_ID` using explicit mappings for known models, with a fallback that replaces dots, hyphens, and colons with underscores. For example:
+>
+> - `cohere.embed-english-v3` (AWS Bedrock) → `cohere_embed_v3`
+> - `embed-english-v3.0` (Cohere direct) → `embed_english_v3_0`
+> - `text-embedding-3-small` (OpenAI) → `text_embedding_3_small`
+>
+> The explicit mappings ensure AWS Bedrock Cohere models (`cohere.embed-english-v3`) and Cohere direct API models (`embed-english-v3.0`) produce distinct keys despite similar names.
+
+> **Matching with Ingestion:** The model key in the index mapping must match the key used in the `semanticContent` aspect when documents are ingested. The ingestion connector (e.g., `datahub-documents`) uses `EMBEDDING_PROVIDER_MODEL_ID` to determine this key. For example, if your index has `text_embedding_3_small`, the ingested `semanticContent` aspect must have embeddings under `embeddings.text_embedding_3_small`.
+
+#### Embedding Provider Configuration
+
+Configure the provider used to generate query embeddings at search time:
+
+```yaml
+elasticsearch:
+  entityIndex:
+    semanticSearch:
+      # ... models section above ...
+
+      embeddingProvider:
+        type: ${EMBEDDING_PROVIDER_TYPE:aws-bedrock}
+        modelId: ${EMBEDDING_PROVIDER_MODEL_ID:cohere.embed-english-v3}
+        awsRegion: ${EMBEDDING_PROVIDER_AWS_REGION:us-west-2}
+        maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
+
+        # OpenAI configuration (used when type is "openai")
+        openai:
+          apiKey: ${OPENAI_API_KEY:}
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+          endpoint: ${OPENAI_EMBEDDING_ENDPOINT:https://api.openai.com/v1/embeddings}
+
+        # Cohere configuration (used when type is "cohere")
+        cohere:
+          apiKey: ${COHERE_API_KEY:}
+          model: ${COHERE_EMBEDDING_MODEL:embed-english-v3.0}
+          endpoint: ${COHERE_EMBEDDING_ENDPOINT:https://api.cohere.ai/v1/embed}
 ```
 
 ## Embedding Models
@@ -152,14 +211,70 @@ AWS_SECRET_ACCESS_KEY=...
 | `amazon.titan-embed-text-v1`   | 1536         | 8192       | Amazon's model          |
 | `amazon.titan-embed-text-v2:0` | 256/512/1024 | 8192       | Configurable dimensions |
 
-#### Other Providers (Cohere Direct, OpenAI, etc.)
+#### OpenAI
 
-Currently, only AWS Bedrock is implemented as a built-in provider. To use other providers (Cohere direct API, OpenAI, etc.), you need to implement a custom `EmbeddingProvider`. See the "Custom/Self-Hosted Providers" section below.
+> **Note:** The OpenAI provider was added as an example implementation to demonstrate how to integrate additional embedding providers. See the implementation in `OpenAiEmbeddingProvider.java`.
 
-**Potential future built-in providers:**
+OpenAI provides high-quality embedding models with simple API access:
 
-- Cohere Direct API
-- OpenAI
+```bash
+# Required
+EMBEDDING_PROVIDER_TYPE=openai
+OPENAI_API_KEY=sk-your-api-key-here
+
+# Optional - defaults shown
+# OPENAI_EMBEDDING_MODEL: Model used to generate query embeddings via OpenAI API
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+# EMBEDDING_PROVIDER_MODEL_ID: Model key used to look up embeddings in the semantic index
+EMBEDDING_PROVIDER_MODEL_ID=text-embedding-3-small
+```
+
+> **Important:** Both values should match to ensure query embeddings are compared against the correct document embeddings in the index.
+
+**Available OpenAI Models:**
+
+| Model ID                 | Dimensions | Max Tokens | Notes                |
+| ------------------------ | ---------- | ---------- | -------------------- |
+| `text-embedding-3-small` | 1536       | 8191       | Fast, cost-effective |
+| `text-embedding-3-large` | 3072       | 8191       | Higher quality       |
+
+#### Cohere (Direct API)
+
+> **Note:** The Cohere direct API provider was added as an example implementation to demonstrate how to integrate additional embedding providers. See the implementation in `CohereEmbeddingProvider.java`.
+
+Use Cohere's embedding API directly (without AWS Bedrock):
+
+```bash
+# Required
+EMBEDDING_PROVIDER_TYPE=cohere
+COHERE_API_KEY=your-cohere-api-key
+
+# Optional - defaults shown
+# COHERE_EMBEDDING_MODEL: Model used to generate query embeddings via Cohere API
+COHERE_EMBEDDING_MODEL=embed-english-v3.0
+# EMBEDDING_PROVIDER_MODEL_ID: Model key used to look up embeddings in the semantic index
+EMBEDDING_PROVIDER_MODEL_ID=embed-english-v3.0
+```
+
+> **Important:** Both values should match to ensure query embeddings are compared against the correct document embeddings in the index.
+
+**Available Cohere Models:**
+
+| Model ID                  | Dimensions | Notes             |
+| ------------------------- | ---------- | ----------------- |
+| `embed-english-v3.0`      | 1024       | English optimized |
+| `embed-multilingual-v3.0` | 1024       | 100+ languages    |
+
+#### Switching Between Providers
+
+When switching embedding providers, you must delete and recreate the semantic index because different models produce vectors with different dimensions.
+
+See **[SWITCHING_PROVIDERS.md](./SWITCHING_PROVIDERS.md)** for detailed step-by-step instructions.
+
+#### Future Providers
+
+Potential future built-in providers:
+
 - Azure OpenAI
 - Google Vertex AI
 
@@ -247,13 +362,29 @@ elasticsearch:
 
 ## Index Configuration
 
+### Adding a Model to the Index
+
+Each embedding model you use must have a corresponding entry in the `models:` section of application.yaml. The index mapping is created when GMS starts, so you must configure this **before** ingesting documents.
+
+**Example: Adding OpenAI text-embedding-3-small:**
+
+```yaml
+models:
+  text_embedding_3_small: # Key derived from model name (dots/hyphens → underscores)
+    vectorDimension: 1536 # Must match the model's output dimensions
+    knnEngine: faiss
+    spaceType: cosinesimil
+    efConstruction: 128
+    m: 16
+```
+
 ### k-NN Settings
 
 The semantic index uses OpenSearch's k-NN plugin. Key parameters:
 
 ```yaml
 models:
-  cohere_embed_v3:
+  your_model_key:
     # Vector size (must match model output)
     vectorDimension: 1024
 
@@ -284,12 +415,15 @@ models:
 - **Production**: `efConstruction: 128, m: 16`
 - **High Accuracy**: `efConstruction: 256, m: 32`
 
-### Multiple Models
+### Multiple Models (Advanced)
 
-Configure multiple embedding models for A/B testing or migration:
+You can configure multiple embedding models in the index for migration scenarios or A/B testing. This allows you to have documents with embeddings from different models coexisting in the same index.
+
+> **Note:** Most deployments only need a single model. Only add multiple models if you're migrating between providers or testing different models.
 
 ```yaml
 models:
+  # Current production model
   cohere_embed_v3:
     vectorDimension: 1024
     knnEngine: faiss
@@ -297,13 +431,16 @@ models:
     efConstruction: 128
     m: 16
 
-  openai_text_embedding_3_small:
+  # New model being tested
+  text_embedding_3_small:
     vectorDimension: 1536
     knnEngine: faiss
     spaceType: cosinesimil
     efConstruction: 128
     m: 16
 ```
+
+When using multiple models, `EMBEDDING_PROVIDER_MODEL_ID` determines which model is used for query embeddings at search time.
 
 ## Query Configuration
 
