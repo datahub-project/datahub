@@ -69,7 +69,7 @@ The AI-powered Slack bot, which replies to the @datahub mentions, is covered in 
 | `AI_FEATURES_ENABLED`            | `true`             | boolean   | [`GMS`]    | Controls whether the AI settings page is visible to admins.                                                                        |
 | `AI_TERM_CLASSIFICATION_ENABLED` | `false`            | boolean   | [`GMS`]    | Controls whether the term classification feature is enabled.                                                                       |
 | `DOCUMENTATION_AI_ENABLED`       | `false`            | boolean   | [`GMS`]    | Controls the fallback value for whether or not documentation AI is enabled if `globalSettings.documentationAi.enabled` is not set. |
-| `DESCRIPTION_GENERATION_MODEL`   | `CLAUDE_3_HAIKU`   | string    | [`GMS`]    | Which Bedrock model to use for description generation.                                                                             |
+| `DESCRIPTION_GENERATION_MODEL`   | `CLAUDE_45_HAIKU`  | string    | [`GMS`]    | Which Bedrock model to use for description generation.                                                                             |
 | `QUERY_DESCRIPTION_MODEL`        | `CLAUDE_45_SONNET` | string    | [`GMS`]    | Which Bedrock model to use for query description generation. Defaults to Claude Sonnet 4.5 (latest and most capable).              |
 | `TERM_SUGGESTION_MODEL`          | `CLAUDE_45_SONNET` | string    | [`GMS`]    | Which Bedrock model to use for term suggestion generation. Defaults to Claude Sonnet 4.5 (latest and most capable).                |
 

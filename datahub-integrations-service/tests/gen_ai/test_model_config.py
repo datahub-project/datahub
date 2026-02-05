@@ -74,7 +74,7 @@ def test_no_env_vars_set() -> None:
         # Test that the module-level model_config uses default values
         assert (
             model_config.documentation_ai.model
-            == "bedrock/us.anthropic.claude-3-haiku-20240307-v1:0"
+            == "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
         )
         assert (
             model_config.documentation_ai.query_description_model
@@ -105,7 +105,7 @@ def test_only_region_prefix_set_to_eu() -> None:
         # Test that the module-level model_config uses default values with "eu" prefix
         assert (
             eu_model_config.documentation_ai.model
-            == "bedrock/eu.anthropic.claude-3-haiku-20240307-v1:0"
+            == "bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0"
         )
         assert (
             eu_model_config.documentation_ai.query_description_model
@@ -140,7 +140,7 @@ def test_all_env_vars_set_legacy() -> None:
         # Documentation should use defaults (not legacy)
         assert (
             legacy_model_config.documentation_ai.model
-            == "bedrock/apac.anthropic.claude-3-haiku-20240307-v1:0"  # Default, not legacy
+            == "bedrock/apac.anthropic.claude-haiku-4-5-20251001-v1:0"
         )
         assert (
             legacy_model_config.documentation_ai.query_description_model

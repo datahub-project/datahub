@@ -19,13 +19,9 @@ class BedrockModel(enum.Enum):
     # Cross-region inference profiles allow higher request and token quota.
     # See https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html
     # for details on per-region availability.
-    CLAUDE_3_HAIKU = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-haiku-20240307-v1:0"
 
     # DEPRECATED: Claude 3.5 Sonnet models are deprecated. Use CLAUDE_45_SONNET (recommended) or CLAUDE_37_SONNET instead.
     CLAUDE_35_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-7-sonnet-20250219-v1:0"
-
-    # WARNING: Claude 3.5 Haiku is only available in the US region, not EU or APAC.
-    CLAUDE_35_HAIKU = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-5-haiku-20241022-v1:0"
 
     # DEPRECATED: Claude 3.5 Sonnet V2 is deprecated. Use CLAUDE_45_SONNET (recommended) or CLAUDE_37_SONNET instead.
     CLAUDE_35_SONNET_V2 = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-7-sonnet-20250219-v1:0"
@@ -63,13 +59,9 @@ class ModelIdentifier(enum.Enum):
     # Cross-region inference profiles allow higher request and token quota.
     # See https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html
     # for details on per-region availability.
-    CLAUDE_3_HAIKU = f"bedrock/{BedrockModel.CLAUDE_3_HAIKU.value}"
 
     # DEPRECATED: Claude 3.5 Sonnet models are deprecated. Use CLAUDE_45_SONNET (recommended) or CLAUDE_37_SONNET instead.
     CLAUDE_35_SONNET = f"bedrock/{BedrockModel.CLAUDE_35_SONNET.value}"
-
-    # WARNING: Claude 3.5 Haiku is only available in the US region, not EU or APAC.
-    CLAUDE_35_HAIKU = f"bedrock/{BedrockModel.CLAUDE_35_HAIKU.value}"
 
     CLAUDE_37_SONNET = f"bedrock/{BedrockModel.CLAUDE_37_SONNET.value}"
     CLAUDE_4_SONNET = f"bedrock/{BedrockModel.CLAUDE_4_SONNET.value}"
@@ -235,7 +227,7 @@ def get_docs_ai_config() -> DocumentationAIConfig:
     doc_model = _get_model_value(
         get_model_env_variable(
             "DESCRIPTION_GENERATION_MODEL",
-            ModelIdentifier.CLAUDE_3_HAIKU,
+            ModelIdentifier.CLAUDE_45_HAIKU,
         )
     )
 
