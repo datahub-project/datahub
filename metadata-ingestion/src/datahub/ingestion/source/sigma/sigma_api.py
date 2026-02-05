@@ -26,7 +26,7 @@ from datahub.ingestion.source.sigma.data_classes import (
 logger = logging.getLogger(__name__)
 
 # Rate limiting constants
-RATE_LIMIT_THRESHOLD = 5  # Enable rate limiting when max_workers > this value
+RATE_LIMIT_THRESHOLD = 3  # Enable rate limiting when max_workers > this value
 RATE_LIMIT_REQUESTS_PER_SECOND = 10.0  # Max requests per second when rate limiting
 
 
