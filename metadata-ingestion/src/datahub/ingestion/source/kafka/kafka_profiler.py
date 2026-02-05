@@ -1,6 +1,7 @@
 import logging
 import math
 import random
+import warnings
 from datetime import datetime
 from typing import Dict, List, Optional, Set, Union, cast
 
@@ -50,6 +51,14 @@ from datahub.metadata.schema_classes import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Suppress Avro logical type warnings - these are expected when schemas use custom logical types
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    module="avro.schema",
+    message=".*Unknown .*, using .*",
+)
 
 FieldValue = Union[str, int, float, bool, None]
 NumericValue = Union[int, float]

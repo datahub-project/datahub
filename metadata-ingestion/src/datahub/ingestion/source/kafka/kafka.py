@@ -4,6 +4,7 @@ import io
 import json
 import logging
 import random
+import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -111,6 +112,14 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
+
+# Suppress Avro logical type warnings - these are expected when schemas use custom logical types
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    module="avro.schema",
+    message=".*Unknown .*, using .*",
+)
 
 
 class KafkaConnectivityError(Exception):

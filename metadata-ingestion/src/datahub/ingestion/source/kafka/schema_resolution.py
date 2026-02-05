@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import struct
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set
 
@@ -13,6 +14,20 @@ from datahub.ingestion.source.kafka.kafka_config import KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_CPU_COUNT_FALLBACK,
     DEFAULT_MAX_WORKERS_MULTIPLIER,
+    RESOLUTION_METHOD_NO_INFERENCE_AVAILABLE,
+    RESOLUTION_METHOD_NO_RECORD_NAMES_FOUND,
+    RESOLUTION_METHOD_NONE,
+    RESOLUTION_METHOD_RECORD_NAME_STRATEGIES_FAILED,
+    RESOLUTION_METHOD_RECORD_NAME_STRATEGY,
+    RESOLUTION_METHOD_REGISTRY_FAILED,
+    RESOLUTION_METHOD_SCHEMA_INFERENCE,
+    RESOLUTION_METHOD_SUBJECT_MAP_FAILED,
+    RESOLUTION_METHOD_TOPIC_NAME_FAILED,
+    RESOLUTION_METHOD_TOPIC_NAME_STRATEGY,
+    RESOLUTION_METHOD_TOPIC_RECORD_NAME_STRATEGY,
+    RESOLUTION_METHOD_TOPIC_SUBJECT_MAP,
+    STRATEGY_NAME_RECORD_NAME,
+    STRATEGY_NAME_TOPIC_RECORD_NAME,
 )
 from datahub.ingestion.source.kafka.kafka_schema_inference import KafkaSchemaInference
 from datahub.ingestion.source.kafka.kafka_utils import MessageValue
@@ -109,7 +124,9 @@ class KafkaSchemaResolver:
                 results[topic] = SchemaResolutionResult(
                     schema=None,
                     fields=fields,
-                    resolution_method="schema_inference" if fields else "none",
+                    resolution_method=RESOLUTION_METHOD_SCHEMA_INFERENCE
+                    if fields
+                    else RESOLUTION_METHOD_NONE,
                 )
         else:
             # No schema inference available or needed
@@ -117,7 +134,7 @@ class KafkaSchemaResolver:
                 results[topic] = SchemaResolutionResult(
                     schema=None,
                     fields=[],
-                    resolution_method="none",
+                    resolution_method=RESOLUTION_METHOD_NONE,
                 )
 
         return results
@@ -154,7 +171,7 @@ class KafkaSchemaResolver:
         return SchemaResolutionResult(
             schema=None,
             fields=[],
-            resolution_method="registry_failed",
+            resolution_method=RESOLUTION_METHOD_REGISTRY_FAILED,
         )
 
     def _try_topic_name_strategy(
@@ -171,15 +188,17 @@ class KafkaSchemaResolver:
                 if registered_schema and registered_schema.schema:
                     return SchemaResolutionResult(
                         schema=registered_schema.schema,
-                        fields=[],  # Fields will be extracted by the caller
-                        resolution_method="topic_name_strategy",
+                        fields=[],
+                        resolution_method=RESOLUTION_METHOD_TOPIC_NAME_STRATEGY,
                         subject_name=subject_name,
                     )
-            except Exception as e:
+            except (KeyError, ValueError, OSError) as e:
                 logger.debug(f"TopicNameStrategy failed for {subject_name}: {e}")
 
         return SchemaResolutionResult(
-            schema=None, fields=[], resolution_method="topic_name_failed"
+            schema=None,
+            fields=[],
+            resolution_method=RESOLUTION_METHOD_TOPIC_NAME_FAILED,
         )
 
     def _try_topic_subject_map(
@@ -198,15 +217,53 @@ class KafkaSchemaResolver:
                     return SchemaResolutionResult(
                         schema=registered_schema.schema,
                         fields=[],
-                        resolution_method="topic_subject_map",
+                        resolution_method=RESOLUTION_METHOD_TOPIC_SUBJECT_MAP,
                         subject_name=subject_name,
                     )
-            except Exception as e:
+            except (KeyError, ValueError, OSError) as e:
                 logger.debug(f"TopicSubjectMap failed for {subject_name}: {e}")
 
         return SchemaResolutionResult(
-            schema=None, fields=[], resolution_method="subject_map_failed"
+            schema=None,
+            fields=[],
+            resolution_method=RESOLUTION_METHOD_SUBJECT_MAP_FAILED,
         )
+
+    def _try_subject_name_with_record_names(
+        self,
+        record_names: Set[str],
+        subject_format: str,
+        resolution_method: str,
+        strategy_name: str,
+    ) -> Optional[SchemaResolutionResult]:
+        """
+        Try to resolve schema using record names and a subject format.
+
+        Performance note: Only makes Schema Registry API calls for subjects that exist
+        in known_subjects set (pre-fetched). Returns immediately on first match.
+        Worst case: O(n) where n = len(record_names), typically 1-10 per topic.
+        """
+        for record_name in record_names:
+            subject_name = subject_format.format(record_name=record_name)
+            if subject_name in self.known_subjects:
+                try:
+                    registered_schema = self.schema_registry_client.get_latest_version(
+                        subject_name
+                    )
+                    if registered_schema and registered_schema.schema:
+                        logger.debug(
+                            f"{strategy_name} succeeded for subject {subject_name} (record: {record_name})"
+                        )
+                        return SchemaResolutionResult(
+                            schema=registered_schema.schema,
+                            fields=[],
+                            resolution_method=resolution_method,
+                            subject_name=subject_name,
+                            record_name=record_name,
+                        )
+                except (KeyError, ValueError, OSError) as e:
+                    logger.debug(f"{strategy_name} failed for {subject_name}: {e}")
+        return None
 
     def _try_record_name_strategies(
         self, topic: str, is_key_schema: bool
@@ -219,7 +276,9 @@ class KafkaSchemaResolver:
         """
         if not self.schema_inference:
             return SchemaResolutionResult(
-                schema=None, fields=[], resolution_method="no_inference_available"
+                schema=None,
+                fields=[],
+                resolution_method=RESOLUTION_METHOD_NO_INFERENCE_AVAILABLE,
             )
 
         try:
@@ -228,59 +287,41 @@ class KafkaSchemaResolver:
 
             if not record_names:
                 return SchemaResolutionResult(
-                    schema=None, fields=[], resolution_method="no_record_names_found"
+                    schema=None,
+                    fields=[],
+                    resolution_method=RESOLUTION_METHOD_NO_RECORD_NAMES_FOUND,
                 )
 
             suffix = "-key" if is_key_schema else "-value"
 
             # Try RecordNameStrategy: <record_name>-key/value
-            for record_name in record_names:
-                subject_name = f"{record_name}{suffix}"
-                if subject_name in self.known_subjects:
-                    try:
-                        registered_schema = (
-                            self.schema_registry_client.get_latest_version(subject_name)
-                        )
-                        if registered_schema and registered_schema.schema:
-                            return SchemaResolutionResult(
-                                schema=registered_schema.schema,
-                                fields=[],
-                                resolution_method="record_name_strategy",
-                                subject_name=subject_name,
-                                record_name=record_name,
-                            )
-                    except Exception as e:
-                        logger.debug(
-                            f"RecordNameStrategy failed for {subject_name}: {e}"
-                        )
+            result = self._try_subject_name_with_record_names(
+                record_names,
+                subject_format=f"{{record_name}}{suffix}",
+                resolution_method=RESOLUTION_METHOD_RECORD_NAME_STRATEGY,
+                strategy_name=STRATEGY_NAME_RECORD_NAME,
+            )
+            if result:
+                return result
 
             # Try TopicRecordNameStrategy: <topic>-<record_name>-key/value
-            for record_name in record_names:
-                subject_name = f"{topic}-{record_name}{suffix}"
-                if subject_name in self.known_subjects:
-                    try:
-                        registered_schema = (
-                            self.schema_registry_client.get_latest_version(subject_name)
-                        )
-                        if registered_schema and registered_schema.schema:
-                            return SchemaResolutionResult(
-                                schema=registered_schema.schema,
-                                fields=[],
-                                resolution_method="topic_record_name_strategy",
-                                subject_name=subject_name,
-                                record_name=record_name,
-                            )
-                    except Exception as e:
-                        logger.debug(
-                            f"TopicRecordNameStrategy failed for {subject_name}: {e}"
-                        )
+            result = self._try_subject_name_with_record_names(
+                record_names,
+                subject_format=f"{topic}-{{record_name}}{suffix}",
+                resolution_method=RESOLUTION_METHOD_TOPIC_RECORD_NAME_STRATEGY,
+                strategy_name=STRATEGY_NAME_TOPIC_RECORD_NAME,
+            )
+            if result:
+                return result
 
         except (ValueError, KeyError, AttributeError, TypeError) as e:
             # Catch expected schema parsing/extraction errors, let critical errors propagate
             logger.warning(f"Record name extraction failed for topic {topic}: {e}")
 
         return SchemaResolutionResult(
-            schema=None, fields=[], resolution_method="record_name_strategies_failed"
+            schema=None,
+            fields=[],
+            resolution_method=RESOLUTION_METHOD_RECORD_NAME_STRATEGIES_FAILED,
         )
 
     def _extract_record_names_from_topic(
@@ -324,7 +365,7 @@ class KafkaSchemaResolver:
                 if record_name_result.full_name:
                     record_names.add(record_name_result.full_name)
 
-        except Exception as e:
+        except (ValueError, KeyError, OSError) as e:
             logger.debug(f"Failed to extract record names from topic {topic}: {e}")
 
         return record_names
@@ -353,14 +394,15 @@ class KafkaSchemaResolver:
                     schema = self.schema_registry_client.get_by_id(schema_id)
                     if schema and schema.schema_str:
                         return self._extract_record_name_from_schema(schema.schema_str)
-                except Exception as e:
+                except (KeyError, ValueError, OSError) as e:
                     logger.debug(f"Failed to get schema for ID {schema_id}: {e}")
 
-            # If not a schema registry message, try to parse as raw Avro/Protobuf
-            # This is more complex and may not always work, but we can try
-            return self._extract_record_name_from_raw_message(message_value)
+            logger.debug(
+                "Message is not schema registry format and raw parsing is not implemented"
+            )
+            return RecordNameExtractionResult(record_name=None)
 
-        except Exception as e:
+        except (ValueError, struct.error) as e:
             logger.debug(f"Failed to extract record name from message: {e}")
             return RecordNameExtractionResult(record_name=None)
 
@@ -382,23 +424,6 @@ class KafkaSchemaResolver:
                         full_name=full_name,
                     )
         except json.JSONDecodeError:
-            # Not JSON, might be Protobuf - try to extract message name
-            # This is more complex and would require protobuf parsing
-            pass
-        except Exception as e:
-            logger.debug(f"Failed to parse schema for record name: {e}")
+            logger.debug("Schema is not valid JSON - skipping record name extraction")
 
-        return RecordNameExtractionResult(record_name=None)
-
-    def _extract_record_name_from_raw_message(
-        self, message_value: bytes
-    ) -> RecordNameExtractionResult:
-        """
-        Extract record name from raw message data.
-
-        This is a best-effort attempt and may not always work,
-        especially for complex or encrypted messages.
-        """
-        # This is quite complex to implement reliably without knowing the exact schema
-        # For now, return None - this could be enhanced in the future
         return RecordNameExtractionResult(record_name=None)
