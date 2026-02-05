@@ -293,7 +293,7 @@ source:
       test_results: No
 ```
 
-:::note Tests not showing up in DataHub UI?
+:::note Tests not showing up in the Assertion UI?
 
 Double check you are using the same `job_id` for your `test_results: Only` and `test_results: No` recipes. Otherwise you might end up reporting `tests_results` for tests that haven't had their `test_definitions` ingested yet. This can lead to orphaned assertions that do not show up under your dataset.
 
