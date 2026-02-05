@@ -491,6 +491,17 @@
         "isNew": true
     },
     {
+        "urn": "urn:li:dataPlatform:confluence",
+        "name": "confluence",
+        "displayName": "Confluence",
+        "description": "Import pages and spaces from Confluence as Documents with semantic search support.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/confluence/",
+        "recipe": "source:\n  type: confluence\n  config:\n    url: null\n    username: null\n    api_token: null\n    cloud: true\n    stateful_ingestion:\n      enabled: true",
+        "category": "Context Document Sources",
+        "isPopular": false,
+        "isNew": true
+    },
+    {
         "urn": "urn:li:dataPlatform:airflow",
         "name": "airflow",
         "displayName": "Airflow",

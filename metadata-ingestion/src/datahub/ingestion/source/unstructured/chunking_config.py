@@ -45,9 +45,9 @@ class EmbeddingConfig(ConfigModel):
     """
 
     # Core configuration (Optional - loaded from server if not set)
-    provider: Optional[Literal["bedrock", "cohere"]] = Field(
+    provider: Optional[Literal["bedrock", "cohere", "openai"]] = Field(
         default=None,
-        description="Embedding provider (bedrock uses AWS, cohere uses API key). If not set, loads from server.",
+        description="Embedding provider (bedrock uses AWS, cohere/openai use API key). If not set, loads from server.",
     )
     model: Optional[str] = Field(
         default=None,
@@ -202,18 +202,22 @@ class EmbeddingConfig(ConfigModel):
             return "bedrock"
         if "cohere" in provider_lower:
             return "cohere"
+        if "openai" in provider_lower:
+            return "openai"
         return provider_lower
 
     @staticmethod
     def _normalize_provider_from_server(
         server_provider: str,
-    ) -> Literal["bedrock", "cohere"]:  # type: ignore
+    ) -> Literal["bedrock", "cohere", "openai"]:  # type: ignore
         """Convert server provider format to local config format."""
         normalized = EmbeddingConfig._normalize_provider(server_provider)
         if normalized == "bedrock":
             return "bedrock"
         elif normalized == "cohere":
             return "cohere"
+        elif normalized == "openai":
+            return "openai"
         else:
             raise ValueError(f"Unsupported provider from server: {server_provider}")
 

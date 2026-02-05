@@ -308,6 +308,99 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,EmployeeReport.employees_employees,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD),emp_no)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,EmployeeReport.employees_employees,PROD),emp_no)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD),birth_date)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,EmployeeReport.employees_employees,PROD),birth_date)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD),first_name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,EmployeeReport.employees_employees,PROD),first_name)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD),last_name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,EmployeeReport.employees_employees,PROD),last_name)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD),gender)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,EmployeeReport.employees_employees,PROD),gender)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD),hire_date)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,EmployeeReport.employees_employees,PROD),hire_date)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,EmployeeReport.employees_employees,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
         "json": {
@@ -330,26 +423,6 @@
     "aspect": {
         "json": {
             "username": "john.doe@acryldata.io"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:john.doe@acryldata.io",
-    "changeType": "UPSERT",
-    "aspectName": "corpUserInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "active": true,
-            "displayName": "John Doe",
-            "email": "john.doe@acryldata.io",
-            "system": false
         }
     },
     "systemMetadata": {
@@ -695,6 +768,26 @@
                     "urn": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:john.doe@acryldata.io",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "John Doe",
+            "email": "john.doe@acryldata.io",
+            "system": false
         }
     },
     "systemMetadata": {
