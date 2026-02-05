@@ -42,17 +42,19 @@ from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     SourceCapabilityModifier,
 )
+from datahub.ingestion.source.fabric.common.urn_generator import make_onelake_urn
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
+    PowerBIPlatformDetail,
     SupportedDataPlatform,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser
+from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -75,6 +77,7 @@ from datahub.metadata.schema_classes import (
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
+    DataPlatformInstanceClass,
     DatasetFieldProfileClass,
     DatasetLineageTypeClass,
     DatasetProfileClass,
@@ -176,6 +179,21 @@ class Mapper:
             mcp=mcp,
         )
 
+    def _get_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
+        """
+        Generate DataPlatformInstanceClass aspect for PowerBI entities.
+        """
+        return DataPlatformInstanceClass(
+            platform=builder.make_data_platform_urn(self.__config.platform_name),
+            instance=(
+                builder.make_dataplatform_instance_urn(
+                    self.__config.platform_name, self.__config.platform_instance
+                )
+                if self.__config.platform_instance
+                else None
+            ),
+        )
+
     def extract_dataset_schema(
         self, table: powerbi_data_classes.Table, ds_urn: str
     ) -> List[MetadataChangeProposalWrapper]:
@@ -230,11 +248,129 @@ class Mapper:
 
         return fine_grained_lineages
 
+    def extract_directlake_lineage(
+        self,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+        workspace: powerbi_data_classes.Workspace,
+    ) -> List[MetadataChangeProposalWrapper]:
+        """Extract lineage for DirectLake tables to their upstream Fabric OneLake tables.
+
+        DirectLake tables read data directly from Fabric Lakehouses or Warehouses.
+        This method creates lineage from the PowerBI table to the corresponding OneLake table.
+
+        Args:
+            table: The PowerBI table with DirectLake storage mode
+            ds_urn: The URN of the downstream PowerBI dataset
+            workspace: The workspace containing the Fabric artifacts
+
+        Returns:
+            List of MCPs with upstream lineage to OneLake tables
+        """
+        mcps: List[MetadataChangeProposalWrapper] = []
+        dataset = table.dataset
+
+        if not dataset:
+            logger.debug(f"No dataset for DirectLake table {table.full_name}")
+            return mcps
+
+        if not dataset.dependent_on_artifact_id:
+            logger.debug(
+                f"No dependent artifact ID for DirectLake table {table.full_name}"
+            )
+            return mcps
+
+        # Look up the Fabric artifact (Lakehouse/Warehouse) this dataset depends on
+        artifact = workspace.fabric_artifacts.get(dataset.dependent_on_artifact_id)
+        if not artifact:
+            logger.debug(
+                f"Fabric artifact {dataset.dependent_on_artifact_id} not found "
+                f"for DirectLake table {table.full_name}. Available artifacts: "
+                f"{list(workspace.fabric_artifacts.keys())}"
+            )
+            return mcps
+
+        if not table.source_expression:
+            logger.debug(f"No source expression for DirectLake table {table.full_name}")
+            return mcps
+
+        # Resolve platform instance using server_to_platform_instance mapping
+        # Mapping: workspace_id -> (platform_instance, env)
+        # The platform_instance typically represents the Fabric tenant identifier,
+        # matching how the OneLake connector uses platform_instance to group workspaces by tenant.
+        # Falls back to None if no mapping is found.
+        platform_detail = self.__dataplatform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=SupportedDataPlatform.FABRIC_ONELAKE.value,
+                data_platform_server=workspace.id,  # Use workspace ID as the mapping key
+            )
+        )
+
+        # Resolve item ids for lineage URN. For SQLAnalyticsEndpoint we use physical_item_ids
+        # (from relations.dependentOnArtifactId) so lineage URNs match the OneLake connector;
+        # we do not model SQLAnalyticsEndpoint as an entity (if we do, align with OneLake connector).
+        # Lineage to an SQLAnalyticsEndpoint id is not emitted; we require at least one resolved physical id.
+        if artifact.artifact_type == "SQLAnalyticsEndpoint":
+            item_ids = artifact.physical_item_ids if artifact.physical_item_ids else []
+            if not item_ids:
+                logger.warning(
+                    "DirectLake lineage skipped: SQLAnalyticsEndpoint artifact %s has no "
+                    "resolvable relation to a Lakehouse/Warehouse (table: %s)",
+                    artifact.id,
+                    table.full_name,
+                )
+                return mcps
+        else:
+            item_ids = [artifact.id]
+
+        upstreams: List[UpstreamClass] = []
+        for item_id in item_ids:
+            upstream_urn = make_onelake_urn(
+                workspace_id=workspace.id,
+                item_id=item_id,
+                table_name=table.source_expression,
+                schema_name=table.source_schema,  # Can be None for schemas-disabled lakehouses
+                env=platform_detail.env or self.__config.env,
+                platform_instance=platform_detail.platform_instance,  # None if not mapped
+            )
+            upstream_urn = self.lineage_urn_to_lowercase(upstream_urn)
+            upstreams.append(
+                UpstreamClass(
+                    dataset=upstream_urn,
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                )
+            )
+
+        upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
+        logger.info(
+            "DirectLake lineage: %s -> %s upstream(s) (artifact: %s, type: %s)",
+            table.full_name,
+            len(upstreams),
+            artifact.name,
+            artifact.artifact_type,
+        )
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=ds_urn,
+            aspect=upstream_lineage,
+        )
+        mcps.append(mcp)
+
+        return mcps
+
     def extract_lineage(
-        self, table: powerbi_data_classes.Table, ds_urn: str
+        self,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+        workspace: powerbi_data_classes.Workspace,
     ) -> List[MetadataChangeProposalWrapper]:
         mcps: List[MetadataChangeProposalWrapper] = []
 
+        # Check for DirectLake storage mode first - use Fabric lineage path
+        if table.storage_mode == Constant.DIRECT_LAKE:
+            return self.extract_directlake_lineage(table, ds_urn, workspace)
+
+        # Existing M-Query parsing logic for other storage modes (Import, DirectQuery, etc.)
         # table.dataset should always be set, but we check it just in case.
         parameters = table.dataset.parameters if table.dataset else {}
 
@@ -262,12 +398,12 @@ class Mapper:
 
         for lineage in upstream_lineage:
             for upstream_dpt in lineage.upstreams:
-                if (
+                platform_name = (
                     upstream_dpt.data_platform_pair.powerbi_data_platform_name
-                    not in self.__config.dataset_type_mapping
-                ):
+                )
+                if not self.__config.is_platform_in_dataset_type_mapping(platform_name):
                     logger.debug(
-                        f"Skipping upstream table for {ds_urn}. The platform {upstream_dpt.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
+                        f"Skipping upstream table for {ds_urn}. The platform {platform_name} is not part of dataset_type_mapping",
                     )
                     continue
 
@@ -412,9 +548,15 @@ class Mapper:
             logger.debug(f"dataset_urn={ds_urn}")
             # Create datasetProperties mcp
             if table.expression:
+                # Convert PowerBI special characters (#(lf), (lf), #(tab)) to actual characters
+                # This is done after all parsing is complete to avoid interfering with M-Query parsing
+
+                converted_expression = native_sql_parser.remove_special_characters(
+                    table.expression
+                )
                 view_properties = ViewPropertiesClass(
                     materialized=False,
-                    viewLogic=table.expression,
+                    viewLogic=converted_expression,
                     viewLanguage="m_query",
                 )
                 view_prop_mcp = self.new_mcp(
@@ -469,10 +611,18 @@ class Mapper:
                 )
                 dataset_mcps.extend([owner_mcp])
 
-            dataset_mcps.extend([info_mcp, status_mcp, subtype_mcp])
+            # DataPlatformInstance
+            data_platform_instance_mcp = self.new_mcp(
+                entity_urn=ds_urn,
+                aspect=self._get_data_platform_instance_aspect(),
+            )
+
+            dataset_mcps.extend(
+                [info_mcp, status_mcp, subtype_mcp, data_platform_instance_mcp]
+            )
 
             if self.__config.extract_lineage is True:
-                dataset_mcps.extend(self.extract_lineage(table, ds_urn))
+                dataset_mcps.extend(self.extract_lineage(table, ds_urn, workspace))
 
             self.append_container_mcp(
                 dataset_mcps,
@@ -638,12 +788,20 @@ class Mapper:
             entity_urn=chart_urn,
             aspect=browse_path,
         )
+
+        # DataPlatformInstance aspect
+        data_platform_instance_mcp = self.new_mcp(
+            entity_urn=chart_urn,
+            aspect=self._get_data_platform_instance_aspect(),
+        )
+
         result_mcps = [
             info_mcp,
             status_mcp,
             subtype_mcp,
             chart_key_mcp,
             browse_path_mcp,
+            data_platform_instance_mcp,
         ]
 
         self.append_container_mcp(
@@ -750,11 +908,18 @@ class Mapper:
             aspect=browse_path,
         )
 
+        # DataPlatformInstance aspect
+        data_platform_instance_mcp = self.new_mcp(
+            entity_urn=dashboard_urn,
+            aspect=self._get_data_platform_instance_aspect(),
+        )
+
         list_of_mcps = [
             browse_path_mcp,
             info_mcp,
             removed_status_mcp,
             dashboard_key_mcp,
+            data_platform_instance_mcp,
         ]
 
         if owner_mcp is not None:
@@ -783,7 +948,11 @@ class Mapper:
         if self.__config.extract_datasets_to_containers and isinstance(
             dataset, powerbi_data_classes.PowerBIDataset
         ):
-            container_key = dataset.get_dataset_key(self.__config.platform_name)
+            container_key = dataset.get_dataset_key(
+                self.__config.platform_name,
+                platform_instance=self.__config.platform_instance,
+                env=self.__config.env,
+            )
         elif self.__config.extract_workspaces_to_containers and self.workspace_key:
             container_key = self.workspace_key
         else:
@@ -804,6 +973,7 @@ class Mapper:
         self.workspace_key = workspace.get_workspace_key(
             platform_name=self.__config.platform_name,
             platform_instance=self.__config.platform_instance,
+            env=self.__config.env,
             workspace_id_as_urn_part=self.__config.workspace_id_as_urn_part,
         )
         container_work_units = gen_containers(
@@ -821,7 +991,11 @@ class Mapper:
     def generate_container_for_dataset(
         self, dataset: powerbi_data_classes.PowerBIDataset
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        dataset_key = dataset.get_dataset_key(self.__config.platform_name)
+        dataset_key = dataset.get_dataset_key(
+            self.__config.platform_name,
+            platform_instance=self.__config.platform_instance,
+            env=self.__config.env,
+        )
         container_work_units = gen_containers(
             container_key=dataset_key,
             name=dataset.name if dataset.name else dataset.id,
@@ -1055,7 +1229,20 @@ class Mapper:
                 entity_urn=chart_urn,
                 aspect=browse_path,
             )
-            list_of_mcps = [info_mcp, status_mcp, subtype_mcp, browse_path_mcp]
+
+            # DataPlatformInstance aspect
+            data_platform_instance_mcp = self.new_mcp(
+                entity_urn=chart_urn,
+                aspect=self._get_data_platform_instance_aspect(),
+            )
+
+            list_of_mcps = [
+                info_mcp,
+                status_mcp,
+                subtype_mcp,
+                browse_path_mcp,
+                data_platform_instance_mcp,
+            ]
 
             self.append_container_mcp(
                 list_of_mcps,
@@ -1156,12 +1343,19 @@ class Mapper:
             aspect=SubTypesClass(typeNames=[report.type.value]),
         )
 
+        # DataPlatformInstance aspect
+        data_platform_instance_mcp = self.new_mcp(
+            entity_urn=dashboard_urn,
+            aspect=self._get_data_platform_instance_aspect(),
+        )
+
         list_of_mcps = [
             browse_path_mcp,
             info_mcp,
             removed_status_mcp,
             dashboard_key_mcp,
             sub_type_mcp,
+            data_platform_instance_mcp,
         ]
 
         if owner_mcp is not None:

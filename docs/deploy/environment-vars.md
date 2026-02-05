@@ -108,6 +108,35 @@ Reference Links:
 | `ENTITY_SERVICE_ENABLE_RETENTION`          | `true`  | Enable entity retention       | GMS, MCE Consumer |
 | `ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP` | `false` | Apply retention on bootstrap  | GMS, MCE Consumer |
 
+### Aspect Size Validation
+
+Protects against aspects exceeding deserialization limits. **Debugging flags - enable only when troubleshooting service crashes or memory pressure from oversized aspects.**
+
+| Environment Variable                                              | Default  | Description                                                                                                                   | Components |
+| ----------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED`                | `false`  | Enable pre-patch validation - checks existing aspects from DB before patch application                                        | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_WARN_SIZE_BYTES`        | `null`   | Optional warning threshold in bytes. Logs warning when exceeded but allows write. Should be lower than maxSizeBytes.          | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES`         | 16000000 | Max size in bytes for pre-patch aspects (16MB, matches `INGESTION_MAX_SERIALIZED_STRING_LENGTH`). Skips write when exceeded.  | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED_REMEDIATION`  | `IGNORE` | Remediation for oversized pre-patch aspects: `IGNORE` (skip write), `DELETE` (skip write and delete aspect)                   | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_ENABLED`               | `false`  | Enable post-patch validation - checks aspects after patch application, before DB write                                        | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_WARN_SIZE_BYTES`       | `null`   | Optional warning threshold in bytes. Logs warning when exceeded but allows write. Should be lower than maxSizeBytes.          | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_MAX_SIZE_BYTES`        | 16000000 | Max size in bytes for post-patch aspects (16MB, matches `INGESTION_MAX_SERIALIZED_STRING_LENGTH`). Skips write when exceeded. | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED_REMEDIATION` | `IGNORE` | Remediation for oversized post-patch aspects: `IGNORE` (skip write), `DELETE` (skip write and delete aspect)                  | GMS        |
+
+**Validation points:**
+
+- **Pre-patch:** Validates existing aspect from database before applying patches. Zero overhead (uses JSON already fetched from DB).
+- **Post-patch:** Validates aspect after patch application, before DB write. Zero overhead (uses JSON already created for DB write).
+
+**Remediation strategies:**
+
+- `IGNORE`: Logs warning, skips write, routes MCP to FailedMetadataChangeProposal topic. Pre-patch: existing oversized aspect remains in database.
+- `DELETE`: Logs warning, skips write, routes MCP to FailedMetadataChangeProposal topic, and deletes the aspect.
+
+**When to enable:** Use temporarily when investigating GMS crashes, debugging memory pressure, or cleaning up pre-existing oversized data. Prefer fixing the root cause at ingestion time.
+
+See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size-validation) for configuration examples and troubleshooting.
+
 ## Graph Service Configuration
 
 | Environment Variable                      | Default         | Description                                                                 | Components        |
@@ -585,7 +614,7 @@ Reference Links:
 | `ALTERNATE_MCP_VALIDATION`              | `false` | Enable alternate MCP validation flow                               | GMS        |
 | `THEME_V2_ENABLED`                      | `true`  | Allow theme v2 to be turned on                                     | GMS        |
 | `THEME_V2_DEFAULT`                      | `true`  | Set default theme for users                                        | GMS        |
-| `THEME_V2_TOGGLEABLE`                   | `true`  | Allow theme v2 to be toggled (Acryl only)                          | GMS        |
+| `THEME_V2_TOGGLEABLE`                   | `false` | Allow theme v2 to be toggled (Acryl only)                          | GMS        |
 | `SCHEMA_FIELD_CLL_ENABLED`              | `false` | Enable schema field-level lineage links                            | GMS        |
 | `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`    | `true`  | Ignore schema field status in lineage                              | GMS        |
 | `SHOW_SEPARATE_SIBLINGS`                | `false` | Separate siblings with no combined view                            | GMS        |
@@ -601,8 +630,8 @@ Reference Links:
 | `SHOW_INTRODUCE_PAGE`                   | `true`  | Show introduce page in V2 UI                                       | GMS        |
 | `SHOW_INGESTION_PAGE_REDESIGN`          | `false` | Show re-designed Ingestion page                                    | GMS        |
 | `SHOW_LINEAGE_EXPAND_MORE`              | `true`  | Show expand more button in lineage graph                           | GMS        |
-| `SHOW_HOME_PAGE_REDESIGN`               | `false` | Show re-designed home page                                         | GMS        |
-| `LINEAGE_GRAPH_V3`                      | `false` | Enable redesign of lineage v2 graph                                | GMS        |
+| `SHOW_HOME_PAGE_REDESIGN`               | `true`  | Show re-designed home page                                         | GMS        |
+| `LINEAGE_GRAPH_V3`                      | `true`  | Enable redesign of lineage v2 graph                                | GMS        |
 | `SHOW_PRODUCT_UPDATES`                  | `true`  | Show in-product update popover                                     | GMS        |
 | `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                      | GMS        |
 | `SHOW_HOMEPAGE_USER_ROLE`               | `false` | Display homepage user role underneath name                         | GMS        |

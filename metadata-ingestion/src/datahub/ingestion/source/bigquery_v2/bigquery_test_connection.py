@@ -12,7 +12,10 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigQuerySchemaApi
-from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilder
+from datahub.ingestion.source.bigquery_v2.common import (
+    BigQueryFilter,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -141,6 +144,7 @@ class BigQueryTestConnection:
             report,
             schema_resolver=SchemaResolver(platform="bigquery"),
             identifiers=BigQueryIdentifierBuilder(connection_conf, report),
+            filters=BigQueryFilter(connection_conf, report),
         )
         for project_id in project_ids:
             try:

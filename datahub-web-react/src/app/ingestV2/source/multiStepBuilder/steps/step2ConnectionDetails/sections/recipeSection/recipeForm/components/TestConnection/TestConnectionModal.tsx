@@ -135,7 +135,7 @@ function TestConnectionModal({
                         Object.keys(testConnectionResult.capability_report).map((capabilityKey, index) => {
                             return (
                                 <ConnectionCapabilityView
-                                    capability={SourceCapability[capabilityKey] || ''}
+                                    capability={SourceCapability[capabilityKey] || capabilityKey}
                                     displayMessage={
                                         (testConnectionResult.capability_report as CapabilityReport)[capabilityKey]
                                             .failure_reason

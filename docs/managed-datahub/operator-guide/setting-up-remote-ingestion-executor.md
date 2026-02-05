@@ -3,8 +3,6 @@ title: Configuring Remote Executor
 description: Learn how to set up, deploy, and configure Remote Executors in your environment
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Configuring Remote Executor
@@ -79,9 +77,6 @@ Once you have created an Executor Pool in DataHub Cloud, you are now ready to de
 :::note
 Work with DataHub team to receive deployment templates specific to your environment (Helm charts, CloudFormation, or Terraform) for deploying Remote Executors in this Pool.
 :::
-
-<Tabs>
-<TabItem value="ecs" label="Amazon ECS">
 
 ### Deploy on Amazon ECS
 
@@ -179,9 +174,6 @@ To update your Remote Executor deployment (e.g., to deploy a new container versi
 :::note
 The update process will maintain your existing resources (e.g., secrets, IAM roles) while deploying the new configuration. Monitor the stack events to track the update progress.
 :::
-
-</TabItem>
-<TabItem value="k8s" label="Kubernetes">
 
 ### Deploy on Kubernetes
 
@@ -286,8 +278,7 @@ source:
 
 For additional configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file in the Helm chart repository.
 
-</TabItem>
-</Tabs>
+## Checking Remote Executor status
 
 Once you have successfully deployed the Executor in your environment, DataHub will automatically begin reporting Executor Status in the UI:
 
