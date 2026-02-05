@@ -74,11 +74,9 @@ def mssql_connection(mssql_runner):
             ALTER DATABASE lineage_test SET QUERY_STORE = ON
             (
                 OPERATION_MODE = READ_WRITE,
-                DATA_FLUSH_INTERVAL_SECONDS = 1,
                 INTERVAL_LENGTH_MINUTES = 1,
                 MAX_STORAGE_SIZE_MB = 100,
-                QUERY_CAPTURE_MODE = ALL,
-                SIZE_BASED_CLEANUP_MODE = AUTO
+                QUERY_CAPTURE_MODE = ALL
             )
         """
             )
