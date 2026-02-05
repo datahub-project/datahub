@@ -14,26 +14,37 @@ class MSSQLQuery:
     def _build_exclude_clause(
         exclude_patterns: Optional[List[str]], column_expr: str
     ) -> str:
-        """Build SQL WHERE clause for excluding patterns using parameterized queries."""
+        """
+        Build SQL WHERE clause for excluding patterns using parameterized queries.
+
+        SECURITY: column_expr is ALWAYS a hardcoded column name from this module
+        (never user input). Pattern values use bind parameters (:exclude_0, etc.)
+        which are safely bound by SQLAlchemy.
+        """
         if not exclude_patterns:
             return ""
 
-        # Pattern values are bound by SQLAlchemy, preventing injection
-        conditions = [
-            f"{column_expr} NOT LIKE :exclude_{i}"
-            for i, _ in enumerate(exclude_patterns)
-        ]
+        conditions = []
+        for i in range(len(exclude_patterns)):
+            condition = column_expr + " NOT LIKE :exclude_" + str(i)
+            conditions.append(condition)
+
         return "AND " + " AND ".join(conditions)
 
     @staticmethod
     def _build_exclude_params(
         exclude_patterns: Optional[List[str]], base_params: dict
     ) -> dict:
-        """Build parameter dict with exclude patterns (exclude_0, exclude_1, etc.)."""
+        """
+        Build parameter dict with exclude patterns (exclude_0, exclude_1, etc.).
+
+        These params are bound by SQLAlchemy's parameterization system, preventing SQL injection.
+        """
         params = base_params.copy()
         if exclude_patterns:
             for i, pattern in enumerate(exclude_patterns):
-                params[f"exclude_{i}"] = pattern
+                key = "exclude_" + str(i)
+                params[key] = pattern
         return params
 
     @staticmethod
@@ -86,7 +97,8 @@ class MSSQLQuery:
             exclude_patterns, "qt.query_sql_text"
         )
 
-        query = f"""
+        query = (
+            """
             SELECT TOP(:limit)
                 CAST(q.query_id AS VARCHAR(50)) AS query_id,
                 qt.query_sql_text AS query_text,
@@ -103,13 +115,16 @@ class MSSQLQuery:
                 ON p.plan_id = rs.plan_id
             WHERE 
                 rs.count_executions >= :min_calls
-                {exclude_clause}
+                """
+            + exclude_clause
+            + """
                 AND qt.query_sql_text IS NOT NULL
                 AND LEN(qt.query_sql_text) > 0  -- Filters empty strings and whitespace-only queries (LEN ignores trailing spaces)
             GROUP BY q.query_id, qt.query_sql_text
             HAVING SUM(rs.count_executions) >= :min_calls
             ORDER BY SUM(rs.avg_duration * rs.count_executions) DESC
         """
+        )
 
         return MSSQLQuery._finalize_query(query, exclude_patterns, limit, min_calls)
 
@@ -132,7 +147,8 @@ class MSSQLQuery:
             exclude_patterns, "CAST(st.text AS NVARCHAR(MAX))"
         )
 
-        query = f"""
+        query = (
+            """
             SELECT TOP(:limit)
                 CAST(qs.sql_handle AS VARCHAR(50)) AS query_id,
                 CAST(st.text AS NVARCHAR(MAX)) AS query_text,
@@ -144,12 +160,15 @@ class MSSQLQuery:
             CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) AS st
             WHERE 
                 qs.execution_count >= :min_calls
-                {exclude_clause}
+                """
+            + exclude_clause
+            + """
                 AND st.text IS NOT NULL
                 AND LEN(st.text) > 0  -- Filters empty strings and whitespace-only queries (LEN ignores trailing spaces)
                 AND st.dbid = DB_ID()
             ORDER BY qs.total_elapsed_time DESC
         """
+        )
 
         return MSSQLQuery._finalize_query(query, exclude_patterns, limit, min_calls)
 

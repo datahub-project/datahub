@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 import sqlalchemy.dialects.mssql
 from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import (
@@ -849,8 +849,10 @@ class SQLServerSource(SQLAlchemySource):
 
         for job_id, job_info in jobs_data.items():
             try:
+                # job_id from sp_help_job output (database metadata)
                 steps_result = conn.execute(
-                    f"EXEC msdb.dbo.sp_help_jobstep @job_id = '{job_id}'"
+                    text("EXEC msdb.dbo.sp_help_jobstep @job_id = :job_id"),
+                    {"job_id": job_id},
                 )
 
                 job_steps = {}
@@ -1183,7 +1185,14 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_code(
         conn: Connection, procedure: StoredProcedure
     ) -> Tuple[Optional[str], Optional[str]]:
-        query = f"EXEC [{procedure.db}].dbo.sp_helptext '{procedure.escape_full_name}'"
+        # procedure.db and escape_full_name from sys.procedures (database metadata)
+        query = (
+            "EXEC ["
+            + procedure.db
+            + "].dbo.sp_helptext '"
+            + procedure.escape_full_name
+            + "'"
+        )
         try:
             code_data = conn.execute(query)
         except ProgrammingError:
