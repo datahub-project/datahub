@@ -291,9 +291,104 @@ class ClickHouseConfig(
 
 
 PROPERTIES_COLUMNS = (
-    "engine, partition_key, sorting_key, primary_key, sampling_key, storage_policy, "
-    + "metadata_modification_time, total_rows, total_bytes, data_paths, metadata_path"
+    "engine, engine_full, partition_key, sorting_key, primary_key, sampling_key, "
+    + "storage_policy, metadata_modification_time, total_rows, total_bytes, data_paths, "
+    + "metadata_path"
 )
+
+
+def _strip_wrapping_quotes(value: str) -> str:
+    """Strip wrapping single or double quotes from a string."""
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1]
+    return value
+
+
+def _split_distributed_args(value: str) -> List[str]:
+    """Split Distributed engine arguments respecting nested parentheses and quotes."""
+    parts: List[str] = []
+    current: List[str] = []
+    depth = 0
+    in_single_quote = False
+    in_double_quote = False
+    escape_next = False
+
+    for ch in value:
+        if escape_next:
+            current.append(ch)
+            escape_next = False
+            continue
+
+        if ch == "\\":
+            current.append(ch)
+            escape_next = True
+            continue
+
+        if ch == "'" and not in_double_quote:
+            in_single_quote = not in_single_quote
+            current.append(ch)
+            continue
+
+        if ch == '"' and not in_single_quote:
+            in_double_quote = not in_double_quote
+            current.append(ch)
+            continue
+
+        if not in_single_quote and not in_double_quote:
+            if ch == "(":
+                depth += 1
+            elif ch == ")" and depth > 0:
+                depth -= 1
+            elif ch == "," and depth == 0:
+                parts.append("".join(current).strip())
+                current = []
+                continue
+
+        current.append(ch)
+
+    if current:
+        parts.append("".join(current).strip())
+
+    return parts
+
+
+def _extract_sharding_key(
+    engine_full: Optional[str], default_sharding_key: str = "rand()"
+) -> Optional[str]:
+    """
+    Extract the sharding key from a ClickHouse Distributed engine definition.
+
+    For Distributed tables with 3 arguments (cluster, db, table), ClickHouse
+    implicitly uses rand() as the sharding key. For 4+ arguments, the 4th
+    argument is the explicit sharding key.
+
+    Args:
+        engine_full: The full engine definition string from system.tables
+        default_sharding_key: Value to return for implicit sharding (default: "rand()")
+
+    Returns:
+        The sharding key if found, None if not a Distributed table or parsing failed
+    """
+    if not engine_full:
+        return None
+
+    normalized = engine_full.replace("\\'", "'").replace('\\"', '"').strip()
+    match = re.match(r"^Distributed\s*\((.*)\)\s*$", normalized)
+    if not match:
+        return None
+
+    args = _split_distributed_args(match.group(1))
+    if len(args) < 3:
+        return None
+    if len(args) == 3:
+        # 3 args = cluster, database, table - implicit rand() sharding
+        return default_sharding_key
+
+    sharding_key = args[3].strip()
+    if not sharding_key:
+        return None
+
+    return _strip_wrapping_quotes(sharding_key)
 
 
 # reflection.cache uses eval and other magic to partially rewrite the function.
@@ -814,6 +909,22 @@ ORDER BY event_time ASC
                 context=f"query_id={row.get('query_id', 'unknown')}: {e}",
             )
             return None
+
+    def get_table_properties(
+        self, inspector: reflection.Inspector, schema: str, table: str
+    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+        description, properties, location = super().get_table_properties(
+            inspector, schema, table
+        )
+        engine_full = properties.get("engine_full") if properties else None
+        sharding_key = _extract_sharding_key(engine_full)
+        if sharding_key:
+            properties["sharding_key"] = sharding_key
+        elif engine_full and "Distributed" in engine_full:
+            logger.debug(f"Could not extract sharding_key from: {engine_full}")
+        # Remove engine_full from properties as it's only used for extraction
+        properties.pop("engine_full", None)
+        return description, properties, location
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         # Emit schema and definition-based lineage workunits
