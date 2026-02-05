@@ -2355,7 +2355,7 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
 ]
 
 
-def _preprocess_query_for_sigma(query: str) -> str:
+def preprocess_query_for_sigma(query: str) -> str:
     """Preprocess query to fix Sigma Computing malformed SQL.
 
     Sigma generates SQL with missing spaces between keywords, operators,
@@ -2399,7 +2399,7 @@ def _preprocess_query_for_sigma(query: str) -> str:
 _DMS_STAGING_TABLE_PATTERN = re.compile(r'"([^"]+)"\.\"(awsdms_[^"]+)\"', re.IGNORECASE)
 
 
-def _preprocess_dms_update_query(query: str) -> str:
+def preprocess_dms_update_query(query: str) -> str:
     """Preprocess AWS DMS UPDATE queries to add missing FROM clause.
 
     AWS DMS CDC generates UPDATE queries that reference the staging table
@@ -2480,7 +2480,7 @@ def create_lineage_sql_parsed_result(
     # Sigma generates malformed SQL with missing spaces in type casts
     processed_query = query
     if platform == "redshift":
-        processed_query = _preprocess_query_for_sigma(query)
+        processed_query = preprocess_query_for_sigma(query)
 
     try:
         return sqlglot_lineage(
