@@ -385,6 +385,163 @@ def _extract_table_names(
     )
 
 
+# ==============================================================================
+# ClickHouse-specific helpers
+# ==============================================================================
+# ClickHouse has unique SQL features that require special handling:
+# 1. Dictionary functions (DICTGET, etc.) - first arg is dict name, not a table
+# 2. Materialized views with TO clause - output goes to target table, not the view
+# 3. ARRAY JOIN pseudo-tables - may create unresolvable table references
+
+
+# Dictionary functions that take a dictionary name as first argument.
+# These are NOT table references and should be excluded from lineage.
+# See: https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions
+_CLICKHOUSE_DICTIONARY_FUNCTIONS = frozenset(
+    {
+        "dictget",
+        "dictgetordefault",
+        "dictgetornull",
+        "dicthas",
+        "dictgethierarchy",
+        "dictisin",
+        "dictgetchildren",
+        "dictgetdescendant",
+        "dictgetdescendants",
+        "dictgetall",
+    }
+)
+
+
+def _is_in_clickhouse_dict_function(table: sqlglot.exp.Table) -> bool:
+    """Check if a Table node is a dictionary reference in a ClickHouse dict function.
+
+    ClickHouse dictionary functions like DICTGET(dict_name, attr_name, key) take a
+    dictionary name (e.g., 'default.subscriptions') as the first argument. sqlglot
+    parses this as a Table node, but it's not a real table reference for lineage.
+    """
+    node: Optional[sqlglot.exp.Expression] = table.parent
+    while node is not None:
+        if isinstance(node, sqlglot.exp.Anonymous):
+            func_name = node.this
+            if (
+                isinstance(func_name, str)
+                and func_name.lower() in _CLICKHOUSE_DICTIONARY_FUNCTIONS
+                and node.expressions
+            ):
+                first_arg = node.expressions[0]
+                if first_arg is table or (
+                    hasattr(first_arg, "find")
+                    and table in list(first_arg.find_all(sqlglot.exp.Table))
+                ):
+                    return True
+            break
+        node = node.parent
+    return False
+
+
+def _clickhouse_extract_to_tables(
+    statement: sqlglot.Expression,
+    dialect: sqlglot.Dialect,
+) -> OrderedSet[_TableName]:
+    """Extract TO tables from ClickHouse CREATE MATERIALIZED VIEW ... TO statements.
+
+    In ClickHouse, materialized views can write to a separate target table:
+        CREATE MATERIALIZED VIEW mv_name TO target_table AS SELECT ...
+
+    The actual output is target_table, not mv_name. This function extracts
+    the TO tables so they can be used as the output instead of the view name.
+    """
+    if not is_dialect_instance(dialect, "clickhouse"):
+        return OrderedSet()
+
+    return _extract_table_names(
+        (
+            to_prop.this
+            for to_prop in statement.find_all(sqlglot.exp.ToTableProperty)
+            if isinstance(to_prop.this, sqlglot.exp.Table)
+        ),
+        dialect,
+    )
+
+
+def _is_clickhouse_non_input(
+    table: sqlglot.exp.Table,
+    dialect: sqlglot.Dialect,
+    has_to_table: bool,
+) -> bool:
+    """Check if a table should be excluded from input tables for ClickHouse.
+
+    Excludes:
+    - Dictionary references inside DICTGET functions (not real tables)
+    - TO table references (they are outputs, not inputs)
+    - Materialized view name when TO table exists (not an input)
+
+    Returns False for non-ClickHouse dialects (no filtering applied).
+    """
+    if not is_dialect_instance(dialect, "clickhouse"):
+        return False
+
+    return (
+        _is_in_clickhouse_dict_function(table)
+        or isinstance(table.parent, sqlglot.exp.ToTableProperty)
+        or (has_to_table and isinstance(table.parent, sqlglot.exp.Schema))
+    )
+
+
+def _clickhouse_filter_column_lineage(
+    column_lineage: List[_ColumnLineageInfo],
+    table_name_urn_mapping: Dict["_TableName", str],
+) -> List[_ColumnLineageInfo]:
+    """Filter column lineage to remove entries with unresolvable tables.
+
+    ClickHouse DICTGET functions and ARRAY JOIN can create pseudo-table references
+    that don't exist in the table mapping. This filters those out to prevent
+    KeyError during translation.
+    """
+    filtered = []
+    dropped_downstream = 0
+    dropped_upstream = 0
+
+    for col_lineage in column_lineage:
+        # Skip if downstream table is unresolvable
+        if (
+            col_lineage.downstream.table
+            and col_lineage.downstream.table not in table_name_urn_mapping
+        ):
+            dropped_downstream += 1
+            continue
+
+        # Keep only resolvable upstreams
+        resolved_upstreams = [
+            upstream
+            for upstream in col_lineage.upstreams
+            if upstream.table in table_name_urn_mapping
+        ]
+        dropped_upstream += len(col_lineage.upstreams) - len(resolved_upstreams)
+
+        filtered.append(
+            _ColumnLineageInfo(
+                downstream=col_lineage.downstream,
+                upstreams=resolved_upstreams,
+                logic=col_lineage.logic,
+            )
+        )
+
+    if dropped_downstream or dropped_upstream:
+        logger.debug(
+            f"ClickHouse column lineage filter: kept {len(filtered)}/{len(column_lineage)} entries, "
+            f"dropped {dropped_downstream} unresolvable downstreams, {dropped_upstream} unresolvable upstreams"
+        )
+
+    return filtered
+
+
+# ==============================================================================
+# End ClickHouse-specific helpers
+# ==============================================================================
+
+
 def _build_tsql_update_alias_map(
     statement: sqlglot.Expression,
 ) -> Dict[str, sqlglot.exp.Table]:
@@ -497,6 +654,9 @@ def _table_level_lineage(
         return table
 
     # Generate table-level lineage.
+    # ClickHouse: Extract TO tables from materialized view definitions (empty for other dialects)
+    clickhouse_to_tables = _clickhouse_extract_to_tables(statement, dialect)
+
     modified = (
         _extract_table_names(
             (
@@ -519,6 +679,7 @@ def _table_level_lineage(
             # For statements that include a column list, like
             # CREATE DDL statements and `INSERT INTO table (col1, col2) SELECT ...`
             # the table name is nested inside a Schema object.
+            # ClickHouse: Skip view name when TO table exists (use TO table instead).
             (
                 expr.this.this
                 for expr in statement.find_all(
@@ -527,9 +688,11 @@ def _table_level_lineage(
                 )
                 if isinstance(expr.this, sqlglot.exp.Schema)
                 and isinstance(expr.this.this, sqlglot.exp.Table)
+                and not clickhouse_to_tables
             ),
             dialect,
         )
+        | clickhouse_to_tables
         | _extract_table_names(
             # For drop statements, we only want it if a table/view is being dropped.
             # Other "kinds" will not have table.name populated.
@@ -552,6 +715,9 @@ def _table_level_lineage(
                 table
                 for table in statement.find_all(sqlglot.exp.Table)
                 if not isinstance(table.parent, sqlglot.exp.Drop)
+                and not _is_clickhouse_non_input(
+                    table, dialect, bool(clickhouse_to_tables)
+                )
             ),
             dialect,
         )
@@ -847,21 +1013,33 @@ def _select_statement_cll(
                 )
 
             for output_col, _original_col_expression in batch:
-                lineage_node = sqlglot.lineage.lineage(
-                    output_col,
-                    statement,
-                    dialect=dialect,
-                    scope=root_scope,
-                    trim_selects=False,
-                )
+                try:
+                    lineage_node = sqlglot.lineage.lineage(
+                        output_col,
+                        statement,
+                        dialect=dialect,
+                        scope=root_scope,
+                        trim_selects=False,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to compute lineage for column '{output_col}': {e}"
+                    )
+                    continue
 
                 # Generate SELECT lineage.
-                direct_raw_col_upstreams = _get_direct_raw_col_upstreams(
-                    lineage_node,
-                    dialect,
-                    default_db,
-                    default_schema,
-                )
+                try:
+                    direct_raw_col_upstreams = _get_direct_raw_col_upstreams(
+                        lineage_node,
+                        dialect,
+                        default_db,
+                        default_schema,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to get upstreams for column '{output_col}': {e}"
+                    )
+                    continue
 
                 # Fuzzy resolve the output column.
                 original_col_expression = lineage_node.expression
@@ -1842,6 +2020,11 @@ def _sqlglot_lineage_inner(
     out_urns = sorted({table_name_urn_mapping[table] for table in modified})
     column_lineage_urns = None
     if column_lineage:
+        # ClickHouse: Filter out pseudo-table references (e.g., from DICTGET, ARRAY JOIN)
+        if is_dialect_instance(dialect, "clickhouse"):
+            column_lineage = _clickhouse_filter_column_lineage(
+                column_lineage, table_name_urn_mapping
+            )
         try:
             column_lineage_urns = [
                 _translate_internal_column_lineage(
