@@ -200,7 +200,7 @@ class DorisConfig(MySQLConfig):
 class DorisSource(MySQLSource):
     config: DorisConfig
 
-    def __init__(self, config: DorisConfig, ctx: Any):
+    def __init__(self, config: DorisConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         _patch_profiler()
 
