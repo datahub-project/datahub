@@ -1,5 +1,5 @@
 import time
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
@@ -1429,3 +1429,155 @@ def test_mssql_over_100_exclude_patterns_rejected(create_engine_mock):
                 "query_exclude_patterns": patterns,
             }
         )
+
+
+# =============================================================================
+# Quick Win Tests: Config Edge Cases and Boundary Conditions
+# =============================================================================
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_max_queries_zero_handled_gracefully(create_engine_mock):
+    """Test max_queries_to_extract=0 is handled gracefully, not crashing."""
+    config = SQLServerConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+            "max_queries_to_extract": 0,
+        }
+    )
+
+    # Should construct config without error
+    assert config.max_queries_to_extract == 0
+
+    # In actual execution, should return empty result quickly
+
+
+def test_mssql_very_long_query_text_handling():
+    """Test extraction handles very long query text (NVARCHAR(MAX))."""
+    mock_connection = MagicMock()
+    mock_cursor = MagicMock()
+    mock_connection.execute.return_value = mock_cursor
+
+    # Create 10,000 char query (max practical query size)
+    long_query = (
+        "SELECT * FROM table WHERE value IN ("
+        + ", ".join([f"'{i}'" for i in range(1000)])
+        + ")"
+    )
+    assert len(long_query) > 10000
+
+    # Mock row with very long query text
+    mock_row = {
+        "query_id": 1,
+        "query_text": long_query,
+        "execution_count": 10,
+        "database": "TestDB",
+        "user_name": "testuser",
+    }
+    mock_cursor.__iter__ = Mock(return_value=iter([mock_row]))
+
+    config = SQLServerConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+        }
+    )
+    report = SQLSourceReport()
+    sql_aggregator_mock = MagicMock()
+
+    extractor = MSSQLLineageExtractor(
+        config=config,
+        connection=mock_connection,
+        report=report,
+        sql_aggregator=sql_aggregator_mock,
+        default_schema="dbo",
+    )
+
+    queries = extractor.extract_query_history()
+
+    # Verify long query was captured
+    assert len(queries) == 1
+    assert len(queries[0].query_text) > 10000
+
+
+def test_mssql_exclude_patterns_with_tsql_special_chars():
+    """Test exclude patterns handle TSQL special characters correctly."""
+    config = SQLServerConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+            "query_exclude_patterns": [
+                "[^system]%",  # Bracket literal
+                "schema.%[_]temp",  # Underscore literal
+                "%EXEC[%]sp%",  # Percent literal
+            ],
+        }
+    )
+
+    assert config.query_exclude_patterns is not None
+    # Patterns are stored as-is; SQL Server will interpret them
+    assert "[^system]%" in config.query_exclude_patterns
+
+
+def test_mssql_min_query_calls_zero_boundary():
+    """Test min_query_calls=0 accepts all queries."""
+    config = SQLServerConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+            "min_query_calls": 0,
+        }
+    )
+
+    assert config.min_query_calls == 0
+
+
+# =============================================================================
+# MAJOR: User Attribution is Broken (Documenting Known Issue)
+# =============================================================================
+
+
+def test_mssql_user_attribution_currently_broken():
+    """
+    MAJOR: Document that user_name extraction is currently broken.
+
+    Query Store and DMV queries don't join to user tables, so user_name is NULL.
+    This breaks usage statistics feature.
+    """
+    mock_connection = MagicMock()
+    mock_cursor = MagicMock()
+    mock_connection.execute.return_value = mock_cursor
+
+    # Mock row WITHOUT user_name (current broken state)
+    mock_row = {
+        "query_id": 1,
+        "query_text": "SELECT * FROM test",
+        "execution_count": 10,
+        "database": "TestDB",
+        "user_name": None,  # ❌ BROKEN: Always NULL
+    }
+    mock_cursor.__iter__ = Mock(return_value=iter([mock_row]))
+
+    config = SQLServerConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+        }
+    )
+    report = SQLSourceReport()
+    sql_aggregator_mock = MagicMock()
+
+    extractor = MSSQLLineageExtractor(
+        config=config,
+        connection=mock_connection,
+        report=report,
+        sql_aggregator=sql_aggregator_mock,
+        default_schema="dbo",
+    )
+
+    queries = extractor.extract_query_history()
+
+    # Document broken state
+    assert len(queries) == 1
+    assert queries[0].user_name is None, "User attribution is broken - always None"

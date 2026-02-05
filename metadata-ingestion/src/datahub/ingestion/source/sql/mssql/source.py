@@ -1,9 +1,9 @@
-import functools
 import logging
 import re
 import urllib.parse
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
+import pyodbc  # noqa: F401
 import sqlalchemy.dialects.mssql
 from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
@@ -51,6 +51,7 @@ from datahub.ingestion.source.sql.mssql.job_models import (
     ProcedureParameter,
     StoredProcedure,
 )
+from datahub.ingestion.source.sql.mssql.lineage import MSSQLLineageExtractor
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     register_custom_type,
@@ -320,9 +321,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 
         scheme = self.scheme
         if is_odbc:
-            # Ensure that the import is available.
-            import pyodbc  # noqa: F401
-
             scheme = "mssql+pyodbc"
 
             # ODBC requires a database name, otherwise it will interpret host_port
@@ -1439,9 +1437,6 @@ class SQLServerSource(SQLAlchemySource):
                 )
                 return
 
-            # Import here to avoid circular dependency
-            from datahub.ingestion.source.sql.mssql.lineage import MSSQLLineageExtractor
-
             with inspector.engine.connect() as connection:
                 lineage_extractor = MSSQLLineageExtractor(
                     config=self.config,
@@ -1540,19 +1535,31 @@ class SQLServerSource(SQLAlchemySource):
             self.aggregator.report.num_procedures_failed += 1
             self.aggregator.report.procedure_parse_failures.append(procedure_name)
 
-    @functools.lru_cache(maxsize=1024)
     def is_discovered_table(self, name: str) -> bool:
         """
         Check if a table name refers to a discovered/real table in the schema.
 
         Returns True if the table exists in discovered schemas, False if it's
         a temp table, alias, or undiscovered table that should be filtered out.
+
+        Note: Uses instance-level caching to improve performance for repeated calls.
         """
+        # Initialize cache if needed
+        if not hasattr(self, "_discovered_table_cache"):
+            self._discovered_table_cache: dict[str, bool] = {}
+
+        # Check cache first
+        if name in self._discovered_table_cache:
+            return self._discovered_table_cache[name]
+
+        # Compute result
         if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
         ):
-            return False
+            result = False
+            self._discovered_table_cache[name] = result
+            return result
 
         try:
             parts = name.split(".")
@@ -1560,7 +1567,9 @@ class SQLServerSource(SQLAlchemySource):
 
             # TSQL temp tables start with #
             if table_name.startswith("#"):
-                return False
+                result = False
+                self._discovered_table_cache[name] = result
+                return result
 
             # Standardize case early to ensure consistent lookups
             standardized_name = self.standardize_identifier_case(name)
@@ -1576,7 +1585,9 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
                 if schema_resolver.has_urn(urn):
-                    return True
+                    result = True
+                    self._discovered_table_cache[name] = result
+                    return result
 
             # For qualified names (>=3 parts), validate against patterns
             if len(parts) >= MSSQL_QUALIFIED_NAME_PARTS:
@@ -1589,19 +1600,27 @@ class SQLServerSource(SQLAlchemySource):
                     and self.config.table_pattern.allowed(name)
                 ):
                     if standardized_name not in self.discovered_datasets:
-                        return False
+                        result = False
                     else:
-                        return True
+                        result = True
+                    self._discovered_table_cache[name] = result
+                    return result
                 else:
-                    return False
+                    result = False
+                    self._discovered_table_cache[name] = result
+                    return result
 
             # For names with fewer than MSSQL_QUALIFIED_NAME_PARTS,
             # treat as undiscovered since we can't verify
-            return False
+            result = False
+            self._discovered_table_cache[name] = result
+            return result
 
         except Exception as e:
             logger.warning("Error parsing table name %s: %s", name, e)
-            return False
+            result = False
+            self._discovered_table_cache[name] = result
+            return result
 
     def standardize_identifier_case(self, table_ref_str: str) -> str:
         return (

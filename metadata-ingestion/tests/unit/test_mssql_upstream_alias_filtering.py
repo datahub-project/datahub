@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.ingestion.source.sql.mssql.alias_filter import MSSQLAliasFilter
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 
 
@@ -72,6 +73,15 @@ def mssql_source():
         source.report = MagicMock()
         source.ctx = MagicMock()
 
+        # Create MSSQLAliasFilter (the new home for alias filtering methods)
+        source.tsql_alias_cleaner = MSSQLAliasFilter(
+            discovered_datasets=source.discovered_datasets,
+            platform_instance="test_instance",
+            env="PROD",
+            schema_resolver=schema_resolver,
+            is_discovered_table=source.is_discovered_table,
+        )
+
         return source
 
 
@@ -89,8 +99,10 @@ class TestUpstreamAliasFiltering:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.src,PROD)",
         ]
 
-        # Implement _filter_upstream_aliases method
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        # Call _filter_upstream_aliases method on tsql_alias_cleaner
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         # Should keep only the real table
         assert len(filtered) == 1
@@ -103,7 +115,9 @@ class TestUpstreamAliasFiltering:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.another_real_table,PROD)",
         ]
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         # Should keep all real tables
         assert len(filtered) == 2
@@ -119,7 +133,9 @@ class TestUpstreamAliasFiltering:
         # Clear schema_resolver to simulate missing schema
         mssql_source.get_schema_resolver().has_urn = MagicMock(return_value=False)
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         # Should still keep it because it's in discovered_datasets
         assert len(filtered) == 1
@@ -133,7 +149,9 @@ class TestUpstreamAliasFiltering:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.alias,PROD)",
         ]
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         # Should keep cross-DB table, filter same-DB alias
         assert len(filtered) == 1
@@ -153,7 +171,9 @@ class TestUpstreamAliasFiltering:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.temp,PROD)",
         ]
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         # Should keep only the real table
         assert len(filtered) == 1
@@ -167,7 +187,9 @@ class TestUpstreamAliasFiltering:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.#temp_table,PROD)",
         ]
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         # Should filter temp table
         assert len(filtered) == 1
@@ -175,7 +197,7 @@ class TestUpstreamAliasFiltering:
 
     def test_filter_empty_list(self, mssql_source):
         """Test filtering with empty upstream list."""
-        filtered = mssql_source._filter_upstream_aliases([])
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases([])
 
         assert filtered == []
 
@@ -188,7 +210,9 @@ class TestUpstreamAliasFiltering:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.alias2,PROD)",
         ]
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         assert len(filtered) == 2
         assert "real_table" in filtered[0]
@@ -241,7 +265,9 @@ class TestPlatformInstancePrefixHandling:
         # discovered_datasets has entries WITHOUT platform_instance prefix
         assert "db1.dbo.real_table" in mssql_source.discovered_datasets
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         # Should keep real_table (found after stripping prefix), filter alias
         assert len(filtered) == 1
@@ -258,7 +284,9 @@ class TestPlatformInstancePrefixHandling:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.unknown,PROD)",
         ]
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         # Should keep both real tables regardless of prefix format
         assert len(filtered) == 2
@@ -281,7 +309,9 @@ class TestDifferentAliasNames:
         schema_resolver = mssql_source.get_schema_resolver()
         schema_resolver.has_urn = lambda urn: "table1" in urn
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         assert len(filtered) == 1
         assert "table1" in filtered[0]
@@ -297,7 +327,9 @@ class TestDifferentAliasNames:
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.temp,PROD)",
         ]
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         # Should keep only real_table, filter all aliases
         assert len(filtered) == 1
@@ -327,7 +359,9 @@ class TestUpstreamFilteringIntegration:
 
         schema_resolver.has_urn = MagicMock(side_effect=new_has_urn)
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         # Should keep only users table
         assert len(filtered) == 1
@@ -353,7 +387,9 @@ class TestUpstreamFilteringIntegration:
 
         schema_resolver.has_urn = MagicMock(side_effect=new_has_urn)
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         # Should keep only logs table
         assert len(filtered) == 1
@@ -383,7 +419,9 @@ class TestUpstreamFilteringIntegration:
 
         schema_resolver.has_urn = MagicMock(side_effect=has_urn_for_test)
 
-        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+        filtered = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            upstream_urns
+        )
 
         # Should keep only real tables
         assert len(filtered) == 2
@@ -407,7 +445,7 @@ class TestErrorHandling:
         ]
 
         for urn in malformed_urns:
-            result = mssql_source._is_qualified_table_urn(urn)
+            result = mssql_source.tsql_alias_cleaner._is_qualified_table_urn(urn)
             # Should return False for all malformed URNs, not raise
             assert result is False, f"Expected False for malformed URN: {urn}"
 
@@ -416,21 +454,21 @@ class TestErrorHandling:
     ):
         """Test platform instance prefix handling edge cases."""
         # Empty platform instance
-        result = mssql_source._is_qualified_table_urn(
+        result = mssql_source.tsql_alias_cleaner._is_qualified_table_urn(
             "urn:li:dataset:(urn:li:dataPlatform:mssql,db.schema.table,PROD)",
             platform_instance="",
         )
         assert result is True
 
         # Platform instance that's a prefix of the table name
-        result = mssql_source._is_qualified_table_urn(
+        result = mssql_source.tsql_alias_cleaner._is_qualified_table_urn(
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test.db.schema.table,PROD)",
             platform_instance="test",
         )
         assert result is True  # After stripping "test.", "db.schema.table" has 3 parts
 
         # Platform instance that doesn't match
-        result = mssql_source._is_qualified_table_urn(
+        result = mssql_source.tsql_alias_cleaner._is_qualified_table_urn(
             "urn:li:dataset:(urn:li:dataPlatform:mssql,other_instance.db.schema.table,PROD)",
             platform_instance="test_instance",
         )
@@ -439,7 +477,7 @@ class TestErrorHandling:
 
     def test_filter_upstream_aliases_empty_input(self, mssql_source):
         """Test _filter_upstream_aliases handles empty input."""
-        result = mssql_source._filter_upstream_aliases([])
+        result = mssql_source.tsql_alias_cleaner._filter_upstream_aliases([])
         assert result == []
 
     def test_filter_upstream_aliases_all_malformed(self, mssql_source):
@@ -451,7 +489,9 @@ class TestErrorHandling:
         ]
         # Conservative behavior: malformed URNs are kept (not filtered out)
         # This prevents accidentally losing valid lineage due to parse errors
-        result = mssql_source._filter_upstream_aliases(malformed_urns)
+        result = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(
+            malformed_urns
+        )
         assert len(result) == len(malformed_urns)
 
     def test_filter_upstream_aliases_mixed_valid_and_malformed(self, mssql_source):
@@ -461,7 +501,7 @@ class TestErrorHandling:
             "not-a-urn",
             "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.another_real_table,PROD)",
         ]
-        result = mssql_source._filter_upstream_aliases(mixed_urns)
+        result = mssql_source.tsql_alias_cleaner._filter_upstream_aliases(mixed_urns)
         # Should keep valid URNs AND malformed ones (conservative approach)
         assert len(result) == 3
 
@@ -551,7 +591,9 @@ class TestColumnLineageFiltering:
         ]
 
         # Filter the MCPs
-        filtered_mcps = list(mssql_source._filter_procedure_lineage(mcps, "test_proc"))
+        filtered_mcps = list(
+            mssql_source.tsql_alias_cleaner.filter_procedure_lineage(mcps, "test_proc")
+        )
 
         # Should have 1 MCP
         assert len(filtered_mcps) == 1
@@ -615,7 +657,9 @@ class TestColumnLineageFiltering:
             )
         ]
 
-        filtered_mcps = list(mssql_source._filter_procedure_lineage(mcps, "test_proc"))
+        filtered_mcps = list(
+            mssql_source.tsql_alias_cleaner.filter_procedure_lineage(mcps, "test_proc")
+        )
 
         assert len(filtered_mcps) == 1
         aspect = filtered_mcps[0].aspect
