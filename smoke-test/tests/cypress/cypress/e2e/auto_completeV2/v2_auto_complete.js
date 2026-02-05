@@ -1,6 +1,24 @@
+import { hasOperationName } from "../utils";
+
+function setFeatureFlags() {
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    if (hasOperationName(req, "appConfig")) {
+      req.alias = "gqlappConfigQuery";
+
+      req.on("response", (res) => {
+        res.body.data.appConfig.featureFlags.themeV2Enabled = true;
+        res.body.data.appConfig.featureFlags.themeV2Default = true;
+        res.body.data.appConfig.featureFlags.showNavBarRedesign = true;
+        res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
+        res.body.data.appConfig.featureFlags.showSearchBarAutocompleteRedesign = false;
+      });
+    }
+  });
+}
+
 describe("auto-complete", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
+    setFeatureFlags();
     cy.skipIntroducePage();
     cy.hideOnboardingTour();
     cy.login();
