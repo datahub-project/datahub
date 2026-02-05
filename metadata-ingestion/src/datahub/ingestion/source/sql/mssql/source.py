@@ -686,7 +686,6 @@ class SQLServerSource(SQLAlchemySource):
         jobs_result = conn.execute("EXEC msdb.dbo.sp_help_job")
         jobs_data = {}
 
-        # mappings() provides dictionary-like access to row data with .get() method for optional fields
         for row in jobs_result.mappings():
             job_id = str(row["job_id"])
             jobs_data[job_id] = {
@@ -705,7 +704,6 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
                 job_steps = {}
-                # mappings() provides dictionary-like access with .get() for optional fields
                 for step_row in steps_result.mappings():
                     step_database = step_row.get("database_name", "")
                     if step_database.lower() == db_name.lower() or not step_database:
