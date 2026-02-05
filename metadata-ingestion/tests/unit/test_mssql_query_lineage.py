@@ -1112,7 +1112,8 @@ def test_mssql_lineage_extractor_creates_correct_observed_query():
     assert observed_query.timestamp is None
 
 
-def test_mssql_is_discovered_table_caching():
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_is_discovered_table_caching(create_engine_mock):
     """Test that is_discovered_table() uses caching for performance."""
     config = SQLServerConfig.model_validate(_base_config())
     ctx = PipelineContext(run_id="test")
@@ -1138,7 +1139,8 @@ def test_mssql_is_discovered_table_caching():
     assert len(source._discovered_table_cache) >= 1
 
 
-def test_mssql_is_discovered_table_cache_performance():
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_is_discovered_table_cache_performance(create_engine_mock):
     """Test that caching provides performance benefit for repeated calls."""
     config = SQLServerConfig.model_validate(_base_config())
     ctx = PipelineContext(run_id="test")
@@ -1288,14 +1290,12 @@ def test_mssql_query_store_disabled_mid_ingestion(create_engine_mock):
     )
     report = SQLSourceReport()
 
-    inspector_mock = Mock()
-    engine_mock = inspector_mock.engine
-    connection_mock = Mock()
+    connection_mock = MagicMock()
 
-    result_enabled = Mock()
+    result_enabled = MagicMock()
     result_enabled.fetchone.return_value = {"is_enabled": True}
 
-    result_disabled = Mock()
+    result_disabled = MagicMock()
     result_disabled.fetchone.return_value = {"is_enabled": False}
 
     connection_mock.execute.side_effect = [
@@ -1303,8 +1303,7 @@ def test_mssql_query_store_disabled_mid_ingestion(create_engine_mock):
         ProgrammingError("Query Store is not enabled", None, None),
     ]
 
-    sql_aggregator_mock = Mock()
-    engine_mock.connect.return_value.__enter__.return_value = connection_mock
+    sql_aggregator_mock = MagicMock()
 
     extractor = MSSQLLineageExtractor(
         config=config,
@@ -1331,16 +1330,13 @@ def test_mssql_connection_timeout_during_extraction(create_engine_mock):
     )
     report = SQLSourceReport()
 
-    inspector_mock = Mock()
-    engine_mock = inspector_mock.engine
-    connection_mock = Mock()
+    connection_mock = MagicMock()
 
     connection_mock.execute.side_effect = OperationalError(
         "Timeout expired", None, None
     )
 
-    sql_aggregator_mock = Mock()
-    engine_mock.connect.return_value.__enter__.return_value = connection_mock
+    sql_aggregator_mock = MagicMock()
 
     extractor = MSSQLLineageExtractor(
         config=config,
@@ -1368,28 +1364,29 @@ def test_mssql_unicode_emoji_in_query_text(create_engine_mock):
     )
     report = SQLSourceReport()
 
-    inspector_mock = Mock()
-    engine_mock = inspector_mock.engine
-    connection_mock = Mock()
+    connection_mock = MagicMock()
 
     query_with_unicode = "SELECT * FROM users WHERE name = 'José 🎉 テスト'"
 
-    result_mock = Mock()
-    result_mock.fetchall.return_value = [
-        {
-            "query_id": "1",
-            "query_text": query_with_unicode,
-            "execution_count": 10,
-            "total_exec_time_ms": 100.0,
-            "database_name": "TestDB",
-            "user_name": None,
-        }
-    ]
+    result_mock = MagicMock()
+    result_mock.__iter__ = Mock(
+        return_value=iter(
+            [
+                {
+                    "query_id": "1",
+                    "query_text": query_with_unicode,
+                    "execution_count": 10,
+                    "total_exec_time_ms": 100.0,
+                    "database_name": "TestDB",
+                    "user_name": None,
+                }
+            ]
+        )
+    )
 
     connection_mock.execute.return_value = result_mock
 
-    sql_aggregator_mock = Mock()
-    engine_mock.connect.return_value.__enter__.return_value = connection_mock
+    sql_aggregator_mock = MagicMock()
 
     extractor = MSSQLLineageExtractor(
         config=config,
@@ -1432,7 +1429,7 @@ def test_mssql_over_100_exclude_patterns_rejected(create_engine_mock):
     """Test validation rejects more than 100 exclude patterns."""
     patterns = [f"%pattern_{i}%" for i in range(101)]
 
-    with pytest.raises(ValueError, match="must have <= 100 patterns"):
+    with pytest.raises(ValueError, match="cannot exceed 100 patterns"):
         SQLServerConfig.model_validate(
             {
                 **_base_config(),
@@ -1449,19 +1446,15 @@ def test_mssql_over_100_exclude_patterns_rejected(create_engine_mock):
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
 def test_mssql_max_queries_zero_handled_gracefully(create_engine_mock):
-    """Test max_queries_to_extract=0 is handled gracefully, not crashing."""
-    config = SQLServerConfig.model_validate(
-        {
-            **_base_config(),
-            "include_query_lineage": True,
-            "max_queries_to_extract": 0,
-        }
-    )
-
-    # Should construct config without error
-    assert config.max_queries_to_extract == 0
-
-    # In actual execution, should return empty result quickly
+    """Test max_queries_to_extract=0 is rejected with clear error message."""
+    with pytest.raises(ValueError, match="must be positive"):
+        SQLServerConfig.model_validate(
+            {
+                **_base_config(),
+                "include_query_lineage": True,
+                "max_queries_to_extract": 0,
+            }
+        )
 
 
 def test_mssql_very_long_query_text_handling():
@@ -1470,10 +1463,10 @@ def test_mssql_very_long_query_text_handling():
     mock_cursor = MagicMock()
     mock_connection.execute.return_value = mock_cursor
 
-    # Create 10,000 char query (max practical query size)
+    # Create 10,000+ char query (max practical query size)
     long_query = (
         "SELECT * FROM table WHERE value IN ("
-        + ", ".join([f"'{i}'" for i in range(1000)])
+        + ", ".join([f"'{i}'" for i in range(2000)])
         + ")"
     )
     assert len(long_query) > 10000
@@ -1562,10 +1555,11 @@ def test_mssql_user_attribution_currently_broken():
 
     # Mock row WITHOUT user_name (current broken state)
     mock_row = {
-        "query_id": 1,
+        "query_id": "1",
         "query_text": "SELECT * FROM test",
         "execution_count": 10,
-        "database": "TestDB",
+        "total_exec_time_ms": 100.0,
+        "database_name": "TestDB",
         "user_name": None,  # ❌ BROKEN: Always NULL
     }
     mock_cursor.__iter__ = Mock(return_value=iter([mock_row]))
