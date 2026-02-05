@@ -400,8 +400,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 platform=task.platform,
                 env=task.env,
                 platform_instance=task.platform_instance,
-                graph=self.ctx.graph,
-                column_lineage_batch_size=self.config.column_lineage_batch_size,
+                graph=self.ctx.graph if self.config.enable_column_lineage else None,
+                schema_aware=self.config.enable_column_lineage,
+                column_lineage_batch_size=self.config.column_lineage_batch_size
+                if self.config.enable_column_lineage
+                else 0,
             )
             logger.debug(
                 f"[SQL_PARSE_RESULT] element_id={task.element_id}, "
@@ -519,8 +522,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         platform=data_source_platform_details.data_source_platform,
                         env=data_source_platform_details.env,
                         platform_instance=data_source_platform_details.platform_instance,
-                        graph=self.ctx.graph,
-                        column_lineage_batch_size=self.config.column_lineage_batch_size,
+                        graph=self.ctx.graph
+                        if self.config.enable_column_lineage
+                        else None,
+                        schema_aware=self.config.enable_column_lineage,
+                        column_lineage_batch_size=self.config.column_lineage_batch_size
+                        if self.config.enable_column_lineage
+                        else 0,
                     ).in_tables
                 except Exception:
                     logger.debug(f"Unable to parse query of element {element.name}")

@@ -193,6 +193,12 @@ class SigmaSourceConfig(
         description="Number of columns to process per batch during column-level lineage computation. "
         "Batching reduces peak memory for wide queries (100+ columns). Set to 0 to disable batching.",
     )
+    enable_column_lineage: bool = pydantic.Field(
+        default=True,
+        description="Enable column-level lineage extraction from SQL queries. "
+        "Set to false to reduce memory usage and improve performance when only "
+        "table-level lineage is needed. Requires extract_lineage to be enabled.",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Sigma Stateful Ingestion Config."
     )
