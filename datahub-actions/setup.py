@@ -55,8 +55,6 @@ base_requirements = {
     "azure-identity==1.21.0",
     "aws-msk-iam-sasl-signer-python==1.0.2",
     "h11>=0.16",
-    # For JSON logging support
-    "python-json-logger>=4.0.0",
 }
 
 framework_common = {
@@ -223,7 +221,7 @@ setuptools.setup(
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={
-        "datahub_actions": ["py.typed", "*.ini"],
+        "datahub_actions": ["py.typed"],
     },
     entry_points=entry_points,
     # Dependencies.

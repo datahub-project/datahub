@@ -23,12 +23,14 @@ from prometheus_client import start_http_server
 import datahub_actions._version as actions_version
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub_actions.cli.actions import actions
-from datahub_actions.logger_helpers import configure_logging
-
-# Configure logging early, before any other code runs
-configure_logging()
 
 logger = logging.getLogger(__name__)
+
+# Configure logger.
+BASE_LOGGING_FORMAT = (
+    "[%(asctime)s] %(levelname)-8s {%(name)s:%(lineno)d} - %(message)s"
+)
+logging.basicConfig(format=BASE_LOGGING_FORMAT)
 
 MAX_CONTENT_WIDTH = 120
 
@@ -83,11 +85,22 @@ def datahub_actions(
     #  WARNING level to be dropped  after this module is imported, irrespective
     #  of the logger's logging level! The lookml source was affected by this).
 
-    # Adjust log-levels if debug is enabled.
+    # 1. Create 'datahub' parent logger.
+    datahub_logger = logging.getLogger("datahub_actions")
+    # 2. Setup the stream handler with formatter.
+    stream_handler = logging.StreamHandler()
+    formatter = logging.Formatter(BASE_LOGGING_FORMAT)
+    stream_handler.setFormatter(formatter)
+    datahub_logger.addHandler(stream_handler)
+    # 3. Turn off propagation to the root handler.
+    datahub_logger.propagate = False
+    # 4. Adjust log-levels.
     if debug or get_boolean_env_variable("DATAHUB_DEBUG", False):
         logging.getLogger().setLevel(logging.INFO)
-        logging.getLogger("datahub_actions").setLevel(logging.DEBUG)
-
+        datahub_logger.setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.WARNING)
+        datahub_logger.setLevel(logging.INFO)
     if enable_monitoring:
         start_http_server(monitoring_port)
     # Setup the context for the memory_leak_detector decorator.
