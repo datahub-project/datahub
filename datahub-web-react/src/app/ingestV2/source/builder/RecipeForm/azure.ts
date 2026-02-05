@@ -1,5 +1,10 @@
-import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
-import { validateURL } from '@app/ingestV2/source/utils';
+import {
+    FieldType,
+    FilterRecipeField,
+    FilterRule,
+    RecipeField,
+    setListValuesOnRecipe,
+} from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export const AZURE_CLIENT_ID: RecipeField = {
     name: 'client_id',
@@ -46,7 +51,7 @@ export const AZURE_REDIRECT_URL: RecipeField = {
     fieldPath: 'source.config.redirect',
     placeholder: 'https://login.microsoftonline.com/common/oauth2/nativeclient',
     required: true,
-    rules: [() => validateURL('Redirect URI')],
+    rules: null,
 };
 
 export const AZURE_AUTHORITY_URL: RecipeField = {
@@ -58,7 +63,7 @@ export const AZURE_AUTHORITY_URL: RecipeField = {
     fieldPath: 'source.config.authority',
     placeholder: 'https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000',
     required: true,
-    rules: [() => validateURL('Azure authority URL')],
+    rules: null,
 };
 
 export const AZURE_TOKEN_URL: RecipeField = {
@@ -71,7 +76,7 @@ export const AZURE_TOKEN_URL: RecipeField = {
     fieldPath: 'source.config.token_url',
     placeholder: 'https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token',
     required: true,
-    rules: [() => validateURL('Azure token URL')],
+    rules: null,
 };
 
 export const AZURE_GRAPH_URL: RecipeField = {
@@ -83,7 +88,7 @@ export const AZURE_GRAPH_URL: RecipeField = {
     fieldPath: 'source.config.graph_url',
     placeholder: 'https://graph.microsoft.com/v1.0',
     required: true,
-    rules: [() => validateURL('Graph url URL')],
+    rules: null,
 };
 
 export const AZURE_INGEST_USERS: RecipeField = {
@@ -107,7 +112,7 @@ export const AZURE_INGEST_GROUPS: RecipeField = {
 };
 
 const schemaAllowFieldPathGroup = 'source.config.groups_pattern.allow';
-export const GROUP_ALLOW: RecipeField = {
+export const GROUP_ALLOW: FilterRecipeField = {
     name: 'groups.allow',
     label: 'Allow Patterns',
     helper: 'Include specific groups',
@@ -115,6 +120,7 @@ export const GROUP_ALLOW: RecipeField = {
         'Only include specific schemas by providing the name of a schema, or a regular expression (regex) to include specific schemas. If not provided, all schemas inside allowed databases will be included.',
     placeholder: 'group_pattern',
     type: FieldType.LIST,
+    rule: FilterRule.INCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: schemaAllowFieldPathGroup,
     rules: null,
@@ -124,7 +130,7 @@ export const GROUP_ALLOW: RecipeField = {
 };
 
 const schemaDenyFieldPathGroup = 'source.config.groups_pattern.deny';
-export const GROUP_DENY: RecipeField = {
+export const GROUP_DENY: FilterRecipeField = {
     name: 'groups.deny',
     label: 'Deny Patterns',
     helper: 'Exclude specific groups',
@@ -132,6 +138,7 @@ export const GROUP_DENY: RecipeField = {
         'Exclude specific schemas by providing the name of a schema, or a regular expression (regex). If not provided, all schemas inside allowed databases will be included. Deny patterns always take precedence over allow patterns.',
     placeholder: 'user_pattern',
     type: FieldType.LIST,
+    rule: FilterRule.EXCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: schemaDenyFieldPathGroup,
     rules: null,
@@ -141,7 +148,7 @@ export const GROUP_DENY: RecipeField = {
 };
 
 const schemaAllowFieldPathUser = 'source.config.users_pattern.allow';
-export const USER_ALLOW: RecipeField = {
+export const USER_ALLOW: FilterRecipeField = {
     name: 'user.allow',
     label: 'Allow Patterns',
     helper: 'Include specific users',
@@ -149,6 +156,7 @@ export const USER_ALLOW: RecipeField = {
         'Exclude specific schemas by providing the name of a schema, or a regular expression (regex). If not provided, all schemas inside allowed databases will be included. Deny patterns always take precedence over allow patterns.',
     placeholder: 'user_pattern',
     type: FieldType.LIST,
+    rule: FilterRule.INCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: schemaAllowFieldPathUser,
     rules: null,
@@ -158,7 +166,7 @@ export const USER_ALLOW: RecipeField = {
 };
 
 const schemaDenyFieldPathUser = 'source.config.users_pattern.deny';
-export const USER_DENY: RecipeField = {
+export const USER_DENY: FilterRecipeField = {
     name: 'user.deny',
     label: 'Deny Patterns',
     helper: 'Exclude specific users',
@@ -166,6 +174,7 @@ export const USER_DENY: RecipeField = {
         'Exclude specific schemas by providing the name of a schema, or a regular expression (regex). If not provided, all schemas inside allowed databases will be included. Deny patterns always take precedence over allow patterns.',
     placeholder: 'user_pattern',
     type: FieldType.LIST,
+    rule: FilterRule.EXCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: schemaDenyFieldPathUser,
     rules: null,

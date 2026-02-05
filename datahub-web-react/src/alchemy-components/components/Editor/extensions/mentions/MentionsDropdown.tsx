@@ -1,33 +1,37 @@
 import { useCommands } from '@remirror/react';
-import { Typography } from 'antd';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import { useDataHubMentions } from '@components/components/Editor/extensions/mentions/useDataHubMentions';
+import { colors } from '@components/theme';
 
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import AutoCompleteItem from '@src/app/searchV2/autoComplete/AutoCompleteItem';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { AutoCompleteResultForEntity, Entity, EntityType } from '@src/types.generated';
 
-const HeaderItem = styled(Typography.Text)`
+const HeaderItem = styled.div`
     display: block;
     min-height: 32px;
-    padding: 5px 12px;
+    padding: 8px 12px 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: ${colors.gray[500]};
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 `;
 
 const OptionItem = styled.div<{ readonly active?: boolean }>`
-    min-height: 32px;
-    padding: 5px 12px 5px 24px;
-    background: ${(props) => (props.active ? ANTD_GRAY[3] : ANTD_GRAY[1])};
-    transition: background 0.3s ease;
+    min-height: 36px;
+    padding: 6px 12px 6px 16px;
+    background: ${(props) => (props.active ? colors.gray[1500] : 'white')};
+    transition: background 0.15s ease;
     cursor: pointer;
     display: flex;
     align-items: center;
 
     &:hover {
-        background: ${ANTD_GRAY[3]};
+        background: ${colors.gray[1500]};
     }
 `;
 
@@ -68,15 +72,14 @@ export const MentionsDropdown = ({ suggestions }: Props) => {
 
     useDebounce(() => setOptions(flattenOptions(suggestions)), 250, [suggestions]);
     const onSubmit = useCallback(
-        (item: Option) => {
-            if (item.entity) {
-                createDataHubMention({
-                    name: entityRegistry.getDisplayName(item.type, item.entity),
-                    urn: item.entity.urn,
-                });
-                return true;
-            }
-            return false;
+        (item: Option | undefined) => {
+            // Guard: item may be undefined if Enter is pressed during debounce window
+            if (!item?.entity) return false;
+            createDataHubMention({
+                name: entityRegistry.getDisplayName(item.type, item.entity),
+                urn: item.entity.urn,
+            });
+            return true;
         },
         [createDataHubMention, entityRegistry],
     );
@@ -85,17 +88,21 @@ export const MentionsDropdown = ({ suggestions }: Props) => {
     const items = useMemo(() => options.filter(({ header }) => !header), [options]);
     const { selectedIndex, filter } = useDataHubMentions<Option>({ items, onEnter: onSubmit });
 
+    // Ref for the currently selected item to scroll into view
+    const selectedRef = useRef<HTMLDivElement>(null);
+
+    // Scroll selected item into view when navigating with keyboard
+    useEffect(() => {
+        selectedRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, [selectedIndex]);
+
     return (
         <div role="menu">
             {options.map((option) => {
                 const { header, type, entity, index = 0 } = option;
                 if (header) {
                     const label = entityRegistry.getCollectionName(type);
-                    return (
-                        <HeaderItem key={`Header_${label}`} type="secondary">
-                            {label}
-                        </HeaderItem>
-                    );
+                    return <HeaderItem key={`Header_${label}`}>{label}</HeaderItem>;
                 }
 
                 if (!entity) return null;
@@ -106,7 +113,13 @@ export const MentionsDropdown = ({ suggestions }: Props) => {
                 };
 
                 return (
-                    <OptionItem active={highlight} key={entity.urn} onMouseDown={onMouseDown} role="option">
+                    <OptionItem
+                        ref={highlight ? selectedRef : undefined}
+                        active={highlight}
+                        key={entity.urn}
+                        onMouseDown={onMouseDown}
+                        role="option"
+                    >
                         <AutoCompleteItem query={filter ?? ''} entity={entity} />
                     </OptionItem>
                 );

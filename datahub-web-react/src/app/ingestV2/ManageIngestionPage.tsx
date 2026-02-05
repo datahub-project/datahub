@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import { Tab } from '@components/components/Tabs/Tabs';
 
+import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ExecutionsTab } from '@app/ingestV2/executions/ExecutionsTab';
 import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
@@ -94,6 +95,17 @@ export const ManageIngestionPage = () => {
     const { value: sourceFilter, setValue: setSourceFilter } = useUrlQueryParam('sourceFilter');
     const { value: searchQuery, setValue: setSearchQuery } = useUrlQueryParam('query');
 
+    // Stable callbacks to prevent infinite re-render loops in child components
+    const handleSetSourceFilter = useCallback(
+        (value: number | undefined) => setSourceFilter(value?.toString() || ''),
+        [setSourceFilter],
+    );
+
+    const handleSetHideSystemSources = useCallback(
+        (value: boolean) => setHideSystemSources(value.toString()),
+        [setHideSystemSources],
+    );
+
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
         if (loadedAppConfig && loadedPlatformPrivileges && selectedTab === undefined) {
@@ -140,11 +152,11 @@ export const ManageIngestionPage = () => {
                     setShowCreateModal={setShowCreateSourceModal}
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources === 'true'}
-                    setHideSystemSources={(value: boolean) => setHideSystemSources(value.toString())}
+                    setHideSystemSources={handleSetHideSystemSources}
                     selectedTab={selectedTab}
                     setSelectedTab={setSelectedTab}
                     sourceFilter={sourceFilter ? Number(sourceFilter) : undefined}
-                    setSourceFilter={(value: number | undefined) => setSourceFilter(value?.toString() || '')}
+                    setSourceFilter={handleSetSourceFilter}
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
                 />
@@ -157,7 +169,7 @@ export const ManageIngestionPage = () => {
                 <ExecutionsTab
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources === 'true'}
-                    setHideSystemSources={(value: boolean) => setHideSystemSources(value.toString())}
+                    setHideSystemSources={handleSetHideSystemSources}
                     selectedTab={selectedTab}
                     setSelectedTab={setSelectedTab}
                 />
@@ -185,6 +197,10 @@ export const ManageIngestionPage = () => {
 
     const handleCreateSource = useCallback(() => {
         if (showIngestionOnboardingRedesignV1) {
+            analytics.event({
+                type: EventType.EnterIngestionFlowEvent,
+                entryPoint: 'sources_page_cta',
+            });
             history.push(PageRoutes.INGESTION_CREATE);
         } else {
             setShowCreateSourceModal(true);

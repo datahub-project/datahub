@@ -1,6 +1,18 @@
 import logging
+from typing import TYPE_CHECKING
 
-from openlineage.client.run import Dataset as OpenLineageDataset
+# Conditional import for OpenLineage (may not be installed)
+try:
+    from openlineage.client.run import Dataset as OpenLineageDataset
+
+    OPENLINEAGE_AVAILABLE = True
+except ImportError:
+    # Not available when openlineage packages aren't installed
+    OpenLineageDataset = None  # type: ignore[assignment,misc]
+    OPENLINEAGE_AVAILABLE = False
+
+if TYPE_CHECKING:
+    from openlineage.client.run import Dataset as OpenLineageDataset
 
 import datahub.emitter.mce_builder as builder
 
@@ -13,7 +25,7 @@ OL_SCHEME_TWEAKS = {
 }
 
 
-def translate_ol_to_datahub_urn(ol_uri: OpenLineageDataset) -> str:
+def translate_ol_to_datahub_urn(ol_uri: "OpenLineageDataset") -> str:
     namespace = ol_uri.namespace
     name = ol_uri.name
 

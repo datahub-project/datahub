@@ -6,6 +6,12 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
         urn
         type
         subType
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
         settings {
             showInGlobalContext
         }
@@ -59,15 +65,13 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
                     ...documentPreviewFields
                 }
             }
-            draftOf {
-                document {
-                    ...documentPreviewFields
-                }
-            }
             customProperties {
                 key
                 value
             }
+        }
+        documentation {
+            ...documentationFields
         }
         ownership {
             ...ownershipFields
@@ -77,6 +81,9 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
         }
         glossaryTerms {
             ...glossaryTerms
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
         domain {
             ...entityDomain
@@ -90,9 +97,6 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
             ...entityPrivileges
         }
         exists
-        drafts {
-            ...documentPreviewFields
-        }
         parentDocuments @include(if: $includeParentDocuments) {
             count
             documents {
@@ -234,10 +238,6 @@ mutation moveDocument($input: MoveDocumentInput!) {
 
 mutation deleteDocument($urn: String!) {
     deleteDocument(urn: $urn)
-}
-
-mutation mergeDraft($input: MergeDraftInput!) {
-    mergeDraft(input: $input)
 }
 
 mutation updateDocumentSettings($input: UpdateDocumentSettingsInput!) {

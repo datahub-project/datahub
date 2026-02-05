@@ -805,6 +805,10 @@ class Workspace:
     scan_result: dict
     independent_datasets: Dict[str, "PowerBIDataset"]
     app: Optional["App"]
+    # Fabric artifacts (Lakehouse, Warehouse, SQLAnalyticsEndpoint) for DirectLake lineage
+    fabric_artifacts: Dict[str, "FabricArtifact"] = dataclass_field(
+        default_factory=dict
+    )  # key = artifact id
 
     def get_urn_part(self, workspace_id_as_urn_part: Optional[bool] = False) -> str:
         return self.id if workspace_id_as_urn_part else self.name
@@ -813,12 +817,14 @@ class Workspace:
         self,
         platform_name: str,
         platform_instance: Optional[str] = None,
+        env: Optional[str] = None,
         workspace_id_as_urn_part: Optional[bool] = False,
     ) -> ContainerKey:
         return WorkspaceKey(
             workspace=self.get_urn_part(workspace_id_as_urn_part),
             platform=platform_name,
             instance=platform_instance,
+            env=env,
         )
 
     def format_name_for_logger(self) -> str:
@@ -842,6 +848,26 @@ class DataSource:
 
     def __hash__(self):
         return hash(self.__members())
+
+
+@dataclass
+class FabricArtifact:
+    """Represents a Microsoft Fabric artifact (Lakehouse, Warehouse, SQLAnalyticsEndpoint).
+
+    Used for DirectLake lineage extraction to identify upstream OneLake tables.
+    """
+
+    id: str
+    name: str
+    artifact_type: Literal[
+        "Lakehouse", "Warehouse", "SQLAnalyticsEndpoint"
+    ]  # casing really matters here
+    workspace_id: str
+    # Raw relation ids from API (relations[].dependentOnArtifactId); used to resolve physical_item_ids.
+    relation_dependent_ids: Optional[List[str]] = None
+    # For SQLAnalyticsEndpoint: Lakehouse/Warehouse ids to use in lineage URNs (so they match OneLake connector).
+    # None or empty for Lakehouse/Warehouse; lineage then uses id.
+    physical_item_ids: Optional[List[str]] = None
 
 
 @dataclass
@@ -890,6 +916,13 @@ class Table:
     column_count: Optional[int] = None
     dataset: Optional["PowerBIDataset"] = None
 
+    # DirectLake support fields
+    storage_mode: Optional[str] = None  # e.g., "DirectLake", "Import", "DirectQuery"
+    source_schema: Optional[str] = None  # From source[].schemaName (e.g., "dbo")
+    source_expression: Optional[str] = (
+        None  # From source[].expression (upstream table name)
+    )
+
 
 @dataclass
 class PowerBIDataset:
@@ -915,6 +948,10 @@ class PowerBIDataset:
     bookmarks: Optional[List[Dict[str, Any]]] = None
     interactions: Optional[Dict[str, Any]] = None
 
+    # DirectLake support: artifact ID this dataset depends on (Lakehouse/Warehouse)
+    # From relations[].dependentOnArtifactId
+    dependent_on_artifact_id: Optional[str] = None
+
     def get_urn_part(self):
         return f"datasets.{self.id}"
 
@@ -930,10 +967,17 @@ class PowerBIDataset:
     def __hash__(self):
         return hash(self.__members())
 
-    def get_dataset_key(self, platform_name: str) -> ContainerKey:
+    def get_dataset_key(
+        self,
+        platform_name: str,
+        platform_instance: Optional[str] = None,
+        env: Optional[str] = None,
+    ) -> ContainerKey:
         return DatasetKey(
             dataset=self.id,
             platform=platform_name,
+            instance=platform_instance,
+            env=env,
         )
 
 

@@ -17,15 +17,16 @@ export const BreadcrumbItemContainer = styled.span`
     gap: 4px;
 `;
 
-export const BreadcrumbLink = styled(Link)`
-    color: ${colors.gray[1800]};
+export const BreadcrumbLink = styled(Link)<{ $isCurrent?: boolean }>`
+    color: ${(props) => (props.$isCurrent ? colors.gray[600] : colors.gray[1800])};
     font-size: 12px;
     text-decoration: none;
     cursor: pointer;
 `;
 
-export const BreadcrumbButton = styled(Text)`
+export const BreadcrumbButton = styled(Text)<{ $isCurrent?: boolean }>`
     cursor: pointer;
+    color: ${(props) => (props.$isCurrent ? colors.gray[600] : colors.gray[1800])};
 
     :hover {
         color: ${colors.primary[500]};

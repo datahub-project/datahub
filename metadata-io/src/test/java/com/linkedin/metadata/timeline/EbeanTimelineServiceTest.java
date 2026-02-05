@@ -10,6 +10,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import io.ebean.Database;
+import java.util.List;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -31,7 +32,7 @@ public class EbeanTimelineServiceTest extends TimelineServiceTest<EbeanAspectDao
   public void setupTest() {
     Database server =
         EbeanTestUtils.createTestServer(EbeanTimelineServiceTest.class.getSimpleName());
-    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
+    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null, List.of(), null);
     _aspectDao.setConnectionValidated(true);
     _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry);
     _mockProducer = mock(EventProducer.class);

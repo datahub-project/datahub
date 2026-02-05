@@ -78,7 +78,6 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.powerbi.utils import (
     is_dax_expression as _is_dax_expression,
-    urn_to_lowercase,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -99,11 +98,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BrowsePathsClass,
+    ChangeTypeClass,
     ChartInfoClass,
     ContainerClass,
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
+    DataPlatformInstanceClass,
     DatasetFieldProfileClass,
     DatasetLineageTypeClass,
     DatasetProfileClass,
@@ -128,6 +129,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import ChartUrn, DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -163,11 +165,46 @@ class Mapper:
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
         self.workspace_key: Optional[ContainerKey] = None
 
+    @staticmethod
+    def urn_to_lowercase(value: str, flag: bool) -> str:
+        """Convert URN to lowercase if flag is set."""
+        if flag is True:
+            return lowercase_dataset_urn(value)
+        return value
+
     def lineage_urn_to_lowercase(self, value):
-        return urn_to_lowercase(value, self.__config.convert_lineage_urns_to_lowercase)
+        return Mapper.urn_to_lowercase(
+            value, self.__config.convert_lineage_urns_to_lowercase
+        )
 
     def assets_urn_to_lowercase(self, value):
-        return urn_to_lowercase(value, self.__config.convert_urns_to_lowercase)
+        return Mapper.urn_to_lowercase(value, self.__config.convert_urns_to_lowercase)
+
+    def new_mcp(
+        self,
+        entity_urn,
+        aspect,
+        change_type=ChangeTypeClass.UPSERT,
+    ):
+        """Create MCP with optional change type."""
+        return MetadataChangeProposalWrapper(
+            changeType=change_type,
+            entityUrn=entity_urn,
+            aspect=aspect,
+        )
+
+    def _get_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
+        """Generate DataPlatformInstanceClass aspect for PowerBI entities."""
+        return DataPlatformInstanceClass(
+            platform=builder.make_data_platform_urn(self.__config.platform_name),
+            instance=(
+                builder.make_dataplatform_instance_urn(
+                    self.__config.platform_name, self.__config.platform_instance
+                )
+                if self.__config.platform_instance
+                else None
+            ),
+        )
 
     def _to_work_unit(
         self, mcp: MetadataChangeProposalWrapper

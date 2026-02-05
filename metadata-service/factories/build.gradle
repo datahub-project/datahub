@@ -52,6 +52,8 @@ dependencies {
   implementation 'software.amazon.awssdk:regions'
   implementation 'software.amazon.awssdk:sts'
   implementation 'software.amazon.awssdk:s3'
+  // AWS SDK for Bedrock (semantic search embeddings)
+  implementation 'software.amazon.awssdk:bedrockruntime'
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }

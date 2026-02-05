@@ -8,7 +8,7 @@ import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchRes
 import { Button, Input } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
 
-import { DocumentState } from '@types';
+import { DocumentSourceType, DocumentState } from '@types';
 
 const PopoverContainer = styled.div`
     width: 400px;
@@ -127,6 +127,7 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({
         count: 50,
         fetchPolicy: 'network-only', // Always fetch fresh for search
         includeParentDocuments: true, // Fetch parent documents for breadcrumb display
+        sourceTypes: [DocumentSourceType.Native],
     });
 
     const isSearching = debouncedSearchQuery.trim().length > 0;

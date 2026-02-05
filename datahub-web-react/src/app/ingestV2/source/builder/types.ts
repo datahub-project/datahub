@@ -25,6 +25,7 @@ export interface SourceConfig {
     category?: string;
     isPopular?: boolean;
     isExternal?: boolean;
+    isNew?: boolean;
 }
 
 /**

@@ -14,7 +14,14 @@ record DocumentInfo includes CustomProperties {
     /**
      * Optional title for the document. 
      */
-    @Searchable = {}
+    @Searchable = {
+      "fieldType": "WORD_GRAM",
+      "enableAutocomplete": true,
+      "boostScore": 10.0,
+      "fieldNameAliases": [ "_entityName" ],
+      "searchLabel": "entityName",
+      "searchTier": 1
+    }
     title: optional string
 
     /**
@@ -44,7 +51,8 @@ record DocumentInfo includes CustomProperties {
       },
       "/time": {
         "fieldName": "createdAt",
-        "fieldType": "DATETIME"
+        "fieldType": "DATETIME",
+        "queryByDefault": false
       }
     }
     created: AuditStamp
@@ -60,7 +68,9 @@ record DocumentInfo includes CustomProperties {
       },
       "/time": {
         "fieldName": "lastModifiedAt",
-        "fieldType": "DATETIME"
+        "fieldType": "DATETIME",
+        "queryByDefault": false,
+        "addToFilters": false
       }
     }
     lastModified: AuditStamp
@@ -79,11 +89,4 @@ record DocumentInfo includes CustomProperties {
      * Parent article for this asset. 
      */
     parentDocument: optional ParentDocument
-
-    /**
-     * If this document is a draft, the document it is a draft of.
-     * When set, this document should be hidden from normal knowledge base browsing and search.
-     * Only the published document (draftOf target) should be visible to end users.
-     */
-    draftOf: optional DraftOf
 }

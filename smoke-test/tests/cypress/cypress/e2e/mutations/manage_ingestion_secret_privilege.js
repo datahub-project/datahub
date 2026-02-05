@@ -9,9 +9,7 @@ const tryToSignUp = () => {
   cy.enterTextInTestId("name", name);
   cy.enterTextInTestId("password", "Example password");
   cy.enterTextInTestId("confirmPassword", "Example password");
-  cy.mouseover("#title").click();
-  cy.waitTextVisible("Other").click();
-  cy.clickOptionWithId("[type=submit]");
+  cy.get('[data-testid="sign-up"]').click();
   return { name, email };
 };
 
@@ -19,7 +17,7 @@ const signIn = () => {
   cy.visit("/login");
   cy.enterTextInTestId("username", email);
   cy.enterTextInTestId("password", "Example password");
-  cy.clickOptionWithId("[type=submit]");
+  cy.get('[data-testid="sign-in"]').click();
 };
 
 const updateAndSave = (Id, groupName, text) => {

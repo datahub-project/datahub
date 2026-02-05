@@ -14,6 +14,34 @@ This source extracts the following:
 3. Once initial sync up of your fivetran platform connector is done, you need to provide the fivetran platform connector's destination platform and its configuration in the recipe.
 4. We expect our users to enable automatic schema updates (default) in fivetran platform connector configured for DataHub, this ensures latest schema changes are applied and avoids inconsistency data syncs.
 
+### Database and Schema Name Handling
+
+The Fivetran source uses **quoted identifiers** for database and schema names to properly handle special characters and case-sensitive names. This follows Snowflake's quoted identifier convention, which is then transpiled to the target database dialect (Snowflake, BigQuery, or Databricks).
+
+**Important Notes:**
+
+- **Database names** are automatically wrapped in double quotes (e.g., `use database "my-database"`)
+- **Schema names** are automatically wrapped in double quotes (e.g., `"my-schema".table_name`)
+- This ensures proper handling of database and schema names containing:
+  - Hyphens (e.g., `my-database`)
+  - Spaces (e.g., `my database`)
+  - Special characters (e.g., `my.database`)
+  - Case-sensitive names (e.g., `MyDatabase`)
+
+**Migration Impact:**
+
+- If you have database or schema names with special characters, they will now be properly quoted in SQL queries
+- This change ensures consistent behavior across all supported destination platforms
+- No configuration changes are required - the quoting is handled automatically
+
+**Case Sensitivity Considerations:**
+
+- **Important**: In Snowflake, unquoted identifiers are automatically converted to uppercase when stored and resolved (e.g., `mydatabase` becomes `MYDATABASE`), while double-quoted identifiers preserve the exact case as entered (e.g., `"mydatabase"` stays as `mydatabase`). See [Snowflake's identifier documentation](https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers) for details.
+- **Backward Compatibility**: The system automatically handles backward compatibility for valid unquoted identifiers (identifiers containing only letters, numbers, and underscores). These identifiers are automatically uppercased before quoting to match Snowflake's behavior for unquoted identifiers. This means:
+  - If your database/schema name is a valid unquoted identifier (e.g., `fivetran_logs`, `MY_SCHEMA`), it will be automatically uppercased to match existing Snowflake objects created without quotes
+  - No configuration changes are required for standard identifiers (letters, numbers, underscores only)
+- **Recommended**: For best practices and to ensure consistency, maintain the exact case of your database and schema names in your configuration to match what's stored in Snowflake
+
 ## Concept mapping
 
 | Fivetran        | Datahub                                                                                               |
@@ -57,6 +85,7 @@ create or replace role fivetran_datahub;
 grant operate, usage on warehouse "<your-warehouse>" to role fivetran_datahub;
 
 // Grant access to view database and schema in which your log and metadata tables exist
+// Note: Database and schema names are automatically quoted, so use quoted identifiers if your names contain special characters
 grant usage on DATABASE "<fivetran-log-database>" to role fivetran_datahub;
 grant usage on SCHEMA "<fivetran-log-database>"."<fivetran-log-schema>" to role fivetran_datahub;
 
@@ -94,6 +123,8 @@ grant role fivetran_datahub to user snowflake_user;
 
 The Fivetran REST API configuration is **required** for Google Sheets connectors and optional for other use cases. It provides access to connection details that aren't available in the Platform Connector logs.
 
+#### Setup
+
 To obtain API credentials:
 
 1. Log in to your Fivetran account
@@ -108,7 +139,15 @@ api_config:
   request_timeout_sec: 30 # Optional, defaults to 30 seconds
 ```
 
-**Note**: If you're using Google Sheets connectors, you must provide `api_config`. Without it, Google Sheets connectors will be skipped with a warning.
+#### Permissions Required
+
+To use the Fivetran REST API integration, you need:
+
+**Required API Permissions**:
+
+- **Read access** to connection details (`GET /v1/connections/{connection_id}`)
+- The API key must be associated with a user or service account that has access to the connectors you want to ingest
+- The API key inherits permissions from the user or service account it's associated with
 
 ## Google Sheets Connector Support
 

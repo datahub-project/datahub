@@ -118,7 +118,30 @@ public class EntityClient {
       entity.clearPendingMCPs();
     }
 
-    // Step 3: Emit all pending patches (both accumulated and legacy)
+    // Step 3: Wait for all full aspect writes to complete before emitting patches
+    // This ensures patches apply to complete aspects and eliminates write-write races
+    if (!futures.isEmpty()) {
+      log.debug(
+          "Waiting for {} full aspect writes to complete before emitting patches", futures.size());
+
+      for (int i = 0; i < futures.size(); i++) {
+        Future<MetadataWriteResponse> future = futures.get(i);
+        MetadataWriteResponse response = future.get();
+
+        if (!response.isSuccess()) {
+          String errorMsg =
+              String.format(
+                  "Failed to emit full aspect write %d/%d: %s",
+                  i + 1, futures.size(), response.getResponseContent());
+          log.error(errorMsg);
+          throw new IOException(errorMsg);
+        }
+      }
+
+      log.debug("All {} full aspect writes completed successfully", futures.size());
+    }
+
+    // Step 4: Emit all pending patches (both accumulated and legacy)
     // Note: getPendingPatches() now returns both accumulated and legacy patches
     log.error("============ EntityClient.upsert: checking hasPendingPatches() ============");
     boolean hasPatches = entity.hasPendingPatches();
@@ -163,27 +186,6 @@ public class EntityClient {
       entity.clearPendingPatches();
     } else {
       log.error("NO pending patches - skipping transformation");
-    }
-
-    // Check if we have anything to emit
-    if (futures.isEmpty()) {
-      log.warn("Entity {} has no aspects or patches to emit, skipping", entity);
-      return;
-    }
-
-    // Wait for all to complete and check for errors
-    for (int i = 0; i < futures.size(); i++) {
-      Future<MetadataWriteResponse> future = futures.get(i);
-      MetadataWriteResponse response = future.get();
-
-      if (!response.isSuccess()) {
-        String errorMsg =
-            String.format(
-                "Failed to emit entity %s (MCP %d/%d): %s",
-                entity.getUrn(), i + 1, futures.size(), response.getResponseContent());
-        log.error(errorMsg);
-        throw new IOException(errorMsg);
-      }
     }
 
     log.info("Successfully upserted entity: {}", entity.getUrn());
