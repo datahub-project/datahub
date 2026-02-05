@@ -293,6 +293,24 @@ source:
       test_results: No
 ```
 
+:::note Tests not showing up in DataHub UI?
+
+Double check you are using the same `job_id` for your `test_results: Only` and `test_results: No` recipes. Otherwise you might end up reporting `tests_results` for tests that haven't had their `test_definitions` ingested yet. This can lead to orphaned assertions that do not show up under your dataset.
+
+If you choose not to share a `job_id`, you should adjust your recipe to also ingest the `test_definitions`
+
+```yaml
+entities_enabled:
+  models: No
+  sources: No
+  seeds: No
+  snapshots: No
+  test_definitions: Yes
+  test_results: Yes
+```
+
+:::
+
 ### Multiple dbt projects
 
 In more complex dbt setups, you may have multiple dbt projects, where models from one project are used as sources in another project.
