@@ -19,7 +19,7 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
-from datahub.ingestion.source.redshift.sql_preprocessing import (
+from datahub.sql_parsing.redshift_preprocessing import (
     preprocess_query_for_sigma,
 )
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -531,3 +531,50 @@ class TestSigmaTempTableDetection:
         lineage_extractor.known_urns = set()
         assert lineage_extractor._is_temp_table("sigma.t_mat_12345") is True
         assert lineage_extractor._is_temp_table("sigma.t_query_1709123456789") is True
+
+    def test_sigma_temp_table_fully_qualified(self):
+        """Fully qualified names (db.sigma.t_mat_*) should be detected."""
+        lineage_extractor = get_lineage_extractor()
+        # Fully qualified with database prefix
+        assert lineage_extractor._is_sigma_temp_table("mydb.sigma.t_mat_12345") is True
+        assert (
+            lineage_extractor._is_sigma_temp_table("prod.sigma.t_query_1709123456789")
+            is True
+        )
+        # Non-sigma schema with db prefix should not match
+        assert (
+            lineage_extractor._is_sigma_temp_table("mydb.public.t_mat_12345") is False
+        )
+
+    def test_sigma_temp_table_quoted(self):
+        """Quoted names ("sigma"."t_mat_*") should be detected."""
+        lineage_extractor = get_lineage_extractor()
+        # Quoted schema.table
+        assert lineage_extractor._is_sigma_temp_table('"sigma"."t_mat_12345"') is True
+        assert (
+            lineage_extractor._is_sigma_temp_table('"sigma"."t_query_1709123456789"')
+            is True
+        )
+        # Quoted with database prefix
+        assert (
+            lineage_extractor._is_sigma_temp_table('"mydb"."sigma"."t_mat_12345"')
+            is True
+        )
+        # Quoted non-sigma schema should not match
+        assert lineage_extractor._is_sigma_temp_table('"public"."t_mat_12345"') is False
+
+    def test_normalize_table_name_for_sigma_check(self):
+        """Test the normalization helper directly."""
+        from datahub.ingestion.source.redshift.lineage import RedshiftSqlLineage
+
+        normalize = RedshiftSqlLineage._normalize_table_name_for_sigma_check
+        # Simple schema.table
+        assert normalize("sigma.t_mat_123") == "sigma.t_mat_123"
+        # Fully qualified db.schema.table -> schema.table
+        assert normalize("mydb.sigma.t_mat_123") == "sigma.t_mat_123"
+        # Quoted
+        assert normalize('"sigma"."t_mat_123"') == "sigma.t_mat_123"
+        # Quoted with db
+        assert normalize('"mydb"."sigma"."t_mat_123"') == "sigma.t_mat_123"
+        # Single part (edge case)
+        assert normalize("tablename") == "tablename"
