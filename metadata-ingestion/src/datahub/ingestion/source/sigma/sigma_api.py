@@ -28,7 +28,11 @@ logger = logging.getLogger(__name__)
 
 # Rate limiting constants
 RATE_LIMIT_THRESHOLD = 3  # Enable rate limiting when max_workers > this value
-RATE_LIMIT_REQUESTS_PER_SECOND = 10.0  # Max requests per second when rate limiting
+RATE_LIMIT_REQUESTS_PER_SECOND = 5.0  # Max requests per second when rate limiting
+
+# Retry constants for 429 errors
+RETRY_MAX_ATTEMPTS = 3
+RETRY_BASE_DELAY_SECONDS = 2.0  # Exponential backoff: 2s, 4s, 8s
 
 
 class RateLimiter:
@@ -142,17 +146,37 @@ class SigmaAPI:
             )
 
     def _get_api_call(self, url: str) -> requests.Response:
-        # Apply rate limiting if enabled
-        if self.rate_limiter:
-            self.rate_limiter.acquire()
-
-        get_response = self.session.get(url)
-        if get_response.status_code == 401 and self.refresh_token:
-            logger.debug("Access token might expired. Refreshing access token.")
-            self._refresh_access_token()
+        """Make an API call with rate limiting and retry on 429 errors."""
+        for attempt in range(RETRY_MAX_ATTEMPTS):
+            # Apply rate limiting if enabled
             if self.rate_limiter:
                 self.rate_limiter.acquire()
+
             get_response = self.session.get(url)
+
+            # Handle token refresh on 401
+            if get_response.status_code == 401 and self.refresh_token:
+                logger.debug("Access token might expired. Refreshing access token.")
+                self._refresh_access_token()
+                if self.rate_limiter:
+                    self.rate_limiter.acquire()
+                get_response = self.session.get(url)
+
+            # Retry on 429 with exponential backoff
+            if get_response.status_code == 429:
+                if attempt < RETRY_MAX_ATTEMPTS - 1:
+                    delay = RETRY_BASE_DELAY_SECONDS * (2**attempt)
+                    logger.debug(
+                        f"Rate limited (429) on {url}, retrying in {delay}s "
+                        f"(attempt {attempt + 1}/{RETRY_MAX_ATTEMPTS})"
+                    )
+                    time.sleep(delay)
+                    continue
+                else:
+                    logger.warning(f"Rate limited (429) on {url}, max retries exceeded")
+
+            return get_response
+
         return get_response
 
     def get_workspace(self, workspace_id: str) -> Optional[Workspace]:
@@ -379,75 +403,63 @@ class SigmaAPI:
         """
         Fetch source information for a dataset (underlying warehouse table).
 
-        Tries multiple approaches:
-        1. Get dataset details which may include source info
-        2. Parse the response to extract connectionId, table, schema, database
+        Uses the /datasets/{datasetId}/sources endpoint to get source table info.
         """
         try:
+            # Use the /sources endpoint to get source information
             response = self._get_api_call(
-                f"{self.config.api_url}/datasets/{dataset_id}"
+                f"{self.config.api_url}/datasets/{dataset_id}/sources"
             )
             if response.status_code == 404:
-                logger.debug(f"Dataset {dataset_id} not found")
+                logger.debug(f"Dataset sources not found for {dataset_id}")
                 return None
             if response.status_code == 403:
-                logger.debug(f"Dataset {dataset_id} not accessible")
+                logger.debug(f"Dataset sources not accessible for {dataset_id}")
                 return None
             response.raise_for_status()
-            dataset_detail = response.json()
+            sources_response = response.json()
 
-            # Log the response for debugging
-            logger.debug(
-                f"Dataset {dataset_id} details: connectionId={dataset_detail.get('connectionId')}, "
-                f"table keys: {[k for k in dataset_detail if 'table' in k.lower() or 'source' in k.lower() or 'schema' in k.lower() or 'database' in k.lower()]}"
-            )
+            # Log the full response for debugging
+            logger.debug(f"Dataset {dataset_id} sources response: {sources_response}")
 
-            # Extract source information from the dataset detail response
-            # The API may return connectionId, and table/schema info in various fields
-            connection_id = dataset_detail.get("connectionId")
-            if not connection_id:
-                logger.debug(f"Dataset {dataset_id} has no connectionId")
-                return None
+            # The response contains source entries with inode IDs and type info
+            # Look for sources that are tables (not other datasets)
+            entries = sources_response.get("entries", [])
+            if not entries:
+                # Try alternative response structure
+                entries = sources_response if isinstance(sources_response, list) else []
 
-            # Try to extract table information from various possible field names
-            table = (
-                dataset_detail.get("table")
-                or dataset_detail.get("tableName")
-                or dataset_detail.get("sourceTable")
-            )
-            schema_name = (
-                dataset_detail.get("schema")
-                or dataset_detail.get("schemaName")
-                or dataset_detail.get("sourceSchema")
-            )
-            database = (
-                dataset_detail.get("database")
-                or dataset_detail.get("databaseName")
-                or dataset_detail.get("sourceDatabase")
-            )
+            for source in entries:
+                # Log each source entry
+                logger.debug(f"Dataset {dataset_id} source entry: {source}")
 
-            # If table info is in a nested 'source' object
-            source_obj = dataset_detail.get("source", {})
-            if isinstance(source_obj, dict):
-                table = table or source_obj.get("table") or source_obj.get("tableName")
-                schema_name = (
-                    schema_name
-                    or source_obj.get("schema")
-                    or source_obj.get("schemaName")
-                )
-                database = (
-                    database
-                    or source_obj.get("database")
-                    or source_obj.get("databaseName")
-                )
+                # Extract source info - the structure may vary
+                connection_id = source.get("connectionId")
 
-            if connection_id:
-                return DatasetSource(
-                    connectionId=connection_id,
-                    table=table,
-                    schema_name=schema_name,
-                    database=database,
-                )
+                # If this is a table source with connection info
+                if connection_id:
+                    table = (
+                        source.get("table")
+                        or source.get("tableName")
+                        or source.get("name")
+                        or source.get("path")
+                    )
+                    schema_name = source.get("schema") or source.get("schemaName")
+                    database = source.get("database") or source.get("databaseName")
+
+                    logger.debug(
+                        f"Dataset {dataset_id} found source: connection={connection_id}, "
+                        f"table={table}, schema={schema_name}, database={database}"
+                    )
+
+                    return DatasetSource(
+                        connectionId=connection_id,
+                        table=table,
+                        schema_name=schema_name,
+                        database=database,
+                    )
+
+            logger.debug(f"Dataset {dataset_id} has no table sources in response")
             return None
 
         except Exception as e:
