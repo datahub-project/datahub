@@ -581,14 +581,13 @@ def test_mssql_lineage_extractor_populate_lineage():
     ]
 
     # Mock extract_query_history to return our test queries
-    extractor.extract_query_history = Mock(return_value=test_queries)
+    with patch.object(extractor, "extract_query_history", return_value=test_queries):
+        extractor.populate_lineage_from_queries()
 
-    extractor.populate_lineage_from_queries()
-
-    sql_aggregator_mock.add_observed_query.assert_called_once()
-    call_args = sql_aggregator_mock.add_observed_query.call_args[0][0]
-    assert call_args.query == "SELECT * FROM users"
-    assert call_args.user.urn() == "urn:li:corpuser:test_user"
+        sql_aggregator_mock.add_observed_query.assert_called_once()
+        call_args = sql_aggregator_mock.add_observed_query.call_args[0][0]
+        assert call_args.query == "SELECT * FROM users"
+        assert call_args.user.urn() == "urn:li:corpuser:test_user"
 
 
 def test_mssql_query_entry_avg_exec_time():
