@@ -228,15 +228,10 @@ class MSSQLLineageExtractor:
                 return queries
 
             except (DatabaseError, OperationalError, ProgrammingError) as e:
-                error_msg = (
-                    f"Failed to extract query history from MS SQL Server: {e}. "
-                    "Query-based lineage was explicitly enabled with include_query_lineage: true. "
-                    "Please verify database permissions and Query Store configuration. "
-                    "Continuing with other lineage sources."
-                )
-                logger.error(error_msg)
+                # Expected database errors: connection issues, permission denied, Query Store disabled, etc.
+                logger.error("Failed to extract query history: %s", e)
                 self.report.report_failure(
-                    message=error_msg,
+                    message=str(e),
                     context="query_history_extraction_failed",
                 )
                 return []
