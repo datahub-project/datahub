@@ -361,35 +361,19 @@ GRANT VIEW SERVER STATE TO [datahub_user];
 
 #### Performance Impact of Extracting Many Queries
 
-**Extraction time by query count:**
-
-| Query Count | Extraction Time | Memory Usage | Impact on SQL Server |
-| ----------- | --------------- | ------------ | -------------------- |
-| 1,000       | 10-30 seconds   | ~50 MB       | Minimal (<1% CPU)    |
-| 5,000       | 30-90 seconds   | ~200 MB      | Low (1-2% CPU)       |
-| 10,000      | 1-3 minutes     | ~400 MB      | Moderate (2-5% CPU)  |
-| 50,000+     | 5-15 minutes    | ~2 GB        | High (5-10% CPU)     |
+Performance varies based on SQL Server version, hardware, query complexity, and system load. Start with conservative limits and adjust based on your environment.
 
 **Recommendations:**
 
-- **For production databases with <10K active queries**: Use default `max_queries_to_extract: 1000`
-- **For data warehouses with >50K queries**: Start with `max_queries_to_extract: 5000` and increase gradually
-- **For development/staging**: Lower to 500 to speed up testing
+- Start with `max_queries_to_extract: 1000` (default)
+- Monitor extraction time in logs
+- Adjust based on your requirements
 
-**Monitoring extraction performance:**
-
-Look for these metrics in ingestion logs:
-
-```
-INFO - Extracted 1000 queries from query_store in 12.34 seconds
-INFO - Processed 987 queries for lineage extraction (13 failed) in 45.67 seconds
-```
-
-If extraction takes >5 minutes:
+**If extraction is slow:**
 
 - Reduce `max_queries_to_extract`
-- Add more aggressive `query_exclude_patterns`
-- Increase `min_query_calls` to filter low-frequency queries
+- Add `query_exclude_patterns` to filter unnecessary queries
+- Increase `min_query_calls` to focus on frequently-executed queries
 
 #### Issue: SQL aggregator initialization failed
 
@@ -412,11 +396,9 @@ but include_query_lineage: true was explicitly enabled
 
 ### Performance Considerations
 
-- **Query Store Impact**: Minimal (<1% CPU overhead in most cases)
-- **Extraction Performance**:
-  - Query Store: ~1000 queries/second
-  - DMV method: ~500 queries/second
-- **Storage**: Query Store typically uses 100-1000 MB depending on retention settings
+- **Query Store Impact**: Query Store has minimal overhead when configured appropriately
+- **Extraction Performance**: Query Store typically performs better than DMV method
+- **Storage**: Query Store storage usage depends on retention settings and query volume
 
 ### Best Practices
 
