@@ -130,8 +130,16 @@ public class Application extends Controller {
    */
   @Nonnull
   public Result redirectTrailingSlash(@Nullable String path) {
+    String redirectBase = basePath.equals("/") ? "" : basePath;
 
-    return movedPermanently("/" + path);
+    if (path == null || path.isEmpty()) {
+      return movedPermanently(redirectBase + "/");
+    }
+    String sanitizedPath = path.replaceFirst("^/+", "");
+    if (sanitizedPath.isEmpty()) {
+      return movedPermanently(redirectBase + "/");
+    }
+    return movedPermanently(redirectBase + "/" + sanitizedPath);
   }
 
   /**

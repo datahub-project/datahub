@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.ApplicationConfig;
 import com.linkedin.datahub.graphql.generated.EntityProfileConfig;
 import com.linkedin.datahub.graphql.generated.QueriesTabConfig;
 import com.linkedin.metadata.config.*;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.version.GitVersion;
@@ -42,6 +43,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
   private final SettingsService _settingsService;
   private final boolean _isS3Enabled;
+  private final SemanticSearchConfiguration _semanticSearchConfiguration;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -62,7 +64,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final FeatureFlags featureFlags,
       final ChromeExtensionConfiguration chromeExtensionConfiguration,
       final SettingsService settingsService,
-      final boolean isS3Enabled) {
+      final boolean isS3Enabled,
+      final SemanticSearchConfiguration semanticSearchConfiguration) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
@@ -82,6 +85,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _chromeExtensionConfiguration = chromeExtensionConfiguration;
     _settingsService = settingsService;
     _isS3Enabled = isS3Enabled;
+    _semanticSearchConfiguration = semanticSearchConfiguration;
   }
 
   @Override
@@ -289,7 +293,63 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     chromeExtensionConfig.setLineageEnabled(_chromeExtensionConfiguration.isLineageEnabled());
     appConfig.setChromeExtensionConfig(chromeExtensionConfig);
 
+    // Populate semantic search configuration
+    if (_semanticSearchConfiguration != null) {
+      final SemanticSearchConfig semanticSearchConfig = new SemanticSearchConfig();
+      semanticSearchConfig.setEnabled(_semanticSearchConfiguration.isEnabled());
+      semanticSearchConfig.setEnabledEntities(
+          new java.util.ArrayList<>(_semanticSearchConfiguration.getEnabledEntities()));
+
+      // Build EmbeddingConfig from server's embedding provider configuration
+      if (_semanticSearchConfiguration.getEmbeddingProvider() != null) {
+        final com.linkedin.metadata.config.search.EmbeddingProviderConfiguration providerConfig =
+            _semanticSearchConfiguration.getEmbeddingProvider();
+
+        final EmbeddingConfig embeddingConfig = new EmbeddingConfig();
+        embeddingConfig.setProvider(providerConfig.getType());
+        embeddingConfig.setModelId(providerConfig.getModelId());
+
+        // Derive and set canonical model embedding key
+        final String modelEmbeddingKey = deriveModelEmbeddingKey(providerConfig.getModelId());
+        embeddingConfig.setModelEmbeddingKey(modelEmbeddingKey);
+
+        // Populate provider-specific configuration
+        if ("aws-bedrock".equalsIgnoreCase(providerConfig.getType())
+            && providerConfig.getAwsRegion() != null) {
+          final AwsProviderConfig awsProviderConfig = new AwsProviderConfig();
+          awsProviderConfig.setRegion(providerConfig.getAwsRegion());
+          embeddingConfig.setAwsProviderConfig(awsProviderConfig);
+        }
+
+        semanticSearchConfig.setEmbeddingConfig(embeddingConfig);
+      }
+
+      appConfig.setSemanticSearchConfig(semanticSearchConfig);
+    }
+
     return CompletableFuture.completedFuture(appConfig);
+  }
+
+  /**
+   * Derive canonical model embedding key from model ID for use in SemanticContent aspects.
+   *
+   * <p>This is the single source of truth for modelEmbeddingKey derivation. Clients must use the
+   * modelEmbeddingKey provided by this method to ensure consistency between client (writing
+   * embeddings) and server (querying embeddings).
+   *
+   * <p>The modelEmbeddingKey is used as the key in the SemanticContent embeddings map and as the
+   * field name in Elasticsearch indices.
+   *
+   * <p>Examples: cohere.embed-english-v3 → cohere_embed_v3 cohere.embed-multilingual-v3 →
+   * cohere_embed_multilingual_v3 amazon.titan-embed-text-v1 → amazon_titan_v1
+   */
+  private static String deriveModelEmbeddingKey(final String modelId) {
+    if (modelId.contains("embed-english-v3")) return "cohere_embed_v3";
+    if (modelId.contains("embed-multilingual-v3")) return "cohere_embed_multilingual_v3";
+    if (modelId.contains("titan-embed-text-v1")) return "amazon_titan_v1";
+    if (modelId.contains("titan-embed-text-v2")) return "amazon_titan_v2";
+    // Fallback: replace special chars with underscores
+    return modelId.replace("-", "_").replace(".", "_").replace(":", "_");
   }
 
   private ResourcePrivileges mapResourcePrivileges(

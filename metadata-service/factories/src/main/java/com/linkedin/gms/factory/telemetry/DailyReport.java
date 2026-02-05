@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
@@ -18,6 +19,11 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
 import org.json.JSONObject;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.builder.SearchSourceBuilder;
 import org.springframework.scheduling.annotation.Scheduled;
 
 @Slf4j
@@ -29,6 +35,10 @@ public class DailyReport {
   private final GitVersion _gitVersion;
 
   private static final String MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a";
+
+  /** SubType value used to identify service accounts in CorpUser entities. */
+  private static final String SERVICE_ACCOUNT_SUB_TYPE = "SERVICE_ACCOUNT";
+
   private MixpanelAPI mixpanel;
   private MessageBuilder mixpanelBuilder;
 
@@ -110,29 +120,94 @@ public class DailyReport {
             ImmutableMap.of(),
             Optional.of("browserId"));
 
-    // floor to nearest power of 10
-    dailyActiveUsers =
-        dailyActiveUsers <= 0
-            ? 0
-            : (int) Math.pow(2, (int) (Math.log(dailyActiveUsers) / Math.log(2)));
-    weeklyActiveUsers =
-        weeklyActiveUsers <= 0
-            ? 0
-            : (int) Math.pow(2, (int) (Math.log(weeklyActiveUsers) / Math.log(2)));
-    monthlyActiveUsers =
-        monthlyActiveUsers <= 0
-            ? 0
-            : (int) Math.pow(2, (int) (Math.log(monthlyActiveUsers) / Math.log(2)));
-
-    // set user-level properties
+    // set user-level properties (all counts anonymized to nearest power of 2)
     JSONObject report = new JSONObject();
-    report.put("dau", dailyActiveUsers);
-    report.put("wau", weeklyActiveUsers);
-    report.put("mau", monthlyActiveUsers);
+    report.put("dau", anonymizeCount(dailyActiveUsers));
+    report.put("wau", anonymizeCount(weeklyActiveUsers));
+    report.put("mau", anonymizeCount(monthlyActiveUsers));
     report.put("server_type", _configurationProvider.getDatahub().getServerType());
     report.put("server_version", _gitVersion.getVersion());
 
+    // Add total user count (anonymized to nearest power of 2)
+    int totalUserCount = getTotalUserCount();
+    report.put("total_user_count", anonymizeCount(totalUserCount));
+
+    // Add total service account count (anonymized to nearest power of 2)
+    int totalServiceAccountCount = getServiceAccountCount();
+    report.put("total_service_account_count", anonymizeCount(totalServiceAccountCount));
+
     ping("service-daily", report);
+  }
+
+  /**
+   * Anonymizes a count by rounding down to the nearest power of 2. This provides privacy while
+   * still giving useful order-of-magnitude information.
+   *
+   * <p>Examples: 1 -> 1, 2 -> 2, 3 -> 2, 4 -> 4, 5 -> 4, 7 -> 4, 8 -> 8, 100 -> 64, 1000 -> 512
+   *
+   * @param count the raw count
+   * @return the anonymized count (0 if count <= 0, otherwise nearest power of 2)
+   */
+  // Visible for testing
+  int anonymizeCount(int count) {
+    return count <= 0 ? 0 : (int) Math.pow(2, (int) (Math.log(count) / Math.log(2)));
+  }
+
+  /**
+   * Counts the total number of users (CorpUser entities) in the system.
+   *
+   * @return the count of users, or 0 if an error occurs
+   */
+  private int getTotalUserCount() {
+    try {
+      String corpUserIndex =
+          systemOperationContext
+              .getSearchContext()
+              .getIndexConvention()
+              .getEntityIndexName(Constants.CORP_USER_ENTITY_NAME);
+
+      SearchRequest searchRequest = new SearchRequest(corpUserIndex);
+      SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+      searchSourceBuilder.size(0); // We only need the count
+      searchSourceBuilder.query(QueryBuilders.matchAllQuery());
+      searchSourceBuilder.trackTotalHits(true);
+      searchRequest.source(searchSourceBuilder);
+
+      SearchResponse searchResponse = _elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+      return (int) searchResponse.getHits().getTotalHits().value;
+    } catch (Exception e) {
+      log.warn("Failed to count users for telemetry: {}", e.getMessage());
+      return 0;
+    }
+  }
+
+  /**
+   * Counts the number of service accounts in the system. Service accounts are CorpUser entities
+   * with a SubTypes aspect containing "SERVICE_ACCOUNT" in typeNames.
+   *
+   * @return the count of service accounts, or 0 if an error occurs
+   */
+  private int getServiceAccountCount() {
+    try {
+      String corpUserIndex =
+          systemOperationContext
+              .getSearchContext()
+              .getIndexConvention()
+              .getEntityIndexName(Constants.CORP_USER_ENTITY_NAME);
+
+      SearchRequest searchRequest = new SearchRequest(corpUserIndex);
+      SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+      searchSourceBuilder.size(0); // We only need the count
+      searchSourceBuilder.query(QueryBuilders.termQuery("typeNames", SERVICE_ACCOUNT_SUB_TYPE));
+      searchSourceBuilder.trackTotalHits(true);
+      searchRequest.source(searchSourceBuilder);
+
+      SearchResponse searchResponse = _elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+      return (int) searchResponse.getHits().getTotalHits().value;
+    } catch (Exception e) {
+      log.warn("Failed to count service accounts for telemetry: {}", e.getMessage());
+      return 0;
+    }
   }
 
   public void ping(String eventName, JSONObject properties) {

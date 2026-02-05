@@ -10,7 +10,7 @@ import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConne
 import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
 import { INGESTION_TYPE_ERROR } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/constants';
-import { AdvancedSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/AdvansedSection';
+import { AdvancedSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/AdvancedSection';
 import { NameAndOwnersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/NameAndOwnersSection';
 import { RecipeSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/RecipeSection';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
@@ -37,7 +37,6 @@ export function ConnectionDetailsStep() {
     const isEditing = !!state.isEditing;
     const sourceConfigs = getSourceConfigs(ingestionSources, type as string);
     const placeholderRecipe = getPlaceholderRecipe(ingestionSources, type);
-    const [isRecipeValid, setIsRecipeValid] = useState<boolean>(isEditing || !!state.isConnectionDetailsValid);
     const [initialRecipeYml] = useState(existingRecipeFromStateYaml || existingRecipeYaml);
     const [stagedRecipeYml, setStagedRecipeYml] = useState(initialRecipeYml || placeholderRecipe);
 
@@ -91,14 +90,14 @@ export function ConnectionDetailsStep() {
     const displayRecipe = stagedRecipeYml || placeholderRecipe;
 
     useEffect(() => {
-        if (isRecipeValid && state.name && stagedRecipeYml && stagedRecipeYml.length > 0) {
+        if (state.name) {
             setCurrentStepCompleted();
             updateState({ isConnectionDetailsValid: true });
         } else {
             setCurrentStepUncompleted();
             updateState({ isConnectionDetailsValid: false });
         }
-    }, [isRecipeValid, updateState, stagedRecipeYml, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
+    }, [updateState, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
 
     useEffect(() => {
         if (analyticsRef.current) return;
@@ -162,7 +161,6 @@ export function ConnectionDetailsStep() {
                     displayRecipe={displayRecipe}
                     sourceConfigs={sourceConfigs}
                     setStagedRecipe={updateStagedRecipeAndState}
-                    setIsRecipeValid={setIsRecipeValid}
                 />
 
                 <AdvancedSection state={state} updateState={updateState} />

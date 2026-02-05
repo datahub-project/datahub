@@ -31,7 +31,7 @@ const Container = styled.div<{ $fixedBottom?: boolean }>`
     ${(props) => (props.$fixedBottom ? 'bottom: 48px;' : 'top: 0;')}
     ${(props) =>
         props.$fixedBottom
-            ? 'left: 50%; transform: translateX(-40%); max-width: 800px; width: fit-content;'
+            ? 'left: 50%; transform: translateX(-50%); max-width: 800px; width: fit-content;'
             : 'width: 100%;'}
     z-index: ${(props) => (props.$fixedBottom ? '1000' : '99')};
     background-color: white;

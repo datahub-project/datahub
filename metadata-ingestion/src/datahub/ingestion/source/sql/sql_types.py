@@ -498,6 +498,86 @@ DATAPLEX_TYPES_MAP: Dict[str, Any] = {
     "NULL": NullType,
 }
 
+# SQL Server / Microsoft Fabric SQL Analytics Endpoint type mapping
+# https://learn.microsoft.com/en-us/sql/t-sql/data-types/data-types-transact-sql
+# Note: While SQL Server types are case-insensitive in general, Fabric OneLake's SQL Analytics
+# Endpoint INFORMATION_SCHEMA.COLUMNS returns uppercase type names (e.g., "VARCHAR", "INT").
+# We include both uppercase and lowercase variants because:
+# 1. OneLake's INFORMATION_SCHEMA returns uppercase, so we need uppercase variants for direct lookup
+# 2. The merged mapping is shared across platforms, and some may use lowercase
+# 3. resolve_sql_type() does case-sensitive dictionary lookup (no normalization)
+# 4. Having both ensures compatibility regardless of how the type string is provided
+SQL_SERVER_TYPES_MAP: Dict[str, Any] = {
+    # Numeric types
+    "int": NumberType,
+    "bigint": NumberType,
+    "smallint": NumberType,
+    "tinyint": NumberType,
+    "decimal": NumberType,
+    "numeric": NumberType,
+    "float": NumberType,
+    "real": NumberType,
+    "money": NumberType,
+    "smallmoney": NumberType,
+    # String types
+    "varchar": StringType,
+    "nvarchar": StringType,
+    "char": StringType,
+    "nchar": StringType,
+    "text": StringType,
+    "ntext": StringType,
+    # Binary types
+    "binary": BytesType,
+    "varbinary": BytesType,
+    "image": BytesType,
+    # Date/Time types
+    "date": DateType,
+    "time": TimeType,
+    "datetime": TimeType,
+    "datetime2": TimeType,
+    "smalldatetime": TimeType,
+    "datetimeoffset": TimeType,
+    "timestamp": BytesType,  # SQL Server timestamp is a binary type, not a datetime
+    # Other types
+    "bit": BooleanType,
+    "uniqueidentifier": StringType,
+    "xml": RecordType,
+    "json": RecordType,
+    "sql_variant": RecordType,  # Variant type, map to RecordType
+    # Uppercase variants (INFORMATION_SCHEMA returns uppercase)
+    "INT": NumberType,
+    "BIGINT": NumberType,
+    "SMALLINT": NumberType,
+    "TINYINT": NumberType,
+    "DECIMAL": NumberType,
+    "NUMERIC": NumberType,
+    "FLOAT": NumberType,
+    "REAL": NumberType,
+    "MONEY": NumberType,
+    "SMALLMONEY": NumberType,
+    "VARCHAR": StringType,
+    "NVARCHAR": StringType,
+    "CHAR": StringType,
+    "NCHAR": StringType,
+    "TEXT": StringType,
+    "NTEXT": StringType,
+    "BINARY": BytesType,
+    "VARBINARY": BytesType,
+    "IMAGE": BytesType,
+    "DATE": DateType,
+    "TIME": TimeType,
+    "DATETIME": TimeType,
+    "DATETIME2": TimeType,
+    "SMALLDATETIME": TimeType,
+    "DATETIMEOFFSET": TimeType,
+    "TIMESTAMP": BytesType,
+    "BIT": BooleanType,
+    "UNIQUEIDENTIFIER": StringType,
+    "XML": RecordType,
+    "JSON": RecordType,
+    "SQL_VARIANT": RecordType,
+}
+
 
 _merged_mapping = {
     "boolean": BooleanType,
@@ -519,6 +599,7 @@ _merged_mapping = {
     **VERTICA_SQL_TYPES_MAP,
     **NEO4J_TYPES_MAP,
     **DATAPLEX_TYPES_MAP,
+    **SQL_SERVER_TYPES_MAP,
 }
 
 
