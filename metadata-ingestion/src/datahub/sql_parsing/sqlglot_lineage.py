@@ -176,11 +176,6 @@ def _table_name_from_sqlglot_table(
         table=table_name,
         parts=parts_tuple,
     )
-    logger.debug(
-        f"[TABLE_EXTRACT_DEBUG] table.catalog={table.catalog}, table.db={table.db}, "
-        f"table.name={table.name}, default_db={default_db}, default_schema={default_schema}, "
-        f"result={result}"
-    )
     return result
 
 
