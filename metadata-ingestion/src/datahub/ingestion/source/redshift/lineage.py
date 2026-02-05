@@ -32,6 +32,10 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     TempTableRow,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
+from datahub.ingestion.source.redshift.sql_preprocessing import (
+    preprocess_dms_update_query,
+    preprocess_query_for_sigma,
+)
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
@@ -44,10 +48,6 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
     TableRename,
-)
-from datahub.sql_parsing.sqlglot_lineage import (
-    preprocess_dms_update_query,
-    preprocess_query_for_sigma,
 )
 from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 from datahub.utilities.perf_timer import PerfTimer

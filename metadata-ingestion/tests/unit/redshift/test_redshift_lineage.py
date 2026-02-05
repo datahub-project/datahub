@@ -19,6 +19,9 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
+from datahub.ingestion.source.redshift.sql_preprocessing import (
+    preprocess_query_for_sigma,
+)
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnTransformation,
@@ -130,6 +133,60 @@ def test_parse_alter_table_rename():
         "storage_v2_stg",
         "storage_v2",
     )
+
+
+class TestSigmaSqlPreprocessing:
+    """Tests for Sigma Computing SQL preprocessing patterns."""
+
+    def test_case_when_alias_dot(self) -> None:
+        """Test case when<alias>. pattern (e.g., case whenq11.col)."""
+        # case whenq11.col -> case when q11.col
+        result = preprocess_query_for_sigma("SELECT case whenq11.value THEN 1 END")
+        assert "case when q11.value" in result
+
+        # case whenq123.col -> case when q123.col
+        result = preprocess_query_for_sigma("SELECT case whenq123.id > 0 THEN 1 END")
+        assert "case when q123.id" in result
+
+    def test_case_when_identifier_operator(self) -> None:
+        """Test case when<identifier><operator> pattern (e.g., case whenarr_down>)."""
+        # case whenarr_down> -> case when arr_down >
+        result = preprocess_query_for_sigma("SELECT case whenarr_down>0 THEN 1 END")
+        assert "case when arr_down >" in result
+
+        # case whenvalue= -> case when value =
+        result = preprocess_query_for_sigma("SELECT case whenvalue=1 THEN 'a' END")
+        assert "case when value =" in result
+
+    def test_case_when_identifier_keyword(self) -> None:
+        """Test case when<identifier> <keyword> pattern (e.g., case whenarr_down then)."""
+        # case whenarr_down then -> case when arr_down then
+        result = preprocess_query_for_sigma(
+            "SELECT case whenarr_down then 1 else 0 end"
+        )
+        assert "case when arr_down then" in result
+
+        # case whenmy_col is null -> case when my_col is null
+        result = preprocess_query_for_sigma("SELECT case whenmy_col is null THEN 0 END")
+        assert "case when my_col is" in result
+
+    def test_when_identifier_operator_no_space(self) -> None:
+        """Test when<identifier><operator> pattern without space."""
+        # whenarr_down> -> when arr_down >
+        result = preprocess_query_for_sigma("CASE whenarr_down>0 THEN 1 END")
+        assert "when arr_down >" in result
+
+    def test_combined_sigma_patterns(self) -> None:
+        """Test multiple Sigma patterns in a single query."""
+        query = """
+        SELECT case whenq11.status='active' then 1
+               whenarr_down>0 then 2
+               else 0 end as result
+        FROM mytable
+        """
+        result = preprocess_query_for_sigma(query)
+        assert "when q11.status" in result
+        assert "when arr_down >" in result
 
 
 def get_lineage_extractor() -> RedshiftSqlLineage:
