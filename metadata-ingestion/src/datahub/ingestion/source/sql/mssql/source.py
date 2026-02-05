@@ -403,7 +403,7 @@ class SQLServerSource(SQLAlchemySource):
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
         self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
-        self.alias_filter: Optional[MSSQLAliasFilter] = None
+        self.tsql_alias_cleaner: Optional[MSSQLAliasFilter] = None
 
         self.report = SQLSourceReport()
         if self.config.include_lineage and not self.config.convert_urns_to_lowercase:
@@ -1392,15 +1392,17 @@ class SQLServerSource(SQLAlchemySource):
         Delegates to MSSQLAliasFilter to handle TSQL-specific alias quirks.
         See alias_filter.py module docstring for detailed explanation.
         """
-        # Initialize alias filter lazily once we have schema_resolver
-        if self.alias_filter is None:
+        # Initialize TSQL alias cleaner lazily once we have schema_resolver
+        if self.tsql_alias_cleaner is None:
             platform_instance = self.get_schema_resolver().platform_instance
-            self.alias_filter = MSSQLAliasFilter(
+            self.tsql_alias_cleaner = MSSQLAliasFilter(
                 is_discovered_table=self.is_discovered_table,
                 platform_instance=platform_instance,
             )
 
-        yield from self.alias_filter.filter_procedure_lineage(mcps, procedure_name)
+        yield from self.tsql_alias_cleaner.filter_procedure_lineage(
+            mcps, procedure_name
+        )
 
     def _get_query_based_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
