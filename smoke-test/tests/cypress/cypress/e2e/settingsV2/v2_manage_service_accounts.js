@@ -131,8 +131,7 @@ describe("manage service accounts", () => {
     cy.ensureTextNotPresent(SERVICE_ACCOUNT_NAME);
   };
 
-  // Test with inviteUsersEnabled = false (old UI pattern - button inside tab)
-  it("create, generate token, and delete service account (old UI)", () => {
+  it("create, generate token, and delete service account", () => {
     setFeatureFlags(false);
     cy.loginWithCredentials();
     cy.skipIntroducePage();
@@ -149,8 +148,7 @@ describe("manage service accounts", () => {
     deleteServiceAccount();
   });
 
-  // Test with inviteUsersEnabled = true (new UI pattern - button in header)
-  it("create, generate token, and delete service account (new UI with invite users)", () => {
+  it("create, generate token, and delete service account", () => {
     // Use a different ID for this test to avoid conflicts
     const newTestId = getUniqueTestId();
     const newServiceAccountName = `Test Service Account New UI ${newTestId}`;
