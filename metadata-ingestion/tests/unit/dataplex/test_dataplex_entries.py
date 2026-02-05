@@ -834,10 +834,10 @@ class TestProcessEntry:
             )
         )
 
-        # Check entity data tracking
+        # Check entry data tracking
         assert "test-project" in entry_data_by_project
-        entity_data = entry_data_by_project["test-project"]
-        assert len(entity_data) == 2
+        entry_data = entry_data_by_project["test-project"]
+        assert len(entry_data) == 2
 
         # Check BigQuery container tracking
         assert "test-project" in bq_containers
