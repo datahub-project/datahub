@@ -1810,20 +1810,8 @@ def _sqlglot_lineage_inner(
     # TODO: Can we generate a common WHERE clauses section?
 
     # Convert TableName to urns.
-    in_urns = sorted(
-        {
-            table_name_urn_mapping[table]
-            for table in tables
-            if table in table_name_urn_mapping
-        }
-    )
-    out_urns = sorted(
-        {
-            table_name_urn_mapping[table]
-            for table in modified
-            if table in table_name_urn_mapping
-        }
-    )
+    in_urns = sorted({table_name_urn_mapping[table] for table in tables})
+    out_urns = sorted({table_name_urn_mapping[table] for table in modified})
     column_lineage_urns = None
     if column_lineage:
         try:
