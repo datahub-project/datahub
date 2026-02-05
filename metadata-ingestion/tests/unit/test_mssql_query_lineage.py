@@ -1162,75 +1162,17 @@ def test_mssql_is_discovered_table_cache_performance():
     )
 
 
-def test_mssql_query_exclude_patterns_bracket_validation():
-    """Test that query_exclude_patterns validates bracket matching."""
-    # Test unmatched opening bracket
-    config_dict = _base_config()
-    config_dict["query_exclude_patterns"] = ["[abc%"]
-
-    with pytest.raises(ValueError, match="unmatched opening bracket"):
-        SQLServerConfig.model_validate(config_dict)
-
-    # Test unmatched closing bracket
-    config_dict["query_exclude_patterns"] = ["]abc%"]
-
-    with pytest.raises(ValueError, match="unmatched closing bracket"):
-        SQLServerConfig.model_validate(config_dict)
-
-    # Test nested brackets
-    config_dict["query_exclude_patterns"] = ["[[abc]]%"]
-
-    with pytest.raises(ValueError, match="nested brackets"):
-        SQLServerConfig.model_validate(config_dict)
-
-    # Test valid bracket patterns
-    config_dict["query_exclude_patterns"] = ["[abc]%", "%[0-9]%", "[a-z]test[0-9]"]
-
-    config = SQLServerConfig.model_validate(config_dict)
-    assert config.query_exclude_patterns == ["[abc]%", "%[0-9]%", "[a-z]test[0-9]"]
-
-
-def test_mssql_query_exclude_patterns_redundant_wildcards():
-    """Test that query_exclude_patterns rejects redundant wildcards."""
-    config_dict = _base_config()
-    config_dict["query_exclude_patterns"] = ["%%%sys%%%"]
-
-    with pytest.raises(ValueError, match="redundant wildcards"):
-        SQLServerConfig.model_validate(config_dict)
-
-    # Single %% is allowed (might be intentional escaping in some contexts)
-    config_dict["query_exclude_patterns"] = ["%%sys%%"]
-    config = SQLServerConfig.model_validate(config_dict)
-    assert config.query_exclude_patterns == ["%%sys%%"]
-
-
-def test_mssql_query_exclude_patterns_match_everything():
-    """Test that query_exclude_patterns rejects patterns that match everything."""
-    config_dict = _base_config()
-    config_dict["query_exclude_patterns"] = ["%"]
-
-    with pytest.raises(ValueError, match="matches everything"):
-        SQLServerConfig.model_validate(config_dict)
-
-    # Multiple patterns with one being just % should also fail
-    config_dict["query_exclude_patterns"] = ["%sys%", "%"]
-
-    with pytest.raises(ValueError, match="matches everything"):
-        SQLServerConfig.model_validate(config_dict)
-
-
 def test_mssql_query_exclude_patterns_empty_validation():
     """Test that query_exclude_patterns rejects empty patterns."""
     config_dict = _base_config()
     config_dict["query_exclude_patterns"] = [""]
 
-    with pytest.raises(ValueError, match="empty or contains only whitespace"):
+    with pytest.raises(ValueError, match="empty or whitespace-only"):
         SQLServerConfig.model_validate(config_dict)
 
-    # Whitespace-only pattern
     config_dict["query_exclude_patterns"] = ["   "]
 
-    with pytest.raises(ValueError, match="empty or contains only whitespace"):
+    with pytest.raises(ValueError, match="empty or whitespace-only"):
         SQLServerConfig.model_validate(config_dict)
 
 
@@ -1256,26 +1198,12 @@ def test_mssql_query_exclude_patterns_too_many():
     config_dict = _base_config()
     config_dict["query_exclude_patterns"] = [f"%pattern{i}%" for i in range(101)]
 
-    with pytest.raises(ValueError, match="must have <= 100 patterns"):
+    with pytest.raises(ValueError, match="cannot exceed 100 patterns"):
         SQLServerConfig.model_validate(config_dict)
 
-    # Exactly 100 should be OK
     config_dict["query_exclude_patterns"] = [f"%pattern{i}%" for i in range(100)]
     config = SQLServerConfig.model_validate(config_dict)
     assert len(config.query_exclude_patterns) == 100
-
-
-def test_mssql_query_exclude_patterns_escaped_brackets():
-    """Test that escaped brackets in patterns are handled correctly."""
-    config_dict = _base_config()
-
-    # Escaped brackets should not trigger validation errors
-    # Note: In SQL LIKE, brackets are typically escaped by doubling them or using ESCAPE clause
-    # For simplicity, we allow patterns with \[ and \] (common in many contexts)
-    config_dict["query_exclude_patterns"] = [r"\[escaped\]%", r"%\[test\]%"]
-
-    config = SQLServerConfig.model_validate(config_dict)
-    assert config.query_exclude_patterns == [r"\[escaped\]%", r"%\[test\]%"]
 
 
 def test_mssql_query_exclude_clause_construction():
@@ -1376,32 +1304,6 @@ def test_mssql_query_store_disabled_mid_ingestion(create_engine_mock):
 
     assert queries == []
     assert report.failures
-
-
-@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_mssql_invalid_like_patterns_triple_percent(create_engine_mock):
-    """Test validation rejects triple percent wildcards (redundant)."""
-    with pytest.raises(ValueError, match="redundant wildcards"):
-        SQLServerConfig.model_validate(
-            {
-                **_base_config(),
-                "include_query_lineage": True,
-                "query_exclude_patterns": ["%%%sys%%%"],
-            }
-        )
-
-
-@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_mssql_invalid_like_patterns_nested_brackets(create_engine_mock):
-    """Test validation rejects nested brackets (invalid SQL LIKE)."""
-    with pytest.raises(ValueError, match="nested brackets"):
-        SQLServerConfig.model_validate(
-            {
-                **_base_config(),
-                "include_query_lineage": True,
-                "query_exclude_patterns": ["[[abc]]"],
-            }
-        )
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")

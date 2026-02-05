@@ -240,75 +240,22 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     def validate_query_exclude_patterns(
         cls, value: Optional[List[str]]
     ) -> Optional[List[str]]:
-        """Validate query_exclude_patterns has reasonable limits and valid SQL LIKE syntax."""
+        """Validate query_exclude_patterns has reasonable limits."""
         if value is None:
             return value
 
         if len(value) > 100:
             raise ValueError(
-                "query_exclude_patterns must have <= 100 patterns to avoid performance issues. "
-                f"Please reduce from {len(value)} to 100 or fewer patterns."
+                f"query_exclude_patterns cannot exceed 100 patterns (got {len(value)})"
             )
 
         for i, pattern in enumerate(value):
-            # Check for empty patterns
             if not pattern or not pattern.strip():
-                raise ValueError(
-                    f"Pattern at index {i} is empty or contains only whitespace. "
-                    "Please provide a valid SQL LIKE pattern (e.g., '%sys.%', '%temp%')."
-                )
+                raise ValueError(f"Pattern at index {i} is empty or whitespace-only")
 
-            # Check pattern length
             if len(pattern) > 500:
                 raise ValueError(
-                    f"Pattern '{pattern[:50]}...' exceeds 500 characters (length: {len(pattern)}). "
-                    "Use shorter patterns to avoid performance issues."
-                )
-
-            # Validate bracket matching in SQL LIKE patterns
-            # TSQL uses [] for character sets, e.g., [abc] or [a-z]
-            bracket_depth = 0
-            in_bracket = False
-            for char_idx, char in enumerate(pattern):
-                if char == "[" and (char_idx == 0 or pattern[char_idx - 1] != "\\"):
-                    if in_bracket:
-                        raise ValueError(
-                            f"Pattern at index {i} has nested brackets at position {char_idx}: '{pattern}'. "
-                            "SQL LIKE patterns do not support nested brackets. "
-                            "Example valid patterns: '[abc]%', '%[0-9]%'"
-                        )
-                    in_bracket = True
-                    bracket_depth += 1
-                elif char == "]" and (char_idx == 0 or pattern[char_idx - 1] != "\\"):
-                    if not in_bracket:
-                        raise ValueError(
-                            f"Pattern at index {i} has unmatched closing bracket ] at position {char_idx}: '{pattern}'. "
-                            "Every ] must have a matching [ before it. "
-                            "Example: '[abc]%' (valid), ']abc%' (invalid)"
-                        )
-                    in_bracket = False
-
-            if in_bracket:
-                raise ValueError(
-                    f"Pattern at index {i} has unmatched opening bracket [: '{pattern}'. "
-                    "Every [ must have a matching ] after it. "
-                    "Example: '[abc]%' (valid), '[abc%' (invalid)"
-                )
-
-            # Check for suspicious patterns
-            if "%%%" in pattern:
-                raise ValueError(
-                    f"Pattern at index {i} contains redundant wildcards '%%%': '{pattern}'. "
-                    "Use '%' instead of '%%%' - multiple % wildcards are redundant in SQL LIKE. "
-                    "Example: '%sys%' (valid), '%%%sys%%%' (redundant)"
-                )
-
-            # Check for patterns that would match everything (likely a mistake)
-            if pattern.strip() == "%":
-                raise ValueError(
-                    f"Pattern at index {i} is just '%' which matches everything: '{pattern}'. "
-                    "This pattern would exclude all queries. "
-                    "Did you mean to use a more specific pattern like '%sys.%' or '%temp%'?"
+                    f"Pattern at index {i} exceeds 500 characters (got {len(pattern)})"
                 )
 
         return value
