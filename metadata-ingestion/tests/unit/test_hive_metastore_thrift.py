@@ -49,6 +49,7 @@ class TestHiveMetastoreThriftConfig:
         assert config.use_kerberos is False  # Safe default
         assert config.kerberos_service_name == "hive"
         assert config.kerberos_hostname_override is None
+        assert config.kerberos_qop == "auth"  # Default QOP
         assert config.connection_type == HiveMetastoreConnectionType.thrift
 
         # Custom Kerberos settings
