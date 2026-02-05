@@ -3,7 +3,6 @@ import re
 import urllib.parse
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
-import pyodbc  # noqa: F401
 import sqlalchemy.dialects.mssql
 from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
@@ -153,7 +152,6 @@ DEFAULT_TEMP_TABLES_PATTERNS = [
 
 
 class SQLServerConfig(BasicSQLAlchemyConfig):
-    # defaults
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
     scheme: HiddenFromDocs[str] = Field(default="mssql+pytds")
 
@@ -512,13 +510,11 @@ class SQLServerSource(SQLAlchemySource):
         )
         is_odbc = source_type == "mssql-odbc"
 
-        # Pass is_odbc via Pydantic validation context for use in validators
         config = SQLServerConfig.model_validate(
             config_dict, context={"is_odbc": is_odbc}
         )
         return cls(config, ctx, is_odbc=is_odbc)
 
-    # override to get table descriptions
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
@@ -531,7 +527,6 @@ class SQLServerSource(SQLAlchemySource):
         )
         return description, properties, location_urn
 
-    # override to get column descriptions
     def _get_columns(
         self, dataset_name: str, inspector: Inspector, schema: str, table: str
     ) -> List[Dict]:
@@ -1088,7 +1083,6 @@ class SQLServerSource(SQLAlchemySource):
             self.stored_procedures.append(procedure)
         yield from self.construct_job_workunits(
             data_job,
-            # For stored procedure lineage is ingested later
             include_lineage=False,
         )
 

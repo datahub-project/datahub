@@ -150,14 +150,22 @@ def test_detect_rds_environment_no_result(mssql_source):
 @pytest.mark.parametrize(
     "server_name,expected_rds",
     [
-        ("server.amazon.com", True),
-        ("server.amzn.com", True),
-        ("server.amaz.com", True),
-        ("server.ec2.internal", True),
-        ("mydb.xyz123.rds.amazonaws.com", True),
+        # High confidence - official RDS endpoints
+        ("mydb.xyz123.us-east-1.rds.amazonaws.com", True),
+        ("mydb.abc123.rds.amazonaws.com", True),
+        ("mydb.xyz123.rds.amazonaws.com.cn", True),
+        # Medium confidence - RDS and EC2 patterns
+        ("mycompany-rds-prod.company.com", True),
+        ("server.ec2-internal.amazonaws.com", True),
+        # Low confidence - prefix patterns
+        ("amazon-rds-server", True),
+        ("amzn-sqlserver-001", True),
+        ("aws-rds-db", True),
+        # Non-RDS servers
         ("SQLSERVER01", False),
         ("sql.corporate.com", False),
         ("database.local", False),
+        ("amazing_server", False),  # Should NOT match (avoid false positive)
     ],
 )
 def test_detect_rds_environment_various_aws_indicators(
@@ -253,7 +261,7 @@ def test_get_jobs_on_premises_fallback_success(mock_logger, mssql_source):
         patch.object(
             mssql_source,
             "_get_jobs_via_direct_query",
-            side_effect=Exception("Direct query failed"),
+            side_effect=ProgrammingError("Direct query failed", None, None),
         ),
         patch.object(
             mssql_source, "_get_jobs_via_stored_procedures", return_value=mock_jobs
@@ -263,7 +271,8 @@ def test_get_jobs_on_premises_fallback_success(mock_logger, mssql_source):
 
     assert result == mock_jobs
     mock_logger.warning.assert_called_with(
-        "Failed to retrieve jobs via direct query in on-premises environment: Direct query failed"
+        "Database error retrieving jobs via direct query (missing permissions to msdb or syntax issue): %s. Trying stored procedures fallback.",
+        ANY,
     )
     mock_logger.info.assert_called_with(
         "Successfully retrieved jobs using stored procedures fallback in on-premises environment"
@@ -314,21 +323,23 @@ def test_get_jobs_on_premises_both_methods_fail(mock_logger, mssql_source):
         patch.object(
             mssql_source,
             "_get_jobs_via_direct_query",
-            side_effect=Exception("Direct failed"),
+            side_effect=ProgrammingError("Direct failed", None, None),
         ),
         patch.object(
             mssql_source,
             "_get_jobs_via_stored_procedures",
-            side_effect=Exception("SP failed"),
+            side_effect=ProgrammingError("SP failed", None, None),
         ),
     ):
         result = mssql_source._get_jobs(mock_conn, "test_db")
 
     assert result == {}
     mssql_source.report.failure.assert_called_once_with(
-        message="Failed to retrieve jobs in on-premises environment",
+        message="Failed to retrieve jobs in on-premises environment (both direct query and stored procedures). "
+        "Verify the DataHub user has SELECT permissions on msdb.dbo.sysjobs and msdb.dbo.sysjobsteps, "
+        "or EXECUTE permissions on sp_help_job and sp_help_jobstep.",
         title="SQL Server Jobs Extraction",
-        context="Both direct query and stored procedures methods failed",
+        context="on_prem_msdb_permission_denied",
         exc=ANY,
     )
 
