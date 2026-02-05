@@ -26,6 +26,27 @@ def _base_config():
     }
 
 
+@pytest.fixture
+def mssql_extractor_setup():
+    """Fixture providing common MSSQLLineageExtractor test setup."""
+    config = SQLServerConfig.model_validate(_base_config())
+    report = SQLSourceReport()
+    conn_mock = Mock()
+    sql_aggregator_mock = Mock()
+
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
+
+    return {
+        "config": config,
+        "report": report,
+        "conn_mock": conn_mock,
+        "sql_aggregator_mock": sql_aggregator_mock,
+        "extractor": extractor,
+    }
+
+
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
 def test_mssql_config_with_query_lineage(create_engine_mock):
     """Test MS SQL config with query lineage enabled."""
@@ -154,18 +175,11 @@ def test_mssql_source_has_close_method(create_engine_mock):
 # Tests for MSSQLLineageExtractor
 
 
-def test_mssql_lineage_extractor_version_check():
+def test_mssql_lineage_extractor_version_check(mssql_extractor_setup):
     """Test SQL Server version detection."""
-    config = SQLServerConfig.model_validate(_base_config())
-    report = SQLSourceReport()
-    conn_mock = Mock()
-    sql_aggregator_mock = Mock()
+    extractor = mssql_extractor_setup["extractor"]
+    conn_mock = mssql_extractor_setup["conn_mock"]
 
-    extractor = MSSQLLineageExtractor(
-        config, conn_mock, report, sql_aggregator_mock, "dbo"
-    )
-
-    # Mock version query result - SQL Server 2019
     conn_mock.execute.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
@@ -177,18 +191,11 @@ def test_mssql_lineage_extractor_version_check():
     conn_mock.execute.assert_called_once()
 
 
-def test_mssql_lineage_extractor_version_check_old_version():
+def test_mssql_lineage_extractor_version_check_old_version(mssql_extractor_setup):
     """Test version detection rejects SQL Server 2014."""
-    config = SQLServerConfig.model_validate(_base_config())
-    report = SQLSourceReport()
-    conn_mock = Mock()
+    extractor = mssql_extractor_setup["extractor"]
+    conn_mock = mssql_extractor_setup["conn_mock"]
 
-    sql_aggregator_mock = Mock()
-    extractor = MSSQLLineageExtractor(
-        config, conn_mock, report, sql_aggregator_mock, "dbo"
-    )
-
-    # Mock version query result - SQL Server 2014
     conn_mock.execute.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2014 (SP2) - 12.0.5000.0",
         "major_version": 12,
@@ -200,18 +207,11 @@ def test_mssql_lineage_extractor_version_check_old_version():
     assert major_version < 13  # SQL Server 2016 is version 13
 
 
-def test_mssql_lineage_extractor_query_store_enabled():
+def test_mssql_lineage_extractor_query_store_enabled(mssql_extractor_setup):
     """Test Query Store availability check when enabled."""
-    config = SQLServerConfig.model_validate(_base_config())
-    report = SQLSourceReport()
-    conn_mock = Mock()
+    extractor = mssql_extractor_setup["extractor"]
+    conn_mock = mssql_extractor_setup["conn_mock"]
 
-    sql_aggregator_mock = Mock()
-    extractor = MSSQLLineageExtractor(
-        config, conn_mock, report, sql_aggregator_mock, "dbo"
-    )
-
-    # Mock Query Store enabled
     conn_mock.execute.return_value.fetchone.return_value = {"is_enabled": 1}
 
     is_enabled = extractor._check_query_store_available()
