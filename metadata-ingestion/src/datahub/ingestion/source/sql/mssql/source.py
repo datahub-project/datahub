@@ -144,7 +144,7 @@ register_custom_type(sqlalchemy.dialects.mssql.UNIQUEIDENTIFIER, models.StringTy
 # Patterns copied from Snowflake source
 DEFAULT_TEMP_TABLES_PATTERNS = [
     r".*\.FIVETRAN_.*_STAGING\..*",  # fivetran
-    r".*__DBT_TMP$",  # dbt
+    r".*__DBT_TMP$",  # dbt (for databases without native temp tables; MSSQL uses #temp instead)
     rf".*\.SEGMENT_{UUID_REGEX}",  # segment
     rf".*\.STAGING_.*_{UUID_REGEX}",  # stitch
     r".*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}",  # great expectations
