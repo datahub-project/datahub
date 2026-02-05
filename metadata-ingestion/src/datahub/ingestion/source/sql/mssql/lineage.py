@@ -132,7 +132,14 @@ class MSSQLLineageExtractor:
                 return True, "Query Store is enabled", "query_store"
         except (DatabaseError, OperationalError, ProgrammingError) as e:
             logger.info(
-                f"Query Store not available ({e}), falling back to DMV-based extraction"
+                "Query Store not available (disabled or unsupported SQL Server version: %s), falling back to DMV-based extraction",
+                e,
+            )
+        except Exception as e:
+            logger.warning(
+                "Unexpected error checking Query Store availability: %s (%s). Falling back to DMV-based extraction.",
+                e,
+                type(e).__name__,
             )
 
         try:
@@ -144,8 +151,19 @@ class MSSQLLineageExtractor:
                     "none",
                 )
         except (DatabaseError, OperationalError) as e:
-            logger.error("Failed to check permissions: %s", e)
+            logger.error(
+                "Database error checking DMV permissions: %s. Verify database connectivity and user permissions.",
+                e,
+            )
             return False, f"Permission check failed: {e}", "none"
+        except Exception as e:
+            logger.error(
+                "Unexpected error checking DMV permissions: %s (%s). This may indicate a configuration bug.",
+                e,
+                type(e).__name__,
+                exc_info=True,
+            )
+            return False, f"Unexpected permission check failure: {e}", "none"
 
         return True, "DMV-based extraction available", "dmv"
 
@@ -208,11 +226,43 @@ class MSSQLLineageExtractor:
                 return queries
 
             except (DatabaseError, OperationalError, ProgrammingError) as e:
-                # Expected database errors: connection issues, permission denied, Query Store disabled, etc.
-                logger.error("Failed to extract query history: %s", e)
+                logger.error(
+                    "Database error during query extraction from %s: %s. "
+                    "This may indicate missing permissions, disabled Query Store, or connectivity issues.",
+                    method,
+                    e,
+                )
                 self.report.report_failure(
-                    message=str(e),
-                    context="query_history_extraction_failed",
+                    message=f"Database error: {e}",
+                    context="query_history_extraction_database_error",
+                )
+                return []
+            except (KeyError, TypeError) as e:
+                logger.error(
+                    "Query result structure mismatch when extracting from %s: %s. "
+                    "Expected columns: query_id, query_text, execution_count, total_exec_time_ms, user_name, database_name. "
+                    "This likely indicates a SQL Server version incompatibility or query definition bug.",
+                    method,
+                    e,
+                    exc_info=True,
+                )
+                self.report.report_failure(
+                    message=f"Query structure error: {e} - check SQL Server version compatibility",
+                    context="query_history_extraction_structure_error",
+                )
+                return []
+            except Exception as e:
+                logger.error(
+                    "Unexpected error during query extraction from %s: %s (%s). "
+                    "This is likely a bug - please report this issue with your SQL Server version and configuration.",
+                    method,
+                    e,
+                    type(e).__name__,
+                    exc_info=True,
+                )
+                self.report.report_failure(
+                    message=f"Unexpected error: {e} ({type(e).__name__})",
+                    context="query_history_extraction_unexpected_error",
                 )
                 return []
 
@@ -253,14 +303,32 @@ class MSSQLLineageExtractor:
                     UnsupportedStatementTypeError,
                 ) as e:
                     logger.warning(
-                        f"Failed to parse query {query_entry.query_id}: {e}. Query: {query_entry.query_text[:100]}..."
+                        "Unable to parse query %s (complex/unsupported SQL syntax): %s. Query: %s...",
+                        query_entry.query_id,
+                        e,
+                        query_entry.query_text[:100],
                     )
                     self.queries_failed += 1
-                except (ValueError, KeyError) as e:
+                except (ValueError, KeyError, AttributeError) as e:
                     logger.error(
-                        f"Unexpected error processing query {query_entry.query_id}: {e} ({type(e).__name__}). "
-                        f"Query: {query_entry.query_text[:100]}... "
-                        "This may indicate a bug - please report this issue.",
+                        "Data structure error processing query %s: %s (%s). Query: %s... "
+                        "This indicates a bug in ObservedQuery construction or SQL aggregator configuration. "
+                        "Please report this issue with your DataHub version.",
+                        query_entry.query_id,
+                        e,
+                        type(e).__name__,
+                        query_entry.query_text[:100],
+                        exc_info=True,
+                    )
+                    self.queries_failed += 1
+                except Exception as e:
+                    logger.error(
+                        "Unexpected error processing query %s: %s (%s). Query: %s... "
+                        "This is an unhandled exception - please report this issue.",
+                        query_entry.query_id,
+                        e,
+                        type(e).__name__,
+                        query_entry.query_text[:100],
                         exc_info=True,
                     )
                     self.queries_failed += 1
