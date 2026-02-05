@@ -43,8 +43,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
     SqlParsingResult,
-    _preprocess_dms_update_query,
-    _preprocess_query_for_sigma,
     _sqlglot_lineage_cached,
     infer_output_schema,
     sqlglot_lineage,
@@ -1261,13 +1259,6 @@ class SqlParsingAggregator(Closeable):
         user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None,
         override_dialect: Optional[DialectOrStr] = None,
     ) -> SqlParsingResult:
-        # Apply preprocessing for Redshift platform.
-        if self.platform.platform_name == "redshift":
-            # Fix Sigma Computing malformed SQL (missing spaces between keywords).
-            query = _preprocess_query_for_sigma(query)
-            # Add FROM clause for DMS UPDATE queries (implicit table references).
-            query = _preprocess_dms_update_query(query)
-
         with self.report.sql_parsing_timer:
             parsed = sqlglot_lineage(
                 query,
