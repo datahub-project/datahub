@@ -115,6 +115,63 @@ source:
 
 If you're using AWS Glue Schema Registry, you'll need to configure it differently. See the [AWS deployment guide](/docs/deploy/aws#aws-glue-schema-registry) for details.
 
+## AWS MSK IAM Authentication
+
+DataHub Actions supports authenticating with AWS MSK using IAM via the OAUTHBEARER SASL mechanism.
+
+### Basic Usage
+
+To authenticate using your default AWS credentials (environment variables, instance profile, etc.):
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL}
+      consumer_config:
+        security.protocol: "SASL_SSL"
+        sasl.mechanism: "OAUTHBEARER"
+        oauth_cb: "datahub_actions.utils.kafka_msk_iam:oauth_cb"
+```
+
+### IAM Role Assumption
+
+If you need to assume a different IAM role to access MSK (common in cross-account scenarios), you can pass additional configuration through `consumer_config`. The `oauth_cb` function reads these values from the config dict it receives:
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL}
+      consumer_config:
+        security.protocol: "SASL_SSL"
+        sasl.mechanism: "OAUTHBEARER"
+        oauth_cb: "datahub_actions.utils.kafka_msk_iam:oauth_cb"
+        # MSK IAM role assumption options (passed to oauth_cb)
+        aws_role_arn: "arn:aws:iam::123456789012:role/MyMSKRole"
+        aws_role_session_name: "datahub-actions" # Optional
+        aws_region: "us-west-2" # Optional
+```
+
+| Config Key              | Required |                Default                 | Description                                                       |
+| ----------------------- | :------: | :------------------------------------: | ----------------------------------------------------------------- |
+| `aws_role_arn`          |    ❌    |                  N/A                   | IAM role ARN to assume. If not set, uses default AWS credentials. |
+| `aws_role_session_name` |    ❌    |         `datahub-msk-session`          | Session name for the STS AssumeRole call.                         |
+| `aws_region`            |    ❌    | `AWS_REGION` env var, then `us-east-1` | AWS region for the MSK cluster.                                   |
+
+**Note:** These config keys (`aws_role_arn`, `aws_role_session_name`, `aws_region`) are conventions used by the `datahub_actions.utils.kafka_msk_iam:oauth_cb` callback. They are passed through the generic `consumer_config` dict and read by the callback function at runtime.
+
+### Prerequisites
+
+- The `acryl-datahub-actions` package must be installed (version >= 0.1.0)
+- The `aws-msk-iam-sasl-signer-python` library is required (installed as a dependency)
+- Your base AWS credentials must have permission to call `sts:AssumeRole` on the target role (if using role assumption)
+- The assumed role must have the necessary MSK permissions (`kafka-cluster:Connect`, `kafka-cluster:DescribeTopic`, etc.)
+
 ## FAQ
 
 1. Is there a way to always start processing from the end of the topics on Actions start?

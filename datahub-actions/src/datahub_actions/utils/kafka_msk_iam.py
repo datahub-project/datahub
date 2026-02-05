@@ -52,10 +52,9 @@ def oauth_cb(oauth_config: Optional[dict[str, Any]]) -> tuple[str, float]:
         role_arn = oauth_config.get(AWS_ROLE_ARN_KEY) if oauth_config else None
 
         if role_arn:
-            session_name = (
-                oauth_config.get(AWS_ROLE_SESSION_NAME_KEY, DEFAULT_SESSION_NAME)
-                if oauth_config
-                else DEFAULT_SESSION_NAME
+            # oauth_config is guaranteed non-None here since role_arn came from it
+            session_name = oauth_config.get(
+                AWS_ROLE_SESSION_NAME_KEY, DEFAULT_SESSION_NAME
             )
             logger.debug(f"Assuming IAM role {role_arn} with session {session_name}")
             auth_token, expiry_ms = (
