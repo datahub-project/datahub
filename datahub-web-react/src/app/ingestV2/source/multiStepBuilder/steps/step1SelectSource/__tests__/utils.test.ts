@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import {
+    DATA_LAKE_CATEGORY_NAME,
     MISCELLANEOUS_CATEGORY_NAME,
     computeRows,
     getOrderedByCategoryEntriesOfGroups,
@@ -65,12 +66,12 @@ describe('utils', () => {
         it('should add presorted start categories when they are defined', () => {
             const groups: Record<string, SourceConfig[]> = {
                 Test: [make({ name: 'A', category: 'Test' })],
-                'Data Lake': [make({ name: 'B', category: 'Data Lake' })],
+                DATA_LAKE_CATEGORY_NAME: [make({ name: 'B', category: DATA_LAKE_CATEGORY_NAME })],
             };
 
             const result = getOrderedByCategoryEntriesOfGroups(groups);
 
-            expect(result[0][0]).toBe('Data Lake');
+            expect(result[0][0]).toBe(DATA_LAKE_CATEGORY_NAME);
             expect(result[1][0]).toBe('Test');
         });
 
@@ -92,12 +93,12 @@ describe('utils', () => {
                 C: [make({ name: 'Name', category: 'C' })],
                 B: [make({ name: 'Name', category: 'B' })],
                 A: [make({ name: 'Name', category: 'A' })],
-                'Data Lake': [make({ name: 'Name', category: 'Data Lake' })],
+                DATA_LAKE_CATEGORY_NAME: [make({ name: 'Name', category: DATA_LAKE_CATEGORY_NAME })],
             };
 
             const result = getOrderedByCategoryEntriesOfGroups(groups);
 
-            expect(result[0][0]).toBe('Data Lake');
+            expect(result[0][0]).toBe(DATA_LAKE_CATEGORY_NAME);
             expect(result[1][0]).toBe('A');
             expect(result[2][0]).toBe('B');
             expect(result[3][0]).toBe('C');
