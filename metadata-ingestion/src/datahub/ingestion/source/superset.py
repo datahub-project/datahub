@@ -1205,12 +1205,12 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         # Parse URN to extract dataset name
         # URN format: urn:li:dataset:(urn:li:dataPlatform:platform,name,env)
-        for old_db, new_db in self.config.database_alias.items():
+        for source_name, alias_name in self.config.database_alias.items():
             # Try both original case and lowercase versions
-            old_db_lower = old_db.lower()
+            source_name_lower = source_name.lower()
             # Replace at start of dataset name (after the comma following platform)
-            urn = urn.replace(f",{old_db}.", f",{new_db}.")
-            urn = urn.replace(f",{old_db_lower}.", f",{new_db}.")
+            urn = urn.replace(f",{source_name}.", f",{alias_name}.")
+            urn = urn.replace(f",{source_name_lower}.", f",{alias_name}.")
         return urn
 
     def generate_virtual_dataset_lineage(
