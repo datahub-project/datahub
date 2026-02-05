@@ -45,6 +45,10 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
     TableRename,
 )
+from datahub.sql_parsing.sqlglot_lineage import (
+    _preprocess_dms_update_query,
+    _preprocess_query_for_sigma,
+)
 from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -507,7 +511,7 @@ class RedshiftSqlLineage(Closeable):
             for temp_row in self.get_temp_tables(connection=connection):
                 self.aggregator.add_observed_query(
                     ObservedQuery(
-                        query=temp_row.query_text,
+                        query=self._preprocess_query(temp_row.query_text),
                         default_db=self.database,
                         default_schema=self.config.default_schema,
                         session_id=temp_row.session_id,
@@ -662,6 +666,17 @@ class RedshiftSqlLineage(Closeable):
             )
             self.report_status(f"extract-{lineage_type.name}", False)
 
+    def _preprocess_query(self, query: str) -> str:
+        """Preprocess SQL query to fix Sigma Computing and DMS malformations.
+
+        This applies Redshift-specific preprocessing before SQL parsing:
+        - Sigma Computing generates SQL with missing spaces between keywords
+        - AWS DMS UPDATE queries reference staging tables without FROM clauses
+        """
+        query = _preprocess_query_for_sigma(query)
+        query = _preprocess_dms_update_query(query)
+        return query
+
     def _process_sql_parser_lineage(self, lineage_row: LineageRow) -> None:
         ddl = lineage_row.ddl
         if ddl is None:
@@ -671,7 +686,7 @@ class RedshiftSqlLineage(Closeable):
 
         self.aggregator.add_observed_query(
             ObservedQuery(
-                query=ddl,
+                query=self._preprocess_query(ddl),
                 default_db=self.database,
                 default_schema=self.config.default_schema,
                 timestamp=lineage_row.timestamp,
