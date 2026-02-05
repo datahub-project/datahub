@@ -364,6 +364,22 @@ class SigmaAPI:
 
             response.raise_for_status()
             response_dict = response.json()
+            # Debug: Log full lineage API response to investigate column-level info
+            logger.debug(
+                f"[SIGMA_LINEAGE_API] element={element.name}, workbook={workbook.name}, "
+                f"response_keys={list(response_dict.keys())}, "
+                f"edges_count={len(response_dict.get(Constant.EDGES, []))}, "
+                f"dependencies_count={len(response_dict.get(Constant.DEPENDENCIES, {}))}"
+            )
+            # Log first dependency details to see available fields
+            for dep_id, dep_info in list(
+                response_dict.get(Constant.DEPENDENCIES, {}).items()
+            )[:2]:
+                logger.debug(
+                    f"[SIGMA_LINEAGE_DEPENDENCY] dep_id={dep_id}, "
+                    f"dep_keys={list(dep_info.keys()) if isinstance(dep_info, dict) else type(dep_info)}, "
+                    f"dep_info={dep_info}"
+                )
             for edge in response_dict[Constant.EDGES]:
                 source_type = response_dict[Constant.DEPENDENCIES][
                     edge[Constant.SOURCE]
@@ -393,6 +409,11 @@ class SigmaAPI:
                 return None
             response.raise_for_status()
             response_dict = response.json()
+            # Debug: Log full query API response to investigate column info
+            logger.debug(
+                f"[SIGMA_QUERY_API] element={element.name}, workbook={workbook.name}, "
+                f"response_keys={list(response_dict.keys())}"
+            )
             if "sql" in response_dict:
                 return response_dict["sql"]
         except Exception as e:
@@ -418,7 +439,16 @@ class SigmaAPI:
             response.raise_for_status()
 
             # First pass: create all elements without lineage data
-            for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
+            entries = response.json()[Constant.ENTRIES]
+            # Debug: Log first element to see available fields
+            if entries:
+                logger.debug(
+                    f"[SIGMA_ELEMENTS_API] page={page.name}, workbook={workbook.name}, "
+                    f"element_count={len(entries)}, "
+                    f"first_element_keys={list(entries[0].keys())}, "
+                    f"first_element={entries[0]}"
+                )
+            for i, element_dict in enumerate(entries):
                 if not element_dict.get(Constant.NAME):
                     element_dict[Constant.NAME] = (
                         f"Element {i + 1} of Page '{page.name}'"
