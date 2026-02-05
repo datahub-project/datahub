@@ -399,14 +399,67 @@ class SigmaAPI:
             )
             return []
 
+    def _get_table_info_from_inode(self, inode_id: str) -> Optional[DatasetSource]:
+        """
+        Fetch table details from an inode ID using the /files/{inodeId} endpoint.
+        """
+        try:
+            response = self._get_api_call(f"{self.config.api_url}/files/{inode_id}")
+            if response.status_code in (404, 403):
+                logger.debug(f"File/table {inode_id} not accessible")
+                return None
+            response.raise_for_status()
+            file_info = response.json()
+
+            logger.debug(f"Table inode {inode_id} file info: {file_info}")
+
+            # Extract connection and table info from file response
+            connection_id = file_info.get("connectionId")
+            if not connection_id:
+                logger.debug(f"Table inode {inode_id} has no connectionId")
+                return None
+
+            # Table path is usually in format: database.schema.table or schema.table
+            path = file_info.get("path") or file_info.get("name") or ""
+            table = file_info.get("table") or file_info.get("tableName")
+            schema_name = file_info.get("schema") or file_info.get("schemaName")
+            database = file_info.get("database") or file_info.get("databaseName")
+
+            # If path exists but individual fields don't, try to parse path
+            if path and not table:
+                parts = path.split(".")
+                if len(parts) >= 3:
+                    database = database or parts[0]
+                    schema_name = schema_name or parts[1]
+                    table = parts[2]
+                elif len(parts) == 2:
+                    schema_name = schema_name or parts[0]
+                    table = parts[1]
+                elif len(parts) == 1:
+                    table = parts[0]
+
+            return DatasetSource(
+                connectionId=connection_id,
+                table=table,
+                schema_name=schema_name,
+                database=database,
+            )
+
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch table info for inode {inode_id}. Exception: {e}"
+            )
+            return None
+
     def get_dataset_source(self, dataset_id: str) -> Optional[DatasetSource]:
         """
         Fetch source information for a dataset (underlying warehouse table).
 
-        Uses the /datasets/{datasetId}/sources endpoint to get source table info.
+        Uses the /datasets/{datasetId}/sources endpoint to get source inode IDs,
+        then resolves each table inode to get actual connection/table details.
         """
         try:
-            # Use the /sources endpoint to get source information
+            # Use the /sources endpoint to get source inode IDs
             response = self._get_api_call(
                 f"{self.config.api_url}/datasets/{dataset_id}/sources"
             )
@@ -422,44 +475,29 @@ class SigmaAPI:
             # Log the full response for debugging
             logger.debug(f"Dataset {dataset_id} sources response: {sources_response}")
 
-            # The response contains source entries with inode IDs and type info
-            # Look for sources that are tables (not other datasets)
-            entries = sources_response.get("entries", [])
-            if not entries:
-                # Try alternative response structure
-                entries = sources_response if isinstance(sources_response, list) else []
+            # The response is a list of source entries with type and inodeId
+            entries = sources_response if isinstance(sources_response, list) else []
 
             for source in entries:
-                # Log each source entry
-                logger.debug(f"Dataset {dataset_id} source entry: {source}")
+                source_type = source.get("type")
+                inode_id = source.get("inodeId")
 
-                # Extract source info - the structure may vary
-                connection_id = source.get("connectionId")
+                logger.debug(
+                    f"Dataset {dataset_id} source: type={source_type}, inodeId={inode_id}"
+                )
 
-                # If this is a table source with connection info
-                if connection_id:
-                    table = (
-                        source.get("table")
-                        or source.get("tableName")
-                        or source.get("name")
-                        or source.get("path")
-                    )
-                    schema_name = source.get("schema") or source.get("schemaName")
-                    database = source.get("database") or source.get("databaseName")
+                # Only process table sources (not dataset sources)
+                if source_type == "table" and inode_id:
+                    table_info = self._get_table_info_from_inode(inode_id)
+                    if table_info and table_info.connectionId:
+                        logger.debug(
+                            f"Dataset {dataset_id} resolved table source: "
+                            f"connection={table_info.connectionId}, table={table_info.table}, "
+                            f"schema={table_info.schema_name}, database={table_info.database}"
+                        )
+                        return table_info
 
-                    logger.debug(
-                        f"Dataset {dataset_id} found source: connection={connection_id}, "
-                        f"table={table}, schema={schema_name}, database={database}"
-                    )
-
-                    return DatasetSource(
-                        connectionId=connection_id,
-                        table=table,
-                        schema_name=schema_name,
-                        database=database,
-                    )
-
-            logger.debug(f"Dataset {dataset_id} has no table sources in response")
+            logger.debug(f"Dataset {dataset_id} has no resolvable table sources")
             return None
 
         except Exception as e:
