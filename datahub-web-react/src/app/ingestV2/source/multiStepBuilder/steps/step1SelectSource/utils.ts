@@ -55,6 +55,21 @@ export function sortByPopularFirst(sources: SourceConfig[]) {
     return [...sources.filter((s) => s.isPopular), ...sources.filter((s) => !s.isPopular)];
 }
 
+export function sortByPriorityAndDisplayName(sources: SourceConfig[]) {
+    return [...sources].sort((a, b) => {
+        if (a.priority !== undefined && b.priority !== undefined) {
+            const priorityDiff = a.priority - b.priority;
+            if (priorityDiff !== 0) return priorityDiff;
+            return a.displayName.localeCompare(b.displayName);
+        }
+
+        if (a.priority !== undefined) return -1;
+        if (b.priority !== undefined) return 1;
+
+        return a.displayName.localeCompare(b.displayName);
+    });
+}
+
 export function computeRows(popular: SourceConfig[], nonPopular: SourceConfig[], cardsPerRow: number) {
     const effectiveColumns = Math.max(1, cardsPerRow);
 

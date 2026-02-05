@@ -17,6 +17,7 @@ import {
     getOrderedByCategoryEntriesOfGroups,
     groupByCategory,
     sortByPopularFirst,
+    sortByPriorityAndDisplayName,
 } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/utils';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
@@ -150,12 +151,8 @@ export function SelectSourceStep() {
                 <CardsContainer>
                     {orderedCategoryEntries.map(([category, list]) => {
                         const sorted = sortByPopularFirst(list);
-                        const popular = sorted
-                            .filter((s) => s.isPopular)
-                            .sort((a, b) => a.displayName.localeCompare(b.displayName));
-                        const nonPopular = sorted
-                            .filter((s) => !s.isPopular)
-                            .sort((a, b) => a.displayName.localeCompare(b.displayName));
+                        const popular = sortByPriorityAndDisplayName(sorted.filter((s) => s.isPopular));
+                        const nonPopular = sortByPriorityAndDisplayName(sorted.filter((s) => !s.isPopular));
 
                         const { visible: computedVisible, hidden: computedHidden } = computeRows(
                             popular,

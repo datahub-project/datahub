@@ -8,6 +8,7 @@ import {
     getPillLabel,
     groupByCategory,
     sortByPopularFirst,
+    sortByPriorityAndDisplayName,
 } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/utils';
 
 const base = {
@@ -23,6 +24,7 @@ const make = (partial: Partial<SourceConfig>): SourceConfig => ({
     category: partial.category,
     isPopular: partial.isPopular,
     isExternal: partial.isExternal,
+    priority: partial.priority,
 });
 
 describe('utils', () => {
@@ -125,6 +127,132 @@ describe('utils', () => {
 
         it('should handle empty array', () => {
             expect(sortByPopularFirst([])).toEqual([]);
+        });
+    });
+
+    describe('sortByPriorityAndDisplayName', () => {
+        it('returns empty array for empty input', () => {
+            expect(sortByPriorityAndDisplayName([])).toEqual([]);
+        });
+
+        it('handles single item with priority', () => {
+            const input: SourceConfig[] = [make({ displayName: 'Test', priority: 5 })];
+            expect(sortByPriorityAndDisplayName(input)).toEqual(input);
+        });
+
+        it('handles single item without priority', () => {
+            const input = [make({ displayName: 'Test' })];
+            expect(sortByPriorityAndDisplayName(input)).toEqual(input);
+        });
+
+        it('pins priority items above non-priority items regardless of displayName', () => {
+            const input: SourceConfig[] = [
+                make({ displayName: 'Zebra', priority: 1 }),
+                make({ displayName: 'Apple' }),
+                make({ displayName: 'Urgent', priority: 0 }),
+                make({ displayName: 'Banana' }),
+            ];
+
+            const result = sortByPriorityAndDisplayName(input);
+
+            expect(result[0]).toEqual(make({ displayName: 'Urgent', priority: 0 }));
+            expect(result[1]).toEqual(make({ displayName: 'Zebra', priority: 1 }));
+            expect(result[2]).toEqual(make({ displayName: 'Apple' }));
+            expect(result[3]).toEqual(make({ displayName: 'Banana' }));
+        });
+
+        it('sorts priority items by priority (ascending), then by displayName', () => {
+            const input: SourceConfig[] = [
+                make({ displayName: 'Gamma', priority: 1 }),
+                make({ displayName: 'Alpha', priority: 0 }),
+                make({ displayName: 'Beta', priority: 1 }),
+                make({ displayName: 'Delta', priority: 0 }),
+            ];
+
+            const result = sortByPriorityAndDisplayName(input);
+
+            expect(result).toEqual([
+                make({ displayName: 'Alpha', priority: 0 }),
+                make({ displayName: 'Delta', priority: 0 }),
+                make({ displayName: 'Beta', priority: 1 }),
+                make({ displayName: 'Gamma', priority: 1 }),
+            ]);
+        });
+
+        it('sorts non-priority items alphabetically by displayName', () => {
+            const input: SourceConfig[] = [
+                make({ displayName: 'zebra' }),
+                make({ displayName: 'Apple' }),
+                make({ displayName: 'banana' }),
+            ];
+
+            const result = sortByPriorityAndDisplayName(input);
+
+            expect(result).toEqual([
+                make({ displayName: 'Apple' }),
+                make({ displayName: 'banana' }),
+                make({ displayName: 'zebra' }),
+            ]);
+        });
+
+        it('does not mutate the original array', () => {
+            const original: SourceConfig[] = [
+                make({ displayName: 'B', priority: 2 }),
+                make({ displayName: 'A', priority: 1 }),
+                make({ displayName: 'C' }),
+            ];
+
+            const originalCopy = structuredClone(original);
+            sortByPriorityAndDisplayName(original);
+
+            expect(original).toEqual(originalCopy);
+        });
+
+        it('handles all items with priority', () => {
+            const input: SourceConfig[] = [
+                make({ displayName: 'Last', priority: 99 }),
+                make({ displayName: 'First', priority: 1 }),
+                make({ displayName: 'Middle', priority: 50 }),
+            ];
+
+            const result = sortByPriorityAndDisplayName(input);
+
+            expect(result).toEqual([
+                make({ displayName: 'First', priority: 1 }),
+                make({ displayName: 'Middle', priority: 50 }),
+                make({ displayName: 'Last', priority: 99 }),
+            ]);
+        });
+
+        it('handles all items without priority', () => {
+            const input: SourceConfig[] = [
+                make({ displayName: 'Charlie' }),
+                make({ displayName: 'Alpha' }),
+                make({ displayName: 'Beta' }),
+            ];
+
+            const result = sortByPriorityAndDisplayName(input);
+
+            expect(result).toEqual([
+                make({ displayName: 'Alpha' }),
+                make({ displayName: 'Beta' }),
+                make({ displayName: 'Charlie' }),
+            ]);
+        });
+
+        it('preserves order for identical priority and displayName', () => {
+            const item1 = make({ name: '1', displayName: 'Same', priority: 1 });
+            const item2 = make({ name: '2', displayName: 'Same', priority: 1 });
+            const item3 = make({ name: '3', displayName: 'Same' });
+            const item4 = make({ name: '4', displayName: 'Same' });
+
+            const input = [item2, item1, item4, item3];
+            const result = sortByPriorityAndDisplayName(input);
+
+            expect(result[0]).toBe(item2);
+            expect(result[1]).toBe(item1);
+            expect(result[2]).toBe(item4);
+            expect(result[3]).toBe(item3);
         });
     });
 
