@@ -973,6 +973,7 @@ class TestLineageMapKeyCollision:
         # Verify the workunit is for analytics.customers
         workunit = workunits[0]
         entity_urn = workunit.metadata.entityUrn  # type: ignore[union-attr]
+        assert entity_urn is not None
         assert "analytics.customers" in entity_urn, (
             f"Workunit should be for analytics.customers, got {entity_urn}"
         )
