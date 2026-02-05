@@ -259,10 +259,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.databases = []
         for database in self.get_databases() or []:
             self.report.report_entity_scanned(database.name, "database")
-            if not self.filters.filter_config.database_pattern.allowed(database.name):
-                self.report.report_dropped(f"{database.name}.*")
-            else:
+
+            if self.config.push_down_metadata_patterns:
+                # SQL already filtered, no Python check needed
                 self.databases.append(database)
+            else:
+                # Original behavior: Python filtering
+                if not self.filters.filter_config.database_pattern.allowed(
+                    database.name
+                ):
+                    self.report.report_dropped(f"{database.name}.*")
+                else:
+                    self.databases.append(database)
 
         if len(self.databases) == 0:
             return
@@ -306,8 +314,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
             return None
         else:
+            # Build database filter for SQL pushdown if enabled
+            database_filter = ""
+            if self.config.push_down_metadata_patterns:
+                database_filter = SnowflakeQuery.build_database_filter(
+                    self.filters.filter_config.database_pattern
+                )
+
             ischema_databases: List[SnowflakeDatabase] = (
-                self.get_databases_from_ischema(databases)
+                self.get_databases_from_ischema(databases, database_filter)
             )
 
             if len(ischema_databases) == 0:
@@ -318,12 +333,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return ischema_databases
 
     def get_databases_from_ischema(
-        self, databases: List[SnowflakeDatabase]
+        self, databases: List[SnowflakeDatabase], database_filter: str = ""
     ) -> List[SnowflakeDatabase]:
         ischema_databases: List[SnowflakeDatabase] = []
         for database in databases:
             try:
-                ischema_databases = self.data_dictionary.get_databases(database.name)
+                ischema_databases = self.data_dictionary.get_databases(
+                    database.name, database_filter
+                )
                 break
             except Exception:
                 # query fails if "USAGE" access is not granted for database

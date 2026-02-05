@@ -486,11 +486,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         return databases
 
-    def get_databases(self, db_name: str) -> List[SnowflakeDatabase]:
+    def get_databases(
+        self, db_name: str, database_filter: str = ""
+    ) -> List[SnowflakeDatabase]:
         databases: List[SnowflakeDatabase] = []
 
         cur = self.connection.query(
-            SnowflakeQuery.get_databases(db_name),
+            SnowflakeQuery.get_databases(db_name, database_filter),
         )
 
         for database in cur:

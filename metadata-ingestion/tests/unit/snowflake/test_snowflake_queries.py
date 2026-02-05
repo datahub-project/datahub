@@ -965,3 +965,210 @@ class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
             mock_fetch_users.assert_called_once()
             mock_fetch_copy_history.assert_called_once()
             mock_fetch_query_log.assert_called_once()
+
+
+class TestBuildPatternFilter:
+    """Tests for the _build_pattern_filter method used for metadata extraction pushdown."""
+
+    @pytest.mark.parametrize(
+        "pattern,column,expected",
+        [
+            pytest.param(
+                None,
+                "col",
+                "",
+                id="none_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(),
+                "col",
+                "",
+                id="default_pattern_no_filter",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=[".*"]),
+                "col",
+                "",
+                id="allow_all_no_filter",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB"]),
+                "col",
+                "UPPER(col) RLIKE 'PROD_DB'",
+                id="single_allow_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB", "ANALYTICS_DB"]),
+                "col",
+                "(UPPER(col) RLIKE 'PROD_DB' OR UPPER(col) RLIKE 'ANALYTICS_DB')",
+                id="multiple_allow_patterns",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["Prod_DB"], ignoreCase=False),
+                "col",
+                "col RLIKE 'Prod_DB'",
+                id="case_sensitive_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_.*", "DEV_.*"]),
+                "col",
+                "(UPPER(col) RLIKE 'PROD_.*' OR UPPER(col) RLIKE 'DEV_.*')",
+                id="regex_allow_patterns",
+            ),
+            pytest.param(
+                AllowDenyPattern(deny=[".*_TEMP"]),
+                "col",
+                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                id="single_deny_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(deny=[".*_TEMP", ".*_BACKUP"]),
+                "col",
+                "(UPPER(col) NOT RLIKE '.*_TEMP' AND UPPER(col) NOT RLIKE '.*_BACKUP')",
+                id="multiple_deny_patterns",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB"], deny=[".*_TEMP"]),
+                "col",
+                "UPPER(col) RLIKE 'PROD_DB' AND UPPER(col) NOT RLIKE '.*_TEMP'",
+                id="allow_and_deny_combined",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_.*"], deny=["PROD_TEMP", ".*_ARCHIVE"]),
+                "col",
+                "UPPER(col) RLIKE 'PROD_.*' AND (UPPER(col) NOT RLIKE 'PROD_TEMP' AND UPPER(col) NOT RLIKE '.*_ARCHIVE')",
+                id="single_allow_multiple_deny",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=[".*"], deny=[".*_TEMP"]),
+                "col",
+                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                id="allow_all_with_deny",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=[".*", "PROD_DB"], deny=[".*_TEMP"]),
+                "col",
+                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                id="allow_all_in_list_with_deny",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=[".*", "PROD_DB"]),
+                "col",
+                "",
+                id="allow_all_in_list_no_deny",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["DB'NAME"]),
+                "col",
+                "UPPER(col) RLIKE 'DB''NAME'",
+                id="sql_injection_protection_single_quote",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB"]),
+                "database_name",
+                "UPPER(database_name) RLIKE 'PROD_DB'",
+                id="database_column_expression",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB.PUBLIC.TABLE"]),
+                "CONCAT(table_catalog, '.', table_schema, '.', table_name)",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.TABLE'",
+                id="fqn_column_expression",
+            ),
+        ],
+    )
+    def test_build_pattern_filter(self, pattern, column, expected):
+        """Test the _build_pattern_filter method with various inputs."""
+        result = SnowflakeQuery._build_pattern_filter(pattern, column)
+        assert result == expected
+
+
+class TestBuildDatabaseFilter:
+    """Tests for the build_database_filter method."""
+
+    @pytest.mark.parametrize(
+        "pattern,expected",
+        [
+            pytest.param(
+                None,
+                "",
+                id="none_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(),
+                "",
+                id="default_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB"]),
+                "UPPER(database_name) RLIKE 'PROD_DB'",
+                id="single_database",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_.*"], deny=[".*_TEMP"]),
+                "UPPER(database_name) RLIKE 'PROD_.*' AND UPPER(database_name) NOT RLIKE '.*_TEMP'",
+                id="pattern_with_deny",
+            ),
+            pytest.param(
+                AllowDenyPattern(
+                    deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
+                ),
+                "(UPPER(database_name) NOT RLIKE '^UTIL_DB$' AND UPPER(database_name) NOT RLIKE '^SNOWFLAKE$' AND UPPER(database_name) NOT RLIKE '^SNOWFLAKE_SAMPLE_DATA$')",
+                id="default_snowflake_deny_pattern",
+            ),
+        ],
+    )
+    def test_build_database_filter(self, pattern, expected):
+        """Test the build_database_filter method."""
+        result = SnowflakeQuery.build_database_filter(pattern)
+        assert result == expected
+
+
+class TestGetDatabasesQueryWithFilter:
+    """Tests for the get_databases query with filter parameter."""
+
+    def test_get_databases_no_filter(self):
+        """Test get_databases generates valid SQL without filter."""
+        query = SnowflakeQuery.get_databases("TEST_DB")
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should not have WHERE clause when no filter
+        assert "WHERE" not in query.upper()
+
+    def test_get_databases_with_filter(self):
+        """Test get_databases generates valid SQL with filter."""
+        database_filter = SnowflakeQuery.build_database_filter(
+            AllowDenyPattern(allow=["PROD_DB"])
+        )
+        query = SnowflakeQuery.get_databases("TEST_DB", database_filter)
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should have WHERE clause with the filter
+        assert "WHERE" in query.upper()
+        assert "RLIKE" in query.upper()
+
+    def test_get_databases_with_complex_filter(self):
+        """Test get_databases with complex allow/deny filter."""
+        database_filter = SnowflakeQuery.build_database_filter(
+            AllowDenyPattern(
+                allow=["PROD_.*", "DEV_.*"],
+                deny=[".*_TEMP", ".*_BACKUP"],
+            )
+        )
+        query = SnowflakeQuery.get_databases(None, database_filter)
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Verify filter components are present
+        assert "RLIKE 'PROD_.*'" in query
+        assert "RLIKE 'DEV_.*'" in query
+        assert "NOT RLIKE '.*_TEMP'" in query
+        assert "NOT RLIKE '.*_BACKUP'" in query
