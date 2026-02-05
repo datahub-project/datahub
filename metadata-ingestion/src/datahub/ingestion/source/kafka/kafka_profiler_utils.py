@@ -6,12 +6,15 @@ def calculate_standard_deviation(values: List[float]) -> Optional[float]:
     if len(values) < 2:
         return None
 
-    mean = sum(values) / len(values)
-    variance = sum((x - mean) ** 2 for x in values) / (len(values) - 1)
+    try:
+        mean = sum(values) / len(values)
+        variance = sum((x - mean) ** 2 for x in values) / (len(values) - 1)
 
-    if variance >= 0:
-        return math.sqrt(variance)
-    return None
+        if variance >= 0:
+            return math.sqrt(variance)
+        return None
+    except (OverflowError, ValueError):
+        return None
 
 
 def is_special_numeric_value(value: Any) -> bool:
@@ -37,15 +40,20 @@ def calculate_numeric_stats(numeric_values: List[float]) -> Dict[str, Optional[f
     stats["min"] = min(numeric_values)
     stats["max"] = max(numeric_values)
 
-    if any(abs(x) > 1e200 for x in numeric_values):
-        return stats
+    sorted_values = sorted(numeric_values)
+    stats["median"] = sorted_values[len(sorted_values) // 2]
 
-    mean_val = sum(numeric_values) / len(numeric_values)
-    stats["mean"] = mean_val
+    # For single values, mean equals the value (no summation risk)
+    if len(numeric_values) == 1:
+        stats["mean"] = numeric_values[0]
+    elif not any(abs(x) > 1e200 for x in numeric_values):
+        # Only calculate mean for multiple values if no overflow risk
+        mean_val = sum(numeric_values) / len(numeric_values)
+        stats["mean"] = mean_val
 
-    if len(numeric_values) > 1:
-        sorted_values = sorted(numeric_values)
-        stats["median"] = sorted_values[len(sorted_values) // 2]
+    if len(numeric_values) == 1:
+        stats["stdev"] = 0.0
+    elif len(numeric_values) > 1 and not any(abs(x) > 1e200 for x in numeric_values):
         stats["stdev"] = calculate_standard_deviation(numeric_values)
 
     return stats

@@ -1,5 +1,3 @@
-"""Unit tests for KafkaSchemaResolver."""
-
 import json
 from typing import cast
 from unittest.mock import MagicMock, Mock, patch
