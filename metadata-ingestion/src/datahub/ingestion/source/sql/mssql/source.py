@@ -72,6 +72,69 @@ logger: logging.Logger = logging.getLogger(__name__)
 # MSSQL uses 3-part naming: database.schema.table
 MSSQL_QUALIFIED_NAME_PARTS = 3
 
+
+def _validate_int_range(
+    value: int, field_name: str, min_val: int, max_val: Optional[int] = None
+) -> int:
+    """
+    Helper to validate integer is within acceptable range.
+
+    Raises ValueError with descriptive message if validation fails.
+    """
+    if value < min_val:
+        min_desc = (
+            "positive"
+            if min_val == 1
+            else "non-negative"
+            if min_val == 0
+            else f">= {min_val}"
+        )
+        raise ValueError(
+            f"{field_name} must be {min_desc}. Please set it to a value >= {min_val}."
+        )
+
+    if max_val is not None and value > max_val:
+        raise ValueError(
+            f"{field_name} must be <= {max_val} to avoid memory issues. "
+            f"Please reduce the value to {max_val} or less."
+        )
+
+    return value
+
+
+def _validate_string_list_limits(
+    value: Optional[List[str]],
+    field_name: str,
+    max_count: int,
+    max_item_length: int,
+) -> Optional[List[str]]:
+    """
+    Helper to validate list of strings has reasonable limits.
+
+    Raises ValueError with descriptive message if validation fails.
+    """
+    if value is None:
+        return value
+
+    if len(value) > max_count:
+        raise ValueError(
+            f"{field_name} cannot exceed {max_count} patterns (got {len(value)})"
+        )
+
+    for i, item in enumerate(value):
+        if not item or not item.strip():
+            raise ValueError(
+                f"{field_name}: Pattern at index {i} is empty or whitespace-only"
+            )
+
+        if len(item) > max_item_length:
+            raise ValueError(
+                f"{field_name}: Pattern at index {i} exceeds {max_item_length} characters (got {len(item)})"
+            )
+
+    return value
+
+
 register_custom_type(sqlalchemy.dialects.mssql.BIT, models.BooleanTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.MONEY, models.NumberTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.SMALLMONEY, models.NumberTypeClass)
@@ -217,28 +280,15 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     @classmethod
     def validate_max_queries_to_extract(cls, value: int) -> int:
         """Validate max_queries_to_extract is within reasonable range."""
-        if value <= 0:
-            raise ValueError(
-                "max_queries_to_extract must be positive. "
-                "Please set it to a value >= 1 (e.g., 1000)."
-            )
-        if value > 10000:
-            raise ValueError(
-                "max_queries_to_extract must be <= 10000 to avoid memory issues. "
-                "Please reduce the value to 10000 or less."
-            )
-        return value
+        return _validate_int_range(
+            value, "max_queries_to_extract", min_val=1, max_val=10000
+        )
 
     @field_validator("min_query_calls")
     @classmethod
     def validate_min_query_calls(cls, value: int) -> int:
         """Validate min_query_calls is non-negative."""
-        if value < 0:
-            raise ValueError(
-                "min_query_calls must be non-negative. "
-                "Please set it to 0 or a positive integer (e.g., 1)."
-            )
-        return value
+        return _validate_int_range(value, "min_query_calls", min_val=0)
 
     @field_validator("query_exclude_patterns")
     @classmethod
@@ -246,24 +296,9 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         cls, value: Optional[List[str]]
     ) -> Optional[List[str]]:
         """Validate query_exclude_patterns has reasonable limits."""
-        if value is None:
-            return value
-
-        if len(value) > 100:
-            raise ValueError(
-                f"query_exclude_patterns cannot exceed 100 patterns (got {len(value)})"
-            )
-
-        for i, pattern in enumerate(value):
-            if not pattern or not pattern.strip():
-                raise ValueError(f"Pattern at index {i} is empty or whitespace-only")
-
-            if len(pattern) > 500:
-                raise ValueError(
-                    f"Pattern at index {i} exceeds 500 characters (got {len(pattern)})"
-                )
-
-        return value
+        return _validate_string_list_limits(
+            value, "query_exclude_patterns", max_count=100, max_item_length=500
+        )
 
     @model_validator(mode="after")
     def validate_usage_statistics_dependency(self) -> "SQLServerConfig":
