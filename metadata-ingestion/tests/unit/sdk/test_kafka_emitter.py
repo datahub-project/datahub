@@ -76,7 +76,7 @@ class KafkaEmitterTest(unittest.TestCase):
 
     @patch("datahub.emitter.kafka_emitter.SerializingProducer")
     def test_emit_mce_without_mce_key(self, mock_producer):
-        """Emitting an MCE when MCE_KEY is missing should report error via callback."""
+        """Emitting an MCE when MCE_KEY is missing should raise ValueError."""
         emitter_config = KafkaEmitterConfig.parse_obj(
             {
                 "connection": {"bootstrap": "foobar:9092"},
@@ -85,30 +85,20 @@ class KafkaEmitterTest(unittest.TestCase):
         )
         emitter = DatahubKafkaEmitter(config=emitter_config)
 
-        # Track callback invocations
-        callback_errors = []
-
-        def test_callback(err, msg):
-            if err:
-                callback_errors.append((err, msg))
-
-        # Attempt to emit an MCE should call callback with error
+        # Attempt to emit an MCE should raise ValueError
         mce = MetadataChangeEvent(
             proposedSnapshot=DatasetSnapshotClass(
                 urn="urn:li:dataset:123", aspects=[StatusClass(False)]
             )
         )
-        emitter.emit_mce_async(mce, callback=test_callback)
 
-        # Verify callback was called with the error
-        assert len(callback_errors) == 1
-        error, msg = callback_errors[0]
-        assert isinstance(error, Exception)
+        with pytest.raises(ValueError) as exc_info:
+            emitter.emit_mce_async(mce, callback=lambda err, msg: None)
+
         assert (
             f"Cannot emit MetadataChangeEvent: {MCE_KEY} topic not configured in topic_routes"
-            == str(error)
+            in str(exc_info.value)
         )
-        assert msg == "MCE emission failed - topic not configured"
 
         # Verify produce was not called since MCE topic is not configured
         mock_producer.return_value.produce.assert_not_called()

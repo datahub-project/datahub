@@ -81,10 +81,24 @@ class DataHubKafkaReader(Closeable):
             if msg is None:
                 break
 
+            # Handle Optional types from confluent-kafka >= 2.13.0
+            msg_value = msg.value()
+            if msg_value is None:
+                self.report.num_kafka_messages_with_none_value += 1
+                continue
+
             try:
-                mcl = MetadataChangeLogClass.from_obj(msg.value(), True)
+                # msg_value is a dict due to AvroDeserializer, but typed as bytes | Any
+                assert isinstance(msg_value, dict), (
+                    f"Expected dict from Avro deserializer, got {type(msg_value)}"
+                )
+                mcl = MetadataChangeLogClass.from_obj(msg_value, True)
             except Exception as e:
-                logger.warning(f"Error deserializing MCL: {e}")
+                # Include partition/offset for debugging when available
+                partition_info = msg.partition()
+                offset_info = msg.offset()
+                location = f"partition={partition_info}, offset={offset_info}"
+                logger.warning(f"Error deserializing MCL at {location}: {e}")
                 self.report.num_kafka_parse_errors += 1
                 self.report.kafka_parse_errors.setdefault(str(e), 0)
                 self.report.kafka_parse_errors[str(e)] += 1
@@ -101,8 +115,15 @@ class DataHubKafkaReader(Closeable):
                 self.report.num_kafka_excluded_aspects += 1
                 continue
 
+            # Handle Optional types from confluent-kafka >= 2.13.0
+            msg_partition = msg.partition()
+            msg_offset = msg.offset()
+            if msg_partition is None or msg_offset is None:
+                self.report.num_kafka_messages_with_none_metadata += 1
+                continue
+
             # TODO: Consider storing state in kafka instead, via consumer.commit()
-            yield mcl, PartitionOffset(partition=msg.partition(), offset=msg.offset())
+            yield mcl, PartitionOffset(partition=msg_partition, offset=msg_offset)
 
     def close(self) -> None:
         self.consumer.close()
