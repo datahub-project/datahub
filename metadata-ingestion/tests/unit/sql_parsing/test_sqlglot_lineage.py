@@ -1749,3 +1749,47 @@ GROUP BY date
         dialect="clickhouse",
         expected_file=RESOURCE_DIR / "test_clickhouse_materialized_view_to.json",
     )
+
+
+def test_redshift_sigma_preprocessing_hook():
+    """Test that create_lineage_sql_parsed_result applies Sigma preprocessing for Redshift."""
+    from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+
+    # Query with Sigma malformation that would fail without preprocessing
+    # "casewhen" should be fixed to "case when"
+    malformed_query = "SELECT casewhen x > 0 THEN 1 ELSE 0 END FROM my_table"
+
+    # This should NOT raise an error because the hook applies preprocessing
+    result = create_lineage_sql_parsed_result(
+        query=malformed_query,
+        platform="redshift",
+        platform_instance=None,
+        env="PROD",
+        default_db="testdb",
+        schema_aware=False,
+    )
+
+    # Verify parsing succeeded (no error)
+    assert result.debug_info.error is None
+    # Verify the table was detected
+    assert len(result.in_tables) == 1
+    assert "my_table" in str(result.in_tables[0])
+
+
+def test_dms_preprocessing_unquoted_identifiers():
+    """Test that DMS preprocessing handles unquoted identifiers."""
+    from datahub.sql_parsing.redshift_preprocessing import preprocess_dms_update_query
+
+    # Unquoted DMS staging table reference
+    query = """
+    UPDATE public.target_table
+    SET col1 = public.awsdms_staging.col1,
+        col2 = public.awsdms_staging.col2
+    WHERE id = public.awsdms_staging.id
+    """
+
+    result = preprocess_dms_update_query(query)
+
+    # Should have injected FROM clause
+    assert "FROM" in result
+    assert "awsdms_staging" in result

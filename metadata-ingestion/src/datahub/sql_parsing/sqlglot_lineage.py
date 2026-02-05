@@ -36,9 +36,6 @@ from datahub.configuration.env_vars import (
     get_sql_parse_cache_size,
 )
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.redshift.sql_preprocessing import (
-    preprocess_query_for_sigma,
-)
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -52,6 +49,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
 from datahub.sql_parsing.query_types import get_query_type_of_sql, is_create_table_ddl
+from datahub.sql_parsing.redshift_preprocessing import (
+    preprocess_query_for_sigma,
+)
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,

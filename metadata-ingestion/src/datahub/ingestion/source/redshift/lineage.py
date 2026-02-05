@@ -32,10 +32,6 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     TempTableRow,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
-from datahub.ingestion.source.redshift.sql_preprocessing import (
-    preprocess_dms_update_query,
-    preprocess_query_for_sigma,
-)
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
@@ -43,6 +39,10 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
 )
 from datahub.metadata.urns import DatasetUrn
+from datahub.sql_parsing.redshift_preprocessing import (
+    preprocess_dms_update_query,
+    preprocess_query_for_sigma,
+)
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     ObservedQuery,
@@ -174,14 +174,53 @@ class RedshiftSqlLineage(Closeable):
         re.compile(r"^sigma\.t_[^.]+_\d{10,}$", re.IGNORECASE),  # Timestamp-based temps
     ]
 
+    @staticmethod
+    def _normalize_table_name_for_sigma_check(name: str) -> str:
+        """Normalize table name to schema.table format for Sigma temp table matching.
+
+        Handles:
+        - Fully qualified: db.sigma.t_mat_123 -> sigma.t_mat_123
+        - Quoted: "sigma"."t_mat_123" -> sigma.t_mat_123
+        - Mixed: "db"."sigma"."t_mat_123" -> sigma.t_mat_123
+        - Already normalized: sigma.t_mat_123 -> sigma.t_mat_123
+        """
+        # Strip quotes and split by dot
+        # Handle both "schema"."table" and schema.table formats
+        parts = []
+        current = ""
+        in_quotes = False
+        for char in name:
+            if char == '"':
+                in_quotes = not in_quotes
+            elif char == "." and not in_quotes:
+                if current:
+                    parts.append(current)
+                current = ""
+            else:
+                current += char
+        if current:
+            parts.append(current)
+
+        # Take last two parts (schema.table), or all if fewer than 2
+        if len(parts) >= 2:
+            return f"{parts[-2]}.{parts[-1]}"
+        elif len(parts) == 1:
+            return parts[0]
+        return name
+
     def _is_sigma_temp_table(self, name: str) -> bool:
         """Check if the table name matches Sigma Computing temp table patterns.
 
         Sigma creates temporary tables in the 'sigma' schema with patterns like:
         - sigma.t_mat_* (materialization tables)
         - sigma.t_*_<timestamp> (temporary tables with Unix timestamp suffix)
+
+        Handles fully-qualified (db.sigma.t_mat_123) and quoted ("sigma"."t_mat_123") names.
         """
-        return any(pattern.match(name) for pattern in self._SIGMA_TEMP_TABLE_PATTERNS)
+        normalized = self._normalize_table_name_for_sigma_check(name)
+        return any(
+            pattern.match(normalized) for pattern in self._SIGMA_TEMP_TABLE_PATTERNS
+        )
 
     def _is_temp_table(self, name: str) -> bool:
         # Check Sigma temp table patterns first (known BI tool pattern)

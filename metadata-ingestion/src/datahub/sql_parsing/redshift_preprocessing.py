@@ -205,9 +205,15 @@ def preprocess_query_for_sigma(query: str) -> str:
     return result
 
 
-# Pattern to find DMS staging table references in UPDATE SET expressions
-# Matches: "schema"."awsdms_*"
-_DMS_STAGING_TABLE_PATTERN = re.compile(r'"([^"]+)"\.\"(awsdms_[^"]+)\"', re.IGNORECASE)
+# Patterns to find DMS staging table references in UPDATE SET expressions
+# Quoted: "schema"."awsdms_*"
+_DMS_STAGING_TABLE_PATTERN_QUOTED = re.compile(
+    r'"([^"]+)"\.\"(awsdms_[^"]+)\"', re.IGNORECASE
+)
+# Unquoted: schema.awsdms_* (word boundaries to avoid partial matches)
+_DMS_STAGING_TABLE_PATTERN_UNQUOTED = re.compile(
+    r"\b([a-z_][a-z0-9_]*)\.(awsdms_[a-z0-9_]+)\b", re.IGNORECASE
+)
 
 
 def preprocess_dms_update_query(query: str) -> str:
@@ -234,14 +240,13 @@ def preprocess_dms_update_query(query: str) -> str:
     if re.search(r"\bFROM\b", query, re.IGNORECASE):
         return query
 
-    # Find DMS staging table references
-    matches = _DMS_STAGING_TABLE_PATTERN.findall(query)
-    if not matches:
-        return query
+    # Find DMS staging table references (both quoted and unquoted)
+    matches_quoted = _DMS_STAGING_TABLE_PATTERN_QUOTED.findall(query)
+    matches_unquoted = _DMS_STAGING_TABLE_PATTERN_UNQUOTED.findall(query)
 
     # Extract unique staging tables (schema, table pairs)
-    staging_tables = set()
-    for schema, table in matches:
+    staging_tables: set[tuple[str, str]] = set()
+    for schema, table in matches_quoted + matches_unquoted:
         if table.lower().startswith("awsdms_"):
             staging_tables.add((schema, table))
 
