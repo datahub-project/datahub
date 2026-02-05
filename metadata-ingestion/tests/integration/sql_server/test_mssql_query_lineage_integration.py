@@ -140,7 +140,8 @@ def mssql_connection(mssql_runner):
 
         yield conn
 
-        conn.close()
+    # Close all connections and dispose engine
+    test_engine.dispose()
 
     # Drop database using master connection
     with master_engine.connect() as master_conn:
@@ -390,6 +391,8 @@ class TestMSSQLLineageIntegration:
         with master_engine.connect() as master_conn:
             master_conn.execute(text("DROP DATABASE IF EXISTS test_no_qs"))
             master_conn.execute(text("CREATE DATABASE test_no_qs"))
+            # Explicitly disable Query Store to test DMV fallback
+            master_conn.execute(text("ALTER DATABASE test_no_qs SET QUERY_STORE = OFF"))
 
         test_engine = sa.create_engine(
             "mssql+pyodbc://sa:test!Password@localhost:21433/test_no_qs?"
@@ -836,7 +839,7 @@ def test_merge_statement_lineage_extraction(mssql_connection, aggregator):
         MERGE INTO merge_target AS t
         USING merge_source AS s ON t.id = s.id
         WHEN MATCHED THEN UPDATE SET t.value = s.value
-        WHEN NOT MATCHED THEN INSERT (id, value) VALUES (s.id, s.value)
+        WHEN NOT MATCHED THEN INSERT (id, value) VALUES (s.id, s.value);
     """)
     )
     time.sleep(2)
