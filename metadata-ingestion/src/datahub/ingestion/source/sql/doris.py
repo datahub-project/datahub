@@ -1,6 +1,6 @@
 import logging
 import warnings
-from typing import Any, List
+from typing import Iterable, List
 
 import sqlalchemy
 from pydantic.fields import Field
@@ -11,6 +11,7 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import SAWarning
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
