@@ -2,10 +2,10 @@ import logging
 import re
 from typing import Callable, Iterable, Iterator, List, Optional, Set
 
+from datahub.emitter.mce_builder import dataset_urn_to_key
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import DataJobInputOutputClass
 from datahub.metadata.urns import DatasetUrn
-from datahub.utilities.urns.dataset_urn import dataset_urn_to_key
 from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)

@@ -152,12 +152,12 @@ def test_mssql_query_extraction_failure_reports_error(create_engine_mock):
         with patch.object(source, "get_inspectors", return_value=[inspector_mock]):
             list(source._get_query_based_lineage_workunits())
 
-        assert len(source.report.failures) > 0
-        failure_messages = [f.message for f in source.report.failures.values()]
-        assert any(
-            "query history" in msg.lower() and "failed" in msg.lower()
-            for msg in failure_messages
-        )
+    assert len(source.report.failures) > 0
+    failure_messages = [f.message for f in source.report.failures]
+    assert any(
+        "query history" in msg.lower() and "failed" in msg.lower()
+        for msg in failure_messages
+    )
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
@@ -554,7 +554,7 @@ def test_mssql_lineage_extractor_handles_extraction_failure():
     # Should return empty list and report failure
     assert queries == []
     assert len(report.failures) > 0
-    failure_messages = [f.message for f in report.failures.values()]
+    failure_messages = [f.message for f in report.failures]
     assert any("Failed to extract query history" in msg for msg in failure_messages)
 
 
@@ -563,14 +563,13 @@ def test_mssql_lineage_extractor_populate_lineage():
     config = SQLServerConfig.model_validate(_base_config())
     report = SQLSourceReport()
     conn_mock = Mock()
-    aggregator_mock = Mock()
 
     sql_aggregator_mock = Mock()
     extractor = MSSQLLineageExtractor(
         config, conn_mock, report, sql_aggregator_mock, "dbo"
     )
 
-    queries = [
+    test_queries = [
         MSSQLQueryEntry(
             query_id="1",
             query_text="SELECT * FROM users",
@@ -581,10 +580,13 @@ def test_mssql_lineage_extractor_populate_lineage():
         )
     ]
 
-    extractor.populate_lineage_from_queries(queries, aggregator_mock, "mssql")
+    # Mock extract_query_history to return our test queries
+    extractor.extract_query_history = Mock(return_value=test_queries)
 
-    aggregator_mock.add.assert_called_once()
-    call_args = aggregator_mock.add.call_args[0][0]
+    extractor.populate_lineage_from_queries()
+
+    sql_aggregator_mock.add_observed_query.assert_called_once()
+    call_args = sql_aggregator_mock.add_observed_query.call_args[0][0]
     assert call_args.query == "SELECT * FROM users"
     assert call_args.user.urn() == "urn:li:corpuser:test_user"
 
@@ -1071,7 +1073,7 @@ def test_mssql_lineage_extractor_creates_correct_observed_query():
     sql_aggregator_mock = Mock()
     captured_queries = []
 
-    def capture_query(query: ObservedQuery):
+    def capture_query(query: ObservedQuery) -> None:
         captured_queries.append(query)
 
     sql_aggregator_mock.add_observed_query.side_effect = capture_query
@@ -1190,6 +1192,7 @@ def test_mssql_query_exclude_patterns_length_validation():
     # Exactly 500 chars should be OK
     config_dict["query_exclude_patterns"] = ["a" * 500]
     config = SQLServerConfig.model_validate(config_dict)
+    assert config.query_exclude_patterns is not None
     assert len(config.query_exclude_patterns[0]) == 500
 
 
@@ -1203,6 +1206,7 @@ def test_mssql_query_exclude_patterns_too_many():
 
     config_dict["query_exclude_patterns"] = [f"%pattern{i}%" for i in range(100)]
     config = SQLServerConfig.model_validate(config_dict)
+    assert config.query_exclude_patterns is not None
     assert len(config.query_exclude_patterns) == 100
 
 
@@ -1294,10 +1298,10 @@ def test_mssql_query_store_disabled_mid_ingestion(create_engine_mock):
 
     extractor = MSSQLLineageExtractor(
         config=config,
+        connection=connection_mock,
         report=report,
-        inspector=inspector_mock,
-        platform_instance=None,
         sql_aggregator=sql_aggregator_mock,
+        default_schema="dbo",
     )
 
     queries = extractor.extract_query_history()
@@ -1330,17 +1334,17 @@ def test_mssql_connection_timeout_during_extraction(create_engine_mock):
 
     extractor = MSSQLLineageExtractor(
         config=config,
+        connection=connection_mock,
         report=report,
-        inspector=inspector_mock,
-        platform_instance=None,
         sql_aggregator=sql_aggregator_mock,
+        default_schema="dbo",
     )
 
     queries = extractor.extract_query_history()
 
     assert queries == []
     assert report.failures
-    assert any("Timeout expired" in str(f) for f in report.failures.values())
+    assert any("Timeout expired" in str(f) for f in report.failures)
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
@@ -1379,10 +1383,10 @@ def test_mssql_unicode_emoji_in_query_text(create_engine_mock):
 
     extractor = MSSQLLineageExtractor(
         config=config,
+        connection=connection_mock,
         report=report,
-        inspector=inspector_mock,
-        platform_instance=None,
         sql_aggregator=sql_aggregator_mock,
+        default_schema="dbo",
     )
 
     queries = extractor.extract_query_history()
@@ -1407,6 +1411,7 @@ def test_mssql_exactly_100_exclude_patterns_boundary(create_engine_mock):
         }
     )
 
+    assert config.query_exclude_patterns is not None
     assert len(config.query_exclude_patterns) == 100
     assert config.query_exclude_patterns[0] == "%pattern_0%"
     assert config.query_exclude_patterns[99] == "%pattern_99%"
