@@ -165,7 +165,7 @@ jobs:
         run: |
           # Manual dispatch - always run
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
             echo "Running due to manual workflow dispatch"
             exit 0
           fi
@@ -173,7 +173,7 @@ jobs:
           # For pull_request_review events, only proceed if it's an approval
           if [ "${{ github.event_name }}" == "pull_request_review" ]; then
             if [ "${{ github.event.review.state }}" != "approved" ]; then
-              echo "should_run=false" >> $GITHUB_OUTPUT
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
               echo "Review was not an approval, skipping"
               exit 0
             fi
@@ -182,7 +182,7 @@ jobs:
             git fetch origin "$BASE_REF"
             DIFF_RANGE="origin/$BASE_REF...HEAD"
           elif [ "${{ github.event_name }}" == "pull_request" ]; then
-            git fetch origin ${{ github.base_ref }}
+            git fetch origin "${{ github.base_ref }}"
             DIFF_RANGE="origin/${{ github.base_ref }}...HEAD"
           else
             # For push events
@@ -190,8 +190,8 @@ jobs:
           fi
 
           # Always run if setup.py was modified
-          if git diff --name-only $DIFF_RANGE | grep -q '^metadata-ingestion/setup.py$'; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
+          if git diff --name-only "$DIFF_RANGE" | grep -q '^metadata-ingestion/setup.py$'; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
             echo "setup.py was modified, running validation"
             exit 0
           fi
@@ -199,15 +199,15 @@ jobs:
           # For pull_request events (not approval), check if PR is already approved and has src/ changes
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             # Check if src/ files were modified
-            if git diff --name-only $DIFF_RANGE | grep -q '^metadata-ingestion/src/.*\.py$'; then
+            if git diff --name-only "$DIFF_RANGE" | grep -q '^metadata-ingestion/src/.*\.py$'; then
               # Check if PR is approved
               APPROVAL_STATE=$(gh pr view ${{ github.event.pull_request.number }} --json reviewDecision -q '.reviewDecision' 2>/dev/null || echo "")
               if [ "$APPROVAL_STATE" == "APPROVED" ]; then
-                echo "should_run=true" >> $GITHUB_OUTPUT
+                echo "should_run=true" >> "$GITHUB_OUTPUT"
                 echo "PR is approved and has source changes, running validation"
                 exit 0
               else
-                echo "should_run=false" >> $GITHUB_OUTPUT
+                echo "should_run=false" >> "$GITHUB_OUTPUT"
                 echo "PR has source changes but is not yet approved, skipping"
                 exit 0
               fi
@@ -216,15 +216,15 @@ jobs:
 
           # For pull_request_review (approval) events, check if src/ files were modified
           if [ "${{ github.event_name }}" == "pull_request_review" ]; then
-            if git diff --name-only $DIFF_RANGE | grep -q '^metadata-ingestion/src/.*\.py$'; then
-              echo "should_run=true" >> $GITHUB_OUTPUT
+            if git diff --name-only "$DIFF_RANGE" | grep -q '^metadata-ingestion/src/.*\.py$'; then
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
               echo "Approved PR with source changes, running validation"
               exit 0
             fi
           fi
 
           # For push events, only run if setup.py was modified (already checked above)
-          echo "should_run=false" >> $GITHUB_OUTPUT
+          echo "should_run=false" >> "$GITHUB_OUTPUT"
           echo "No setup.py changes or approved PR with src/ changes, skipping"
       - name: Set up JDK 17
         if: steps.check-changes.outputs.should_run == 'true'
