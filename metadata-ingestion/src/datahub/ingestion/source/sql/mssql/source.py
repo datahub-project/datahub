@@ -17,7 +17,6 @@ from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import (
-    dataset_urn_to_key,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -34,6 +33,7 @@ from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.sql.mssql.alias_filter import MSSQLAliasFilter
 from datahub.ingestion.source.sql.mssql.job_models import (
     JobStep,
     MSSQLDataFlow,
@@ -57,12 +57,9 @@ from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_lineage,
 )
-from datahub.metadata.schema_classes import DataJobInputOutputClass
-from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedList
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.urns.error import InvalidUrnError
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -370,6 +367,7 @@ class SQLServerSource(SQLAlchemySource):
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
         self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
+        self.alias_filter: Optional[MSSQLAliasFilter] = None
 
         self.report = SQLSourceReport()
         if self.config.include_lineage and not self.config.convert_urns_to_lowercase:
@@ -1222,271 +1220,6 @@ class SQLServerSource(SQLAlchemySource):
             else qualified_table_name
         )
 
-    def _is_qualified_table_urn(
-        self, urn: str, platform_instance: Optional[str] = None
-    ) -> bool:
-        """
-        Check if a table URN represents a fully qualified table name.
-
-        MSSQL uses 3-part naming: database.schema.table.
-        Helps identify real tables vs. unqualified aliases (e.g., 'dst' in TSQL UPDATE statements).
-        """
-        try:
-            dataset_urn = DatasetUrn.from_string(urn)
-            name = dataset_urn.name
-
-            if platform_instance and name.startswith(f"{platform_instance}."):
-                name = name[len(platform_instance) + 1 :]
-
-            # Check if name has at least 3 parts (database.schema.table)
-            return len(name.split(".")) >= MSSQL_QUALIFIED_NAME_PARTS
-        except Exception:
-            return False
-
-    def _filter_upstream_aliases(
-        self, upstream_urns: List[str], platform_instance: Optional[str] = None
-    ) -> List[str]:
-        """
-        Filter spurious TSQL aliases from upstream lineage using is_temp_table().
-
-        TSQL syntax like "UPDATE dst FROM table dst" causes the parser to extract
-        both 'dst' (alias) and 'table' (real table). Uses is_temp_table() to identify aliases:
-        - Tables in schema_resolver or discovered_datasets: Real tables (keep)
-        - Undiscovered tables: Likely aliases (filter)
-        """
-        if not upstream_urns:
-            return []
-
-        verified_real_tables = []
-
-        for urn in upstream_urns:
-            try:
-                dataset_urn = DatasetUrn.from_string(urn)
-                table_name = dataset_urn.name
-
-                # Strip platform_instance prefix from URN to match internal tracking format
-                if platform_instance and table_name.startswith(f"{platform_instance}."):
-                    table_name = table_name[len(platform_instance) + 1 :]
-
-                if not self.is_temp_table(table_name):
-                    verified_real_tables.append(urn)
-            except (InvalidUrnError, ValueError) as e:
-                # Keep unparseable URNs to avoid data loss; downstream will validate
-                logger.warning("Error parsing URN %s: %s", urn, e)
-                verified_real_tables.append(urn)
-
-        return verified_real_tables
-
-    def _remap_column_lineage_for_alias(
-        self,
-        table_urn: str,
-        column_name: str,
-        aspect: DataJobInputOutputClass,
-        procedure_name: Optional[str],
-    ) -> List[str]:
-        """
-        Remap column lineage from filtered alias to real table(s).
-
-        TSQL allows aliases in UPDATE/DELETE (e.g., `UPDATE dst SET col=val FROM real_table dst`).
-        Matches by table name since sqlglot may parse incorrect qualifiers.
-        Returns list of remapped field URNs.
-        """
-        remapped_urns: List[str] = []
-
-        try:
-            alias_key = dataset_urn_to_key(table_urn)
-            if not alias_key:
-                logger.warning(
-                    f"Could not parse alias URN {table_urn} for column remapping in {procedure_name}"
-                )
-                return remapped_urns
-
-            alias_table_name = alias_key.name.split(".")[-1]
-
-            # Find real tables with matching table name
-            matching_tables = []
-            if aspect.outputDatasets:
-                for real_table_urn in aspect.outputDatasets:
-                    real_key = dataset_urn_to_key(real_table_urn)
-                    if real_key:
-                        real_table_name = real_key.name.split(".")[-1]
-                        if real_table_name == alias_table_name:
-                            matching_tables.append(real_table_urn)
-
-            # Remap based on number of matches
-            if len(matching_tables) == 1:
-                remapped_urn = (
-                    f"urn:li:schemaField:({matching_tables[0]},{column_name})"
-                )
-                remapped_urns.append(remapped_urn)
-            elif len(matching_tables) > 1:
-                # Multiple matches - remap to all
-                for real_table_urn in matching_tables:
-                    remapped_urn = (
-                        f"urn:li:schemaField:({real_table_urn},{column_name})"
-                    )
-                    remapped_urns.append(remapped_urn)
-                logger.warning(
-                    f"Multiple tables match alias {alias_table_name} in {procedure_name}, "
-                    f"remapped column {column_name} to all {len(matching_tables)} matches"
-                )
-            else:
-                # No table name match - fallback to all real tables
-                if aspect.outputDatasets:
-                    for real_table_urn in aspect.outputDatasets:
-                        remapped_urn = (
-                            f"urn:li:schemaField:({real_table_urn},{column_name})"
-                        )
-                        remapped_urns.append(remapped_urn)
-                    logger.warning(
-                        f"No table name match for alias {alias_table_name} in {procedure_name}, "
-                        f"remapped column {column_name} to all {len(aspect.outputDatasets)} real tables"
-                    )
-        except Exception as e:
-            logger.warning(
-                f"Error parsing alias URN {table_urn} for column remapping in {procedure_name}: {e}"
-            )
-
-        if not remapped_urns:
-            logger.warning(
-                f"Could not remap column lineage for filtered alias {table_urn}.{column_name} in {procedure_name} - "
-                f"no real downstream tables available"
-            )
-
-        return remapped_urns
-
-    def _filter_downstream_fields(
-        self,
-        cll_index: int,
-        downstream_fields: List[str],
-        filtered_downstream_aliases: Optional[set],
-        field_urn_pattern: re.Pattern,
-        platform_instance: Optional[str],
-        aspect: DataJobInputOutputClass,
-        procedure_name: Optional[str],
-    ) -> List[str]:
-        """Filter and remap downstream fields in a column lineage entry."""
-        filtered_downstreams = []
-        for field_urn in downstream_fields:
-            match = field_urn_pattern.search(field_urn)
-            if match:
-                table_urn = match.group(1)
-                column_name = match.group(2)
-
-                if (
-                    filtered_downstream_aliases
-                    and table_urn in filtered_downstream_aliases
-                ):
-                    remapped_urns = self._remap_column_lineage_for_alias(
-                        table_urn, column_name, aspect, procedure_name
-                    )
-                    filtered_downstreams.extend(remapped_urns)
-                elif self._is_qualified_table_urn(table_urn, platform_instance):
-                    filtered_downstreams.append(field_urn)
-                else:
-                    logger.debug(
-                        f"Filtered unqualified downstream field in column lineage for {procedure_name}: {field_urn}"
-                    )
-            else:
-                filtered_downstreams.append(field_urn)
-        return filtered_downstreams
-
-    def _filter_column_lineage(
-        self,
-        aspect: DataJobInputOutputClass,
-        platform_instance: Optional[str],
-        procedure_name: Optional[str],
-        filtered_downstream_aliases: Optional[set] = None,
-    ) -> None:
-        """
-        Filter column lineage (fineGrainedLineages) to remove aliases.
-
-        Applies same 2-step filtering as table-level lineage:
-        1. Check if table has 3+ parts (_is_qualified_table_urn)
-        2. Check if table is real vs alias (_filter_upstream_aliases for upstreams)
-        3. Remap column lineages from filtered downstream aliases to real tables
-
-        Modifies aspect.fineGrainedLineages in place.
-        """
-        if not aspect.fineGrainedLineages:
-            return
-
-        filtered_column_lineage = []
-        field_urn_pattern = re.compile(r"urn:li:schemaField:\((.*),(.*)\)")
-
-        for cll_index, cll in enumerate(aspect.fineGrainedLineages, 1):
-            # Filter upstreams: same logic as inputDatasets
-            if cll.upstreams:
-                # Step 1: Filter by qualification (3+ parts)
-                qualified_upstream_fields = []
-                for field_urn in cll.upstreams:
-                    match = field_urn_pattern.search(field_urn)
-                    if match:
-                        table_urn = match.group(1)
-                        if self._is_qualified_table_urn(table_urn, platform_instance):
-                            qualified_upstream_fields.append(field_urn)
-                        else:
-                            logger.debug(
-                                f"Filtered unqualified upstream field in column lineage for {procedure_name}: {field_urn}"
-                            )
-                    else:
-                        qualified_upstream_fields.append(field_urn)
-
-                # Step 2: Filter aliases (extract table URNs and check)
-                upstream_table_urns = []
-                field_to_table_map = {}
-                for field_urn in qualified_upstream_fields:
-                    match = field_urn_pattern.search(field_urn)
-                    if match:
-                        table_urn = match.group(1)
-                        upstream_table_urns.append(table_urn)
-                        field_to_table_map[field_urn] = table_urn
-
-                # Apply alias filtering to table URNs
-                real_table_urns = set(
-                    self._filter_upstream_aliases(
-                        upstream_table_urns, platform_instance
-                    )
-                )
-
-                # Keep only field URNs whose tables passed the filter
-                filtered_upstreams = [
-                    field_urn
-                    for field_urn in qualified_upstream_fields
-                    if field_to_table_map.get(field_urn) in real_table_urns
-                    or field_urn not in field_to_table_map
-                ]
-
-                # Log filtered aliases
-                for field_urn in qualified_upstream_fields:
-                    if field_urn not in filtered_upstreams:
-                        table_urn = field_to_table_map.get(field_urn, "unknown")
-                        logger.debug(
-                            f"Filtered alias upstream field in column lineage for {procedure_name}: {field_urn} (table: {table_urn})"
-                        )
-
-                cll.upstreams = filtered_upstreams
-
-            # Filter downstreams: check qualification and remap aliases
-            if cll.downstreams:
-                cll.downstreams = self._filter_downstream_fields(
-                    cll_index,
-                    cll.downstreams,
-                    filtered_downstream_aliases,
-                    field_urn_pattern,
-                    platform_instance,
-                    aspect,
-                    procedure_name,
-                )
-
-            # Only keep column lineage if it has both upstreams and downstreams
-            if cll.upstreams and cll.downstreams:
-                filtered_column_lineage.append(cll)
-
-        aspect.fineGrainedLineages = (
-            filtered_column_lineage if filtered_column_lineage else None
-        )
-
     def _filter_procedure_lineage(
         self,
         mcps: Iterable[MetadataChangeProposalWrapper],
@@ -1495,61 +1228,18 @@ class SQLServerSource(SQLAlchemySource):
         """
         Filter out unqualified table URNs from stored procedure lineage.
 
-        TSQL syntax like "UPDATE dst FROM table dst" causes sqlglot to extract
-        both 'dst' (alias) and 'table' (real table). Unqualified aliases create
-        invalid URNs that cause DataHub sink to reject the entire aspect.
-
-        Removes URNs with < 3 parts (database.schema.table).
+        Delegates to MSSQLAliasFilter to handle TSQL-specific alias quirks.
+        See alias_filter.py module docstring for detailed explanation.
         """
-        platform_instance = self.get_schema_resolver().platform_instance
+        # Initialize alias filter lazily once we have schema_resolver
+        if self.alias_filter is None:
+            platform_instance = self.get_schema_resolver().platform_instance
+            self.alias_filter = MSSQLAliasFilter(
+                is_temp_table=self.is_temp_table,
+                platform_instance=platform_instance,
+            )
 
-        for mcp in mcps:
-            # Only filter dataJobInputOutput aspects
-            if mcp.aspect and isinstance(mcp.aspect, DataJobInputOutputClass):
-                aspect: DataJobInputOutputClass = mcp.aspect
-
-                # Filter inputs: first unqualified tables, then aliases
-                if aspect.inputDatasets:
-                    qualified_inputs = [
-                        urn
-                        for urn in aspect.inputDatasets
-                        if self._is_qualified_table_urn(urn, platform_instance)
-                    ]
-                    aspect.inputDatasets = self._filter_upstream_aliases(
-                        qualified_inputs, platform_instance
-                    )
-
-                # Filter outputs: only unqualified tables
-                # Track filtered downstream aliases for column lineage remapping
-                filtered_downstream_aliases = set()
-                if aspect.outputDatasets:
-                    original_outputs = aspect.outputDatasets.copy()
-                    aspect.outputDatasets = [
-                        urn
-                        for urn in aspect.outputDatasets
-                        if self._is_qualified_table_urn(urn, platform_instance)
-                    ]
-                    # Identify which outputs were filtered (these are aliases)
-                    filtered_downstream_aliases = set(original_outputs) - set(
-                        aspect.outputDatasets
-                    )
-
-                # Filter column lineage (with remapping for filtered downstream aliases)
-                self._filter_column_lineage(
-                    aspect,
-                    platform_instance,
-                    procedure_name,
-                    filtered_downstream_aliases,
-                )
-
-                # Skip aspect only if BOTH inputs and outputs are empty
-                if not aspect.inputDatasets and not aspect.outputDatasets:
-                    logger.warning(
-                        f"Skipping lineage for {procedure_name}: all tables were filtered"
-                    )
-                    continue
-
-            yield mcp
+        yield from self.alias_filter.filter_procedure_lineage(mcps, procedure_name)
 
     def _get_query_based_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
