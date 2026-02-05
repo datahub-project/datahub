@@ -243,7 +243,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     def validate_query_exclude_patterns(
         cls, value: Optional[List[str]]
     ) -> Optional[List[str]]:
-        """Validate query_exclude_patterns has reasonable limits."""
+        """Validate query_exclude_patterns has reasonable limits and valid syntax."""
         if value is None:
             return value
 
@@ -253,12 +253,39 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
                 f"Please reduce from {len(value)} to 100 or fewer patterns."
             )
 
-        for pattern in value:
+        for i, pattern in enumerate(value):
+            if not pattern or not pattern.strip():
+                raise ValueError(
+                    f"Pattern at index {i} is empty or contains only whitespace. "
+                    "Please remove empty patterns or provide a valid SQL LIKE pattern."
+                )
+
             if len(pattern) > 500:
                 raise ValueError(
                     f"Pattern '{pattern[:50]}...' exceeds 500 characters (length: {len(pattern)}). "
                     "Use shorter patterns to avoid performance issues. "
                     "Please simplify your pattern or split it into multiple shorter patterns."
+                )
+
+            # Validate SQL LIKE pattern syntax
+            bracket_depth = 0
+            for j, char in enumerate(pattern):
+                if char == "[" and (j == 0 or pattern[j - 1] != "\\"):
+                    bracket_depth += 1
+                elif char == "]" and (j == 0 or pattern[j - 1] != "\\"):
+                    bracket_depth -= 1
+                    if bracket_depth < 0:
+                        raise ValueError(
+                            f"Pattern '{pattern}' has unmatched closing bracket ']' at position {j}. "
+                            "SQL LIKE patterns require balanced brackets for character sets. "
+                            "Use [abc] for character sets or escape with \\]."
+                        )
+
+            if bracket_depth != 0:
+                raise ValueError(
+                    f"Pattern '{pattern}' has unmatched opening bracket '['. "
+                    "SQL LIKE patterns require balanced brackets for character sets. "
+                    "Ensure all '[' have corresponding ']'."
                 )
 
         return value
@@ -578,10 +605,13 @@ class SQLServerSource(SQLAlchemySource):
                 aws_indicators = ["amazon", "amzn", "amaz", "ec2", "rds.amazonaws.com"]
                 is_rds = any(indicator in server_name for indicator in aws_indicators)
                 if is_rds:
-                    logger.info(f"AWS RDS detected based on server name: {server_name}")
+                    logger.info(
+                        "AWS RDS detected based on server name: %s", server_name
+                    )
                 else:
                     logger.info(
-                        f"Non-RDS environment detected based on server name: {server_name}"
+                        "Non-RDS environment detected based on server name: %s",
+                        server_name,
                     )
 
                 return is_rds
@@ -687,7 +717,6 @@ class SQLServerSource(SQLAlchemySource):
         # Now get job steps for each job, filtering by database
         for job_id, job_info in jobs_data.items():
             try:
-                # Get steps for this specific job
                 steps_result = conn.execute(
                     f"EXEC msdb.dbo.sp_help_jobstep @job_id = '{job_id}'"
                 )
@@ -790,10 +819,10 @@ class SQLServerSource(SQLAlchemySource):
                 jobs = self._get_jobs(conn, db_name)
 
                 if not jobs:
-                    logger.info(f"No jobs found for database: {db_name}")
+                    logger.info("No jobs found for database: %s", db_name)
                     return
 
-                logger.info(f"Found {len(jobs)} jobs for database: {db_name}")
+                logger.info("Found %d jobs for database: %s", len(jobs), db_name)
 
                 for job_name, job_steps in jobs.items():
                     try:
@@ -808,7 +837,9 @@ class SQLServerSource(SQLAlchemySource):
                         yield from self.loop_job_steps(job, job_steps)
 
                     except Exception as job_error:
-                        logger.warning(f"Failed to process job {job_name}: {job_error}")
+                        logger.warning(
+                            "Failed to process job %s: %s", job_name, job_error
+                        )
                         self.report.warning(
                             message=f"Failed to process job {job_name}",
                             title="SQL Server Jobs Extraction",
@@ -1161,7 +1192,7 @@ class SQLServerSource(SQLAlchemySource):
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
         url = self.config.get_sql_alchemy_url(is_odbc=self._is_odbc)
-        logger.debug(f"sql_alchemy_url={url}")
+        logger.debug("sql_alchemy_url=%s", url)
         engine = create_engine(url, **self.config.options)
 
         if (
@@ -1223,7 +1254,6 @@ class SQLServerSource(SQLAlchemySource):
             dataset_urn = DatasetUrn.from_string(urn)
             name = dataset_urn.name
 
-            # Strip platform_instance prefix if present
             if platform_instance and name.startswith(f"{platform_instance}."):
                 name = name[len(platform_instance) + 1 :]
 
@@ -1263,19 +1293,17 @@ class SQLServerSource(SQLAlchemySource):
                 dataset_urn = DatasetUrn.from_string(urn)
                 table_name = dataset_urn.name
 
-                # Strip platform_instance prefix if present
-                # (dataset_urn.name includes platform_instance, but discovered_datasets doesn't)
+                # dataset_urn.name includes platform_instance, but discovered_datasets doesn't
                 if platform_instance and table_name.startswith(f"{platform_instance}."):
                     table_name = table_name[len(platform_instance) + 1 :]
 
-                # Reuse existing is_temp_table() logic to filter aliases
                 if not self.is_temp_table(table_name):
                     filtered.append(urn)
             except (InvalidUrnError, ValueError) as e:
                 # Keep URNs we can't parse to preserve data integrity.
                 # If truly malformed, downstream systems will reject with clear errors.
                 # If our parser has a bug, we don't silently lose valid data.
-                logger.warning(f"Error parsing URN {urn}: {e}")
+                logger.warning("Error parsing URN %s: %s", urn, e)
                 filtered.append(urn)
 
         return filtered
@@ -1411,12 +1439,10 @@ class SQLServerSource(SQLAlchemySource):
                 table_urn = match.group(1)
                 column_name = match.group(2)
 
-                # Check if this downstream points to a filtered alias
                 if (
                     filtered_downstream_aliases
                     and table_urn in filtered_downstream_aliases
                 ):
-                    # Remap to real table(s)
                     remapped_urns = self._remap_column_lineage_for_alias(
                         table_urn, column_name, aspect, procedure_name
                     )
@@ -1770,7 +1796,6 @@ class SQLServerSource(SQLAlchemySource):
                 if schema_resolver.has_urn(urn):
                     return False
 
-            # If not in schema_resolver, check against discovered_datasets
             # For qualified names (>=3 parts), also validate against patterns
             if len(parts) >= MSSQL_QUALIFIED_NAME_PARTS:
                 schema_name = parts[-2]
@@ -1801,7 +1826,7 @@ class SQLServerSource(SQLAlchemySource):
         except Exception as e:
             # If parsing fails, safer to exclude (return True = treat as temp/alias)
             # than to include potentially spurious aliases in lineage
-            logger.warning(f"Error parsing table name {name}: {e}")
+            logger.warning("Error parsing table name %s: %s", name, e)
             return True
 
     def standardize_identifier_case(self, table_ref_str: str) -> str:

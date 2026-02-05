@@ -73,6 +73,71 @@ class MSSQLLineageExtractor:
         self.queries_parsed = 0
         self.queries_failed = 0
 
+    def _check_version(self) -> Optional[int]:
+        """
+        Check SQL Server version and return major version number.
+
+        Returns:
+            Major version number, or None if check fails
+        """
+        result = self.connection.execute(MSSQLQuery.get_mssql_version())
+        row = result.fetchone()
+
+        if row:
+            major_version = row["major_version"] if row["major_version"] else 0
+            logger.info(
+                f"SQL Server version detected: {row['version']} (major: {major_version})"
+            )
+
+            if major_version < 13:
+                logger.warning(
+                    f"SQL Server version {major_version} detected. "
+                    "Query Store requires SQL Server 2016+ (version 13). "
+                    "Falling back to DMV-based extraction."
+                )
+
+            return major_version
+
+        return None
+
+    def _check_query_store_available(self) -> bool:
+        """
+        Check if Query Store is enabled.
+
+        Returns:
+            True if Query Store is enabled, False otherwise
+        """
+        result = self.connection.execute(MSSQLQuery.check_query_store_enabled())
+        row = result.fetchone()
+
+        if row and row["is_enabled"]:
+            logger.info(
+                "Query Store is enabled - using Query Store for query extraction"
+            )
+            return True
+
+        logger.info("Query Store is not enabled - falling back to DMV-based extraction")
+        return False
+
+    def _check_dmv_permissions(self) -> bool:
+        """
+        Check if user has VIEW SERVER STATE permission for DMVs.
+
+        Returns:
+            True if permissions are sufficient, False otherwise
+        """
+        result = self.connection.execute(MSSQLQuery.check_dmv_permissions())
+        row = result.fetchone()
+
+        if not row or not row["has_view_server_state"]:
+            logger.error(
+                "Insufficient permissions. Grant VIEW SERVER STATE permission: "
+                "GRANT VIEW SERVER STATE TO [datahub_user];"
+            )
+            return False
+
+        return True
+
     def check_prerequisites(self) -> tuple[bool, str, str]:
         """
         Verify query history prerequisites and determine extraction method.
@@ -80,58 +145,26 @@ class MSSQLLineageExtractor:
         Returns:
             Tuple of (is_ready, message, method) where method is 'query_store' or 'dmv'
         """
-        try:
-            result = self.connection.execute(MSSQLQuery.get_mssql_version())
-            row = result.fetchone()
-
-            if row:
-                major_version = row["major_version"] if row["major_version"] else 0
-                logger.info(
-                    f"SQL Server version detected: {row['version']} (major: {major_version})"
-                )
-
-                if major_version < 13:
-                    logger.warning(
-                        f"SQL Server version {major_version} detected. "
-                        "Query Store requires SQL Server 2016+ (version 13). "
-                        "Falling back to DMV-based extraction."
-                    )
-        except (DatabaseError, OperationalError) as e:
-            logger.warning(f"Failed to check SQL Server version: {e}")
+        self._check_version()
 
         try:
-            result = self.connection.execute(MSSQLQuery.check_query_store_enabled())
-            row = result.fetchone()
-
-            if row and row["is_enabled"]:
-                logger.info(
-                    "Query Store is enabled - using Query Store for query extraction"
-                )
+            if self._check_query_store_available():
                 return True, "Query Store is enabled", "query_store"
-            else:
-                logger.info(
-                    "Query Store is not enabled - falling back to DMV-based extraction"
-                )
-
         except (DatabaseError, OperationalError, ProgrammingError) as e:
             logger.info(
                 f"Query Store not available ({e}), falling back to DMV-based extraction"
             )
 
         try:
-            result = self.connection.execute(MSSQLQuery.check_dmv_permissions())
-            row = result.fetchone()
-
-            if not row or not row["has_view_server_state"]:
+            if not self._check_dmv_permissions():
                 return (
                     False,
                     "Insufficient permissions. Grant VIEW SERVER STATE permission: "
                     "GRANT VIEW SERVER STATE TO [datahub_user];",
                     "none",
                 )
-
         except (DatabaseError, OperationalError) as e:
-            logger.error(f"Failed to check permissions: {e}")
+            logger.error("Failed to check permissions: %s", e)
             return False, f"Permission check failed: {e}", "none"
 
         return True, "DMV-based extraction available", "dmv"
@@ -151,7 +184,7 @@ class MSSQLLineageExtractor:
             )
             return []
 
-        logger.info(f"Prerequisites check: {message}")
+        logger.info("Prerequisites check: %s", message)
 
         if method == "query_store":
             query, params = MSSQLQuery.get_query_history_from_query_store(
@@ -195,7 +228,7 @@ class MSSQLLineageExtractor:
                 return queries
 
             except (DatabaseError, OperationalError, ProgrammingError) as e:
-                logger.error(f"Failed to extract query history: {e}")
+                logger.error("Failed to extract query history: %s", e)
                 self.report.report_failure(
                     message=str(e),
                     context="query_history_extraction_failed",
