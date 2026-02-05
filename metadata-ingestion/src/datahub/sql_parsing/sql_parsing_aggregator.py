@@ -694,9 +694,6 @@ class SqlParsingAggregator(Closeable):
         This will also generate an operation aspect for the query if there is
         a timestamp and the query type field is set to a mutation type.
 
-        If column_lineage is not provided but query_text is available, the method
-        will attempt to parse the SQL to extract column-level lineage.
-
         Args:
             known_query_lineage: The known query lineage information.
             merge_lineage: Whether to merge the lineage with any existing lineage
@@ -715,46 +712,6 @@ class SqlParsingAggregator(Closeable):
                 )
         formatted_query = self._maybe_format_query(known_query_lineage.query_text)
 
-        # If column_lineage is not provided, try to parse it from the query text.
-        column_lineage = known_query_lineage.column_lineage
-        if not column_lineage and known_query_lineage.query_text and self._need_schemas:
-            # Extract default_db and default_schema from downstream URN to ensure
-            # column lineage URNs match the actual dataset URNs in DataHub.
-            # Example: urn:li:dataset:(urn:li:dataPlatform:redshift,prod.public.table,PROD)
-            #   -> default_db=prod, default_schema=public
-            default_db: Optional[str] = None
-            default_schema: Optional[str] = None
-            try:
-                downstream_urn = DatasetUrn.from_string(known_query_lineage.downstream)
-                parts = downstream_urn.name.split(".")
-                if len(parts) == 3:
-                    default_db, default_schema, _ = parts
-                elif len(parts) == 2:
-                    default_schema, _ = parts
-            except Exception:
-                pass  # Fall back to None if URN parsing fails
-
-            try:
-                parsed = self._run_sql_parser(
-                    query=known_query_lineage.query_text,
-                    default_db=default_db,
-                    default_schema=default_schema,
-                    schema_resolver=self._schema_resolver,
-                    session_id=known_query_lineage.session_id or _MISSING_SESSION_ID,
-                    timestamp=known_query_lineage.timestamp,
-                )
-                if parsed.column_lineage:
-                    column_lineage = parsed.column_lineage
-                    logger.debug(
-                        f"Parsed column lineage for known query: "
-                        f"{len(column_lineage)} column mappings found"
-                    )
-            except Exception as e:
-                logger.debug(
-                    f"Failed to parse column lineage for known query: {e}",
-                    exc_info=True,
-                )
-
         # Register the query.
         self._add_to_query_map(
             QueryMetadata(
@@ -766,7 +723,7 @@ class SqlParsingAggregator(Closeable):
                 latest_timestamp=known_query_lineage.timestamp,
                 actor=None,
                 upstreams=known_query_lineage.upstreams,
-                column_lineage=column_lineage or [],
+                column_lineage=known_query_lineage.column_lineage or [],
                 column_usage=known_query_lineage.column_usage or {},
                 confidence_score=1.0,
             ),
