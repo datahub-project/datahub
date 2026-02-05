@@ -93,20 +93,10 @@ class DataHubDocumentsReport(StatefulIngestionReport):
 @config_class(DataHubDocumentsSourceConfig)
 class DataHubDocumentsSource(StatefulIngestionSourceBase):
     """
-    This source extracts Document entities from DataHub and generates semantic embeddings.
+    Extract Document entities from DataHub and generate semantic embeddings for semantic search.
 
-    It supports:
-    - **Batch mode**: Fetches documents via GraphQL
-    - **Event-driven mode**: Processes documents in real-time from Kafka MCL events (recommended)
-    - **Incremental processing**: Only reprocesses documents when content changes
-    - **Smart defaults**: Auto-configures connection, chunking, and embeddings from server
-
-    The minimal configuration requires just `config: {}` when using environment variables
-    (DATAHUB_GMS_URL and DATAHUB_GMS_TOKEN) and will automatically align with your server's
-    semantic search configuration.
-
-    **Prerequisites:** Before using this source, configure semantic search on your DataHub server.
-    See the [Semantic Search Configuration Guide](../../how-to/semantic-search-configuration) for setup instructions.
+    Supports batch mode (GraphQL) and event-driven mode (Kafka MCL) with incremental processing.
+    Automatically fetches embedding configuration from server to ensure alignment.
     """
 
     def __init__(self, ctx: PipelineContext, config: DataHubDocumentsSourceConfig):
