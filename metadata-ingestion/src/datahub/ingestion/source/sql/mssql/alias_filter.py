@@ -27,11 +27,11 @@ class MSSQLAliasFilter:
 
     def __init__(
         self,
-        is_temp_table: Callable[[str], bool],
+        is_discovered_table: Callable[[str], bool],
         platform_instance: Optional[str] = None,
     ):
-        """Initialize the alias filter with temp table checker and optional platform instance."""
-        self.is_temp_table = is_temp_table
+        """Initialize the alias filter with discovered table checker and optional platform instance."""
+        self.is_discovered_table = is_discovered_table
         self.platform_instance = platform_instance
 
     def _is_qualified_table_urn(self, urn: str) -> bool:
@@ -55,10 +55,10 @@ class MSSQLAliasFilter:
 
     def _filter_upstream_aliases(self, upstream_urns: List[str]) -> List[str]:
         """
-        Filter spurious TSQL aliases from upstream lineage using is_temp_table().
+        Filter spurious TSQL aliases from upstream lineage using is_discovered_table().
 
         TSQL syntax like "UPDATE dst FROM table dst" causes the parser to extract
-        both 'dst' (alias) and 'table' (real table). Uses is_temp_table() to identify aliases:
+        both 'dst' (alias) and 'table' (real table). Uses is_discovered_table() to identify real tables:
         - Tables in schema_resolver or discovered_datasets: Real tables (keep)
         - Undiscovered tables: Likely aliases (filter)
         """
@@ -78,7 +78,7 @@ class MSSQLAliasFilter:
                 ):
                     table_name = table_name[len(self.platform_instance) + 1 :]
 
-                if not self.is_temp_table(table_name):
+                if self.is_discovered_table(table_name):
                     verified_real_tables.append(urn)
             except (InvalidUrnError, ValueError) as e:
                 # Keep unparseable URNs to avoid data loss; downstream will validate

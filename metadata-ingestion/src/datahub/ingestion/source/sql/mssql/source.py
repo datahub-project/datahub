@@ -1305,7 +1305,7 @@ class SQLServerSource(SQLAlchemySource):
         if self.alias_filter is None:
             platform_instance = self.get_schema_resolver().platform_instance
             self.alias_filter = MSSQLAliasFilter(
-                is_temp_table=self.is_temp_table,
+                is_discovered_table=self.is_discovered_table,
                 platform_instance=platform_instance,
             )
 
@@ -1415,7 +1415,9 @@ class SQLServerSource(SQLAlchemySource):
                                 schema_resolver=self.get_schema_resolver(),
                                 procedure=procedure.to_base_procedure(),
                                 procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
-                                is_temp_table=self.is_temp_table,
+                                is_temp_table=lambda name: not self.is_discovered_table(
+                                    name
+                                ),
                                 default_db=procedure.db,
                                 default_schema=procedure.schema,
                                 report_failure=lambda name: self._report_procedure_failure(
@@ -1437,13 +1439,18 @@ class SQLServerSource(SQLAlchemySource):
             self.aggregator.report.procedure_parse_failures.append(procedure_name)
 
     @functools.lru_cache(maxsize=1024)
-    def is_temp_table(self, name: str) -> bool:
-        """Check if a table name refers to a temp table or unresolved alias."""
+    def is_discovered_table(self, name: str) -> bool:
+        """
+        Check if a table name refers to a discovered/real table in the schema.
+
+        Returns True if the table exists in discovered schemas, False if it's
+        a temp table, alias, or undiscovered table that should be filtered out.
+        """
         if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
         ):
-            return True
+            return False
 
         try:
             parts = name.split(".")
@@ -1451,19 +1458,15 @@ class SQLServerSource(SQLAlchemySource):
 
             # TSQL temp tables start with #
             if table_name.startswith("#"):
-                return True
+                return False
 
             # Standardize case early to ensure consistent lookups
-            # This must match how get_identifier() stores names in discovered_datasets
             standardized_name = self.standardize_identifier_case(name)
 
             # Check if the table exists in schema_resolver
-            # If we have schema information for it, it's a real table (not an alias)
-            # Only check schema_resolver if aggregator is initialized (not in unit tests)
             if hasattr(self, "aggregator") and self.aggregator is not None:
                 schema_resolver = self.get_schema_resolver()
 
-                # Use standardized name for URN to match how tables are registered
                 urn = make_dataset_urn_with_platform_instance(
                     platform=self.platform,
                     name=standardized_name,
@@ -1472,9 +1475,9 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
                 if schema_resolver.has_urn(urn):
-                    return False
+                    return True
 
-            # For qualified names (>=3 parts), also validate against patterns
+            # For qualified names (>=3 parts), validate against patterns
             if len(parts) >= MSSQL_QUALIFIED_NAME_PARTS:
                 schema_name = parts[-2]
                 db_name = parts[-3]
@@ -1484,28 +1487,20 @@ class SQLServerSource(SQLAlchemySource):
                     and self.config.schema_pattern.allowed(schema_name)
                     and self.config.table_pattern.allowed(name)
                 ):
-                    # Table matches our ingestion patterns but wasn't discovered
-                    # This is likely an alias or undiscovered table - treat as temp
                     if standardized_name not in self.discovered_datasets:
-                        return True
-                    else:
                         return False
+                    else:
+                        return True
                 else:
-                    # Qualified name outside our patterns and not in schema_resolver
-                    # No evidence it's a real table - filter it out
-                    return True
+                    return False
 
-            # For names with fewer than MSSQL_QUALIFIED_NAME_PARTS (1-part or 2-part),
-            # treat as alias/temp table since we can't verify they're real tables
-            # without full qualification. This handles common TSQL aliases like "dst", "src".
-            # Consistent with _is_qualified_table_urn which requires 3+ parts.
-            return True
+            # For names with fewer than MSSQL_QUALIFIED_NAME_PARTS,
+            # treat as undiscovered since we can't verify
+            return False
 
         except Exception as e:
-            # If parsing fails, safer to exclude (return True = treat as temp/alias)
-            # than to include potentially spurious aliases in lineage
             logger.warning("Error parsing table name %s: %s", name, e)
-            return True
+            return False
 
     def standardize_identifier_case(self, table_ref_str: str) -> str:
         return (

@@ -49,22 +49,21 @@ def mock_pipeline_context():
     return _create_context
 
 
-def test_is_temp_table(mssql_source):
-    # Test tables matching temporary table patterns
-    assert mssql_source.is_temp_table("test_db.dbo.temp_table") is True
+def test_is_discovered_table(mssql_source):
+    # Test tables matching temporary table patterns - not discovered
+    assert mssql_source.is_discovered_table("test_db.dbo.temp_table") is False
 
-    # Test tables starting with # (handled by startswith check in is_temp_table)
-    assert mssql_source.is_temp_table("test_db.dbo.#some_table") is True
+    # Test tables starting with # - temp tables, not discovered
+    assert mssql_source.is_discovered_table("test_db.dbo.#some_table") is False
 
     # Test tables that are not in discovered_datasets
-    assert mssql_source.is_temp_table("test_db.dbo.unknown_table") is True
+    assert mssql_source.is_discovered_table("test_db.dbo.unknown_table") is False
 
-    # Test regular tables that should return False
-    assert mssql_source.is_temp_table("test_db.dbo.regular_table") is False
+    # Test regular tables that should be discovered
+    assert mssql_source.is_discovered_table("test_db.dbo.regular_table") is True
 
-    # Test 1-part names - treated as aliases since they can't be verified
-    # Common TSQL aliases like "dst", "src" are 1-part names
-    assert mssql_source.is_temp_table("invalid_table_name") is True
+    # Test 1-part names - treated as undiscovered since they can't be verified
+    assert mssql_source.is_discovered_table("invalid_table_name") is False
 
 
 def test_detect_rds_environment_on_premises(mssql_source):

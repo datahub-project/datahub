@@ -196,42 +196,35 @@ class TestUpstreamAliasFiltering:
 
 
 class TestIsTempTableForAliases:
-    """Test is_temp_table() method for alias detection."""
+    """Test is_discovered_table() method for real table detection."""
 
-    def test_is_temp_table_real_table_in_schema_resolver(self, mssql_source):
-        """Test that real tables with schemas are not marked as temp."""
-        assert not mssql_source.is_temp_table("db1.dbo.real_table")
+    def test_is_discovered_table_real_table_in_schema_resolver(self, mssql_source):
+        """Test that real tables with schemas are marked as discovered."""
+        assert mssql_source.is_discovered_table("db1.dbo.real_table")
 
-    def test_is_temp_table_real_table_in_discovered_datasets(self, mssql_source):
-        """Test that discovered real tables are not marked as temp."""
-        # Clear schema_resolver
+    def test_is_discovered_table_real_table_in_discovered_datasets(self, mssql_source):
+        """Test that discovered real tables are marked as discovered."""
         mssql_source.get_schema_resolver().has_urn = MagicMock(return_value=False)
 
-        assert not mssql_source.is_temp_table("db1.dbo.real_table")
+        assert mssql_source.is_discovered_table("db1.dbo.real_table")
 
-    def test_is_temp_table_undiscovered_same_db(self, mssql_source):
-        """Test that undiscovered same-DB tables are marked as temp (likely aliases)."""
-        # Clear schema_resolver
+    def test_is_discovered_table_undiscovered_same_db(self, mssql_source):
+        """Test that undiscovered same-DB tables are not marked as discovered (likely aliases)."""
         mssql_source.get_schema_resolver().has_urn = MagicMock(return_value=False)
 
-        assert mssql_source.is_temp_table("db1.dbo.unknown_alias")
+        assert not mssql_source.is_discovered_table("db1.dbo.unknown_alias")
 
-    def test_is_temp_table_hash_prefix(self, mssql_source):
-        """Test that tables with # prefix are marked as temp."""
-        assert mssql_source.is_temp_table("db1.dbo.#temp_table")
+    def test_is_discovered_table_hash_prefix(self, mssql_source):
+        """Test that tables with # prefix are not marked as discovered (temp tables)."""
+        assert not mssql_source.is_discovered_table("db1.dbo.#temp_table")
 
-    def test_is_temp_table_cross_db_undiscovered(self, mssql_source):
-        """Test that cross-DB undiscovered tables ARE marked as temp (filtered)."""
-        # Clear schema_resolver
+    def test_is_discovered_table_cross_db_undiscovered(self, mssql_source):
+        """Test that cross-DB undiscovered tables are NOT marked as discovered."""
         mssql_source.get_schema_resolver().has_urn = MagicMock(return_value=False)
 
-        # Cross-DB table not in discovered_datasets and not in schema_resolver
-        # No evidence it's a real table - filter it out
-        result = mssql_source.is_temp_table("other_db.dbo.unknown_table")
+        result = mssql_source.is_discovered_table("other_db.dbo.unknown_table")
 
-        # Tables not in schema_resolver and not matching patterns are filtered
-        # We don't assume cross-DB references are real without evidence
-        assert result
+        assert not result
 
 
 class TestPlatformInstancePrefixHandling:
@@ -472,17 +465,13 @@ class TestErrorHandling:
         # Should keep valid URNs AND malformed ones (conservative approach)
         assert len(result) == 3
 
-    def test_is_temp_table_exception_handling(self, mssql_source):
-        """Test is_temp_table handles exceptions gracefully."""
-        # Mock schema_resolver to raise exception
+    def test_is_discovered_table_exception_handling(self, mssql_source):
+        """Test is_discovered_table handles exceptions gracefully."""
         schema_resolver = mssql_source.get_schema_resolver()
         schema_resolver.has_urn = MagicMock(side_effect=Exception("Simulated error"))
 
-        # Returns True on exception (safer: exclude uncertain items from lineage)
-        # Better to miss a real table than to include spurious aliases
-        # Logs a warning but doesn't raise
-        result = mssql_source.is_temp_table("db.schema.table")
-        assert result is True
+        result = mssql_source.is_discovered_table("db.schema.table")
+        assert result is False
 
 
 class TestColumnLineageFiltering:
