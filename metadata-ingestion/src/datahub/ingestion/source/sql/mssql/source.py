@@ -428,47 +428,25 @@ class SQLServerSource(SQLAlchemySource):
         self.sql_aggregator: Optional[SqlParsingAggregator] = None
         if self.config.include_query_lineage:
             if self.config.include_usage_statistics and self.ctx.graph is None:
-                error_message = (
+                raise ValueError(
                     "Usage statistics generation requires a DataHub graph connection (ctx.graph). "
                     "You have enabled 'include_usage_statistics: true' but no graph connection is available. "
                     "Please provide a graph connection in your pipeline configuration or disable usage statistics."
                 )
-                logger.error(error_message)
-                self.report.report_failure(
-                    message=error_message,
-                    context="usage_statistics_graph_validation_failed",
-                )
-                raise ValueError(error_message)
 
-            try:
-                self.sql_aggregator = SqlParsingAggregator(
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                    graph=self.ctx.graph,
-                    generate_lineage=True,
-                    generate_queries=True,
-                    generate_usage_statistics=self.config.include_usage_statistics,
-                    usage_config=self.config
-                    if self.config.include_usage_statistics
-                    else None,
-                )
-                logger.info(
-                    "SQL parsing aggregator initialized for query-based lineage"
-                )
-            except Exception as e:
-                error_message = (
-                    f"Failed to initialize SQL parsing aggregator for query-based lineage: {e}. "
-                    f"You have explicitly enabled 'include_query_lineage: true' in your configuration. "
-                    f"Common causes: missing DataHub graph connection, insufficient permissions, "
-                    f"or missing dependencies. Please check your configuration and try again."
-                )
-                logger.error(error_message)
-                self.report.report_failure(
-                    message=error_message,
-                    context="sql_aggregator_init_failed",
-                )
-                raise RuntimeError(error_message) from e
+            self.sql_aggregator = SqlParsingAggregator(
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                graph=self.ctx.graph,
+                generate_lineage=True,
+                generate_queries=True,
+                generate_usage_statistics=self.config.include_usage_statistics,
+                usage_config=self.config
+                if self.config.include_usage_statistics
+                else None,
+            )
+            logger.info("SQL parsing aggregator initialized for query-based lineage")
 
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
