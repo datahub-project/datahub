@@ -18,7 +18,6 @@ class MSSQLQuery:
         if not exclude_patterns:
             return ""
 
-        # Build parameterized conditions
         # Pattern values are bound by SQLAlchemy, preventing injection
         conditions = [
             f"{column_expr} NOT LIKE :exclude_{i}"

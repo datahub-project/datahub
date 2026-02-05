@@ -1386,7 +1386,6 @@ class SQLServerSource(SQLAlchemySource):
             # Standardize case early to ensure consistent lookups
             standardized_name = self.standardize_identifier_case(name)
 
-            # Check if the table exists in schema_resolver
             if hasattr(self, "aggregator") and self.aggregator is not None:
                 schema_resolver = self.get_schema_resolver()
 

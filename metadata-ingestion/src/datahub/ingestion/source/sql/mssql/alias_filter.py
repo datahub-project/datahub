@@ -241,7 +241,6 @@ class MSSQLAliasFilter:
         field_urn_pattern = re.compile(r"urn:li:schemaField:\((.*),(.*)\)")
 
         for cll_index, cll in enumerate(aspect.fineGrainedLineages, 1):
-            # Filter upstreams: same logic as inputDatasets
             if cll.upstreams:
                 # Step 1: Filter by qualification (3+ parts)
                 qualified_upstream_fields = []
@@ -296,7 +295,6 @@ class MSSQLAliasFilter:
 
                 cll.upstreams = filtered_upstreams
 
-            # Filter downstreams: check qualification and remap aliases
             if cll.downstreams:
                 cll.downstreams = self._filter_downstream_fields(
                     cll_index,
@@ -345,7 +343,6 @@ class MSSQLAliasFilter:
                         qualified_inputs
                     )
 
-                # Filter outputs: only unqualified tables
                 # Track filtered downstream aliases for column lineage remapping
                 filtered_downstream_aliases: Set[str] = set()
                 if aspect.outputDatasets:
@@ -355,12 +352,10 @@ class MSSQLAliasFilter:
                         for urn in aspect.outputDatasets
                         if self._is_qualified_table_urn(urn)
                     ]
-                    # Identify which outputs were filtered (these are aliases)
                     filtered_downstream_aliases = set(original_outputs) - set(
                         aspect.outputDatasets
                     )
 
-                # Filter column lineage (with remapping for filtered downstream aliases)
                 self._filter_column_lineage(
                     aspect,
                     procedure_name,
