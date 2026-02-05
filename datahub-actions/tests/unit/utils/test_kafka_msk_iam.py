@@ -30,6 +30,14 @@ def ensure_fake_vendor(monkeypatch: Any) -> Any:
         ) -> None:  # will be monkeypatched per test
             raise NotImplementedError
 
+        @staticmethod
+        def generate_auth_token_from_role_arn(
+            region: str | None = None,
+            role_arn: str | None = None,
+            sts_session_name: str | None = None,
+        ) -> None:  # will be monkeypatched per test
+            raise NotImplementedError
+
     fake_mod.MSKAuthTokenProvider = MSKAuthTokenProvider
     monkeypatch.setitem(sys.modules, VENDOR_MODULE, fake_mod)
 
@@ -100,3 +108,121 @@ def test_oauth_cb_returns_tuple_types(monkeypatch: Any) -> None:
     assert token == "tkn"
     assert isinstance(expiry, float)
     assert expiry == 1.0
+
+
+def test_oauth_cb_with_role_arn_uses_role_assumption(monkeypatch: Any) -> None:
+    sut = import_sut(monkeypatch)
+
+    provider = cast(Any, sut).MSKAuthTokenProvider
+
+    captured_args: dict[str, Any] = {}
+
+    def fake_generate_from_role(
+        region: str | None = None,
+        role_arn: str | None = None,
+        sts_session_name: str | None = None,
+    ) -> tuple[str, int]:
+        captured_args["region"] = region
+        captured_args["role_arn"] = role_arn
+        captured_args["sts_session_name"] = sts_session_name
+        return "role-token", 60_000
+
+    monkeypatch.setattr(
+        provider,
+        "generate_auth_token_from_role_arn",
+        staticmethod(fake_generate_from_role),
+    )
+
+    oauth_config = {
+        "aws_role_arn": "arn:aws:iam::123456789012:role/TestRole",
+        "aws_role_session_name": "test-session",
+        "aws_region": "eu-west-1",
+    }
+    token, expiry = sut.oauth_cb(oauth_config)
+
+    assert token == "role-token"
+    assert expiry == 60.0
+    assert captured_args["region"] == "eu-west-1"
+    assert captured_args["role_arn"] == "arn:aws:iam::123456789012:role/TestRole"
+    assert captured_args["sts_session_name"] == "test-session"
+
+
+def test_oauth_cb_with_role_arn_uses_default_session_name(monkeypatch: Any) -> None:
+    sut = import_sut(monkeypatch)
+
+    provider = cast(Any, sut).MSKAuthTokenProvider
+
+    captured_session_name: list[str | None] = []
+
+    def fake_generate_from_role(
+        region: str | None = None,
+        role_arn: str | None = None,
+        sts_session_name: str | None = None,
+    ) -> tuple[str, int]:
+        captured_session_name.append(sts_session_name)
+        return "token", 1_000
+
+    monkeypatch.setattr(
+        provider,
+        "generate_auth_token_from_role_arn",
+        staticmethod(fake_generate_from_role),
+    )
+
+    oauth_config = {"aws_role_arn": "arn:aws:iam::123456789012:role/TestRole"}
+    sut.oauth_cb(oauth_config)
+
+    assert captured_session_name[0] == "datahub-msk-session"
+
+
+def test_oauth_cb_region_from_config_takes_precedence(monkeypatch: Any) -> None:
+    sut = import_sut(monkeypatch)
+
+    provider = cast(Any, sut).MSKAuthTokenProvider
+
+    captured_region: list[str | None] = []
+
+    def fake_generate(region: str | None = None) -> tuple[str, int]:
+        captured_region.append(region)
+        return "token", 1_000
+
+    monkeypatch.setattr(provider, "generate_auth_token", staticmethod(fake_generate))
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+
+    oauth_config = {"aws_region": "ap-southeast-1"}
+    sut.oauth_cb(oauth_config)
+
+    assert captured_region[0] == "ap-southeast-1"
+
+
+def test_oauth_cb_without_role_arn_uses_default_credentials(monkeypatch: Any) -> None:
+    sut = import_sut(monkeypatch)
+
+    provider = cast(Any, sut).MSKAuthTokenProvider
+
+    generate_auth_token_called = []
+    generate_from_role_called = []
+
+    def fake_generate(region: str | None = None) -> tuple[str, int]:
+        generate_auth_token_called.append(True)
+        return "default-token", 1_000
+
+    def fake_generate_from_role(
+        region: str | None = None,
+        role_arn: str | None = None,
+        sts_session_name: str | None = None,
+    ) -> tuple[str, int]:
+        generate_from_role_called.append(True)
+        return "role-token", 1_000
+
+    monkeypatch.setattr(provider, "generate_auth_token", staticmethod(fake_generate))
+    monkeypatch.setattr(
+        provider,
+        "generate_auth_token_from_role_arn",
+        staticmethod(fake_generate_from_role),
+    )
+
+    # Empty config - should use default credentials
+    token, _ = sut.oauth_cb({})
+    assert token == "default-token"
+    assert len(generate_auth_token_called) == 1
+    assert len(generate_from_role_called) == 0
