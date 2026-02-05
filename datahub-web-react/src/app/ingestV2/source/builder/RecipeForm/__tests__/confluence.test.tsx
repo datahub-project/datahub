@@ -144,14 +144,16 @@ describe('Confluence deployment type helpers', () => {
                 source: {
                     config: {
                         url: 'https://example.atlassian.net/wiki',
-                        space_allow: ['TEAM', 'ENG'],
+                        spaces: {
+                            allow: ['TEAM', 'ENG'],
+                        },
                     },
                 },
             };
             const result = CONFLUENCE_DEPLOYMENT_TYPE.setValueOnRecipeOverride?.(recipe, 'cloud');
 
             expect(result.source.config.url).toBe('https://example.atlassian.net/wiki');
-            expect(result.source.config.space_allow).toEqual(['TEAM', 'ENG']);
+            expect(result.source.config.spaces.allow).toEqual(['TEAM', 'ENG']);
             expect(result.source.config.cloud).toBe(true);
         });
     });

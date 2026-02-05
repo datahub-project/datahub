@@ -21,10 +21,10 @@ const urlFieldPath = 'source.config.url';
 const usernameFieldPath = 'source.config.username';
 const apiTokenFieldPath = 'source.config.api_token';
 const personalAccessTokenFieldPath = 'source.config.personal_access_token';
-const spaceAllowFieldPath = 'source.config.space_allow';
-const spaceDenyFieldPath = 'source.config.space_deny';
-const pageAllowFieldPath = 'source.config.page_allow';
-const pageDenyFieldPath = 'source.config.page_deny';
+const spaceAllowFieldPath = 'source.config.spaces.allow';
+const spaceDenyFieldPath = 'source.config.spaces.deny';
+const pageAllowFieldPath = 'source.config.pages.allow';
+const pageDenyFieldPath = 'source.config.pages.deny';
 
 // Helper functions for deployment type
 function setDeploymentTypeOnRecipe(recipe: any, value: string): any {
