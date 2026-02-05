@@ -1,6 +1,5 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, cast
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, cast
 
 from pyiceberg.conversions import from_bytes
 from pyiceberg.schema import Schema
@@ -130,7 +129,13 @@ class IcebergProfiler:
                 if current_snapshot.summary
                 else 0
             )
-            column_count = len(table.schema().fields)
+            column_count = len(
+                [
+                    field.field_id
+                    for field in table.schema().fields
+                    if field.field_type.is_primitive
+                ]
+            )
             dataset_profile = DatasetProfileClass(
                 timestampMillis=get_sys_time(),
                 rowCount=row_count,
@@ -160,10 +165,11 @@ class IcebergProfiler:
             null_counts: Dict[int, int] = {}
             min_bounds: Dict[int, Any] = {}
             max_bounds: Dict[int, Any] = {}
+            manifests: List[Any] = []
+
             try:
                 time_partition_fields = self._get_time_partition_fields(table)
                 manifests = list(current_snapshot.manifests(table.io))
-
                 small_file_threshold_bytes = 100 * 1024 * 1024
 
                 def _is_delete_file(data_file: Any) -> bool:
@@ -177,47 +183,8 @@ class IcebergProfiler:
                         return content != 0
                     return "DELETE" in str(content).upper()
 
-                def merge_stats(
-                    target: Dict[str, Dict[str, int]],
-                    incoming: Dict[str, Dict[str, int]],
-                ) -> None:
-                    for key, stats in incoming.items():
-                        merged = target.setdefault(
-                            key, {"row_count": 0, "size_bytes": 0}
-                        )
-                        merged["row_count"] += stats.get("row_count", 0)
-                        merged["size_bytes"] += stats.get("size_bytes", 0)
-
-                def _process_manifest_entries(
-                    manifest_entries,
-                ) -> Tuple[
-                    Dict[str, Dict[str, int]],
-                    Dict[str, Dict[str, int]],
-                    Dict[str, Set[str]],
-                    Dict[int, int],
-                    Dict[int, Any],
-                    Dict[int, Any],
-                    int,
-                    int,
-                    int,
-                    int,
-                    int,
-                    Set[str],
-                ]:
-                    local_partition_stats: Dict[str, Dict[str, int]] = {}
-                    local_summary_stats: Dict[str, Dict[str, int]] = {}
-                    local_summary_members: Dict[str, Set[str]] = {}
-                    local_null_counts: Dict[int, int] = {}
-                    local_min_bounds: Dict[int, Any] = {}
-                    local_max_bounds: Dict[int, Any] = {}
-                    local_total_size = 0
-                    local_file_count = 0
-                    local_delete_file_count = 0
-                    local_small_file_count = 0
-                    local_file_count_with_size = 0
-                    local_partition_keys: Set[str] = set()
-
-                    for manifest_entry in manifest_entries:
+                for manifest in manifests:
+                    for manifest_entry in manifest.fetch_manifest_entry(table.io):
                         data_file = manifest_entry.data_file
                         partition_mapping = self._partition_mapping(
                             table, data_file.partition
@@ -231,15 +198,15 @@ class IcebergProfiler:
 
                         stats = None
                         if summary_key:
-                            stats = local_summary_stats.setdefault(
+                            stats = summary_stats.setdefault(
                                 summary_key, {"row_count": 0, "size_bytes": 0}
                             )
                             if partition_key:
-                                local_summary_members.setdefault(
+                                summary_members.setdefault(
                                     summary_key, set()
                                 ).add(partition_key)
                         elif partition_key:
-                            stats = local_partition_stats.setdefault(
+                            stats = partition_stats.setdefault(
                                 partition_key, {"row_count": 0, "size_bytes": 0}
                             )
 
@@ -253,28 +220,28 @@ class IcebergProfiler:
                             if file_size_bytes is not None:
                                 stats["size_bytes"] += int(file_size_bytes)
 
-                        local_file_count += 1
+                        total_file_count += 1
                         if _is_delete_file(data_file):
-                            local_delete_file_count += 1
+                            total_delete_file_count += 1
                         if partition_key:
-                            local_partition_keys.add(partition_key)
+                            partition_keys.add(partition_key)
 
                         if self.config.include_field_null_count:
-                            local_null_counts = self._aggregate_counts(
-                                local_null_counts, data_file.null_value_counts
+                            null_counts = self._aggregate_counts(
+                                null_counts, data_file.null_value_counts
                             )
                         if self.config.include_field_min_value:
                             self._aggregate_bounds(
                                 table.schema(),
                                 min,
-                                local_min_bounds,
+                                min_bounds,
                                 data_file.lower_bounds,
                             )
                         if self.config.include_field_max_value:
                             self._aggregate_bounds(
                                 table.schema(),
                                 max,
-                                local_max_bounds,
+                                max_bounds,
                                 data_file.upper_bounds,
                             )
 
@@ -282,250 +249,10 @@ class IcebergProfiler:
                             data_file, "file_size_in_bytes", None
                         )
                         if file_size_bytes is not None:
-                            local_total_size += int(file_size_bytes)
-                            local_file_count_with_size += 1
+                            total_size_bytes += int(file_size_bytes)
+                            total_file_count_with_size += 1
                             if int(file_size_bytes) < small_file_threshold_bytes:
-                                local_small_file_count += 1
-
-                    return (
-                        local_partition_stats,
-                        local_summary_stats,
-                        local_summary_members,
-                        local_null_counts,
-                        local_min_bounds,
-                        local_max_bounds,
-                        local_total_size,
-                        local_file_count,
-                        local_delete_file_count,
-                        local_small_file_count,
-                        local_file_count_with_size,
-                        local_partition_keys,
-                    )
-
-                def _merge_manifest_entry_stats(
-                    target_partition_stats: Dict[str, Dict[str, int]],
-                    target_summary_stats: Dict[str, Dict[str, int]],
-                    target_summary_members: Dict[str, Set[str]],
-                    target_null_counts: Dict[int, int],
-                    target_min_bounds: Dict[int, Any],
-                    target_max_bounds: Dict[int, Any],
-                    incoming: Tuple[
-                        Dict[str, Dict[str, int]],
-                        Dict[str, Dict[str, int]],
-                        Dict[str, Set[str]],
-                        Dict[int, int],
-                        Dict[int, Any],
-                        Dict[int, Any],
-                        int,
-                        int,
-                        int,
-                        int,
-                        int,
-                        Set[str],
-                    ],
-                ) -> Tuple[int, int, int, int, int, Set[str]]:
-                    (
-                        incoming_partition_stats,
-                        incoming_summary_stats,
-                        incoming_summary_members,
-                        incoming_null_counts,
-                        incoming_min_bounds,
-                        incoming_max_bounds,
-                        incoming_total_size,
-                        incoming_file_count,
-                        incoming_delete_file_count,
-                        incoming_small_file_count,
-                        incoming_file_count_with_size,
-                        incoming_partition_keys,
-                    ) = incoming
-                    merge_stats(target_partition_stats, incoming_partition_stats)
-                    merge_stats(target_summary_stats, incoming_summary_stats)
-                    for key, members in incoming_summary_members.items():
-                        target_summary_members.setdefault(key, set()).update(
-                            members
-                        )
-                    if self.config.include_field_null_count:
-                        target_null_counts.clear()
-                        target_null_counts.update(
-                            self._aggregate_counts(
-                                target_null_counts, incoming_null_counts
-                            )
-                        )
-                    if self.config.include_field_min_value:
-                        self._aggregate_bounds(
-                            table.schema(),
-                            min,
-                            target_min_bounds,
-                            incoming_min_bounds,
-                        )
-                    if self.config.include_field_max_value:
-                        self._aggregate_bounds(
-                            table.schema(),
-                            max,
-                            target_max_bounds,
-                            incoming_max_bounds,
-                        )
-                    return (
-                        incoming_total_size,
-                        incoming_file_count,
-                        incoming_delete_file_count,
-                        incoming_small_file_count,
-                        incoming_file_count_with_size,
-                        incoming_partition_keys,
-                    )
-
-                def process_manifest(
-                    manifest,
-                ) -> Tuple[
-                    Dict[str, Dict[str, int]],
-                    Dict[str, Dict[str, int]],
-                    Dict[str, Set[str]],
-                    Dict[int, int],
-                    Dict[int, Any],
-                    Dict[int, Any],
-                    int,
-                    int,
-                    int,
-                    int,
-                    int,
-                    Set[str],
-                ]:
-                    manifest_entries = manifest.fetch_manifest_entry(table.io)
-                    entry_threads = max(
-                        1, int(self.config.entry_processing_threads or 1)
-                    )
-                    chunk_size = max(
-                        1, int(self.config.entry_processing_chunk_size or 1)
-                    )
-                    if entry_threads <= 1:
-                        return _process_manifest_entries(manifest_entries)
-
-                    def chunked_entries(entries, size):
-                        batch = []
-                        for entry in entries:
-                            batch.append(entry)
-                            if len(batch) >= size:
-                                yield batch
-                                batch = []
-                        if batch:
-                            yield batch
-
-                    local_partition_stats: Dict[str, Dict[str, int]] = {}
-                    local_summary_stats: Dict[str, Dict[str, int]] = {}
-                    local_summary_members: Dict[str, Set[str]] = {}
-                    local_null_counts: Dict[int, int] = {}
-                    local_min_bounds: Dict[int, Any] = {}
-                    local_max_bounds: Dict[int, Any] = {}
-                    local_total_size = 0
-                    local_file_count = 0
-                    local_delete_file_count = 0
-                    local_small_file_count = 0
-                    local_file_count_with_size = 0
-                    local_partition_keys: Set[str] = set()
-
-                    with ThreadPoolExecutor(max_workers=entry_threads) as executor:
-                        for incoming in executor.map(
-                            _process_manifest_entries,
-                            chunked_entries(manifest_entries, chunk_size),
-                        ):
-                            (
-                                incoming_total_size,
-                                incoming_file_count,
-                                incoming_delete_file_count,
-                                incoming_small_file_count,
-                                incoming_file_count_with_size,
-                                incoming_partition_keys,
-                            ) = _merge_manifest_entry_stats(
-                                local_partition_stats,
-                                local_summary_stats,
-                                local_summary_members,
-                                local_null_counts,
-                                local_min_bounds,
-                                local_max_bounds,
-                                incoming,
-                            )
-                            local_total_size += incoming_total_size
-                            local_file_count += incoming_file_count
-                            local_delete_file_count += incoming_delete_file_count
-                            local_small_file_count += incoming_small_file_count
-                            local_file_count_with_size += incoming_file_count_with_size
-                            local_partition_keys.update(incoming_partition_keys)
-
-                    return (
-                        local_partition_stats,
-                        local_summary_stats,
-                        local_summary_members,
-                        local_null_counts,
-                        local_min_bounds,
-                        local_max_bounds,
-                        local_total_size,
-                        local_file_count,
-                        local_delete_file_count,
-                        local_small_file_count,
-                        local_file_count_with_size,
-                        local_partition_keys,
-                    )
-
-                def iter_manifest_stats():
-                    threads = max(
-                        1, int(self.config.manifest_processing_threads or 1)
-                    )
-                    if threads > 1 and len(manifests) > 1:
-                        with ThreadPoolExecutor(max_workers=threads) as executor:
-                            yield from executor.map(process_manifest, manifests)
-                    else:
-                        for manifest in manifests:
-                            yield process_manifest(manifest)
-
-                for (
-                    local_partition_stats,
-                    local_summary_stats,
-                    local_summary_members,
-                    local_null_counts,
-                    local_min_bounds,
-                    local_max_bounds,
-                    local_total_size,
-                    local_file_count,
-                    local_delete_file_count,
-                    local_small_file_count,
-                    local_file_count_with_size,
-                    local_partition_keys,
-                ) in iter_manifest_stats():
-                    (
-                        incoming_total_size,
-                        incoming_file_count,
-                        incoming_delete_file_count,
-                        incoming_small_file_count,
-                        incoming_file_count_with_size,
-                        incoming_partition_keys,
-                    ) = _merge_manifest_entry_stats(
-                        partition_stats,
-                        summary_stats,
-                        summary_members,
-                        null_counts,
-                        min_bounds,
-                        max_bounds,
-                        (
-                            local_partition_stats,
-                            local_summary_stats,
-                            local_summary_members,
-                            local_null_counts,
-                            local_min_bounds,
-                            local_max_bounds,
-                            local_total_size,
-                            local_file_count,
-                            local_delete_file_count,
-                            local_small_file_count,
-                            local_file_count_with_size,
-                            local_partition_keys,
-                        ),
-                    )
-                    total_size_bytes += incoming_total_size
-                    total_file_count += incoming_file_count
-                    total_delete_file_count += incoming_delete_file_count
-                    total_small_file_count += incoming_small_file_count
-                    total_file_count_with_size += incoming_file_count_with_size
-                    partition_keys.update(incoming_partition_keys)
+                                total_small_file_count += 1
 
                 for key, stats in summary_stats.items():
                     stats["partition_count"] = len(
@@ -540,6 +267,7 @@ class IcebergProfiler:
                     context=dataset_name,
                     exc=e,
                 )
+
             if row_count and needs_field_profiles:
                 # Iterating through fieldPaths introduces unwanted stats for list element fields...
                 for field_path, field_id in table.schema()._name_to_id.items():
@@ -556,7 +284,9 @@ class IcebergProfiler:
                     if self.config.include_field_min_value:
                         column_profile.min = (
                             self._render_value(
-                                dataset_name, field.field_type, min_bounds.get(field_id)
+                                dataset_name,
+                                field.field_type,
+                                min_bounds.get(field_id),
                             )
                             if field_id in min_bounds
                             else None
@@ -564,12 +294,15 @@ class IcebergProfiler:
                     if self.config.include_field_max_value:
                         column_profile.max = (
                             self._render_value(
-                                dataset_name, field.field_type, max_bounds.get(field_id)
+                                dataset_name,
+                                field.field_type,
+                                max_bounds.get(field_id),
                             )
                             if field_id in max_bounds
                             else None
                         )
                     dataset_profile.fieldProfiles.append(column_profile)
+
             if total_size_bytes:
                 dataset_profile.sizeInBytes = total_size_bytes
             if manifests:
@@ -583,7 +316,10 @@ class IcebergProfiler:
             if partition_keys:
                 dataset_profile.totalPartitions = len(partition_keys)
             if total_file_count_with_size:
-                dataset_profile.avgFileSizeBytes = total_size_bytes / total_file_count_with_size
+                dataset_profile.avgFileSizeBytes = (
+                    total_size_bytes / total_file_count_with_size
+                )
+
             time_taken = timer.elapsed_seconds()
             self.report.report_table_profiling_time(
                 time_taken, dataset_name, table.metadata_location

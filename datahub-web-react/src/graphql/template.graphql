@@ -64,11 +64,7 @@ fragment PageTemplateAssetSummary on DataHubPageTemplateAssetSummary {
 fragment SummaryElement on SummaryElement {
     elementType
     structuredProperty {
-        definition {
-            displayName
-            qualifiedName
-        }
-        exists
+        ...structuredPropertyFields
     }
 }
 

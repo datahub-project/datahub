@@ -5,9 +5,7 @@ import { DEFAULT_GLOBAL_SETTINGS, GlobalSettingsContext } from '@app/context/Glo
 import { useGetHomePageSettingsQuery } from '@graphql/app.generated';
 
 export default function GlobalSettingsProvider({ children }: { children: React.ReactNode }) {
-    const { data } = useGetHomePageSettingsQuery({
-        fetchPolicy: 'cache-first',
-    });
+    const { data } = useGetHomePageSettingsQuery();
 
     return (
         <GlobalSettingsContext.Provider

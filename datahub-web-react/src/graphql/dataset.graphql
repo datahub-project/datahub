@@ -40,16 +40,6 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
     }
 }
 
-query getDataProfilesSummary($urn: String!, $limit: Int, $startTime: Long, $endTime: Long, $filters: FilterInput) {
-    dataset(urn: $urn) {
-        urn
-        type
-        datasetProfiles(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime, filter: $filters) {
-            ...datasetProfileSummaryFields
-        }
-    }
-}
-
 query getLatestPartitionProfiles($urn: String!) {
     dataset(urn: $urn) {
         urn
@@ -134,7 +124,7 @@ fragment nonSiblingDatasetFields on Dataset {
         }
     }
     datasetProfiles(limit: 1) {
-        ...datasetProfileSummaryFields
+        ...datasetProfileFields
     }
     latestFullTableProfile: datasetProfiles(
         limit: 1
@@ -144,7 +134,7 @@ fragment nonSiblingDatasetFields on Dataset {
             ]
         }
     ) {
-        ...datasetProfileSummaryFields
+        ...datasetProfileFields
     }
     latestPartitionProfile: datasetProfiles(
         limit: 1
@@ -159,7 +149,7 @@ fragment nonSiblingDatasetFields on Dataset {
             ]
         }
     ) {
-        ...datasetProfileSummaryFields
+        ...datasetProfileFields
     }
     health {
         ...entityHealth
@@ -398,7 +388,7 @@ query getDatasetRuns($urn: String!, $start: Int!, $count: Int!, $direction: Rela
 
 fragment datasetSchema on Dataset {
     schemaMetadata(version: 0) {
-        ...schemaMetadataLightFields
+        ...schemaMetadataFields
     }
     editableSchemaMetadata {
         editableSchemaFieldInfo {

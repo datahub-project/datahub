@@ -17,9 +17,6 @@ FROM ubuntu:24.04 AS python-base
 ARG UBUNTU_REPO_URL=http://ports.ubuntu.com/ubuntu-ports
 RUN if [ "${UBUNTU_REPO_URL}" != "http://ports.ubuntu.com/ubuntu-ports" ] ; then sed -i "s#http.*://ports.ubuntu.com/ubuntu-ports#${UBUNTU_REPO_URL}#g" /etc/apt/sources.list ; fi
 
-ARG DEBIAN_FRONTEND=noninteractive
-ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND}
-
 ENV HOME=/home/datahub
 RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
     if [ -n "$existing_group" ] && [ "$existing_group" != "datahub" ]; then \
@@ -77,11 +74,8 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTH
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-ARG UV_EXTRA_INDEX_URL=
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
-ENV UV_EXTRA_INDEX_URL=${UV_EXTRA_INDEX_URL}
-ENV UV_CACHE_DIR=/tmp/uv-cache
 
 USER datahub
 WORKDIR $HOME
@@ -154,7 +148,7 @@ COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
 USER datahub
-RUN DATAHUB_SKIP_METADATA_MODELS=1 /bin/sh -c 'echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\\-e" | uv pip install -r /dev/stdin'
+RUN echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
@@ -165,22 +159,16 @@ COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/action
 USER datahub
 
 ARG RELEASE_VERSION
-ARG SKIP_VERSION_UPDATE=0
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
-    if [ "$SKIP_VERSION_UPDATE" = "1" ]; then \
-        echo "Skipping version update (SKIP_VERSION_UPDATE=1)"; \
-    else \
-        python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 && \
-        python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1; \
-    fi
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 && \
+    python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
 
 # For the datahub-actions build, we explicitly want to retain the uv cache.
 # This speeds up the process of creating venvs at runtime.
 # Because uv uses hardlinks for installing packages, keeping the cache around does not
 # really impact image size.
-RUN DATAHUB_SKIP_METADATA_MODELS=1 uv pip install -e '/metadata-ingestion/' -e '/datahub-actions/[all]'
-RUN DATAHUB_SKIP_METADATA_MODELS=1 uv pip install -e '/metadata-ingestion/[iceberg]'
+RUN uv pip install -e '/metadata-ingestion/' -e '/datahub-actions/[all]'
 
 # =============================================================================
 # PRE-BUILD BUNDLED INGESTION VENVS

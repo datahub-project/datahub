@@ -9,7 +9,7 @@ import {
 import { Datum } from '@src/alchemy-components/components/LineChart/types';
 import { extractChartValuesFromTableProfiles } from '@src/app/entityV2/shared/utils';
 import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
-import { useGetDataProfilesSummaryLazyQuery } from '@src/graphql/dataset.generated';
+import { useGetDataProfilesLazyQuery } from '@src/graphql/dataset.generated';
 
 export interface RowCountData extends Datum {
     mom?: number | null;
@@ -28,7 +28,7 @@ export default function useRowCountData(
     // Required for the loading state to track if the lazy query has been called
     const [queryCalled, setQueryCalled] = useState(false);
 
-    const [getDataProfiles, { data: profilesData, loading }] = useGetDataProfilesSummaryLazyQuery({
+    const [getDataProfiles, { data: profilesData, loading }] = useGetDataProfilesLazyQuery({
         onCompleted: () => setQueryCalled(true),
     });
 

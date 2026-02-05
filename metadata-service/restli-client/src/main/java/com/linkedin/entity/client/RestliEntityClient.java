@@ -1104,7 +1104,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
                             final AspectsDoIngestProposalBatchRequestBuilder requestBuilder =
                                 ASPECTS_REQUEST_BUILDERS
                                     .actionIngestProposalBatch()
-                                    .proposalsParam(new MetadataChangeProposalArray(batch))
+                                    .proposalsParam(
+                                        new MetadataChangeProposalArray(metadataChangeProposals))
                                     .asyncParam(String.valueOf(async));
                             String result =
                                 sendClientRequest(requestBuilder, opContext).getEntity();

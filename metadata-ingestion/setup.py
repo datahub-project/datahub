@@ -1,4 +1,3 @@
-import os
 from typing import Dict, Set
 
 import setuptools
@@ -17,6 +16,8 @@ _self_pin = (
 base_requirements = {
     # Our min version of typing_extensions is somewhat constrained by Airflow.
     "typing_extensions>=4.8.0",
+    # Required for datahub.metadata.schema_classes
+    f"datahub-metadata-models{_self_pin}",
     # Actual dependencies.
     "typing-inspect",
     "pydantic>=2.4.0",
@@ -24,10 +25,6 @@ base_requirements = {
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
     "sentry-sdk>=1.33.1",
 }
-
-# Allow Docker builds to avoid fetching datahub-metadata-models from the registry.
-if os.getenv("DATAHUB_SKIP_METADATA_MODELS") != "1":
-    base_requirements.add(f"datahub-metadata-models{_self_pin}")
 
 framework_common = {
     # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894

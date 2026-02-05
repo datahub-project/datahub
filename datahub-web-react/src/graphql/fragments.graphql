@@ -1059,42 +1059,6 @@ fragment schemaMetadataFields on SchemaMetadata {
     }
 }
 
-fragment schemaMetadataLightFields on SchemaMetadata {
-    aspectVersion
-    createdAt
-    datasetUrn
-    name
-    platformUrn
-    version
-    platformSchema {
-        ... on TableSchema {
-            schema
-        }
-        ... on KeyValueSchema {
-            keySchema
-            valueSchema
-        }
-    }
-    fields {
-        ...entitySchemaFieldFields
-    }
-    primaryKeys
-    foreignKeys {
-        name
-        sourceFields {
-            fieldPath
-        }
-        foreignFields {
-            fieldPath
-        }
-        foreignDataset {
-            urn
-            name
-            type
-        }
-    }
-}
-
 fragment nonRecursiveMLModel on MLModel {
     urn
     type
@@ -1895,6 +1859,12 @@ fragment datasetProfileFields on DatasetProfile {
     rowCount
     columnCount
     sizeInBytes
+    totalFiles
+    totalManifestFiles
+    totalDeleteFiles
+    totalFilesLessThan100Mb
+    totalPartitions
+    avgFileSizeBytes
     timestampMillis
     partitionSpec {
         type
@@ -1923,27 +1893,6 @@ fragment datasetProfileFields on DatasetProfile {
         distinctValueFrequencies {
             value
             frequency
-        }
-    }
-}
-
-fragment datasetProfileSummaryFields on DatasetProfile {
-    rowCount
-    columnCount
-    sizeInBytes
-    totalFiles
-    totalManifestFiles
-    totalDeleteFiles
-    totalFilesLessThan100Mb
-    totalPartitions
-    avgFileSizeBytes
-    timestampMillis
-    partitionSpec {
-        type
-        partition
-        timePartition {
-            startTimeMillis
-            durationMillis
         }
     }
 }

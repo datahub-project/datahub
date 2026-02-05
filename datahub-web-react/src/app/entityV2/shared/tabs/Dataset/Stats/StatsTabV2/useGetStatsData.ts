@@ -1,3 +1,4 @@
+import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
 import { getIsSiblingsMode } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
@@ -11,6 +12,7 @@ import { TimeRange, UsageQueryResult } from '@src/types.generated';
 
 export const useGetStatsData = () => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const { entityWithSchema } = useGetEntityWithSchema();
 
     const { statsEntity, statsEntityUrn } = useStatsSectionsContext();
 
@@ -36,13 +38,15 @@ export const useGetStatsData = () => {
     const users = usageStats?.aggregations?.users;
     const totalSqlQueries = usageStats?.aggregations?.totalSqlQueries;
 
+    const columnStats = (latestProfile && latestProfile.fieldProfiles) || [];
     const rowCount = latestProfile?.rowCount ?? undefined;
-    const columnCount = latestProfile?.columnCount ?? undefined;
+    const columnCount = latestProfile?.columnCount ?? entityWithSchema?.schemaMetadata?.fields?.length ?? undefined;
     const queryCount = queryCountLast30Days ?? totalSqlQueries ?? undefined;
     const totalOperations = operationsStats?.dataset?.operationsStats?.aggregations?.totalOperations ?? undefined;
 
     return {
         usageStats,
+        columnStats,
         rowCount,
         columnCount,
         queryCount,

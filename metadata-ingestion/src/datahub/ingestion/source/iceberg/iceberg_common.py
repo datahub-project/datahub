@@ -64,18 +64,6 @@ class IcebergProfilingConfig(ConfigModel):
         default=True,
         description="Whether to profile for the max value of numeric columns.",
     )
-    manifest_processing_threads: int = Field(
-        default=1,
-        description="How many threads to use for processing manifests within a table.",
-    )
-    entry_processing_threads: int = Field(
-        default=1,
-        description="How many threads to use for processing manifest entries within a manifest.",
-    )
-    entry_processing_chunk_size: int = Field(
-        default=1000,
-        description="Chunk size for processing manifest entries in parallel.",
-    )
     operation_config: OperationConfig = Field(
         default_factory=OperationConfig,
         description="Experimental feature. To specify operation configs.",
@@ -116,9 +104,6 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         description="Iceberg table property to look for a `CorpGroup` owner.  Can only hold a single group value.  If property has no value, no owner information will be emitted.",
     )
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
-    processing_threads: int = Field(
-        default=1, description="How many threads will be processing tables"
-    )
     processing_threads: int = Field(
         default=1, description="How many threads will be processing tables"
     )

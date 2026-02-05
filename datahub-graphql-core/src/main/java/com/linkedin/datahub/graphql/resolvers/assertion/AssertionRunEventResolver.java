@@ -22,14 +22,11 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -75,10 +72,7 @@ public class AssertionRunEventResolver
                     buildFilter(
                         maybeFilters,
                         maybeStatus,
-                        context.getOperationContext().getAspectRetriever()),
-                    new SortCriterion()
-                        .setField(Constants.ES_FIELD_TIMESTAMP)
-                        .setOrder(SortOrder.DESCENDING));
+                        context.getOperationContext().getAspectRetriever()));
 
             // Step 2: Bind profiles into GraphQL strong types.
             List<AssertionRunEvent> runEvents =
@@ -141,9 +135,7 @@ public class AssertionRunEventResolver
     if (status != null) {
       FacetFilterInput filter = new FacetFilterInput();
       filter.setField("status");
-      String lowered = status.toLowerCase(Locale.ROOT);
-      filter.setValues(
-          status.equals(lowered) ? ImmutableList.of(status) : ImmutableList.of(status, lowered));
+      filter.setValues(ImmutableList.of(status));
       facetFilters.add(filter);
     }
     if (filtersInput != null) {

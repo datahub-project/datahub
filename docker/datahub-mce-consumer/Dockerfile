@@ -32,13 +32,10 @@ COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
 
 FROM base AS prod-install
 COPY metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar /datahub/datahub-mce-consumer/bin/
-RUN chmod 644 /datahub/datahub-mce-consumer/bin/mce-consumer-job.jar
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mce-consumer/resources/entity-registry.yml
-RUN chmod 644 /datahub/datahub-mce-consumer/resources/entity-registry.yml
 COPY docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
-RUN chmod 755 /datahub/datahub-mce-consumer/scripts/start.sh
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
-RUN chmod 644 /datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
+RUN chmod +x /datahub/datahub-mce-consumer/scripts/start.sh
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
