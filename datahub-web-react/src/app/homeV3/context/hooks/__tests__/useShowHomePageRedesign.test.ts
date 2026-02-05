@@ -130,7 +130,7 @@ describe('useShowHomePageRedesign', () => {
             expect(localStorageMock.setItem).not.toHaveBeenCalled();
         });
 
-        it('should return false when localStorage is null', () => {
+        it('should return true when localStorage is null', () => {
             mockUseAppConfig.mockReturnValue({
                 loaded: false,
                 config: {
@@ -144,7 +144,7 @@ describe('useShowHomePageRedesign', () => {
 
             const { result } = renderHook(() => useShowHomePageRedesign());
 
-            expect(result.current).toBe(false);
+            expect(result.current).toBe(true);
             expect(localStorageMock.setItem).not.toHaveBeenCalled();
         });
 
@@ -229,12 +229,12 @@ describe('loadHomePageRedesignFromLocalStorage', () => {
         expect(localStorageMock.getItem).toHaveBeenCalledWith('showHomePageRedesign');
     });
 
-    it('should return false when localStorage value is null', () => {
+    it('should return true when localStorage value is null', () => {
         localStorageMock.getItem.mockReturnValue(null);
 
         const result = loadHomePageRedesignFromLocalStorage();
 
-        expect(result).toBe(false);
+        expect(result).toBe(true);
         expect(localStorageMock.getItem).toHaveBeenCalledWith('showHomePageRedesign');
     });
 
