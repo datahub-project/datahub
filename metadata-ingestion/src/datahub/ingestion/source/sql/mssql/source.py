@@ -10,7 +10,12 @@ from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.exc import ProgrammingError, ResourceClosedError
+from sqlalchemy.exc import (
+    DatabaseError,
+    OperationalError,
+    ProgrammingError,
+    ResourceClosedError,
+)
 from sqlalchemy.sql import quoted_name
 
 import datahub.metadata.schema_classes as models
@@ -631,9 +636,10 @@ class SQLServerSource(SQLAlchemySource):
                     "Successfully retrieved jobs using stored procedures (managed environment)"
                 )
                 return jobs
-            except Exception as sp_error:
+            except (DatabaseError, OperationalError, ProgrammingError) as sp_error:
                 logger.warning(
-                    f"Failed to retrieve jobs via stored procedures in managed environment: {sp_error}"
+                    "Expected failure retrieving jobs via stored procedures in managed environment (RDS/managed instances may restrict msdb access): %s",
+                    sp_error,
                 )
                 # Try direct query as fallback (might work in some managed environments)
                 try:
@@ -642,13 +648,69 @@ class SQLServerSource(SQLAlchemySource):
                         "Successfully retrieved jobs using direct query fallback in managed environment"
                     )
                     return jobs
-                except Exception as direct_error:
+                except (
+                    DatabaseError,
+                    OperationalError,
+                    ProgrammingError,
+                ) as direct_error:
                     self.report.failure(
-                        message="Failed to retrieve jobs in managed environment",
+                        message="Failed to retrieve jobs in managed environment (both stored procedures and direct query). "
+                        "This is expected on AWS RDS and some managed SQL instances that restrict msdb access. "
+                        "Jobs extraction will be skipped.",
                         title="SQL Server Jobs Extraction",
-                        context="Both stored procedures and direct query methods failed",
+                        context="managed_environment_msdb_restricted",
                         exc=direct_error,
                     )
+                except (KeyError, TypeError) as struct_error:
+                    logger.error(
+                        "Job data structure error in managed environment: %s. This indicates missing columns or SQL Server version incompatibility.",
+                        struct_error,
+                        exc_info=True,
+                    )
+                    self.report.failure(
+                        message=f"Job data structure error: {struct_error}. Check SQL Server version compatibility.",
+                        title="SQL Server Jobs Extraction",
+                        context="job_structure_error_managed",
+                        exc=struct_error,
+                    )
+                except Exception as unexpected_error:
+                    logger.error(
+                        "Unexpected error retrieving jobs via direct query in managed environment: %s (%s). This is likely a bug.",
+                        unexpected_error,
+                        type(unexpected_error).__name__,
+                        exc_info=True,
+                    )
+                    self.report.failure(
+                        message=f"Unexpected error: {unexpected_error} ({type(unexpected_error).__name__})",
+                        title="SQL Server Jobs Extraction",
+                        context="job_extraction_unexpected_error_managed",
+                        exc=unexpected_error,
+                    )
+            except (KeyError, TypeError) as struct_error:
+                logger.error(
+                    "Job data structure error with stored procedures: %s. Expected columns: job_id, name, description, etc.",
+                    struct_error,
+                    exc_info=True,
+                )
+                self.report.failure(
+                    message=f"Job structure error: {struct_error}. Check if sp_help_job output format changed.",
+                    title="SQL Server Jobs Extraction",
+                    context="job_structure_error_sp_managed",
+                    exc=struct_error,
+                )
+            except Exception as unexpected_error:
+                logger.error(
+                    "Unexpected error with stored procedures in managed environment: %s (%s). This may indicate a permissions or configuration issue.",
+                    unexpected_error,
+                    type(unexpected_error).__name__,
+                    exc_info=True,
+                )
+                self.report.failure(
+                    message=f"Unexpected error: {unexpected_error}",
+                    title="SQL Server Jobs Extraction",
+                    context="job_extraction_unexpected_sp_managed",
+                    exc=unexpected_error,
+                )
         else:
             # On-premises environment - try direct query first (usually faster)
             try:
@@ -657,9 +719,10 @@ class SQLServerSource(SQLAlchemySource):
                     "Successfully retrieved jobs using direct query (on-premises environment)"
                 )
                 return jobs
-            except Exception as direct_error:
+            except (DatabaseError, OperationalError, ProgrammingError) as direct_error:
                 logger.warning(
-                    f"Failed to retrieve jobs via direct query in on-premises environment: {direct_error}"
+                    "Database error retrieving jobs via direct query (missing permissions to msdb or syntax issue): %s. Trying stored procedures fallback.",
+                    direct_error,
                 )
                 # Try stored procedures as fallback
                 try:
@@ -668,13 +731,65 @@ class SQLServerSource(SQLAlchemySource):
                         "Successfully retrieved jobs using stored procedures fallback in on-premises environment"
                     )
                     return jobs
-                except Exception as sp_error:
+                except (DatabaseError, OperationalError, ProgrammingError) as sp_error:
                     self.report.failure(
-                        message="Failed to retrieve jobs in on-premises environment",
+                        message="Failed to retrieve jobs in on-premises environment (both direct query and stored procedures). "
+                        "Verify the DataHub user has SELECT permissions on msdb.dbo.sysjobs and msdb.dbo.sysjobsteps, "
+                        "or EXECUTE permissions on sp_help_job and sp_help_jobstep.",
                         title="SQL Server Jobs Extraction",
-                        context="Both direct query and stored procedures methods failed",
+                        context="on_prem_msdb_permission_denied",
                         exc=sp_error,
                     )
+                except (KeyError, TypeError) as struct_error:
+                    logger.error(
+                        "Job data structure error with stored procedures: %s. Check sp_help_job output compatibility.",
+                        struct_error,
+                        exc_info=True,
+                    )
+                    self.report.failure(
+                        message=f"Job structure error: {struct_error}",
+                        title="SQL Server Jobs Extraction",
+                        context="job_structure_error_sp_onprem",
+                        exc=struct_error,
+                    )
+                except Exception as unexpected_error:
+                    logger.error(
+                        "Unexpected error with stored procedures fallback: %s (%s)",
+                        unexpected_error,
+                        type(unexpected_error).__name__,
+                        exc_info=True,
+                    )
+                    self.report.failure(
+                        message=f"Unexpected error: {unexpected_error}",
+                        title="SQL Server Jobs Extraction",
+                        context="job_extraction_unexpected_sp_onprem",
+                        exc=unexpected_error,
+                    )
+            except (KeyError, TypeError) as struct_error:
+                logger.error(
+                    "Job data structure error with direct query: %s. Expected columns: job_id, name, description, step_id, etc.",
+                    struct_error,
+                    exc_info=True,
+                )
+                self.report.failure(
+                    message=f"Job structure error: {struct_error}. Check SQL Server version compatibility.",
+                    title="SQL Server Jobs Extraction",
+                    context="job_structure_error_direct_onprem",
+                    exc=struct_error,
+                )
+            except Exception as unexpected_error:
+                logger.error(
+                    "Unexpected error with direct query in on-premises environment: %s (%s). This may indicate SQL syntax issues or configuration problems.",
+                    unexpected_error,
+                    type(unexpected_error).__name__,
+                    exc_info=True,
+                )
+                self.report.failure(
+                    message=f"Unexpected error: {unexpected_error}",
+                    title="SQL Server Jobs Extraction",
+                    context="job_extraction_unexpected_direct_onprem",
+                    exc=unexpected_error,
+                )
 
         return jobs
 
@@ -724,9 +839,27 @@ class SQLServerSource(SQLAlchemySource):
                 if job_steps:
                     jobs[job_info["name"]] = job_steps
 
-            except Exception as step_error:
+            except (DatabaseError, OperationalError, ProgrammingError) as step_error:
                 logger.warning(
-                    f"Failed to get steps for job {job_info['name']}: {step_error}"
+                    "Database error retrieving steps for job %s (job may be inaccessible or deleted): %s",
+                    job_info["name"],
+                    step_error,
+                )
+                continue
+            except (KeyError, TypeError, AttributeError) as struct_error:
+                logger.warning(
+                    "Data structure error processing steps for job %s: %s. Job will be skipped.",
+                    job_info["name"],
+                    struct_error,
+                )
+                continue
+            except Exception as unexpected_error:
+                logger.error(
+                    "Unexpected error retrieving steps for job %s: %s (%s). Job will be skipped.",
+                    job_info["name"],
+                    unexpected_error,
+                    type(unexpected_error).__name__,
+                    exc_info=True,
                 )
                 continue
 
