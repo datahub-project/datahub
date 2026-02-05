@@ -1,3 +1,20 @@
+import { hasOperationName } from "../utils";
+
+function setFeatureFlags() {
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    if (hasOperationName(req, "appConfig")) {
+      req.alias = "gqlappConfigQuery";
+
+      req.on("response", (res) => {
+        res.body.data.appConfig.featureFlags.themeV2Enabled = true;
+        res.body.data.appConfig.featureFlags.themeV2Default = true;
+        res.body.data.appConfig.featureFlags.showNavBarRedesign = true;
+        res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
+      });
+    }
+  });
+}
+
 const homePageRedirection = () => {
   cy.visit("/");
   cy.get(`[data-testid="home-page-content-container"]`).should("be.visible");
@@ -32,8 +49,8 @@ const clickOnMoreOption = () => {
 
 describe("create announcement and link post", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-    cy.loginWithCredentials();
+    setFeatureFlags();
+    cy.login();
     cy.skipIntroducePage();
     cy.goToHomePagePostSettingsV2();
     cy.waitTestIdVisible("posts-create-post-v2");
