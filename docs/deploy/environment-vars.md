@@ -614,7 +614,7 @@ Reference Links:
 | `ALTERNATE_MCP_VALIDATION`              | `false` | Enable alternate MCP validation flow                               | GMS        |
 | `THEME_V2_ENABLED`                      | `true`  | Allow theme v2 to be turned on                                     | GMS        |
 | `THEME_V2_DEFAULT`                      | `true`  | Set default theme for users                                        | GMS        |
-| `THEME_V2_TOGGLEABLE`                   | `true`  | Allow theme v2 to be toggled (Acryl only)                          | GMS        |
+| `THEME_V2_TOGGLEABLE`                   | `false` | Allow theme v2 to be toggled (Acryl only)                          | GMS        |
 | `SCHEMA_FIELD_CLL_ENABLED`              | `false` | Enable schema field-level lineage links                            | GMS        |
 | `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`    | `true`  | Ignore schema field status in lineage                              | GMS        |
 | `SHOW_SEPARATE_SIBLINGS`                | `false` | Separate siblings with no combined view                            | GMS        |
@@ -630,8 +630,8 @@ Reference Links:
 | `SHOW_INTRODUCE_PAGE`                   | `true`  | Show introduce page in V2 UI                                       | GMS        |
 | `SHOW_INGESTION_PAGE_REDESIGN`          | `false` | Show re-designed Ingestion page                                    | GMS        |
 | `SHOW_LINEAGE_EXPAND_MORE`              | `true`  | Show expand more button in lineage graph                           | GMS        |
-| `SHOW_HOME_PAGE_REDESIGN`               | `false` | Show re-designed home page                                         | GMS        |
-| `LINEAGE_GRAPH_V3`                      | `false` | Enable redesign of lineage v2 graph                                | GMS        |
+| `SHOW_HOME_PAGE_REDESIGN`               | `true`  | Show re-designed home page                                         | GMS        |
+| `LINEAGE_GRAPH_V3`                      | `true`  | Enable redesign of lineage v2 graph                                | GMS        |
 | `SHOW_PRODUCT_UPDATES`                  | `true`  | Show in-product update popover                                     | GMS        |
 | `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                      | GMS        |
 | `SHOW_HOMEPAGE_USER_ROLE`               | `false` | Display homepage user role underneath name                         | GMS        |

@@ -38,9 +38,11 @@ from sqlalchemy.engine.url import make_url
 
 import datahub.emitter.mce_builder as builder
 from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
@@ -62,9 +64,16 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     DatasetAssertionScope,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
-from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    GenericAspectClass,
+    MetadataChangeProposalClass,
+    PartitionSpecClass,
+    PartitionTypeClass,
+)
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.urn import guess_entity_type
 
 # TODO: move this and version check used in tests to some common module
 try:
@@ -192,15 +201,16 @@ class DataHubValidationAction(ValidationAction):
             logger.info("Sending metadata to datahub ...")
             logger.info("Dataset URN - {urn}".format(urn=datasets[0]["dataset_urn"]))
 
+            graph = emitter.to_graph()
+
             for assertion in assertions:
                 logger.info(
                     "Assertion URN - {urn}".format(urn=assertion["assertionUrn"])
                 )
 
                 # Construct a MetadataChangeProposalWrapper object.
-                assertion_info_mcp = MetadataChangeProposalWrapper(
-                    entityUrn=assertion["assertionUrn"],
-                    aspect=assertion["assertionInfo"],
+                assertion_info_mcp = self._build_assertion_info_mcp(
+                    graph, assertion["assertionUrn"], assertion["assertionInfo"]
                 )
                 emitter.emit_mcp(assertion_info_mcp)
 
@@ -230,6 +240,75 @@ class DataHubValidationAction(ValidationAction):
                 raise
 
         return {"datahub_notification_result": result}
+
+    def _build_assertion_info_mcp(
+        self,
+        graph: DataHubGraph,
+        assertion_urn: str,
+        assertion_info: AssertionInfo,
+    ) -> Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]:
+        try:
+            existing_info = graph.get_aspect(assertion_urn, AssertionInfo)
+        except Exception:
+            logger.warning(
+                "Failed to check existing assertionInfo. Falling back to upsert.",
+                exc_info=True,
+            )
+            existing_info = None
+
+        if existing_info is None:
+            return MetadataChangeProposalWrapper(
+                entityUrn=assertion_urn,
+                aspect=assertion_info,
+            )
+
+        return self._build_assertion_info_patch(assertion_urn, assertion_info)
+
+    def _build_assertion_info_patch(
+        self,
+        assertion_urn: str,
+        assertion_info: AssertionInfo,
+    ) -> MetadataChangeProposalClass:
+        assertion_info_obj = assertion_info.to_obj()
+        patch_ops = []
+
+        if "type" in assertion_info_obj:
+            patch_ops.append(
+                {"op": "add", "path": "/type", "value": assertion_info_obj["type"]}
+            )
+        if "datasetAssertion" in assertion_info_obj:
+            patch_ops.append(
+                {
+                    "op": "add",
+                    "path": "/datasetAssertion",
+                    "value": assertion_info_obj["datasetAssertion"],
+                }
+            )
+        custom_properties = assertion_info_obj.get("customProperties") or {}
+        expectation_suite_name = custom_properties.get("expectation_suite_name")
+        if expectation_suite_name is not None:
+            patch_ops.append(
+                {
+                    "op": "add",
+                    "path": "/customProperties/expectation_suite_name",
+                    "value": expectation_suite_name,
+                }
+            )
+
+        aspect_payload = {
+            "patch": pre_json_transform(patch_ops),
+            "forceGenericPatch": True,
+        }
+        return MetadataChangeProposalClass(
+            entityUrn=assertion_urn,
+            entityType=guess_entity_type(assertion_urn),
+            changeType=ChangeTypeClass.PATCH,
+            aspectName="assertionInfo",
+            aspect=GenericAspectClass(
+                value=json.dumps(pre_json_transform(aspect_payload)).encode(),
+                contentType=JSON_PATCH_CONTENT_TYPE,
+            ),
+        )
 
     def get_assertions_with_results(
         self,
