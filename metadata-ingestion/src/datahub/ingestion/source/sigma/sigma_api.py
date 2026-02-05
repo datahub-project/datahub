@@ -14,6 +14,7 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    DatasetSource,
     Element,
     File,
     Page,
@@ -67,6 +68,9 @@ class SigmaAPI:
         self.report = report
         self.workspaces: Dict[str, Workspace] = {}
         self.users: Dict[str, str] = {}
+        self.connections: Dict[
+            str, Dict[str, Any]
+        ] = {}  # connectionId -> connection info
         self.session = requests.Session()
         self.refresh_token: Optional[str] = None
 
@@ -221,6 +225,42 @@ class SigmaAPI:
     def get_user_name(self, user_id: str) -> Optional[str]:
         return self._get_users().get(user_id)
 
+    def fill_connections(self) -> None:
+        """Fetch all connections and cache them."""
+        logger.debug("Fetching all accessible connections metadata.")
+        connections_url = url = f"{self.config.api_url}/connections?limit=50"
+        try:
+            while True:
+                response = self._get_api_call(url)
+                response.raise_for_status()
+                response_dict = response.json()
+                for connection in response_dict.get(Constant.ENTRIES, []):
+                    conn_id = connection.get(Constant.CONNECTION_ID)
+                    if conn_id:
+                        self.connections[conn_id] = connection
+                        logger.debug(
+                            f"Cached connection: {connection.get(Constant.NAME)} "
+                            f"(id={conn_id}, type={connection.get(Constant.TYPE)})"
+                        )
+                if response_dict.get(Constant.NEXTPAGE):
+                    url = f"{connections_url}&page={response_dict[Constant.NEXTPAGE]}"
+                else:
+                    break
+            logger.info(f"Fetched {len(self.connections)} connections")
+        except Exception as e:
+            self._log_http_error(message=f"Unable to fetch connections. Exception: {e}")
+
+    def get_connection(self, connection_id: str) -> Optional[Dict[str, Any]]:
+        """Get connection info by ID."""
+        return self.connections.get(connection_id)
+
+    def get_connection_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get connection info by name."""
+        for conn in self.connections.values():
+            if conn.get(Constant.NAME) == name:
+                return conn
+        return None
+
     @functools.lru_cache()
     def get_workspace_id_from_file_path(
         self, parent_id: str, path: str
@@ -334,6 +374,87 @@ class SigmaAPI:
                 message=f"Unable to fetch sigma datasets. Exception: {e}"
             )
             return []
+
+    def get_dataset_source(self, dataset_id: str) -> Optional[DatasetSource]:
+        """
+        Fetch source information for a dataset (underlying warehouse table).
+
+        Tries multiple approaches:
+        1. Get dataset details which may include source info
+        2. Parse the response to extract connectionId, table, schema, database
+        """
+        try:
+            response = self._get_api_call(
+                f"{self.config.api_url}/datasets/{dataset_id}"
+            )
+            if response.status_code == 404:
+                logger.debug(f"Dataset {dataset_id} not found")
+                return None
+            if response.status_code == 403:
+                logger.debug(f"Dataset {dataset_id} not accessible")
+                return None
+            response.raise_for_status()
+            dataset_detail = response.json()
+
+            # Log the response for debugging
+            logger.debug(
+                f"Dataset {dataset_id} details: connectionId={dataset_detail.get('connectionId')}, "
+                f"table keys: {[k for k in dataset_detail if 'table' in k.lower() or 'source' in k.lower() or 'schema' in k.lower() or 'database' in k.lower()]}"
+            )
+
+            # Extract source information from the dataset detail response
+            # The API may return connectionId, and table/schema info in various fields
+            connection_id = dataset_detail.get("connectionId")
+            if not connection_id:
+                logger.debug(f"Dataset {dataset_id} has no connectionId")
+                return None
+
+            # Try to extract table information from various possible field names
+            table = (
+                dataset_detail.get("table")
+                or dataset_detail.get("tableName")
+                or dataset_detail.get("sourceTable")
+            )
+            schema_name = (
+                dataset_detail.get("schema")
+                or dataset_detail.get("schemaName")
+                or dataset_detail.get("sourceSchema")
+            )
+            database = (
+                dataset_detail.get("database")
+                or dataset_detail.get("databaseName")
+                or dataset_detail.get("sourceDatabase")
+            )
+
+            # If table info is in a nested 'source' object
+            source_obj = dataset_detail.get("source", {})
+            if isinstance(source_obj, dict):
+                table = table or source_obj.get("table") or source_obj.get("tableName")
+                schema_name = (
+                    schema_name
+                    or source_obj.get("schema")
+                    or source_obj.get("schemaName")
+                )
+                database = (
+                    database
+                    or source_obj.get("database")
+                    or source_obj.get("databaseName")
+                )
+
+            if connection_id:
+                return DatasetSource(
+                    connectionId=connection_id,
+                    table=table,
+                    schema_name=schema_name,
+                    database=database,
+                )
+            return None
+
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch source for dataset {dataset_id}. Exception: {e}"
+            )
+            return None
 
     def _get_element_upstream_sources(
         self, element: Element, workbook: Workbook

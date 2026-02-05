@@ -49,9 +49,23 @@ class Constant:
     WORKBOOK = "workbook"
     BADGE = "badge"
     NEXTPAGE = "nextPage"
+    CONNECTION_ID = "connectionId"
 
     # Source Config constants
     DEFAULT_API_URL = "https://aws-api.sigmacomputing.com/v2"
+
+    # Sigma connection type to DataHub platform mapping
+    SIGMA_CONNECTION_TYPE_TO_PLATFORM = {
+        "snowflake": "snowflake",
+        "bigquery": "bigquery",
+        "bigQuery": "bigquery",
+        "redshift": "redshift",
+        "postgres": "postgres",
+        "postgresql": "postgres",
+        "databricks": "databricks",
+        "mysql": "mysql",
+        "alloydb": "postgres",  # AlloyDB is PostgreSQL-compatible
+    }
 
 
 class WorkspaceCounts(BaseModel):
@@ -148,6 +162,26 @@ class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     )
 
 
+class SigmaConnectionMapping(PlatformInstanceConfigMixin, EnvConfigMixin):
+    """Configuration for mapping a Sigma connection to a DataHub platform."""
+
+    platform: Optional[str] = pydantic.Field(
+        default=None,
+        description="Override the DataHub platform for this connection. "
+        "If not specified, the platform is auto-detected from Sigma connection type.",
+    )
+    default_db: Optional[str] = pydantic.Field(
+        default=None,
+        description="Default database name for this connection. "
+        "Used to generate fully qualified table URNs.",
+    )
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
+        description="Default schema name for this connection. "
+        "Used to generate fully qualified table URNs.",
+    )
+
+
 class SigmaSourceConfig(
     StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
 ):
@@ -182,6 +216,18 @@ class SigmaSourceConfig(
     chart_sources_platform_mapping: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
         description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.",
+    )
+    connection_mapping: Dict[str, SigmaConnectionMapping] = pydantic.Field(
+        default={},
+        description="A mapping of Sigma connection names to DataHub platform details. "
+        "Used for extracting dataset upstream lineage. "
+        "Keys can be connection names or connection IDs. "
+        "Example: {'My Postgres Connection': {'platform': 'postgres', 'default_db': 'mydb', 'default_schema': 'public'}}",
+    )
+    extract_dataset_lineage: bool = pydantic.Field(
+        default=True,
+        description="Whether to extract lineage for Sigma datasets to their underlying warehouse tables. "
+        "Requires connection_mapping to be configured for the relevant connections.",
     )
     max_workers: int = pydantic.Field(
         default=20,
