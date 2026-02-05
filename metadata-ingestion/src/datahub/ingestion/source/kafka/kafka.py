@@ -435,6 +435,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
                 # Update results with resolved schemas
+                value_schemas_resolved = 0
+                key_schemas_resolved = 0
+
                 for topic in topics_needing_resolution:
                     value_result = value_resolution_results.get(topic)
                     key_result = key_resolution_results.get(topic)
@@ -445,9 +448,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                             value_result.schema,
                             value_result.fields,
                         )
-                        logger.info(
+                        logger.debug(
                             f"Resolved value schema for topic {topic} using {value_result.resolution_method}"
                         )
+                        value_schemas_resolved += 1
                     elif topic not in topic_value_schemas:
                         topic_value_schemas[topic] = (None, [])
 
@@ -457,11 +461,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                             key_result.schema,
                             key_result.fields,
                         )
-                        logger.info(
+                        logger.debug(
                             f"Resolved key schema for topic {topic} using {key_result.resolution_method}"
                         )
+                        key_schemas_resolved += 1
                     elif topic not in topic_key_schemas:
                         topic_key_schemas[topic] = (None, [])
+
+                logger.info(
+                    f"Schema resolution complete: {value_schemas_resolved} value schemas and {key_schemas_resolved} key schemas resolved for {len(topics_needing_resolution)} topics"
+                )
 
         # Process topics sequentially (fast since schemas are pre-fetched) and collect profiling tasks
         profiling_tasks = []

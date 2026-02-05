@@ -11,6 +11,11 @@ from pydantic import BaseModel, Field
 from datahub.ingestion.source.kafka.kafka_config import ProfilerConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_NESTED_FIELD_MAX_DEPTH,
+    PROFILER_BOOLEAN_TYPES,
+    PROFILER_DATETIME_TYPES,
+    PROFILER_NUMERIC_TYPES,
+    PROFILER_STRING_TYPES,
+    PROFILER_UNKNOWN_TYPES,
 )
 from datahub.ingestion.source.kafka.kafka_profiler_utils import (
     calculate_numeric_stats,
@@ -149,7 +154,7 @@ def flatten_json(
                         flattened_dict,
                         max_depth,
                         current_depth + 1,
-                        seen_objects.copy(),  # Pass a copy to avoid side effects
+                        seen_objects,
                     )
                 else:
                     # Convert value to string and limit length to prevent memory issues
@@ -170,7 +175,7 @@ def flatten_json(
                         flattened_dict,
                         max_depth,
                         current_depth + 1,
-                        seen_objects.copy(),  # Pass a copy to avoid side effects
+                        seen_objects,
                     )
                 else:
                     # Convert value to string and limit length
@@ -200,6 +205,8 @@ class KafkaProfiler:
             profiler_config.turn_off_expensive_profiling_metrics
         )
         self._processed_field_count = 0
+        self.profiling_errors: List[str] = []
+        self.samples_skipped = 0
 
     @staticmethod
     def profile_topic(
@@ -208,33 +215,41 @@ class KafkaProfiler:
         schema_metadata: Optional[SchemaMetadataClass],
         config: ProfilerConfig,
     ) -> Optional[DatasetProfileClass]:
-        try:
-            if not samples:
-                logger.warning(f"No samples available for topic {topic_name}")
-                return None
+        if not samples:
+            logger.warning(f"No samples available for topic {topic_name}")
+            return None
 
-            profiler = KafkaProfiler(config)
+        profiler = KafkaProfiler(config)
+
+        try:
             profile = profiler.generate_dataset_profile(samples, schema_metadata)
 
             if profile:
-                # Set partition spec to indicate sample-based profiling
                 profile.partitionSpec = PartitionSpecClass(
                     partition=f"SAMPLE ({len(samples)} messages)",
                     type=PartitionTypeClass.QUERY,
                 )
 
+                if profiler.profiling_errors:
+                    logger.warning(
+                        f"Profiling completed with {len(profiler.profiling_errors)} errors for topic {topic_name}. "
+                        f"Skipped {profiler.samples_skipped} samples. First error: {profiler.profiling_errors[0]}"
+                    )
+
             return profile
 
         except RecursionError as e:
-            logger.error(
+            error_msg = (
                 f"Maximum recursion depth exceeded while profiling topic {topic_name}. "
                 f"This is likely due to deeply nested or circular JSON structures. "
                 f"Consider reducing the message complexity or adjusting flatten_json max_depth. Error: {e}"
             )
-            return None
+            logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
         except Exception as e:
-            logger.error(f"Failed to profile topic {topic_name}: {e}")
-            return None
+            error_msg = f"Failed to profile topic {topic_name}: {e}"
+            logger.error(error_msg)
+            raise
 
     def _calculate_numeric_stats(
         self, numeric_values: List[float]
@@ -470,12 +485,16 @@ class KafkaProfiler:
                 try:
                     self._process_sample(sample, schema_metadata, field_mappings)
                 except RecursionError as e:
-                    logger.warning(
-                        f"Skipping sample {i} due to recursion error (likely circular/deep JSON): {e}"
-                    )
+                    error_msg = f"Skipping sample {i} due to recursion error (likely circular/deep JSON): {e}"
+                    logger.warning(error_msg)
+                    self.profiling_errors.append(error_msg)
+                    self.samples_skipped += 1
                     continue
                 except Exception as e:
-                    logger.warning(f"Error processing sample {i}: {e}")
+                    error_msg = f"Error processing sample {i}: {e}"
+                    logger.warning(error_msg)
+                    self.profiling_errors.append(error_msg)
+                    self.samples_skipped += 1
                     continue
 
             # Calculate statistics for all fields
@@ -486,15 +505,14 @@ class KafkaProfiler:
             return self.create_profile_data(field_stats, len(samples))
 
         except RecursionError as e:
-            logger.error(f"Maximum recursion depth exceeded in dataset profiling: {e}")
-            # Return a minimal profile if recursion error occurs
-            return DatasetProfileClass(
-                timestampMillis=int(datetime.now().timestamp() * 1000),
-                columnCount=0,
-                fieldProfiles=[],
-            )
+            error_msg = f"Maximum recursion depth exceeded in dataset profiling: {e}"
+            logger.error(error_msg)
+            self.profiling_errors.append(error_msg)
+            raise RuntimeError(error_msg) from e
         except Exception as e:
-            logger.error(f"Unexpected error in dataset profiling: {e}")
+            error_msg = f"Unexpected error in dataset profiling: {e}"
+            logger.error(error_msg)
+            self.profiling_errors.append(error_msg)
             raise
 
     def _get_data_type_from_schema_field_type(
@@ -515,18 +533,12 @@ class KafkaProfiler:
             NullTypeClass,
         ],
     ) -> str:
-        """Determine data type from SchemaFieldDataType class using isinstance checks.
-
-        Aligned with Great Expectations ProfilerDataType enum:
-        NUMERIC, BOOLEAN, DATETIME, STRING, UNKNOWN
-        """
-
         if isinstance(type_class, NumberTypeClass):
             return "NUMERIC"
         elif isinstance(type_class, BooleanTypeClass):
             return "BOOLEAN"
         elif isinstance(type_class, (DateTypeClass, TimeTypeClass)):
-            return "DATETIME"  # Aligned with GE ProfilerDataType
+            return "DATETIME"
         elif isinstance(type_class, (StringTypeClass, EnumTypeClass)):
             return "STRING"
         elif isinstance(
@@ -541,42 +553,23 @@ class KafkaProfiler:
                 NullTypeClass,
             ),
         ):
-            return "UNKNOWN"  # Complex/unsupported types -> UNKNOWN (aligned with GE)
+            return "UNKNOWN"
         else:
-            return "UNKNOWN"  # Default fallback aligned with GE
+            return "UNKNOWN"
 
     def _get_data_type_from_native_type(self, native_type: str) -> str:
-        """Determine data type from nativeDataType string using set membership.
-
-        Aligned with Great Expectations ProfilerDataType enum:
-        NUMERIC, BOOLEAN, DATETIME, STRING, UNKNOWN
-        """
-        # Using sets for O(1) lookup instead of multiple 'in' checks
-        numeric_types = {"long", "int", "double", "float", "decimal"}
-        boolean_types = {"boolean", "bool"}
-        datetime_types = {
-            "date",
-            "time-micros",
-            "time-millis",
-            "timestamp-micros",
-            "timestamp-millis",
-        }
-        string_types = {"string", "enum"}  # Enum treated as string in GE
-        # Complex/unsupported types mapped to UNKNOWN
-        unknown_types = {"bytes", "fixed", "array", "map", "record", "union", "null"}
-
-        if native_type in numeric_types:
+        if native_type in PROFILER_NUMERIC_TYPES:
             return "NUMERIC"
-        elif native_type in boolean_types:
+        elif native_type in PROFILER_BOOLEAN_TYPES:
             return "BOOLEAN"
-        elif native_type in datetime_types:
-            return "DATETIME"  # Aligned with GE ProfilerDataType
-        elif native_type in string_types:
+        elif native_type in PROFILER_DATETIME_TYPES:
+            return "DATETIME"
+        elif native_type in PROFILER_STRING_TYPES:
             return "STRING"
-        elif native_type in unknown_types:
-            return "UNKNOWN"  # Complex/unsupported types -> UNKNOWN (aligned with GE)
+        elif native_type in PROFILER_UNKNOWN_TYPES:
+            return "UNKNOWN"
         else:
-            return "STRING"  # Default fallback for unknown string-like types
+            return "STRING"
 
     def _process_field_statistics(
         self,
@@ -675,12 +668,8 @@ class KafkaProfiler:
         max_fields = (
             getattr(self.profiler_config, "max_number_of_fields_to_profile", 10) or 10
         )
-        if hasattr(self, "_processed_field_count"):
-            self._processed_field_count += 1
-            return self._processed_field_count > max_fields
-        else:
-            self._processed_field_count = 1
-            return False
+        self._processed_field_count += 1
+        return self._processed_field_count > max_fields
 
     def _create_minimal_stats(
         self, field_path: str, data_type: str

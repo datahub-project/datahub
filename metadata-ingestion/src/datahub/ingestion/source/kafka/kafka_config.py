@@ -58,6 +58,15 @@ class SchemaResolutionFallback(ConfigModel):
 
 
 class ProfilerConfig(GEProfilingConfig):
+    """
+    Kafka profiling configuration extending GEProfilingConfig.
+
+    Inherits from GEProfilingConfig to provide consistent profiling options across
+    DataHub sources while adding Kafka-specific sampling strategies. The base config
+    provides standard profiling flags (include_field_min_value, include_field_max_value,
+    turn_off_expensive_profiling_metrics, etc.) used throughout DataHub's profiling ecosystem.
+    """
+
     max_sample_time_seconds: PositiveInt = Field(
         default=DEFAULT_MAX_SAMPLE_TIME_SECONDS,
         gt=0,

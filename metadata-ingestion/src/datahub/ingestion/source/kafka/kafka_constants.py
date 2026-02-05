@@ -12,3 +12,16 @@ DEFAULT_MAX_MESSAGES_PER_TOPIC = 10
 SCHEMA_TYPE_AVRO = "AVRO"
 SCHEMA_TYPE_PROTOBUF = "PROTOBUF"
 SCHEMA_TYPE_JSON = "JSON"
+
+# Profiler type classifications
+PROFILER_NUMERIC_TYPES = {"long", "int", "double", "float", "decimal"}
+PROFILER_BOOLEAN_TYPES = {"boolean", "bool"}
+PROFILER_DATETIME_TYPES = {
+    "date",
+    "time-micros",
+    "time-millis",
+    "timestamp-micros",
+    "timestamp-millis",
+}
+PROFILER_STRING_TYPES = {"string", "enum"}
+PROFILER_UNKNOWN_TYPES = {"bytes", "fixed", "array", "map", "record", "union", "null"}
