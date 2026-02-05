@@ -1,4 +1,5 @@
 import contextlib
+import hashlib
 import logging
 import os
 import re
@@ -51,7 +52,8 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
-# Common Google type definitions for fallback when they're missing
+_DESCRIPTOR_CACHE: Dict[str, Optional[FileDescriptor]] = {}
+
 GOOGLE_TYPE_DEFINITIONS = {
     "google/type/date.proto": """
 syntax = "proto3";
@@ -344,8 +346,17 @@ def _from_protobuf_schema_to_descriptors(
         imported_schemas = []
     imported_schemas.insert(0, main_schema)
 
-    # Check if any schema references Google types and add fallback definitions if needed
     all_schema_content = "\n".join([schema.content for schema in imported_schemas])
+
+    cache_key = hashlib.md5(all_schema_content.encode()).hexdigest()
+    if cache_key in _DESCRIPTOR_CACHE:
+        cached_descriptor = _DESCRIPTOR_CACHE[cache_key]
+        if cached_descriptor is not None:
+            logger.debug(
+                f"Reusing cached descriptor for {main_schema.name} (hash: {cache_key[:8]}...)"
+            )
+        return cached_descriptor
+
     google_types_referenced = []
 
     if "google.type.Date" in all_schema_content and not any(
@@ -358,7 +369,6 @@ def _from_protobuf_schema_to_descriptors(
     ):
         google_types_referenced.append("google/type/decimal.proto")
 
-    # Add missing Google type definitions
     for google_type_file in google_types_referenced:
         if google_type_file in GOOGLE_TYPE_DEFINITIONS:
             logger.info(f"Adding fallback definition for {google_type_file}")
@@ -385,36 +395,44 @@ def _from_protobuf_schema_to_descriptors(
                 #
                 full_path = os.path.join(tmpdir, schema.name)
                 Path(full_path).parent.mkdir(parents=True, exist_ok=True)
-                #
                 with open(full_path, "w") as temp_file:
                     temp_file.writelines(schema.content)
 
         try:
-            return grpc.protos(main_schema.name).DESCRIPTOR
+            descriptor = grpc.protos(main_schema.name).DESCRIPTOR
+            _DESCRIPTOR_CACHE[cache_key] = descriptor
+            return descriptor
         except Exception as e:
             error_msg = str(e)
-            logger.warning(f"Failed to compile protobuf schema {main_schema.name}: {e}")
 
-            # Provide specific error messages for common issues
             if "duplicate symbol" in error_msg.lower():
-                logger.error(
-                    f"Duplicate symbol error in {main_schema.name}. "
-                    f"This typically occurs when the same message type is defined multiple times "
-                    f"or when there are conflicting imports. Consider using schema evolution "
-                    f"or namespace isolation to resolve conflicts."
+                logger.debug(
+                    f"Protobuf schema {main_schema.name} contains symbols already registered in "
+                    f"global descriptor pool (hash: {cache_key[:8]}...). This typically occurs when "
+                    f"multiple topics share the same schema. Schema fields will be unavailable."
                 )
             elif "google.type" in error_msg:
+                logger.warning(
+                    f"Failed to compile protobuf schema {main_schema.name}: {e}"
+                )
                 logger.error(
                     f"Google type definition error in {main_schema.name}. "
                     f"This may indicate missing google/type imports in the schema registry."
                 )
             elif "descriptor pool" in error_msg.lower():
+                logger.warning(
+                    f"Failed to compile protobuf schema {main_schema.name}: {e}"
+                )
                 logger.error(
                     f"Descriptor pool error in {main_schema.name}. "
                     f"This may indicate conflicting protobuf definitions or circular dependencies."
                 )
-            # Don't raise - let the caller handle the error gracefully
-            # This follows DataHub's pattern of logging warnings and continuing
+            else:
+                logger.warning(
+                    f"Failed to compile protobuf schema {main_schema.name}: {e}"
+                )
+
+            _DESCRIPTOR_CACHE[cache_key] = None
             return None
 
 
