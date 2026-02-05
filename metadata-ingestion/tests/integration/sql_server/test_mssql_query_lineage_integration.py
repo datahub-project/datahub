@@ -48,36 +48,50 @@ def mssql_runner(docker_compose_runner, test_resources_dir):
 
 
 @pytest.fixture(scope="module")
+def aggregator():
+    """Create SQL parsing aggregator for lineage tests."""
+    return SqlParsingAggregator(
+        platform="mssql", generate_lineage=True, generate_queries=True
+    )
+
+
+@pytest.fixture(scope="module")
 def mssql_connection(mssql_runner):
     """Create SQLAlchemy connection to test SQL Server instance."""
-    engine = sa.create_engine(
+    # First, create database and enable Query Store using master connection
+    master_engine = sa.create_engine(
         "mssql+pyodbc://sa:test!Password@localhost:21433/master?"
         "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
         isolation_level="AUTOCOMMIT",
     )
 
-    with engine.connect() as conn:
-        # Create test database with Query Store enabled
-        conn.execute(text("DROP DATABASE IF EXISTS lineage_test"))
-        conn.execute(text("CREATE DATABASE lineage_test"))
-        conn.execute(
+    with master_engine.connect() as master_conn:
+        master_conn.execute(text("DROP DATABASE IF EXISTS lineage_test"))
+        master_conn.execute(text("CREATE DATABASE lineage_test"))
+        master_conn.execute(
             text(
                 """
             ALTER DATABASE lineage_test SET QUERY_STORE = ON
             (
                 OPERATION_MODE = READ_WRITE,
-                DATA_FLUSH_INTERVAL_SECONDS = 60,
+                DATA_FLUSH_INTERVAL_SECONDS = 1,
                 INTERVAL_LENGTH_MINUTES = 1,
                 MAX_STORAGE_SIZE_MB = 100,
-                QUERY_CAPTURE_MODE = AUTO
+                QUERY_CAPTURE_MODE = ALL,
+                SIZE_BASED_CLEANUP_MODE = AUTO
             )
         """
             )
         )
 
-        conn.execute(text("USE lineage_test"))
+    # Now create engine connected to lineage_test database
+    test_engine = sa.create_engine(
+        "mssql+pyodbc://sa:test!Password@localhost:21433/lineage_test?"
+        "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+        isolation_level="AUTOCOMMIT",
+    )
 
-        # Create test schema and tables
+    with test_engine.connect() as conn:
         conn.execute(text("CREATE SCHEMA lineage_test"))
 
         conn.execute(
@@ -128,8 +142,11 @@ def mssql_connection(mssql_runner):
 
         yield conn
 
-        conn.execute(text("USE master"))
-        conn.execute(text("DROP DATABASE IF EXISTS lineage_test"))
+        conn.close()
+
+    # Drop database using master connection
+    with master_engine.connect() as master_conn:
+        master_conn.execute(text("DROP DATABASE IF EXISTS lineage_test"))
 
 
 @pytest.mark.integration
@@ -153,16 +170,20 @@ class TestMSSQLLineageIntegration:
 
     def test_query_history_extraction_basic(self, mssql_connection):
         """Test basic query history extraction from Query Store."""
-        # Execute test queries
-        mssql_connection.execute(
-            text("SELECT * FROM lineage_test.source_orders WHERE order_id = 1")
-        )
-        mssql_connection.execute(
-            text("SELECT * FROM lineage_test.source_customers WHERE customer_id = 101")
-        )
+        for _ in range(3):
+            mssql_connection.execute(
+                text("SELECT * FROM lineage_test.source_orders WHERE order_id = 1")
+            )
+            mssql_connection.execute(
+                text(
+                    "SELECT * FROM lineage_test.source_customers WHERE customer_id = 101"
+                )
+            )
 
-        # Wait for Query Store to capture queries
-        time.sleep(2)
+        mssql_connection.execute(text("EXEC sp_query_store_flush_db"))
+
+        # Wait for Query Store to capture and process queries
+        time.sleep(3)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
             database="lineage_test", limit=100, min_calls=1, exclude_patterns=None
@@ -200,7 +221,11 @@ class TestMSSQLLineageIntegration:
             )
         )
 
-        time.sleep(2)
+        mssql_connection.execute(text("SELECT * FROM lineage_test.target_summary"))
+
+        mssql_connection.execute(text("EXEC sp_query_store_flush_db"))
+
+        time.sleep(3)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
             database="lineage_test", limit=100, min_calls=1, exclude_patterns=None
@@ -258,7 +283,6 @@ class TestMSSQLLineageIntegration:
             exclude_patterns=[malicious_pattern],
         )
 
-        # Execute the query - if injection worked, the table would be dropped
         result = mssql_connection.execute(query, params)
         list(result)
 
@@ -336,7 +360,6 @@ class TestMSSQLLineageIntegration:
 
     def test_query_history_with_min_calls_filter(self, mssql_connection):
         """Test that min_calls filter works correctly."""
-        # Execute query multiple times
         for _ in range(5):
             mssql_connection.execute(
                 text("SELECT * FROM lineage_test.source_orders WHERE order_id > 0")
@@ -360,37 +383,49 @@ class TestMSSQLLineageIntegration:
 
     def test_query_store_disabled_scenario(self, mssql_connection):
         """Test behavior when Query Store is disabled."""
-        # Create temporary database without Query Store
-        mssql_connection.execute(text("CREATE DATABASE test_no_qs"))
-        mssql_connection.execute(text("USE test_no_qs"))
-
-        config = SQLServerConfig(
-            username="sa",
-            password="test!Password",
-            host_port="localhost:21433",
-            database="test_no_qs",
+        master_engine = sa.create_engine(
+            "mssql+pyodbc://sa:test!Password@localhost:21433/master?"
+            "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+            isolation_level="AUTOCOMMIT",
         )
 
-        report = SQLSourceReport()
-        aggregator = SqlParsingAggregator(
-            platform="mssql", generate_lineage=True, generate_queries=True
+        with master_engine.connect() as master_conn:
+            master_conn.execute(text("DROP DATABASE IF EXISTS test_no_qs"))
+            master_conn.execute(text("CREATE DATABASE test_no_qs"))
+
+        test_engine = sa.create_engine(
+            "mssql+pyodbc://sa:test!Password@localhost:21433/test_no_qs?"
+            "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+            isolation_level="AUTOCOMMIT",
         )
 
-        extractor = MSSQLLineageExtractor(
-            config=config,
-            connection=mssql_connection,
-            report=report,
-            sql_aggregator=aggregator,
-        )
+        with test_engine.connect() as test_conn:
+            config = SQLServerConfig(
+                username="sa",
+                password="test!Password",
+                host_port="localhost:21433",
+                database="test_no_qs",
+            )
 
-        is_ready, message, method = extractor.check_prerequisites()
+            report = SQLSourceReport()
+            aggregator = SqlParsingAggregator(
+                platform="mssql", generate_lineage=True, generate_queries=True
+            )
 
-        # Should fall back to DMV
-        assert method == "dmv", "Should fall back to DMV when Query Store disabled"
+            extractor = MSSQLLineageExtractor(
+                config=config,
+                connection=test_conn,
+                report=report,
+                sql_aggregator=aggregator,
+                default_schema="dbo",
+            )
 
-        # Cleanup
-        mssql_connection.execute(text("USE master"))
-        mssql_connection.execute(text("DROP DATABASE test_no_qs"))
+            is_ready, message, method = extractor.check_prerequisites()
+
+            assert method == "dmv", "Should fall back to DMV when Query Store disabled"
+
+        with master_engine.connect() as master_conn:
+            master_conn.execute(text("DROP DATABASE IF EXISTS test_no_qs"))
 
     def test_malformed_query_text_handling(self, mssql_connection):
         """Test handling of queries with unusual or malformed text."""
@@ -455,7 +490,6 @@ class TestMSSQLLineageIntegration:
 
     def test_end_to_end_lineage_aggregation(self, mssql_connection):
         """Test complete lineage extraction and aggregation pipeline."""
-        # Create tables for lineage test
         mssql_connection.execute(text("DROP TABLE IF EXISTS lineage_test.etl_source"))
         mssql_connection.execute(text("DROP TABLE IF EXISTS lineage_test.etl_staging"))
         mssql_connection.execute(text("DROP TABLE IF EXISTS lineage_test.etl_final"))
@@ -497,7 +531,6 @@ class TestMSSQLLineageIntegration:
             )
         )
 
-        # Execute lineage-generating queries
         mssql_connection.execute(
             text(
                 """
@@ -543,13 +576,10 @@ class TestMSSQLLineageIntegration:
             sql_aggregator=aggregator,
         )
 
-        # Test the complete pipeline
         extractor.populate_lineage_from_queries()
 
-        # Verify queries were extracted
         assert report.num_queries_extracted > 0, "Should have extracted queries"
 
-        # Cleanup
         aggregator.close()
 
     def test_lineage_with_parse_failures(self, mssql_connection):
@@ -567,7 +597,6 @@ class TestMSSQLLineageIntegration:
             platform="mssql", generate_lineage=True, generate_queries=True
         )
 
-        # Execute some valid and some potentially problematic queries
         try:
             mssql_connection.execute(text("SELECT * FROM lineage_test.source_orders"))
             mssql_connection.execute(
@@ -585,10 +614,8 @@ class TestMSSQLLineageIntegration:
             sql_aggregator=aggregator,
         )
 
-        # Should not raise exception even if some queries can't be parsed
         extractor.populate_lineage_from_queries()
 
-        # Cleanup
         aggregator.close()
 
     def test_connection_loss_during_extraction(self, mssql_connection):
@@ -606,35 +633,49 @@ class TestMSSQLLineageIntegration:
             platform="mssql", generate_lineage=True, generate_queries=True
         )
 
-        from unittest.mock import MagicMock
+        from unittest.mock import MagicMock, Mock
 
         from sqlalchemy.exc import OperationalError
 
         mock_conn = MagicMock()
 
-        # Simulate connection loss during query extraction
-        mock_conn.execute.side_effect = OperationalError("connection lost", None, None)
+        version_result = Mock()
+        version_result.fetchone.return_value = {
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
+            "major_version": 15,
+        }
+
+        qs_result = Mock()
+        qs_result.fetchone.return_value = {"is_enabled": 1}
+
+        call_count = [0]
+
+        def execute_side_effect(query, *args):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return version_result
+            elif call_count[0] == 2:
+                return qs_result
+            else:
+                # Simulate connection loss during actual query extraction
+                raise OperationalError("connection lost", None, None)
+
+        mock_conn.execute.side_effect = execute_side_effect
 
         extractor = MSSQLLineageExtractor(
             config=config,
             connection=mock_conn,
             report=report,
             sql_aggregator=aggregator,
+            default_schema="dbo",
         )
 
         queries = extractor.extract_query_history()
 
-        # Should return empty list and log failure, not crash
         assert len(queries) == 0
         assert len(report.failures) > 0
 
-        # Cleanup
         aggregator.close()
-
-
-# =============================================================================
-# BLOCKER: End-to-End Lineage Graph Validation Tests
-# =============================================================================
 
 
 def test_end_to_end_lineage_graph_validation(mssql_connection, aggregator):
@@ -645,7 +686,6 @@ def test_end_to_end_lineage_graph_validation(mssql_connection, aggregator):
     """
     conn = mssql_connection
 
-    # Create source and target tables
     conn.execute(text("DROP TABLE IF EXISTS lineage_source"))
     conn.execute(text("DROP TABLE IF EXISTS lineage_target"))
     conn.execute(
@@ -677,7 +717,6 @@ def test_end_to_end_lineage_graph_validation(mssql_connection, aggregator):
         SELECT id, name, email FROM lineage_source
     """)
     )
-    conn.commit()
 
     # Wait for Query Store to capture
     time.sleep(2)
@@ -710,17 +749,14 @@ def test_end_to_end_lineage_graph_validation(mssql_connection, aggregator):
     # CRITICAL: Validate lineage relationships exist
     assert len(lineage_mcps) > 0, "No lineage MCPs generated!"
 
-    # Cleanup
     conn.execute(text("DROP TABLE IF EXISTS lineage_source"))
     conn.execute(text("DROP TABLE IF EXISTS lineage_target"))
-    conn.commit()
 
 
 def test_column_level_lineage_validation(mssql_connection, aggregator):
     """BLOCKER: Verify column-level lineage is extracted correctly."""
     conn = mssql_connection
 
-    # Create tables with different column names to test mapping
     conn.execute(text("DROP TABLE IF EXISTS col_source"))
     conn.execute(text("DROP TABLE IF EXISTS col_target"))
     conn.execute(
@@ -749,7 +785,6 @@ def test_column_level_lineage_validation(mssql_connection, aggregator):
         SELECT user_id, first_name + ' ' + last_name FROM col_source
     """)
     )
-    conn.commit()
     time.sleep(2)
 
     config = SQLServerConfig.model_validate(
@@ -777,10 +812,8 @@ def test_column_level_lineage_validation(mssql_connection, aggregator):
     # Verify MCPs were generated
     assert len(lineage_mcps) > 0, "No lineage MCPs generated"
 
-    # Cleanup
     conn.execute(text("DROP TABLE IF EXISTS col_source"))
     conn.execute(text("DROP TABLE IF EXISTS col_target"))
-    conn.commit()
 
 
 # =============================================================================
@@ -800,7 +833,6 @@ def test_merge_statement_lineage_extraction(mssql_connection, aggregator):
     conn.execute(text("INSERT INTO merge_source VALUES (1, 'data')"))
     conn.execute(text("INSERT INTO merge_target VALUES (2, 'old')"))
 
-    # Execute MERGE statement
     conn.execute(
         text("""
         MERGE INTO merge_target AS t
@@ -809,7 +841,6 @@ def test_merge_statement_lineage_extraction(mssql_connection, aggregator):
         WHEN NOT MATCHED THEN INSERT (id, value) VALUES (s.id, s.value)
     """)
     )
-    conn.commit()
     time.sleep(2)
 
     config = SQLServerConfig.model_validate(
@@ -836,10 +867,8 @@ def test_merge_statement_lineage_extraction(mssql_connection, aggregator):
     # Verify MERGE query was captured
     merge_found = any("MERGE" in q.query_text.upper() for q in queries)
 
-    # Cleanup
     conn.execute(text("DROP TABLE IF EXISTS merge_source"))
     conn.execute(text("DROP TABLE IF EXISTS merge_target"))
-    conn.commit()
 
     assert merge_found, "MERGE statement not captured in query history"
 
@@ -855,7 +884,6 @@ def test_select_into_creates_lineage(mssql_connection, aggregator):
 
     # SELECT INTO creates new table
     conn.execute(text("SELECT id, name INTO select_into_new FROM select_into_source"))
-    conn.commit()
     time.sleep(2)
 
     config = SQLServerConfig.model_validate(
@@ -883,10 +911,8 @@ def test_select_into_creates_lineage(mssql_connection, aggregator):
         "SELECT" in q.query_text and "INTO" in q.query_text for q in queries
     )
 
-    # Cleanup
     conn.execute(text("DROP TABLE IF EXISTS select_into_source"))
     conn.execute(text("DROP TABLE IF EXISTS select_into_new"))
-    conn.commit()
 
     assert select_into_found, "SELECT INTO not captured in query history"
 
@@ -913,7 +939,6 @@ def test_update_with_join_tsql_syntax(mssql_connection, aggregator):
         WHERE s.flag = 1
     """)
     )
-    conn.commit()
     time.sleep(2)
 
     config = SQLServerConfig.model_validate(
@@ -941,10 +966,8 @@ def test_update_with_join_tsql_syntax(mssql_connection, aggregator):
         "UPDATE" in q.query_text and "JOIN" in q.query_text for q in queries
     )
 
-    # Cleanup
     conn.execute(text("DROP TABLE IF EXISTS update_target"))
     conn.execute(text("DROP TABLE IF EXISTS update_source"))
-    conn.commit()
 
     assert update_join_found, "UPDATE with JOIN not captured"
 
@@ -953,7 +976,6 @@ def test_bracket_quoted_identifiers_in_queries(mssql_connection, aggregator):
     """Test that bracket-quoted identifiers are handled correctly."""
     conn = mssql_connection
 
-    # Create tables with space in name (requires brackets)
     conn.execute(text("DROP TABLE IF EXISTS [Source Table]"))
     conn.execute(text("DROP TABLE IF EXISTS [Target Table]"))
     conn.execute(text("CREATE TABLE [Source Table] (id INT, data VARCHAR(50))"))
@@ -966,7 +988,6 @@ def test_bracket_quoted_identifiers_in_queries(mssql_connection, aggregator):
         SELECT * FROM [Source Table]
     """)
     )
-    conn.commit()
     time.sleep(2)
 
     config = SQLServerConfig.model_validate(
@@ -996,10 +1017,8 @@ def test_bracket_quoted_identifiers_in_queries(mssql_connection, aggregator):
         for q in queries
     )
 
-    # Cleanup
     conn.execute(text("DROP TABLE IF EXISTS [Source Table]"))
     conn.execute(text("DROP TABLE IF EXISTS [Target Table]"))
-    conn.commit()
 
     assert brackets_found, "Bracket-quoted identifiers not preserved"
 
@@ -1018,13 +1037,11 @@ def test_stored_procedure_with_temp_tables_filtered(mssql_connection):
     """
     conn = mssql_connection
 
-    # Create source and target
     conn.execute(text("DROP TABLE IF EXISTS proc_source"))
     conn.execute(text("DROP TABLE IF EXISTS proc_target"))
     conn.execute(text("CREATE TABLE proc_source (id INT, value VARCHAR(50))"))
     conn.execute(text("CREATE TABLE proc_target (id INT, value VARCHAR(50))"))
 
-    # Create procedure that uses temp table
     conn.execute(text("DROP PROCEDURE IF EXISTS test_temp_proc"))
     conn.execute(
         text("""
@@ -1036,12 +1053,9 @@ def test_stored_procedure_with_temp_tables_filtered(mssql_connection):
         END
     """)
     )
-    conn.commit()
 
     # Note: Full procedure lineage with alias filtering requires schema resolution
 
-    # Cleanup
     conn.execute(text("DROP PROCEDURE IF EXISTS test_temp_proc"))
     conn.execute(text("DROP TABLE IF EXISTS proc_source"))
     conn.execute(text("DROP TABLE IF EXISTS proc_target"))
-    conn.commit()
