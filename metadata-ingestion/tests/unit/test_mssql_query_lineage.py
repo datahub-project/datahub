@@ -1,6 +1,8 @@
+import time
 from unittest.mock import Mock, patch
 
 import pytest
+from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.mssql.lineage import (
@@ -10,6 +12,9 @@ from datahub.ingestion.source.sql.mssql.lineage import (
 from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
+from datahub.metadata.urns import CorpUserUrn
+from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
+from datahub.sql_parsing.sqlglot_lineage import SqlUnderstandingError
 
 
 def _base_config():
@@ -101,8 +106,6 @@ def test_mssql_sql_aggregator_initialization_failure(create_engine_mock):
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
 def test_mssql_query_extraction_failure_reports_error(create_engine_mock):
     """Test that query extraction failures are reported but don't stop ingestion."""
-    from sqlalchemy.exc import DatabaseError
-
     config = SQLServerConfig.model_validate(
         {**_base_config(), "include_query_lineage": True}
     )
@@ -533,8 +536,6 @@ def test_mssql_lineage_extractor_extract_queries_applies_exclude_patterns():
 
 def test_mssql_lineage_extractor_handles_extraction_failure():
     """Test query extraction reports errors gracefully on database errors."""
-    from sqlalchemy.exc import DatabaseError
-
     config = SQLServerConfig.model_validate(_base_config())
     report = SQLSourceReport()
     conn_mock = Mock()
@@ -757,8 +758,6 @@ def test_mssql_lineage_extractor_version_check_fails():
 
 def test_mssql_lineage_extractor_query_store_check_fails():
     """Test Query Store check handles database errors."""
-    from sqlalchemy.exc import ProgrammingError
-
     config = SQLServerConfig.model_validate(_base_config())
     report = SQLSourceReport()
     conn_mock = Mock()
@@ -822,8 +821,6 @@ def test_mssql_lineage_extractor_malformed_query_text():
 
 def test_mssql_lineage_extractor_connection_failure_during_prerequisite():
     """Test extraction handles connection failures during prerequisite checks."""
-    from sqlalchemy.exc import OperationalError
-
     config = SQLServerConfig.model_validate(_base_config())
     report = SQLSourceReport()
     conn_mock = Mock()
@@ -845,8 +842,6 @@ def test_mssql_lineage_extractor_connection_failure_during_prerequisite():
 
 def test_mssql_lineage_extractor_fallback_to_dmv():
     """Test automatic fallback from Query Store to DMV."""
-    from sqlalchemy.exc import ProgrammingError
-
     config = SQLServerConfig.model_validate(_base_config())
     report = SQLSourceReport()
     conn_mock = Mock()
@@ -941,8 +936,6 @@ def test_mssql_populate_lineage_from_queries_integration():
 
 def test_mssql_populate_lineage_handles_parse_failures():
     """Test that populate_lineage_from_queries() handles parse failures gracefully."""
-    from datahub.sql_parsing.sqlglot_lineage import SqlUnderstandingError
-
     config = SQLServerConfig.model_validate(_base_config())
     report = SQLSourceReport()
     conn_mock = Mock()
@@ -1078,9 +1071,6 @@ def test_mssql_populate_lineage_disabled_in_config():
 
 def test_mssql_lineage_extractor_creates_correct_observed_query():
     """Test that ObservedQuery objects are created with correct parameters."""
-    from datahub.metadata.urns import CorpUserUrn
-    from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
-
     config = SQLServerConfig.model_validate(_base_config())
     report = SQLSourceReport()
     conn_mock = Mock()
@@ -1130,8 +1120,6 @@ def test_mssql_lineage_extractor_creates_correct_observed_query():
 
 def test_mssql_is_temp_table_caching():
     """Test that is_temp_table() uses caching for performance."""
-    from datahub.ingestion.api.common import PipelineContext
-
     config = SQLServerConfig.model_validate(_base_config())
     ctx = PipelineContext(run_id="test")
 
@@ -1161,10 +1149,6 @@ def test_mssql_is_temp_table_caching():
 
 def test_mssql_is_temp_table_cache_performance():
     """Test that caching provides performance benefit for repeated calls."""
-    import time
-
-    from datahub.ingestion.api.common import PipelineContext
-
     config = SQLServerConfig.model_validate(_base_config())
     ctx = PipelineContext(run_id="test")
 
