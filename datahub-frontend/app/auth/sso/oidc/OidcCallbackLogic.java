@@ -51,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -83,6 +84,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import play.mvc.Result;
 import utils.SerializationUtils;
+import auth.sso.oidc.RequiredGroupsException;
 
 /**
  * This class contains the logic that is executed when an OpenID Connect Identity Provider redirects
@@ -244,6 +246,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
       final String userName = extractUserNameOrThrow(oidcConfigs, profile);
       final CorpuserUrn corpUserUrn = new CorpuserUrn(userName);
 
+      // If RequiredGroups has groups, ensure that the user belongs to at least one of the required groups.
+      checkRequiredGroups(profile, userName, oidcConfigs);
+
       try {
         // If just-in-time User Provisioning is enabled, try to create the DataHub user if it does
         // not exist.
@@ -298,6 +303,41 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
     }
     return internalServerError(
         "Failed to authenticate current user. Cannot find valid identity provider profile in session.");
+  }
+
+  public static void checkRequiredGroups(CommonProfile profile, String userName, OidcConfigs oidcConfigs) {
+    if (!oidcConfigs.getRequiredGroups().isEmpty()) {
+      final Set<String> required = oidcConfigs.getRequiredGroups();
+      final String claimName = oidcConfigs.getGroupsClaimName();
+
+      final Set<String> userGroups = new HashSet<>();
+      if (profile.containsAttribute(claimName)) {
+        Collection<String> groupNames =
+            getGroupNames(profile, profile.getAttribute(claimName), claimName);
+        userGroups.addAll(groupNames);
+      }
+
+      Set<String> matchingGroups = new HashSet<>(userGroups);
+      matchingGroups.retainAll(required);
+
+      if (matchingGroups.isEmpty()) {
+        log.warn(
+            "User {} has none of the required groups. Required (any)={}, User has={}",
+            userName,
+            required,
+            userGroups);
+        throw new RequiredGroupsException(
+            String.format(
+                "Access denied: User %s does not have any of the required groups. Required (any): %s",
+                userName, required));
+            }
+
+      log.debug(
+          "User {} passed IAM group check. Matching groups={}, User groups={}",
+          userName,
+          matchingGroups,
+          userGroups);
+    }
   }
 
   private String extractUserNameOrThrow(
