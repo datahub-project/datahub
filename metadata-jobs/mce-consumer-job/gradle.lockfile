@@ -3,8 +3,8 @@
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 aopalliance:aopalliance:1.0=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-ch.qos.logback:logback-classic:1.5.21=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-ch.qos.logback:logback-core:1.5.21=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+ch.qos.logback:logback-classic:1.5.25=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+ch.qos.logback:logback-core:1.5.25=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 co.elastic.clients:elasticsearch-java:8.17.4=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.amazonaws:aws-java-sdk-core:1.12.660=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 com.amazonaws:aws-java-sdk-sts:1.12.660=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
@@ -203,9 +203,9 @@ io.grpc:grpc-protobuf-lite:1.77.0=productionRuntimeClasspath,runtimeClasspath,te
 io.grpc:grpc-protobuf:1.77.0=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 io.grpc:grpc-stub:1.68.3=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 io.grpc:grpc-util:1.77.0=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
-io.jsonwebtoken:jjwt-api:0.11.2=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
-io.jsonwebtoken:jjwt-impl:0.11.2=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
-io.jsonwebtoken:jjwt-jackson:0.11.2=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
+io.jsonwebtoken:jjwt-api:0.11.5=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
+io.jsonwebtoken:jjwt-impl:0.11.5=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
+io.jsonwebtoken:jjwt-jackson:0.11.5=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 io.micrometer:context-propagation:1.1.3=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 io.micrometer:micrometer-commons:1.15.1=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 io.micrometer:micrometer-core:1.15.1=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath

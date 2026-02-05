@@ -55,7 +55,7 @@ buildscript {
   ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
   ext.log4jVersion = '2.25.3'
   ext.slf4jVersion = '1.7.36'
-  ext.logbackClassic = '1.5.21'
+  ext.logbackClassic = '1.5.25' // GHSA-qqpg-mvqg-649v: class instantiation vuln
   ext.hadoop3Version = '3.3.6'
   ext.kafkaVersion = '8.0.0'
   ext.hazelcastVersion = '5.3.6'
@@ -528,7 +528,7 @@ subprojects {
       implementation externalDependency.annotationApi
       constraints {
         implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
-        implementation('io.netty:netty-all:4.1.130.Final')
+        implementation('io.netty:netty-all:4.1.130.Final') // CVE-2025-67735: CRLF injection in netty-codec-http
         implementation('io.netty:netty-codec:4.1.130.Final') // CVE-2025-58057
         implementation('io.netty:netty-resolver-dns-native-macos:4.1.130.Final')
         implementation('io.netty:netty-transport-native-epoll:4.1.130.Final')
