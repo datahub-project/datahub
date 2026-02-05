@@ -403,7 +403,7 @@ elasticsearch:
       #     m: 16
       models:
         cohere_embed_v3:
-          vectorDimension: ${ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION:1024}
+          vectorDimension: ${ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION:3072}
           knnEngine: ${ELASTICSEARCH_SEMANTIC_KNN_ENGINE:faiss}
           spaceType: ${ELASTICSEARCH_SEMANTIC_SPACE_TYPE:cosinesimil}
           efConstruction: ${ELASTICSEARCH_SEMANTIC_EF_CONSTRUCTION:128}
@@ -412,7 +412,7 @@ elasticsearch:
       # Supports three providers: "aws-bedrock", "openai", "cohere"
       embeddingProvider:
         # Provider type: "aws-bedrock", "openai", or "cohere"
-        type: ${EMBEDDING_PROVIDER_TYPE:aws-bedrock}
+        type: ${EMBEDDING_PROVIDER_TYPE:openai}
 
         # AWS Bedrock configuration (used when type is "aws-bedrock")
         # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
@@ -425,7 +425,7 @@ elasticsearch:
         # OpenAI configuration (used when type is "openai")
         openai:
           apiKey: ${OPENAI_API_KEY:}
-          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-large}
           endpoint: ${OPENAI_EMBEDDING_ENDPOINT:https://api.openai.com/v1/embeddings}
 
         # Cohere configuration (used when type is "cohere")
