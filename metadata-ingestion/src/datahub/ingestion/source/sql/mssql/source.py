@@ -265,7 +265,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     def validate_uri_args(
         cls, v: Dict[str, Any], info: ValidationInfo, **kwargs: Any
     ) -> Dict[str, Any]:
-        # Use Pydantic validation context to get is_odbc flag
         is_odbc = info.context.get("is_odbc", False) if info.context else False
         if is_odbc and not info.data["sqlalchemy_uri"] and "driver" not in v:
             raise ValueError(
@@ -658,11 +657,9 @@ class SQLServerSource(SQLAlchemySource):
         """
         jobs: Dict[str, Dict[str, Any]] = {}
 
-        # Detect environment to choose optimal method first
         is_rds = self._detect_rds_environment(conn)
 
         if is_rds:
-            # Managed environment - try stored procedures first
             try:
                 jobs = self._get_jobs_via_stored_procedures(conn, db_name)
                 logger.info(
@@ -674,7 +671,6 @@ class SQLServerSource(SQLAlchemySource):
                     "Expected failure retrieving jobs via stored procedures in managed environment (RDS/managed instances may restrict msdb access): %s",
                     sp_error,
                 )
-                # Try direct query as fallback (might work in some managed environments)
                 try:
                     jobs = self._get_jobs_via_direct_query(conn, db_name)
                     logger.info(
@@ -745,7 +741,6 @@ class SQLServerSource(SQLAlchemySource):
                     exc=unexpected_error,
                 )
         else:
-            # On-premises environment - try direct query first (usually faster)
             try:
                 jobs = self._get_jobs_via_direct_query(conn, db_name)
                 logger.info(
@@ -757,7 +752,6 @@ class SQLServerSource(SQLAlchemySource):
                     "Database error retrieving jobs via direct query (missing permissions to msdb or syntax issue): %s. Trying stored procedures fallback.",
                     direct_error,
                 )
-                # Try stored procedures as fallback
                 try:
                     jobs = self._get_jobs_via_stored_procedures(conn, db_name)
                     logger.info(
@@ -1399,7 +1393,6 @@ class SQLServerSource(SQLAlchemySource):
         Delegates to MSSQLAliasFilter to handle TSQL-specific alias quirks.
         See alias_filter.py module docstring for detailed explanation.
         """
-        # Initialize TSQL alias cleaner lazily once we have schema_resolver
         if self.tsql_alias_cleaner is None:
             platform_instance = self.get_schema_resolver().platform_instance
             self.tsql_alias_cleaner = MSSQLAliasFilter(
@@ -1544,15 +1537,12 @@ class SQLServerSource(SQLAlchemySource):
 
         Note: Uses instance-level caching to improve performance for repeated calls.
         """
-        # Initialize cache if needed
         if not hasattr(self, "_discovered_table_cache"):
             self._discovered_table_cache: dict[str, bool] = {}
 
-        # Check cache first
         if name in self._discovered_table_cache:
             return self._discovered_table_cache[name]
 
-        # Compute result
         if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
@@ -1565,13 +1555,11 @@ class SQLServerSource(SQLAlchemySource):
             parts = name.split(".")
             table_name = parts[-1]
 
-            # TSQL temp tables start with #
             if table_name.startswith("#"):
                 result = False
                 self._discovered_table_cache[name] = result
                 return result
 
-            # Standardize case early to ensure consistent lookups
             standardized_name = self.standardize_identifier_case(name)
 
             if hasattr(self, "aggregator") and self.aggregator is not None:
@@ -1589,7 +1577,6 @@ class SQLServerSource(SQLAlchemySource):
                     self._discovered_table_cache[name] = result
                     return result
 
-            # For qualified names (>=3 parts), validate against patterns
             if len(parts) >= MSSQL_QUALIFIED_NAME_PARTS:
                 schema_name = parts[-2]
                 db_name = parts[-3]

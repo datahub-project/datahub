@@ -75,11 +75,8 @@ def mssql_source():
 
         # Create MSSQLAliasFilter (the new home for alias filtering methods)
         source.tsql_alias_cleaner = MSSQLAliasFilter(
-            discovered_datasets=source.discovered_datasets,
-            platform_instance="test_instance",
-            env="PROD",
-            schema_resolver=schema_resolver,
             is_discovered_table=source.is_discovered_table,
+            platform_instance="test_instance",
         )
 
         return source
