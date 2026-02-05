@@ -244,7 +244,7 @@ class DorisSource(MySQLSource):
                     with db_engine.connect() as db_conn:
                         yield inspect(db_conn)
 
-    def get_platform(self):
+    def get_platform(self) -> str:
         return "doris"
 
     def get_procedures_for_schema(
