@@ -1842,6 +1842,19 @@ class TableauSiteSource:
                 for table_urn in table_id_to_urn.values()
             ]
 
+            # If still no upstream tables after fallback attempt, report a warning
+            if not upstream_tables:
+                self.report.warning(
+                    title="No upstream table lineage found",
+                    message=(
+                        "No upstream tables or columns were returned for this datasource. "
+                        "If upstream lineage is not expected, this warning can be ignored. "
+                        "If lineage is expected, the Tableau Metadata API may not have returned "
+                        "complete information."
+                    ),
+                    context=f"{datasource.get(c.NAME)} (ID: {datasource.get(c.ID)})",
+                )
+
         if datasource.get(c.FIELDS):
             if self.config.extract_column_level_lineage:
                 # Find fine grained lineage for datasource column to datasource column edge,
