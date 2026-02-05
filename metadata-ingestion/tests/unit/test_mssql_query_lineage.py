@@ -1278,37 +1278,30 @@ def test_mssql_query_exclude_patterns_escaped_brackets():
     assert config.query_exclude_patterns == [r"\[escaped\]%", r"%\[test\]%"]
 
 
-def test_mssql_query_sql_injection_safety():
-    """Test that SQL query construction is safe from injection attacks."""
-    # Test 1: Valid simple column expression
+def test_mssql_query_exclude_clause_construction():
+    """Test that exclude clauses are built correctly with hardcoded column expressions."""
+    # Simple column expression (used in Query Store queries)
     clause = MSSQLQuery._build_exclude_clause(["%test%"], "qt.query_sql_text")
     assert "qt.query_sql_text NOT LIKE :exclude_0" in clause
 
-    # Test 2: Valid CAST expression (used in DMV queries)
+    # CAST expression (used in DMV queries)
     clause = MSSQLQuery._build_exclude_clause(
         ["%test%"], "CAST(st.text AS NVARCHAR(MAX))"
     )
     assert "CAST(st.text AS NVARCHAR(MAX)) NOT LIKE :exclude_0" in clause
 
-    # Test 3: SQL injection attempt with semicolon
-    with pytest.raises(ValueError, match="dangerous SQL characters"):
-        MSSQLQuery._build_exclude_clause(["%test%"], "'; DROP TABLE users; --")
+    # Multiple patterns
+    clause = MSSQLQuery._build_exclude_clause(["%sys%", "%temp%"], "qt.query_sql_text")
+    assert "qt.query_sql_text NOT LIKE :exclude_0" in clause
+    assert "qt.query_sql_text NOT LIKE :exclude_1" in clause
 
-    # Test 4: SQL injection attempt with comment
-    with pytest.raises(ValueError, match="dangerous SQL characters"):
-        MSSQLQuery._build_exclude_clause(["%test%"], "col OR 1=1 --")
+    # Empty patterns returns empty string
+    clause = MSSQLQuery._build_exclude_clause([], "qt.query_sql_text")
+    assert clause == ""
 
-    # Test 5: SQL injection attempt with block comment
-    with pytest.raises(ValueError, match="dangerous SQL characters"):
-        MSSQLQuery._build_exclude_clause(["%test%"], "col /* comment */ OR 1=1")
-
-    # Test 6: Invalid format (not table.column)
-    with pytest.raises(ValueError, match="Invalid column expression"):
-        MSSQLQuery._build_exclude_clause(["%test%"], "invalid_format")
-
-    # Test 7: Invalid format (looks like OR injection)
-    with pytest.raises(ValueError, match="Invalid column expression"):
-        MSSQLQuery._build_exclude_clause(["%test%"], "col OR 1=1")
+    # None patterns returns empty string
+    clause = MSSQLQuery._build_exclude_clause(None, "qt.query_sql_text")
+    assert clause == ""
 
 
 def test_mssql_query_parameterized_patterns():
