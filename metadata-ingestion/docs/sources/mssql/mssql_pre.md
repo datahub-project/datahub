@@ -228,7 +228,7 @@ AND permission_name = 'VIEW SERVER STATE';
 - Upgrade to SQL Server 2016 or later for Query Store support
 - The DMV fallback method has limited query history and is not recommended as the primary method
 
-#### Issue: No lineage extracted / Empty results
+#### Issue: Query Store Returns No Results
 
 **Possible causes:**
 
@@ -249,12 +249,125 @@ AND permission_name = 'VIEW SERVER STATE';
    - Solution: Lower the `min_query_calls` value or execute queries more frequently
 
 4. **Query Store query capture mode:**
+
    - If set to `NONE` or `CUSTOM` with restrictive filters
    - Solution: Set to `AUTO` or `ALL`:
      ```sql
      ALTER DATABASE [YourDatabase]
      SET QUERY_STORE (QUERY_CAPTURE_MODE = AUTO);
      ```
+
+5. **Query Store data not yet captured:**
+   - Query Store captures queries asynchronously
+   - Solution: Wait 5-10 minutes after query execution, then check:
+     ```sql
+     SELECT COUNT(*) AS query_count
+     FROM sys.query_store_query;
+     ```
+
+#### How to Verify Permissions Work
+
+**Test VIEW SERVER STATE permission:**
+
+```sql
+-- Test Query Store access
+SELECT TOP 1 query_id, query_sql_text
+FROM sys.query_store_query_text;
+
+-- Test DMV access
+SELECT TOP 1 sql_handle
+FROM sys.dm_exec_query_stats;
+```
+
+If these queries run successfully, permissions are correct. If you get permission errors:
+
+```sql
+-- Check current user's server permissions
+SELECT *
+FROM fn_my_permissions(NULL, 'SERVER')
+WHERE permission_name = 'VIEW SERVER STATE';
+
+-- Grant permission if missing
+GRANT VIEW SERVER STATE TO [datahub_user];
+```
+
+#### Issue: Hit max_queries_to_extract Limit
+
+**Symptoms:**
+
+- Ingestion report shows exactly `max_queries_to_extract` queries processed
+- Warning in logs: "Reached max_queries_to_extract limit"
+
+**What happens:**
+
+- Only the top N queries by execution time are extracted
+- Remaining queries are not processed for lineage
+- Less frequently executed queries may be missed
+
+**Impact:**
+
+- Lineage may be incomplete for less active tables
+- Usage statistics will only reflect the most expensive queries
+
+**Solutions:**
+
+1. **Increase the limit** (if performance allows):
+
+   ```yaml
+   source:
+     config:
+       max_queries_to_extract: 5000 # Default is 1000
+   ```
+
+2. **Use exclude patterns** to filter out noise:
+
+   ```yaml
+   source:
+     config:
+       query_exclude_patterns:
+         - "%sp_reset_connection%" # Filter JDBC connection resets
+         - "%SET%" # Filter SET statements
+         - "%DECLARE%" # Filter variable declarations
+   ```
+
+3. **Increase min_query_calls** to focus on frequently executed queries:
+   ```yaml
+   source:
+     config:
+       min_query_calls: 10 # Only extract queries executed 10+ times
+   ```
+
+#### Performance Impact of Extracting Many Queries
+
+**Extraction time by query count:**
+
+| Query Count | Extraction Time | Memory Usage | Impact on SQL Server |
+| ----------- | --------------- | ------------ | -------------------- |
+| 1,000       | 10-30 seconds   | ~50 MB       | Minimal (<1% CPU)    |
+| 5,000       | 30-90 seconds   | ~200 MB      | Low (1-2% CPU)       |
+| 10,000      | 1-3 minutes     | ~400 MB      | Moderate (2-5% CPU)  |
+| 50,000+     | 5-15 minutes    | ~2 GB        | High (5-10% CPU)     |
+
+**Recommendations:**
+
+- **For production databases with <10K active queries**: Use default `max_queries_to_extract: 1000`
+- **For data warehouses with >50K queries**: Start with `max_queries_to_extract: 5000` and increase gradually
+- **For development/staging**: Lower to 500 to speed up testing
+
+**Monitoring extraction performance:**
+
+Look for these metrics in ingestion logs:
+
+```
+INFO - Extracted 1000 queries from query_store in 12.34 seconds
+INFO - Processed 987 queries for lineage extraction (13 failed) in 45.67 seconds
+```
+
+If extraction takes >5 minutes:
+
+- Reduce `max_queries_to_extract`
+- Add more aggressive `query_exclude_patterns`
+- Increase `min_query_calls` to filter low-frequency queries
 
 #### Issue: SQL aggregator initialization failed
 

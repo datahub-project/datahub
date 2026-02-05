@@ -242,7 +242,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     def validate_query_exclude_patterns(
         cls, value: Optional[List[str]]
     ) -> Optional[List[str]]:
-        """Validate query_exclude_patterns has reasonable limits and valid syntax."""
+        """Validate query_exclude_patterns has reasonable limits."""
         if value is None:
             return value
 
@@ -256,34 +256,13 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             if not pattern or not pattern.strip():
                 raise ValueError(
                     f"Pattern at index {i} is empty or contains only whitespace. "
-                    "Please remove empty patterns or provide a valid SQL LIKE pattern."
+                    "Please provide a valid SQL LIKE pattern (e.g., '%sys.%', '%temp%')."
                 )
 
             if len(pattern) > 500:
                 raise ValueError(
                     f"Pattern '{pattern[:50]}...' exceeds 500 characters (length: {len(pattern)}). "
-                    "Use shorter patterns to avoid performance issues. "
-                    "Please simplify your pattern or split it into multiple shorter patterns."
-                )
-
-            bracket_depth = 0
-            for j, char in enumerate(pattern):
-                if char == "[" and (j == 0 or pattern[j - 1] != "\\"):
-                    bracket_depth += 1
-                elif char == "]" and (j == 0 or pattern[j - 1] != "\\"):
-                    bracket_depth -= 1
-                    if bracket_depth < 0:
-                        raise ValueError(
-                            f"Pattern '{pattern}' has unmatched closing bracket ']' at position {j}. "
-                            "SQL LIKE patterns require balanced brackets for character sets. "
-                            "Use [abc] for character sets or escape with \\]."
-                        )
-
-            if bracket_depth != 0:
-                raise ValueError(
-                    f"Pattern '{pattern}' has unmatched opening bracket '['. "
-                    "SQL LIKE patterns require balanced brackets for character sets. "
-                    "Ensure all '[' have corresponding ']'."
+                    "Use shorter patterns to avoid performance issues."
                 )
 
         return value
@@ -581,13 +560,14 @@ class SQLServerSource(SQLAlchemySource):
 
     def _detect_rds_environment(self, conn: Connection) -> bool:
         """
-        Detect if we're running in an RDS/managed environment vs on-premises.
-        Uses explicit configuration if provided, otherwise attempts automatic detection.
-        Returns True if RDS/managed, False if on-premises.
+        Detect if running on AWS RDS vs on-premises SQL Server.
+
+        RDS restricts msdb table access; on-prem allows faster direct queries.
+        Detection errors fall back to on-prem mode with automatic retry logic.
         """
         if self.config.is_aws_rds is not None:
             logger.info(
-                f"Using explicit is_aws_rds configuration: {self.config.is_aws_rds}"
+                "Using explicit is_aws_rds configuration: %s", self.config.is_aws_rds
             )
             return self.config.is_aws_rds
 
@@ -597,8 +577,26 @@ class SQLServerSource(SQLAlchemySource):
             if server_name_row:
                 server_name = server_name_row["server_name"].lower()
 
-                aws_indicators = ["amazon", "amzn", "amaz", "ec2", "rds.amazonaws.com"]
-                is_rds = any(indicator in server_name for indicator in aws_indicators)
+                # Check for RDS-specific patterns (avoid false positives like "amazing_server")
+                rds_patterns = [
+                    ".rds.amazonaws.com",  # Official RDS endpoint suffix
+                    "rds.amazonaws.com",  # Substring for full domain
+                    "-rds-",  # Common RDS naming pattern
+                    ".ec2-",  # EC2 instance pattern
+                ]
+
+                # Fallback patterns (less specific, checked last)
+                fallback_patterns = [
+                    "amazon-",  # Prefix pattern (less likely to match "amazing")
+                    "amzn-",  # AWS naming prefix
+                ]
+
+                is_rds = any(pattern in server_name for pattern in rds_patterns)
+                if not is_rds:
+                    is_rds = any(
+                        server_name.startswith(pattern) for pattern in fallback_patterns
+                    )
+
                 if is_rds:
                     logger.info(
                         "AWS RDS detected based on server name: %s", server_name
@@ -618,7 +616,8 @@ class SQLServerSource(SQLAlchemySource):
 
         except Exception as e:
             logger.warning(
-                f"Failed to detect RDS/managed vs on-prem env, assuming non-RDS environment ({e})"
+                "Failed to detect RDS/managed vs on-prem env, assuming non-RDS environment: %s",
+                e,
             )
             return False
 
@@ -694,9 +693,7 @@ class SQLServerSource(SQLAlchemySource):
         jobs_result = conn.execute("EXEC msdb.dbo.sp_help_job")
         jobs_data = {}
 
-        # SQLAlchemy 1.3 support was dropped in Sept 2023 (PR #8810)
-        # SQLAlchemy 1.4+ returns LegacyRow objects that don't support dictionary-style .get() method
-        # Use .mappings() to get MappingResult with dictionary-like rows that support .get()
+        # mappings() provides dictionary-like access to row data with .get() method for optional fields
         for row in jobs_result.mappings():
             job_id = str(row["job_id"])
             jobs_data[job_id] = {
@@ -715,7 +712,7 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
                 job_steps = {}
-                # Use .mappings() for dictionary-like access (SQLAlchemy 1.4+ compatibility)
+                # mappings() provides dictionary-like access with .get() for optional fields
                 for step_row in steps_result.mappings():
                     step_database = step_row.get("database_name", "")
                     if step_database.lower() == db_name.lower() or not step_database:
@@ -1228,17 +1225,11 @@ class SQLServerSource(SQLAlchemySource):
     def _is_qualified_table_urn(
         self, urn: str, platform_instance: Optional[str] = None
     ) -> bool:
-        """Check if a table URN represents a fully qualified table name.
+        """
+        Check if a table URN represents a fully qualified table name.
 
         MSSQL uses 3-part naming: database.schema.table.
-        This helps identify real tables vs. unqualified aliases (e.g., 'dst' in TSQL UPDATE statements).
-
-        Args:
-            urn: Dataset URN
-            platform_instance: Platform instance to strip from the name if present
-
-        Returns:
-            True if the table name is fully qualified (>= 3 parts), False otherwise
+        Helps identify real tables vs. unqualified aliases (e.g., 'dst' in TSQL UPDATE statements).
         """
         try:
             dataset_urn = DatasetUrn.from_string(urn)
@@ -1255,23 +1246,13 @@ class SQLServerSource(SQLAlchemySource):
     def _filter_upstream_aliases(
         self, upstream_urns: List[str], platform_instance: Optional[str] = None
     ) -> List[str]:
-        """Filter spurious TSQL aliases from upstream lineage using is_temp_table().
+        """
+        Filter spurious TSQL aliases from upstream lineage using is_temp_table().
 
         TSQL syntax like "UPDATE dst FROM table dst" causes the parser to extract
-        both 'dst' (alias) and 'table' (real table). These aliases appear as upstream
-        references but aren't real tables.
-
-        Uses the existing is_temp_table() method to identify aliases:
-        - Tables in schema_resolver: Real tables (keep)
-        - Tables in discovered_datasets: Real tables (keep)
+        both 'dst' (alias) and 'table' (real table). Uses is_temp_table() to identify aliases:
+        - Tables in schema_resolver or discovered_datasets: Real tables (keep)
         - Undiscovered tables: Likely aliases (filter)
-
-        Args:
-            upstream_urns: List of upstream dataset URNs
-            platform_instance: Platform instance for prefix stripping (consistency with _filter_procedure_lineage)
-
-        Returns:
-            Filtered list with only real tables
         """
         if not upstream_urns:
             return []
@@ -1283,19 +1264,14 @@ class SQLServerSource(SQLAlchemySource):
                 dataset_urn = DatasetUrn.from_string(urn)
                 table_name = dataset_urn.name
 
-                # DataHub URNs embed platform_instance in dataset name for cross-environment uniqueness,
-                # but our internal tracking (discovered_datasets, schema_resolver) stores names without
-                # platform_instance since it's environment metadata tracked separately. Strip prefix
-                # to match internal format for accurate alias detection.
+                # Strip platform_instance prefix from URN to match internal tracking format
                 if platform_instance and table_name.startswith(f"{platform_instance}."):
                     table_name = table_name[len(platform_instance) + 1 :]
 
                 if not self.is_temp_table(table_name):
                     verified_real_tables.append(urn)
             except (InvalidUrnError, ValueError) as e:
-                # Keep URNs we can't parse to preserve data integrity.
-                # If truly malformed, downstream systems will reject with clear errors.
-                # If our parser has a bug, we don't silently lose valid data.
+                # Keep unparseable URNs to avoid data loss; downstream will validate
                 logger.warning("Error parsing URN %s: %s", urn, e)
                 verified_real_tables.append(urn)
 
@@ -1308,34 +1284,12 @@ class SQLServerSource(SQLAlchemySource):
         aspect: DataJobInputOutputClass,
         procedure_name: Optional[str],
     ) -> List[str]:
-        """Remap a column lineage entry from a filtered alias to real table(s).
+        """
+        Remap column lineage from filtered alias to real table(s).
 
-        Root Cause: TSQL allows table aliases in UPDATE/DELETE statements:
-            UPDATE dst SET col=val FROM real_table dst
-        sqlglot extracts both 'dst' (alias) and 'real_table' as separate tables.
-        When we filter 'dst' from outputDatasets (it's not a real table), column
-        lineages still reference it. We must remap those references to real tables.
-
-        Why matching by name: sqlglot often parses aliases with incorrect
-        database/schema qualifiers (e.g., "staging.dbo.dst" when dst actually
-        refers to "timeseries.dbo.european_priips_kid_information").
-
-        Remapping Strategy:
-        1. Try to match by table name only (last component: "dst" matches "xxx.dst")
-        2. Exactly one match → remap to that table (common case)
-        3. Multiple matches → remap to all, log warning (ambiguous)
-        4. No name match → remap to all real downstreams, log warning (fallback)
-
-        This preserves column lineage after alias filtering.
-
-        Args:
-            table_urn: The filtered alias table URN
-            column_name: The column name
-            aspect: DataJobInputOutputClass with outputDatasets
-            procedure_name: Procedure name for logging
-
-        Returns:
-            List of remapped field URNs pointing to real tables
+        TSQL allows aliases in UPDATE/DELETE (e.g., `UPDATE dst SET col=val FROM real_table dst`).
+        Matches by table name since sqlglot may parse incorrect qualifiers.
+        Returns list of remapped field URNs.
         """
         remapped_urns: List[str] = []
 
@@ -1411,20 +1365,7 @@ class SQLServerSource(SQLAlchemySource):
         aspect: DataJobInputOutputClass,
         procedure_name: Optional[str],
     ) -> List[str]:
-        """Filter and remap downstream fields in a column lineage entry.
-
-        Args:
-            cll_index: Index of the column lineage entry (for logging)
-            downstream_fields: List of downstream field URNs to filter
-            filtered_downstream_aliases: Set of table URNs that were filtered as aliases
-            field_urn_pattern: Regex pattern to extract table URN and column name
-            platform_instance: Platform instance for URN checking
-            aspect: DataJobInputOutputClass with outputDatasets
-            procedure_name: Procedure name for logging
-
-        Returns:
-            List of filtered downstream field URNs
-        """
+        """Filter and remap downstream fields in a column lineage entry."""
         filtered_downstreams = []
         for field_urn in downstream_fields:
             match = field_urn_pattern.search(field_urn)
@@ -1457,20 +1398,13 @@ class SQLServerSource(SQLAlchemySource):
         procedure_name: Optional[str],
         filtered_downstream_aliases: Optional[set] = None,
     ) -> None:
-        """Filter column lineage (fineGrainedLineages) to remove aliases.
+        """
+        Filter column lineage (fineGrainedLineages) to remove aliases.
 
         Applies same 2-step filtering as table-level lineage:
         1. Check if table has 3+ parts (_is_qualified_table_urn)
         2. Check if table is real vs alias (_filter_upstream_aliases for upstreams)
         3. Remap column lineages from filtered downstream aliases to real tables
-
-        Args:
-            aspect: DataJobInputOutputClass with lineage to filter
-            platform_instance: Platform instance for URN parsing
-            procedure_name: Procedure name for logging
-            filtered_downstream_aliases: Set of downstream table URNs that were
-                filtered as aliases. Column lineages pointing to these will be
-                remapped to real downstream tables.
 
         Modifies aspect.fineGrainedLineages in place.
         """
@@ -1558,20 +1492,14 @@ class SQLServerSource(SQLAlchemySource):
         mcps: Iterable[MetadataChangeProposalWrapper],
         procedure_name: Optional[str] = None,
     ) -> Iterator[MetadataChangeProposalWrapper]:
-        """Filter out unqualified table URNs from stored procedure lineage.
+        """
+        Filter out unqualified table URNs from stored procedure lineage.
 
         TSQL syntax like "UPDATE dst FROM table dst" causes sqlglot to extract
         both 'dst' (alias) and 'table' (real table). Unqualified aliases create
         invalid URNs that cause DataHub sink to reject the entire aspect.
 
-        This filter removes URNs with < 3 parts (database.schema.table).
-
-        Args:
-            mcps: MCPs from generate_procedure_lineage()
-            procedure_name: Procedure name for logging
-
-        Yields:
-            Filtered MCPs with only qualified table URNs
+        Removes URNs with < 3 parts (database.schema.table).
         """
         platform_instance = self.get_schema_resolver().platform_instance
 
@@ -1663,15 +1591,11 @@ class SQLServerSource(SQLAlchemySource):
 
                 try:
                     lineage_extractor.populate_lineage_from_queries()
-                except RuntimeError:
-                    # RuntimeError indicates user explicitly enabled query lineage but it failed
-                    # Re-raise to fail fast rather than silently continuing
-                    raise
                 except Exception as e:
-                    # Unexpected errors - log and continue with other lineage sources
                     logger.error(
-                        f"Unexpected error during query lineage extraction: {e}. "
-                        "Continuing with other lineage sources."
+                        "Unexpected error during query lineage extraction: %s. "
+                        "Continuing with other lineage sources.",
+                        e,
                     )
                     self.report.report_failure(
                         message=(

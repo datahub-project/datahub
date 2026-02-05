@@ -99,8 +99,8 @@ def test_mssql_sql_aggregator_initialization_failure(create_engine_mock):
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_mssql_query_extraction_failure_fails_fast(create_engine_mock):
-    """Test that query extraction failures fail fast when explicitly enabled."""
+def test_mssql_query_extraction_failure_reports_error(create_engine_mock):
+    """Test that query extraction failures are reported but don't stop ingestion."""
     from sqlalchemy.exc import DatabaseError
 
     config = SQLServerConfig.model_validate(
@@ -125,13 +125,18 @@ def test_mssql_query_extraction_failure_fails_fast(create_engine_mock):
             "statement", "params", "orig"
         )
 
-        # Should raise RuntimeError, not silently continue
-        with pytest.raises(RuntimeError) as exc_info:
-            list(source._get_query_based_lineage_workunits(inspector_mock))
+        # Mock get_inspectors to return our mock inspector
+        with patch.object(source, "get_inspectors", return_value=[inspector_mock]):
+            # Should complete without raising, but report the failure
+            list(source._get_query_based_lineage_workunits())
 
-        error_message = str(exc_info.value)
-        assert "explicitly enabled" in error_message
-        assert "include_query_lineage: true" in error_message
+        # Should have reported the failure
+        assert len(source.report.failures) > 0
+        failure_messages = [f.message for f in source.report.failures.values()]
+        assert any(
+            "query history" in msg.lower() and "failed" in msg.lower()
+            for msg in failure_messages
+        )
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
@@ -155,18 +160,21 @@ def test_mssql_lineage_extractor_version_check():
     config = SQLServerConfig.model_validate(_base_config())
     report = SQLSourceReport()
     conn_mock = Mock()
+    sql_aggregator_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock version query result - SQL Server 2019
     conn_mock.execute.return_value.fetchone.return_value = {
-        "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5"
+        "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
+        "major_version": 15,
     }
 
-    is_supported, message = extractor._check_version()
+    major_version = extractor._check_version()
 
-    assert is_supported is True
-    assert "2019" in message
+    assert major_version == 15
     conn_mock.execute.assert_called_once()
 
 
@@ -176,17 +184,21 @@ def test_mssql_lineage_extractor_version_check_old_version():
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock version query result - SQL Server 2014
     conn_mock.execute.return_value.fetchone.return_value = {
-        "version": "Microsoft SQL Server 2014 (SP2) - 12.0.5000.0"
+        "version": "Microsoft SQL Server 2014 (SP2) - 12.0.5000.0",
+        "major_version": 12,
     }
 
-    is_supported, message = extractor._check_version()
+    major_version = extractor._check_version()
 
-    assert is_supported is False
-    assert "2016" in message
+    assert major_version == 12
+    assert major_version < 13  # SQL Server 2016 is version 13
 
 
 def test_mssql_lineage_extractor_query_store_enabled():
@@ -195,15 +207,17 @@ def test_mssql_lineage_extractor_query_store_enabled():
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock Query Store enabled
     conn_mock.execute.return_value.fetchone.return_value = {"is_enabled": 1}
 
-    is_enabled, message = extractor._check_query_store_available()
+    is_enabled = extractor._check_query_store_available()
 
     assert is_enabled is True
-    assert "enabled" in message.lower()
 
 
 def test_mssql_lineage_extractor_query_store_disabled():
@@ -212,15 +226,17 @@ def test_mssql_lineage_extractor_query_store_disabled():
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock Query Store disabled
     conn_mock.execute.return_value.fetchone.return_value = {"is_enabled": 0}
 
-    is_enabled, message = extractor._check_query_store_available()
+    is_enabled = extractor._check_query_store_available()
 
     assert is_enabled is False
-    assert "not enabled" in message.lower()
 
 
 def test_mssql_lineage_extractor_dmv_permissions_granted():
@@ -229,36 +245,36 @@ def test_mssql_lineage_extractor_dmv_permissions_granted():
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
-    # Mock successful DMV query (no exception)
-    conn_mock.execute.return_value.fetchone.return_value = {"plan_count": 10}
+    # Mock successful DMV permissions check
+    conn_mock.execute.return_value.fetchone.return_value = {"has_view_server_state": 1}
 
-    has_permission, message, method = extractor._check_dmv_permissions()
+    has_permission = extractor._check_dmv_permissions()
 
     assert has_permission is True
-    assert method == "dmv"
-    assert "available" in message.lower()
 
 
 def test_mssql_lineage_extractor_dmv_permissions_denied():
     """Test DMV permissions check when denied."""
-    from sqlalchemy.exc import DatabaseError
-
     config = SQLServerConfig.model_validate(_base_config())
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
-    # Mock permission denied error
-    conn_mock.execute.side_effect = DatabaseError("statement", "params", "orig")
+    # Mock permission denied (no VIEW SERVER STATE)
+    conn_mock.execute.return_value.fetchone.return_value = {"has_view_server_state": 0}
 
-    has_permission, message, method = extractor._check_dmv_permissions()
+    has_permission = extractor._check_dmv_permissions()
 
     assert has_permission is False
-    assert method == "none"
-    assert "permission" in message.lower() or "failed" in message.lower()
 
 
 def test_mssql_lineage_extractor_check_prerequisites_query_store():
@@ -267,12 +283,16 @@ def test_mssql_lineage_extractor_check_prerequisites_query_store():
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock successful version check
     version_result = Mock()
     version_result.fetchone.return_value = {
-        "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5"
+        "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
+        "major_version": 15,
     }
 
     # Mock Query Store enabled
@@ -281,7 +301,7 @@ def test_mssql_lineage_extractor_check_prerequisites_query_store():
 
     conn_mock.execute.side_effect = [version_result, qs_result]
 
-    can_extract, method = extractor.check_prerequisites()
+    can_extract, message, method = extractor.check_prerequisites()
 
     assert can_extract is True
     assert method == "query_store"
@@ -293,12 +313,16 @@ def test_mssql_lineage_extractor_check_prerequisites_dmv_fallback():
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock successful version check
     version_result = Mock()
     version_result.fetchone.return_value = {
-        "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5"
+        "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
+        "major_version": 15,
     }
 
     # Mock Query Store disabled
@@ -307,37 +331,48 @@ def test_mssql_lineage_extractor_check_prerequisites_dmv_fallback():
 
     # Mock DMV permissions granted
     dmv_result = Mock()
-    dmv_result.fetchone.return_value = {"plan_count": 10}
+    dmv_result.fetchone.return_value = {"has_view_server_state": 1}
 
     conn_mock.execute.side_effect = [version_result, qs_result, dmv_result]
 
-    can_extract, method = extractor.check_prerequisites()
+    can_extract, message, method = extractor.check_prerequisites()
 
     assert can_extract is True
     assert method == "dmv"
 
 
 def test_mssql_lineage_extractor_check_prerequisites_fails():
-    """Test prerequisites check fails when version too old."""
+    """Test prerequisites check fails when Query Store unavailable and no DMV permissions."""
     config = SQLServerConfig.model_validate(_base_config())
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
-    # Mock old version
+    # Mock version check
     version_result = Mock()
     version_result.fetchone.return_value = {
-        "version": "Microsoft SQL Server 2014 (SP2) - 12.0.5000.0"
+        "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
+        "major_version": 15,
     }
 
-    conn_mock.execute.return_value = version_result
+    # Mock Query Store disabled
+    qs_result = Mock()
+    qs_result.fetchone.return_value = {"is_enabled": 0}
 
-    can_extract, method = extractor.check_prerequisites()
+    # Mock DMV permissions denied
+    dmv_result = Mock()
+    dmv_result.fetchone.return_value = {"has_view_server_state": 0}
+
+    conn_mock.execute.side_effect = [version_result, qs_result, dmv_result]
+
+    can_extract, message, method = extractor.check_prerequisites()
 
     assert can_extract is False
     assert method == "none"
-    assert len(report.failures) > 0
 
 
 def test_mssql_lineage_extractor_extract_queries_from_query_store():
@@ -348,7 +383,10 @@ def test_mssql_lineage_extractor_extract_queries_from_query_store():
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock Query Store results
     mock_results = [
@@ -374,7 +412,9 @@ def test_mssql_lineage_extractor_extract_queries_from_query_store():
 
     # Mock prerequisites check
     with patch.object(
-        extractor, "check_prerequisites", return_value=(True, "query_store")
+        extractor,
+        "check_prerequisites",
+        return_value=(True, "Query Store is enabled", "query_store"),
     ):
         queries = extractor.extract_query_history()
 
@@ -393,7 +433,10 @@ def test_mssql_lineage_extractor_extract_queries_respects_min_calls():
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock Query Store results - one below threshold
     mock_results = [
@@ -440,7 +483,10 @@ def test_mssql_lineage_extractor_extract_queries_applies_exclude_patterns():
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock Query Store results
     mock_results = [
@@ -473,7 +519,9 @@ def test_mssql_lineage_extractor_extract_queries_applies_exclude_patterns():
     conn_mock.execute.return_value.fetchall.return_value = mock_results
 
     with patch.object(
-        extractor, "check_prerequisites", return_value=(True, "query_store")
+        extractor,
+        "check_prerequisites",
+        return_value=(True, "Query Store is enabled", "query_store"),
     ):
         queries = extractor.extract_query_history()
 
@@ -484,30 +532,33 @@ def test_mssql_lineage_extractor_extract_queries_applies_exclude_patterns():
 
 
 def test_mssql_lineage_extractor_handles_extraction_failure():
-    """Test query extraction fails fast on database errors when explicitly enabled."""
+    """Test query extraction reports errors gracefully on database errors."""
     from sqlalchemy.exc import DatabaseError
 
     config = SQLServerConfig.model_validate(_base_config())
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock database error during extraction
     conn_mock.execute.side_effect = DatabaseError("statement", "params", "orig")
 
-    with (
-        patch.object(
-            extractor, "check_prerequisites", return_value=(True, "query_store")
-        ),
-        pytest.raises(RuntimeError) as exc_info,
+    with patch.object(
+        extractor,
+        "check_prerequisites",
+        return_value=(True, "Query Store is enabled", "query_store"),
     ):
-        extractor.extract_query_history()
+        queries = extractor.extract_query_history()
 
-    error_msg = str(exc_info.value)
-    assert "explicitly enabled" in error_msg
-    assert "include_query_lineage: true" in error_msg
+    # Should return empty list and report failure
+    assert queries == []
     assert len(report.failures) > 0
+    failure_messages = [f.message for f in report.failures.values()]
+    assert any("Failed to extract query history" in msg for msg in failure_messages)
 
 
 def test_mssql_lineage_extractor_populate_lineage():
@@ -517,7 +568,10 @@ def test_mssql_lineage_extractor_populate_lineage():
     conn_mock = Mock()
     aggregator_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Create test queries
     queries = [
@@ -688,7 +742,10 @@ def test_mssql_lineage_extractor_version_check_fails():
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock no version result
     conn_mock.execute.return_value.fetchone.return_value = None
@@ -706,7 +763,10 @@ def test_mssql_lineage_extractor_query_store_check_fails():
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock database error (e.g., sys.database_query_store_options doesn't exist)
     conn_mock.execute.side_effect = ProgrammingError("statement", "params", "orig")
@@ -722,7 +782,10 @@ def test_mssql_lineage_extractor_malformed_query_text():
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock query with NULL and empty text (should be filtered by SQL, but test defense)
     mock_results = [
@@ -747,7 +810,9 @@ def test_mssql_lineage_extractor_malformed_query_text():
     conn_mock.execute.return_value.fetchall.return_value = mock_results
 
     with patch.object(
-        extractor, "check_prerequisites", return_value=(True, "query_store")
+        extractor,
+        "check_prerequisites",
+        return_value=(True, "Query Store is enabled", "query_store"),
     ):
         queries = extractor.extract_query_history()
 
@@ -763,13 +828,16 @@ def test_mssql_lineage_extractor_connection_failure_during_prerequisite():
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock connection failure during Query Store check
     conn_mock.execute.side_effect = OperationalError("statement", "params", "orig")
 
     # Should fall through to DMV check, which also fails
-    can_extract, method = extractor.check_prerequisites()
+    can_extract, message, method = extractor.check_prerequisites()
 
     assert can_extract is False
     assert method == "none"
@@ -783,7 +851,10 @@ def test_mssql_lineage_extractor_fallback_to_dmv():
     report = SQLSourceReport()
     conn_mock = Mock()
 
-    extractor = MSSQLLineageExtractor(config, report, conn_mock)
+    sql_aggregator_mock = Mock()
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
 
     # Mock successful version check
     version_result = Mock()
@@ -797,7 +868,7 @@ def test_mssql_lineage_extractor_fallback_to_dmv():
 
     # Mock DMV check succeeds
     dmv_result = Mock()
-    dmv_result.fetchone.return_value = {"plan_count": 10}
+    dmv_result.fetchone.return_value = {"has_view_server_state": 1}
 
     call_count = [0]
 
@@ -812,7 +883,246 @@ def test_mssql_lineage_extractor_fallback_to_dmv():
 
     conn_mock.execute.side_effect = execute_side_effect
 
-    can_extract, method = extractor.check_prerequisites()
+    can_extract, message, method = extractor.check_prerequisites()
 
     assert can_extract is True
     assert method == "dmv"
+
+
+def test_mssql_populate_lineage_from_queries_integration():
+    """Test populate_lineage_from_queries() end-to-end integration."""
+    config = SQLServerConfig.model_validate(_base_config())
+    report = SQLSourceReport()
+    conn_mock = Mock()
+
+    # Mock SQL aggregator
+    sql_aggregator_mock = Mock()
+    sql_aggregator_mock.add_observed_query = Mock()
+
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
+
+    # Mock successful query extraction
+    mock_queries = [
+        {
+            "query_id": "1",
+            "query_text": "SELECT * FROM users",
+            "execution_count": 100,
+            "total_exec_time_ms": 500.0,
+            "user_name": "admin",
+            "database_name": "TestDB",
+        },
+        {
+            "query_id": "2",
+            "query_text": "INSERT INTO orders SELECT * FROM staging",
+            "execution_count": 50,
+            "total_exec_time_ms": 300.0,
+            "user_name": "etl_user",
+            "database_name": "TestDB",
+        },
+    ]
+
+    conn_mock.execute.return_value.fetchall.return_value = mock_queries
+
+    with patch.object(
+        extractor,
+        "check_prerequisites",
+        return_value=(True, "Query Store is enabled", "query_store"),
+    ):
+        extractor.populate_lineage_from_queries()
+
+    # Verify queries were added to SQL aggregator
+    assert sql_aggregator_mock.add_observed_query.call_count == 2
+    assert extractor.queries_parsed == 2
+    assert extractor.queries_failed == 0
+    assert report.num_queries_parsed == 2
+
+
+def test_mssql_populate_lineage_handles_parse_failures():
+    """Test that populate_lineage_from_queries() handles parse failures gracefully."""
+    from datahub.sql_parsing.sqlglot_lineage import SqlUnderstandingError
+
+    config = SQLServerConfig.model_validate(_base_config())
+    report = SQLSourceReport()
+    conn_mock = Mock()
+
+    sql_aggregator_mock = Mock()
+
+    # First query succeeds, second fails parsing, third succeeds
+    def add_query_side_effect(query):
+        if "invalid" in query.query.lower():
+            raise SqlUnderstandingError("Cannot parse invalid SQL")
+
+    sql_aggregator_mock.add_observed_query.side_effect = add_query_side_effect
+
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
+
+    mock_queries = [
+        {
+            "query_id": "1",
+            "query_text": "SELECT * FROM users",
+            "execution_count": 100,
+            "total_exec_time_ms": 500.0,
+            "user_name": "admin",
+            "database_name": "TestDB",
+        },
+        {
+            "query_id": "2",
+            "query_text": "INVALID SQL SYNTAX HERE",
+            "execution_count": 50,
+            "total_exec_time_ms": 300.0,
+            "user_name": "admin",
+            "database_name": "TestDB",
+        },
+        {
+            "query_id": "3",
+            "query_text": "SELECT * FROM orders",
+            "execution_count": 25,
+            "total_exec_time_ms": 100.0,
+            "user_name": "admin",
+            "database_name": "TestDB",
+        },
+    ]
+
+    conn_mock.execute.return_value.fetchall.return_value = mock_queries
+
+    with patch.object(
+        extractor,
+        "check_prerequisites",
+        return_value=(True, "Query Store is enabled", "query_store"),
+    ):
+        extractor.populate_lineage_from_queries()
+
+    # Should have processed all 3, with 1 failure
+    assert sql_aggregator_mock.add_observed_query.call_count == 3
+    assert extractor.queries_parsed == 2
+    assert extractor.queries_failed == 1
+    assert report.num_queries_parse_failures == 1
+
+
+def test_mssql_populate_lineage_handles_unexpected_errors():
+    """Test that populate_lineage_from_queries() handles unexpected errors."""
+    config = SQLServerConfig.model_validate(_base_config())
+    report = SQLSourceReport()
+    conn_mock = Mock()
+
+    sql_aggregator_mock = Mock()
+
+    # Simulate unexpected error (e.g., KeyError)
+    def add_query_side_effect(query):
+        if "error" in query.query.lower():
+            raise KeyError("Unexpected error in processing")
+
+    sql_aggregator_mock.add_observed_query.side_effect = add_query_side_effect
+
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
+
+    mock_queries = [
+        {
+            "query_id": "1",
+            "query_text": "SELECT * FROM users",
+            "execution_count": 100,
+            "total_exec_time_ms": 500.0,
+            "user_name": "admin",
+            "database_name": "TestDB",
+        },
+        {
+            "query_id": "2",
+            "query_text": "SELECT * FROM error_table",
+            "execution_count": 50,
+            "total_exec_time_ms": 300.0,
+            "user_name": "admin",
+            "database_name": "TestDB",
+        },
+    ]
+
+    conn_mock.execute.return_value.fetchall.return_value = mock_queries
+
+    with patch.object(
+        extractor,
+        "check_prerequisites",
+        return_value=(True, "Query Store is enabled", "query_store"),
+    ):
+        extractor.populate_lineage_from_queries()
+
+    # Should have attempted both, with 1 unexpected failure
+    assert sql_aggregator_mock.add_observed_query.call_count == 2
+    assert extractor.queries_parsed == 1
+    assert extractor.queries_failed == 1
+
+
+def test_mssql_populate_lineage_disabled_in_config():
+    """Test that populate_lineage_from_queries() skips when disabled."""
+    config = SQLServerConfig.model_validate(
+        {**_base_config(), "include_query_lineage": False}
+    )
+    report = SQLSourceReport()
+    conn_mock = Mock()
+    sql_aggregator_mock = Mock()
+
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
+
+    extractor.populate_lineage_from_queries()
+
+    # Should not have called any methods
+    conn_mock.execute.assert_not_called()
+    sql_aggregator_mock.add_observed_query.assert_not_called()
+
+
+def test_mssql_lineage_extractor_creates_correct_observed_query():
+    """Test that ObservedQuery objects are created with correct parameters."""
+    from datahub.metadata.urns import CorpUserUrn
+    from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
+
+    config = SQLServerConfig.model_validate(_base_config())
+    report = SQLSourceReport()
+    conn_mock = Mock()
+
+    sql_aggregator_mock = Mock()
+    captured_queries = []
+
+    def capture_query(query: ObservedQuery):
+        captured_queries.append(query)
+
+    sql_aggregator_mock.add_observed_query.side_effect = capture_query
+
+    extractor = MSSQLLineageExtractor(
+        config, conn_mock, report, sql_aggregator_mock, "dbo"
+    )
+
+    mock_queries = [
+        {
+            "query_id": "test123",
+            "query_text": "SELECT * FROM users WHERE id > 100",
+            "execution_count": 42,
+            "total_exec_time_ms": 250.5,
+            "user_name": "test_user",
+            "database_name": "ProductionDB",
+        }
+    ]
+
+    conn_mock.execute.return_value.fetchall.return_value = mock_queries
+
+    with patch.object(
+        extractor,
+        "check_prerequisites",
+        return_value=(True, "Query Store is enabled", "query_store"),
+    ):
+        extractor.populate_lineage_from_queries()
+
+    assert len(captured_queries) == 1
+    observed_query = captured_queries[0]
+
+    assert observed_query.query == "SELECT * FROM users WHERE id > 100"
+    assert observed_query.default_db == "ProductionDB"
+    assert observed_query.default_schema == "dbo"
+    assert observed_query.session_id == "queryid:test123"
+    assert observed_query.user == CorpUserUrn("test_user")
+    assert observed_query.timestamp is None

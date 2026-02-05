@@ -11,6 +11,49 @@ class MSSQLQuery:
     """SQL queries for extracting query history from MS SQL Server."""
 
     @staticmethod
+    def _build_exclude_clause(
+        exclude_patterns: Optional[List[str]], column_expr: str
+    ) -> str:
+        """
+        Build SQL WHERE clause for excluding patterns.
+
+        Args:
+            exclude_patterns: List of SQL LIKE patterns to exclude
+            column_expr: The column expression to apply patterns to (e.g., 'qt.query_sql_text')
+
+        Returns:
+            SQL clause like "AND column NOT LIKE :exclude_0 AND column NOT LIKE :exclude_1"
+        """
+        if not exclude_patterns:
+            return ""
+
+        conditions = [
+            f"{column_expr} NOT LIKE :exclude_{i}"
+            for i, _ in enumerate(exclude_patterns)
+        ]
+        return "AND " + " AND ".join(conditions)
+
+    @staticmethod
+    def _build_exclude_params(
+        exclude_patterns: Optional[List[str]], base_params: dict
+    ) -> dict:
+        """
+        Build parameter dict with exclude patterns.
+
+        Args:
+            exclude_patterns: List of SQL LIKE patterns to exclude
+            base_params: Base parameters dict to extend
+
+        Returns:
+            Updated params dict with exclude_0, exclude_1, etc.
+        """
+        params = base_params.copy()
+        if exclude_patterns:
+            for i, pattern in enumerate(exclude_patterns):
+                params[f"exclude_{i}"] = pattern
+        return params
+
+    @staticmethod
     def check_query_store_enabled() -> TextClause:
         """Check if Query Store is enabled for the current database."""
         return text("""
@@ -43,12 +86,9 @@ class MSSQLQuery:
         Query Store provides detailed query performance stats and full query text.
         This is the preferred method when available.
         """
-        exclude_clause = ""
-        if exclude_patterns:
-            conditions = []
-            for i, _ in enumerate(exclude_patterns):
-                conditions.append(f"qt.query_sql_text NOT LIKE :exclude_{i}")
-            exclude_clause = "AND " + " AND ".join(conditions)
+        exclude_clause = MSSQLQuery._build_exclude_clause(
+            exclude_patterns, "qt.query_sql_text"
+        )
 
         query = f"""
             SELECT TOP(:limit)
@@ -75,10 +115,9 @@ class MSSQLQuery:
             ORDER BY SUM(rs.avg_duration * rs.count_executions) DESC
         """
 
-        params = {"limit": limit, "min_calls": min_calls}
-        if exclude_patterns:
-            for i, pattern in enumerate(exclude_patterns):
-                params[f"exclude_{i}"] = pattern
+        params = MSSQLQuery._build_exclude_params(
+            exclude_patterns, {"limit": limit, "min_calls": min_calls}
+        )
 
         return text(query), params
 
@@ -97,14 +136,9 @@ class MSSQLQuery:
 
         Note: DMVs only contain cached queries, so some historical queries may be missing.
         """
-        exclude_clause = ""
-        if exclude_patterns:
-            conditions = []
-            for i, _ in enumerate(exclude_patterns):
-                conditions.append(
-                    f"CAST(st.text AS NVARCHAR(MAX)) NOT LIKE :exclude_{i}"
-                )
-            exclude_clause = "AND " + " AND ".join(conditions)
+        exclude_clause = MSSQLQuery._build_exclude_clause(
+            exclude_patterns, "CAST(st.text AS NVARCHAR(MAX))"
+        )
 
         query = f"""
             SELECT TOP(:limit)
@@ -125,10 +159,9 @@ class MSSQLQuery:
             ORDER BY qs.total_elapsed_time DESC
         """
 
-        params = {"limit": limit, "min_calls": min_calls}
-        if exclude_patterns:
-            for i, pattern in enumerate(exclude_patterns):
-                params[f"exclude_{i}"] = pattern
+        params = MSSQLQuery._build_exclude_params(
+            exclude_patterns, {"limit": limit, "min_calls": min_calls}
+        )
 
         return text(query), params
 
