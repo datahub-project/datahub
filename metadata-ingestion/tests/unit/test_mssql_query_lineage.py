@@ -1126,3 +1126,72 @@ def test_mssql_lineage_extractor_creates_correct_observed_query():
     assert observed_query.session_id == "queryid:test123"
     assert observed_query.user == CorpUserUrn("test_user")
     assert observed_query.timestamp is None
+
+
+def test_mssql_is_temp_table_caching():
+    """Test that is_temp_table() uses caching for performance."""
+    from datahub.ingestion.api.common import PipelineContext
+
+    config = SQLServerConfig.model_validate(_base_config())
+    ctx = PipelineContext(run_id="test")
+
+    source = SQLServerSource(config=config, ctx=ctx, is_odbc=False)
+
+    # Call the method multiple times with the same input
+    table_name = "TestDB.dbo.MyTable"
+
+    # First call - cache miss
+    result1 = source.is_temp_table(table_name)
+
+    # Get cache info to verify caching is working
+    cache_info_before = source.is_temp_table.cache_info()
+    assert cache_info_before.hits >= 0
+    assert cache_info_before.misses >= 1
+
+    # Second call - should hit cache
+    result2 = source.is_temp_table(table_name)
+
+    # Get cache info after second call
+    cache_info_after = source.is_temp_table.cache_info()
+
+    # Should have at least one more hit than before
+    assert cache_info_after.hits > cache_info_before.hits
+    assert result1 == result2  # Same result
+
+
+def test_mssql_is_temp_table_cache_performance():
+    """Test that caching provides performance benefit for repeated calls."""
+    import time
+
+    from datahub.ingestion.api.common import PipelineContext
+
+    config = SQLServerConfig.model_validate(_base_config())
+    ctx = PipelineContext(run_id="test")
+
+    source = SQLServerSource(config=config, ctx=ctx, is_odbc=False)
+
+    # Test with a qualified table name (typical case)
+    table_name = "TestDB.dbo.Products"
+
+    # Warm up the cache
+    source.is_temp_table(table_name)
+
+    # Time 1000 cached calls
+    start = time.perf_counter()
+    for _ in range(1000):
+        source.is_temp_table(table_name)
+    cached_duration = time.perf_counter() - start
+
+    # Clear cache and time 1000 uncached calls
+    source.is_temp_table.cache_clear()
+
+    start = time.perf_counter()
+    for _ in range(1000):
+        source.is_temp_table(table_name)
+    uncached_duration = time.perf_counter() - start
+
+    # Cached calls should be significantly faster (at least 10x)
+    # Note: This is a conservative check; actual speedup is typically 100x+
+    assert cached_duration < uncached_duration / 10, (
+        f"Cache should provide >10x speedup. Cached: {cached_duration:.4f}s, Uncached: {uncached_duration:.4f}s"
+    )

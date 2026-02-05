@@ -1,3 +1,4 @@
+import functools
 import logging
 import re
 import urllib.parse
@@ -1366,13 +1367,9 @@ class SQLServerSource(SQLAlchemySource):
             self.aggregator.report.num_procedures_failed += 1
             self.aggregator.report.procedure_parse_failures.append(procedure_name)
 
+    @functools.lru_cache(maxsize=1024)
     def is_temp_table(self, name: str) -> bool:
-        """Check if a table name refers to a temp table or unresolved alias.
-
-        Note: This method is called for each upstream table during lineage filtering.
-        If profiling shows this as a bottleneck, consider caching parsed URNs or
-        standardized names to reduce redundant processing.
-        """
+        """Check if a table name refers to a temp table or unresolved alias."""
         if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
