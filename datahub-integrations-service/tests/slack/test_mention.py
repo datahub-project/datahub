@@ -4,6 +4,7 @@ from datahub_integrations.chat.agent import (
     AgentMaxLLMTurnsExceededError,
     AgentMaxTokensExceededError,
 )
+from datahub_integrations.gen_ai.llm.exceptions import LlmDailyLimitExceededException
 from datahub_integrations.slack.command.mention import (
     FeedbackPayload,
     SlackMentionEvent,
@@ -169,6 +170,41 @@ def test_handle_app_mention_chat_session_max_tokens_error() -> None:
         assert (
             mock_app.client.chat_update.call_args[1]["text"]
             == ":x: Uh, oh ! Looks like I fetched too much information here. Please try asking your question in a new thread.\n\n_Reference: message_id=1234.5678_"
+        )
+
+
+def test_handle_app_mention_daily_limit_exceeded_error() -> None:
+    """Test that LlmDailyLimitExceededException shows a user-friendly message."""
+    mock_event = SlackMentionEvent(
+        channel_id="C123",
+        message_ts="1234.5678",
+        original_thread_ts="1234.5678",
+        user_id="U123",
+        message_text="test question",
+    )
+
+    with (
+        patch(
+            "datahub_integrations.slack.command.mention._generate_mention_response"
+        ) as mock_generate,
+        patch("datahub_integrations.slack.command.mention.track_saas_event"),
+        patch("datahub_integrations.slack.command.mention.fetch_thread_history"),
+    ):
+        mock_app = Mock()
+        mock_generate.side_effect = LlmDailyLimitExceededException(
+            "Daily token limit (20,000,000) exceeded. Used today: 20,123,456"
+        )
+        mock_app.client.chat_postMessage.return_value = {"ts": "1234.9999"}
+        mock_app.client.users_info.return_value = {"user": {"name": "test_user"}}
+
+        handle_app_mention(mock_app, mock_event)
+
+        mock_app.client.chat_update.assert_called_once()
+
+        # Should show the user-friendly message with warning icon
+        assert (
+            mock_app.client.chat_update.call_args[1]["text"]
+            == ":warning: AI features have reached their daily usage limit. Please try again later.\n\n_Reference: message_id=1234.5678_"
         )
 
 

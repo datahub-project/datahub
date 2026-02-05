@@ -10,6 +10,7 @@ from loguru import logger
 from pydantic import SecretStr
 
 from datahub_integrations.gen_ai.llm.base import LLMWrapper
+from datahub_integrations.gen_ai.llm.daily_limiter import get_daily_token_limiter
 from datahub_integrations.gen_ai.llm.exceptions import (
     LlmAuthenticationException,
     LlmInputTooLongException,
@@ -89,7 +90,11 @@ class OpenAILLMWrapper(LLMWrapper):
         - Tool calling (Bedrock toolSpec -> langchain function format)
         - Prompt caching (Bedrock cachePoint markers -> OpenAI automatic caching)
         - Response format conversion (langchain AIMessage -> Bedrock output structure)
-        """  # STEP 1 & 2: Convert Bedrock messages to langchain format
+        """
+        # Fail fast if daily token limit already exceeded
+        get_daily_token_limiter().check()
+
+        # STEP 1 & 2: Convert Bedrock messages to langchain format
         # Use shared helper from base class
         lc_messages = self._convert_bedrock_messages_to_langchain(system, messages)
 
@@ -136,6 +141,7 @@ class OpenAILLMWrapper(LLMWrapper):
                 extra={
                     "provider": "openai",
                     "model": self.model_name,
+                    "ai_module": ai_module.value,
                     "duration_seconds": round(timer.elapsed_seconds(), 3),
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,

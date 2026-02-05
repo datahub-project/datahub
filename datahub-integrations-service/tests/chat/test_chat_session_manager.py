@@ -2071,5 +2071,112 @@ def test_load_session_passes_mode_to_factory(mock_datahub_client: Mock) -> None:
             )
 
 
+def test_send_message_handles_daily_limit_exceeded_gracefully(
+    mock_datahub_client: Mock,
+) -> None:
+    """Test that LlmDailyLimitExceededException results in a user-friendly message."""
+    from datahub_integrations.gen_ai.llm.exceptions import (
+        LlmDailyLimitExceededException,
+    )
+
+    def mock_generate_daily_limit_error(session, progress_callback=None):
+        raise LlmDailyLimitExceededException(
+            "Daily token limit (20,000,000) exceeded. Used today: 20,123,456"
+        )
+
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        with patch.object(
+            manager,
+            "_generate_with_progress",
+            side_effect=mock_generate_daily_limit_error,
+        ):
+            urn = "urn:li:dataHubAiConversation:123"
+            events = list(
+                manager.send_message(
+                    text="Test",
+                    user_urn="urn:li:corpuser:test",
+                    conversation_urn=urn,
+                )
+            )
+
+            # Should have user message + response (not an error event)
+            assert len(events) >= 2
+
+            # Last event should be the friendly message, NOT an error
+            final_event = events[-1]
+            assert final_event.error is None  # Not treated as an error
+            assert (
+                final_event.text
+                == "AI features have reached their daily usage limit. Please try again later."
+            )
+
+
+def test_send_message_daily_limit_saves_friendly_message(
+    mock_datahub_client: Mock,
+) -> None:
+    """Test that daily limit message is saved to conversation correctly."""
+    from datahub_integrations.gen_ai.llm.exceptions import (
+        LlmDailyLimitExceededException,
+    )
+
+    def mock_generate_daily_limit_error(session, progress_callback=None):
+        raise LlmDailyLimitExceededException("Daily limit exceeded")
+
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        with patch.object(
+            manager,
+            "_generate_with_progress",
+            side_effect=mock_generate_daily_limit_error,
+        ):
+            urn = "urn:li:dataHubAiConversation:123"
+            list(
+                manager.send_message(
+                    text="Test",
+                    user_urn="urn:li:corpuser:test",
+                    conversation_urn=urn,
+                )
+            )
+
+            # Should have saved: 1 user TEXT + 1 AI TEXT (friendly message) = 2 saves
+            assert mock_instance.save_message_to_conversation.call_count == 2
+
+            # Find the AI response save call (last save)
+            save_calls = mock_instance.save_message_to_conversation.call_args_list
+            ai_save_call = save_calls[-1]
+
+            # Verify the friendly message is saved
+            expected_text = "AI features have reached their daily usage limit. Please try again later."
+            assert ai_save_call[1]["text"] == expected_text
+            assert ai_save_call[1]["actor_urn"] == "urn:li:corpuser:datahub-ai"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

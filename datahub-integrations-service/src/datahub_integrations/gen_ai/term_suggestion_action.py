@@ -31,7 +31,7 @@ from datahub_integrations.gen_ai.term_suggestion_v2_context import (
     fetch_glossary_info,
 )
 
-_APPLY_TO_TOP_N_DATASETS = 10000
+_APPLY_TO_TOP_N_DATASETS = 2000
 _MAX_GQL_BATCH_SIZE = 10000
 _TERMS_ALGO_VERSION = 1
 

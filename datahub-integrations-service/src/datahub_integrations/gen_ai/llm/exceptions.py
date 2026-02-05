@@ -58,3 +58,9 @@ class LlmAuthenticationException(LlmException):
     """Exception raised for authentication/authorization errors."""
 
     pass
+
+
+class LlmDailyLimitExceededException(LlmException):
+    """Exception raised when the daily token limit has been exceeded."""
+
+    pass

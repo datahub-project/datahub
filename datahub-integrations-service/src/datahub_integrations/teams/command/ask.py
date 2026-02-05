@@ -9,6 +9,7 @@ from datahub_integrations.chat.agent.progress_tracker import ProgressUpdate
 from datahub_integrations.chat.agents import create_data_catalog_explorer_agent
 from datahub_integrations.chat.chat_history import HumanMessage
 from datahub_integrations.chat.types import ChatType, NextMessage
+from datahub_integrations.gen_ai.llm.exceptions import LlmDailyLimitExceededException
 from datahub_integrations.observability import BotCommand, BotPlatform, otel_instrument
 from datahub_integrations.teams.teams_history import TeamsConversationHistory
 
@@ -176,6 +177,15 @@ async def handle_ask_command_teams(
         }
 
         return result
+
+    except LlmDailyLimitExceededException:
+        logger.opt(exception=True).warning(
+            "Daily LLM token limit exceeded during Teams ask command"
+        )
+        return {
+            "type": "message",
+            "text": "AI features have reached their daily usage limit. Please try again later.",
+        }
 
     except Exception as e:
         logger.error(f"Error in AI ask command: {e}")
