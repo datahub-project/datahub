@@ -23,6 +23,7 @@ from typing import (
 
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_CONSUMER_TIMEOUT_SECONDS,
+    SCHEMA_TYPE_AVRO,
 )
 from datahub.ingestion.source.kafka.kafka_schema_inference import (
     KafkaSchemaInference,
@@ -930,20 +931,24 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         if isinstance(data, bytes):
             try:
-                # Use pre-cached schema metadata instead of fetching it again
                 if schema_metadata and isinstance(
                     schema_metadata.platformSchema, KafkaSchemaClass
                 ):
+                    schema_type = (
+                        schema_metadata.platformSchema.keySchemaType
+                        if is_key
+                        else schema_metadata.platformSchema.documentSchemaType
+                    )
+
                     schema_str = (
                         schema_metadata.platformSchema.keySchema
                         if is_key
                         else schema_metadata.platformSchema.documentSchema
                     )
 
-                    if schema_str:
+                    if schema_str and schema_type == SCHEMA_TYPE_AVRO:
                         try:
-                            # Check if this is Avro data (has magic byte)
-                            if len(data) > 5 and data[0] == 0:  # Magic byte check
+                            if len(data) > 5 and data[0] == 0:
                                 schema = avro.schema.parse(schema_str)
                                 decoder = avro.io.BinaryDecoder(io.BytesIO(data[5:]))
                                 reader = avro.io.DatumReader(schema)
@@ -1170,7 +1175,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         key_fields: List["SchemaField"],
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """Extract record with pre-fetched schema data to avoid sequential schema lookups."""
-        AVRO = "AVRO"
         kafka_entity = "subject" if is_subject else "topic"
 
         logger.debug(f"extracting schema metadata from kafka entity = {kafka_entity}")
@@ -1241,7 +1245,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         if (
             schema_metadata is not None
             and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
-            and schema_metadata.platformSchema.documentSchemaType == AVRO
+            and schema_metadata.platformSchema.documentSchemaType == SCHEMA_TYPE_AVRO
         ):
             avro_schema = avro.schema.parse(
                 schema_metadata.platformSchema.documentSchema
@@ -1318,8 +1322,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         topic_detail: Optional[TopicMetadata],
         extra_topic_config: Optional[Dict[str, ConfigEntry]],
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
-        AVRO = "AVRO"
-
         kafka_entity = "subject" if is_subject else "topic"
         logger.debug(f"extracting schema metadata from kafka entity = {kafka_entity}")
 
@@ -1373,7 +1375,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         if (
             schema_metadata is not None
             and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
-            and schema_metadata.platformSchema.documentSchemaType == AVRO
+            and schema_metadata.platformSchema.documentSchemaType == SCHEMA_TYPE_AVRO
         ):
             # Point to note:
             # In Kafka documentSchema and keySchema both contains "doc" field.
