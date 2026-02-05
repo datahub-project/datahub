@@ -1295,3 +1295,67 @@ def test_mssql_query_exclude_patterns_escaped_brackets():
 
     config = SQLServerConfig.model_validate(config_dict)
     assert config.query_exclude_patterns == [r"\[escaped\]%", r"%\[test\]%"]
+
+
+def test_mssql_query_sql_injection_safety():
+    """Test that SQL query construction is safe from injection attacks."""
+    # Test 1: Valid simple column expression
+    clause = MSSQLQuery._build_exclude_clause(["%test%"], "qt.query_sql_text")
+    assert "qt.query_sql_text NOT LIKE :exclude_0" in clause
+
+    # Test 2: Valid CAST expression (used in DMV queries)
+    clause = MSSQLQuery._build_exclude_clause(
+        ["%test%"], "CAST(st.text AS NVARCHAR(MAX))"
+    )
+    assert "CAST(st.text AS NVARCHAR(MAX)) NOT LIKE :exclude_0" in clause
+
+    # Test 3: SQL injection attempt with semicolon
+    with pytest.raises(ValueError, match="dangerous SQL characters"):
+        MSSQLQuery._build_exclude_clause(["%test%"], "'; DROP TABLE users; --")
+
+    # Test 4: SQL injection attempt with comment
+    with pytest.raises(ValueError, match="dangerous SQL characters"):
+        MSSQLQuery._build_exclude_clause(["%test%"], "col OR 1=1 --")
+
+    # Test 5: SQL injection attempt with block comment
+    with pytest.raises(ValueError, match="dangerous SQL characters"):
+        MSSQLQuery._build_exclude_clause(["%test%"], "col /* comment */ OR 1=1")
+
+    # Test 6: Invalid format (not table.column)
+    with pytest.raises(ValueError, match="Invalid column expression"):
+        MSSQLQuery._build_exclude_clause(["%test%"], "invalid_format")
+
+    # Test 7: Invalid format (looks like OR injection)
+    with pytest.raises(ValueError, match="Invalid column expression"):
+        MSSQLQuery._build_exclude_clause(["%test%"], "col OR 1=1")
+
+
+def test_mssql_query_parameterized_patterns():
+    """Test that query patterns are properly parameterized."""
+    # Build query with multiple exclude patterns
+    query, params = MSSQLQuery.get_query_history_from_query_store(
+        database="TestDB",
+        limit=100,
+        min_calls=1,
+        exclude_patterns=["%sys.%", "%temp%", "%msdb.%"],
+    )
+
+    # Verify parameters are created
+    assert "exclude_0" in params
+    assert "exclude_1" in params
+    assert "exclude_2" in params
+    assert params["exclude_0"] == "%sys.%"
+    assert params["exclude_1"] == "%temp%"
+    assert params["exclude_2"] == "%msdb.%"
+
+    # Verify query uses parameterized placeholders
+    query_str = str(query)
+    assert ":exclude_0" in query_str
+    assert ":exclude_1" in query_str
+    assert ":exclude_2" in query_str
+
+    # Verify actual pattern values are NOT in the query string (they're parameterized)
+    # Note: This isn't a perfect test since patterns could appear in comments, but it's a sanity check
+    assert query_str.count("%sys.%") == 0  # Should be parameterized, not in query text
+    assert query_str.count("%temp%") == 0
+    assert query_str.count("%msdb.%") == 0

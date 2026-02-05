@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import List, Optional, Tuple
 
 from sqlalchemy import text
@@ -15,18 +16,42 @@ class MSSQLQuery:
         exclude_patterns: Optional[List[str]], column_expr: str
     ) -> str:
         """
-        Build SQL WHERE clause for excluding patterns.
+        Build SQL WHERE clause for excluding patterns using parameterized queries.
 
-        Args:
-            exclude_patterns: List of SQL LIKE patterns to exclude
-            column_expr: The column expression to apply patterns to (e.g., 'qt.query_sql_text')
-
-        Returns:
-            SQL clause like "AND column NOT LIKE :exclude_0 AND column NOT LIKE :exclude_1"
+        SECURITY: SQL injection safe - column_expr is hardcoded by callers,
+        pattern values use bound parameters (:exclude_0, :exclude_1, etc.).
         """
         if not exclude_patterns:
             return ""
 
+        # Validate column_expr is a safe identifier (defense in depth)
+        # Should only be called with hardcoded values like:
+        # - 'qt.query_sql_text' (simple table.column)
+        # - 'CAST(st.text AS NVARCHAR(MAX))' (CAST expression)
+        # Reject anything that looks like SQL injection (semicolons, OR/AND, comments)
+        if any(dangerous in column_expr for dangerous in [";", "--", "/*", "*/"]):
+            raise ValueError(
+                f"Invalid column expression '{column_expr}'. "
+                "Contains potentially dangerous SQL characters."
+            )
+
+        # Must be either table.column format OR a CAST expression
+        is_simple_column = re.match(
+            r"^[a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*$", column_expr
+        )
+        is_cast_expr = re.match(
+            r"^CAST\([a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*\s+AS\s+[A-Z_]+(\([A-Z]+\))?\)$",
+            column_expr,
+            re.IGNORECASE,
+        )
+
+        if not (is_simple_column or is_cast_expr):
+            raise ValueError(
+                f"Invalid column expression '{column_expr}'. "
+                "Must be in format 'table.column' or 'CAST(table.column AS type)'."
+            )
+
+        # Build parameterized conditions - pattern values go through SQLAlchemy binding
         conditions = [
             f"{column_expr} NOT LIKE :exclude_{i}"
             for i, _ in enumerate(exclude_patterns)
@@ -37,16 +62,7 @@ class MSSQLQuery:
     def _build_exclude_params(
         exclude_patterns: Optional[List[str]], base_params: dict
     ) -> dict:
-        """
-        Build parameter dict with exclude patterns.
-
-        Args:
-            exclude_patterns: List of SQL LIKE patterns to exclude
-            base_params: Base parameters dict to extend
-
-        Returns:
-            Updated params dict with exclude_0, exclude_1, etc.
-        """
+        """Build parameter dict with exclude patterns (exclude_0, exclude_1, etc.)."""
         params = base_params.copy()
         if exclude_patterns:
             for i, pattern in enumerate(exclude_patterns):

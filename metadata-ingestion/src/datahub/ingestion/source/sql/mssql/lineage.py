@@ -74,12 +74,7 @@ class MSSQLLineageExtractor:
         self.queries_failed = 0
 
     def _check_version(self) -> Optional[int]:
-        """
-        Check SQL Server version and return major version number.
-
-        Returns:
-            Major version number, or None if check fails
-        """
+        """Check SQL Server version and return major version number."""
         result = self.connection.execute(MSSQLQuery.get_mssql_version())
         row = result.fetchone()
 
@@ -101,12 +96,7 @@ class MSSQLLineageExtractor:
         return None
 
     def _check_query_store_available(self) -> bool:
-        """
-        Check if Query Store is enabled.
-
-        Returns:
-            True if Query Store is enabled, False otherwise
-        """
+        """Check if Query Store is enabled."""
         result = self.connection.execute(MSSQLQuery.check_query_store_enabled())
         row = result.fetchone()
 
@@ -120,12 +110,7 @@ class MSSQLLineageExtractor:
         return False
 
     def _check_dmv_permissions(self) -> bool:
-        """
-        Check if user has VIEW SERVER STATE permission for DMVs.
-
-        Returns:
-            True if permissions are sufficient, False otherwise
-        """
+        """Check if user has VIEW SERVER STATE permission for DMVs."""
         result = self.connection.execute(MSSQLQuery.check_dmv_permissions())
         row = result.fetchone()
 
@@ -139,12 +124,7 @@ class MSSQLLineageExtractor:
         return True
 
     def check_prerequisites(self) -> tuple[bool, str, str]:
-        """
-        Verify query history prerequisites and determine extraction method.
-
-        Returns:
-            Tuple of (is_ready, message, method) where method is 'query_store' or 'dmv'
-        """
+        """Verify query history prerequisites and determine extraction method."""
         self._check_version()
 
         try:

@@ -30,14 +30,7 @@ class MSSQLAliasFilter:
         is_temp_table: Callable[[str], bool],
         platform_instance: Optional[str] = None,
     ):
-        """
-        Initialize the alias filter.
-
-        Args:
-            is_temp_table: Function that checks if a table name is a temp table or alias.
-                          Returns True if table should be filtered out.
-            platform_instance: Optional platform instance prefix to strip from URNs.
-        """
+        """Initialize the alias filter with temp table checker and optional platform instance."""
         self.is_temp_table = is_temp_table
         self.platform_instance = platform_instance
 
