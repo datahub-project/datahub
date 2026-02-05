@@ -228,7 +228,6 @@ def test_mssql_lineage_extractor_query_store_disabled():
         config, conn_mock, report, sql_aggregator_mock, "dbo"
     )
 
-    # Mock Query Store disabled
     conn_mock.execute.return_value.fetchone.return_value = {"is_enabled": 0}
 
     is_enabled = extractor._check_query_store_available()
@@ -247,7 +246,6 @@ def test_mssql_lineage_extractor_dmv_permissions_granted():
         config, conn_mock, report, sql_aggregator_mock, "dbo"
     )
 
-    # Mock successful DMV permissions check
     conn_mock.execute.return_value.fetchone.return_value = {"has_view_server_state": 1}
 
     has_permission = extractor._check_dmv_permissions()
@@ -266,7 +264,6 @@ def test_mssql_lineage_extractor_dmv_permissions_denied():
         config, conn_mock, report, sql_aggregator_mock, "dbo"
     )
 
-    # Mock permission denied (no VIEW SERVER STATE)
     conn_mock.execute.return_value.fetchone.return_value = {"has_view_server_state": 0}
 
     has_permission = extractor._check_dmv_permissions()
@@ -285,14 +282,12 @@ def test_mssql_lineage_extractor_check_prerequisites_query_store():
         config, conn_mock, report, sql_aggregator_mock, "dbo"
     )
 
-    # Mock successful version check
     version_result = Mock()
     version_result.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
-    # Mock Query Store enabled
     qs_result = Mock()
     qs_result.fetchone.return_value = {"is_enabled": 1}
 
@@ -315,18 +310,15 @@ def test_mssql_lineage_extractor_check_prerequisites_dmv_fallback():
         config, conn_mock, report, sql_aggregator_mock, "dbo"
     )
 
-    # Mock successful version check
     version_result = Mock()
     version_result.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
-    # Mock Query Store disabled
     qs_result = Mock()
     qs_result.fetchone.return_value = {"is_enabled": 0}
 
-    # Mock DMV permissions granted
     dmv_result = Mock()
     dmv_result.fetchone.return_value = {"has_view_server_state": 1}
 
@@ -356,11 +348,9 @@ def test_mssql_lineage_extractor_check_prerequisites_fails():
         "major_version": 15,
     }
 
-    # Mock Query Store disabled
     qs_result = Mock()
     qs_result.fetchone.return_value = {"is_enabled": 0}
 
-    # Mock DMV permissions denied
     dmv_result = Mock()
     dmv_result.fetchone.return_value = {"has_view_server_state": 0}
 
@@ -854,7 +844,6 @@ def test_mssql_lineage_extractor_fallback_to_dmv():
         config, conn_mock, report, sql_aggregator_mock, "dbo"
     )
 
-    # Mock successful version check
     version_result = Mock()
     version_result.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
@@ -1337,7 +1326,6 @@ def test_mssql_connection_timeout_during_extraction(create_engine_mock):
         "major_version": 15,
     }
 
-    # Mock Query Store enabled
     qs_result = MagicMock()
     qs_result.fetchone.return_value = {"is_enabled": 1}
 
@@ -1396,7 +1384,6 @@ def test_mssql_unicode_emoji_in_query_text(create_engine_mock):
         "major_version": 15,
     }
 
-    # Mock Query Store enabled
     qs_result = Mock()
     qs_result.fetchone.return_value = {"is_enabled": 1}
 
@@ -1520,7 +1507,6 @@ def test_mssql_very_long_query_text_handling():
         "major_version": 15,
     }
 
-    # Mock Query Store enabled
     qs_result = Mock()
     qs_result.fetchone.return_value = {"is_enabled": 1}
 
@@ -1631,7 +1617,6 @@ def test_mssql_user_attribution_currently_broken():
         "major_version": 15,
     }
 
-    # Mock Query Store enabled
     qs_result = Mock()
     qs_result.fetchone.return_value = {"is_enabled": 1}
 

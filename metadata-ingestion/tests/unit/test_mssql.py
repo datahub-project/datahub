@@ -154,14 +154,11 @@ def test_detect_rds_environment_no_result(mssql_source):
         ("mydb.xyz123.us-east-1.rds.amazonaws.com", True),
         ("mydb.abc123.rds.amazonaws.com", True),
         ("mydb.xyz123.rds.amazonaws.com.cn", True),
-        # Medium confidence - RDS and EC2 patterns
         ("mycompany-rds-prod.company.com", True),
         ("server.ec2-internal.amazonaws.com", True),
-        # Low confidence - prefix patterns
         ("amazon-rds-server", True),
         ("amzn-sqlserver-001", True),
         ("aws-rds-db", True),
-        # Non-RDS servers
         ("SQLSERVER01", False),
         ("sql.corporate.com", False),
         ("database.local", False),
@@ -188,7 +185,6 @@ def test_get_jobs_managed_environment_success(mock_logger, mssql_source):
     mock_conn = MagicMock()
     mock_jobs = {"TestJob": {1: {"job_name": "TestJob", "step_name": "Step1"}}}
 
-    # Mock managed environment detection
     with (
         patch.object(mssql_source, "_detect_rds_environment", return_value=True),
         patch.object(
@@ -209,7 +205,6 @@ def test_get_jobs_on_premises_success(mock_logger, mssql_source):
     mock_conn = MagicMock()
     mock_jobs = {"TestJob": {1: {"job_name": "TestJob", "step_name": "Step1"}}}
 
-    # Mock on-premises environment detection
     with (
         patch.object(mssql_source, "_detect_rds_environment", return_value=False),
         patch.object(
@@ -230,7 +225,6 @@ def test_get_jobs_managed_fallback_success(mock_logger, mssql_source):
     mock_conn = MagicMock()
     mock_jobs = {"TestJob": {1: {"job_name": "TestJob", "step_name": "Step1"}}}
 
-    # Mock managed environment detection
     with (
         patch.object(mssql_source, "_detect_rds_environment", return_value=True),
         patch.object(
@@ -255,7 +249,6 @@ def test_get_jobs_on_premises_fallback_success(mock_logger, mssql_source):
     mock_conn = MagicMock()
     mock_jobs = {"TestJob": {1: {"job_name": "TestJob", "step_name": "Step1"}}}
 
-    # Mock on-premises environment detection
     with (
         patch.object(mssql_source, "_detect_rds_environment", return_value=False),
         patch.object(
@@ -284,7 +277,6 @@ def test_get_jobs_managed_both_methods_fail(mock_logger, mssql_source):
     """Test managed environment where both methods fail"""
     mock_conn = MagicMock()
 
-    # Mock managed environment detection
     with (
         patch.object(mssql_source, "_detect_rds_environment", return_value=True),
         patch.object(
@@ -317,7 +309,6 @@ def test_get_jobs_on_premises_both_methods_fail(mock_logger, mssql_source):
     """Test on-premises environment where both methods fail"""
     mock_conn = MagicMock()
 
-    # Mock on-premises environment detection
     with (
         patch.object(mssql_source, "_detect_rds_environment", return_value=False),
         patch.object(
