@@ -611,6 +611,9 @@ class SQLServerSource(SQLAlchemySource):
 
         RDS restricts msdb table access; on-prem allows faster direct queries.
         Detection errors fall back to on-prem mode with automatic retry logic.
+
+        IMPORTANT: For production use, set is_aws_rds explicitly in config to avoid
+        heuristic detection failures. This method uses best-effort pattern matching.
         """
         if self.config.is_aws_rds is not None:
             logger.info(
@@ -624,46 +627,64 @@ class SQLServerSource(SQLAlchemySource):
             if server_name_row:
                 server_name = server_name_row["server_name"].lower()
 
-                # Check for RDS-specific patterns (avoid false positives like "amazing_server")
-                rds_patterns = [
-                    ".rds.amazonaws.com",  # Official RDS endpoint suffix
-                    "rds.amazonaws.com",  # Substring for full domain
-                    "-rds-",  # Common RDS naming pattern
-                    ".ec2-",  # EC2 instance pattern
+                # Primary patterns: Official RDS/AWS domain suffixes (high confidence)
+                high_confidence_patterns = [
+                    ".rds.amazonaws.com",  # Official RDS endpoint: mydb.abc123.us-east-1.rds.amazonaws.com
+                    ".rds.amazonaws.com.cn",  # China region RDS
                 ]
 
-                # Fallback patterns (less specific, checked last)
-                fallback_patterns = [
-                    "amazon-",  # Prefix pattern (less likely to match "amazing")
-                    "amzn-",  # AWS naming prefix
+                # Secondary patterns: Common AWS naming (medium confidence)
+                medium_confidence_patterns = [
+                    "-rds-",  # Custom names with RDS marker: mycompany-rds-prod
+                    ".ec2-",  # EC2 instance pattern: ip-10-0-0-1.ec2-internal
                 ]
 
-                is_rds = any(pattern in server_name for pattern in rds_patterns)
+                # Tertiary patterns: Prefix-based (low confidence, only match at start)
+                # Uses startswith() to avoid false positives like "amazing_server"
+                prefix_patterns = [
+                    "amazon-",  # Amazon-prefixed: amazon-rds-prod (NOT "amazing")
+                    "amzn-",  # AWS standard prefix: amzn-sqlserver-001
+                    "aws-",  # AWS-prefixed: aws-rds-db
+                ]
+
+                # Check in order of confidence
+                is_rds = any(
+                    pattern in server_name for pattern in high_confidence_patterns
+                )
+
                 if not is_rds:
                     is_rds = any(
-                        server_name.startswith(pattern) for pattern in fallback_patterns
+                        pattern in server_name for pattern in medium_confidence_patterns
+                    )
+
+                if not is_rds:
+                    is_rds = any(
+                        server_name.startswith(pattern) for pattern in prefix_patterns
                     )
 
                 if is_rds:
                     logger.info(
-                        "AWS RDS detected based on server name: %s", server_name
+                        "AWS RDS detected based on server name pattern: %s", server_name
                     )
                 else:
                     logger.info(
-                        "Non-RDS environment detected based on server name: %s",
+                        "Non-RDS environment detected (server name: %s). "
+                        "If this is incorrect, set 'is_aws_rds: true' in config.",
                         server_name,
                     )
 
                 return is_rds
             else:
                 logger.warning(
-                    "Could not retrieve server name, assuming non-RDS environment"
+                    "Could not retrieve server name, assuming non-RDS. "
+                    "Set 'is_aws_rds' explicitly in config if needed."
                 )
                 return False
 
         except Exception as e:
             logger.warning(
-                "Failed to detect RDS/managed vs on-prem env, assuming non-RDS environment: %s",
+                "Failed to detect RDS environment (error: %s), assuming non-RDS. "
+                "Set 'is_aws_rds' explicitly in config to avoid detection issues.",
                 e,
             )
             return False

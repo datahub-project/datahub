@@ -36,9 +36,31 @@ GRANT EXECUTE ON msdb.dbo.sp_help_job TO 'USERNAME'
 GRANT EXECUTE ON msdb.dbo.sp_help_jobstep TO 'USERNAME'
 ```
 
+**Production Recommendation**: Explicitly set `is_aws_rds: true` in your configuration to avoid automatic detection issues:
+
+```yaml
+source:
+  type: mssql
+  config:
+    is_aws_rds: true # Recommended for RDS environments
+    # ... other config
+```
+
+The connector automatically detects RDS environments by analyzing the server name (e.g., `*.rds.amazonaws.com`), but explicit configuration is more reliable and avoids potential false positives or negatives.
+
 #### On-Premises SQL Server Notes
 
 For **on-premises SQL Server** installations, direct table access is typically available and faster. The source will automatically use direct queries when possible, with stored procedures as fallback.
+
+**Production Recommendation**: Explicitly set `is_aws_rds: false` to ensure optimal performance:
+
+```yaml
+source:
+  type: mssql
+  config:
+    is_aws_rds: false # Recommended for on-premises
+    # ... other config
+```
 
 #### Troubleshooting Permissions
 
