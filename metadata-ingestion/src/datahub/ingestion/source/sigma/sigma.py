@@ -400,6 +400,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 platform=task.platform,
                 env=task.env,
                 platform_instance=task.platform_instance,
+                graph=self.ctx.graph,
                 column_lineage_batch_size=self.config.column_lineage_batch_size,
             )
             logger.debug(
@@ -518,6 +519,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         platform=data_source_platform_details.data_source_platform,
                         env=data_source_platform_details.env,
                         platform_instance=data_source_platform_details.platform_instance,
+                        graph=self.ctx.graph,
                         column_lineage_batch_size=self.config.column_lineage_batch_size,
                     ).in_tables
                 except Exception:
