@@ -19,12 +19,14 @@ datahub ingest deploy -c /tmp/datahub-docs.yml --name "document-embeddings" --sc
 This creates a managed ingestion source in DataHub that automatically processes documents every hour and generates embeddings for semantic search.
 
 **What this does:**
+
 - ✅ Deploys ingestion recipe to DataHub
 - ✅ Runs hourly (cron: `0 * * * *`) to keep embeddings up-to-date
 - ✅ Uses event-driven mode (only processes changed documents)
 - ✅ Auto-configures from server (no manual embedding setup needed)
 
 **Alternative schedules:**
+
 ```bash
 # Every 15 minutes: "*/15 * * * *"
 # Every 6 hours:    "0 */6 * * *"
@@ -53,12 +55,14 @@ The source **automatically fetches embedding configuration from your DataHub ser
 #### 2. Dual Operating Modes
 
 **Event-Driven Mode (Recommended):**
+
 - Processes documents in real-time from Kafka MCL events
 - Only reprocesses when document content changes
 - Efficient for continuous updates
 - Automatically falls back to batch mode on first run
 
 **Batch Mode:**
+
 - Fetches all documents via GraphQL
 - Good for initial setup or periodic full refreshes
 - Processes all matching documents
@@ -85,6 +89,7 @@ The source **automatically fetches embedding configuration from your DataHub ser
 See the [Semantic Search Configuration Guide](../../../how-to/semantic-search-configuration.md) for complete setup instructions.
 
 Required server configuration:
+
 - OpenSearch 2.17+ with k-NN plugin enabled
 - AWS Bedrock or Cohere embedding provider configured
 - Semantic search enabled in `application.yml`
@@ -141,6 +146,7 @@ sink:
 ```
 
 **When to use:**
+
 - Production deployments
 - Continuous document updates
 - Real-time semantic search needs
@@ -165,6 +171,7 @@ sink:
 ```
 
 **When to use:**
+
 - Initial setup
 - Periodic full refreshes
 - Backfilling embeddings
@@ -198,7 +205,7 @@ source:
   config:
     incremental:
       enabled: true
-      force_reprocess: true  # Reprocess everything
+      force_reprocess: true # Reprocess everything
 
     # Useful when:
     # - Changing chunking strategy
@@ -220,8 +227,8 @@ source:
   config:
     # Custom chunking
     chunking:
-      strategy: by_title  # or 'basic'
-      max_characters: 1000  # Larger chunks
+      strategy: by_title # or 'basic'
+      max_characters: 1000 # Larger chunks
       combine_text_under_n_chars: 200
 
     # Override embedding config (validates against server)
@@ -266,6 +273,7 @@ sink:
 ### Event Mode Flow
 
 **First Run (No State):**
+
 1. Falls back to batch mode
 2. Captures current Kafka offset BEFORE processing
 3. Processes all documents
@@ -273,6 +281,7 @@ sink:
 5. Next run continues from captured offset
 
 **Subsequent Runs:**
+
 1. Loads last committed offset from state
 2. Consumes events from last position
 3. Processes only changed documents
@@ -282,6 +291,7 @@ sink:
 ### Incremental Processing
 
 **Content Hash Calculation:**
+
 ```python
 hash_input = {
     "text": document.text,
@@ -294,6 +304,7 @@ content_hash = sha256(json.dumps(hash_input))
 ```
 
 **When Documents Are Reprocessed:**
+
 - Text content changes
 - Chunking configuration changes
 - Partition strategy changes
@@ -306,23 +317,29 @@ content_hash = sha256(json.dumps(hash_input))
 The `platform_filter` setting controls which documents are processed:
 
 **`None` (default):**
+
 ```yaml
-platform_filter: null  # or omit the field
+platform_filter: null # or omit the field
 ```
+
 - Processes all NATIVE documents (sourceType=NATIVE)
 - Ignores EXTERNAL documents from other platforms
 
 **Specific Platforms:**
+
 ```yaml
 platform_filter: ["notion", "confluence"]
 ```
+
 - Processes NATIVE documents
 - PLUS EXTERNAL documents from specified platforms
 
 **All Documents:**
+
 ```yaml
-platform_filter: ["*"]  # or ["ALL"]
+platform_filter: ["*"] # or ["ALL"]
 ```
+
 - Processes ALL documents regardless of source type or platform
 
 ### Event Mode Configuration
@@ -332,14 +349,14 @@ event_mode:
   enabled: true
 
   # Consumer ID for offset tracking
-  consumer_id: "datahub-documents-{pipeline_name}"  # Default
+  consumer_id: "datahub-documents-{pipeline_name}" # Default
 
   # Kafka topics to consume
   topics:
     - "MetadataChangeLog_Versioned_v1"
 
   # Lookback window for first run
-  lookback_days: null  # null = start from latest, or specify days
+  lookback_days: null # null = start from latest, or specify days
 
   # Reset offsets to beginning (DANGEROUS - reprocesses everything)
   reset_offsets: false
@@ -355,24 +372,28 @@ event_mode:
 ### Chunking Strategies
 
 **by_title (Recommended):**
+
 ```yaml
 chunking:
   strategy: by_title
   max_characters: 500
   combine_text_under_n_chars: 100
 ```
+
 - Preserves document structure
 - Groups text under section headers
 - Combines small chunks intelligently
 - Better semantic coherence
 
 **basic:**
+
 ```yaml
 chunking:
   strategy: basic
   max_characters: 500
-  overlap: 50  # Character overlap between chunks
+  overlap: 50 # Character overlap between chunks
 ```
+
 - Simple fixed-size chunks
 - Configurable overlap
 - No structure awareness
@@ -380,28 +401,33 @@ chunking:
 ### Embedding Configuration
 
 **Default (Fetch from Server):**
+
 ```yaml
-embedding: {}  # or omit entirely
+embedding: {} # or omit entirely
 ```
+
 - Automatically fetches config from server
 - Ensures alignment with server's semantic search
 - **Recommended for production**
 
 **Override (Validated Against Server):**
+
 ```yaml
 embedding:
-  provider: bedrock  # bedrock, cohere, openai
+  provider: bedrock # bedrock, cohere, openai
   model: cohere.embed-english-v3
-  model_embedding_key: cohere_embed_v3  # Must match server!
+  model_embedding_key: cohere_embed_v3 # Must match server!
   aws_region: us-west-2
   batch_size: 25
-  input_type: search_document  # Cohere-specific
+  input_type: search_document # Cohere-specific
 ```
+
 - Validates that config matches server
 - Fails if mismatch detected
 - Prevents broken semantic search
 
 **Break-Glass Override (NOT RECOMMENDED):**
+
 ```yaml
 embedding:
   allow_local_embedding_config: true
@@ -409,6 +435,7 @@ embedding:
   model: cohere.embed-english-v3
   # ... other settings
 ```
+
 - Bypasses server validation
 - **May break semantic search**
 - Only use for debugging or special cases
@@ -417,11 +444,11 @@ embedding:
 
 ```yaml
 stateful_ingestion:
-  enabled: true  # Enabled by default
+  enabled: true # Enabled by default
 
   # State backend configuration
   state_provider:
-    type: datahub  # Store state in DataHub
+    type: datahub # Store state in DataHub
     config:
       datahub_api:
         server: "http://localhost:8080"
@@ -440,7 +467,7 @@ stateful_ingestion:
 
 ```yaml
 embedding:
-  batch_size: 25  # Default
+  batch_size: 25 # Default
   # Increase for faster processing (if provider supports):
   # - Cohere: Up to 96
   # - Bedrock: Up to 100 (but rate-limited)
@@ -460,11 +487,11 @@ event_mode:
 ```yaml
 # Skip short or empty documents
 skip_empty_text: true
-min_text_length: 50  # Characters
+min_text_length: 50 # Characters
 
 # Process fewer documents
-platform_filter: ["notion"]  # Only one platform
-document_urns:  # Specific documents only
+platform_filter: ["notion"] # Only one platform
+document_urns: # Specific documents only
   - "urn:li:document:abc123"
 ```
 
@@ -497,12 +524,12 @@ source:
   type: datahub-documents
   config:
     # ... your config
-
 # Set log level via environment variable
 # export DATAHUB_DEBUG=true
 ```
 
 Look for these log messages:
+
 - `"Loading embedding configuration from DataHub server..."`
 - `"✓ Loaded embedding configuration from server"`
 - `"Incremental mode enabled, state file: ..."`
@@ -515,6 +542,7 @@ Look for these log messages:
 **Cause:** Server does not have semantic search configured.
 
 **Solution:**
+
 1. Configure semantic search on your DataHub server first
 2. See [Semantic Search Configuration Guide](../../../how-to/semantic-search-configuration.md)
 3. Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` in server config
@@ -528,6 +556,7 @@ Look for these log messages:
 **Option 1 (Recommended):** Upgrade DataHub server to v0.14.0+
 
 **Option 2:** Provide local embedding config:
+
 ```yaml
 embedding:
   provider: bedrock
@@ -539,6 +568,7 @@ embedding:
 ### Issue: Embedding Configuration Validation Fails
 
 **Error:**
+
 ```
 Embedding configuration mismatch with server:
 - Model: local='cohere.embed-english-v3', server='amazon.titan-embed-text-v1'
@@ -547,6 +577,7 @@ Embedding configuration mismatch with server:
 **Cause:** Local config doesn't match server configuration.
 
 **Solution:**
+
 1. Either remove local embedding config (use server config)
 2. Or update server config to match local settings
 3. Or update local config to match server
@@ -556,6 +587,7 @@ Embedding configuration mismatch with server:
 **Possible Causes:**
 
 1. **Platform Filter Too Restrictive:**
+
    ```yaml
    # If you have NATIVE documents but filter for external platforms:
    platform_filter: ["notion"]  # Won't process NATIVE documents!
@@ -565,6 +597,7 @@ Embedding configuration mismatch with server:
    ```
 
 2. **All Documents Unchanged:**
+
    - Check incremental mode is working correctly
    - Force reprocess if needed: `incremental.force_reprocess: true`
 
@@ -579,12 +612,14 @@ Embedding configuration mismatch with server:
 **Possible Causes:**
 
 1. **Stateful Ingestion Disabled:**
+
    ```yaml
    stateful_ingestion:
-     enabled: true  # Must be enabled for event mode
+     enabled: true # Must be enabled for event mode
    ```
 
 2. **Kafka Connection Issues:**
+
    - Check DataHub Kafka is accessible
    - Verify network connectivity
    - Check Kafka broker configuration
@@ -596,12 +631,13 @@ Embedding configuration mismatch with server:
        type: datahub
        config:
          datahub_api:
-           server: "http://correct-host:8080"  # Correct URL
+           server: "http://correct-host:8080" # Correct URL
    ```
 
 ### Issue: AWS Credentials Error
 
 **Error:**
+
 ```
 Unable to load credentials from any provider in the chain
 ```
@@ -609,12 +645,14 @@ Unable to load credentials from any provider in the chain
 **Solutions:**
 
 1. **Verify AWS_PROFILE:**
+
    ```bash
    export AWS_PROFILE=datahub-dev
    cat ~/.aws/credentials  # Check profile exists
    ```
 
 2. **For EC2 Instance Role:**
+
    ```bash
    # Check instance role is attached
    curl http://169.254.169.254/latest/meta-data/iam/security-credentials/
@@ -629,25 +667,28 @@ Unable to load credentials from any provider in the chain
 **Optimization Strategies:**
 
 1. **Increase Batch Size:**
+
    ```yaml
    embedding:
-     batch_size: 50  # Up from default 25
+     batch_size: 50 # Up from default 25
    ```
 
 2. **Use Event Mode:**
+
    - Only processes changed documents
    - Much faster than batch mode for updates
 
 3. **Filter Documents:**
+
    ```yaml
-   platform_filter: ["notion"]  # Process fewer platforms
-   min_text_length: 100  # Skip short documents
+   platform_filter: ["notion"] # Process fewer platforms
+   min_text_length: 100 # Skip short documents
    ```
 
 4. **Optimize Chunking:**
    ```yaml
    chunking:
-     max_characters: 1000  # Larger chunks = fewer embeddings
+     max_characters: 1000 # Larger chunks = fewer embeddings
    ```
 
 ## Cost Estimation
@@ -655,20 +696,24 @@ Unable to load credentials from any provider in the chain
 ### AWS Bedrock Pricing (Cohere Embed v3)
 
 As of December 2024 in us-west-2:
+
 - **$0.0001 per 1,000 input tokens** (~750 words)
 
 **Example Costs:**
 
 **One-time Processing:**
+
 - 1,000 documents × 500 tokens each = 500,000 tokens = **$0.05**
 - 10,000 documents × 500 tokens each = 5M tokens = **$0.50**
 - 100,000 documents × 500 tokens each = 50M tokens = **$5.00**
 
 **Incremental Updates (Event Mode):**
+
 - 100 changed documents/day × 500 tokens = 50,000 tokens/day
 - Monthly: 1.5M tokens = **$0.15/month**
 
 **Query Embeddings (GMS):**
+
 - Separate from this source (handled by GMS at search time)
 - ~50 tokens per search query
 - 10,000 queries = **$0.05**
