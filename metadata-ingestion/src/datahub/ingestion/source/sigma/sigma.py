@@ -445,7 +445,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             f"Parsing SQL for {len(tasks)} elements using {num_threads} threads"
         )
 
-        completed = 0
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
             futures = {
                 executor.submit(self._parse_sql_task, task): task for task in tasks
@@ -453,9 +452,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             for future in as_completed(futures):
                 element_id, result = future.result()
                 self._sql_parsing_cache[element_id] = result
-                completed += 1
-                if completed % 500 == 0:
-                    logger.info(f"SQL parsing progress: {completed}/{len(tasks)}")
 
         logger.info(f"SQL parsing complete: {len(self._sql_parsing_cache)} elements")
 
