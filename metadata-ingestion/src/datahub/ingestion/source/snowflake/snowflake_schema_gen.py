@@ -27,6 +27,7 @@ from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     DatasetContainerSubTypes,
+    JobContainerSubTypes,
 )
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
@@ -705,6 +706,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         db_name=db_name,
                         schema_name=snowflake_schema.name,
                     ),
+                    subtype=JobContainerSubTypes.STORED_PROCEDURE,
                 )
             for procedure in procedures:
                 yield from self._process_procedure(procedure, snowflake_schema, db_name)

@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Dict, Iterable, Optional
+from typing import Callable, Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -35,9 +35,24 @@ from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger = logging.getLogger(__name__)
 
+# Container name for stored procedures and functions
+STORED_PROCEDURES_CONTAINER = "stored_procedures"
+
 
 @dataclass
 class BaseProcedure:
+    """
+    Base class for stored procedure/function metadata.
+
+    Important: default_db and default_schema use a three-value logic:
+    - None: Use fallback from database_key/schema_key
+    - Empty string (""): Explicitly no database/schema in lineage URNs
+    - Non-empty string: Use this specific value in lineage URNs
+
+    This distinction is critical for two-tier vs three-tier SQL sources
+    to ensure procedure lineage URNs match table/view URN formats.
+    """
+
     name: str
     procedure_definition: Optional[str]
     created: Optional[datetime]
@@ -49,6 +64,7 @@ class BaseProcedure:
     extra_properties: Optional[Dict[str, str]]
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
+    subtype: str = JobContainerSubTypes.STORED_PROCEDURE
 
     def get_procedure_identifier(
         self,
@@ -72,9 +88,14 @@ class BaseProcedure:
 
 
 def _generate_flow_workunits(
-    database_key: DatabaseKey, schema_key: Optional[SchemaKey]
+    database_key: DatabaseKey, schema_key: Optional[SchemaKey], subtype: str
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate flow workunits for database and schema"""
+    """
+    Create DataFlow container that groups procedures/functions by schema.
+
+    The flow acts as a logical parent for all stored procedures and functions
+    in a schema, enabling consistent organization in DataHub's browse UI.
+    """
 
     procedure_flow_name = _get_procedure_flow_name(database_key, schema_key)
 
@@ -111,22 +132,30 @@ def _generate_flow_workunits(
             ),
         ).as_workunit()
 
-    yield MetadataChangeProposalWrapper(
-        entityUrn=flow_urn,
-        aspect=ContainerClass(container=database_key.as_urn()),
-    ).as_workunit()
+    # Only set parent container if database name exists
+    # For two-tier sources without database names, flow is top-level
+    if database_key.database:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=ContainerClass(container=database_key.as_urn()),
+        ).as_workunit()
 
 
 def _get_procedure_flow_name(
     database_key: DatabaseKey, schema_key: Optional[SchemaKey]
 ) -> str:
+    """Build flow name from database, schema, and container suffix, omitting empty parts."""
+    parts = []
+
     if schema_key:
-        procedure_flow_name = (
-            f"{schema_key.database}.{schema_key.db_schema}.stored_procedures"
-        )
-    else:
-        procedure_flow_name = f"{database_key.database}.stored_procedures"
-    return procedure_flow_name
+        if schema_key.database:
+            parts.append(schema_key.database)
+        parts.append(schema_key.db_schema)
+    elif database_key.database:
+        parts.append(database_key.database)
+
+    parts.append(STORED_PROCEDURES_CONTAINER)
+    return ".".join(parts)
 
 
 def _generate_job_workunits(
@@ -142,7 +171,7 @@ def _generate_job_workunits(
         entityUrn=job_urn,
         aspect=DataJobInfoClass(
             name=procedure.name,
-            type=JobContainerSubTypes.STORED_PROCEDURE,
+            type=procedure.subtype,
             description=procedure.comment,
             customProperties=procedure.extra_properties,
         ),
@@ -151,7 +180,7 @@ def _generate_job_workunits(
     yield MetadataChangeProposalWrapper(
         entityUrn=job_urn,
         aspect=SubTypesClass(
-            typeNames=[JobContainerSubTypes.STORED_PROCEDURE],
+            typeNames=[procedure.subtype],
         ),
     ).as_workunit()
 
@@ -210,6 +239,7 @@ def generate_procedure_lineage(
     is_temp_table: Callable[[str], bool] = lambda _: False,
     raise_: bool = False,
     report_failure: Optional[Callable[[str], None]] = None,
+    additional_input_jobs: Optional[List[str]] = None,
 ) -> Iterable[MetadataChangeProposalWrapper]:
     if procedure.procedure_definition and procedure.language == "SQL":
         datajob_input_output = parse_procedure_code(
@@ -221,6 +251,12 @@ def generate_procedure_lineage(
             raise_=raise_,
             procedure_name=procedure.name,
         )
+
+        if datajob_input_output and additional_input_jobs:
+            if datajob_input_output.inputDatajobs:
+                datajob_input_output.inputDatajobs.extend(additional_input_jobs)
+            else:
+                datajob_input_output.inputDatajobs = additional_input_jobs
 
         if datajob_input_output:
             yield MetadataChangeProposalWrapper(
@@ -239,10 +275,9 @@ def generate_procedure_lineage(
 def generate_procedure_container_workunits(
     database_key: DatabaseKey,
     schema_key: Optional[SchemaKey],
+    subtype: str,
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate container workunits for database and schema"""
-
-    yield from _generate_flow_workunits(database_key, schema_key)
+    yield from _generate_flow_workunits(database_key, schema_key, subtype)
 
 
 def generate_procedure_workunits(
@@ -250,6 +285,7 @@ def generate_procedure_workunits(
     database_key: DatabaseKey,
     schema_key: Optional[SchemaKey],
     schema_resolver: Optional[SchemaResolver],
+    additional_input_jobs: Optional[List[str]] = None,
 ) -> Iterable[MetadataWorkUnit]:
     yield from _generate_job_workunits(database_key, schema_key, procedure)
 
@@ -261,8 +297,12 @@ def generate_procedure_workunits(
                 schema_resolver=schema_resolver,
                 procedure=procedure,
                 procedure_job_urn=job_urn,
-                default_db=procedure.default_db or database_key.database,
+                default_db=procedure.default_db
+                if procedure.default_db is not None
+                else database_key.database,
                 default_schema=procedure.default_schema
-                or (schema_key.db_schema if schema_key else None),
+                if procedure.default_schema is not None
+                else (schema_key.db_schema if schema_key else None),
+                additional_input_jobs=additional_input_jobs,
             )
         )

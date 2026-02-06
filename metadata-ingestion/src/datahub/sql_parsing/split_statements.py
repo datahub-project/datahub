@@ -22,6 +22,20 @@ CONTROL_FLOW_KEYWORDS = [
     # We have special handling for this.
     END_KEYWORD,
     # "ELSE",  # else is also valid in CASE, so we we can't use it here.
+    # Oracle PL/SQL control flow keywords
+    "WHILE",
+    "LOOP",
+    r"END\s+LOOP",
+    r"END\s+IF",
+    "ELSIF",
+    "EXCEPTION",
+    r"WHEN\s+OTHERS",  # Exception handler (specific to avoid matching CASE/MERGE)
+    "EXIT",  # Exit loop
+    "CONTINUE",  # Continue to next iteration
+    "GOTO",  # Transfer control to label
+    "RETURN",  # Safe - only used in functions/procedures
+    # Note: FOR and DECLARE are intentionally excluded as they conflict with standard SQL
+    # (FOR UPDATE/SHARE, DECLARE variables are handled separately)
 ]
 
 # There's an exception to this rule, which is when the statement
@@ -253,6 +267,10 @@ class _StatementSplitter:
             is_force_new_statement_keyword
             and not self._has_preceding_cte(most_recent_real_char)
             and not self._is_part_of_merge_query()
+            and not (
+                keyword.upper() in ("UPDATE", "SHARE")
+                and self._is_for_update_or_share()
+            )
         ):
             # Force termination of current statement
             yield from self._yield_if_complete()
@@ -289,6 +307,16 @@ class _StatementSplitter:
     def _is_part_of_merge_query(self) -> bool:
         # In merge statement we'd have `when matched then` or `when not matched then"
         return "".join(self.current_statement).strip().lower().endswith("then")
+
+    def _is_for_update_or_share(self) -> bool:
+        """
+        Check if UPDATE/SHARE is part of a FOR UPDATE/FOR SHARE clause.
+        These are locking hints in SELECT statements, not new statements.
+        """
+        # Look backwards in current statement for FOR keyword
+        current_text = "".join(self.current_statement).strip().upper()
+        # Check if the current statement ends with "FOR" (possibly with whitespace)
+        return bool(re.search(r"\bFOR\s*$", current_text))
 
 
 def split_statements(sql: str) -> Iterator[str]:
