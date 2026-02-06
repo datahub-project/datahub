@@ -147,6 +147,8 @@ def mssql_connection(mssql_runner):
     with master_engine.connect() as master_conn:
         master_conn.execute(text("DROP DATABASE IF EXISTS lineage_test"))
 
+    master_engine.dispose()
+
 
 @pytest.mark.integration
 class TestMSSQLLineageIntegration:
@@ -425,8 +427,12 @@ class TestMSSQLLineageIntegration:
 
             assert method == "dmv", "Should fall back to DMV when Query Store disabled"
 
+        test_engine.dispose()
+
         with master_engine.connect() as master_conn:
             master_conn.execute(text("DROP DATABASE IF EXISTS test_no_qs"))
+
+        master_engine.dispose()
 
     def test_malformed_query_text_handling(self, mssql_connection):
         """Test handling of queries with unusual or malformed text."""
