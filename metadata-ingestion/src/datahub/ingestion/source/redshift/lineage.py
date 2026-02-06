@@ -169,9 +169,14 @@ class RedshiftSqlLineage(Closeable):
 
     # Regex patterns to detect Sigma Computing temporary/materialization tables
     # Sigma creates tables like sigma.t_mat_12345 or sigma.t_something_1234567890123
+    # Unix timestamp in seconds has 10 digits (e.g., 1234567890 = Feb 2009)
+    # Millisecond timestamps have 13 digits (e.g., 1234567890123)
+    _MIN_TIMESTAMP_DIGITS = 10
     _SIGMA_TEMP_TABLE_PATTERNS = [
         re.compile(r"^sigma\.t_mat_", re.IGNORECASE),  # Materialization tables
-        re.compile(r"^sigma\.t_[^.]+_\d{10,}$", re.IGNORECASE),  # Timestamp-based temps
+        re.compile(
+            rf"^sigma\.t_[^.]+_\d{{{_MIN_TIMESTAMP_DIGITS},}}$", re.IGNORECASE
+        ),  # Timestamp-based temps
     ]
 
     @staticmethod
