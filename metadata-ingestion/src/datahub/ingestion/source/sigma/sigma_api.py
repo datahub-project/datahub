@@ -399,147 +399,14 @@ class SigmaAPI:
             )
             return []
 
-    def _get_connection_id_from_name(self, connection_name: str) -> Optional[str]:
-        """Look up a connection ID by its name in the cached connections."""
-        for conn_id, conn in self.connections.items():
-            if conn.get(Constant.NAME) == connection_name:
-                return conn_id
-        return None
-
-    def _get_connection_id_from_parent_chain(
-        self, parent_id: str, max_depth: int = 5
-    ) -> Optional[str]:
-        """
-        Traverse the parent chain to find a folder with connectionId.
-
-        Tables are nested: table -> schema folder -> connection folder
-        The connection folder should have the connectionId.
-        """
-        current_id = parent_id
-        for depth in range(max_depth):
-            try:
-                response = self._get_api_call(
-                    f"{self.config.api_url}/files/{current_id}"
-                )
-                if response.status_code in (404, 403):
-                    logger.debug(f"Parent {current_id} not accessible at depth {depth}")
-                    return None
-                response.raise_for_status()
-                parent_info = response.json()
-
-                # Check if this folder has a connectionId
-                connection_id = parent_info.get("connectionId")
-                if connection_id:
-                    logger.debug(
-                        f"Found connectionId={connection_id} at depth {depth} "
-                        f"(folder: {parent_info.get('name')})"
-                    )
-                    return connection_id
-
-                # Move up to the next parent
-                next_parent = parent_info.get("parentId")
-                if not next_parent:
-                    logger.debug(f"No more parents at depth {depth}")
-                    return None
-                current_id = next_parent
-
-            except Exception as e:
-                logger.debug(f"Error traversing parent chain at depth {depth}: {e}")
-                return None
-
-        logger.debug(f"Max depth {max_depth} reached without finding connectionId")
-        return None
-
-    def _get_table_info_from_inode(self, inode_id: str) -> Optional[DatasetSource]:
-        """
-        Fetch table details from an inode ID using the /files/{inodeId} endpoint.
-
-        The API returns file metadata including:
-        - name: table name (e.g., "salesforce_account")
-        - path: folder path (e.g., "Connection Name/schema" where first part is connection)
-        - connectionId: usually not present for tables (only for connection roots)
-
-        We extract table name, schema, and resolve connectionId from the path.
-        """
-        try:
-            response = self._get_api_call(f"{self.config.api_url}/files/{inode_id}")
-            if response.status_code in (404, 403):
-                logger.debug(f"File/table {inode_id} not accessible")
-                return None
-            response.raise_for_status()
-            file_info = response.json()
-
-            logger.debug(f"Table inode {inode_id} file info: {file_info}")
-
-            # Extract table name from the file info
-            table = file_info.get("name")
-            if not table:
-                logger.debug(f"Table inode {inode_id} has no name")
-                return None
-
-            # Extract connection name and schema from path
-            # Path format: "Connection Name/schema" or "Connection Name/database/schema"
-            path = file_info.get("path") or ""
-            schema_name = None
-            connection_name = None
-
-            if path:
-                path_parts = path.split("/")
-                if len(path_parts) >= 1:
-                    # First part of path is the connection name
-                    connection_name = path_parts[0]
-                if len(path_parts) >= 2:
-                    # Last part of path is usually the schema
-                    schema_name = path_parts[-1]
-
-            # connectionId is usually not present for individual tables
-            # Try to resolve it from the connection name or parent chain
-            connection_id = file_info.get("connectionId")
-            if not connection_id and connection_name:
-                connection_id = self._get_connection_id_from_name(connection_name)
-                if connection_id:
-                    logger.debug(
-                        f"Resolved connectionId={connection_id} from connection name '{connection_name}'"
-                    )
-
-            # If still no connectionId, traverse the parent chain
-            if not connection_id:
-                parent_id = file_info.get("parentId")
-                if parent_id:
-                    connection_id = self._get_connection_id_from_parent_chain(parent_id)
-                    if connection_id:
-                        logger.debug(
-                            f"Resolved connectionId={connection_id} from parent chain"
-                        )
-
-            logger.debug(
-                f"Table inode {inode_id} extracted: table={table}, "
-                f"schema={schema_name}, connectionId={connection_id}, "
-                f"connectionName={connection_name}"
-            )
-
-            return DatasetSource(
-                connectionId=connection_id,
-                table=table,
-                schema_name=schema_name,
-                database=None,  # Database not available from this API
-            )
-
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch table info for inode {inode_id}. Exception: {e}"
-            )
-            return None
-
     def get_dataset_source(self, dataset_id: str) -> Optional[DatasetSource]:
         """
         Fetch source information for a dataset (underlying warehouse table).
 
-        Uses the /datasets/{datasetId}/sources endpoint to get source inode IDs,
-        then resolves each table inode to get actual connection/table details.
+        Uses the /datasets/{datasetId}/sources endpoint to get source table info.
         """
         try:
-            # Use the /sources endpoint to get source inode IDs
+            # Use the /sources endpoint to get source information
             response = self._get_api_call(
                 f"{self.config.api_url}/datasets/{dataset_id}/sources"
             )
@@ -555,35 +422,44 @@ class SigmaAPI:
             # Log the full response for debugging
             logger.debug(f"Dataset {dataset_id} sources response: {sources_response}")
 
-            # The response is a list of source entries with type and inodeId
-            entries = sources_response if isinstance(sources_response, list) else []
+            # The response contains source entries with inode IDs and type info
+            # Look for sources that are tables (not other datasets)
+            entries = sources_response.get("entries", [])
+            if not entries:
+                # Try alternative response structure
+                entries = sources_response if isinstance(sources_response, list) else []
 
             for source in entries:
-                source_type = source.get("type")
-                inode_id = source.get("inodeId")
+                # Log each source entry
+                logger.debug(f"Dataset {dataset_id} source entry: {source}")
 
-                logger.debug(
-                    f"Dataset {dataset_id} source: type={source_type}, inodeId={inode_id}"
-                )
+                # Extract source info - the structure may vary
+                connection_id = source.get("connectionId")
 
-                # Only process table sources (not dataset sources)
-                if source_type == "table" and inode_id:
-                    table_info = self._get_table_info_from_inode(inode_id)
-                    if table_info:
-                        if table_info.connectionId:
-                            logger.debug(
-                                f"Dataset {dataset_id} resolved table source: "
-                                f"connection={table_info.connectionId}, table={table_info.table}, "
-                                f"schema={table_info.schema_name}, database={table_info.database}"
-                            )
-                            return table_info
-                        else:
-                            logger.debug(
-                                f"Dataset {dataset_id} table source has no connectionId: "
-                                f"table={table_info.table}, schema={table_info.schema_name}"
-                            )
+                # If this is a table source with connection info
+                if connection_id:
+                    table = (
+                        source.get("table")
+                        or source.get("tableName")
+                        or source.get("name")
+                        or source.get("path")
+                    )
+                    schema_name = source.get("schema") or source.get("schemaName")
+                    database = source.get("database") or source.get("databaseName")
 
-            logger.debug(f"Dataset {dataset_id} has no resolvable table sources")
+                    logger.debug(
+                        f"Dataset {dataset_id} found source: connection={connection_id}, "
+                        f"table={table}, schema={schema_name}, database={database}"
+                    )
+
+                    return DatasetSource(
+                        connectionId=connection_id,
+                        table=table,
+                        schema_name=schema_name,
+                        database=database,
+                    )
+
+            logger.debug(f"Dataset {dataset_id} has no table sources in response")
             return None
 
         except Exception as e:
