@@ -1745,6 +1745,7 @@ def test_snowflake_semantic_view_with_where() -> None:
         """SELECT user_id, activity FROM SEMANTIC_VIEW(events FACTS activity) WHERE user_id > 100""",
         dialect="snowflake",
         expected_file=RESOURCE_DIR / "test_snowflake_semantic_view_with_where.json",
+    )
 
 
 def test_clickhouse_dictget_not_treated_as_table() -> None:
