@@ -771,7 +771,9 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
     # via uvicorn
 python-json-logger==4.0.0
-    # via jupyter-events
+    # via
+    #   acryl-datahub-executor
+    #   jupyter-events
 python-stdnum==2.2
     # via acryl-datahub-classify
 python-utils==3.9.1
