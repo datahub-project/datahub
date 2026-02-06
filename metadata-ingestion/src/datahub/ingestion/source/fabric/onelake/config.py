@@ -6,7 +6,10 @@ from pydantic import Field, model_validator
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -73,7 +76,11 @@ class SqlEndpointConfig(ConfigModel):
     )
 
 
-class FabricOneLakeSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+class FabricOneLakeSourceConfig(
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+):
     """Configuration for Fabric OneLake source.
 
     This connector extracts metadata from Microsoft Fabric OneLake including:
