@@ -191,6 +191,7 @@ interface ConversationListProps {
     onDeleteConversation: (deletedUrn: string) => void;
     loading?: boolean;
     creatingConversation?: boolean;
+    draftsByUrn?: Record<string, string>;
 }
 
 export const ConversationList: React.FC<ConversationListProps> = ({
@@ -201,6 +202,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     onDeleteConversation,
     loading,
     creatingConversation,
+    draftsByUrn,
 }) => {
     const [deleteConversation] = useDeleteDataHubAiConversationMutation({
         refetchQueries: ['listDataHubAiConversations'],
@@ -213,6 +215,27 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     const sortedConversations = useMemo(() => {
         return sortConversationsByMostRecent(conversations);
     }, [conversations]);
+
+    // Filter out empty "New Chat" entries unless they are currently selected or have a draft.
+    // This prevents the conversation list from being cluttered with unused new chats.
+    const filteredConversations = useMemo(() => {
+        return sortedConversations.filter((conversation) => {
+            // Keep conversations that have a title (not "New Chat")
+            if (conversation.title) return true;
+
+            // Keep conversations that have messages
+            if (conversation.messageCount && conversation.messageCount > 0) return true;
+
+            // Keep if it's the currently selected conversation
+            if (conversation.urn === selectedConversationUrn) return true;
+
+            // Keep if there's a draft for this conversation
+            if (draftsByUrn?.[conversation.urn]) return true;
+
+            // Filter out empty "New Chat" entries
+            return false;
+        });
+    }, [sortedConversations, selectedConversationUrn, draftsByUrn]);
 
     const handleDelete = async (e: React.MouseEvent, conversation: ConversationListItem) => {
         e.stopPropagation();
@@ -238,7 +261,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     return (
         <Container>
             <Header>
-                <HeaderItem $clickable onClick={onCreateConversation}>
+                <HeaderItem>
                     <HeaderContent>
                         <AskDataHubIcon />
                         <HeaderTitle>Ask DataHub</HeaderTitle>
@@ -250,10 +273,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                             source: 'phosphor',
                             size: 'lg',
                         }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onCreateConversation();
-                        }}
+                        onClick={() => onCreateConversation()}
                         isLoading={creatingConversation}
                         size="sm"
                         style={{ padding: 4 }}
@@ -303,7 +323,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                             </EmptyState>
                         );
                     }
-                    return sortedConversations.map((conversation) => {
+                    return filteredConversations.map((conversation) => {
                         const isSelected = conversation.urn === selectedConversationUrn;
                         return (
                             <ConversationItem

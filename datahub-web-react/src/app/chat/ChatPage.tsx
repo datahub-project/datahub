@@ -90,14 +90,19 @@ export const ChatPage = () => {
         verboseMode: false,
     });
 
-    const [hasAutoCreated, setHasAutoCreated] = useState(false);
+    const [hasAutoSelected, setHasAutoSelected] = useState(false);
+
+    // Tracks whether we've received a real network response (not just cached data).
+    // With cache-and-network, Apollo can return stale cached data immediately with
+    // loading=false. This ref ensures we don't act until the server has responded.
+    const hasNetworkData = useRef(false);
 
     // Update ref if location state changes
     useEffect(() => {
         if (location.state?.initialMessage) {
             initialMessageRef.current = location.state.initialMessage;
-            // Reset hasAutoCreated so a new conversation will be created for this message
-            setHasAutoCreated(false);
+            // Reset so a new conversation will be created for this message
+            setHasAutoSelected(false);
         }
     }, [location.state]);
 
@@ -129,6 +134,9 @@ export const ChatPage = () => {
             originType: DataHubAiConversationOriginType.DatahubUi,
         },
         fetchPolicy: 'cache-and-network',
+        onCompleted: () => {
+            hasNetworkData.current = true;
+        },
     });
 
     const [createConversation, { loading: creatingConversation }] = useCreateDataHubAiConversationMutation();
@@ -208,9 +216,14 @@ export const ChatPage = () => {
         }
     }, [createConversation, history]);
 
-    // Auto-create or select conversation on mount
+    // Auto-select conversation on mount, following this priority:
+    //   1. If the user has an initialMessage (from "Ask DataHub" search bar), create a new conversation.
+    //   2. If the user was on a chat previously (localStorage), go to that chat.
+    //   3. If conversations exist, go to the most recent one.
+    //   4. If no conversations exist at all, create the first one.
+    //   After this, new chats are only created when the user clicks "+".
     useEffect(() => {
-        if (loadingConversations || hasAutoCreated) {
+        if (hasAutoSelected) {
             return;
         }
 
@@ -218,29 +231,43 @@ export const ChatPage = () => {
         if (!selectedConversationUrn) {
             // If we have an initialMessage (from "Ask DataHub"), always create a new conversation
             if (initialMessageRef.current) {
-                setHasAutoCreated(true);
+                setHasAutoSelected(true);
                 handleCreateConversation();
                 return;
             }
 
-            // Try to get last conversation from local storage
-            const lastConversationUrn = localStorage.getItem(LAST_CONVERSATION_KEY);
+            // Wait for real network data before making navigation decisions.
+            // With cache-and-network, Apollo can return stale empty cached data
+            // with loading=false before the server responds.
+            if (loadingConversations || !hasNetworkData.current) {
+                return;
+            }
 
-            // If we have a last conversation and it exists in the list, select it
+            // Step 1: Try to get last conversation from local storage
+            const lastConversationUrn = localStorage.getItem(LAST_CONVERSATION_KEY);
             if (lastConversationUrn && conversations.some((c) => c.urn === lastConversationUrn)) {
+                setHasAutoSelected(true);
                 history.replace(`${PageRoutes.AI_CHAT}?conversation=${lastConversationUrn}`);
                 return;
             }
 
-            // Otherwise, auto-create a new conversation
-            setHasAutoCreated(true);
+            // Step 2: Navigate to the most recent conversation
+            if (conversations.length > 0) {
+                setHasAutoSelected(true);
+                const sorted = sortConversationsByMostRecent(conversations);
+                history.replace(`${PageRoutes.AI_CHAT}?conversation=${sorted[0].urn}`);
+                return;
+            }
+
+            // Step 3: No conversations exist — create the first one
+            setHasAutoSelected(true);
             handleCreateConversation();
         }
     }, [
         selectedConversationUrn,
         conversations,
         loadingConversations,
-        hasAutoCreated,
+        hasAutoSelected,
         history,
         handleCreateConversation,
     ]);
@@ -334,6 +361,7 @@ export const ChatPage = () => {
                         onDeleteConversation={handleDeleteConversation}
                         loading={loadingConversations}
                         creatingConversation={creatingConversation}
+                        draftsByUrn={draftsByUrn}
                     />
                 </Sidebar>
                 <MainContent>
