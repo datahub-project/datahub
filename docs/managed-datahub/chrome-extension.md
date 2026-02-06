@@ -4,6 +4,20 @@ description: Learn how to use the DataHub Cloud Chrome extension.
 
 # DataHub Cloud Chrome Extension
 
+## Supported Tools
+
+The DataHub Cloud Chrome extension currently supports the following platforms and entity types:
+
+- **Looker** - Dashboards and Explores
+- **Tableau** - Workbooks, Views, and Datasources
+- **PowerBI** - Dashboards and Reports
+- **BigQuery** - Datasets, Tables, Sharded Tables, and Partitioned Tables
+- **Databricks** - Catalogs, Databases, and Tables
+- **Mode Analytics** - Reports, Charts, Queries, and Datasets
+- **Superset/Preset** - Dashboards and Charts
+- **Hex** - Projects and Components
+- **Metabase** - Dashboards, Questions, and Models
+
 ## Installing the Extension
 
 In order to use the DataHub Cloud Chrome extension, you need to download it onto your browser from the Chrome web store [here](https://chrome.google.com/webstore/detail/datahub-chrome-extension/aoenebhmfokhglijmoacfjcnebdpchfj).
