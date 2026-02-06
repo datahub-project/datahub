@@ -506,11 +506,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         return databases
 
-    def get_schemas_for_database(self, db_name: str) -> List[SnowflakeSchema]:
+    def get_schemas_for_database(
+        self, db_name: str, schema_filter: str = ""
+    ) -> List[SnowflakeSchema]:
         snowflake_schemas = []
 
         cur = self.connection.query(
-            SnowflakeQuery.schemas_for_database(db_name),
+            SnowflakeQuery.schemas_for_database(db_name, schema_filter),
         )
 
         for schema in cur:

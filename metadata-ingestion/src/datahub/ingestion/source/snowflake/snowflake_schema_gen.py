@@ -433,18 +433,36 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self, snowflake_db: SnowflakeDatabase, db_name: str
     ) -> None:
         schemas: List[SnowflakeSchema] = []
+
+        # Build schema filter for SQL pushdown if enabled
+        schema_filter = ""
+        if getattr(self.config, "push_down_metadata_patterns", False):
+            schema_filter = SnowflakeQuery.build_schema_filter(
+                self.filters.filter_config.schema_pattern,
+                db_name,
+                self.filters.filter_config.match_fully_qualified_names,
+            )
+
         try:
-            for schema in self.data_dictionary.get_schemas_for_database(db_name):
+            for schema in self.data_dictionary.get_schemas_for_database(
+                db_name, schema_filter
+            ):
                 self.report.report_entity_scanned(schema.name, "schema")
-                if not is_schema_allowed(
-                    self.filters.filter_config.schema_pattern,
-                    schema.name,
-                    db_name,
-                    self.filters.filter_config.match_fully_qualified_names,
-                ):
-                    self.report.report_dropped(f"{db_name}.{schema.name}.*")
-                else:
+
+                if getattr(self.config, "push_down_metadata_patterns", False):
+                    # SQL already filtered, no Python check needed
                     schemas.append(schema)
+                else:
+                    # Original behavior: Python filtering
+                    if not is_schema_allowed(
+                        self.filters.filter_config.schema_pattern,
+                        schema.name,
+                        db_name,
+                        self.filters.filter_config.match_fully_qualified_names,
+                    ):
+                        self.report.report_dropped(f"{db_name}.{schema.name}.*")
+                    else:
+                        schemas.append(schema)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = f"Failed to get schemas for database {db_name}. Please check permissions."

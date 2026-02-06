@@ -1172,3 +1172,153 @@ class TestGetDatabasesQueryWithFilter:
         assert "RLIKE 'DEV_.*'" in query
         assert "NOT RLIKE '.*_TEMP'" in query
         assert "NOT RLIKE '.*_BACKUP'" in query
+
+
+class TestBuildSchemaFilter:
+    """Tests for the build_schema_filter method."""
+
+    @pytest.mark.parametrize(
+        "pattern,db_name,fqn,expected",
+        [
+            pytest.param(
+                None,
+                "PROD_DB",
+                False,
+                "",
+                id="none_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(),
+                "PROD_DB",
+                False,
+                "",
+                id="default_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PUBLIC"]),
+                "PROD_DB",
+                False,
+                "UPPER(schema_name) RLIKE 'PUBLIC'",
+                id="fqn_false_single_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PUBLIC", "ANALYTICS"]),
+                "PROD_DB",
+                False,
+                "(UPPER(schema_name) RLIKE 'PUBLIC' OR UPPER(schema_name) RLIKE 'ANALYTICS')",
+                id="fqn_false_multiple_patterns",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=[".*_STAGING"]),
+                "PROD_DB",
+                False,
+                "UPPER(schema_name) RLIKE '.*_STAGING'",
+                id="fqn_false_regex_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB.PUBLIC"]),
+                "PROD_DB",
+                True,
+                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.PUBLIC'",
+                id="fqn_true_single_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB.PUBLIC", "PROD_DB.ANALYTICS"]),
+                "PROD_DB",
+                True,
+                "(UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.PUBLIC' OR UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.ANALYTICS')",
+                id="fqn_true_multiple_patterns",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB\\..*_STAGING"]),
+                "PROD_DB",
+                True,
+                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB\\..*_STAGING'",
+                id="fqn_true_regex_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["Public"], ignoreCase=False),
+                "PROD_DB",
+                False,
+                "schema_name RLIKE 'Public'",
+                id="case_sensitive_fqn_false",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["Prod_DB.Public"], ignoreCase=False),
+                "Prod_DB",
+                True,
+                "CONCAT('Prod_DB', '.', schema_name) RLIKE 'Prod_DB.Public'",
+                id="case_sensitive_fqn_true",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PUBLIC"], deny=[".*_TEMP"]),
+                "PROD_DB",
+                False,
+                "UPPER(schema_name) RLIKE 'PUBLIC' AND UPPER(schema_name) NOT RLIKE '.*_TEMP'",
+                id="allow_and_deny_fqn_false",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["TEST'DB.PUBLIC"]),
+                "TEST'DB",
+                True,
+                "UPPER(CONCAT('TEST''DB', '.', schema_name)) RLIKE 'TEST''DB.PUBLIC'",
+                id="sql_injection_protection_db_name",
+            ),
+        ],
+    )
+    def test_build_schema_filter(self, pattern, db_name, fqn, expected):
+        """Test the build_schema_filter method."""
+        result = SnowflakeQuery.build_schema_filter(pattern, db_name, fqn)
+        assert result == expected
+
+
+class TestSchemasForDatabaseQueryWithFilter:
+    """Tests for the schemas_for_database query with filter parameter."""
+
+    def test_schemas_for_database_no_filter(self):
+        """Test schemas_for_database generates valid SQL without filter."""
+        query = SnowflakeQuery.schemas_for_database("TEST_DB")
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should have base WHERE clause
+        assert "WHERE" in query.upper()
+        assert "INFORMATION_SCHEMA" in query
+        # Should not have RLIKE
+        assert "RLIKE" not in query.upper()
+
+    def test_schemas_for_database_with_filter(self):
+        """Test schemas_for_database generates valid SQL with filter."""
+        schema_filter = SnowflakeQuery.build_schema_filter(
+            AllowDenyPattern(allow=["PUBLIC"]), "TEST_DB", False
+        )
+        query = SnowflakeQuery.schemas_for_database("TEST_DB", schema_filter)
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should have WHERE clause with base condition AND the filter
+        assert "WHERE" in query.upper()
+        assert "INFORMATION_SCHEMA" in query
+        assert "RLIKE" in query.upper()
+
+    def test_schemas_for_database_with_fqn_filter(self):
+        """Test schemas_for_database with FQN filter."""
+        schema_filter = SnowflakeQuery.build_schema_filter(
+            AllowDenyPattern(allow=["TEST_DB.PUBLIC", "TEST_DB.ANALYTICS"]),
+            "TEST_DB",
+            True,
+        )
+        query = SnowflakeQuery.schemas_for_database("TEST_DB", schema_filter)
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Verify FQN filter components are present
+        assert "CONCAT" in query
+        assert "RLIKE 'TEST_DB.PUBLIC'" in query
+        assert "RLIKE 'TEST_DB.ANALYTICS'" in query
