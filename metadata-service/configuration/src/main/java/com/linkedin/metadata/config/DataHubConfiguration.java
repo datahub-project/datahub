@@ -38,6 +38,8 @@ public class DataHubConfiguration {
 
   private BillingConfiguration billing;
 
+  private ValidationConfiguration validation;
+
   @Data
   public static class DataHubMetrics {
     private MetricsOptions hookLatency;
