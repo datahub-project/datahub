@@ -628,7 +628,7 @@ Reference Links:
 | `SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN` | `false` | Show redesigned search bar autocomplete                            | GMS        |
 | `SHOW_MANAGE_TAGS`                      | `true`  | Allow users to manage tags in UI                                   | GMS        |
 | `SHOW_INTRODUCE_PAGE`                   | `true`  | Show introduce page in V2 UI                                       | GMS        |
-| `SHOW_INGESTION_PAGE_REDESIGN`          | `false` | Show re-designed Ingestion page                                    | GMS        |
+| `SHOW_INGESTION_PAGE_REDESIGN`          | `true` | Show re-designed Ingestion page                                    | GMS        |
 | `SHOW_LINEAGE_EXPAND_MORE`              | `true`  | Show expand more button in lineage graph                           | GMS        |
 | `SHOW_HOME_PAGE_REDESIGN`               | `true`  | Show re-designed home page                                         | GMS        |
 | `LINEAGE_GRAPH_V3`                      | `true`  | Enable redesign of lineage v2 graph                                | GMS        |
