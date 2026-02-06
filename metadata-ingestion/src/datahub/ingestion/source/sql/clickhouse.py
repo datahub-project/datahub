@@ -666,31 +666,20 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         ClickHouse materialized views can specify a separate target table using the
         TO clause: CREATE MATERIALIZED VIEW view_name TO target_table AS SELECT ...
         The target table stores the actual data, while the materialized view is just a trigger.
-
-        We register lineage for BOTH the MV and the target table:
-        - source → MV (so users can see column lineage on the MV)
-        - source → target_table (so users can see column lineage on the target table)
-        - MV → target_table (1:1 column mapping)
+        For lineage, we want source → target_table (not source → materialized view).
         """
         target_table_urn = self._extract_to_table_urn(
             view_urn, view_definition, default_db
         )
         if target_table_urn:
-            # Register lineage for the MV itself (source → MV)
-            self.aggregator.add_view_definition(
-                view_urn=view_urn,
-                view_definition=view_definition,
-                default_db=default_db,
-                default_schema=default_schema,
-            )
-            # Register lineage for the target table (source → target_table)
+            # Register lineage to the target table instead of the view
             self.aggregator.add_view_definition(
                 view_urn=target_table_urn,
                 view_definition=view_definition,
                 default_db=default_db,
                 default_schema=default_schema,
             )
-            # Also add view → target table relationship (MV → target_table)
+            # Also add view → target table relationship
             self.aggregator.add_known_lineage_mapping(
                 upstream_urn=view_urn,
                 downstream_urn=target_table_urn,
