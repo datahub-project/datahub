@@ -398,10 +398,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 graph=None,
                 schema_aware=False,
             )
-            logger.debug(
-                f"[SQL_PARSE_RESULT] element_id={task.element_id}, "
-                f"in_tables={result.in_tables}, out_tables={result.out_tables}"
-            )
             return (task.element_id, result)
         except Exception as e:
             logger.debug(f"Unable to parse query for element {task.element_id}: {e}")

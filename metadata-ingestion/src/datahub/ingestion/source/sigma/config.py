@@ -49,23 +49,9 @@ class Constant:
     WORKBOOK = "workbook"
     BADGE = "badge"
     NEXTPAGE = "nextPage"
-    CONNECTION_ID = "connectionId"
 
     # Source Config constants
     DEFAULT_API_URL = "https://aws-api.sigmacomputing.com/v2"
-
-    # Sigma connection type to DataHub platform mapping
-    SIGMA_CONNECTION_TYPE_TO_PLATFORM = {
-        "snowflake": "snowflake",
-        "bigquery": "bigquery",
-        "bigQuery": "bigquery",
-        "redshift": "redshift",
-        "postgres": "postgres",
-        "postgresql": "postgres",
-        "databricks": "databricks",
-        "mysql": "mysql",
-        "alloydb": "postgres",  # AlloyDB is PostgreSQL-compatible
-    }
 
 
 class WorkspaceCounts(BaseModel):
