@@ -260,7 +260,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         for database in self.get_databases() or []:
             self.report.report_entity_scanned(database.name, "database")
 
-            if self.config.push_down_metadata_patterns:
+            if getattr(self.config, "push_down_metadata_patterns", False):
                 # SQL already filtered, no Python check needed
                 self.databases.append(database)
             else:
@@ -316,7 +316,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         else:
             # Build database filter for SQL pushdown if enabled
             database_filter = ""
-            if self.config.push_down_metadata_patterns:
+            if getattr(self.config, "push_down_metadata_patterns", False):
                 database_filter = SnowflakeQuery.build_database_filter(
                     self.filters.filter_config.database_pattern
                 )
