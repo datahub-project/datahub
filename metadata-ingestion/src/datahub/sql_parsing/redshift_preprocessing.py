@@ -70,21 +70,29 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     # endif_ -> end if_ (end followed by identifier starting with if)
     (re.compile(r"\bend(if_[a-z0-9_]+)", re.IGNORECASE), r"end \1"),
     # when<alias>. -> when <alias>. (e.g., "whenq11.col" -> "when q11.col")
-    (re.compile(r"\bwhen([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"when \1."),
+    # Exclude common words: whenever, whence
+    (re.compile(r"\bwhen(?!ever|ce\b)([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"when \1."),
     # then<alias>. -> then <alias>. (e.g., "thenq11.col" -> "then q11.col")
-    (re.compile(r"\bthen([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"then \1."),
+    # Exclude common words: thence
+    (re.compile(r"\bthen(?!ce\b)([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"then \1."),
     # else<alias>. -> else <alias>. (e.g., "elseq11.col" -> "else q11.col")
-    (re.compile(r"\belse([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"else \1."),
+    # Exclude common words: elsewhere
+    (re.compile(r"\belse(?!where\b)([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"else \1."),
     # when<identifier> followed by space/operator -> when <identifier>
     # e.g., "whene_r6m06nuq then" -> "when e_r6m06nuq then"
+    # Exclude common words: whenever, whence
     (
-        re.compile(r"\bwhen([a-z][a-z0-9_]+)\s+(then|and|or|>|<|=|!)", re.IGNORECASE),
+        re.compile(
+            r"\bwhen(?!ever|ce\b)([a-z][a-z0-9_]+)\s+(then|and|or|>|<|=|!)",
+            re.IGNORECASE,
+        ),
         r"when \1 \2",
     ),
     # when<identifier><operator> -> when <identifier> <operator> (no space before operator)
     # e.g., "whenarr_down>" -> "when arr_down >"
+    # Exclude common words: whenever, whence
     (
-        re.compile(r"\bwhen([a-z][a-z0-9_]+)(>|<|=|!)", re.IGNORECASE),
+        re.compile(r"\bwhen(?!ever|ce\b)([a-z][a-z0-9_]+)(>|<|=|!)", re.IGNORECASE),
         r"when \1 \2",
     ),
     # from<schema>.<table> or from<schema>.t_ (Sigma temp table pattern)
@@ -103,8 +111,12 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     ),
     # and<identifier> followed by comparison operator -> and <identifier>
     # e.g., "andwdctsy87db > 0" -> "and wdctsy87db > 0"
+    # Exclude common words: android, anderson, andersen, andrew, andre, andy, and others
     (
-        re.compile(r"\band([a-z][a-z0-9_]+)\s*(>|<|=|!|is\b|in\b)", re.IGNORECASE),
+        re.compile(
+            r"\band(?!roid|erson|ersen|rew|re\b|y\b|es\b|ora|romeda)([a-z][a-z0-9_]+)\s*(>|<|=|!|is\b|in\b)",
+            re.IGNORECASE,
+        ),
         r"and \1 \2",
     ),
     # on<short-alias>. -> on <short-alias>. (e.g., "onq3.id" -> "on q3.id")
@@ -117,9 +129,16 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     (re.compile(r"\bor(if_[a-z0-9_]+)", re.IGNORECASE), r"or \1"),
     # selectstatus -> select status (select followed by status without space)
     (re.compile(r"\bselectstatus\b", re.IGNORECASE), "select status"),
-    # select<identifier> followed by comma or keyword -> select <identifier>
-    # e.g., "selectstatus," -> "select status,"
-    (re.compile(r"\bselect([a-z][a-z0-9_]*)\s*,", re.IGNORECASE), r"select \1,"),
+    # select<identifier> followed by comma -> select <identifier>
+    # e.g., "selectcol," -> "select col,"
+    # Exclude common words: selection, selector, selective, selectivity, selected, selecting
+    (
+        re.compile(
+            r"\bselect(?!ion|or\b|ive|ivity|ed\b|ing\b)([a-z][a-z0-9_]*)\s*,",
+            re.IGNORECASE,
+        ),
+        r"select \1,",
+    ),
     # end thencase -> end then case (CASE END followed by THEN CASE without spaces)
     (re.compile(r"\bend\s+thencase\b", re.IGNORECASE), "end then case"),
     # end then<identifier> -> end then <identifier> (e.g., "end thencase when")
