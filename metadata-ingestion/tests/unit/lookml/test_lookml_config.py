@@ -13,12 +13,12 @@ from datahub.ingestion.source.looker.lookml_config import LookMLSourceConfig
 
 
 def test_git_info_validator_handles_non_dict_input() -> None:
-    """GitInfo validator safely handles non-dict inputs (e.g., strings) without AttributeError."""
-    # When GitInfo receives a string during union deserialization, it should return it unchanged
-    # rather than trying to access dict keys, which would cause an AttributeError.
-    # This tests the early return logic in deploy_key_filled_from_deploy_key_file validator.
+    """GitInfo validator safely handles non-dict inputs without AttributeError."""
+    # When GitInfo receives a string during union deserialization, it returns
+    # it unchanged rather than trying to access dict keys (AttributeError).
+    # Tests the early return in deploy_key_filled_from_deploy_key_file.
     with pytest.raises(ValidationError):
-        # Passing a string directly should fail validation, but not with AttributeError
+        # Passing a string directly should fail validation gracefully
         GitInfo.model_validate("not_a_dict")
 
 
@@ -57,7 +57,7 @@ def minimal_lookml_config(tmp_path: pathlib.Path) -> dict:
 def test_project_dependencies_local_path_deserializes_to_directory_path(
     tmp_path: pathlib.Path, minimal_lookml_config: dict
 ) -> None:
-    """A string path to an existing directory is deserialized as DirectoryPath (pathlib.Path)."""
+    """String path to existing directory deserializes as DirectoryPath."""
     dep_dir = tmp_path / "dep"
     dep_dir.mkdir()
     minimal_lookml_config["project_dependencies"] = {"dep_name": str(dep_dir)}
@@ -107,7 +107,7 @@ def test_project_dependencies_nonexistent_path_raises_validation_error(
 def test_connection_to_platform_map_legacy_string_with_dot_upconverted(
     minimal_lookml_config: dict,
 ) -> None:
-    """Legacy string 'platform.default_db' is upconverted to LookerConnectionDefinition."""
+    """Legacy 'platform.default_db' upconverts to LookerConnectionDefinition."""
     minimal_lookml_config["connection_to_platform_map"] = {
         "my_conn": "snowflake.mydb",
     }
@@ -123,7 +123,7 @@ def test_connection_to_platform_map_legacy_string_with_dot_upconverted(
 def test_connection_to_platform_map_legacy_string_without_dot_upconverted(
     minimal_lookml_config: dict,
 ) -> None:
-    """Legacy string without dot (platform only) is upconverted with empty default_db."""
+    """Legacy string without dot upconverts with empty default_db."""
     minimal_lookml_config["connection_to_platform_map"] = {
         "my_conn": "postgres",
     }
@@ -138,7 +138,7 @@ def test_connection_to_platform_map_legacy_string_without_dot_upconverted(
 def test_connection_to_platform_map_full_dict_preserved(
     minimal_lookml_config: dict,
 ) -> None:
-    """Full LookerConnectionDefinition dict is preserved (not overwritten by upconversion)."""
+    """Full LookerConnectionDefinition dict preserves all fields."""
     minimal_lookml_config["connection_to_platform_map"] = {
         "my_conn": {
             "platform": "bigquery",
@@ -192,7 +192,7 @@ def test_missing_project_name_and_api_raises(
 def test_use_api_for_view_lineage_without_api_raises(
     minimal_lookml_config: dict,
 ) -> None:
-    """Validation fails when use_api_for_view_lineage is True but api is not provided."""
+    """Validation fails when use_api_for_view_lineage needs api."""
     minimal_lookml_config["use_api_for_view_lineage"] = True
     minimal_lookml_config.pop("api", None)
     with pytest.raises(ValidationError, match="api|view lineage"):
@@ -253,7 +253,7 @@ def test_looker_environment_invalid_raises(minimal_lookml_config: dict) -> None:
 def test_project_dependencies_mixed_local_path_and_git_info(
     tmp_path: pathlib.Path, minimal_lookml_config: dict
 ) -> None:
-    """Config can have both a local DirectoryPath and a GitInfo in project_dependencies."""
+    """Config can have both DirectoryPath and GitInfo dependencies."""
     dep_dir = tmp_path / "local_dep"
     dep_dir.mkdir()
     minimal_lookml_config["project_dependencies"] = {
