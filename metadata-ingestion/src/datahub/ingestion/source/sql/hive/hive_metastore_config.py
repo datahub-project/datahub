@@ -185,6 +185,13 @@ class HiveMetastore(
         description="Override hostname for Kerberos principal construction. "
         "Use when connecting through a load balancer. Only for connection_type='thrift'.",
     )
+    kerberos_qop: str = Field(
+        default="auth",
+        description="Kerberos Quality of Protection (QOP) for SASL authentication. "
+        "Options: 'auth' (authentication only), 'auth-int' (authentication + integrity), "
+        "'auth-conf' (authentication + confidentiality/encryption). "
+        "Must match the server's hadoop.rpc.protection setting. Only for connection_type='thrift'.",
+    )
     timeout_seconds: int = Field(
         default=60,
         description="Connection timeout in seconds. Only for connection_type='thrift'.",

@@ -1,0 +1,92 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "86f1a7a73a195c923f5e5240fd21b5481daa3b7d4ee3f8558018dd4d86d6869f",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.users,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "event_id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+                    "column": "event_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"e\".\"event_id\" AS \"event_id\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "user_name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.users,PROD)",
+                    "column": "user_name"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"u\".\"user_name\" AS \"user_name\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "category_name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+                    "column": "category_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "DICTGETORDEFAULT(\"default\".\"categories\", 'name', \"e\".\"category_id\", 'Unknown') AS \"category_name\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.users,PROD)"
+            ],
+            "on_clause": "\"e\".\"user_id\" = \"u\".\"id\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+                    "column": "user_id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.users,PROD)",
+                    "column": "id"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT e.event_id, u.user_name, DICTGETORDEFAULT(default.categories, {?: }, e.category_id, {?: }) AS category_name FROM analytics.events AS e JOIN analytics.users AS u ON e.user_id = u.id"
+    }
+}

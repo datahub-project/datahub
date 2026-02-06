@@ -13,7 +13,6 @@ Choose your connection mode based on your environment:
 | **Authentication** | Database credentials             | Kerberos/SASL or unauthenticated |
 | **Port**           | Database port (3306/5432)        | Thrift port (9083)               |
 | **Dependencies**   | Database drivers                 | `pymetastore`, `thrift-sasl`     |
-| **Filtering**      | SQL WHERE clauses supported      | Pattern-based filtering only     |
 
 Before configuring the DataHub connector, ensure you have:
 
@@ -225,19 +224,20 @@ pip install thrift-sasl pyhive[hive-pure-sasl]
 
 #### Thrift Configuration Options
 
-| Option                        | Type      | Default | Required         | Description                                                   |
-| ----------------------------- | --------- | ------- | ---------------- | ------------------------------------------------------------- |
-| `connection_type`             | string    | `sql`   | Yes (for Thrift) | Set to `thrift` to enable Thrift mode                         |
-| `host_port`                   | string    | -       | Yes              | HMS host and port (e.g., `hms.company.com:9083`)              |
-| `use_kerberos`                | boolean   | `false` | No               | Enable Kerberos/SASL authentication                           |
-| `kerberos_service_name`       | string    | `hive`  | No               | Kerberos service principal name                               |
-| `kerberos_hostname_override`  | string    | -       | No               | Override hostname for Kerberos principal (for load balancers) |
-| `timeout_seconds`             | int       | `60`    | No               | Connection timeout in seconds                                 |
-| `max_retries`                 | int       | `3`     | No               | Maximum retry attempts for transient failures                 |
-| `catalog_name`                | string    | -       | No               | HMS 3.x catalog name (e.g., `spark_catalog`)                  |
-| `include_catalog_name_in_ids` | boolean   | `false` | No               | Include catalog in dataset URNs                               |
-| `database_pattern`            | AllowDeny | -       | No               | Filter databases by regex pattern                             |
-| `table_pattern`               | AllowDeny | -       | No               | Filter tables by regex pattern                                |
+| Option                        | Type      | Default | Required         | Description                                                                    |
+| ----------------------------- | --------- | ------- | ---------------- | ------------------------------------------------------------------------------ |
+| `connection_type`             | string    | `sql`   | Yes (for Thrift) | Set to `thrift` to enable Thrift mode                                          |
+| `host_port`                   | string    | -       | Yes              | HMS host and port (e.g., `hms.company.com:9083`)                               |
+| `use_kerberos`                | boolean   | `false` | No               | Enable Kerberos/SASL authentication                                            |
+| `kerberos_service_name`       | string    | `hive`  | No               | Kerberos service principal name                                                |
+| `kerberos_hostname_override`  | string    | -       | No               | Override hostname for Kerberos principal (for load balancers)                  |
+| `kerberos_qop`                | string    | `auth`  | No               | Kerberos Quality of Protection: `auth`, `auth-int`, or `auth-conf` (see below) |
+| `timeout_seconds`             | int       | `60`    | No               | Connection timeout in seconds                                                  |
+| `max_retries`                 | int       | `3`     | No               | Maximum retry attempts for transient failures                                  |
+| `catalog_name`                | string    | -       | No               | HMS 3.x catalog name (e.g., `spark_catalog`)                                   |
+| `include_catalog_name_in_ids` | boolean   | `false` | No               | Include catalog in dataset URNs                                                |
+| `database_pattern`            | AllowDeny | -       | No               | Filter databases by regex pattern                                              |
+| `table_pattern`               | AllowDeny | -       | No               | Filter tables by regex pattern                                                 |
 
 **Note**: SQL `WHERE` clause options (`tables_where_clause_suffix`, `views_where_clause_suffix`, `schemas_where_clause_suffix`) have been **deprecated** for security reasons (SQL injection risk) and are no longer supported. Use `database_pattern` and `table_pattern` instead.
 
@@ -265,10 +265,21 @@ source:
     kerberos_service_name: hive # Change if HMS uses different principal
     # kerberos_hostname_override: hms-internal.company.com  # If using load balancer
     # catalog_name: spark_catalog  # For HMS 3.x multi-catalog
-    database_pattern: # Pattern filtering (WHERE clauses NOT supported)
+    # kerberos_qop: auth-conf # For Kerberos QOP authentication + integrity + encryption
+    database_pattern:
       allow:
         - "^prod_.*"
 ```
+
+#### Kerberos Quality of Protection (QOP)
+
+If your Hive Metastore is configured with `hadoop.rpc.protection` set to `integrity` or `privacy`, you must configure the matching QOP level:
+
+| `hadoop.rpc.protection` | `kerberos_qop` | Description                             |
+| ----------------------- | -------------- | --------------------------------------- |
+| `authentication`        | `auth`         | Authentication only (default)           |
+| `integrity`             | `auth-int`     | Authentication + integrity checking     |
+| `privacy`               | `auth-conf`    | Authentication + integrity + encryption |
 
 #### Thrift Mode Dependencies
 
@@ -537,7 +548,7 @@ Same as the Hive connector:
 
 3. **Case Sensitivity**:
 
-   - PostgreSQL metastore: Case-sensitive identifiers (use `"quoted"` names in WHERE clauses)
+   - PostgreSQL metastore: Case-sensitive identifiers
    - MySQL metastore: Case-insensitive by default
    - DataHub automatically lowercases URNs for consistency
 
@@ -575,7 +586,7 @@ Same as the Hive connector:
 **Solutions**:
 
 - Verify database user has SELECT on all metastore tables
-- Check if tables are filtered by `schema_pattern` or WHERE clauses
+- Check if tables are filtered by `schema_pattern`, `database_pattern`, or `table_pattern`
 - Query metastore directly to verify tables exist:
   ```sql
   SELECT d.name as db_name, t.tbl_name as table_name, t.tbl_type

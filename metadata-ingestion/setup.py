@@ -28,6 +28,8 @@ base_requirements = {
     # This constraint is NOT included here to maintain Airflow compatibility.
     # Security is enforced for Docker image builds via docker/snippets/ingestion/constraints.txt.
     "sentry-sdk>=1.33.1,<3.0.0",
+    # For JSON logging support via DATAHUB_LOG_CONFIG_FILE
+    "python-json-logger>=2.0.0,<4.0.0",
 }
 
 framework_common = {
@@ -303,7 +305,9 @@ pyhive_common = {
     # - 0.6.15 adds support for thrift > 0.14 (cherry-picked from https://github.com/apache/thrift/pull/2491)
     # - 0.6.16 fixes a regression in 0.6.15 (https://github.com/acryldata/PyHive/pull/9)
     # - 0.6.17 fixes the 'HTTPMessage' object has no attribute 'pop' error
-    "acryl-pyhive[hive-pure-sasl]==0.6.17",
+    # - 0.6.18 fixes SASL encode/decode swap and 4-byte framing for QOP auth-int/auth-conf modes
+    #   (https://github.com/acryldata/PyHive/pull/11)
+    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     # As per https://github.com/datahub-project/datahub/issues/8405
     # and https://github.com/dropbox/PyHive/issues/417, version 0.14.0
     # of thrift broke PyHive's hive+http transport.
