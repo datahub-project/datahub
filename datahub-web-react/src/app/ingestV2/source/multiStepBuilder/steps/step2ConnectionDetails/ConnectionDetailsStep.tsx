@@ -1,5 +1,5 @@
 import { message } from 'antd';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -9,7 +9,8 @@ import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
 import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
-import { AdvancedSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/AdvansedSection';
+import { INGESTION_TYPE_ERROR } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/constants';
+import { AdvancedSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/AdvancedSection';
 import { NameAndOwnersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/NameAndOwnersSection';
 import { RecipeSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/RecipeSection';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
@@ -36,17 +37,20 @@ export function ConnectionDetailsStep() {
     const isEditing = !!state.isEditing;
     const sourceConfigs = getSourceConfigs(ingestionSources, type as string);
     const placeholderRecipe = getPlaceholderRecipe(ingestionSources, type);
-    const [isRecipeValid, setIsRecipeValid] = useState<boolean>(isEditing || !!state.isConnectionDetailsValid);
     const [initialRecipeYml] = useState(existingRecipeFromStateYaml || existingRecipeYaml);
     const [stagedRecipeYml, setStagedRecipeYml] = useState(initialRecipeYml || placeholderRecipe);
 
+    const analyticsRef = useRef(false);
+
     const updateRecipe = useCallback(
-        (recipe: string, shouldSetIsRecipeValid?: boolean) => {
-            const recipeJson = getRecipeJson(recipe);
-            if (!recipeJson) return;
+        (recipe: string, shouldSetIsRecipeValid?: boolean, hideYamlWarnings = false) => {
+            const recipeJson = getRecipeJson(recipe, hideYamlWarnings);
+            if (!recipeJson) {
+                throw Error('Invalid YAML');
+            }
 
             if (!JSON.parse(recipeJson).source?.type) {
-                throw Error('Ingestion type is undefined');
+                throw Error(INGESTION_TYPE_ERROR);
             }
 
             const newState = {
@@ -67,7 +71,7 @@ export function ConnectionDetailsStep() {
         (recipe: string) => {
             setStagedRecipeYml(recipe);
             try {
-                updateRecipe(recipe);
+                updateRecipe(recipe, false, true);
             } catch (e: unknown) {
                 if (e instanceof Error) {
                     console.error(e.message);
@@ -86,17 +90,19 @@ export function ConnectionDetailsStep() {
     const displayRecipe = stagedRecipeYml || placeholderRecipe;
 
     useEffect(() => {
-        if (isRecipeValid && state.name && stagedRecipeYml && stagedRecipeYml.length > 0) {
+        if (state.name) {
             setCurrentStepCompleted();
             updateState({ isConnectionDetailsValid: true });
         } else {
             setCurrentStepUncompleted();
             updateState({ isConnectionDetailsValid: false });
         }
-    }, [isRecipeValid, updateState, stagedRecipeYml, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
+    }, [updateState, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
 
     useEffect(() => {
+        if (analyticsRef.current) return;
         if (state) {
+            analyticsRef.current = true;
             analytics.event({
                 type: EventType.IngestionEnterConfigurationEvent,
                 sourceType: state.type || '',
@@ -120,11 +126,14 @@ export function ConnectionDetailsStep() {
             updateRecipe(stagedRecipeYml, true);
         } catch (e: unknown) {
             if (e instanceof Error) {
-                message.warning({
-                    content: `Please add valid ingestion type`,
-                    duration: 3,
-                });
+                if (e.message === INGESTION_TYPE_ERROR) {
+                    message.warning({
+                        content: `Please add valid ingestion type`,
+                        duration: 3,
+                    });
+                }
             }
+            throw e;
         }
     }, [stagedRecipeYml, updateRecipe]);
 
@@ -152,7 +161,6 @@ export function ConnectionDetailsStep() {
                     displayRecipe={displayRecipe}
                     sourceConfigs={sourceConfigs}
                     setStagedRecipe={updateStagedRecipeAndState}
-                    setIsRecipeValid={setIsRecipeValid}
                 />
 
                 <AdvancedSection state={state} updateState={updateState} />

@@ -33,6 +33,7 @@ interface Props {
     closeButtonColor?: ModalButton['color'];
     confirmButtonText?: string;
     isDeleteModal?: boolean;
+    closeOnPrimaryAction?: boolean;
 }
 
 export const ConfirmationModal = ({
@@ -45,11 +46,12 @@ export const ConfirmationModal = ({
     closeButtonColor,
     confirmButtonText,
     isDeleteModal,
+    closeOnPrimaryAction,
 }: Props) => {
     return (
         <StyledModal
             open={isOpen}
-            onCancel={handleClose}
+            onCancel={closeOnPrimaryAction ? handleConfirm : handleClose}
             centered
             buttons={[
                 {

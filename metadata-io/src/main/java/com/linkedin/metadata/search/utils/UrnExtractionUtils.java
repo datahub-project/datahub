@@ -3,10 +3,13 @@ package com.linkedin.metadata.search.utils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.search.SearchHit;
 
 /**
@@ -89,5 +92,31 @@ public class UrnExtractionUtils {
       log.warn("Failed to extract {} URN from document: {}", context, e.getMessage());
       return null;
     }
+  }
+
+  /**
+   * Extract unique URNs from a search response, skipping invalid entries.
+   *
+   * <p>This method iterates through all hits in the response and extracts URNs, collecting them
+   * into a Set for deduplication. Invalid or null URNs are logged and skipped rather than causing
+   * the entire operation to fail.
+   *
+   * @param response The search response containing hits
+   * @return Set of unique URNs extracted from the response
+   */
+  @Nonnull
+  public static Set<Urn> extractUniqueUrns(@Nonnull SearchResponse response) {
+    Set<Urn> urns = new HashSet<>();
+    if (response.getHits() == null || response.getHits().getHits() == null) {
+      return urns;
+    }
+    for (SearchHit hit : response.getHits().getHits()) {
+      try {
+        urns.add(extractUrnFromSearchHit(hit));
+      } catch (Exception e) {
+        log.warn("Skipping hit with invalid URN: {}", e.getMessage());
+      }
+    }
+    return urns;
   }
 }

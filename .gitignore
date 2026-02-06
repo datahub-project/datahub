@@ -48,6 +48,11 @@ out/
 # Mac OS
 **/.DS_Store
 
+# Mise
+**/mise.local.toml
+**/.mise.local.toml
+.mise/**
+
 #spark-lineage
 **/spark-lineage/metastore_db/
 **/spark-lineage/**/derby.log
@@ -88,6 +93,10 @@ smoke-test/rollback-reports
 coverage*.xml
 .vercel
 .envrc
+
+# Local dev environment overrides (user-specific GMS/Kafka settings)
+docker/profiles/my-settings.env
+
 **/.claude/settings.local.json
 **/.claude/*.md
 

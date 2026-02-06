@@ -1796,3 +1796,157 @@ class TestRequestsSessionConfig:
             session.headers.update({"X-DataHub-Client-Mode": client_mode.name})
             mode = RequestsSessionConfig.get_client_mode_from_session(session)
             assert mode == client_mode
+
+
+class TestWeightedRetry:
+    """Tests for the WeightedRetry class that provides weighted retry logic for 429 responses."""
+
+    def test_non_429_status_decrements_total_normally(self):
+        """Non-429 responses should decrement retry count normally."""
+        with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
+            retry = rest_emitter._WeightedRetry(total=5, status_forcelist=[500, 429])
+
+            mock_response = Mock(headers={})
+            mock_response.status = 500
+
+            # First non-429 error
+            result = retry.increment(response=mock_response)
+            assert result.total == 4
+
+            # Second non-429 error
+            result = result.increment(response=mock_response)
+            assert result.total == 3
+
+    def test_429_weighted_retry_with_multiplier_2(self):
+        """With multiplier=2, every second 429 should decrement the retry count."""
+        with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
+            retry = rest_emitter._WeightedRetry(total=5, status_forcelist=[429])
+
+            mock_response = Mock(headers={})
+            mock_response.status = 429
+
+            # First 429: total stays at 5 (compensated)
+            result = retry.increment(response=mock_response)
+            assert result.total == 5
+
+            # Second 429: total decrements to 4 (actually decrements)
+            result = result.increment(response=mock_response)
+            assert result.total == 4
+
+            # Third 429: total stays at 4 (compensated)
+            result = result.increment(response=mock_response)
+            assert result.total == 4
+
+            # Fourth 429: total decrements to 3 (actually decrements)
+            result = result.increment(response=mock_response)
+            assert result.total == 3
+
+    def test_429_weighted_retry_with_multiplier_3(self):
+        """With multiplier=3, every third 429 should decrement the retry count."""
+        with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 3):
+            retry = rest_emitter._WeightedRetry(total=5, status_forcelist=[429])
+
+            mock_response = Mock(headers={})
+            mock_response.status = 429
+
+            # First 429: compensated (stays at 5)
+            result = retry.increment(response=mock_response)
+            assert result.total == 5
+
+            # Second 429: compensated (stays at 5)
+            result = result.increment(response=mock_response)
+            assert result.total == 5
+
+            # Third 429: actually decrements (to 4)
+            result = result.increment(response=mock_response)
+            assert result.total == 4
+
+            # Fourth 429: compensated (stays at 4)
+            result = result.increment(response=mock_response)
+            assert result.total == 4
+
+            # Fifth 429: compensated (stays at 4)
+            result = result.increment(response=mock_response)
+            assert result.total == 4
+
+            # Sixth 429: actually decrements (to 3)
+            result = result.increment(response=mock_response)
+            assert result.total == 3
+
+    def test_mixed_429_and_non_429_responses(self):
+        """Mixed 429 and non-429 responses should handle counters correctly."""
+        with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
+            retry = rest_emitter._WeightedRetry(total=10, status_forcelist=[500, 429])
+
+            mock_429 = Mock(headers={})
+            mock_429.status = 429
+
+            mock_500 = Mock(headers={})
+            mock_500.status = 500
+
+            # First 429: compensated (stays at 10)
+            result = retry.increment(response=mock_429)
+            assert result.total == 10
+
+            # 500 error: normal decrement (to 9)
+            result = result.increment(response=mock_500)
+            assert result.total == 9
+
+            # Second 429: actually decrements (to 8)
+            result = result.increment(response=mock_429)
+            assert result.total == 8
+
+            # Another 500 error: normal decrement (to 7)
+            result = result.increment(response=mock_500)
+            assert result.total == 7
+
+            # Third 429: compensated (stays at 7)
+            result = result.increment(response=mock_429)
+            assert result.total == 7
+
+            # Fourth 429: actually decrements (to 6)
+            result = result.increment(response=mock_429)
+            assert result.total == 6
+
+    def test_429_with_total_none(self):
+        """When total is None (unlimited retries), should not modify total."""
+        with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
+            retry = rest_emitter._WeightedRetry(total=None, status_forcelist=[429])
+
+            mock_response = Mock()
+            mock_response.status = 429
+
+            # With total=None, the increment should not try to modify total
+            result = retry.increment(response=mock_response)
+            assert result.total is None
+
+    def test_429_without_response_object(self):
+        """When response is None, should not apply weighted retry logic."""
+        with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
+            retry = rest_emitter._WeightedRetry(total=5, status_forcelist=[429])
+
+            # No response means no status code to check, should decrement normally
+            result = retry.increment(response=None)
+            assert result.total == 4
+
+    def test_effective_retry_count_increase(self):
+        """Verify that 429s effectively get more retries than configured."""
+        with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
+            # With total=3 and multiplier=2, we should be able to retry 6 times for 429s
+            retry = rest_emitter._WeightedRetry(total=3, status_forcelist=[429])
+
+            mock_response = Mock(headers={})
+            mock_response.status = 429
+
+            result = retry
+            retry_count = 0
+
+            # Count how many 429 retries we can do before exhausting retries
+            while result.total:
+                result = result.increment(response=mock_response)
+                retry_count += 1
+                if retry_count > 10:  # Safety check
+                    break
+
+            # With multiplier=2, we should get ~2x retries
+            assert retry_count == 6

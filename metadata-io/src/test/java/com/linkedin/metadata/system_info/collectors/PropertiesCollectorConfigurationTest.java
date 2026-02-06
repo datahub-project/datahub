@@ -70,6 +70,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.sslContext.keyStorePassword",
           // Services encryption
           "secretService.encryptionKey",
+          // Embedding provider API keys
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.apiKey",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.apiKey",
           // Environment variables that may contain sensitive paths/credentials
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD", // Current directory may contain sensitive info
@@ -111,6 +114,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.*.batchSize",
           "systemUpdate.*.limit",
           "systemUpdate.*.delayMs",
+
+          // Consistency checks configuration
+          "consistencyChecks.checks.*.*",
+          "consistencyChecks.gracePeriodSeconds",
+
           // Kafka topic Configs
           "kafka.topics.*.name",
           "kafka.topics.*.partitions",
@@ -123,6 +131,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.topicDefaults.partitions",
           "kafka.topicDefaults.replicationFactor",
           "kafka.setup.preCreateTopics",
+          "kafka.setup.autoIncreasePartitions",
           "kafka.setup.useConfluentSchemaRegistry",
           // IAM authentication flags
           "*.postgresUseIamAuth",
@@ -170,6 +179,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.enforceExistenceEnabled",
           "authentication.excludedPaths",
           "authentication.logAuthenticatorExceptions",
+          "authentication.passwordResetTokenExpirationMs",
           "authentication.sessionTokenDurationMs",
           "authentication.tokenService.issuer",
           "authentication.tokenService.signingAlgorithm",
@@ -243,6 +253,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.serde.usageEvent.value.serializer",
           "kafka.serde.usageEvent.value.deserializer",
           "kafka.bootstrapServers",
+          "kafka.consumer.bootstrapServers",
           "kafka.consumer.healthCheckEnabled",
           "kafka.consumer.maxPartitionFetchBytes",
           "kafka.consumer.mcl.aspectsToDrop",
@@ -260,6 +271,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.consumerPool.validationCacheIntervalMinutes",
           "kafka.listener.concurrency",
           "kafka.producer.backoffTimeout",
+          "kafka.producer.bootstrapServers",
           "kafka.producer.compressionType",
           "kafka.producer.deliveryTimeout",
           "kafka.producer.maxRequestSize",
@@ -744,6 +756,14 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.schemaFieldsFromSchemaMetadata.enabled",
           "systemUpdate.schemaFieldsFromSchemaMetadata.limit",
           "systemUpdate.waitForSystemUpdate",
+          "systemUpdate.entityConsistency.checkIds",
+          "systemUpdate.entityConsistency.dryRun",
+          "systemUpdate.entityConsistency.entityTypes",
+          "systemUpdate.entityConsistency.gracePeriodSeconds",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.aspectFilters",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.gePitEpochMs",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.includeSoftDeleted",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.lePitEpochMs",
           // Additional configuration
           "metadataChangeProposal.consumer.batch.enabled",
           "metadataChangeProposal.consumer.batch.size",
@@ -840,6 +860,16 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "server.servlet.context-path",
           "datahub.gms.basePath",
           "datahub.gms.basePathEnabled",
+          // Aspect size validation configuration
+          "datahub.validation.aspectSize.prePatch.enabled",
+          "datahub.validation.aspectSize.prePatch.warnSizeBytes",
+          "datahub.validation.aspectSize.prePatch.maxSizeBytes",
+          "datahub.validation.aspectSize.prePatch.oversizedRemediation",
+          "datahub.validation.aspectSize.postPatch.enabled",
+          "datahub.validation.aspectSize.postPatch.warnSizeBytes",
+          "datahub.validation.aspectSize.postPatch.maxSizeBytes",
+          "datahub.validation.aspectSize.postPatch.oversizedRemediation",
+          "datahub.validation.aspectSize.metrics.sizeBuckets",
           // CDC (Change Data Capture) configuration properties
           "kafka.serde.cdc.key.serializer",
           "kafka.serde.cdc.key.deserializer",
@@ -900,6 +930,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.awsRegion",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.modelId",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.maxCharacterLength",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.model",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.endpoint",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.model",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.endpoint",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
           "metadataChangeLog.consumer.batch.size"

@@ -161,9 +161,19 @@ type Document implements Entity {
   structuredProperties: StructuredProperties
 
   """
+  References to internal resources related to the Document (links)
+  """
+  institutionalMemory: InstitutionalMemory
+
+  """
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Documentation aspect containing editable description for this Document
+  """
+  documentation: Documentation
 
   """
   Change history for this document.

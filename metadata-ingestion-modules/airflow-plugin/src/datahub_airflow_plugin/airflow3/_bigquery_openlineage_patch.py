@@ -11,6 +11,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Optional
 
 import datahub.emitter.mce_builder as builder
+from datahub_airflow_plugin._config import get_configured_env
 
 if TYPE_CHECKING:
     from airflow.models.taskinstance import TaskInstance
@@ -108,6 +109,7 @@ def _enhance_bigquery_lineage_with_sql_parsing(
 
         listener = get_airflow_plugin_listener()
         graph = listener.graph if listener else None
+        env = get_configured_env()
 
         # Use DataHub's SQL parser with rendered SQL
         sql_parsing_result = create_lineage_sql_parsed_result(
@@ -115,7 +117,7 @@ def _enhance_bigquery_lineage_with_sql_parsing(
             graph=graph,
             platform=platform,
             platform_instance=None,
-            env=builder.DEFAULT_ENV,
+            env=env,
             default_db=default_database,
             default_schema=None,
         )
@@ -139,7 +141,7 @@ def _enhance_bigquery_lineage_with_sql_parsing(
                 destination_table_urn = builder.make_dataset_urn(
                     platform="bigquery",
                     name=f"{project_id}.{dataset_id}.{table_id}",
-                    env=builder.DEFAULT_ENV,
+                    env=env,
                 )
                 # Add to output tables if not already present
                 if destination_table_urn not in sql_parsing_result.out_tables:

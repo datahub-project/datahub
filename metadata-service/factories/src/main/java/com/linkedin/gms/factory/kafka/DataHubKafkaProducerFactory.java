@@ -6,6 +6,7 @@ import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import java.util.Arrays;
 import java.util.Map;
 import org.apache.avro.generic.IndexedRecord;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -55,7 +56,11 @@ public class DataHubKafkaProducerFactory {
     props.put(
         ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG,
         kafkaConfiguration.getProducer().getRequestTimeout());
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaConfiguration.getBootstrapServers());
+    String bootstrapServers =
+        StringUtils.isNotBlank(kafkaConfiguration.getProducer().getBootstrapServers())
+            ? kafkaConfiguration.getProducer().getBootstrapServers()
+            : kafkaConfiguration.getBootstrapServers();
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     // key: Actor urn.
     // value: JSON object.
     props.putAll(kafkaConfiguration.getSerde().getUsageEvent().getProducerProperties(null));
@@ -73,10 +78,12 @@ public class DataHubKafkaProducerFactory {
 
     producerProps.setKeySerializer(StringSerializer.class);
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    if (kafkaConfiguration.getBootstrapServers() != null
-        && kafkaConfiguration.getBootstrapServers().length() > 0) {
-      producerProps.setBootstrapServers(
-          Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
+    String bootstrapServers =
+        StringUtils.isNotBlank(kafkaConfiguration.getProducer().getBootstrapServers())
+            ? kafkaConfiguration.getProducer().getBootstrapServers()
+            : kafkaConfiguration.getBootstrapServers();
+    if (StringUtils.isNotBlank(bootstrapServers)) {
+      producerProps.setBootstrapServers(Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
     Map<String, Object> props = properties.buildProducerProperties(null);

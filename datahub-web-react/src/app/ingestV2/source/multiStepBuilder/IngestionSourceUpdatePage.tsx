@@ -74,7 +74,7 @@ export function IngestionSourceUpdatePage() {
             const shouldRun = options?.shouldRun;
             try {
                 const source = ingestionSourceData?.ingestionSource as IngestionSource | undefined;
-                const input = getIngestionSourceMutationInput(data);
+                const input = getIngestionSourceMutationInput(data, source);
                 await updateIngestionSource(urn, input, data.owners, source?.ownership?.owners || []);
 
                 if (ingestionSourcesListQueryInputs) {
@@ -117,6 +117,7 @@ export function IngestionSourceUpdatePage() {
 
                 history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
                     createdOrUpdatedSourceUrn: urn,
+                    sourcesListQueryInputs: ingestionSourcesListQueryInputs,
                     shouldRun,
                 });
             } catch (e: unknown) {
@@ -150,8 +151,17 @@ export function IngestionSourceUpdatePage() {
             sourceType: ingestionSourceData?.ingestionSource?.type,
             exitType: 'cancel',
         });
-        history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION);
-    }, [history, ingestionSourceData?.ingestionSource?.type, ingestionSourcesListBackUrl]);
+        history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
+            createdOrUpdatedSourceUrn: urn,
+            sourcesListQueryInputs: ingestionSourcesListQueryInputs,
+        });
+    }, [
+        history,
+        ingestionSourceData?.ingestionSource?.type,
+        ingestionSourcesListBackUrl,
+        urn,
+        ingestionSourcesListQueryInputs,
+    ]);
 
     const isDirtyChecker = useCallback(
         (
@@ -195,15 +205,14 @@ export function IngestionSourceUpdatePage() {
     return (
         <DiscardUnsavedChangesConfirmationProvider
             enableRedirectHandling={!isSubmitting}
-            confirmationModalTitle="You have unsaved change"
-            confirmationModalText={
-                <>
-                    <Text type="span">You have unsaved changes to this source. </Text>
-                    <Text type="span" weight="bold">
-                        Are you sure you want to leave and discard your changes?
-                    </Text>
-                </>
+            confirmationModalTitle="You have unsaved changes"
+            confirmationModalContent={
+                <Text color="gray" colorLevel={1700}>
+                    Exiting now will discard your configuration. You can continue setup or exit and start over later
+                </Text>
             }
+            confirmButtonText="Continue Setup"
+            closeButtonText="Exit Without Saving"
         >
             <IngestionSourceBuilder
                 steps={STEPS}
