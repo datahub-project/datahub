@@ -129,6 +129,17 @@ describe("Manage Ingestion and Secret Privileges", () => {
   });
 
   let registeredEmail = "";
+
+  beforeEach(() => {
+    cy.intercept("POST", "/api/v2/graphql", (req) => {
+      if (hasOperationName(req, "appConfig")) {
+        req.on("response", (res) => {
+          res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
+        });
+      }
+    });
+  });
+
   it("create Metadata Ingestion platform policy and assign privileges to all users", () => {
     cy.loginWithCredentials();
     cy.visit("/settings/permissions/policies");
