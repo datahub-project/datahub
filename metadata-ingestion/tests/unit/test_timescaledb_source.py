@@ -55,13 +55,13 @@ class TestTimescaleDBConfig:
 class TestTimescaleDBSource:
     """Test TimescaleDB source functionality"""
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_platform_name(self, create_engine_mock):
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
         assert source.get_platform() == "timescaledb"
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_timescaledb_extension_check(self, create_engine_mock):
         """Test checking if TimescaleDB extension is installed"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -94,7 +94,7 @@ class TestTimescaleDBSource:
 
         assert source2._is_timescaledb_enabled(mock_inspector2) is False
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_hypertables(self, create_engine_mock):
         """Test fetching hypertable metadata"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -135,7 +135,7 @@ class TestTimescaleDBSource:
         assert hypertables["sensor_data"].num_dimensions == 2
         assert hypertables["sensor_data"].compression_enabled is True
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_continuous_aggregates(self, create_engine_mock):
         """Test fetching continuous aggregate metadata"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -175,7 +175,7 @@ class TestTimescaleDBSource:
         assert caggs["hourly_metrics"].refresh_policy is not None
         assert caggs["hourly_metrics"].refresh_policy.schedule_interval == "1 hour"
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_jobs(self, create_engine_mock):
         """Test fetching TimescaleDB background jobs"""
         config = TimescaleDBConfig.parse_obj(
@@ -221,7 +221,7 @@ class TestTimescaleDBSource:
         assert jobs[1001].proc_name == "policy_refresh_continuous_aggregate"
         assert jobs[1001].hypertable_name == "hourly_metrics"
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_add_information_for_schema(self, create_engine_mock):
         """Test caching TimescaleDB metadata for a schema"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -261,7 +261,7 @@ class TestTimescaleDBSource:
         assert "hypertables" in source._timescaledb_metadata_cache[cache_key]
         assert "continuous_aggregates" in source._timescaledb_metadata_cache[cache_key]
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_table_properties_for_hypertable(self, create_engine_mock):
         """Test enriching table properties for hypertables"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -325,7 +325,7 @@ class TestTimescaleDBSource:
         assert props["dimension_1_column"] == "device_id"
         assert props["retention_period"] == "30 days"
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_table_properties_for_continuous_aggregate(self, create_engine_mock):
         """Test enriching view properties for continuous aggregates"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -381,7 +381,7 @@ class TestTimescaleDBSource:
         assert props["refresh_start_offset"] == "2 hours"
         assert props["refresh_end_offset"] == "1 hour"
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_identifier_with_database(self, create_engine_mock):
         """Test identifier generation with database name"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -394,7 +394,7 @@ class TestTimescaleDBSource:
 
         assert identifier == "tsdb.public.sensor_data"
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_process_table_adds_hypertable_subtype(self, create_engine_mock):
         """Test that hypertables get proper subtype"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -454,7 +454,7 @@ class TestTimescaleDBSource:
             ]
             assert len(tag_workunits) > 0
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_process_view_adds_continuous_aggregate_subtype(self, create_engine_mock):
         """Test that continuous aggregates get proper subtype"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -512,7 +512,7 @@ class TestTimescaleDBSource:
 class TestTimescaleDBJobProcessing:
     """Test TimescaleDB job processing"""
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_process_timescaledb_jobs(self, create_engine_mock):
         """Test processing TimescaleDB jobs into DataJob entities"""
         config = TimescaleDBConfig.parse_obj(
@@ -899,7 +899,7 @@ class TestTimescaleDBLineage:
 class TestTimescaleDBErrorScenarios:
     """Test error handling and edge cases"""
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_missing_timescaledb_extension(self, create_engine_mock):
         """Test behavior when TimescaleDB extension is not installed"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -919,7 +919,7 @@ class TestTimescaleDBErrorScenarios:
         assert source._is_timescaledb_enabled(mock_inspector) is False
         assert mock_conn.execute.call_count == 1
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_permission_denied_on_extension_check(self, create_engine_mock):
         """Test handling of permission denied when checking for extension"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -935,7 +935,7 @@ class TestTimescaleDBErrorScenarios:
         # Should gracefully return False and log warning
         assert source._is_timescaledb_enabled(mock_inspector) is False
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_environment_detection_unknown_schema(self, create_engine_mock):
         """Test environment detection when timescaledb_information schema is missing"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -954,7 +954,7 @@ class TestTimescaleDBErrorScenarios:
         env = source._detect_timescaledb_environment(mock_inspector)
         assert env == TimescaleDBEnvironment.UNKNOWN
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_environment_detection_permission_denied(self, create_engine_mock):
         """Test environment detection with permission denied"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -972,7 +972,7 @@ class TestTimescaleDBErrorScenarios:
         env = source._detect_timescaledb_environment(mock_inspector)
         assert env == TimescaleDBEnvironment.UNKNOWN
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_hypertables_permission_denied(self, create_engine_mock):
         """Test hypertable extraction with permission denied"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -998,7 +998,7 @@ class TestTimescaleDBErrorScenarios:
         # Should return empty dict and log warning
         assert hypertables == {}
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_continuous_aggregates_malformed_data(self, create_engine_mock):
         """Test continuous aggregate extraction with malformed data"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -1030,7 +1030,7 @@ class TestTimescaleDBErrorScenarios:
         # Should skip malformed rows and return empty dict
         assert caggs == {}
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_jobs_with_unknown_environment(self, create_engine_mock):
         """Test job extraction when environment detection fails"""
         config = TimescaleDBConfig.parse_obj(
@@ -1050,7 +1050,7 @@ class TestTimescaleDBErrorScenarios:
         # Should return empty dict when environment is unknown
         assert jobs == {}
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_view_definition_missing_definition(self, create_engine_mock):
         """Test view definition fallback when continuous aggregate definition is missing"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -1090,7 +1090,7 @@ class TestTimescaleDBErrorScenarios:
         mock_parent.assert_called_once()
         assert view_definition == "SELECT * FROM fallback_view"
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_view_definition_empty_definition(self, create_engine_mock):
         """Test view definition fallback when continuous aggregate definition is empty string"""
         config = TimescaleDBConfig.parse_obj(_base_config())
@@ -1130,7 +1130,7 @@ class TestTimescaleDBErrorScenarios:
         mock_parent.assert_called_once()
         assert view_definition == "SELECT * FROM fallback_view"
 
-    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_job_execution_history_permission_denied(self, create_engine_mock):
         """Test job execution history with permission denied"""
         config = TimescaleDBConfig.parse_obj(_base_config())
