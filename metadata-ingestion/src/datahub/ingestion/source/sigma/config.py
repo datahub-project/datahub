@@ -234,6 +234,16 @@ class SigmaSourceConfig(
         description="Number of parallel threads for API calls and SQL parsing. "
         "Controls parallelism for fetching element data and lineage extraction.",
     )
+    enable_rate_limiting: bool = pydantic.Field(
+        default=False,
+        description="Enable rate limiting for Sigma API calls. "
+        "Enable this to avoid 429 rate limit errors from the Sigma API.",
+    )
+    rate_limit_per_second: float = pydantic.Field(
+        default=2.0,
+        description="Maximum API requests per second when rate limiting is enabled. "
+        "Lower values reduce 429 errors but slow down ingestion.",
+    )
     column_lineage_batch_size: int = pydantic.Field(
         default=20,
         description="Number of columns to process per batch during column-level lineage computation. "

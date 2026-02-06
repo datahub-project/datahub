@@ -26,10 +26,6 @@ from datahub.ingestion.source.sigma.data_classes import (
 # Logger instance
 logger = logging.getLogger(__name__)
 
-# Rate limiting constants
-RATE_LIMIT_THRESHOLD = 3  # Enable rate limiting when max_workers > this value
-RATE_LIMIT_REQUESTS_PER_SECOND = 5.0  # Max requests per second when rate limiting
-
 # Retry constants for 429 errors
 RETRY_MAX_ATTEMPTS = 3
 RETRY_BASE_DELAY_SECONDS = 2.0  # Exponential backoff: 2s, 4s, 8s
@@ -78,14 +74,13 @@ class SigmaAPI:
         self.session = requests.Session()
         self.refresh_token: Optional[str] = None
 
-        # Enable rate limiting when max_workers > threshold to avoid API rate limits
-        if self.config.max_workers > RATE_LIMIT_THRESHOLD:
+        # Enable rate limiting if configured
+        if self.config.enable_rate_limiting:
             self.rate_limiter: Optional[RateLimiter] = RateLimiter(
-                RATE_LIMIT_REQUESTS_PER_SECOND
+                self.config.rate_limit_per_second
             )
             logger.info(
-                f"Rate limiting enabled: {RATE_LIMIT_REQUESTS_PER_SECOND} requests/sec "
-                f"(max_workers={self.config.max_workers} > threshold={RATE_LIMIT_THRESHOLD})"
+                f"Rate limiting enabled: {self.config.rate_limit_per_second} requests/sec"
             )
         else:
             self.rate_limiter = None
@@ -146,7 +141,7 @@ class SigmaAPI:
             )
 
     def _get_api_call(self, url: str) -> requests.Response:
-        """Make an API call with rate limiting and retry on 429 errors."""
+        """Make an API call with rate limiting and retry on 429/503 errors."""
         for attempt in range(RETRY_MAX_ATTEMPTS):
             # Apply rate limiting if enabled
             if self.rate_limiter:
@@ -162,18 +157,21 @@ class SigmaAPI:
                     self.rate_limiter.acquire()
                 get_response = self.session.get(url)
 
-            # Retry on 429 with exponential backoff
-            if get_response.status_code == 429:
+            # Retry on 429 (rate limit) or 503 (service unavailable) with exponential backoff
+            if get_response.status_code in (429, 503):
                 if attempt < RETRY_MAX_ATTEMPTS - 1:
                     delay = RETRY_BASE_DELAY_SECONDS * (2**attempt)
                     logger.debug(
-                        f"Rate limited (429) on {url}, retrying in {delay}s "
-                        f"(attempt {attempt + 1}/{RETRY_MAX_ATTEMPTS})"
+                        f"Retryable error ({get_response.status_code}) on {url}, "
+                        f"retrying in {delay}s (attempt {attempt + 1}/{RETRY_MAX_ATTEMPTS})"
                     )
                     time.sleep(delay)
                     continue
                 else:
-                    logger.warning(f"Rate limited (429) on {url}, max retries exceeded")
+                    logger.warning(
+                        f"Retryable error ({get_response.status_code}) on {url}, "
+                        f"max retries exceeded"
+                    )
 
             return get_response
 
