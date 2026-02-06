@@ -67,7 +67,7 @@ export default function IngestionRunDetailsPage() {
     );
 
     return (
-        <PageLayout title="Run Details" titlePill={titlePill} rightPanelContent={<AIChat />} topBreadcrumb={breadCrumb}>
+        <PageLayout title="Run Details" titlePill={titlePill} rightPanelContent={AIChat()} topBreadcrumb={breadCrumb}>
             <RunDetailsContent
                 urn={urn}
                 data={data}
