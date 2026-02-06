@@ -9,6 +9,37 @@ from datahub.ingestion.source.looker.looker_config import LookerConnectionDefini
 from datahub.ingestion.source.looker.lookml_config import LookMLSourceConfig
 
 
+# ---- GitInfo validator tests ----
+
+
+def test_git_info_validator_handles_non_dict_input() -> None:
+    """GitInfo validator safely handles non-dict inputs (e.g., strings) without AttributeError."""
+    # When GitInfo receives a string during union deserialization, it should return it unchanged
+    # rather than trying to access dict keys, which would cause an AttributeError.
+    # This tests the early return logic in deploy_key_filled_from_deploy_key_file validator.
+    with pytest.raises(ValidationError):
+        # Passing a string directly should fail validation, but not with AttributeError
+        GitInfo.model_validate("not_a_dict")
+
+
+def test_git_info_validator_handles_dict_with_deploy_key_file(tmp_path: pathlib.Path) -> None:
+    """GitInfo validator properly processes dict inputs with deploy_key_file."""
+    # Create a temporary deploy key file
+    key_file = tmp_path / "deploy_key"
+    key_file.write_text("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC...")
+    
+    git_info = GitInfo.model_validate({
+        "repo": "https://github.com/org/repo",
+        "branch": "main",
+        "deploy_key_file": str(key_file),
+    })
+    
+    assert git_info.repo == "https://github.com/org/repo"
+    assert git_info.branch == "main"
+    assert git_info.deploy_key is not None
+    assert git_info.deploy_key.get_secret_value() == "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
+
+
 @pytest.fixture
 def minimal_lookml_config(tmp_path: pathlib.Path) -> dict:
     base_dir = tmp_path / "base"
