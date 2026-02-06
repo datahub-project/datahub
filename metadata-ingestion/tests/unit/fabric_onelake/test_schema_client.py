@@ -1,6 +1,7 @@
 """Unit tests for SQL Analytics Endpoint schema client."""
 
 import struct
+from typing import Literal
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -49,6 +50,7 @@ class TestSqlAnalyticsEndpointClient:
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
             report=mock_report,
+            item_display_name="TestLakehouse",
         )
         assert client.auth_helper == mock_auth_helper
         assert client.config == sql_endpoint_config
@@ -56,18 +58,19 @@ class TestSqlAnalyticsEndpointClient:
         assert client._engines == {}
 
     def test_get_connection_string_default(self, mock_auth_helper, sql_endpoint_config):
-        """Test default connection string generation."""
+        """Test default connection string generation (uses display name for Database=)."""
         client = SqlAnalyticsEndpointClient(
             auth_helper=mock_auth_helper,
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
         )
         connection_string = client._get_connection_string(
             workspace_id="ws-123",
             item_id="item-456",
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
         )
-        assert "item-456" in connection_string
+        assert "TestLakehouse" in connection_string
         assert "ODBC Driver 18 for SQL Server" in connection_string
         assert "test-endpoint.datawarehouse.fabric.microsoft.com" in connection_string
         assert "Encrypt=yes" in connection_string
@@ -84,13 +87,14 @@ class TestSqlAnalyticsEndpointClient:
             auth_helper=mock_auth_helper,
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
         )
         connection_string = client._get_connection_string(
             workspace_id="ws-123",
             item_id="item-456",
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
         )
-        assert "item-456" in connection_string
+        assert "TestLakehouse" in connection_string
         assert "Custom Driver" in connection_string
         assert "Encrypt=no" in connection_string
         assert "TrustServerCertificate=yes" in connection_string
@@ -107,6 +111,7 @@ class TestSqlAnalyticsEndpointClient:
             auth_helper=mock_auth_helper,
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
         )
 
         client._create_engine(
@@ -140,6 +145,7 @@ class TestSqlAnalyticsEndpointClient:
             auth_helper=mock_auth_helper,
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
         )
 
         engine1 = client._get_engine(
@@ -200,6 +206,7 @@ class TestSqlAnalyticsEndpointClient:
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
             report=mock_report,
+            item_display_name="TestLakehouse",
         )
 
         columns = client.get_table_columns(
@@ -241,6 +248,7 @@ class TestSqlAnalyticsEndpointClient:
             config=sql_endpoint_config,
             report=mock_report,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
         )
 
         columns = client.get_table_columns(
@@ -293,6 +301,7 @@ class TestSqlAnalyticsEndpointClient:
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
             report=mock_report,
+            item_display_name="TestLakehouse",
         )
 
         columns_by_table = client.get_all_table_columns(
@@ -315,6 +324,7 @@ class TestSqlAnalyticsEndpointClient:
             auth_helper=mock_auth_helper,
             config=sql_endpoint_config,
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
         )
 
         # Create mock engines
@@ -346,3 +356,176 @@ class TestSqlAnalyticsEndpointClient:
         # Verify length prefix
         length = struct.unpack("<I", token_struct[:4])[0]
         assert length == len(token_bytes)
+
+
+class TestGetSqlAnalyticsEndpointUrl:
+    """Parametrized tests for SqlAnalyticsEndpointClient.get_sql_analytics_endpoint_url."""
+
+    @pytest.mark.parametrize(
+        "item_type,endpoint_path",
+        [
+            ("Lakehouse", "workspaces/ws-1/lakehouses/item-1"),
+            ("Warehouse", "workspaces/ws-1/warehouses/item-1"),
+        ],
+    )
+    def test_returns_url_from_sql_endpoint_properties(
+        self, item_type: Literal["Lakehouse", "Warehouse"], endpoint_path: str
+    ) -> None:
+        """When sqlEndpointProperties.connectionString is a bare hostname, return it."""
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "properties": {
+                "sqlEndpointProperties": {
+                    "connectionString": "bare-host.datawarehouse.fabric.microsoft.com",
+                },
+            },
+        }
+        mock_client = Mock()
+        mock_client.get.return_value = mock_response
+
+        url = SqlAnalyticsEndpointClient.get_sql_analytics_endpoint_url(
+            mock_client,
+            workspace_id="ws-1",
+            item_id="item-1",
+            item_type=item_type,
+        )
+
+        assert url == "bare-host.datawarehouse.fabric.microsoft.com"
+        mock_client.get.assert_called_once_with(endpoint_path)
+
+    @pytest.mark.parametrize(
+        "item_type,endpoint_path",
+        [
+            ("Lakehouse", "workspaces/ws-1/lakehouses/item-1"),
+            ("Warehouse", "workspaces/ws-1/warehouses/item-1"),
+        ],
+    )
+    def test_returns_url_from_properties_connection_string(
+        self, item_type: Literal["Lakehouse", "Warehouse"], endpoint_path: str
+    ) -> None:
+        """When properties.connectionString contains Server=..., extract host via _extract_endpoint_host."""
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "properties": {
+                "connectionString": "Server=extracted-host.datawarehouse.fabric.microsoft.com;Database=db;Encrypt=yes",
+            },
+        }
+        mock_client = Mock()
+        mock_client.get.return_value = mock_response
+
+        url = SqlAnalyticsEndpointClient.get_sql_analytics_endpoint_url(
+            mock_client,
+            workspace_id="ws-1",
+            item_id="item-1",
+            item_type=item_type,
+        )
+
+        assert url == "extracted-host.datawarehouse.fabric.microsoft.com"
+        mock_client.get.assert_called_once_with(endpoint_path)
+
+    @pytest.mark.parametrize(
+        "item_type,endpoint_path",
+        [
+            ("Lakehouse", "workspaces/ws-1/lakehouses/item-1"),
+            ("Warehouse", "workspaces/ws-1/warehouses/item-1"),
+        ],
+    )
+    def test_returns_url_from_connection_info(
+        self, item_type: Literal["Lakehouse", "Warehouse"], endpoint_path: str
+    ) -> None:
+        """When properties.connectionInfo.connectionString contains host, extract it."""
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "properties": {
+                "connectionInfo": {
+                    "connectionString": "Data Source=info-host.datawarehouse.fabric.microsoft.com;Encrypt=yes",
+                },
+            },
+        }
+        mock_client = Mock()
+        mock_client.get.return_value = mock_response
+
+        url = SqlAnalyticsEndpointClient.get_sql_analytics_endpoint_url(
+            mock_client,
+            workspace_id="ws-1",
+            item_id="item-1",
+            item_type=item_type,
+        )
+
+        assert url == "info-host.datawarehouse.fabric.microsoft.com"
+        mock_client.get.assert_called_once_with(endpoint_path)
+
+    @pytest.mark.parametrize(
+        "item_type,endpoint_path",
+        [
+            ("Lakehouse", "workspaces/ws-1/lakehouses/item-1"),
+            ("Warehouse", "workspaces/ws-1/warehouses/item-1"),
+        ],
+    )
+    def test_returns_none_when_no_endpoint_in_response(
+        self, item_type: Literal["Lakehouse", "Warehouse"], endpoint_path: str
+    ) -> None:
+        """When response has no usable connection string, return None."""
+        mock_response = Mock()
+        mock_response.json.return_value = {"properties": {}}
+        mock_client = Mock()
+        mock_client.get.return_value = mock_response
+
+        url = SqlAnalyticsEndpointClient.get_sql_analytics_endpoint_url(
+            mock_client,
+            workspace_id="ws-1",
+            item_id="item-1",
+            item_type=item_type,
+        )
+
+        assert url is None
+        mock_client.get.assert_called_once_with(endpoint_path)
+
+    @pytest.mark.parametrize(
+        "item_type,endpoint_path",
+        [
+            ("Lakehouse", "workspaces/ws-1/lakehouses/item-1"),
+            ("Warehouse", "workspaces/ws-1/warehouses/item-1"),
+        ],
+    )
+    def test_returns_none_on_api_exception(
+        self, item_type: Literal["Lakehouse", "Warehouse"], endpoint_path: str
+    ) -> None:
+        """When base_client.get raises, return None."""
+        mock_client = Mock()
+        mock_client.get.side_effect = Exception("Network error")
+
+        url = SqlAnalyticsEndpointClient.get_sql_analytics_endpoint_url(
+            mock_client,
+            workspace_id="ws-1",
+            item_id="item-1",
+            item_type=item_type,
+        )
+
+        assert url is None
+        mock_client.get.assert_called_once_with(endpoint_path)
+
+    def test_connection_info_preferred_after_connection_string_empty_extract(
+        self,
+    ) -> None:
+        """When properties.connectionString has no Fabric host, fall back to connectionInfo."""
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "properties": {
+                "connectionString": "Server=other.sql.server.com;Database=db",
+                "connectionInfo": {
+                    "connectionString": "Server=fallback.datawarehouse.fabric.microsoft.com;Database=db",
+                },
+            },
+        }
+        mock_client = Mock()
+        mock_client.get.return_value = mock_response
+
+        url = SqlAnalyticsEndpointClient.get_sql_analytics_endpoint_url(
+            mock_client,
+            workspace_id="ws-1",
+            item_id="item-1",
+            item_type="Warehouse",
+        )
+
+        assert url == "fallback.datawarehouse.fabric.microsoft.com"

@@ -297,7 +297,13 @@ Cypress.Commands.add("clickOptionInScrollView", (text, selector) => {
 
 Cypress.Commands.add("deleteFromDropdown", () => {
   cy.openThreeDotDropdown();
+  cy.waitTextVisible("Delete");
+  // Wait for button is enabled
+  cy.getWithTestId("entity-menu-delete-button")
+    .closest("li")
+    .should("have.attr", "aria-disabled", "false");
   cy.clickOptionWithText("Delete");
+  cy.waitTextVisible("Yes");
   cy.clickOptionWithText("Yes");
 });
 
@@ -615,6 +621,11 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
         res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
         res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isEnabled;
+        // TODO: Remove this once tests are updated to accommodate lineage v3, asset summary tabs, & new home page.
+        res.body.data.appConfig.featureFlags.lineageGraphV3 = false;
+        res.body.data.appConfig.featureFlags.assetSummaryPageV1 = false;
+        res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
+        res.body.data.appConfig.featureFlags.themeV2Toggleable = false;
       });
     } else if (hasOperationName(req, "getMe")) {
       req.alias = "gqlgetMeQuery";

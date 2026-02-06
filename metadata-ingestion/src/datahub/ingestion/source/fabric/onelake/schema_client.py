@@ -1,6 +1,7 @@
 """SQL Analytics Endpoint client for schema extraction from Fabric OneLake."""
 
 import logging
+import re
 import struct
 from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Tuple
 
@@ -30,6 +31,25 @@ logger = logging.getLogger(__name__)
 # Purpose: Enables passwordless authentication using Azure AD tokens (OAuth 2.0 bearer tokens).
 # Used with: pyodbc.connect() via the attrs_before parameter.
 SQL_COPT_SS_ACCESS_TOKEN = 1256
+
+# Pattern to match Fabric SQL Analytics Endpoint hostname in connection strings
+_FABRIC_ENDPOINT_HOST_PATTERN = re.compile(
+    r"[a-zA-Z0-9_-]+\.datawarehouse\.fabric\.microsoft\.com"
+)
+
+
+def _extract_endpoint_host_from_connection_string(conn_str: str) -> Optional[str]:
+    """Extract Fabric SQL Analytics Endpoint hostname from a connection string.
+
+    Handles: bare hostname, Server=host;..., Data Source=host;...
+    """
+    s = conn_str.strip()
+    if not s or ".datawarehouse.fabric.microsoft.com" not in s:
+        return None
+    match = _FABRIC_ENDPOINT_HOST_PATTERN.search(s)
+    if match:
+        return match.group(0)
+    return None
 
 
 class SchemaExtractionClient(Protocol):
@@ -66,6 +86,7 @@ def create_schema_extraction_client(
     item_id: str,
     item_type: Literal["Lakehouse", "Warehouse"],
     base_client: "BaseFabricClient",
+    item_display_name: str,
 ) -> SchemaExtractionClient:
     """Factory method to create schema extraction client based on method.
 
@@ -81,6 +102,8 @@ def create_schema_extraction_client(
         item_id: Lakehouse or Warehouse GUID (required for sql_analytics_endpoint)
         item_type: "Lakehouse" or "Warehouse" (required for sql_analytics_endpoint)
         base_client: Base Fabric client for making API calls (required for sql_analytics_endpoint)
+        item_display_name: Display name of the lakehouse/warehouse; used as Database=
+            in the ODBC connection string (Fabric expects name, not GUID). Required.
 
     Returns:
         Schema extraction client instance configured for the workspace/item
@@ -110,6 +133,7 @@ def create_schema_extraction_client(
                 config=config,
                 endpoint_url=endpoint_url,  # Pre-configured with endpoint URL
                 report=report,
+                item_display_name=item_display_name,
             )
         except Exception:
             # Track failure in report if available
@@ -132,6 +156,7 @@ class SqlAnalyticsEndpointClient:
         auth_helper: FabricAuthHelper,
         config: SqlEndpointConfig,
         endpoint_url: str,
+        item_display_name: str,
         report: Optional[SqlAnalyticsEndpointReport] = None,
     ):
         """Initialize SQL Analytics Endpoint client.
@@ -139,14 +164,18 @@ class SqlAnalyticsEndpointClient:
         Args:
             auth_helper: Fabric authentication helper for token acquisition
             config: SQL endpoint configuration
-            report: Optional report for tracking metrics
             endpoint_url: Optional pre-fetched endpoint URL. If provided, will be used
                 for all connections. If None, will use fallback server per connection.
+            item_display_name: Display name of the lakehouse/warehouse; used as Database=
+                in the ODBC connection string (Fabric expects name, not GUID). Required
+                for successful connection; callers must pass the item's display name.
+            report: Optional report for tracking metrics
         """
         self.auth_helper = auth_helper
         self.config = config
         self.report = report or SqlAnalyticsEndpointReport()
         self.endpoint_url = endpoint_url
+        self.item_display_name = item_display_name.strip()
         # Engine cache: key is (workspace_id, item_id, endpoint_url) tuple
         # Caches SQLAlchemy engines per workspace/item/endpoint combination for efficiency
         self._engines: Dict[Tuple[str, str, Optional[str]], Engine] = {}  # type: ignore
@@ -195,12 +224,26 @@ class SqlAnalyticsEndpointClient:
             sql_endpoint_props = properties.get("sqlEndpointProperties")
 
             if isinstance(sql_endpoint_props, dict):
-                # The connectionString field contains the endpoint URL directly
-                # (not a connection string format, just the hostname)
+                # Lakehouse: connectionString is often just the hostname
                 conn_str = sql_endpoint_props.get("connectionString")
                 if conn_str and isinstance(conn_str, str):
                     if ".datawarehouse.fabric.microsoft.com" in conn_str:
                         return conn_str.strip()
+
+            # Warehouse API may expose connectionString at properties level
+            # (e.g. staging warehouses: properties=['connectionInfo', 'connectionString', ...])
+            conn_str = properties.get("connectionString")
+            if conn_str and isinstance(conn_str, str):
+                url = _extract_endpoint_host_from_connection_string(conn_str)
+                if url:
+                    return url
+            connection_info = properties.get("connectionInfo")
+            if isinstance(connection_info, dict):
+                conn_str = connection_info.get("connectionString")
+                if conn_str and isinstance(conn_str, str):
+                    url = _extract_endpoint_host_from_connection_string(conn_str)
+                    if url:
+                        return url
 
             logger.warning(
                 f"No SQL Analytics Endpoint URL found for {item_type} {item_id}. "
@@ -419,7 +462,7 @@ class SqlAnalyticsEndpointClient:
         logger.info(
             f"Creating SQL Analytics Endpoint connection: "
             f"workspace_id={workspace_id}, item_id={item_id}, "
-            f"server={endpoint_url}"
+            f"server={endpoint_url}, connection_string={connection_string}"
         )
 
         # Get token before creating engine (needed for attrs_before)
@@ -476,6 +519,9 @@ class SqlAnalyticsEndpointClient:
         The endpoint URL format is: <unique-identifier>.datawarehouse.fabric.microsoft.com
         This must be obtained from the Fabric API and cannot be constructed.
 
+        Fabric SQL Analytics Endpoint expects Database= to be the lakehouse/warehouse
+        display name, not the GUID. Using the GUID causes "database was not found".
+
         References:
         - https://learn.microsoft.com/en-us/fabric/data-warehouse/connect-to-fabric-data-warehouse
 
@@ -487,11 +533,10 @@ class SqlAnalyticsEndpointClient:
         Returns:
             ODBC connection string
         """
-        # Build connection string from individual config options
         parts = [
             f"Driver={{{self.config.odbc_driver}}};",
             f"Server={endpoint_url};",
-            f"Database={item_id};",
+            f"Database={self.item_display_name};",
             f"Encrypt={self.config.encrypt};",
             f"TrustServerCertificate={self.config.trust_server_certificate};",
         ]

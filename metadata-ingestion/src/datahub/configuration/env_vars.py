@@ -34,6 +34,16 @@ def get_gms_token() -> Optional[str]:
     return os.getenv("DATAHUB_GMS_TOKEN")
 
 
+def get_username() -> Optional[str]:
+    """Username for generating access tokens."""
+    return os.getenv("DATAHUB_USERNAME")
+
+
+def get_password() -> Optional[str]:
+    """Password for generating access tokens."""
+    return os.getenv("DATAHUB_PASSWORD")
+
+
 def get_system_client_id() -> Optional[str]:
     """System client ID for OAuth/auth."""
     return os.getenv("DATAHUB_SYSTEM_CLIENT_ID")

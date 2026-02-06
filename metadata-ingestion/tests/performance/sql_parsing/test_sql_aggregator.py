@@ -31,7 +31,8 @@ logger = logging.getLogger(__name__)
 QUERY_COUNT_OPTIONS = [100, 1000] if get_ci() else [100, 1000, 10000]
 
 # Throughput should be >= 90 queries/sec (minimum threshold to detect performance regressions)
-MIN_THROUGHPUT_THRESHOLD = 90.0 if get_ci() else 60.0
+# Lower throughput is expected in CI, of course
+MIN_THROUGHPUT_THRESHOLD = 50.0 if get_ci() else 90.0
 
 
 def generate_queries_at_scale(

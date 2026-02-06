@@ -58,6 +58,17 @@ import {
     VIEW_DENY,
 } from '@app/ingestV2/source/builder/RecipeForm/common';
 import {
+    CONFLUENCE_API_TOKEN,
+    CONFLUENCE_DEPLOYMENT_TYPE,
+    CONFLUENCE_PAGE_ALLOW,
+    CONFLUENCE_PAGE_DENY,
+    CONFLUENCE_PERSONAL_ACCESS_TOKEN,
+    CONFLUENCE_SPACE_ALLOW,
+    CONFLUENCE_SPACE_DENY,
+    CONFLUENCE_URL,
+    CONFLUENCE_USERNAME,
+} from '@app/ingestV2/source/builder/RecipeForm/confluence';
+import {
     CSV_ARRAY_DELIMITER,
     CSV_DELIMITER,
     CSV_FILE_URL,
@@ -291,6 +302,7 @@ import {
 } from '@app/ingestV2/source/builder/RecipeForm/vertica';
 import {
     AZURE,
+    CONFLUENCE,
     CSV,
     DATABRICKS,
     DBT_CLOUD,
@@ -645,6 +657,20 @@ export const RECIPE_FIELDS: RecipeFields = {
         fields: [NOTION_API_KEY, NOTION_PAGE_IDS],
         filterFields: [],
         advancedFields: [],
+    },
+    [CONFLUENCE]: {
+        fields: [
+            CONFLUENCE_DEPLOYMENT_TYPE,
+            CONFLUENCE_URL,
+            CONFLUENCE_USERNAME,
+            CONFLUENCE_API_TOKEN,
+            CONFLUENCE_PERSONAL_ACCESS_TOKEN,
+        ],
+        filterFields: [CONFLUENCE_SPACE_ALLOW, CONFLUENCE_SPACE_DENY, CONFLUENCE_PAGE_ALLOW, CONFLUENCE_PAGE_DENY],
+        advancedFields: [],
+        filterSectionTooltip:
+            'Control which Confluence content is ingested by filtering spaces and pages. Leave empty to ingest all accessible content.',
+        defaultOpenSections: [RecipeSections.Filter],
     },
     [AZURE]: {
         fields: [
