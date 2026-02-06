@@ -7,18 +7,44 @@ logger = logging.getLogger(__name__)
 # Type alias for trigger: either a substring tuple or a callable
 TriggerType = Union[Tuple[str, ...], Callable[[str], bool]]
 
-# Regex patterns to fix Sigma Computing malformed SQL.
-# Sigma generates SQL with missing spaces between keywords/operators.
-# Each tuple is (trigger, pattern, replacement).
-# - trigger: tuple of substrings (any match triggers pattern) OR callable(query_lower) -> bool
-# - pattern: compiled regex
-# - replacement: replacement string
+# =============================================================================
+# SIGMA ALIAS PATTERNS (Whitelist Approach)
+# =============================================================================
+# Sigma generates predictable table aliases in its SQL:
+#   - q + digits: q1, q2, q11, q123 (query subselects)
+#   - t + digits: t1, t2, t12 (temp tables)
+#
+# We use a WHITELIST approach for alias-based patterns because:
+#   1. Sigma aliases are predictable and limited
+#   2. Blacklisting English words (once, only, android...) is impossible to complete
+#   3. Zero false positives - we only match what Sigma actually generates
+#
+# Conservative pattern: Only q + digits and t + digits
+# We intentionally exclude single-letter aliases (a, b, c) because:
+#   - They're less common in Sigma output
+#   - Patterns like "ona.", "whenb." could theoretically match edge cases
+#
+# Example matches: whenq11., onq3., thent2.
+# Example non-matches: once., only., onto. (safe!)
+_SIGMA_ALIAS_PATTERN = r"(q\d{1,3}|t\d{1,3})"
+
+# =============================================================================
+# SAFE WORD FILTERING (Blacklist Approach - for column/identifier patterns)
+# =============================================================================
+# For patterns involving arbitrary column names (not aliases), we use safe word
+# filtering as a fallback. This is less robust than whitelist, but column names
+# can be anything so we can't whitelist them.
+#
 # Known safe suffixes for each keyword - these are legitimate words, not malformations
 # Must match the negative lookaheads in the regex patterns
 _SAFE_KEYWORD_SUFFIXES: dict[str, tuple[str, ...]] = {
-    "when": ("ever", "ce"),  # whenever, whence
-    "then": ("ce",),  # thence
-    "else": ("where",),  # elsewhere
+    # "when" + suffix -> whenever, whence (not "when e_col")
+    "when": ("ever", "ce"),
+    # "then" + suffix -> thence (not "then ce_col")
+    "then": ("ce",),
+    # "else" + suffix -> elsewhere (not "else where_col")
+    "else": ("where",),
+    # "and" + suffix -> android, anderson, andre, etc. (not "and roid_col")
     "and": (
         "roid",
         "erson",
@@ -29,16 +55,9 @@ _SAFE_KEYWORD_SUFFIXES: dict[str, tuple[str, ...]] = {
         "es",
         "ora",
         "romeda",
-    ),  # android, anderson, etc.
-    "select": ("ion", "or", "ive", "ivity", "ed", "ing"),  # selection, selector, etc.
-    "on": (
-        "ce",
-        "ly",
-        "to",
-        "es",
-        "set",
-        "ion",
-    ),  # once, only, onto, ones, onset, onion
+    ),
+    # "select" + suffix -> selection, selector, etc. (not "select ion_col")
+    "select": ("ion", "or", "ive", "ivity", "ed", "ing"),
 }
 
 
@@ -110,10 +129,10 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
         "case when",
     ),
     # case when<alias>. -> case when <alias>. (e.g., "case whenq11.col" -> "case when q11.col")
-    # More specific than generic when<alias>. to ensure case when is handled first
+    # WHITELIST: Only matches known Sigma alias patterns (q1, t1, a, etc.)
     (
-        lambda q: _has_keyword_followed_by_letter(q, "when"),
-        re.compile(r"\bcase\s+when([a-z][a-z0-9_]*)\.", re.IGNORECASE),
+        ("whenq", "whent"),  # Quick trigger for Sigma aliases
+        re.compile(rf"\bcase\s+when{_SIGMA_ALIAS_PATTERN}\.", re.IGNORECASE),
         r"case when \1.",
     ),
     # case when<identifier><operator> -> case when <identifier> <operator> (no space before operator)
@@ -170,24 +189,25 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
     # endif_ -> end if_ (end followed by identifier starting with if)
     (("endif_",), re.compile(r"\bend(if_[a-z0-9_]+)", re.IGNORECASE), r"end \1"),
     # when<alias>. -> when <alias>. (e.g., "whenq11.col" -> "when q11.col")
-    # Exclude common words: whenever, whence
+    # WHITELIST: Only matches known Sigma alias patterns (q1, t1, a, etc.)
+    # Safe from false positives like "whenever", "whence" - they don't match the pattern
     (
-        lambda q: _has_keyword_followed_by_letter(q, "when"),
-        re.compile(r"\bwhen(?!ever|ce\b)([a-z][a-z0-9_]*)\.", re.IGNORECASE),
+        ("whenq", "whent"),  # Quick trigger for Sigma aliases
+        re.compile(rf"\bwhen{_SIGMA_ALIAS_PATTERN}\.", re.IGNORECASE),
         r"when \1.",
     ),
     # then<alias>. -> then <alias>. (e.g., "thenq11.col" -> "then q11.col")
-    # Exclude common words: thence
+    # WHITELIST: Only matches known Sigma alias patterns
     (
-        lambda q: _has_keyword_followed_by_letter(q, "then"),
-        re.compile(r"\bthen(?!ce\b)([a-z][a-z0-9_]*)\.", re.IGNORECASE),
+        ("thenq", "thent"),  # Quick trigger for Sigma aliases
+        re.compile(rf"\bthen{_SIGMA_ALIAS_PATTERN}\.", re.IGNORECASE),
         r"then \1.",
     ),
     # else<alias>. -> else <alias>. (e.g., "elseq11.col" -> "else q11.col")
-    # Exclude common words: elsewhere
+    # WHITELIST: Only matches known Sigma alias patterns
     (
-        lambda q: _has_keyword_followed_by_letter(q, "else"),
-        re.compile(r"\belse(?!where\b)([a-z][a-z0-9_]*)\.", re.IGNORECASE),
+        ("elseq", "elset"),  # Quick trigger for Sigma aliases
+        re.compile(rf"\belse{_SIGMA_ALIAS_PATTERN}\.", re.IGNORECASE),
         r"else \1.",
     ),
     # when<identifier> followed by space/operator -> when <identifier>
@@ -239,20 +259,12 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
         ),
         r"and \1 \2",
     ),
-    # on<short-alias>. -> on <short-alias>. (e.g., "onq3.id" -> "on q3.id")
-    # Match aliases like q1, q12, q123 (letter + up to 3 digits) to avoid breaking identifiers like "online_ret"
+    # on<alias>. -> on <alias>. (e.g., "onq3.id" -> "on q3.id")
+    # WHITELIST: Only matches known Sigma alias patterns (q1, t1, a, etc.)
+    # Safe from false positives like "once.", "only.", "onto." - they don't match the pattern
     (
-        lambda q: _has_keyword_followed_by_letter(q, "on"),
-        re.compile(r"\bon([a-z]\d{1,3})\.([a-z])", re.IGNORECASE),
-        r"on \1.\2",
-    ),
-    # Also match short alphanumeric aliases (2-3 chars starting with letter)
-    # Exclude common words: once, only, onto, ones, onset, onion
-    (
-        lambda q: _has_keyword_followed_by_letter(q, "on"),
-        re.compile(
-            r"\bon(?!ce|ly|to|es\b|set|ion)([a-z][a-z0-9]{1,2})\.([a-z])", re.IGNORECASE
-        ),
+        ("onq", "ont"),  # Quick trigger for Sigma aliases (onq1., ont2.)
+        re.compile(rf"\bon{_SIGMA_ALIAS_PATTERN}\.([a-z])", re.IGNORECASE),
         r"on \1.\2",
     ),
     # or<identifier starting with if_> -> or <identifier>
@@ -395,16 +407,26 @@ def _may_need_preprocessing(query_lower: str) -> bool:
 
     Returns True if query might need preprocessing, False for definite skip.
     This is a fast O(n) check to avoid running 40+ regex patterns on clean queries.
+
+    Two categories of checks:
+    1. Whitelist patterns (Sigma aliases): Check for "whenq", "onq", etc.
+    2. Blacklist patterns (column names): Check for keyword+letter with safe word filtering
     """
     # Check for obvious compound keywords (most reliable indicators)
     for indicator in _QUICK_MALFORMATION_INDICATORS:
         if indicator in query_lower:
             return True
 
-    # Check for keyword directly followed by letter (potential malformation)
-    # These are the risky patterns that need the negative lookahead protection
-    for kw in ("when", "then", "else", "from", "and", "select", "on", "by"):
-        if _has_keyword_followed_by_letter(query_lower, kw):
+    # Check for Sigma alias patterns (whitelist approach - no false positives)
+    # These are patterns like "whenq1.", "onq3.", "thent2." etc.
+    for prefix in ("whenq", "whent", "thenq", "thent", "elseq", "elset", "onq", "ont"):
+        if prefix in query_lower:
+            return True
+
+    # Check for column-name patterns that still need safe-word filtering (blacklist approach)
+    # These patterns involve arbitrary identifiers, not predictable Sigma aliases
+    for keyword in ("when", "then", "else", "from", "and", "select", "by"):
+        if _has_keyword_followed_by_letter(query_lower, keyword):
             return True
 
     return False
