@@ -48,7 +48,7 @@ jobs:
       elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@v5
         with:
           checkout-head-only: false
       - uses: ./.github/actions/ci-optimization
@@ -65,7 +65,7 @@ jobs:
           sudo docker image prune -a -f || true
       - name: Disk Check
         run: df -h . && docker images
-      - uses: acryldata/sane-checkout-action@v4
+      - uses: acryldata/sane-checkout-action@v5
         with:
           checkout-head-only: false
       - name: Set up JDK 17
