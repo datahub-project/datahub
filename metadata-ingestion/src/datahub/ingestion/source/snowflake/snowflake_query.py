@@ -131,7 +131,8 @@ class SnowflakeQuery:
         auto_clustering_on AS "AUTO_CLUSTERING_ON",
         is_dynamic AS "IS_DYNAMIC",
         is_iceberg AS "IS_ICEBERG",
-        is_hybrid AS "IS_HYBRID"
+        is_hybrid AS "IS_HYBRID",
+        retention_time AS "RETENTION_TIME"
         FROM {db_clause}information_schema.tables t
         WHERE table_schema != 'INFORMATION_SCHEMA'
         and table_type in ( 'BASE TABLE', 'EXTERNAL TABLE')
@@ -154,7 +155,8 @@ class SnowflakeQuery:
         auto_clustering_on AS "AUTO_CLUSTERING_ON",
         is_dynamic AS "IS_DYNAMIC",
         is_iceberg AS "IS_ICEBERG",
-        is_hybrid AS "IS_HYBRID"
+        is_hybrid AS "IS_HYBRID",
+        retention_time AS "RETENTION_TIME"
         FROM {db_clause}information_schema.tables t
         where table_schema='{schema_name}'
         and table_type in ('BASE TABLE', 'EXTERNAL TABLE')
