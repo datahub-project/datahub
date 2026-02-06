@@ -123,10 +123,11 @@ source:
     api_token: "${CONFLUENCE_API_TOKEN}"
 
     # Include only these spaces
-    space_allow:
-      - "ENGINEERING"
-      - "PRODUCT"
-      - "DESIGN"
+    spaces:
+      allow:
+        - "ENGINEERING"
+        - "PRODUCT"
+        - "DESIGN"
 ```
 
 ### 3. Exclude Personal and Archive Spaces
@@ -143,11 +144,12 @@ source:
     api_token: "${CONFLUENCE_API_TOKEN}"
 
     # Exclude personal spaces and archived content
-    space_deny:
-      - "~john.doe"
-      - "~jane.smith"
-      - "ARCHIVE"
-      - "OLD_DOCS"
+    spaces:
+      deny:
+        - "~john.doe"
+        - "~jane.smith"
+        - "ARCHIVE"
+        - "OLD_DOCS"
 ```
 
 ### 4. Specific Page Trees Only
@@ -164,9 +166,10 @@ source:
     api_token: "${CONFLUENCE_API_TOKEN}"
 
     # Start from specific pages
-    page_allow:
-      - "123456789" # API Documentation page tree
-      - "987654321" # User Guides page tree
+    pages:
+      allow:
+        - "123456789" # API Documentation page tree
+        - "987654321" # User Guides page tree
     recursive: true # Include all child pages
 ```
 
@@ -184,18 +187,19 @@ source:
     api_token: "${CONFLUENCE_API_TOKEN}"
 
     # Include specific spaces
-    space_allow:
-      - "ENGINEERING"
-      - "PRODUCT"
-
-    # Exclude personal spaces even if in allow list
-    space_deny:
-      - "~admin"
+    spaces:
+      allow:
+        - "ENGINEERING"
+        - "PRODUCT"
+      # Exclude personal spaces even if in allow list
+      deny:
+        - "~admin"
 
     # Exclude specific pages (e.g., drafts, archived content)
-    page_deny:
-      - "999999" # Draft page
-      - "888888" # Archived page
+    pages:
+      deny:
+        - "999999" # Draft page
+        - "888888" # Archived page
 ```
 
 ### 6. Data Center / Server Setup
@@ -211,9 +215,10 @@ source:
     url: "https://confluence.company.com"
     personal_access_token: "${CONFLUENCE_PAT}"
 
-    space_allow:
-      - "WIKI"
-      - "DOCS"
+    spaces:
+      allow:
+        - "WIKI"
+        - "DOCS"
 ```
 
 ### 7. Production Setup with Stateful Ingestion
@@ -229,9 +234,10 @@ source:
     username: "user@company.com"
     api_token: "${CONFLUENCE_API_TOKEN}"
 
-    space_allow:
-      - "COMPANY"
-      - "PUBLIC"
+    spaces:
+      allow:
+        - "COMPANY"
+        - "PUBLIC"
 
     # Enable stateful ingestion for incremental updates
     stateful_ingestion:
@@ -240,9 +246,9 @@ source:
 
 **Note**: Embedding configuration is managed by your DataHub instance. See [Semantic Search Configuration](../../../how-to/semantic-search-configuration.md) for setup.
 
-### 8. Using URLs Instead of IDs
+### 8. Using URLs for Allow/Deny
 
-You can specify spaces and pages using full URLs:
+You can specify spaces and pages using full URLs for both allow and deny lists:
 
 ```yaml
 source:
@@ -254,12 +260,19 @@ source:
     api_token: "${CONFLUENCE_API_TOKEN}"
 
     # Use full URLs - connector extracts keys/IDs automatically
-    space_allow:
-      - "https://your-domain.atlassian.net/wiki/spaces/ENG"
-      - "https://your-domain.atlassian.net/wiki/spaces/PRODUCT"
+    spaces:
+      allow:
+        - "https://your-domain.atlassian.net/wiki/spaces/ENG"
+        - "https://your-domain.atlassian.net/wiki/spaces/PRODUCT"
+      deny:
+        - "https://your-domain.atlassian.net/wiki/spaces/ARCHIVE"
+        - "~john.doe" # Can mix URLs and keys
 
-    page_allow:
-      - "https://your-domain.atlassian.net/wiki/spaces/ENG/pages/123456/Getting+Started"
+    pages:
+      allow:
+        - "https://your-domain.atlassian.net/wiki/spaces/ENG/pages/123456/Getting+Started"
+      deny:
+        - "https://your-domain.atlassian.net/wiki/spaces/ENG/pages/999999/Draft"
 ```
 
 ## Filtering Content
@@ -270,44 +283,48 @@ The connector provides flexible filtering options through allow and deny lists f
 
 Control which Confluence spaces are ingested:
 
-**`space_allow`**: Include only specific spaces (by default, all accessible spaces are discovered)
+**`spaces.allow`**: Include only specific spaces (by default, all accessible spaces are discovered)
 
 ```yaml
-space_allow:
-  - "ENGINEERING" # Space key
-  - "PRODUCT"
-  - "https://your-domain.atlassian.net/wiki/spaces/DESIGN" # Or full URL
+spaces:
+  allow:
+    - "ENGINEERING" # Space key
+    - "PRODUCT"
+    - "https://your-domain.atlassian.net/wiki/spaces/DESIGN" # Or full URL
 ```
 
-**`space_deny`**: Exclude specific spaces (applied after `space_allow`)
+**`spaces.deny`**: Exclude specific spaces (applied after `spaces.allow`)
 
 ```yaml
-space_deny:
-  - "~john.doe" # Personal space
-  - "ARCHIVE" # Archived content
-  - "TEST" # Test space
+spaces:
+  deny:
+    - "~john.doe" # Personal space
+    - "ARCHIVE" # Archived content
+    - "TEST" # Test space
 ```
 
 ### Page Filtering
 
 Control which pages are ingested:
 
-**`page_allow`**: Include only specific pages (triggers page-based mode, bypasses space discovery)
+**`pages.allow`**: Include only specific pages (triggers page-based mode, bypasses space discovery)
 
 ```yaml
-page_allow:
-  - "123456789" # Page ID
-  - "987654321"
-  - "https://your-domain.atlassian.net/wiki/spaces/ENG/pages/111111/API+Docs" # Or full URL
+pages:
+  allow:
+    - "123456789" # Page ID
+    - "987654321"
+    - "https://your-domain.atlassian.net/wiki/spaces/ENG/pages/111111/API+Docs" # Or full URL
 recursive: true # Include child pages
 ```
 
-**`page_deny`**: Exclude specific pages (works in both space-based and page-based modes)
+**`pages.deny`**: Exclude specific pages (works in both space-based and page-based modes)
 
 ```yaml
-page_deny:
-  - "999999" # Draft page
-  - "888888" # Archived page
+pages:
+  deny:
+    - "999999" # Draft page
+    - "888888" # Archived page
 ```
 
 ### Filtering Rules
@@ -333,37 +350,41 @@ page_deny:
 **Exclude all personal spaces:**
 
 ```yaml
-space_deny:
-  - "~*" # Note: Use explicit user IDs, wildcard not supported
-  # Instead, list specific personal spaces:
-  - "~john.doe"
-  - "~jane.smith"
+spaces:
+  deny:
+    - "~*" # Note: Use explicit user IDs, wildcard not supported
+    # Instead, list specific personal spaces:
+    - "~john.doe"
+    - "~jane.smith"
 ```
 
 **Ingest only documentation spaces:**
 
 ```yaml
-space_allow:
-  - "DOCS"
-  - "API_DOCS"
-  - "USER_GUIDES"
+spaces:
+  allow:
+    - "DOCS"
+    - "API_DOCS"
+    - "USER_GUIDES"
 ```
 
 **Focus on specific documentation trees:**
 
 ```yaml
-page_allow:
-  - "123456" # API Documentation root page
-  - "789012" # User Guides root page
+pages:
+  allow:
+    - "123456" # API Documentation root page
+    - "789012" # User Guides root page
 recursive: true
 ```
 
 **Exclude drafts and WIP pages:**
 
 ```yaml
-page_deny:
-  - "999999" # Draft page ID
-  - "888888" # WIP page ID
+pages:
+  deny:
+    - "999999" # Draft page ID
+    - "888888" # WIP page ID
 ```
 
 ## How It Works
@@ -525,14 +546,14 @@ filtering:
 Instead of ingesting all spaces, select specific ones:
 
 ```yaml
-space_allow:
-  - "ENGINEERING" # High-value documentation space
-  - "PRODUCT" # Product requirements space
-
-space_deny:
-  - "~*" # Exclude personal spaces (list specific users)
-  - "ARCHIVE" # Exclude archived content
-  - "TEST" # Exclude test spaces
+spaces:
+  allow:
+    - "ENGINEERING" # High-value documentation space
+    - "PRODUCT" # Product requirements space
+  deny:
+    - "~*" # Exclude personal spaces (list specific users)
+    - "ARCHIVE" # Exclude archived content
+    - "TEST" # Exclude test spaces
 ```
 
 ## Related Documentation
