@@ -54,6 +54,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
+- (CLI) The `--use-password` flag in `datahub init` command is deprecated. Token generation is now automatically detected when both `--username` and `--password` are provided together. The flag continues to work for backward compatibility but will be removed in a future release.
+
 ### Other Notable Changes
 
 - (Ingestion) BigQuery source: Improved `dataset_pattern` filtering to apply earlier in the ingestion pipeline, reducing unnecessary API calls to BigQuery for datasets that will be filtered out.
