@@ -35,7 +35,10 @@ COPY metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar /datahub/dat
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mce-consumer/resources/entity-registry.yml
 COPY docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
-RUN chmod +x /datahub/datahub-mce-consumer/scripts/start.sh
+RUN chmod 755 /datahub/datahub-mce-consumer/scripts/start.sh \
+    && chmod 644 /datahub/datahub-mce-consumer/bin/mce-consumer-job.jar \
+    && chmod 644 /datahub/datahub-mce-consumer/scripts/prometheus-config.yaml \
+    && chmod 644 /datahub/datahub-mce-consumer/resources/entity-registry.yml
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 

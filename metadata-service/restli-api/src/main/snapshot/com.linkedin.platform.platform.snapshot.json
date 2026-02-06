@@ -239,7 +239,7 @@
         "/*/destinationUrn" : {
           "createdActor" : "inputEdges/*/created/actor",
           "createdOn" : "inputEdges/*/created/time",
-          "entityTypes" : [ "dataset", "chart" ],
+          "entityTypes" : [ "dataset" ],
           "isLineage" : true,
           "name" : "Consumes",
           "properties" : "inputEdges/*/properties",
@@ -2993,7 +2993,7 @@
                     "name" : "pictureLink",
                     "type" : "com.linkedin.common.Url",
                     "doc" : "A URL which points to a picture which user wants to set as a profile photo",
-                    "default" : "assets/platforms/default_avatar.png"
+                    "default" : "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/default_avatar.png"
                   }, {
                     "name" : "displayName",
                     "type" : "string",
