@@ -77,6 +77,89 @@ public class UpdateDescriptionResolverTest {
   }
 
   @Test
+  public void testUnsupportedResourceTypeThrows() throws Exception {
+    QueryContext mockContext = getMockAllowContext(TEST_ACTOR_URN);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    DescriptionUpdateInput input = new DescriptionUpdateInput();
+    input.setResourceUrn("urn:li:dataFlow:unsupported");
+    input.setDescription(TEST_DESCRIPTION);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    try {
+      resolver.get(mockEnv).get();
+      fail("Expected exception");
+    } catch (Exception e) {
+      Throwable cause = e.getCause() != null ? e.getCause() : e;
+      assertTrue(cause instanceof RuntimeException);
+      assertTrue(
+          cause.getMessage().contains("Unsupported resource type"),
+          "Message: " + cause.getMessage());
+    }
+  }
+
+  @Test
+  public void testUpdateContainerDescriptionUnauthorized() throws Exception {
+    String containerUrn = "urn:li:container:test-container";
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    DescriptionUpdateInput input = new DescriptionUpdateInput();
+    input.setResourceUrn(containerUrn);
+    input.setDescription(TEST_DESCRIPTION);
+    QueryContext mockContext = getMockDenyContext(TEST_ACTOR_URN);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(Exception.class, () -> resolver.get(mockEnv).get());
+    Mockito.verify(mockEntityService, Mockito.never())
+        .ingestProposal(any(), any(), any(), eq(false));
+  }
+
+  @Test
+  public void testUpdateDomainDescriptionUnauthorized() throws Exception {
+    String domainUrn = "urn:li:domain:test-domain";
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    DescriptionUpdateInput input = new DescriptionUpdateInput();
+    input.setResourceUrn(domainUrn);
+    input.setDescription(TEST_DESCRIPTION);
+    QueryContext mockContext = getMockDenyContext(TEST_ACTOR_URN);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(Exception.class, () -> resolver.get(mockEnv).get());
+    Mockito.verify(mockEntityService, Mockito.never())
+        .ingestProposal(any(), any(), any(), eq(false));
+  }
+
+  @Test
+  public void testUpdateTagDescriptionUnauthorized() throws Exception {
+    String tagUrn = "urn:li:tag:test-tag";
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    DescriptionUpdateInput input = new DescriptionUpdateInput();
+    input.setResourceUrn(tagUrn);
+    input.setDescription(TEST_DESCRIPTION);
+    QueryContext mockContext = getMockDenyContext(TEST_ACTOR_URN);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(Exception.class, () -> resolver.get(mockEnv).get());
+    Mockito.verify(mockEntityService, Mockito.never())
+        .ingestProposal(any(), any(), any(), eq(false));
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testUpdateDescriptionThrowsWhenQueryContextNull() throws Exception {
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    DescriptionUpdateInput input = new DescriptionUpdateInput();
+    input.setResourceUrn(TEST_DATASET_URN);
+    input.setDescription(TEST_DESCRIPTION);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(null);
+    Mockito.when(mockEnv.getGraphQlContext()).thenReturn(null);
+
+    resolver.get(mockEnv).get();
+  }
+
+  @Test
   public void testUpdateDatasetTopLevelDescriptionUnauthorized() throws Exception {
     Mockito.when(
             mockEntityService.exists(any(), eq(Urn.createFromString(TEST_DATASET_URN)), eq(true)))

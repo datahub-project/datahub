@@ -19,6 +19,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import graphql.GraphQLContext;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
@@ -33,6 +34,7 @@ public class ParentContainersResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getMaxParentDepth()).thenReturn(50);
     Mockito.when(mockContext.getOperationContext())
         .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -127,5 +129,102 @@ public class ParentContainersResolverTest {
         result.getContainers().get(0).getUrn(), parentContainer1.getContainer().toString());
     assertEquals(
         result.getContainers().get(1).getUrn(), parentContainer2.getContainer().toString());
+  }
+
+  @Test
+  public void testGetRespectsMaxParentDepth() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getMaxParentDepth()).thenReturn(0);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Urn datasetUrn = Urn.createFromString("urn:li:dataset:(test,test,test)");
+    Dataset datasetEntity = new Dataset();
+    datasetEntity.setUrn(datasetUrn.toString());
+    datasetEntity.setType(EntityType.DATASET);
+    Mockito.when(mockEnv.getSource()).thenReturn(datasetEntity);
+
+    ParentContainersResolver resolver = new ParentContainersResolver(mockClient);
+    ParentContainersResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getCount(), 0);
+    assertEquals(result.getContainers().size(), 0);
+    Mockito.verify(mockClient, Mockito.never())
+        .getV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  public void testGetThrowsWhenGetV2Fails() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getMaxParentDepth()).thenReturn(50);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Urn datasetUrn = Urn.createFromString("urn:li:dataset:(test,test,test)");
+    Dataset datasetEntity = new Dataset();
+    datasetEntity.setUrn(datasetUrn.toString());
+    datasetEntity.setType(EntityType.DATASET);
+    Mockito.when(mockEnv.getSource()).thenReturn(datasetEntity);
+
+    Mockito.when(
+            mockClient.getV2(
+                any(),
+                Mockito.eq(datasetUrn.getEntityType()),
+                Mockito.eq(datasetUrn),
+                Mockito.any()))
+        .thenThrow(new RuntimeException("GMS unavailable"));
+
+    ParentContainersResolver resolver = new ParentContainersResolver(mockClient);
+    try {
+      resolver.get(mockEnv).get();
+      fail("Expected exception");
+    } catch (Exception e) {
+      Throwable cause = e.getCause();
+      assertNotNull(cause);
+      assertTrue(cause.getMessage().contains("Failed to retrieve parent containers from GMS"));
+    }
+  }
+
+  @Test
+  public void testGetUsesGraphQLContextWhenSet() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getMaxParentDepth()).thenReturn(50);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+    GraphQLContext graphqlContext =
+        GraphQLContext.newContext().of(QueryContext.class, mockContext).build();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(null);
+    Mockito.when(mockEnv.getGraphQlContext()).thenReturn(graphqlContext);
+
+    Urn datasetUrn = Urn.createFromString("urn:li:dataset:(test,test,test)");
+    Dataset datasetEntity = new Dataset();
+    datasetEntity.setUrn(datasetUrn.toString());
+    datasetEntity.setType(EntityType.DATASET);
+    Mockito.when(mockEnv.getSource()).thenReturn(datasetEntity);
+
+    Map<String, EnvelopedAspect> datasetAspects = new HashMap<>();
+    Mockito.when(
+            mockClient.getV2(
+                any(),
+                Mockito.eq(datasetUrn.getEntityType()),
+                Mockito.eq(datasetUrn),
+                Mockito.eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
+        .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(datasetAspects)));
+
+    ParentContainersResolver resolver = new ParentContainersResolver(mockClient);
+    ParentContainersResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getCount(), 0);
   }
 }

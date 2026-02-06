@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.knowledge;
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -20,6 +21,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.knowledge.DocumentContents;
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.knowledge.ParentDocument;
+import graphql.GraphQLContext;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
@@ -34,6 +36,7 @@ public class ParentDocumentsResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getMaxParentDepth()).thenReturn(50);
     Mockito.when(mockContext.getOperationContext())
         .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -174,6 +177,7 @@ public class ParentDocumentsResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getMaxParentDepth()).thenReturn(50);
     Mockito.when(mockContext.getOperationContext())
         .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -223,5 +227,110 @@ public class ParentDocumentsResolverTest {
 
     assertEquals(result.getCount(), 0);
     assertEquals(result.getDocuments().size(), 0);
+  }
+
+  @Test
+  public void testGetRespectsMaxParentDepth() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getMaxParentDepth()).thenReturn(0);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Urn documentUrn = Urn.createFromString("urn:li:document:child-doc");
+    Document documentEntity = new Document();
+    documentEntity.setUrn(documentUrn.toString());
+    documentEntity.setType(EntityType.DOCUMENT);
+    Mockito.when(mockEnv.getSource()).thenReturn(documentEntity);
+
+    ParentDocumentsResolver resolver = new ParentDocumentsResolver(mockClient);
+    ParentDocumentsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getCount(), 0);
+    assertEquals(result.getDocuments().size(), 0);
+    Mockito.verify(mockClient, Mockito.never())
+        .getV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  public void testGetThrowsWhenGetV2Fails() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getMaxParentDepth()).thenReturn(50);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Urn documentUrn = Urn.createFromString("urn:li:document:doc");
+    Document documentEntity = new Document();
+    documentEntity.setUrn(documentUrn.toString());
+    documentEntity.setType(EntityType.DOCUMENT);
+    Mockito.when(mockEnv.getSource()).thenReturn(documentEntity);
+
+    Mockito.when(mockClient.getV2(any(), eq(DOCUMENT_ENTITY_NAME), eq(documentUrn), Mockito.any()))
+        .thenThrow(new RuntimeException("GMS unavailable"));
+
+    ParentDocumentsResolver resolver = new ParentDocumentsResolver(mockClient);
+    try {
+      resolver.get(mockEnv).get();
+      fail("Expected exception");
+    } catch (Exception e) {
+      Throwable cause = e.getCause();
+      assertNotNull(cause);
+      assertTrue(cause.getMessage().contains("Failed to retrieve parent documents from GMS"));
+    }
+  }
+
+  @Test
+  public void testGetUsesGraphQLContextWhenSet() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getMaxParentDepth()).thenReturn(50);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+    GraphQLContext graphqlContext =
+        GraphQLContext.newContext().of(QueryContext.class, mockContext).build();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(null);
+    Mockito.when(mockEnv.getGraphQlContext()).thenReturn(graphqlContext);
+
+    Urn documentUrn = Urn.createFromString("urn:li:document:root");
+    Document documentEntity = new Document();
+    documentEntity.setUrn(documentUrn.toString());
+    documentEntity.setType(EntityType.DOCUMENT);
+    Mockito.when(mockEnv.getSource()).thenReturn(documentEntity);
+
+    final DocumentInfo rootDocInfo =
+        new DocumentInfo()
+            .setContents(new DocumentContents().setText("x"))
+            .setCreated(
+                new AuditStamp().setTime(0L).setActor(Urn.createFromString("urn:li:corpuser:test")))
+            .setLastModified(
+                new AuditStamp()
+                    .setTime(0L)
+                    .setActor(Urn.createFromString("urn:li:corpuser:test")));
+    Map<String, EnvelopedAspect> aspects = new HashMap<>();
+    aspects.put(
+        DOCUMENT_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(rootDocInfo.data())));
+
+    Mockito.when(
+            mockClient.getV2(
+                any(),
+                eq(DOCUMENT_ENTITY_NAME),
+                eq(documentUrn),
+                eq(Collections.singleton(DOCUMENT_INFO_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse().setUrn(documentUrn).setAspects(new EnvelopedAspectMap(aspects)));
+
+    ParentDocumentsResolver resolver = new ParentDocumentsResolver(mockClient);
+    ParentDocumentsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getCount(), 0);
   }
 }

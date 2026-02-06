@@ -34,7 +34,7 @@ public class UpdateUserAiPluginSettingsResolver implements DataFetcher<Completab
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
     final UpdateUserAiPluginSettingsInput input =
         bindArgument(environment.getArgument("input"), UpdateUserAiPluginSettingsInput.class);
 

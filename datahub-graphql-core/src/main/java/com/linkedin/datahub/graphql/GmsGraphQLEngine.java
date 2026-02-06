@@ -1272,7 +1272,7 @@ public class GmsGraphQLEngine {
     return new BatchGetEntitiesResolver(
         entityTypes,
         (env) -> {
-          final QueryContext context = env.getContext();
+          final QueryContext context = ResolverUtils.getQueryContext(env);
           List<String> urns = env.getArgument(URNS_FIELD_NAME);
           Boolean checkForExistence = env.getArgument(CHECK_EXISTENCE_FIELD_NAME);
           return urns.stream()
@@ -1303,7 +1303,7 @@ public class GmsGraphQLEngine {
         entityTypes,
         (env) -> {
           try {
-            final QueryContext context = env.getContext();
+            final QueryContext context = ResolverUtils.getQueryContext(env);
             Urn urn = Urn.createFromString(env.getArgument(URN_FIELD_NAME));
             /* Start SaaS Only */
             if (!canView(context.getOperationContext(), urn)) {

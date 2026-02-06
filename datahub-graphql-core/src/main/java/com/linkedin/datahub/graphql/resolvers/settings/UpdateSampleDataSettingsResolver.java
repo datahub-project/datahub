@@ -36,7 +36,7 @@ public class UpdateSampleDataSettingsResolver implements DataFetcher<Completable
   @Override
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment)
       throws Exception {
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
     final UpdateSampleDataSettingsInput input =
         bindArgument(environment.getArgument("input"), UpdateSampleDataSettingsInput.class);
 

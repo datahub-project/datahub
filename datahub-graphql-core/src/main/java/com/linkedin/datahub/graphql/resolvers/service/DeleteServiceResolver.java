@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.service;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.buildMetadataChangeProposalWithUrn;
 import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_URN;
@@ -38,7 +39,7 @@ public class DeleteServiceResolver implements DataFetcher<CompletableFuture<Bool
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment)
       throws Exception {
 
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
     final String urnStr = environment.getArgument("urn");
     final Urn serviceUrn = UrnUtils.getUrn(urnStr);
 

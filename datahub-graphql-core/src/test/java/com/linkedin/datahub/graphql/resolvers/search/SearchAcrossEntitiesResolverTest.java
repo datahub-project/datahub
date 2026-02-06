@@ -3,7 +3,10 @@ package com.linkedin.datahub.graphql.resolvers.search;
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -16,6 +19,10 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
+import com.linkedin.datahub.graphql.generated.SearchFlags;
+import com.linkedin.datahub.graphql.generated.SearchSortInput;
+import com.linkedin.datahub.graphql.generated.SortCriterion;
+import com.linkedin.datahub.graphql.generated.SortOrder;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -449,6 +456,88 @@ public class SearchAcrossEntitiesResolverTest {
   }
 
   @Test
+  public static void testSearchWithSearchFlagsAndSortInput() throws Exception {
+    ViewService mockService = Mockito.mock(ViewService.class);
+    FormService mockFormService = Mockito.mock(FormService.class);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SearchResult emptyResult =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(0)
+            .setMetadata(new SearchResultMetadata());
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), eq("query"), any(), eq(0), eq(10), any(), any(), any()))
+        .thenReturn(emptyResult);
+
+    SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
+    input.setTypes(ImmutableList.of(EntityType.DATASET));
+    input.setQuery("query");
+    input.setStart(0);
+    input.setCount(10);
+    input.setSearchFlags(new SearchFlags());
+    SearchSortInput sortInput = new SearchSortInput();
+    SortCriterion sortCriterion = new SortCriterion();
+    sortCriterion.setField("name");
+    sortCriterion.setSortOrder(SortOrder.ASCENDING);
+    sortInput.setSortCriteria(ImmutableList.of(sortCriterion));
+    input.setSortInput(sortInput);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, mockService, mockFormService);
+    resolver.get(mockEnv).get();
+
+    Mockito.verify(mockClient, Mockito.times(1))
+        .searchAcrossEntities(any(), any(), eq("query"), any(), eq(0), eq(10), any(), any(), any());
+  }
+
+  @Test
+  public static void testSearchWithStructuredPropertyFacets() throws Exception {
+    ViewService mockService = Mockito.mock(ViewService.class);
+    FormService mockFormService = Mockito.mock(FormService.class);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SearchResult emptyResult =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(0)
+            .setMetadata(new SearchResultMetadata());
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any(), any()))
+        .thenReturn(emptyResult);
+
+    SearchFlags flags = new SearchFlags();
+    flags.setIncludeStructuredPropertyFacets(true);
+    SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
+    input.setTypes(ImmutableList.of(EntityType.DATASET));
+    input.setQuery("q");
+    input.setStart(0);
+    input.setCount(10);
+    input.setSearchFlags(flags);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, mockService, mockFormService);
+    resolver.get(mockEnv).get();
+
+    Mockito.verify(mockClient, Mockito.atLeast(1))
+        .searchAcrossEntities(any(), any(), any(), any(), anyInt(), anyInt(), any(), any(), any());
+  }
+
+  @Test
   public static void testApplyViewViewDoesNotExist() throws Exception {
     // When a view does not exist, the endpoint should WARN and not apply the view.
     // Note: Since DOCUMENT is now in SEARCHABLE_ENTITY_TYPES, document default filters
@@ -604,8 +693,9 @@ public class SearchAcrossEntitiesResolverTest {
                 Mockito.argThat(
                     argument ->
                         argument != null
-                            && argument.containsAll(entityTypes)
-                            && entityTypes.containsAll(argument)),
+                            && argument instanceof List
+                            && ((List<?>) argument).containsAll(entityTypes)
+                            && entityTypes.containsAll((List<?>) argument)),
                 Mockito.eq(query),
                 Mockito.eq(filter),
                 Mockito.eq(start),
@@ -631,8 +721,9 @@ public class SearchAcrossEntitiesResolverTest {
             Mockito.argThat(
                 argument ->
                     argument != null
-                        && argument.containsAll(entityTypes)
-                        && entityTypes.containsAll(argument)),
+                        && argument instanceof List
+                        && ((List<?>) argument).containsAll(entityTypes)
+                        && entityTypes.containsAll((List<?>) argument)),
             Mockito.eq(query),
             Mockito.eq(filter),
             Mockito.eq(start),

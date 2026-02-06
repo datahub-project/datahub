@@ -47,7 +47,7 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
   public CompletableFuture<ListUsersResult> get(final DataFetchingEnvironment environment)
       throws Exception {
 
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
 
     final ListUsersInput input =
         bindArgument(environment.getArgument("input"), ListUsersInput.class);

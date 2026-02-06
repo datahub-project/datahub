@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.buildMetadataChangeProposalWithUrn;
 
 import com.linkedin.common.urn.Urn;
@@ -59,7 +60,7 @@ public class UpsertOAuthAuthorizationServerResolver
   public CompletableFuture<OAuthAuthorizationServer> get(final DataFetchingEnvironment environment)
       throws Exception {
 
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
     final UpsertOAuthAuthorizationServerInput input =
         bindArgument(environment.getArgument("input"), UpsertOAuthAuthorizationServerInput.class);
 

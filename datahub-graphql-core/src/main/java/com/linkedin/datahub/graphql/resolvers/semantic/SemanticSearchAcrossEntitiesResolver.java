@@ -59,7 +59,7 @@ public class SemanticSearchAcrossEntitiesResolver
 
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
-    final QueryContext context = environment.getContext();
+    final QueryContext context = ResolverUtils.getQueryContext(environment);
     final SearchAcrossEntitiesInput input =
         bindArgument(environment.getArgument("input"), SearchAcrossEntitiesInput.class);
 

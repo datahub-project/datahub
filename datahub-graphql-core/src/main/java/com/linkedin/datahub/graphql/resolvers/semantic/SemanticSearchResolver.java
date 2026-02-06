@@ -66,7 +66,7 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
   @Override
   @WithSpan
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
     final SearchInput input = bindArgument(environment.getArgument("input"), SearchInput.class);
     final String entityName = EntityTypeMapper.getName(input.getType());
     // escape forward slash since it is a reserved character in Elasticsearch

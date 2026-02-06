@@ -32,6 +32,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.service.ServiceProperties;
+import graphql.GraphQLContext;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
@@ -171,6 +172,50 @@ public class ListServicesResolverTest {
     ListServicesResult result = resolver.get(environment).join();
 
     // Verify
+    assertNotNull(result);
+    assertEquals(result.getTotal(), 0);
+    assertEquals(result.getServices().size(), 0);
+  }
+
+  /**
+   * Verifies the resolver obtains QueryContext from getGraphQlContext() when getContext() is null.
+   * This covers the getQueryContext(environment) path used by all resolvers after the recursion
+   * fix.
+   */
+  @Test
+  public void testListServicesUsesGraphQLContextWhenSet() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    GraphQLContext graphqlContext =
+        GraphQLContext.newContext().of(QueryContext.class, mockContext).build();
+    when(environment.getContext()).thenReturn(null);
+    when(environment.getGraphQlContext()).thenReturn(graphqlContext);
+
+    ListServicesInput input = new ListServicesInput();
+    input.setStart(0);
+    input.setCount(10);
+    when(environment.getArgument("input")).thenReturn(input);
+
+    SearchResult searchResult = new SearchResult();
+    searchResult.setNumEntities(0);
+    searchResult.setFrom(0);
+    searchResult.setPageSize(10);
+    searchResult.setEntities(new SearchEntityArray());
+    searchResult.setMetadata(new SearchResultMetadata());
+    when(entityClient.search(
+            any(OperationContext.class),
+            eq(Constants.SERVICE_ENTITY_NAME),
+            any(),
+            any(),
+            any(),
+            anyInt(),
+            anyInt()))
+        .thenReturn(searchResult);
+    when(entityClient.batchGetV2(
+            any(OperationContext.class), eq(Constants.SERVICE_ENTITY_NAME), any(), any()))
+        .thenReturn(ImmutableMap.of());
+
+    ListServicesResult result = resolver.get(environment).join();
+
     assertNotNull(result);
     assertEquals(result.getTotal(), 0);
     assertEquals(result.getServices().size(), 0);

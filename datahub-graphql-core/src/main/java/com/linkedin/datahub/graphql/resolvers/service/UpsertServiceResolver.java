@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.service;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.buildMetadataChangeProposalWithUrn;
 import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_URN;
@@ -82,7 +83,7 @@ public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Serv
   public CompletableFuture<Service> get(final DataFetchingEnvironment environment)
       throws Exception {
 
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
     final UpsertServiceInput input =
         bindArgument(environment.getArgument("input"), UpsertServiceInput.class);
 

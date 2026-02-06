@@ -36,7 +36,7 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
 
     final AcceptRoleInput input =
         bindArgument(environment.getArgument("input"), AcceptRoleInput.class);

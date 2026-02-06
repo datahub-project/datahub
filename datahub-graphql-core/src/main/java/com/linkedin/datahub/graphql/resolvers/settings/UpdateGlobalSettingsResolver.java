@@ -85,7 +85,7 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
   @Override
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment)
       throws Exception {
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
