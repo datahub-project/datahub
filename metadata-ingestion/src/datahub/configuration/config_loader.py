@@ -5,8 +5,8 @@ import re
 import sys
 import tempfile
 import unittest.mock
+import urllib.parse
 from typing import Any, Dict, Mapping, Optional, Set, Union
-from urllib import parse
 
 import requests
 from expandvars import UnboundVariable, expand
@@ -222,14 +222,22 @@ def load_config_file(
                 f"Only .toml, .yml, and .json are supported. Cannot process file type {config_file_path.suffix}"
             )
 
-        url_parsed = parse.urlparse(str(config_file))
+        url_parsed = urllib.parse.urlparse(str(config_file))
         if allow_remote and url_parsed.scheme in (
             "http",
             "https",
         ):  # URLs will return http/https
             # If the URL is remote, we need to fetch it.
             try:
-                response = requests.get(str(config_file))
+                response = requests.get(
+                    str(config_file),
+                    auth=(
+                        urllib.parse.unquote(url_parsed.username or ""),
+                        urllib.parse.unquote(url_parsed.password or ""),
+                    )
+                    if url_parsed.username or url_parsed.password
+                    else None,
+                )
                 raw_config_file = response.text
             except Exception as e:
                 raise ConfigurationError(
