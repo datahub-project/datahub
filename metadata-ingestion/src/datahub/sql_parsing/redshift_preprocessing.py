@@ -1,16 +1,77 @@
 import logging
 import re
-from typing import List, Tuple
+from typing import Callable, List, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
+# Type alias for trigger: either a substring tuple or a callable
+TriggerType = Union[Tuple[str, ...], Callable[[str], bool]]
+
 # Regex patterns to fix Sigma Computing malformed SQL.
 # Sigma generates SQL with missing spaces between keywords/operators.
-# Each tuple is (pattern, replacement).
-_SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
+# Each tuple is (trigger, pattern, replacement).
+# - trigger: tuple of substrings (any match triggers pattern) OR callable(query_lower) -> bool
+# - pattern: compiled regex
+# - replacement: replacement string
+# Known safe suffixes for each keyword - these are legitimate words, not malformations
+# Must match the negative lookaheads in the regex patterns
+_SAFE_KEYWORD_SUFFIXES: dict[str, tuple[str, ...]] = {
+    "when": ("ever", "ce"),  # whenever, whence
+    "then": ("ce",),  # thence
+    "else": ("where",),  # elsewhere
+    "and": (
+        "roid",
+        "erson",
+        "ersen",
+        "rew",
+        "re",
+        "y",
+        "es",
+        "ora",
+        "romeda",
+    ),  # android, anderson, etc.
+    "select": ("ion", "or", "ive", "ivity", "ed", "ing"),  # selection, selector, etc.
+}
+
+
+def _has_keyword_followed_by_letter(
+    query_lower: str, keyword: str, exclude_safe_words: bool = True
+) -> bool:
+    """Check if keyword is directly followed by a letter (potential malformation).
+
+    Args:
+        query_lower: Lowercase query string
+        keyword: Keyword to search for (e.g., "when", "and")
+        exclude_safe_words: If True, ignore known safe words (e.g., "whenever" for "when")
+    """
+    safe_suffixes = (
+        _SAFE_KEYWORD_SUFFIXES.get(keyword, ()) if exclude_safe_words else ()
+    )
+    idx = 0
+    keyword_len = len(keyword)
+    while True:
+        idx = query_lower.find(keyword, idx)
+        if idx == -1:
+            return False
+        end = idx + keyword_len
+        if end < len(query_lower) and query_lower[end].isalpha():
+            # Check if this is a known safe word
+            if safe_suffixes:
+                remaining = query_lower[end:]
+                is_safe = any(remaining.startswith(suffix) for suffix in safe_suffixes)
+                if not is_safe:
+                    return True
+            else:
+                return True
+        idx = end
+    return False
+
+
+_SIGMA_SQL_FIX_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
     # ::TYPEcast_ -> ::TYPE cast_
     # e.g., "::timestamptzcast_date_to_timestamp" -> "::timestamptz cast_date_to_timestamp"
     (
+        ("cast_",),
         re.compile(
             r"::(timestamp(?:tz)?|date|time(?:tz)?|int(?:eger)?|bigint|smallint|"
             r"float|real|double|numeric|decimal|varchar|char|text|boolean|bool)"
@@ -21,6 +82,11 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     ),
     # ::TYPEis -> ::TYPE is (e.g., ::timestamptzis null -> ::timestamptz is null)
     (
+        (
+            "tzis",
+            "teis",
+            "olis",
+        ),  # timestamptzis, dateis, boolis
         re.compile(
             r"::(timestamp(?:tz)?|date|time(?:tz)?|int(?:eger)?|bigint|smallint|"
             r"float|real|double|numeric|decimal|varchar|char|text|boolean|bool)"
@@ -30,19 +96,29 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
         r"::\1 \2",
     ),
     # casewhen -> case when
-    (re.compile(r"\bcasewhen\b", re.IGNORECASE), "case when"),
+    (
+        ("casewhen",),
+        re.compile(r"\bcasewhen\b", re.IGNORECASE),
+        "case when",
+    ),
     # case when<alias>. -> case when <alias>. (e.g., "case whenq11.col" -> "case when q11.col")
     # More specific than generic when<alias>. to ensure case when is handled first
-    (re.compile(r"\bcase\s+when([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"case when \1."),
+    (
+        lambda q: _has_keyword_followed_by_letter(q, "when"),
+        re.compile(r"\bcase\s+when([a-z][a-z0-9_]*)\.", re.IGNORECASE),
+        r"case when \1.",
+    ),
     # case when<identifier><operator> -> case when <identifier> <operator> (no space before operator)
     # e.g., "case whenarr_down>" -> "case when arr_down >"
     (
+        lambda q: _has_keyword_followed_by_letter(q, "when"),
         re.compile(r"\bcase\s+when([a-z][a-z0-9_]+)(>|<|=|!)", re.IGNORECASE),
         r"case when \1 \2",
     ),
     # case when<identifier> <keyword> -> case when <identifier> <keyword>
     # e.g., "case whenarr_down then" -> "case when arr_down then"
     (
+        lambda q: _has_keyword_followed_by_letter(q, "when"),
         re.compile(
             r"\bcase\s+when([a-z][a-z0-9_]+)\s+(then|and|or|is\b|in\b|not\b|between\b)",
             re.IGNORECASE,
@@ -50,38 +126,67 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
         r"case when \1 \2",
     ),
     # distinctcase -> distinct case
-    (re.compile(r"\bdistinctcase\b", re.IGNORECASE), "distinct case"),
+    (
+        ("distinctcase",),
+        re.compile(r"\bdistinctcase\b", re.IGNORECASE),
+        "distinct case",
+    ),
     # elsenull -> else null
-    (re.compile(r"\belsenull\b", re.IGNORECASE), "else null"),
-    # SQL keyword + aggregate without space: ormin(, andmax(, ormax(, andmin(, orsum(, andsum(, orcount(, andcount(
-    (re.compile(r"\bor(min|max|sum|count|avg)\s*\(", re.IGNORECASE), r"or \1("),
-    (re.compile(r"\band(min|max|sum|count|avg)\s*\(", re.IGNORECASE), r"and \1("),
+    (
+        ("elsenull",),
+        re.compile(r"\belsenull\b", re.IGNORECASE),
+        "else null",
+    ),
+    # SQL keyword + aggregate without space: ormin(, andmax(, etc.
+    (
+        ("ormin", "ormax", "orsum", "orcount", "oravg"),
+        re.compile(r"\bor(min|max|sum|count|avg)\s*\(", re.IGNORECASE),
+        r"or \1(",
+    ),
+    (
+        ("andmin", "andmax", "andsum", "andcount", "andavg"),
+        re.compile(r"\band(min|max|sum|count|avg)\s*\(", re.IGNORECASE),
+        r"and \1(",
+    ),
     # notnull -> not null, nulland -> null and, nullor -> null or
-    (re.compile(r"\bnotnull\b", re.IGNORECASE), "not null"),
-    (re.compile(r"\bnulland\b", re.IGNORECASE), "null and"),
-    (re.compile(r"\bnullor\b", re.IGNORECASE), "null or"),
+    (("notnull",), re.compile(r"\bnotnull\b", re.IGNORECASE), "not null"),
+    (("nulland",), re.compile(r"\bnulland\b", re.IGNORECASE), "null and"),
+    (("nullor",), re.compile(r"\bnullor\b", re.IGNORECASE), "null or"),
     # nullgroup -> null group (for "is null group by")
-    (re.compile(r"\bnullgroup\b", re.IGNORECASE), "null group"),
+    (("nullgroup",), re.compile(r"\bnullgroup\b", re.IGNORECASE), "null group"),
     # isnull followed by and/or without space: isnulland -> is null and
-    (re.compile(r"\bis\s+nulland\b", re.IGNORECASE), "is null and"),
-    (re.compile(r"\bis\s+nullor\b", re.IGNORECASE), "is null or"),
+    (("nulland",), re.compile(r"\bis\s+nulland\b", re.IGNORECASE), "is null and"),
+    (("nullor",), re.compile(r"\bis\s+nullor\b", re.IGNORECASE), "is null or"),
     # is nullnull_eq_ -> is null null_eq_ (null followed by identifier starting with null)
-    (re.compile(r"\bnull(null_[a-z0-9_]+)", re.IGNORECASE), r"null \1"),
+    (("nullnull_",), re.compile(r"\bnull(null_[a-z0-9_]+)", re.IGNORECASE), r"null \1"),
     # endif_ -> end if_ (end followed by identifier starting with if)
-    (re.compile(r"\bend(if_[a-z0-9_]+)", re.IGNORECASE), r"end \1"),
+    (("endif_",), re.compile(r"\bend(if_[a-z0-9_]+)", re.IGNORECASE), r"end \1"),
     # when<alias>. -> when <alias>. (e.g., "whenq11.col" -> "when q11.col")
     # Exclude common words: whenever, whence
-    (re.compile(r"\bwhen(?!ever|ce\b)([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"when \1."),
+    (
+        lambda q: _has_keyword_followed_by_letter(q, "when"),
+        re.compile(r"\bwhen(?!ever|ce\b)([a-z][a-z0-9_]*)\.", re.IGNORECASE),
+        r"when \1.",
+    ),
     # then<alias>. -> then <alias>. (e.g., "thenq11.col" -> "then q11.col")
     # Exclude common words: thence
-    (re.compile(r"\bthen(?!ce\b)([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"then \1."),
+    (
+        lambda q: _has_keyword_followed_by_letter(q, "then"),
+        re.compile(r"\bthen(?!ce\b)([a-z][a-z0-9_]*)\.", re.IGNORECASE),
+        r"then \1.",
+    ),
     # else<alias>. -> else <alias>. (e.g., "elseq11.col" -> "else q11.col")
     # Exclude common words: elsewhere
-    (re.compile(r"\belse(?!where\b)([a-z][a-z0-9_]*)\.", re.IGNORECASE), r"else \1."),
+    (
+        lambda q: _has_keyword_followed_by_letter(q, "else"),
+        re.compile(r"\belse(?!where\b)([a-z][a-z0-9_]*)\.", re.IGNORECASE),
+        r"else \1.",
+    ),
     # when<identifier> followed by space/operator -> when <identifier>
     # e.g., "whene_r6m06nuq then" -> "when e_r6m06nuq then"
     # Exclude common words: whenever, whence
     (
+        lambda q: _has_keyword_followed_by_letter(q, "when"),
         re.compile(
             r"\bwhen(?!ever|ce\b)([a-z][a-z0-9_]+)\s+(then|and|or|>|<|=|!)",
             re.IGNORECASE,
@@ -92,17 +197,23 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     # e.g., "whenarr_down>" -> "when arr_down >"
     # Exclude common words: whenever, whence
     (
+        lambda q: _has_keyword_followed_by_letter(q, "when"),
         re.compile(r"\bwhen(?!ever|ce\b)([a-z][a-z0-9_]+)(>|<|=|!)", re.IGNORECASE),
         r"when \1 \2",
     ),
     # from<schema>.<table> or from<schema>.t_ (Sigma temp table pattern)
-    (re.compile(r"\bfrom([a-z][a-z0-9_]*)\.([a-z])", re.IGNORECASE), r"from \1.\2"),
+    (
+        lambda q: _has_keyword_followed_by_letter(q, "from"),
+        re.compile(r"\bfrom([a-z][a-z0-9_]*)\.([a-z])", re.IGNORECASE),
+        r"from \1.\2",
+    ),
     # groupby -> group by
-    (re.compile(r"\bgroupby\b", re.IGNORECASE), "group by"),
+    (("groupby",), re.compile(r"\bgroupby\b", re.IGNORECASE), "group by"),
     # orderby -> order by
-    (re.compile(r"\borderby\b", re.IGNORECASE), "order by"),
+    (("orderby",), re.compile(r"\borderby\b", re.IGNORECASE), "order by"),
     # or<function>( -> or <function>( for common functions
     (
+        ("ordateadd", "ordatediff", "ordate_trunc", "orcoalesce", "ornullif", "orcast"),
         re.compile(
             r"\bor(dateadd|datediff|date_trunc|coalesce|nullif|cast)\s*\(",
             re.IGNORECASE,
@@ -113,6 +224,7 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     # e.g., "andwdctsy87db > 0" -> "and wdctsy87db > 0"
     # Exclude common words: android, anderson, andersen, andrew, andre, andy, and others
     (
+        lambda q: _has_keyword_followed_by_letter(q, "and"),
         re.compile(
             r"\band(?!roid|erson|ersen|rew|re\b|y\b|es\b|ora|romeda)([a-z][a-z0-9_]+)\s*(>|<|=|!|is\b|in\b)",
             re.IGNORECASE,
@@ -121,18 +233,31 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     ),
     # on<short-alias>. -> on <short-alias>. (e.g., "onq3.id" -> "on q3.id")
     # Match aliases like q1, q12, q123 (letter + up to 3 digits) to avoid breaking identifiers like "online_ret"
-    (re.compile(r"\bon([a-z]\d{1,3})\.([a-z])", re.IGNORECASE), r"on \1.\2"),
+    (
+        lambda q: _has_keyword_followed_by_letter(q, "on"),
+        re.compile(r"\bon([a-z]\d{1,3})\.([a-z])", re.IGNORECASE),
+        r"on \1.\2",
+    ),
     # Also match short alphanumeric aliases (2-3 chars starting with letter)
-    (re.compile(r"\bon([a-z][a-z0-9]{1,2})\.([a-z])", re.IGNORECASE), r"on \1.\2"),
+    (
+        lambda q: _has_keyword_followed_by_letter(q, "on"),
+        re.compile(r"\bon([a-z][a-z0-9]{1,2})\.([a-z])", re.IGNORECASE),
+        r"on \1.\2",
+    ),
     # or<identifier starting with if_> -> or <identifier>
     # e.g., "orif_542 is null" -> "or if_542 is null"
-    (re.compile(r"\bor(if_[a-z0-9_]+)", re.IGNORECASE), r"or \1"),
+    (("orif_",), re.compile(r"\bor(if_[a-z0-9_]+)", re.IGNORECASE), r"or \1"),
     # selectstatus -> select status (select followed by status without space)
-    (re.compile(r"\bselectstatus\b", re.IGNORECASE), "select status"),
+    (
+        ("selectstatus",),
+        re.compile(r"\bselectstatus\b", re.IGNORECASE),
+        "select status",
+    ),
     # select<identifier> followed by comma -> select <identifier>
     # e.g., "selectcol," -> "select col,"
     # Exclude common words: selection, selector, selective, selectivity, selected, selecting
     (
+        lambda q: _has_keyword_followed_by_letter(q, "select"),
         re.compile(
             r"\bselect(?!ion|or\b|ive|ivity|ed\b|ing\b)([a-z][a-z0-9_]*)\s*,",
             re.IGNORECASE,
@@ -140,11 +265,24 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
         r"select \1,",
     ),
     # end thencase -> end then case (CASE END followed by THEN CASE without spaces)
-    (re.compile(r"\bend\s+thencase\b", re.IGNORECASE), "end then case"),
+    (("thencase",), re.compile(r"\bend\s+thencase\b", re.IGNORECASE), "end then case"),
     # end then<identifier> -> end then <identifier> (e.g., "end thencase when")
-    (re.compile(r"\bend\s+then([a-z][a-z0-9_]+)", re.IGNORECASE), r"end then \1"),
+    (
+        lambda q: _has_keyword_followed_by_letter(q, "then"),
+        re.compile(r"\bend\s+then([a-z][a-z0-9_]+)", re.IGNORECASE),
+        r"end then \1",
+    ),
     # end else<function>( -> end else <function>( (e.g., "end elsedateadd(")
     (
+        (
+            "elsedateadd",
+            "elsedatediff",
+            "elsedate_trunc",
+            "elsecoalesce",
+            "elsenullif",
+            "elsecast",
+            "elsecase",
+        ),
         re.compile(
             r"\bend\s+else(dateadd|datediff|date_trunc|coalesce|nullif|cast|case)\b",
             re.IGNORECASE,
@@ -154,6 +292,24 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     # CAST(... AS<TYPE> -> CAST(... AS <TYPE> (missing space after AS in CAST)
     # e.g., "CAST(1 ASINT4)" -> "CAST(1 AS INT4)"
     (
+        (
+            "asint",
+            "asbigint",
+            "assmallint",
+            "asfloat",
+            "asreal",
+            "asdouble",
+            "asnumeric",
+            "asdecimal",
+            "asvarchar",
+            "aschar",
+            "astext",
+            "asboolean",
+            "asbool",
+            "astimestamp",
+            "asdate",
+            "astime",
+        ),
         re.compile(
             r"\bAS(INT[248]?|INTEGER|BIGINT|SMALLINT|FLOAT|REAL|DOUBLE|NUMERIC|"
             r"DECIMAL|VARCHAR|CHAR|TEXT|BOOLEAN|BOOL|TIMESTAMP(?:TZ)?|DATE|TIME(?:TZ)?)\b",
@@ -163,12 +319,21 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     ),
     # group by<identifier> -> group by <identifier> (missing space after BY)
     # e.g., "group byrep_name" -> "group by rep_name"
-    (re.compile(r"\bgroup\s+by([a-z][a-z0-9_]+)", re.IGNORECASE), r"group by \1"),
+    (
+        lambda q: _has_keyword_followed_by_letter(q, "by"),
+        re.compile(r"\bgroup\s+by([a-z][a-z0-9_]+)", re.IGNORECASE),
+        r"group by \1",
+    ),
     # order by<identifier> -> order by <identifier>
-    (re.compile(r"\border\s+by([a-z][a-z0-9_]+)", re.IGNORECASE), r"order by \1"),
+    (
+        lambda q: _has_keyword_followed_by_letter(q, "by"),
+        re.compile(r"\border\s+by([a-z][a-z0-9_]+)", re.IGNORECASE),
+        r"order by \1",
+    ),
     # <alias>on <keyword> -> <alias> on <keyword> (alias followed directly by ON)
     # e.g., ") q6on coalesce" -> ") q6 on coalesce"
     (
+        lambda q: "on " in q,  # looking for "aliaSON " pattern
         re.compile(
             r"\)(\s*)([a-z][a-z0-9_]*)on\s+(coalesce|q\d+\.|[a-z])", re.IGNORECASE
         ),
@@ -176,13 +341,62 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     ),
     # UNI on ALL -> UNION ALL (truncated UNION in Redshift query logs)
     # Redshift truncates queries at ~4000 chars, sometimes cutting "UNION" to "UNI"
-    (re.compile(r"\bUNI\s+on\s+ALL\b", re.IGNORECASE), "UNION ALL"),
+    (("uni on all",), re.compile(r"\bUNI\s+on\s+ALL\b", re.IGNORECASE), "UNION ALL"),
     # on ON -> on (double ON from malformed SQL: ") c on ON con.id")
-    (re.compile(r"\bon\s+ON\b", re.IGNORECASE), "on"),
+    (("on on",), re.compile(r"\bon\s+ON\b", re.IGNORECASE), "on"),
     # <identifier>from " -> <identifier> from " (missing space before FROM after alias)
     # e.g., "cast_181from "public"" -> "cast_181 from "public""
-    (re.compile(r"([a-z0-9_])from\s*\"", re.IGNORECASE), r"\1 from \""),
+    (
+        lambda q: _has_keyword_followed_by_letter(q, "from")
+        or 'from"' in q
+        or "from'" in q,
+        re.compile(r"([a-z0-9_])from\s*\"", re.IGNORECASE),
+        r"\1 from \"",
+    ),
 ]
+
+
+def _should_apply_trigger(trigger: TriggerType, query_lower: str) -> bool:
+    """Check if a pattern's trigger condition is met."""
+    if callable(trigger):
+        return trigger(query_lower)
+    else:
+        # Tuple of substrings - check if any is present
+        return any(t in query_lower for t in trigger)
+
+
+# Quick indicators for early exit - if none present, skip all processing
+_QUICK_MALFORMATION_INDICATORS = (
+    "casewhen",
+    "groupby",
+    "orderby",
+    "elsenull",
+    "notnull",
+    "nulland",
+    "nullor",
+    "distinctcase",
+    "nullgroup",
+)
+
+
+def _may_need_preprocessing(query_lower: str) -> bool:
+    """Quick check if query may contain Sigma malformations.
+
+    Returns True if query might need preprocessing, False for definite skip.
+    This is a fast O(n) check to avoid running 40+ regex patterns on clean queries.
+    """
+    # Check for obvious compound keywords (most reliable indicators)
+    for indicator in _QUICK_MALFORMATION_INDICATORS:
+        if indicator in query_lower:
+            return True
+
+    # Check for keyword directly followed by letter (potential malformation)
+    # These are the risky patterns that need the negative lookahead protection
+    for kw in ("when", "then", "else", "from", "and", "select", "on", "by"):
+        if _has_keyword_followed_by_letter(query_lower, kw):
+            return True
+
+    return False
 
 
 def preprocess_query_for_sigma(query: str) -> str:
@@ -190,6 +404,10 @@ def preprocess_query_for_sigma(query: str) -> str:
 
     Sigma generates SQL with missing spaces between keywords, operators,
     and function calls. This causes sqlglot parsing failures.
+
+    Performance optimization:
+    - Level 1: Quick check for malformation indicators (early exit for clean queries)
+    - Level 2: Only apply patterns whose trigger conditions are met
 
     Known Sigma malformations:
     - ::timestamptzcast_ -> ::timestamptz cast_
@@ -218,9 +436,18 @@ def preprocess_query_for_sigma(query: str) -> str:
     - group byrep_name -> group by rep_name (missing space after BY)
     - q6on coalesce -> q6 on coalesce (alias before ON)
     """
+    query_lower = query.lower()
+
+    # Level 1: Early exit if no malformation indicators found
+    if not _may_need_preprocessing(query_lower):
+        return query
+
+    # Level 2: Apply only patterns whose triggers match
     result = query
-    for pattern, replacement in _SIGMA_SQL_FIX_PATTERNS:
-        result = pattern.sub(replacement, result)
+    for trigger, pattern, replacement in _SIGMA_SQL_FIX_PATTERNS:
+        if _should_apply_trigger(trigger, query_lower):
+            result = pattern.sub(replacement, result)
+
     return result
 
 
