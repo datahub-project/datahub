@@ -130,6 +130,16 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:timescaledb",
+        "name": "timescaledb",
+        "displayName": "TimescaleDB",
+        "description": "Import Tables, Views, Hypertables, Continuous Aggregates, and Background Jobs from TimescaleDB.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/timescaledb",
+        "recipe": "source:\n  type: timescaledb\n  config:\n    host_port: localhost:5432\n    database: timescaledb\n    username: datahub_user\n    password: \"${TIMESCALEDB_PASSWORD}\"\n\n    include_tables: true\n    include_views: true\n    \n    profiling:\n      enabled: true\n      profile_table_level_only: true\n    stateful_ingestion:\n      enabled: true",
+        "category": "Database",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:kafka",
         "name": "kafka",
         "displayName": "Kafka",

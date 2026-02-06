@@ -695,6 +695,7 @@ plugins: Dict[str, Set[str]] = {
         # in our CI, so we're pinning the version for now.
         "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
     },
+    "timescaledb": sql_common | postgres_common,
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
@@ -875,6 +876,7 @@ base_dev_requirements = {
             "snaplogic",
             "slack",
             "tableau",
+            "timescaledb",
             "teradata",
             "trino",
             "hive",
@@ -1045,6 +1047,7 @@ entry_points = {
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "timescaledb = datahub.ingestion.source.sql.timescaledb:TimescaleDBSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",

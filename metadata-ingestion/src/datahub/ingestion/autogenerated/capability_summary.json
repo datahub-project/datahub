@@ -3699,6 +3699,82 @@
       "platform_name": "Teradata",
       "support_status": "TESTING"
     },
+    "timescaledb": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "CLASSIFICATION",
+          "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled for continuous aggregates via column-level lineage",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.sql.timescaledb.TimescaleDBSource",
+      "platform_id": "timescaledb",
+      "platform_name": "TimescaleDB",
+      "support_status": "INCUBATING"
+    },
     "trino": {
       "capabilities": [
         {
