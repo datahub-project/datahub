@@ -433,6 +433,10 @@ databricks = {
 
 mysql = {"pymysql>=1.0.2,<2.0.0"}
 
+# MySQL-like databases (MySQL, MariaDB, Doris) share the same dependencies
+# since they all use the MySQL protocol and pymysql driver
+mysql_common = sql_common | mysql | aws_common
+
 sac = {
     "requests<3.0.0",
     "pyodata>=1.11.1,<2.0.0",
@@ -644,9 +648,9 @@ plugins: Dict[str, Set[str]] = {
     "mongodb": {"pymongo>=4.8.0,<5.0.0", "packaging<26.0.0"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc<6.0.0"},
-    "mysql": sql_common | mysql | aws_common,
-    # mariadb should have same dependency as mysql
-    "mariadb": sql_common | mysql | aws_common,
+    "mysql": mysql_common,
+    "mariadb": mysql_common,
+    "doris": mysql_common,
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
@@ -925,6 +929,7 @@ full_test_dev_requirements = {
             "db2",
             "debug-recording",
             "delta-lake",
+            "doris",
             "druid",
             "excel",
             "feast",
@@ -1003,7 +1008,8 @@ entry_points = {
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
-        "mariadb = datahub.ingestion.source.sql.mariadb.MariaDBSource",
+        "mariadb = datahub.ingestion.source.sql.mariadb:MariaDBSource",
+        "doris = datahub.ingestion.source.sql.doris:DorisSource",
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
