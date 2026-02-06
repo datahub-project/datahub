@@ -33,6 +33,20 @@ public class ApplicationAuthorizationUtils {
   }
 
   /**
+   * Returns true if the current user is authorized to create any application entity. This is true
+   * if the user has the EDIT_ENTITY privilege for applications.
+   */
+  public static boolean canCreateApplications(@Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(context, APPLICATION_ENTITY_NAME, "", orPrivilegeGroups);
+  }
+
+  /**
    * Verifies that the current user is authorized to edit applications on a specific resource
    * entity.
    *

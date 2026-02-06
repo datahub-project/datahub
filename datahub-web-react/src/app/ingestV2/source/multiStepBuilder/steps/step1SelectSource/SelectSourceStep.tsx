@@ -2,15 +2,16 @@ import { Badge, Icon, SearchBar, colors } from '@components';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import sourcesJson from '@app/ingestV2/source/builder/sources.json';
+import analytics, { EventType } from '@app/analytics';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
+import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
 import CreateSourceEducationModal from '@app/ingestV2/source/multiStepBuilder/CreateSourceEducationModal';
-import EmptySearchResults from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/EmptySearchResults';
 import ShowAllCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/ShowAllCard';
 import SourcePlatformCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SourcePlatformCard';
 import { useCardsPerRow } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/useCardsPerRow';
 import {
     CARD_WIDTH,
+    CUSTOM_SOURCE_NAME,
     EXTERNAL_SOURCE_REDIRECT_URL,
     MISCELLANEOUS_CATEGORY_NAME,
     computeRows,
@@ -74,10 +75,13 @@ export function SelectSourceStep() {
     >();
     const [searchQuery, setSearchQuery] = useState<string>('');
 
-    const ingestionSources: SourceConfig[] = JSON.parse(JSON.stringify(sourcesJson));
+    const { ingestionSources } = useIngestionSources();
+
     const filteredSources = ingestionSources.filter((src) =>
         src.displayName.toLowerCase().includes(searchQuery.toLowerCase()),
     );
+
+    const customSource = ingestionSources.find((src) => src.name === CUSTOM_SOURCE_NAME);
 
     const categories = groupByCategory(filteredSources);
     const [expanded, setExpanded] = useState({});
@@ -88,6 +92,10 @@ export function SelectSourceStep() {
     const [showAllByCategory, setShowAllByCategory] = useState<Record<string, boolean>>({});
 
     const onSelectCard = (platformSource: SourceConfig) => {
+        analytics.event({
+            type: EventType.IngestionSelectSourceEvent,
+            sourceType: platformSource.name,
+        });
         if (platformSource.isExternal) {
             window.open(platformSource.docsUrl ?? EXTERNAL_SOURCE_REDIRECT_URL, '_blank');
             return;
@@ -103,7 +111,6 @@ export function SelectSourceStep() {
             config: undefined,
             name: undefined,
             owners: undefined,
-            schedule: undefined,
         });
         goToNext();
     };
@@ -121,7 +128,23 @@ export function SelectSourceStep() {
                 width="320px"
             />
             {searchQuery && filteredSources.length === 0 ? (
-                <EmptySearchResults />
+                <>
+                    {customSource && (
+                        <>
+                            <SectionHeader>
+                                <LeftSection>
+                                    {customSource.category}
+                                    <Badge count={1} size="xs" />
+                                </LeftSection>
+                            </SectionHeader>
+                            <SourcePlatformCard
+                                key={customSource.urn || customSource.name}
+                                source={customSource}
+                                onSelect={onSelectCard}
+                            />
+                        </>
+                    )}
+                </>
             ) : (
                 <CardsContainer>
                     {Object.entries(categories)
@@ -145,7 +168,7 @@ export function SelectSourceStep() {
                                 cardsPerRow,
                             );
 
-                            const isOpen = expanded[category] ?? true;
+                            const isOpen = !!searchQuery || (expanded[category] ?? true);
                             const showAll = showAllByCategory[category] ?? false;
 
                             const visible = showAll || searchQuery ? [...popular, ...nonPopular] : computedVisible;

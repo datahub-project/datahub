@@ -35,7 +35,6 @@ export default function LoginModal() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: values.username, password: values.password }),
             };
-            console.log('requestOptions :', requestOptions);
 
             fetch(resolveRuntimePath('/logIn'), requestOptions)
                 .then(async (response) => {
@@ -89,6 +88,7 @@ export default function LoginModal() {
                     text: 'Login',
                     onClick: () => form.submit(),
                     disabled: isSubmitDisabled,
+                    buttonDataTestId: 'sign-in',
                 },
             ]}
             onCancel={() => {}}
@@ -100,7 +100,12 @@ export default function LoginModal() {
                 <Message type="error" content={maybeRedirectError} />
             )}
             {loading && <Message type="loading" content="Logging in..." />}
-            <LoginForm form={form} handleSubmit={handleLogin} onFormChange={onFormChange} />
+            <LoginForm
+                form={form}
+                handleSubmit={handleLogin}
+                onFormChange={onFormChange}
+                isSubmitDisabled={isSubmitDisabled}
+            />
         </Modal>
     );
 }

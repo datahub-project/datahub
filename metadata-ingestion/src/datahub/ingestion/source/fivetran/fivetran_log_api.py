@@ -21,6 +21,10 @@ from datahub.ingestion.source.fivetran.data_classes import (
     TableLineage,
 )
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
+from datahub.ingestion.source.unity.connection import (
+    create_workspace_client,
+    get_sql_connection_params,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -50,13 +54,39 @@ class FivetranLogAPI:
                     snowflake_destination_config.get_sql_alchemy_url(),
                     **snowflake_destination_config.get_options(),
                 )
-                engine.execute(
-                    fivetran_log_query.use_database(
-                        snowflake_destination_config.database,
+
+                """
+                Special Handling for Snowflake Backward Compatibility:
+                We have migrated to using quoted identifiers for database and schema names.
+                However, we need to support backward compatibility for existing databases and schemas that were created with unquoted identifiers.
+                When an unquoted identifier us used, we automatically convert it to uppercase + quoted identifier (this is Snowflake's behavior to resolve the identifier).
+                unquoted identifier -> uppercase + quoted identifier -> Snowflake resolves the identifier
+                """
+                snowflake_database = (
+                    snowflake_destination_config.database.upper()
+                    if FivetranLogQuery._is_valid_unquoted_identifier(
+                        snowflake_destination_config.database
                     )
+                    else snowflake_destination_config.database
+                )
+                logger.info(
+                    f"Using snowflake database: {snowflake_database} (original: {snowflake_destination_config.database})"
+                )
+                engine.execute(fivetran_log_query.use_database(snowflake_database))
+
+                snowflake_schema = (
+                    snowflake_destination_config.log_schema.upper()
+                    if FivetranLogQuery._is_valid_unquoted_identifier(
+                        snowflake_destination_config.log_schema
+                    )
+                    else snowflake_destination_config.log_schema
+                )
+
+                logger.info(
+                    f"Using snowflake schema: {snowflake_schema} (original: {snowflake_destination_config.log_schema})"
                 )
                 fivetran_log_query.set_schema(
-                    snowflake_destination_config.log_schema,
+                    snowflake_schema,
                 )
                 fivetran_log_database = snowflake_destination_config.database
         elif destination_platform == "bigquery":
@@ -79,11 +109,19 @@ class FivetranLogAPI:
                 self.fivetran_log_config.databricks_destination_config
             )
             if databricks_destination_config is not None:
+                # Pass connect_args (server_hostname, http_path, credentials_provider)
+                # so the databricks-sql-connector has valid authentication settings.
+                options = {
+                    **databricks_destination_config.get_options(),
+                    "connect_args": get_sql_connection_params(
+                        create_workspace_client(databricks_destination_config)
+                    ),
+                }
                 engine = create_engine(
                     databricks_destination_config.get_sql_alchemy_url(
                         databricks_destination_config.catalog
                     ),
-                    **databricks_destination_config.get_options(),
+                    **options,
                 )
                 fivetran_log_query.set_schema(databricks_destination_config.log_schema)
                 fivetran_log_database = databricks_destination_config.catalog

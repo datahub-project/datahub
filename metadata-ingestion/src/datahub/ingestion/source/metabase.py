@@ -1005,7 +1005,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
         """Fetch card details by ID from Metabase API."""
         card_url = f"{self.config.connect_uri}/api/card/{card_id}"
         try:
-            card_response = self.session.get(card_url)
+            # Use legacy-mbql=true to get MBQL 4 format for compatibility.
+            # Metabase 0.57+ returns MBQL 5 by default which has a different structure.
+            card_response = self.session.get(card_url, params={"legacy-mbql": "true"})
             card_response.raise_for_status()
             return MetabaseCard.model_validate(card_response.json())
         except HTTPError as http_error:

@@ -28,6 +28,8 @@ ext {
   docker_registry = 'acryldata'
   docker_repo = 'datahub-actions'
   docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
+  // Set to true to include Alpine variants in the build (e.g., -PincludeAlpineVariants=true)
+  include_alpine_variants = project.getProperties().getOrDefault("includeAlpineVariants", "false").toBoolean()
 
   python_docker_version = project.getProperties().getOrDefault("pythonDockerVersion", "1!0.0.0+docker.${version}")
 }
@@ -144,11 +146,21 @@ docker {
   additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
   defaultVariant = "slim"
-  variants = [
-    "full": [suffix: "", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "false"]],
-    "slim": [suffix: "-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "true"]],
-    "locked": [suffix: "-locked", args: [APP_ENV: "locked", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "true"]]
+
+  // Base variants (Ubuntu-based)
+  def baseVariants = [
+    "full": [suffix: "", target: "final-full", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "false"]],
+    "slim": [suffix: "-slim", target: "final-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "true"]],
+    "locked": [suffix: "-locked", target: "final-locked", args: [APP_ENV: "locked", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "true"]]
   ]
+
+  // Alpine variants (only included when -PincludeAlpineVariants=true)
+  def alpineVariants = [
+    "slim-alpine": [suffix: "-slim-alpine", target: "final-slim-alpine", args: [APP_ENV: "slim-alpine", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "true"]],
+    "locked-alpine": [suffix: "-locked-alpine", target: "final-locked-alpine", args: [APP_ENV: "locked-alpine", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: project.ext.cliVersion, BUNDLED_VENV_SLIM_MODE: "true"]]
+  ]
+
+  variants = include_alpine_variants ? baseVariants + alpineVariants : baseVariants
 
   // Set build args for non-bake builds based on dockerTarget property
   def targetVariant = docker_target ?: defaultVariant.get()

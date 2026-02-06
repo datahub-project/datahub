@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Dict, Iterable, Optional
@@ -32,6 +33,8 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class BaseProcedure:
@@ -44,6 +47,8 @@ class BaseProcedure:
     return_type: Optional[str]
     language: str
     extra_properties: Optional[Dict[str, str]]
+    default_db: Optional[str] = None
+    default_schema: Optional[str] = None
 
     def get_procedure_identifier(
         self,
@@ -204,6 +209,7 @@ def generate_procedure_lineage(
     default_schema: Optional[str] = None,
     is_temp_table: Callable[[str], bool] = lambda _: False,
     raise_: bool = False,
+    report_failure: Optional[Callable[[str], None]] = None,
 ) -> Iterable[MetadataChangeProposalWrapper]:
     if procedure.procedure_definition and procedure.language == "SQL":
         datajob_input_output = parse_procedure_code(
@@ -213,6 +219,7 @@ def generate_procedure_lineage(
             code=procedure.procedure_definition,
             is_temp_table=is_temp_table,
             raise_=raise_,
+            procedure_name=procedure.name,
         )
 
         if datajob_input_output:
@@ -220,6 +227,13 @@ def generate_procedure_lineage(
                 entityUrn=procedure_job_urn,
                 aspect=datajob_input_output,
             )
+        else:
+            logger.warning(
+                f"Failed to extract lineage for stored procedure: {procedure.name}. "
+                f"URN: {procedure_job_urn}."
+            )
+            if report_failure:
+                report_failure(procedure.name)
 
 
 def generate_procedure_container_workunits(
@@ -247,7 +261,8 @@ def generate_procedure_workunits(
                 schema_resolver=schema_resolver,
                 procedure=procedure,
                 procedure_job_urn=job_urn,
-                default_db=database_key.database,
-                default_schema=schema_key.db_schema if schema_key else None,
+                default_db=procedure.default_db or database_key.database,
+                default_schema=procedure.default_schema
+                or (schema_key.db_schema if schema_key else None),
             )
         )

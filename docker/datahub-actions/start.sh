@@ -14,6 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Copy existing AWS SSO tokens from read-only mount to writable cache
+if [ -d "/home/datahub/.aws-ro/sso/cache" ]; then
+    echo "Copying existing AWS SSO tokens to writable cache..."
+    mkdir -p /home/datahub/.aws/sso/cache
+    cp -r /home/datahub/.aws-ro/sso/cache/* /home/datahub/.aws/sso/cache/ 2>/dev/null || true
+    chmod 700 /home/datahub/.aws/sso/cache
+    chmod 600 /home/datahub/.aws/sso/cache/* 2>/dev/null || true
+    echo "AWS SSO token copy complete."
+fi
+
 SYS_CONFIGS_PATH="${DATAHUB_ACTIONS_SYSTEM_CONFIGS_PATH:-/etc/datahub/actions/system/conf}"
 USER_CONFIGS_PATH="${DATAHUB_ACTIONS_USER_CONFIGS_PATH:-/etc/datahub/actions/conf}"
 MONITORING_ENABLED="${DATAHUB_ACTIONS_MONITORING_ENABLED:-false}"

@@ -1,0 +1,40 @@
+namespace com.linkedin.common
+
+/**
+ * Embedding data for a specific model.
+ * Contains metadata about the embedding generation and the chunked vectors.
+ */
+record EmbeddingModelData {
+
+  /**
+   * Full model identifier including provider.
+   * Examples: bedrock/cohere.embed-english-v3, openai/text-embedding-ada-002
+   */
+  modelVersion: string
+
+  /**
+   * Timestamp when embeddings were generated (milliseconds since epoch).
+   */
+  generatedAt: long
+
+  /**
+   * Description of the chunking strategy used.
+   * Examples: sentence_boundary_400t, fixed_512_chars, paragraph
+   */
+  chunkingStrategy: optional string
+
+  /**
+   * Total number of chunks.
+   */
+  totalChunks: int
+
+  /**
+   * Estimated total token count across all chunks.
+   */
+  totalTokens: optional int
+
+  /**
+   * Individual chunks with their embedding vectors.
+   */
+  chunks: array[EmbeddingChunk]
+}

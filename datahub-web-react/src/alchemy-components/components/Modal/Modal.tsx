@@ -42,6 +42,7 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
 const ModalHeader = styled.div<{ hasChildren: boolean }>`
     display: flex;
     flex-direction: column;
+    width: 100%;
 `;
 
 const TitleRow = styled.div`
@@ -49,6 +50,7 @@ const TitleRow = styled.div`
     flex-direction: row;
     align-items: center;
     gap: 8px;
+    width: 100%;
 `;
 
 const ButtonsContainer = styled.div`
@@ -73,6 +75,7 @@ export interface ModalProps {
     onCancel: () => void;
     dataTestId?: string;
     titleIcon?: React.ReactNode;
+    closable?: boolean;
 }
 
 export function Modal({
@@ -83,30 +86,36 @@ export function Modal({
     children,
     onCancel,
     dataTestId,
+    closable = true,
     ...props
 }: ModalProps & AntModalProps) {
     return (
         <StyledModal
             open
             centered
+            closable={closable}
             onCancel={onCancel}
-            closeIcon={<Icon icon="X" source="phosphor" data-testid="modal-close-icon" />}
+            closeIcon={closable ? <Icon icon="X" source="phosphor" data-testid="modal-close-icon" /> : null}
             hasChildren={!!children}
             data-testid={dataTestId}
             title={
-                <ModalHeader hasChildren={!!children}>
-                    <TitleRow>
-                        <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">
-                            {title}
-                        </Heading>
-                        {titlePill}
-                    </TitleRow>
-                    {!!subtitle && (
-                        <Text type="span" color="gray" colorLevel={1700} weight="medium">
-                            {subtitle}
-                        </Text>
-                    )}
-                </ModalHeader>
+                typeof title === 'string' ? (
+                    <ModalHeader hasChildren={!!children}>
+                        <TitleRow>
+                            <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">
+                                {title}
+                            </Heading>
+                            {titlePill}
+                        </TitleRow>
+                        {!!subtitle && (
+                            <Text type="span" color="gray" colorLevel={1700} weight="medium">
+                                {subtitle}
+                            </Text>
+                        )}
+                    </ModalHeader>
+                ) : (
+                    <div style={{ marginRight: closable ? '20px' : '0' }}>{title}</div>
+                )
             }
             footer={
                 !!buttons?.length && (

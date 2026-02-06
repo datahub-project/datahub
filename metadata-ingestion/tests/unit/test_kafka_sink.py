@@ -14,6 +14,7 @@ from datahub.ingestion.api.sink import SinkReport, WriteCallback
 from datahub.ingestion.sink.datahub_kafka import (
     DatahubKafkaSink,
     KafkaSinkConfig,
+    _enhance_schema_registry_error,
     _KafkaCallback,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -125,7 +126,9 @@ class KafkaSinkTest(unittest.TestCase):
         callback.kafka_callback(mock_error, mock_message)
         mock_w_callback.on_failure.assert_called_once()
         assert mock_w_callback.on_failure.call_args[0][0] == mock_re
-        assert mock_w_callback.on_failure.call_args[0][1] == mock_error
+        # Error is now wrapped in an Exception for consistent error handling
+        assert isinstance(mock_w_callback.on_failure.call_args[0][1], Exception)
+        assert str(mock_error) in str(mock_w_callback.on_failure.call_args[0][1])
         callback.kafka_callback(None, mock_message)
         mock_w_callback.on_success.assert_called_once()
         assert mock_w_callback.on_success.call_args[0][0] == mock_re
@@ -192,3 +195,30 @@ def test_kafka_sink_oauth_cb_rejects_callable():
                 }
             }
         )
+
+
+def test_enhance_schema_registry_error_with_404():
+    """Test that schema registry 404 errors get enhanced with helpful guidance"""
+    error_str = (
+        "KafkaError{code=_VALUE_SERIALIZATION,val=-161,"
+        "str=\"Unknown Schema Registry Error: b'' (HTTP status code 404, SR code -1)\"}"
+    )
+
+    enhanced = _enhance_schema_registry_error(error_str)
+
+    # Should contain the original error
+    assert error_str in enhanced
+    # Should contain the hint
+    assert "HINT:" in enhanced
+    assert "topic_routes" in enhanced
+
+
+def test_enhance_schema_registry_error_non_404():
+    """Test that non-schema registry errors are returned unchanged"""
+    error_str = "Some other Kafka error"
+
+    enhanced = _enhance_schema_registry_error(error_str)
+
+    # Should be unchanged
+    assert enhanced == error_str
+    assert "HINT:" not in enhanced

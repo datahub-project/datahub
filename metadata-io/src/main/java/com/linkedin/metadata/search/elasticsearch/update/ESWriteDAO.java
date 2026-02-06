@@ -158,6 +158,21 @@ public class ESWriteDAO {
   }
 
   /**
+   * Checks if the given index exists in OpenSearch.
+   *
+   * @param indexName name of the index to check
+   * @return true if the index exists, false otherwise
+   */
+  public boolean indexExists(@Nonnull String indexName) {
+    try {
+      return searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
+    } catch (IOException e) {
+      log.warn("Error checking if index {} exists: {}", indexName, e.getMessage());
+      return false;
+    }
+  }
+
+  /**
    * Updates or inserts the given search document in the V3 index for the specified search group.
    * This method uses the index convention to properly construct the V3 index name.
    *
@@ -212,6 +227,26 @@ public class ESWriteDAO {
       @Nonnull String scriptSource,
       @Nonnull Map<String, Object> scriptParams,
       Map<String, Object> upsert) {
+    applyScriptUpdateByIndexName(
+        toIndexName(opContext, entityName), docId, scriptSource, scriptParams, upsert);
+  }
+
+  /**
+   * Applies a script to a particular document in a specific index. This method works directly with
+   * index names, useful for applying script updates to semantic indices.
+   *
+   * @param indexName the name of the index
+   * @param docId the document ID
+   * @param scriptSource the script source code
+   * @param scriptParams the script parameters
+   * @param upsert the document to upsert if it doesn't exist
+   */
+  public void applyScriptUpdateByIndexName(
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;
@@ -225,7 +260,7 @@ public class ESWriteDAO {
             scriptParams // The parameters map
             );
     UpdateRequest updateRequest =
-        new UpdateRequest(toIndexName(opContext, entityName), docId)
+        new UpdateRequest(indexName, docId)
             .detectNoop(false)
             .scriptedUpsert(true)
             .retryOnConflict(config.getBulkProcessor().getNumRetries())
