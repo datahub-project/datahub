@@ -48,28 +48,41 @@ def reset_logging() -> None:
 
 
 def configure_logging() -> None:
-    """Configure global logging based on environment variables.
-
-    Environment variables (checked in order of precedence):
-    - DATAHUB_LOG_CONFIG_FILE: Path to an external logging config file (INI format).
-      If set, this file is used directly.
-    - DATAHUB_LOG_FORMAT: If set to "json", uses logger_json.ini for JSON output.
-      Otherwise, uses logger.ini for standard text format.
-    """
-    config_dir = Path(__file__).parent.parent
-
-    reset_logging()
-
-    # Check for external config file first
+    # Check for external config file first and use that (useful for running in k8s, etc).
     external_config = os.environ.get("DATAHUB_LOG_CONFIG_FILE")
     if external_config:
-        config_file = Path(external_config)
-    else:
-        # Fall back to built-in configs based on format
-        log_format = os.environ.get("DATAHUB_LOG_FORMAT", "").lower()
-        if log_format == "json":
-            config_file = config_dir / "logger_json.ini"
-        else:
-            config_file = config_dir / "logger.ini"
+        reset_logging()
 
-    logging.config.fileConfig(config_file, disable_existing_loggers=False)
+        # Route warnings.warn() calls through the logging system.
+        logging.captureWarnings(True)
+
+        config_file = Path(external_config)
+        logging.config.fileConfig(config_file, disable_existing_loggers=False)
+
+        return
+
+    # Configure Logging using PY directly as a fallback
+    BASE_LOGGING_FORMAT = (
+        "[%(asctime)s] %(levelname)-8s {%(name)s:%(lineno)d} - %(message)s"
+    )
+    logging.basicConfig(format=BASE_LOGGING_FORMAT)
+
+    # 1. Create 'datahub' parent logger.
+    datahub_logger = logging.getLogger("datahub_executor")
+
+    # 2. Setup the stream handler with formatter.
+    stream_handler = logging.StreamHandler()
+    formatter = logging.Formatter(BASE_LOGGING_FORMAT)
+    stream_handler.setFormatter(formatter)
+    datahub_logger.addHandler(stream_handler)
+
+    # 3. Turn off propagation to the root handler.
+    datahub_logger.propagate = False
+
+    # 4. Adjust log-levels based on presence of environment variable.
+    if os.getenv("DATAHUB_DEBUG", False):
+        logging.getLogger().setLevel(logging.INFO)
+        datahub_logger.setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.WARNING)
+        datahub_logger.setLevel(logging.INFO)
