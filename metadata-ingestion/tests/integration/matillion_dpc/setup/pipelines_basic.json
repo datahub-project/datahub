@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "id": "pipe-1",
+      "name": "Daily ETL",
+      "projectId": "proj-1",
+      "type": "orchestration",
+      "description": "Daily ETL pipeline",
+      "version": "1.0.0",
+      "publishedTime": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 0,
+  "size": 25
+}

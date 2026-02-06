@@ -38,6 +38,7 @@ class DatasetSubTypes(StrEnum):
     PROJECTIONS = "Projections"
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
+    CONNECTION = "Connection"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -67,6 +68,9 @@ class DatasetContainerSubTypes(StrEnum):
     NAMESPACE = "Namespace"  # Iceberg
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
+    # Matillion
+    MATILLION_PROJECT = "Project"
+    MATILLION_ENVIRONMENT = "Environment"
     # Microsoft Fabric
     FABRIC_LAKEHOUSE = "Fabric Lakehouse"
     FABRIC_WAREHOUSE = "Fabric Warehouse"
@@ -96,12 +100,14 @@ class FlowContainerSubTypes(StrEnum):
     MSSQL_JOB = "Job"
     MSSQL_PROCEDURE_CONTAINER = "Procedures Container"
     ADF_DATA_FACTORY = "Data Factory"
+    MATILLION_PIPELINE = "Pipeline"
 
 
 class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
     MSSQL_JOBSTEP = "Job Step"
     STORED_PROCEDURE = "Stored Procedure"
+    MATILLION_COMPONENT = "Component"
 
 
 class BIAssetSubTypes(StrEnum):

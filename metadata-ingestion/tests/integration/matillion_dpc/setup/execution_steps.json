@@ -1,0 +1,41 @@
+{
+  "results": [
+    {
+      "id": "step-1",
+      "name": "Extract Data",
+      "type": "extract",
+      "result": {
+        "status": "SUCCESS",
+        "message": "Extracted 1000 rows",
+        "startedAt": "2024-01-01T00:00:00Z",
+        "finishedAt": "2024-01-01T00:02:00Z"
+      }
+    },
+    {
+      "id": "step-2",
+      "name": "Transform Data",
+      "type": "transformation",
+      "result": {
+        "status": "SUCCESS",
+        "message": "Transformed successfully",
+        "startedAt": "2024-01-01T00:02:00Z",
+        "finishedAt": "2024-01-01T00:04:00Z"
+      },
+      "childPipeline": {
+        "id": "child-exec-1",
+        "name": "Child ETL Pipeline"
+      }
+    },
+    {
+      "id": "step-3",
+      "name": "Load Data",
+      "type": "load",
+      "result": {
+        "status": "SUCCESS",
+        "message": "Loaded to destination",
+        "startedAt": "2024-01-01T00:04:00Z",
+        "finishedAt": "2024-01-01T00:05:00Z"
+      }
+    }
+  ]
+}

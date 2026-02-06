@@ -127,6 +127,24 @@ import {
     MARIADB_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/mariadb';
 import {
+    MATILLION_CLIENT_ID,
+    MATILLION_CLIENT_SECRET,
+    MATILLION_ENV,
+    MATILLION_ENVIRONMENT_ALLOW,
+    MATILLION_ENVIRONMENT_DENY,
+    MATILLION_INCLUDE_EXECUTIONS,
+    MATILLION_INCLUDE_UNPUBLISHED,
+    MATILLION_PIPELINE_ALLOW,
+    MATILLION_PIPELINE_DENY,
+    MATILLION_PLATFORM_INSTANCE,
+    MATILLION_PROJECT_ALLOW,
+    MATILLION_PROJECT_DENY,
+    MATILLION_REGION,
+    MATILLION_STATEFUL_INGESTION,
+    MATILLION_STREAMING_ALLOW,
+    MATILLION_STREAMING_DENY,
+} from '@app/ingest/source/builder/RecipeForm/matillion-dpc';
+import {
     MSSQL,
     MSSQL_DATABASE,
     MSSQL_HOST_PORT,
@@ -247,6 +265,7 @@ import {
     CSV,
     DATABRICKS,
     DBT_CLOUD,
+    MATILLION_DPC,
     MYSQL,
     NOTION,
     OKTA,
@@ -511,6 +530,28 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
+    [MATILLION_DPC]: {
+        fields: [
+            MATILLION_CLIENT_ID,
+            MATILLION_CLIENT_SECRET,
+            MATILLION_REGION,
+            MATILLION_ENV,
+            MATILLION_PLATFORM_INSTANCE,
+        ],
+        filterFields: [
+            MATILLION_PROJECT_ALLOW,
+            MATILLION_PROJECT_DENY,
+            MATILLION_ENVIRONMENT_ALLOW,
+            MATILLION_ENVIRONMENT_DENY,
+            MATILLION_PIPELINE_ALLOW,
+            MATILLION_PIPELINE_DENY,
+            MATILLION_STREAMING_ALLOW,
+            MATILLION_STREAMING_DENY,
+        ],
+        advancedFields: [MATILLION_INCLUDE_EXECUTIONS, MATILLION_INCLUDE_UNPUBLISHED, MATILLION_STATEFUL_INGESTION],
+        filterSectionTooltip:
+            'Include or exclude specific Projects, Environments, Pipelines, and Streaming Pipelines from ingestion.',
+    },
     [DATABRICKS]: {
         fields: [WORKSPACE_URL, TOKEN],
         filterFields: [
@@ -640,4 +681,12 @@ export const RECIPE_FIELDS: RecipeFields = {
 
 export const CONNECTORS_WITH_FORM = new Set(Object.keys(RECIPE_FIELDS));
 
-export const CONNECTORS_WITH_TEST_CONNECTION = new Set([SNOWFLAKE, LOOKER, BIGQUERY_BETA, BIGQUERY, DATABRICKS, SAC]);
+export const CONNECTORS_WITH_TEST_CONNECTION = new Set([
+    SNOWFLAKE,
+    LOOKER,
+    BIGQUERY_BETA,
+    BIGQUERY,
+    DATABRICKS,
+    MATILLION_DPC,
+    SAC,
+]);

@@ -1973,6 +1973,38 @@
       "platform_name": "MariaDB",
       "support_status": "CERTIFIED"
     },
+    "matillion-dpc": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default, can be disabled via configuration `include_column_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default, can be disabled via configuration `include_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.matillion_dpc.matillion.MatillionSource",
+      "platform_id": "matillion-dpc",
+      "platform_name": "Matillion DPC",
+      "support_status": "INCUBATING"
+    },
     "metabase": {
       "capabilities": [
         {
