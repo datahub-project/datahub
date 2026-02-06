@@ -142,17 +142,16 @@ public class EntityRelationshipsResultResolverTest {
     String urn = "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)";
     assertTrue(ctx.tryVisit(urn));
     assertTrue(ctx.isVisited(urn));
+    // Same URN again: still proceed (multiple relationship types for one entity in one request)
     assertTrue(ctx.tryVisit(urn));
     assertFalse(ctx.isVisited("urn:li:other:xyz"));
   }
 
   @Test
-  public void testRelationshipTraversalContextShortCircuitsOnlyWhenAtCap() {
-    RelationshipTraversalContext ctx = new RelationshipTraversalContext(2);
-    assertTrue(ctx.tryVisit("urn:li:a:1"));
-    assertTrue(ctx.tryVisit("urn:li:a:2"));
-    assertFalse(ctx.tryVisit("urn:li:a:3"));
-    assertTrue(ctx.tryVisit("urn:li:a:1"));
+  public void testRelationshipTraversalContextAtCapShortCircuits() {
+    RelationshipTraversalContext ctx = new RelationshipTraversalContext(1);
+    assertTrue(ctx.tryVisit("urn:li:dataset:one"));
+    assertFalse(ctx.tryVisit("urn:li:dataset:two"));
   }
 
   @Test
@@ -209,14 +208,46 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   /**
-   * Same entity (e.g. ML model) can request multiple relationship types (features, trainedBy). Each
-   * resolver call for the same source URN should proceed and call the graph; we only short-circuit
-   * when at the cap, not when the URN was already visited.
+   * When the traversal context is at its URN cap, the resolver must return empty and must not call
+   * the graph client. This prevents OOM on very large or cyclic graphs.
    */
   @Test
-  public void testSameUrnMultipleRelationshipTypesBothProceed()
+  public void testAtCapReturnsEmptyAndDoesNotCallGraphClient()
       throws ExecutionException, InterruptedException {
     String sourceUrn = "urn:li:glossaryNode:0fdc52a7d97255a4568a3255ad7e8414";
+    CorpGroup source = new CorpGroup();
+    source.setUrn(sourceUrn);
+    when(mockEnv.getSource()).thenReturn(source);
+
+    RelationshipTraversalContext traversalContext = new RelationshipTraversalContext(1);
+    traversalContext.tryVisit("urn:li:other:already-visited");
+
+    QueryContext queryContext = getMockAllowContext();
+    when(queryContext.getRelationshipTraversalContext()).thenReturn(Optional.of(traversalContext));
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput cycleInput = new RelationshipsInput();
+    cycleInput.setTypes(List.of("IsPartOf"));
+    cycleInput.setDirection(RelationshipDirection.INCOMING);
+    cycleInput.setCount(500);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(cycleInput);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertNotNull(result);
+    assertTrue(result.getRelationships() == null || result.getRelationships().isEmpty());
+    assertEquals(result.getCount(), 0);
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  /**
+   * Same entity can have multiple relationship types resolved in one request (e.g. ML model
+   * features and trainedBy). Both resolutions must succeed and call the graph client.
+   */
+  @Test
+  public void testSameUrnMultipleRelationshipTypesBothSucceed()
+      throws ExecutionException, InterruptedException {
+    String sourceUrn = "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,cypress-model,PROD)";
     CorpGroup source = new CorpGroup();
     source.setUrn(sourceUrn);
     when(mockEnv.getSource()).thenReturn(source);
@@ -238,56 +269,21 @@ public class EntityRelationshipsResultResolverTest {
     when(queryContext.getRelationshipTraversalContext()).thenReturn(Optional.of(traversalContext));
     when(mockEnv.getContext()).thenReturn(queryContext);
 
-    RelationshipsInput input1 = new RelationshipsInput();
-    input1.setTypes(List.of("IsPartOf"));
-    input1.setDirection(RelationshipDirection.INCOMING);
-    input1.setCount(500);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(input1);
+    RelationshipsInput cycleInput = new RelationshipsInput();
+    cycleInput.setTypes(List.of("IsPartOf"));
+    cycleInput.setDirection(RelationshipDirection.INCOMING);
+    cycleInput.setCount(500);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(cycleInput);
 
     EntityRelationshipsResult firstResult = resolver.get(mockEnv).get();
     assertNotNull(firstResult);
     assertEquals(firstResult.getCount(), 2);
-
-    RelationshipsInput input2 = new RelationshipsInput();
-    input2.setTypes(List.of("HasA"));
-    input2.setDirection(RelationshipDirection.OUTGOING);
-    input2.setCount(500);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(input2);
 
     EntityRelationshipsResult secondResult = resolver.get(mockEnv).get();
     assertNotNull(secondResult);
     assertEquals(secondResult.getCount(), 2);
 
     verify(_graphClient, times(2)).getRelatedEntities(any(), any(), any(), any(), any(), any());
-  }
-
-  @Test
-  public void testShortCircuitsWhenAtCap() throws ExecutionException, InterruptedException {
-    String sourceUrn = "urn:li:dataset:(urn:li:dataPlatform:foo,atCap,PROD)";
-    CorpGroup source = new CorpGroup();
-    source.setUrn(sourceUrn);
-    when(mockEnv.getSource()).thenReturn(source);
-
-    RelationshipTraversalContext traversalContext = new RelationshipTraversalContext(2);
-    traversalContext.tryVisit("urn:li:a:1");
-    traversalContext.tryVisit("urn:li:a:2");
-
-    QueryContext queryContext = getMockAllowContext();
-    when(queryContext.getRelationshipTraversalContext()).thenReturn(Optional.of(traversalContext));
-    when(mockEnv.getContext()).thenReturn(queryContext);
-
-    RelationshipsInput input = new RelationshipsInput();
-    input.setTypes(List.of("DownstreamOf"));
-    input.setDirection(RelationshipDirection.OUTGOING);
-    input.setCount(10);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
-
-    EntityRelationshipsResult result = resolver.get(mockEnv).get();
-
-    assertNotNull(result);
-    assertTrue(result.getRelationships() == null || result.getRelationships().isEmpty());
-    assertEquals(result.getCount(), 0);
-    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
   }
 
   private com.linkedin.datahub.graphql.generated.EntityRelationship resultRelationship(
