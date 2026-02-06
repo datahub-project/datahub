@@ -188,6 +188,34 @@ class TestSigmaSqlPreprocessing:
         assert "when q11.status" in result
         assert "when arr_down >" in result
 
+    def test_normal_sql_unchanged(self) -> None:
+        """Normal Redshift SQL should pass through preprocessing unchanged."""
+        # Standard SELECT
+        query = "SELECT id, name, created_at FROM users WHERE status = 'active'"
+        assert preprocess_query_for_sigma(query) == query
+
+        # SELECT with CASE WHEN (properly spaced)
+        query = "SELECT CASE WHEN x > 0 THEN 1 ELSE 0 END FROM my_table"
+        assert preprocess_query_for_sigma(query) == query
+
+        # JOIN with ON clause
+        query = "SELECT a.id, b.name FROM table_a a JOIN table_b b ON a.id = b.a_id"
+        assert preprocess_query_for_sigma(query) == query
+
+        # GROUP BY and ORDER BY (properly spaced)
+        query = "SELECT status, COUNT(*) FROM orders GROUP BY status ORDER BY status"
+        assert preprocess_query_for_sigma(query) == query
+
+        # Complex query with subquery
+        query = """
+        SELECT u.id, u.name, o.total
+        FROM users u
+        JOIN (SELECT user_id, SUM(amount) as total FROM orders GROUP BY user_id) o
+        ON u.id = o.user_id
+        WHERE u.status = 'active'
+        """
+        assert preprocess_query_for_sigma(query) == query
+
 
 def get_lineage_extractor() -> RedshiftSqlLineage:
     config = RedshiftConfig(
