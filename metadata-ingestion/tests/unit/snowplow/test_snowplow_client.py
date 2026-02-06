@@ -631,45 +631,25 @@ class TestSnowplowBDPClientAPIMethods:
         assert len(result) == 2
         assert result[0].id == "spec1"
 
-    # Tracking Scenarios API tests
+    # Tracking Plans API tests
     @patch.object(SnowplowBDPClient, "_request")
-    def test_get_tracking_scenarios_success(self, mock_request, bdp_client):
-        """Test fetching tracking scenarios."""
-        mock_scenarios = [
-            {"id": "scenario1", "name": "Test Scenario"},
-            {"id": "scenario2", "name": "Test Scenario 2"},
+    def test_get_tracking_plans_success(self, mock_request, bdp_client):
+        """Test fetching tracking plans (uses /data-products/v2 API)."""
+        mock_plans = [
+            {"id": "plan1", "name": "Test Plan"},
+            {"id": "plan2", "name": "Test Plan 2"},
         ]
-        # Tracking scenarios use wrapped format
+        # Tracking plans use wrapped format with includes as dict
         mock_request.return_value = {
-            "data": mock_scenarios,
-            "includes": [],
-            "errors": [],
-        }
-
-        result = bdp_client.get_tracking_scenarios()
-
-        assert len(result) == 2
-        assert result[0].id == "scenario1"
-
-    # Data Products API tests
-    @patch.object(SnowplowBDPClient, "_request")
-    def test_get_data_products_success(self, mock_request, bdp_client):
-        """Test fetching data products."""
-        mock_products = [
-            {"id": "product1", "name": "Test Product"},
-            {"id": "product2", "name": "Test Product 2"},
-        ]
-        # Data products use wrapped format with includes as dict
-        mock_request.return_value = {
-            "data": mock_products,
+            "data": mock_plans,
             "includes": {"owners": [], "eventSpecs": [], "sourceApplications": []},
             "errors": [],
         }
 
-        result = bdp_client.get_data_products()
+        result = bdp_client.get_tracking_plans()
 
         assert len(result) == 2
-        assert result[0].id == "product1"
+        assert result[0].id == "plan1"
 
     # Context manager tests
     def test_context_manager_enter_exit(self, bdp_config):

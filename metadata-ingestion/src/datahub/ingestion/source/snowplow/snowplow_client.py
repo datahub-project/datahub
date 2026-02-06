@@ -22,8 +22,6 @@ if TYPE_CHECKING:
 
 from datahub.ingestion.source.snowplow.models.snowplow_models import (
     DataModel,
-    DataProduct,
-    DataProductsResponse,
     DataStructure,
     DataStructureDeployment,
     Destination,
@@ -34,8 +32,8 @@ from datahub.ingestion.source.snowplow.models.snowplow_models import (
     Pipeline,
     PipelinesResponse,
     TokenResponse,
-    TrackingScenario,
-    TrackingScenariosResponse,
+    TrackingPlan,
+    TrackingPlansResponse,
     User,
 )
 from datahub.ingestion.source.snowplow.snowplow_config import (
@@ -662,133 +660,41 @@ class SnowplowBDPClient:
             return None
 
     # ============================================
-    # Tracking Scenarios API
+    # Tracking Plans API
     # ============================================
 
-    def get_tracking_scenarios(self) -> List[TrackingScenario]:
+    def get_tracking_plans(self) -> List[TrackingPlan]:
         """
-        Get all tracking scenarios from organization.
+        Get all tracking plans from organization.
 
-        API Reference: https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-tracking-scenarios/api/
+        Uses the /data-products/v2 API which provides richer metadata than the
+        legacy /tracking-scenarios/v1 endpoint. Snowplow originally called
+        tracking plans "data products" — the v2 API still uses that path.
 
         Returns:
-            List of tracking scenarios
-        """
-        # GET /organizations/{organizationId}/tracking-scenarios/v1
-        # Docs: https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-tracking-scenarios/api/
-        endpoint = f"organizations/{self.organization_id}/tracking-scenarios/v1"
-
-        logger.info("Fetching tracking scenarios from Snowplow")
-
-        try:
-            response_data = self._request("GET", endpoint)
-        except ResourceNotFoundError:
-            # Endpoint may not be available for some organizations
-            logger.info(
-                "Tracking scenarios endpoint not available (404) - this is normal for some organizations"
-            )
-            return []
-
-        # Handle empty response
-        if not response_data:
-            logger.info("Tracking scenarios endpoint returned empty response")
-            return []
-
-        # Tracking scenarios API uses wrapped format (unlike data structures API)
-        # Response structure: {"data": [...], "includes": [...], "errors": [...]}
-        if not isinstance(response_data, dict):
-            logger.error(
-                f"Expected dict (wrapped response) from BDP API, got {type(response_data)}"
-            )
-            return []
-
-        try:
-            response = TrackingScenariosResponse.model_validate(response_data)
-            logger.info(f"Found {len(response.data)} tracking scenarios")
-
-            # Log any errors/warnings from API
-            if response.errors:
-                logger.warning(
-                    f"API returned {len(response.errors)} errors/warnings for tracking scenarios"
-                )
-
-            return response.data
-        except ValidationError as e:
-            logger.error(f"Failed to parse tracking scenarios: {e}")
-            logger.error(
-                f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
-            )
-            return []
-
-    def get_tracking_scenario(self, scenario_id: str) -> Optional[TrackingScenario]:
-        """
-        Get specific tracking scenario by ID.
-
-        API Reference: https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-tracking-scenarios/api/
-
-        Args:
-            scenario_id: Tracking scenario ID
-
-        Returns:
-            Tracking scenario or None if not found
-        """
-        # GET /organizations/{organizationId}/tracking-scenarios/v1/{scenarioId}
-        # Docs: https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-tracking-scenarios/api/
-        endpoint = (
-            f"organizations/{self.organization_id}/tracking-scenarios/v1/{scenario_id}"
-        )
-
-        response_data = self._request("GET", endpoint)
-
-        if not response_data:
-            return None
-
-        try:
-            return TrackingScenario.model_validate(response_data.get("data", {}))
-        except ValidationError as e:
-            logger.error(f"Failed to parse tracking scenario {scenario_id}: {e}")
-            logger.error(
-                f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
-            )
-            return None
-
-    # ============================================
-    # Data Products API
-    # ============================================
-
-    def get_data_products(self) -> List[DataProduct]:
-        """
-        Get all data products from BDP Console.
-
-        API Reference: https://docs.snowplow.io/docs/data-product-studio/data-products/api/
-
-        Data products are groupings of event specifications with ownership, domain,
-        and access information. They help organize tracking design at a higher level.
-
-        Returns:
-            List of data products
+            List of tracking plans
         """
         # GET /organizations/{organizationId}/data-products/v2
-        # Docs: https://docs.snowplow.io/docs/data-product-studio/data-products/api/
-        # Note: Uses v2 API endpoint (newer version)
+        # Note: API path uses legacy 'data-products' name (Snowplow renamed to tracking plans)
         endpoint = f"organizations/{self.organization_id}/data-products/v2"
+
+        logger.info("Fetching tracking plans from Snowplow")
 
         try:
             response_data = self._request("GET", endpoint)
         except ResourceNotFoundError:
-            # Endpoint may not be available for some organizations
             logger.info(
-                "Data products endpoint not available (404) - this is normal for some organizations"
+                "Tracking plans endpoint not available (404) - this is normal for some organizations"
             )
             return []
 
         # Handle empty response
         if not response_data:
-            logger.info("Data products endpoint returned empty response")
+            logger.info("Tracking plans endpoint returned empty response")
             return []
 
-        # Data products API uses wrapped format (similar to event specs)
-        # Response structure: {"data": [...], "includes": [...], "errors": [...]}
+        # Tracking plans API uses wrapped format
+        # Response structure: {"data": [...], "includes": {...}, "errors": [...]}
         if not isinstance(response_data, dict):
             logger.error(
                 f"Expected dict (wrapped response) from BDP API, got {type(response_data)}"
@@ -796,37 +702,36 @@ class SnowplowBDPClient:
             return []
 
         try:
-            response = DataProductsResponse.model_validate(response_data)
-            logger.info(f"Found {len(response.data)} data products")
+            response = TrackingPlansResponse.model_validate(response_data)
+            logger.info(f"Found {len(response.data)} tracking plans")
 
             # Log any errors/warnings from API
             if response.errors:
                 logger.warning(
-                    f"API returned {len(response.errors)} errors/warnings for data products"
+                    f"API returned {len(response.errors)} errors/warnings for tracking plans"
                 )
 
             return response.data
         except ValidationError as e:
-            logger.error(f"Failed to parse data products: {e}")
+            logger.error(f"Failed to parse tracking plans: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
             return []
 
-    def get_data_product(self, product_id: str) -> Optional[DataProduct]:
+    def get_tracking_plan(self, plan_id: str) -> Optional[TrackingPlan]:
         """
-        Get specific data product by ID.
-
-        API Reference: https://docs.snowplow.io/docs/data-product-studio/data-products/api/
+        Get specific tracking plan by ID.
 
         Args:
-            product_id: Data product ID
+            plan_id: Tracking plan ID
 
         Returns:
-            Data product or None if not found
+            Tracking plan or None if not found
         """
-        # GET /organizations/{organizationId}/data-products/v2/{dataProductId}
-        endpoint = f"organizations/{self.organization_id}/data-products/v2/{product_id}"
+        # GET /organizations/{organizationId}/data-products/v2/{id}
+        # Note: API path uses legacy 'data-products' name
+        endpoint = f"organizations/{self.organization_id}/data-products/v2/{plan_id}"
 
         response_data = self._request("GET", endpoint)
 
@@ -834,17 +739,17 @@ class SnowplowBDPClient:
             return None
 
         try:
-            return DataProduct.model_validate(response_data.get("data", {}))
+            return TrackingPlan.model_validate(response_data.get("data", {}))
         except ValidationError as e:
-            logger.error(f"Failed to parse data product {product_id}: {e}")
+            logger.error(f"Failed to parse tracking plan {plan_id}: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
             return None
 
-    def get_data_models(self, data_product_id: str) -> List[DataModel]:
+    def get_data_models(self, tracking_plan_id: str) -> List[DataModel]:
         """
-        Get data models for a data product.
+        Get data models for a tracking plan.
 
         Data models define transformations and outputs to warehouse destinations.
         Each model references a destination (warehouse) and specifies the table name.
@@ -852,22 +757,23 @@ class SnowplowBDPClient:
         API Reference: https://docs.snowplow.io/docs/data-product-studio/data-models/api/
 
         Args:
-            data_product_id: Data product UUID
+            tracking_plan_id: Tracking plan UUID
 
         Returns:
-            List of data models for the data product
+            List of data models for the tracking plan
         """
-        # GET /organizations/{organizationId}/data-products/v2/{dataProductId}/data-models/v1
-        endpoint = f"organizations/{self.organization_id}/data-products/v2/{data_product_id}/data-models/v1"
+        # GET /organizations/{organizationId}/data-products/v2/{id}/data-models/v1
+        # Note: API path uses legacy 'data-products' name
+        endpoint = f"organizations/{self.organization_id}/data-products/v2/{tracking_plan_id}/data-models/v1"
 
-        logger.debug(f"Fetching data models for data product {data_product_id}")
+        logger.debug(f"Fetching data models for tracking plan {tracking_plan_id}")
 
         response_data = self._request("GET", endpoint)
 
         # Handle 404 or empty response
         if not response_data:
             logger.debug(
-                f"No data models found for data product {data_product_id} (empty response)"
+                f"No data models found for tracking plan {tracking_plan_id} (empty response)"
             )
             return []
 
@@ -892,7 +798,7 @@ class SnowplowBDPClient:
                 continue
 
         logger.debug(
-            f"Found {len(data_models)} data models for data product {data_product_id}"
+            f"Found {len(data_models)} data models for tracking plan {tracking_plan_id}"
         )
 
         return data_models

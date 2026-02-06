@@ -132,7 +132,7 @@ class TestErrorHandlerValidationErrors:
         handler = ErrorHandler(report)
 
         # Test with different entity types
-        entity_types = ["schema", "pipeline", "event_spec", "data_product"]
+        entity_types = ["schema", "pipeline", "event_spec", "tracking_plan"]
 
         for entity_type in entity_types:
             handler.handle_validation_error(

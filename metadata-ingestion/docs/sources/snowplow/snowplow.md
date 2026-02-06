@@ -74,7 +74,7 @@ To extract basic schema metadata:
 | **Schema Metadata**      | `read:data-structures`    | Enabled by default                           |
 | **Event Specifications** | `read:event-specs`        | `extract_event_specifications: true`         |
 | **Tracking Scenarios**   | `read:tracking-scenarios` | `extract_tracking_scenarios: true`           |
-| **Data Products**        | `read:data-products`      | `extract_data_products: true` (experimental) |
+| **Tracking Plans**       | `read:data-products`      | `extract_tracking_plans: true`               |
 
 #### Permission Testing
 
@@ -137,7 +137,7 @@ See the recipe files for complete configuration examples:
 | ------------------------------ | ------ | ---------------------- | ---------------------------------------------------- | ------------------------- |
 | `extract_event_specifications` | bool   | true                   | Extract event specifications                         | `read:event-specs`        |
 | `extract_tracking_scenarios`   | bool   | true                   | Extract tracking scenarios                           | `read:tracking-scenarios` |
-| `extract_data_products`        | bool   | false                  | Extract data products (experimental)                 | `read:data-products`      |
+| `extract_tracking_plans`       | bool   | true                   | Extract tracking plans                               | `read:data-products`      |
 | `extract_pipelines`            | bool   | true                   | Extract pipelines as DataFlow entities               | `read:pipelines`          |
 | `extract_enrichments`          | bool   | true                   | Extract enrichments as DataJob entities with lineage | `read:enrichments`        |
 | `enrichment_owner`             | string | None                   | Default owner email for enrichment DataJobs          | N/A                       |
@@ -195,7 +195,7 @@ See the recipe files for complete configuration examples:
 | `schema_pattern`            | AllowDenyPattern | Allow all | Filter schemas by vendor/name pattern |
 | `event_spec_pattern`        | AllowDenyPattern | Allow all | Filter event specifications by name   |
 | `tracking_scenario_pattern` | AllowDenyPattern | Allow all | Filter tracking scenarios by name     |
-| `data_product_pattern`      | AllowDenyPattern | Allow all | Filter data products by name          |
+| `tracking_plan_pattern`     | AllowDenyPattern | Allow all | Filter tracking plans by name         |
 
 ### Stateful Ingestion
 
@@ -350,7 +350,7 @@ This section explains how Snowplow concepts are modeled as DataHub entities.
 | Entity Schema       | Dataset        | `snowplow_entity_schema` | Context/entity schema attached to events         |
 | Event Specification | Dataset        | `snowplow_event_spec`    | Tracking requirement defining what to track      |
 | Tracking Scenario   | Container      | (custom)                 | Logical grouping of related event specifications |
-| Data Product        | Container      | `Data Product`           | Business-level data product grouping             |
+| Tracking Plan       | Container      | `tracking_plan`          | Business-level tracking plan grouping            |
 | Pipeline            | DataFlow       | -                        | Snowplow data pipeline (Collector → Warehouse)   |
 | Enrichment          | DataJob        | -                        | Data transformation job within a pipeline        |
 | Collector           | DataJob        | -                        | HTTP endpoint receiving tracking events          |
@@ -487,7 +487,7 @@ Organization (Container: DATABASE)
 │   ├── Event Specification: "Add to Cart" (Dataset)
 │   └── Event Specification: "Purchase Complete" (Dataset)
 │
-└── Data Product: "Web Analytics" (Container)
+└── Tracking Plan: "Web Analytics" (Container)
     ├── Event Specification (linked)
     └── Schema (linked)
 ```
@@ -624,7 +624,7 @@ Each entity type includes relevant custom properties:
 
    - Event specifications only available via BDP Console API
    - Tracking scenarios only available via BDP Console API
-   - Data products only available via BDP Console API
+   - Tracking plans only available via BDP Console API
    - Open-source Iglu users won't have these features
 
 2. **Iglu Server requirements**:

@@ -51,9 +51,6 @@ from datahub.ingestion.source.snowplow.dependencies import (
 from datahub.ingestion.source.snowplow.models.snowplow_models import (
     Enrichment,
 )
-from datahub.ingestion.source.snowplow.processors.data_product_processor import (
-    DataProductProcessor,
-)
 from datahub.ingestion.source.snowplow.processors.event_spec_processor import (
     EventSpecProcessor,
 )
@@ -66,8 +63,8 @@ from datahub.ingestion.source.snowplow.processors.schema_processor import (
 from datahub.ingestion.source.snowplow.processors.standard_schema_processor import (
     StandardSchemaProcessor,
 )
-from datahub.ingestion.source.snowplow.processors.tracking_scenario_processor import (
-    TrackingScenarioProcessor,
+from datahub.ingestion.source.snowplow.processors.tracking_plan_processor import (
+    TrackingPlanProcessor,
 )
 from datahub.ingestion.source.snowplow.processors.warehouse_lineage_processor import (
     WarehouseLineageProcessor,
@@ -281,10 +278,7 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         )
         self.pipeline_processor = PipelineProcessor(deps=self.deps, state=self.state)
         self.event_spec_processor = EventSpecProcessor(deps=self.deps, state=self.state)
-        self.tracking_scenario_processor = TrackingScenarioProcessor(
-            deps=self.deps, state=self.state
-        )
-        self.data_product_processor = DataProductProcessor(
+        self.tracking_plan_processor = TrackingPlanProcessor(
             deps=self.deps, state=self.state
         )
         self.standard_schema_processor = StandardSchemaProcessor(
@@ -377,13 +371,9 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         # Event Specs now serve as the datasets that enrichments read from (Option A architecture)
         # No need for separate Parsed Events dataset - Event Spec IS the parsed events
 
-        # Extract tracking scenarios (via processor)
-        if self.tracking_scenario_processor.is_enabled():
-            yield from self.tracking_scenario_processor.extract()
-
-        # Extract data products (via processor)
-        if self.data_product_processor.is_enabled():
-            yield from self.data_product_processor.extract()
+        # Extract tracking plans (via processor)
+        if self.tracking_plan_processor.is_enabled():
+            yield from self.tracking_plan_processor.extract()
 
         # Extract pipelines and enrichments (via processor)
         if self.pipeline_processor.is_enabled():

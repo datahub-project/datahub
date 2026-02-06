@@ -11,8 +11,7 @@ source:
       api_key: "${SNOWPLOW_API_KEY}"
 
     # Extract schemas with ownership
-    extract_tracking_scenarios: true
-    extract_data_products: true
+    extract_tracking_plans: true
     extract_event_specifications: true
 
     # Extract pipelines and enrichments (for lineage)

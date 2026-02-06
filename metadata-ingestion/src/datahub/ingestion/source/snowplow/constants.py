@@ -69,8 +69,7 @@ class DatasetSubtype:
     EVENT_SCHEMA = "snowplow_event_schema"
     ENTITY_SCHEMA = "snowplow_entity_schema"
     EVENT_SPEC = "snowplow_event_spec"
-    TRACKING_SCENARIO = "snowplow_tracking_scenario"
-    DATA_PRODUCT = "snowplow_data_product"
+    TRACKING_PLAN = "snowplow_tracking_plan"
     PIPELINE = "snowplow_pipeline"
     ENRICHMENT = "snowplow_enrichment"
 

@@ -106,9 +106,9 @@ class TestSnowplowURNFactory:
         assert "event_spec.650986b2-ad4a-453f-a0f1-4a2df337c31d" in event_spec_urn
         assert "urn:li:dataset:(urn:li:dataPlatform:snowplow" in event_spec_urn
 
-    def test_make_tracking_scenario_urn(self, urn_factory_basic):
-        """Test tracking scenario URN construction."""
-        scenario_urn = urn_factory_basic.make_tracking_scenario_urn("scenario-123-456")
+    def test_make_tracking_plan_urn(self, urn_factory_basic):
+        """Test tracking plan URN construction."""
+        scenario_urn = urn_factory_basic.make_tracking_plan_urn("scenario-123-456")
 
         # URN is hashed, so just verify it's a valid container URN
         assert scenario_urn.startswith("urn:li:container:")

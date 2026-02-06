@@ -15,13 +15,7 @@ class SnowplowOrganizationKey(ContainerKey):
     organization_id: str = Field(description="Snowplow organization ID")
 
 
-class SnowplowTrackingScenarioKey(SnowplowOrganizationKey):
-    """Container key for tracking scenarios within an organization."""
+class SnowplowTrackingPlanKey(SnowplowOrganizationKey):
+    """Container key for tracking plans within an organization."""
 
-    scenario_id: str = Field(description="Tracking scenario ID")
-
-
-class SnowplowDataProductKey(SnowplowOrganizationKey):
-    """Container key for data products within an organization."""
-
-    product_id: str = Field(description="Data product ID")
+    plan_id: str = Field(description="Tracking plan ID")

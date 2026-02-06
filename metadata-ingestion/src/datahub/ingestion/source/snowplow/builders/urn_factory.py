@@ -16,7 +16,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.ingestion.source.snowplow.builders.container_keys import (
     SnowplowOrganizationKey,
-    SnowplowTrackingScenarioKey,
+    SnowplowTrackingPlanKey,
 )
 from datahub.ingestion.source.snowplow.snowplow_config import SnowplowSourceConfig
 from datahub.ingestion.source.snowplow.types import (
@@ -133,28 +133,28 @@ class SnowplowURNFactory:
             )
         )
 
-    def make_tracking_scenario_urn(self, scenario_id: str) -> ContainerURN:
+    def make_tracking_plan_urn(self, plan_id: str) -> ContainerURN:
         """
-        Generate container URN for tracking scenario.
+        Generate container URN for tracking plan.
 
         Args:
-            scenario_id: Tracking scenario UUID from Snowplow BDP
+            plan_id: Tracking plan UUID from Snowplow BDP
         Returns:
-            Container URN for tracking scenario
+            Container URN for tracking plan
         """
         if not self.config.bdp_connection:
             # Fallback for non-BDP mode (shouldn't happen)
-            return ContainerURN(make_container_urn(f"snowplow_scenario_{scenario_id}"))
+            return ContainerURN(make_container_urn(f"snowplow_plan_{plan_id}"))
 
         org_id = self.config.bdp_connection.organization_id
-        scenario_key = SnowplowTrackingScenarioKey(
+        plan_key = SnowplowTrackingPlanKey(
             organization_id=org_id,
-            scenario_id=scenario_id,
+            plan_id=plan_id,
             platform=self.platform,
             instance=self.config.platform_instance,
             env=self.config.env,
         )
-        return ContainerURN(scenario_key.as_urn())
+        return ContainerURN(plan_key.as_urn())
 
     def construct_warehouse_urn(
         self,

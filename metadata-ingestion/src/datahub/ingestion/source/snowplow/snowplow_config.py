@@ -351,14 +351,9 @@ class SnowplowSourceConfig(
         description="Regex patterns for event specifications to filter",
     )
 
-    tracking_scenario_pattern: AllowDenyPattern = Field(
+    tracking_plan_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for tracking scenarios to filter",
-    )
-
-    data_product_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for data products to filter",
+        description="Regex patterns for tracking plans to filter",
     )
 
     # ============================================
@@ -370,14 +365,9 @@ class SnowplowSourceConfig(
         description="Extract event specifications (requires BDP connection)",
     )
 
-    extract_tracking_scenarios: bool = Field(
+    extract_tracking_plans: bool = Field(
         default=True,
-        description="Extract tracking scenarios (requires BDP connection)",
-    )
-
-    extract_data_products: bool = Field(
-        default=False,
-        description="Extract data products (requires BDP connection, experimental feature)",
+        description="Extract tracking plans (requires BDP connection)",
     )
 
     extract_pipelines: bool = Field(
@@ -517,16 +507,16 @@ class SnowplowSourceConfig(
                 )
         return v
 
-    @field_validator("extract_tracking_scenarios", mode="after")
+    @field_validator("extract_tracking_plans", mode="after")
     @classmethod
-    def validate_tracking_scenarios(cls, v: bool, info: ValidationInfo) -> bool:
-        """Warn if tracking scenarios are enabled without BDP connection."""
+    def validate_tracking_plans(cls, v: bool, info: ValidationInfo) -> bool:
+        """Warn if tracking plans are enabled without BDP connection."""
         if v:
             bdp_conn = info.data.get("bdp_connection")
             if bdp_conn is None:
                 logging.getLogger(__name__).warning(
-                    "extract_tracking_scenarios is enabled but bdp_connection is not configured. "
-                    "Tracking scenarios are only available via BDP Console API."
+                    "extract_tracking_plans is enabled but bdp_connection is not configured. "
+                    "Tracking plans are only available via BDP Console API."
                 )
         return v
 

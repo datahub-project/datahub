@@ -80,27 +80,27 @@ class WarehouseLineageProcessor(EntityProcessor):
         logger.info("Extracting warehouse lineage via Data Models API...")
 
         try:
-            # Get all data products
-            data_products = self.deps.bdp_client.get_data_products()
+            # Get all tracking plans
+            tracking_plans = self.deps.bdp_client.get_tracking_plans()
             logger.info(
-                f"Found {len(data_products)} data products, checking for data models..."
+                f"Found {len(tracking_plans)} tracking plans, checking for data models..."
             )
 
             total_models = 0
             total_lineage_created = 0
 
-            for data_product in data_products:
-                # Get data models for this product
-                data_models = self.deps.bdp_client.get_data_models(data_product.id)
+            for plan in tracking_plans:
+                # Get data models for this tracking plan
+                data_models = self.deps.bdp_client.get_data_models(plan.id)
 
                 if not data_models:
                     logger.debug(
-                        f"No data models configured for data product '{data_product.name}'"
+                        f"No data models configured for tracking plan '{plan.name}'"
                     )
                     continue
 
                 logger.info(
-                    f"Data product '{data_product.name}' has {len(data_models)} data models"
+                    f"Tracking plan '{plan.name}' has {len(data_models)} data models"
                 )
                 total_models += len(data_models)
 

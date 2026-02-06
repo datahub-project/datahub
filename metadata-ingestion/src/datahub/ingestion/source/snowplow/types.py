@@ -30,8 +30,8 @@ PipelineId = NewType("PipelineId", str)
 EnrichmentId = NewType("EnrichmentId", str)
 """UUID identifying an enrichment configuration in Snowplow BDP."""
 
-DataProductId = NewType("DataProductId", str)
-"""UUID identifying a data product in Snowplow BDP."""
+TrackingPlanId = NewType("TrackingPlanId", str)
+"""UUID identifying a tracking plan in Snowplow BDP."""
 
 # URN types
 # Note: Each URN type is based on str directly (not on a parent URN type)

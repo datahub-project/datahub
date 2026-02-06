@@ -23,8 +23,7 @@ source:
 
     # Optional features - disabled for simpler test
     extract_event_specifications: false
-    extract_tracking_scenarios: false
-    extract_data_products: false
+    extract_tracking_plans: false
 
     # Warehouse lineage - enabled with DuckDB
     extract_warehouse_lineage: true

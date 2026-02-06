@@ -6,7 +6,7 @@ import pytest
 
 from datahub.ingestion.source.snowplow.models.snowplow_models import (
     DataModel,
-    DataProduct,
+    TrackingPlan,
 )
 from datahub.ingestion.source.snowplow.processors.warehouse_lineage_processor import (
     WarehouseLineageProcessor,
@@ -92,24 +92,24 @@ class TestWarehouseLineageProcessor:
     def test_extract_creates_lineage_for_valid_data_model(self, processor, mock_deps):
         """Test that lineage is created for data model with valid destination and table."""
         # Setup data product and data model
-        data_product = DataProduct(
+        tracking_plan = TrackingPlan(
             id="product-123",
             name="Test Product",
             description="Test product",
-            eventSpecIds=["spec-1"],
+            event_specs=[],
         )
 
         data_model = DataModel(
             id="model-123",
             organization_id="test-org",
-            data_product_id="product-123",
+            tracking_plan_id="product-123",
             name="Test Model",
             query_engine="snowflake",
             destination="dest-123",
             table_name="analytics.derived.checkout_events",
         )
 
-        mock_deps.bdp_client.get_data_products.return_value = [data_product]
+        mock_deps.bdp_client.get_tracking_plans.return_value = [tracking_plan]
         mock_deps.bdp_client.get_data_models.return_value = [data_model]
 
         processor.urn_factory.construct_warehouse_urn.return_value = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.derived.checkout_events,PROD)"
@@ -129,25 +129,25 @@ class TestWarehouseLineageProcessor:
 
     def test_extract_skips_data_model_without_destination(self, processor, mock_deps):
         """Test that data models without destination are skipped."""
-        data_product = DataProduct(
+        tracking_plan = TrackingPlan(
             id="product-123",
             name="Test Product",
             description="Test product",
-            eventSpecIds=["spec-1"],
+            event_specs=[],
         )
 
         # Data model missing destination
         data_model = DataModel(
             id="model-123",
             organization_id="test-org",
-            data_product_id="product-123",
+            tracking_plan_id="product-123",
             name="Test Model",
             query_engine="snowflake",
             destination=None,
             table_name="analytics.derived.checkout_events",
         )
 
-        mock_deps.bdp_client.get_data_products.return_value = [data_product]
+        mock_deps.bdp_client.get_tracking_plans.return_value = [tracking_plan]
         mock_deps.bdp_client.get_data_models.return_value = [data_model]
 
         # Extract lineage
@@ -158,25 +158,25 @@ class TestWarehouseLineageProcessor:
 
     def test_extract_skips_data_model_without_table_name(self, processor, mock_deps):
         """Test that data models without table_name are skipped."""
-        data_product = DataProduct(
+        tracking_plan = TrackingPlan(
             id="product-123",
             name="Test Product",
             description="Test product",
-            eventSpecIds=["spec-1"],
+            event_specs=[],
         )
 
         # Data model missing table_name
         data_model = DataModel(
             id="model-123",
             organization_id="test-org",
-            data_product_id="product-123",
+            tracking_plan_id="product-123",
             name="Test Model",
             query_engine="snowflake",
             destination="dest-123",
             table_name=None,
         )
 
-        mock_deps.bdp_client.get_data_products.return_value = [data_product]
+        mock_deps.bdp_client.get_tracking_plans.return_value = [tracking_plan]
         mock_deps.bdp_client.get_data_models.return_value = [data_model]
 
         # Extract lineage
@@ -187,25 +187,25 @@ class TestWarehouseLineageProcessor:
 
     def test_extract_skips_data_model_without_query_engine(self, processor, mock_deps):
         """Test that data models without query_engine are skipped."""
-        data_product = DataProduct(
+        tracking_plan = TrackingPlan(
             id="product-123",
             name="Test Product",
             description="Test product",
-            eventSpecIds=["spec-1"],
+            event_specs=[],
         )
 
         # Data model missing query_engine
         data_model = DataModel(
             id="model-123",
             organization_id="test-org",
-            data_product_id="product-123",
+            tracking_plan_id="product-123",
             name="Test Model",
             query_engine=None,
             destination="dest-123",
             table_name="analytics.derived.checkout_events",
         )
 
-        mock_deps.bdp_client.get_data_products.return_value = [data_product]
+        mock_deps.bdp_client.get_tracking_plans.return_value = [tracking_plan]
         mock_deps.bdp_client.get_data_models.return_value = [data_model]
 
         # Extract lineage
@@ -214,18 +214,18 @@ class TestWarehouseLineageProcessor:
         # No lineage should be created
         assert len(workunits) == 0
 
-    def test_extract_handles_data_product_without_data_models(
+    def test_extract_handles_tracking_plan_without_data_models(
         self, processor, mock_deps
     ):
         """Test graceful handling when data product has no data models."""
-        data_product = DataProduct(
+        tracking_plan = TrackingPlan(
             id="product-123",
             name="Test Product",
             description="Test product",
-            eventSpecIds=["spec-1"],
+            event_specs=[],
         )
 
-        mock_deps.bdp_client.get_data_products.return_value = [data_product]
+        mock_deps.bdp_client.get_tracking_plans.return_value = [tracking_plan]
         mock_deps.bdp_client.get_data_models.return_value = []
 
         # Extract lineage
@@ -238,24 +238,24 @@ class TestWarehouseLineageProcessor:
         """Test that lineage creation fails gracefully when source warehouse URN not available."""
         processor.state.warehouse_table_urn = None
 
-        data_product = DataProduct(
+        tracking_plan = TrackingPlan(
             id="product-123",
             name="Test Product",
             description="Test product",
-            eventSpecIds=["spec-1"],
+            event_specs=[],
         )
 
         data_model = DataModel(
             id="model-123",
             organization_id="test-org",
-            data_product_id="product-123",
+            tracking_plan_id="product-123",
             name="Test Model",
             query_engine="snowflake",
             destination="dest-123",
             table_name="analytics.derived.checkout_events",
         )
 
-        mock_deps.bdp_client.get_data_products.return_value = [data_product]
+        mock_deps.bdp_client.get_tracking_plans.return_value = [tracking_plan]
         mock_deps.bdp_client.get_data_models.return_value = [data_model]
 
         processor.urn_factory.construct_warehouse_urn.return_value = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.derived.checkout_events,PROD)"
@@ -271,24 +271,24 @@ class TestWarehouseLineageProcessor:
         processor.config.warehouse_lineage.validate_urns = True
         mock_deps.graph.exists.return_value = False
 
-        data_product = DataProduct(
+        tracking_plan = TrackingPlan(
             id="product-123",
             name="Test Product",
             description="Test product",
-            eventSpecIds=["spec-1"],
+            event_specs=[],
         )
 
         data_model = DataModel(
             id="model-123",
             organization_id="test-org",
-            data_product_id="product-123",
+            tracking_plan_id="product-123",
             name="Test Model",
             query_engine="snowflake",
             destination="dest-123",
             table_name="analytics.derived.checkout_events",
         )
 
-        mock_deps.bdp_client.get_data_products.return_value = [data_product]
+        mock_deps.bdp_client.get_tracking_plans.return_value = [tracking_plan]
         mock_deps.bdp_client.get_data_models.return_value = [data_model]
 
         warehouse_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.derived.checkout_events,PROD)"
@@ -304,7 +304,7 @@ class TestWarehouseLineageProcessor:
 
     def test_extract_handles_api_failure_gracefully(self, processor, mock_deps):
         """Test graceful handling when BDP API fails."""
-        mock_deps.bdp_client.get_data_products.side_effect = Exception(
+        mock_deps.bdp_client.get_tracking_plans.side_effect = Exception(
             "API connection failed"
         )
 
@@ -318,18 +318,18 @@ class TestWarehouseLineageProcessor:
 
     def test_extract_processes_multiple_data_models(self, processor, mock_deps):
         """Test that multiple data models are processed correctly."""
-        data_product = DataProduct(
+        tracking_plan = TrackingPlan(
             id="product-123",
             name="Test Product",
             description="Test product",
-            eventSpecIds=["spec-1"],
+            event_specs=[],
         )
 
         data_models = [
             DataModel(
                 id="model-1",
                 organization_id="test-org",
-                data_product_id="product-123",
+                tracking_plan_id="product-123",
                 name="Model 1",
                 query_engine="snowflake",
                 destination="dest-1",
@@ -338,7 +338,7 @@ class TestWarehouseLineageProcessor:
             DataModel(
                 id="model-2",
                 organization_id="test-org",
-                data_product_id="product-123",
+                tracking_plan_id="product-123",
                 name="Model 2",
                 query_engine="bigquery",
                 destination="dest-2",
@@ -346,7 +346,7 @@ class TestWarehouseLineageProcessor:
             ),
         ]
 
-        mock_deps.bdp_client.get_data_products.return_value = [data_product]
+        mock_deps.bdp_client.get_tracking_plans.return_value = [tracking_plan]
         mock_deps.bdp_client.get_data_models.return_value = data_models
 
         processor.urn_factory.construct_warehouse_urn.side_effect = [

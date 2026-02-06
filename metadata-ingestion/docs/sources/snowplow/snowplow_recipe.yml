@@ -97,11 +97,6 @@ source:
     # Default: true
     extract_tracking_scenarios: true
 
-    # Extract data products (BDP only, experimental)
-    # Requires permission: read:data-products
-    # Default: false
-    extract_data_products: false
-
     # Include full JSON Schema definition in dataset properties
     # Useful for downstream schema analysis
     # Default: true

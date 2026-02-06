@@ -1,5 +1,6 @@
 """Unit tests for LineageBuilder."""
 
+from typing import Optional
 from unittest.mock import MagicMock
 
 from datahub.ingestion.source.snowplow.builders.lineage_builder import LineageBuilder
@@ -20,7 +21,9 @@ def _create_mock_enrichment(name: str = "test_enrichment") -> Enrichment:
     return enrichment
 
 
-def _create_mock_registry(field_info: EnrichmentFieldInfo = None) -> MagicMock:
+def _create_mock_registry(
+    field_info: Optional[EnrichmentFieldInfo] = None,
+) -> MagicMock:
     """Create a mock EnrichmentLineageRegistry that returns specified field info."""
     registry = MagicMock()
     registry.get_field_info.return_value = field_info

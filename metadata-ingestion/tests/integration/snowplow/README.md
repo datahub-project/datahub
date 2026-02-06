@@ -19,7 +19,7 @@ tests/integration/snowplow/
 │   └── tracking_scenarios_response.json
 │
 ├── golden_files/                       # Expected test outputs
-│   ├── snowplow_data_products_golden.json
+│   ├── snowplow_tracking_plans_golden.json
 │   ├── snowplow_enrichments_golden.json
 │   ├── snowplow_event_specs_golden.json
 │   ├── snowplow_iglu_autodiscovery_golden.json
@@ -81,7 +81,7 @@ python -m pytest tests/integration/snowplow/test_snowplow_performance.py -v
 
 - **test_snowplow_ingest**: Basic data structure ingestion with mocked API
 - **test_snowplow_event_specs_and_tracking_scenarios**: Event specifications and tracking scenarios
-- **test_snowplow_data_products**: Data products extraction
+- **test_snowplow_tracking_plans**: Tracking plans extraction
 - **test_snowplow_pipelines**: Pipelines as DataFlow entities
 - **test_snowplow_enrichments**: Enrichments as DataJob entities with lineage
 - **test_snowplow_iglu_autodiscovery**: Iglu-only mode (requires Docker)

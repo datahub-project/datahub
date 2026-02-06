@@ -14,8 +14,8 @@ from datahub.ingestion.source.snowplow.snowplow_config import (
 )
 
 
-class TestSnowplowBDPClientDataProducts:
-    """Test data products API methods."""
+class TestSnowplowBDPClientTrackingPlans:
+    """Test tracking plans API methods (uses /data-products/v2 endpoint)."""
 
     @pytest.fixture
     def bdp_config(self):
@@ -35,21 +35,21 @@ class TestSnowplowBDPClientDataProducts:
             yield client
 
     @patch.object(SnowplowBDPClient, "_request")
-    def test_get_data_products_success(self, mock_request, bdp_client):
-        """Test successful data products retrieval."""
+    def test_get_tracking_plans_success(self, mock_request, bdp_client):
+        """Test successful tracking plans retrieval."""
         mock_response = {
             "data": [
                 {
-                    "id": "product-1",
+                    "id": "plan-1",
                     "name": "Checkout Events",
                     "description": "Checkout flow events",
-                    "eventSpecIds": ["spec-1", "spec-2"],
+                    "eventSpecs": [{"id": "spec-1"}, {"id": "spec-2"}],
                 },
                 {
-                    "id": "product-2",
+                    "id": "plan-2",
                     "name": "User Events",
                     "description": "User interaction events",
-                    "eventSpecIds": ["spec-3"],
+                    "eventSpecs": [{"id": "spec-3"}],
                 },
             ],
             "includes": {
@@ -61,49 +61,49 @@ class TestSnowplowBDPClientDataProducts:
         }
         mock_request.return_value = mock_response
 
-        result = bdp_client.get_data_products()
+        result = bdp_client.get_tracking_plans()
 
         assert len(result) == 2
-        assert result[0].id == "product-1"
+        assert result[0].id == "plan-1"
         assert result[0].name == "Checkout Events"
-        assert result[1].id == "product-2"
+        assert result[1].id == "plan-2"
 
     @patch.object(SnowplowBDPClient, "_request")
-    def test_get_data_products_handles_404(self, mock_request, bdp_client):
-        """Test graceful handling when data products endpoint returns 404."""
+    def test_get_tracking_plans_handles_404(self, mock_request, bdp_client):
+        """Test graceful handling when tracking plans endpoint returns 404."""
         mock_request.side_effect = ResourceNotFoundError("Not found")
 
-        result = bdp_client.get_data_products()
+        result = bdp_client.get_tracking_plans()
 
         # Should return empty list, not raise
         assert result == []
 
     @patch.object(SnowplowBDPClient, "_request")
-    def test_get_data_products_handles_empty_response(self, mock_request, bdp_client):
+    def test_get_tracking_plans_handles_empty_response(self, mock_request, bdp_client):
         """Test handling of empty response."""
         mock_request.return_value = None
 
-        result = bdp_client.get_data_products()
+        result = bdp_client.get_tracking_plans()
 
         assert result == []
 
     @patch.object(SnowplowBDPClient, "_request")
-    def test_get_data_product_by_id(self, mock_request, bdp_client):
-        """Test retrieving specific data product by ID."""
+    def test_get_tracking_plan_by_id(self, mock_request, bdp_client):
+        """Test retrieving specific tracking plan by ID."""
         mock_response = {
             "data": {
-                "id": "product-1",
+                "id": "plan-1",
                 "name": "Checkout Events",
                 "description": "Checkout flow events",
-                "eventSpecIds": ["spec-1"],
+                "eventSpecs": [{"id": "spec-1"}],
             }
         }
         mock_request.return_value = mock_response
 
-        result = bdp_client.get_data_product("product-1")
+        result = bdp_client.get_tracking_plan("plan-1")
 
         assert result is not None
-        assert result.id == "product-1"
+        assert result.id == "plan-1"
         assert result.name == "Checkout Events"
 
 

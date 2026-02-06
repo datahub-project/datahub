@@ -79,7 +79,7 @@ def test_snowplow_ingest(pytestconfig, tmp_path, mock_time):
                             "api_key": "test-secret",
                         },
                         "extract_event_specifications": False,
-                        "extract_tracking_scenarios": False,
+                        "extract_tracking_plans": False,
                         "extract_pipelines": False,  # Disable pipelines for this basic test
                     },
                 },
@@ -108,7 +108,7 @@ def test_snowplow_ingest(pytestconfig, tmp_path, mock_time):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_snowplow_event_specs_and_tracking_scenarios(pytestconfig, tmp_path, mock_time):
+def test_snowplow_event_specs_and_tracking_plans(pytestconfig, tmp_path, mock_time):
     """
     Test Snowplow ingestion with event specifications and tracking scenarios.
 
@@ -128,8 +128,8 @@ def test_snowplow_event_specs_and_tracking_scenarios(pytestconfig, tmp_path, moc
     with open(test_resources_dir / "fixtures/event_specifications_response.json") as f:
         mock_event_specs_response = json.load(f)
 
-    with open(test_resources_dir / "fixtures/tracking_scenarios_response.json") as f:
-        mock_tracking_scenarios_response = json.load(f)
+    with open(test_resources_dir / "fixtures/tracking_plans_response.json") as f:
+        mock_tracking_plans_response = json.load(f)
 
     # Mock the Snowplow BDP client
     with patch(
@@ -147,7 +147,7 @@ def test_snowplow_event_specs_and_tracking_scenarios(pytestconfig, tmp_path, moc
         from datahub.ingestion.source.snowplow.models.snowplow_models import (
             DataStructure,
             EventSpecification,
-            TrackingScenario,
+            TrackingPlan,
             User,
         )
 
@@ -163,12 +163,12 @@ def test_snowplow_event_specs_and_tracking_scenarios(pytestconfig, tmp_path, moc
         ]
         mock_client.get_event_specifications.return_value = event_specs
 
-        # Mock get_tracking_scenarios
-        tracking_scenarios = [
-            TrackingScenario.model_validate(ts)
-            for ts in mock_tracking_scenarios_response["data"]
+        # Mock get_tracking_plans
+        tracking_plans = [
+            TrackingPlan.model_validate(ts)
+            for ts in mock_tracking_plans_response["data"]
         ]
-        mock_client.get_tracking_scenarios.return_value = tracking_scenarios
+        mock_client.get_tracking_plans.return_value = tracking_plans
 
         # Mock get_pipelines (needed for event-specific DataFlows)
         from datahub.ingestion.source.snowplow.models.snowplow_models import (
@@ -217,7 +217,7 @@ def test_snowplow_event_specs_and_tracking_scenarios(pytestconfig, tmp_path, moc
                             "api_key": "test-secret",
                         },
                         "extract_event_specifications": True,
-                        "extract_tracking_scenarios": True,
+                        "extract_tracking_plans": True,
                         "extract_pipelines": True,  # Enable event-specific DataFlows
                         "extract_enrichments": False,  # Disable enrichments for this test
                     },
@@ -249,17 +249,19 @@ def test_snowplow_event_specs_and_tracking_scenarios(pytestconfig, tmp_path, moc
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_snowplow_data_products(pytestconfig, tmp_path, mock_time):
+def test_snowplow_tracking_plans(pytestconfig, tmp_path, mock_time):
     """
-    Test Snowplow ingestion with data products.
+    Test Snowplow ingestion with tracking plans (via /data-products/v2 API).
 
     This test verifies:
-    1. Data products are extracted
-    2. Ownership from data products is extracted
-    3. Container relationships from data products to event specs are created
+    1. Tracking plans are extracted with rich metadata
+    2. Ownership from tracking plans is extracted
+    3. Container relationships from tracking plans to event specs are created
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
-    golden_file = test_resources_dir / "golden_files/snowplow_data_products_golden.json"
+    golden_file = (
+        test_resources_dir / "golden_files/snowplow_tracking_plans_golden.json"
+    )
 
     # Load mock data
     with open(test_resources_dir / "fixtures/data_structures_with_ownership.json") as f:
@@ -268,11 +270,8 @@ def test_snowplow_data_products(pytestconfig, tmp_path, mock_time):
     with open(test_resources_dir / "fixtures/event_specifications_response.json") as f:
         mock_event_specs_response = json.load(f)
 
-    with open(test_resources_dir / "fixtures/tracking_scenarios_response.json") as f:
-        mock_tracking_scenarios_response = json.load(f)
-
-    with open(test_resources_dir / "fixtures/data_products_response.json") as f:
-        mock_data_products_response = json.load(f)
+    with open(test_resources_dir / "fixtures/tracking_plans_response.json") as f:
+        mock_tracking_plans_response = json.load(f)
 
     # Mock the Snowplow BDP client
     with patch(
@@ -288,10 +287,9 @@ def test_snowplow_data_products(pytestconfig, tmp_path, mock_time):
 
         # Mock get_data_structures
         from datahub.ingestion.source.snowplow.models.snowplow_models import (
-            DataProduct,
             DataStructure,
             EventSpecification,
-            TrackingScenario,
+            TrackingPlan,
             User,
         )
 
@@ -307,18 +305,12 @@ def test_snowplow_data_products(pytestconfig, tmp_path, mock_time):
         ]
         mock_client.get_event_specifications.return_value = event_specs
 
-        # Mock get_tracking_scenarios
-        tracking_scenarios = [
-            TrackingScenario.model_validate(ts)
-            for ts in mock_tracking_scenarios_response["data"]
+        # Mock get_tracking_plans (now uses /data-products/v2 response format)
+        tracking_plans = [
+            TrackingPlan.model_validate(tp)
+            for tp in mock_tracking_plans_response["data"]
         ]
-        mock_client.get_tracking_scenarios.return_value = tracking_scenarios
-
-        # Mock get_data_products
-        data_products = [
-            DataProduct.model_validate(dp) for dp in mock_data_products_response["data"]
-        ]
-        mock_client.get_data_products.return_value = data_products
+        mock_client.get_tracking_plans.return_value = tracking_plans
 
         # Mock get_pipelines (needed for event-specific DataFlows)
         from datahub.ingestion.source.snowplow.models.snowplow_models import (
@@ -355,7 +347,7 @@ def test_snowplow_data_products(pytestconfig, tmp_path, mock_time):
         ]
         mock_client.get_users.return_value = mock_users
 
-        # Run ingestion with data products enabled
+        # Run ingestion with tracking plans enabled
         pipeline = Pipeline.create(
             {
                 "source": {
@@ -367,14 +359,13 @@ def test_snowplow_data_products(pytestconfig, tmp_path, mock_time):
                             "api_key": "test-secret",
                         },
                         "extract_event_specifications": True,
-                        "extract_tracking_scenarios": True,
-                        "extract_data_products": True,
+                        "extract_tracking_plans": True,
                     },
                 },
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": str(tmp_path / "snowplow_data_products_mces.json")
+                        "filename": str(tmp_path / "snowplow_tracking_plans_mces.json")
                     },
                 },
             }
@@ -385,7 +376,7 @@ def test_snowplow_data_products(pytestconfig, tmp_path, mock_time):
     # Verify golden file
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "snowplow_data_products_mces.json",
+        output_path=tmp_path / "snowplow_tracking_plans_mces.json",
         golden_path=golden_file,
         ignore_paths=[
             # Ignore timestamps and run IDs
@@ -449,8 +440,7 @@ def test_snowplow_pipelines(pytestconfig, tmp_path, mock_time):
 
         # Mock other methods to return empty lists
         mock_client.get_event_specifications.return_value = []
-        mock_client.get_tracking_scenarios.return_value = []
-        mock_client.get_data_products.return_value = []
+        mock_client.get_tracking_plans.return_value = []
 
         # Mock user lookups
         from datahub.ingestion.source.snowplow.models.snowplow_models import User
@@ -473,8 +463,7 @@ def test_snowplow_pipelines(pytestconfig, tmp_path, mock_time):
                             "api_key": "test-secret",
                         },
                         "extract_event_specifications": False,
-                        "extract_tracking_scenarios": False,
-                        "extract_data_products": False,
+                        "extract_tracking_plans": False,
                         "extract_pipelines": True,
                     },
                 },
@@ -579,8 +568,7 @@ def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
         mock_client.get_event_specifications.return_value = event_specs
 
         # Mock other methods to return empty lists
-        mock_client.get_tracking_scenarios.return_value = []
-        mock_client.get_data_products.return_value = []
+        mock_client.get_tracking_plans.return_value = []
 
         # Mock user lookups
         from datahub.ingestion.source.snowplow.models.snowplow_models import User
@@ -614,8 +602,7 @@ def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
                             "api_key": "test-secret",
                         },
                         "extract_event_specifications": True,  # Needed for event-specific enrichments
-                        "extract_tracking_scenarios": False,
-                        "extract_data_products": False,
+                        "extract_tracking_plans": False,
                         "extract_pipelines": True,
                         "extract_enrichments": True,
                     },
@@ -713,7 +700,7 @@ def test_snowplow_iglu_autodiscovery(
                     },
                     "schema_types_to_extract": ["event", "entity"],
                     "extract_event_specifications": False,
-                    "extract_tracking_scenarios": False,
+                    "extract_tracking_plans": False,
                     "env": "TEST",
                     "platform_instance": "iglu_autodiscovery_test",
                 },
@@ -823,8 +810,7 @@ def test_snowplow_enrichments_without_event_spec_processor(
             EventSpecification.model_validate(es)
             for es in mock_event_specs_response["data"]
         ]
-        mock_client.get_tracking_scenarios.return_value = []
-        mock_client.get_data_products.return_value = []
+        mock_client.get_tracking_plans.return_value = []
         mock_client.get_users.return_value = [
             User(id="user1", email="ryan@company.com", name="Ryan Smith"),
         ]
@@ -844,8 +830,7 @@ def test_snowplow_enrichments_without_event_spec_processor(
                             "api_key": "test-secret",
                         },
                         "extract_event_specifications": False,  # KEY: Disabled!
-                        "extract_tracking_scenarios": False,
-                        "extract_data_products": False,
+                        "extract_tracking_plans": False,
                         "extract_pipelines": True,
                         "extract_enrichments": True,  # KEY: Enabled!
                     },
@@ -972,8 +957,7 @@ def test_snowplow_all_event_specs_processed(pytestconfig, tmp_path, mock_time):
             EventSpecification.model_validate(es) for es in mock_event_specs["data"]
         ]
         mock_client.get_enrichments.return_value = []
-        mock_client.get_tracking_scenarios.return_value = []
-        mock_client.get_data_products.return_value = []
+        mock_client.get_tracking_plans.return_value = []
         mock_client.get_users.return_value = [
             User(id="user1", email="ryan@company.com", name="Ryan Smith"),
         ]

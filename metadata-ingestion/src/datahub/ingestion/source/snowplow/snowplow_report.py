@@ -170,15 +170,10 @@ class SnowplowSourceReport(StaleEntityRemovalSourceReport):
     num_event_specs_extracted: int = 0
     num_event_specs_filtered: int = 0
 
-    # Tracking scenarios stats
-    num_tracking_scenarios_found: int = 0
-    num_tracking_scenarios_extracted: int = 0
-    num_tracking_scenarios_filtered: int = 0
-
-    # Data products stats
-    num_data_products_found: int = 0
-    num_data_products_extracted: int = 0
-    num_data_products_filtered: int = 0
+    # Tracking plans stats
+    num_tracking_plans_found: int = 0
+    num_tracking_plans_extracted: int = 0
+    num_tracking_plans_filtered: int = 0
 
     # Pipeline stats (DataFlow in DataHub)
     num_pipelines_found: int = 0
@@ -218,7 +213,7 @@ class SnowplowSourceReport(StaleEntityRemovalSourceReport):
     # Filtered items (for debugging)
     filtered_schemas: List[str] = field(default_factory=list)
     filtered_event_specs: List[str] = field(default_factory=list)
-    filtered_tracking_scenarios: List[str] = field(default_factory=list)
+    filtered_tracking_plans: List[str] = field(default_factory=list)
 
     def report_schema_found(self, schema_type: str) -> None:
         """Record that a schema was found."""
@@ -255,18 +250,18 @@ class SnowplowSourceReport(StaleEntityRemovalSourceReport):
         self.num_event_specs_filtered += 1
         self.filtered_event_specs.append(spec_name)
 
-    def report_tracking_scenario_found(self) -> None:
-        """Record that a tracking scenario was found."""
-        self.num_tracking_scenarios_found += 1
+    def report_tracking_plan_found(self) -> None:
+        """Record that a tracking plan was found."""
+        self.num_tracking_plans_found += 1
 
-    def report_tracking_scenario_extracted(self) -> None:
-        """Record that a tracking scenario was extracted."""
-        self.num_tracking_scenarios_extracted += 1
+    def report_tracking_plan_extracted(self) -> None:
+        """Record that a tracking plan was extracted."""
+        self.num_tracking_plans_extracted += 1
 
-    def report_tracking_scenario_filtered(self, scenario_name: str) -> None:
-        """Record that a tracking scenario was filtered out."""
-        self.num_tracking_scenarios_filtered += 1
-        self.filtered_tracking_scenarios.append(scenario_name)
+    def report_tracking_plan_filtered(self, plan_name: str) -> None:
+        """Record that a tracking plan was filtered out."""
+        self.num_tracking_plans_filtered += 1
+        self.filtered_tracking_plans.append(plan_name)
 
     def report_pipeline_found(self) -> None:
         """Record that a pipeline was found."""

@@ -186,8 +186,7 @@ class TestSnowplowSourceConfig:
         )
 
         assert config.extract_event_specifications is True
-        assert config.extract_tracking_scenarios is True
-        assert config.extract_data_products is False
+        assert config.extract_tracking_plans is True
         assert config.include_hidden_schemas is False
 
     def test_custom_feature_flags(self):
@@ -200,13 +199,13 @@ class TestSnowplowSourceConfig:
                     "api_key": "secret",
                 },
                 "extract_event_specifications": False,
-                "extract_tracking_scenarios": False,
+                "extract_tracking_plans": False,
                 "include_hidden_schemas": True,
             }
         )
 
         assert config.extract_event_specifications is False
-        assert config.extract_tracking_scenarios is False
+        assert config.extract_tracking_plans is False
         assert config.include_hidden_schemas is True
 
     def test_default_schema_types(self):
@@ -283,7 +282,7 @@ class TestSnowplowSourceConfig:
         # Default patterns allow all
         assert config.schema_pattern.allowed("com.example/test")
         assert config.event_spec_pattern.allowed("test_spec")
-        assert config.tracking_scenario_pattern.allowed("test_scenario")
+        assert config.tracking_plan_pattern.allowed("test_scenario")
 
     def test_custom_filtering_patterns(self):
         """Test custom filtering patterns."""

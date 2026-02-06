@@ -95,7 +95,7 @@ source:
       base_url: "http://localhost:8081" # Point to mock server
 
     extract_event_specifications: false
-    extract_tracking_scenarios: false
+    extract_tracking_plans: false
 
 sink:
   type: file

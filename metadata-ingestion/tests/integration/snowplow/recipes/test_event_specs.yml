@@ -7,9 +7,9 @@ source:
       api_key: "test-secret"
       console_api_url: "http://localhost:8081/api/msc/v1"  # Mock server
 
-    # Enable event specifications and tracking scenarios
+    # Enable event specifications and tracking plans
     extract_event_specifications: true
-    extract_tracking_scenarios: true
+    extract_tracking_plans: true
 
     platform_instance: "test-instance"
     env: "TEST"

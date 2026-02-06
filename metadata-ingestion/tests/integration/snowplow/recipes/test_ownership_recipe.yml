@@ -11,7 +11,7 @@ source:
 
     # Extract only data structures for ownership testing
     extract_event_specifications: false
-    extract_tracking_scenarios: false
+    extract_tracking_plans: false
 
     # Optional: Add specific platform instance if needed
     # platform_instance: "production"

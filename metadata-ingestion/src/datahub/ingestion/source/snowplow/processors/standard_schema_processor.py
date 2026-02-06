@@ -21,6 +21,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.sdk.dataset import Dataset
+from datahub.utilities.sentinels import unset
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.snowplow.dependencies import (
@@ -217,6 +218,14 @@ class StandardSchemaProcessor(EntityProcessor):
         ]
         extra_aspects.append(GlobalTagsClass(tags=tag_associations))
 
+        # Build parent container (organization)
+        parent_container = None
+        if self.config.bdp_connection:
+            org_urn = self.deps.urn_factory.make_organization_urn(
+                self.config.bdp_connection.organization_id
+            )
+            parent_container = [org_urn]
+
         # Create dataset using SDK V2 (following data_structure_builder pattern)
         dataset = Dataset(
             platform=self.deps.platform,
@@ -227,6 +236,9 @@ class StandardSchemaProcessor(EntityProcessor):
             display_name=name,
             custom_properties=custom_properties,
             subtype=f"snowplow_{schema_type}_schema",
+            parent_container=parent_container
+            if parent_container is not None
+            else unset,
             extra_aspects=extra_aspects,
         )
 

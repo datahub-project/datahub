@@ -445,7 +445,7 @@ class EventSpecification(BaseModel):
     )
     created_at: Optional[str] = Field(None, alias="createdAt")
     updated_at: Optional[str] = Field(None, alias="updatedAt")
-    data_product_id: Optional[str] = Field(None, alias="dataProductId")
+    tracking_plan_id: Optional[str] = Field(None, alias="dataProductId")
 
     # Additional fields from BDP API
     triggers: List[TriggerDefinition] = Field(
@@ -572,86 +572,12 @@ class EventSpecificationsResponse(BaseModel):
 
 
 # ============================================
-# Tracking Scenario Models
-# ============================================
-
-
-class TrackingScenario(BaseModel):
-    """Tracking scenario from BDP API."""
-
-    # Known status values (API may return others in future)
-    VALID_STATUSES: ClassVar[set[str]] = {
-        "draft",
-        "published",
-        "deprecated",
-        "archived",
-    }
-
-    id: str = Field(description="Tracking scenario ID")
-    name: str = Field(description="Tracking scenario name")
-    description: Optional[str] = Field(
-        None, description="Tracking scenario description"
-    )
-    event_specs: List[str] = Field(
-        default_factory=list,
-        alias="eventSpecs",
-        description="Event specification IDs",
-    )
-    status: Optional[str] = Field(
-        None, description="Status: draft, published, deprecated, or archived"
-    )
-    created_at: Optional[str] = Field(None, alias="createdAt")
-    updated_at: Optional[str] = Field(None, alias="updatedAt")
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class TrackingScenariosResponse(BaseModel):
-    """
-    Response from listing tracking scenarios.
-
-    API Reference: https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-tracking-scenarios/api/
-
-    Tracking scenarios API uses wrapped format with data, includes, and errors fields.
-    """
-
-    data: List[TrackingScenario] = Field(description="List of tracking scenarios")
-    includes: List[Dict[str, Any]] = Field(
-        default_factory=list,
-        description="Additional information (e.g., change history)",
-    )
-    errors: List[Dict[str, Any]] = Field(
-        default_factory=list, description="Warnings or errors"
-    )
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-# ============================================
-# User Models
-# ============================================
-
-
-class User(BaseModel):
-    """User information from BDP API."""
-
-    id: str = Field(description="User ID (for mapping initiatorId)")
-    email: Optional[str] = Field(None, description="User email address")
-    name: Optional[str] = Field(None, description="User full name")
-    display_name: Optional[str] = Field(
-        None, alias="displayName", description="User display name"
-    )
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-# ============================================
-# Data Product Models (Optional)
+# Tracking Plan Models
 # ============================================
 
 
 class EventSpecReference(BaseModel):
-    """Reference to event spec in data product."""
+    """Reference to event spec in tracking plan."""
 
     id: str = Field(description="Event spec ID")
     url: Optional[str] = Field(None, description="Event spec API URL")
@@ -659,8 +585,14 @@ class EventSpecReference(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
-class DataProduct(BaseModel):
-    """Data product from BDP API."""
+class TrackingPlan(BaseModel):
+    """
+    Tracking plan from BDP API.
+
+    Uses the /data-products/v2 API endpoint which provides richer metadata
+    than the legacy /tracking-scenarios/v1 endpoint. Snowplow originally called
+    tracking plans "data products" — the v2 API still uses that path.
+    """
 
     # Known status values (API may return others in future)
     VALID_STATUSES: ClassVar[set[str]] = {
@@ -670,9 +602,9 @@ class DataProduct(BaseModel):
         "archived",
     }
 
-    id: str = Field(description="Data product ID")
-    name: str = Field(description="Data product name")
-    description: Optional[str] = Field(None, description="Data product description")
+    id: str = Field(description="Tracking plan ID")
+    name: str = Field(description="Tracking plan name")
+    description: Optional[str] = Field(None, description="Tracking plan description")
     organization_id: Optional[str] = Field(
         None, alias="organizationId", description="Organization ID"
     )
@@ -694,7 +626,7 @@ class DataProduct(BaseModel):
         alias="sourceApplications",
         description="Source application IDs",
     )
-    type: Optional[str] = Field(None, description="Data product type")
+    type: Optional[str] = Field(None, description="Tracking plan type")
     lock_status: Optional[str] = Field(
         None, alias="lockStatus", description="Lock status"
     )
@@ -704,8 +636,8 @@ class DataProduct(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
-class DataProductsIncludes(BaseModel):
-    """Includes section from data products API response."""
+class TrackingPlansIncludes(BaseModel):
+    """Includes section from tracking plans API response."""
 
     owners: List[Dict[str, Any]] = Field(default_factory=list)
     event_specs: List[Dict[str, Any]] = Field(default_factory=list, alias="eventSpecs")
@@ -716,25 +648,43 @@ class DataProductsIncludes(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
-class DataProductsResponse(BaseModel):
+class TrackingPlansResponse(BaseModel):
     """
-    Response from listing data products.
+    Response from listing tracking plans.
 
     API Reference: https://docs.snowplow.io/docs/data-product-studio/data-products/api/
 
-    Data products API uses wrapped format with data, includes, and errors fields.
-    Note: includes is a dict with owners, eventSpecs, and sourceApplications arrays.
+    Uses the /data-products/v2 endpoint which returns wrapped format with
+    data, includes, and errors fields.
     """
 
-    data: List[DataProduct] = Field(description="List of data products")
-    includes: DataProductsIncludes = Field(
-        default_factory=DataProductsIncludes,
+    data: List[TrackingPlan] = Field(description="List of tracking plans")
+    includes: TrackingPlansIncludes = Field(
+        default_factory=TrackingPlansIncludes,
         description="Additional information (owners, event specs, source applications)",
     )
     errors: List[Dict[str, Any]] = Field(
         default_factory=list, description="Warnings or errors"
     )
     metadata: Optional[Dict[str, Any]] = Field(None, description="Response metadata")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+# ============================================
+# User Models
+# ============================================
+
+
+class User(BaseModel):
+    """User information from BDP API."""
+
+    id: str = Field(description="User ID (for mapping initiatorId)")
+    email: Optional[str] = Field(None, description="User email address")
+    name: Optional[str] = Field(None, description="User full name")
+    display_name: Optional[str] = Field(
+        None, alias="displayName", description="User display name"
+    )
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -986,7 +936,9 @@ class DataModel(BaseModel):
     organization_id: str = Field(
         alias="organizationId", description="Organization UUID"
     )
-    data_product_id: str = Field(alias="dataProductId", description="Data product UUID")
+    tracking_plan_id: str = Field(
+        alias="dataProductId", description="Tracking plan UUID"
+    )
     name: str = Field(description="Data model name")
     owner: Optional[str] = Field(None, description="Owner email or identifier")
     description: Optional[str] = Field(None, description="Data model description")

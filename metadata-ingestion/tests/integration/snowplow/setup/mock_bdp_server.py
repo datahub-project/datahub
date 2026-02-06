@@ -175,7 +175,7 @@ def get_data_structure_by_hash(
 
 
 @typed_route("/organizations/<org_id>/data-products/v2", methods=["GET"])
-def get_data_products(org_id: str) -> Union[Response, Tuple[Response, int]]:
+def get_tracking_plans(org_id: str) -> Union[Response, Tuple[Response, int]]:
     """
     Mock endpoint for listing data products.
 
@@ -191,9 +191,9 @@ def get_data_products(org_id: str) -> Union[Response, Tuple[Response, int]]:
 
     # Load mock data
     try:
-        response_data = load_fixture("data_products_response.json")
+        response_data = load_fixture("tracking_plans_response.json")
     except FileNotFoundError:
-        logger.error("Fixture file not found: data_products_response.json")
+        logger.error("Fixture file not found: tracking_plans_response.json")
         return jsonify({"error": "Mock data not found"}), 500
 
     logger.info(
@@ -283,11 +283,12 @@ def get_event_specifications(org_id: str) -> Union[Response, Tuple[Response, int
 @typed_route("/organizations/<org_id>/tracking-scenarios/v1", methods=["GET"])
 def get_tracking_scenarios(org_id: str) -> Union[Response, Tuple[Response, int]]:
     """
-    Mock endpoint for listing tracking scenarios.
+    Mock endpoint for listing tracking plans.
 
     API Reference: https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-tracking-scenarios/api/
+    Note: The API endpoint still uses the legacy 'tracking-scenarios' path.
 
-    Note: Tracking scenarios use wrapped response format with data, includes, and errors fields.
+    Tracking plans use wrapped response format with data, includes, and errors fields.
     This differs from data structures which return direct arrays.
     """
     # Check authentication
@@ -303,7 +304,7 @@ def get_tracking_scenarios(org_id: str) -> Union[Response, Tuple[Response, int]]
         return jsonify({"error": "Mock data not found"}), 500
 
     logger.info(
-        f"Returning {len(response_data.get('data', []))} tracking scenarios for org_id={org_id}"
+        f"Returning {len(response_data.get('data', []))} tracking plans for org_id={org_id}"
     )
 
     # Return wrapped response (data, includes, errors)
@@ -333,7 +334,7 @@ def index() -> Response:
                 "token": "GET /organizations/{orgId}/credentials/v3/token",
                 "data_structures": "GET /organizations/{orgId}/data-structures/v1",
                 "data_structure": "GET /organizations/{orgId}/data-structures/v1/{hash}",
-                "data_products": "GET /organizations/{orgId}/data-products/v1",
+                "tracking_plans": "GET /organizations/{orgId}/data-products/v2",
                 "health": "GET /health",
             },
             "fixtures": {"data_structures": "data_structures_with_ownership.json"},
