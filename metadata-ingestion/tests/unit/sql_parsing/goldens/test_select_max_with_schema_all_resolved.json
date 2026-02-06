@@ -1,7 +1,7 @@
 {
     "query_type": "SELECT",
     "query_type_props": {},
-    "query_fingerprint": "727911301a80a595a80671e784793aa2ea1be2e2924e10eba3e0c622e5082b0d",
+    "query_fingerprint": "15dae74c0de3a9b587ffe66a5296eb78800db648c0531724473ee7c2e19c93d1",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)"
     ],
@@ -11,8 +11,12 @@
             "downstream": {
                 "table": null,
                 "column": "max_col",
-                "column_type": null,
-                "native_column_type": null
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL"
             },
             "upstreams": [
                 {
@@ -26,13 +30,13 @@
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "GREATEST(`mytable`.`col1`, `mytable`.`col2`, `this_will_not_resolve`) AS `max_col`"
+                "column_logic": "GREATEST(`mytable`.`col1`, `mytable`.`col2`) AS `max_col`"
             }
         }
     ],
     "joins": [],
     "debug_info": {
         "confidence": 0.9,
-        "generalized_statement": "SELECT GREATEST(`col1`, COL2, `this_will_not_resolve`) AS max_col FROM mytable"
+        "generalized_statement": "SELECT GREATEST(`col1`, COL2) AS max_col FROM mytable"
     }
 }

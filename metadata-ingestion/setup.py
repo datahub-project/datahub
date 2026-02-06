@@ -102,8 +102,9 @@ usage_common = {
 sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    # but not longer do.
-    "sqlglot[rs]==27.27.0",
+    # but no longer do.
+    # 28.0.0+ includes fix for SEMANTIC_VIEW parse infinite loop (https://github.com/tobymao/sqlglot/issues/6287).
+    "sqlglot[rs]==28.10.0",
     "patchy==2.8.0",
 }
 

@@ -146,6 +146,26 @@ def _table_name_from_sqlglot_table(
     Returns:
         A _TableName with the correct table name (including temp prefix for MSSQL)
     """
+    # Handle Snowflake semantic views: SEMANTIC_VIEW(table_name ...)
+    # In this case, table.this is a SemanticView expression, and we need to
+    # extract the actual table from within it.
+    if isinstance(table.this, sqlglot.exp.SemanticView):
+        # The SemanticView.this contains the actual table reference
+        inner_table = table.this.this
+        if isinstance(inner_table, sqlglot.exp.Table):
+            # Recursively extract from the inner table
+            return _table_name_from_sqlglot_table(
+                inner_table, dialect, default_db, default_schema
+            )
+        elif isinstance(inner_table, sqlglot.exp.Identifier):
+            # Simple table name
+            return _TableName(
+                database=table.catalog or default_db,
+                db_schema=table.db or default_schema,
+                table=inner_table.name,
+                parts=None,
+            )
+
     # Handle Dot expressions (more than 3-part names)
     if isinstance(table.this, sqlglot.exp.Dot):
         parts = []
@@ -1391,8 +1411,9 @@ def _extract_select_from_update(
             new_expressions.append(expr)
 
     # Special translation for the `from` clause.
+    # Note: In sqlglot v28+, the parameter was renamed from "from" to "from_"
     extra_args: dict = {}
-    original_from = statement.args.get("from")
+    original_from = statement.args.get("from_") or statement.args.get("from")
     if original_from and isinstance(original_from.this, sqlglot.exp.Table):
         # Move joins, laterals, and pivots from the Update->From->Table->field
         # to the top-level Select->field.
@@ -1417,7 +1438,8 @@ def _extract_select_from_update(
 
     # Update statements always implicitly have the updated table in context.
     # TODO: Retain table name alias, if one was present.
-    if select_statement.args.get("from"):
+    # Note: In sqlglot v28+, the parameter was renamed from "from" to "from_"
+    if select_statement.args.get("from_") or select_statement.args.get("from"):
         select_statement = select_statement.join(
             statement.this, append=True, join_kind="cross"
         )

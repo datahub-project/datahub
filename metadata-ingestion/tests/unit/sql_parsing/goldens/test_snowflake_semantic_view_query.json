@@ -1,0 +1,34 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "4887459ad725643b90e478968417c166136fd3d305eeb5d32f32082f5f5ce697",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,b,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "a",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,b,PROD)",
+                    "column": "a"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"_0\".\"A\" AS \"A\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT a FROM SEMANTIC_VIEW(b FACTS c)"
+    }
+}
