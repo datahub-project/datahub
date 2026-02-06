@@ -209,7 +209,7 @@ def sync(file: str, to_datahub: bool, dry_run: bool) -> None:
                     )
                 except Exception as e:
                     click.secho(
-                        f"{dry_run_prefix}Update failed for id {id}. due to {e}",
+                        f"{dry_run_prefix}Update failed for id {dataset.urn}. due to {e}",
                         fg="red",
                     )
                     failures.append(dataset.urn)

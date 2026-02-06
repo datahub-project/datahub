@@ -2,7 +2,6 @@ package datahub.client.v2.entity;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.builder.StructuredPropertiesPatchBuilder;
-import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -73,7 +72,7 @@ public interface HasStructuredProperties<T extends Entity & HasStructuredPropert
    */
   @Nonnull
   default T setStructuredProperty(@Nonnull String propertyUrn, @Nonnull List<String> values) {
-    Urn urn = makeStructuredPropertyUrn(propertyUrn);
+    Urn urn = StructuredPropertyUrns.makeStructuredPropertyUrn(propertyUrn);
     Entity entity = (Entity) this;
 
     StructuredPropertiesPatchBuilder builder =
@@ -101,7 +100,7 @@ public interface HasStructuredProperties<T extends Entity & HasStructuredPropert
    */
   @Nonnull
   default T setStructuredProperty(@Nonnull String propertyUrn, @Nonnull Number value) {
-    Urn urn = makeStructuredPropertyUrn(propertyUrn);
+    Urn urn = StructuredPropertyUrns.makeStructuredPropertyUrn(propertyUrn);
     Entity entity = (Entity) this;
 
     StructuredPropertiesPatchBuilder builder =
@@ -138,7 +137,7 @@ public interface HasStructuredProperties<T extends Entity & HasStructuredPropert
       @Nonnull Number value1,
       @Nonnull Number value2,
       @Nonnull Number... additionalValues) {
-    Urn urn = makeStructuredPropertyUrn(propertyUrn);
+    Urn urn = StructuredPropertyUrns.makeStructuredPropertyUrn(propertyUrn);
     Entity entity = (Entity) this;
 
     StructuredPropertiesPatchBuilder builder =
@@ -173,7 +172,7 @@ public interface HasStructuredProperties<T extends Entity & HasStructuredPropert
    */
   @Nonnull
   default T removeStructuredProperty(@Nonnull String propertyUrn) {
-    Urn urn = makeStructuredPropertyUrn(propertyUrn);
+    Urn urn = StructuredPropertyUrns.makeStructuredPropertyUrn(propertyUrn);
     Entity entity = (Entity) this;
 
     StructuredPropertiesPatchBuilder builder =
@@ -185,33 +184,5 @@ public interface HasStructuredProperties<T extends Entity & HasStructuredPropert
 
     builder.removeProperty(urn);
     return (T) this;
-  }
-
-  /**
-   * Converts a property identifier (qualified name or full URN) to a proper Urn object.
-   *
-   * <p>This helper accepts flexible input formats:
-   *
-   * <ul>
-   *   <li>Qualified property name: {@code "io.acryl.dataQuality.score"} → {@code
-   *       "urn:li:structuredProperty:io.acryl.dataQuality.score"}
-   *   <li>Full URN: {@code "urn:li:structuredProperty:io.acryl.dataQuality.score"} → unchanged
-   * </ul>
-   *
-   * @param propertyUrn the property identifier (qualified name or full URN)
-   * @return the Urn object
-   * @throws IllegalArgumentException if the URN format is invalid
-   */
-  @Nonnull
-  private static Urn makeStructuredPropertyUrn(@Nonnull String propertyUrn) {
-    String fullUrn =
-        propertyUrn.startsWith("urn:li:structuredProperty:")
-            ? propertyUrn
-            : "urn:li:structuredProperty:" + propertyUrn;
-    try {
-      return Urn.createFromString(fullUrn);
-    } catch (URISyntaxException e) {
-      throw new datahub.client.v2.exceptions.InvalidUrnException(fullUrn, e);
-    }
   }
 }

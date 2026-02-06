@@ -63,6 +63,81 @@ def mock_graphql_response() -> Dict[str, Any]:
     }
 
 
+@pytest.fixture
+def mock_graphql_response_with_sources() -> Dict[str, Any]:
+    """Sample GraphQL response with source nodes"""
+    return {
+        "job": {
+            "models": [],
+            "sources": [
+                {
+                    "uniqueId": "source.test_project.raw.users",
+                    "name": "users",
+                    "description": "Raw users table",
+                    "resourceType": "source",
+                    "database": "raw_db",
+                    "schema": "raw",
+                    "identifier": "users",
+                    "sourceName": "raw",
+                    "sourceDescription": "Raw data source",
+                    "columns": [],
+                    "meta": {},
+                    "tags": [],
+                    "runId": 123,
+                    "jobId": 100,
+                    "accountId": 123456,
+                    "projectId": 1234567,
+                    "environmentId": 1,
+                    "dbtVersion": "1.5.0",
+                    "maxLoadedAt": "2026-01-14T10:00:00+00:00",
+                    "snapshottedAt": "2026-01-14T12:00:00+00:00",
+                    "maxLoadedAtTimeAgoInS": 7200.0,
+                    "state": "pass",
+                    "freshnessChecked": True,
+                    "loader": "dummy-loader",
+                    "criteria": {
+                        "warnAfter": {"count": 12, "period": "hour"},
+                        "errorAfter": {"count": 24, "period": "hour"},
+                    },
+                },
+                {
+                    "uniqueId": "source.test_project.raw.orders",
+                    "name": "orders",
+                    "description": "Raw orders table",
+                    "resourceType": "source",
+                    "database": "raw_db",
+                    "schema": "raw",
+                    "identifier": "orders",
+                    "sourceName": "raw",
+                    "sourceDescription": "Raw data source",
+                    "columns": [],
+                    "meta": {},
+                    "tags": [],
+                    "runId": 123,
+                    "jobId": 100,
+                    "accountId": 123456,
+                    "projectId": 1234567,
+                    "environmentId": 1,
+                    "dbtVersion": "1.5.0",
+                    "maxLoadedAt": "2026-01-13T10:00:00+00:00",
+                    "snapshottedAt": "2026-01-14T12:00:00+00:00",
+                    "maxLoadedAtTimeAgoInS": 93600.0,
+                    "state": "warn",
+                    "freshnessChecked": True,
+                    "loader": "dummy-loader",
+                    "criteria": {
+                        "warnAfter": {"count": 12, "period": "hour"},
+                        "errorAfter": {"count": 48, "period": "hour"},
+                    },
+                },
+            ],
+            "seeds": [],
+            "snapshots": [],
+            "tests": [],
+        }
+    }
+
+
 class TestAutoDiscoveryEndToEnd:
     """End-to-end tests for auto-discovery workflow."""
 
@@ -598,3 +673,84 @@ class TestAutoDiscoveryErrorHandling:
 
         # Should have no nodes
         assert len(nodes) == 0
+
+
+class TestSourceFreshnessExtraction:
+    """Tests for source freshness extraction from dbt Cloud."""
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_sources_with_freshness_extracted(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+        mock_graphql_response_with_sources: Dict[str, Any],
+    ) -> None:
+        """Should extract freshness info from sources with freshness configured."""
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [
+            DBTCloudJob(id=100, generate_docs=True),
+        ]
+        mock_graphql.return_value = mock_graphql_response_with_sources
+
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            auto_discovery=AutoDiscoveryConfig(enabled=True),
+            target_platform="snowflake",
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        source = DBTCloudSource(config, ctx)
+
+        # Execute
+        nodes, _ = source.load_nodes()
+
+        # Should have 2 source nodes
+        assert len(nodes) == 2
+
+        # Verify freshness info extracted
+        users_node = next(n for n in nodes if n.name == "users")
+        assert users_node.freshness_info is not None
+        assert users_node.freshness_info.status == "pass"
+        assert users_node.freshness_info.warn_after is not None
+        assert users_node.freshness_info.warn_after.count == 12
+        assert users_node.freshness_info.error_after is not None
+        assert users_node.freshness_info.error_after.count == 24
+
+        orders_node = next(n for n in nodes if n.name == "orders")
+        assert orders_node.freshness_info is not None
+        assert orders_node.freshness_info.status == "warn"
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    def test_explicit_mode_sources_with_freshness(
+        self,
+        mock_graphql: mock.Mock,
+        mock_graphql_response_with_sources: Dict[str, Any],
+    ) -> None:
+        """Should extract freshness info in explicit job mode."""
+        mock_graphql.return_value = mock_graphql_response_with_sources
+
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            job_id=100,
+            target_platform="snowflake",
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        source = DBTCloudSource(config, ctx)
+
+        # Execute
+        nodes, _ = source.load_nodes()
+
+        # Verify freshness extracted
+        source_nodes = [n for n in nodes if n.node_type == "source"]
+        assert len(source_nodes) == 2
+        assert all(n.freshness_info is not None for n in source_nodes)
