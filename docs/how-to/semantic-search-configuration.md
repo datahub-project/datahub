@@ -14,8 +14,8 @@ DataHub's semantic search uses vector embeddings to find semantically similar en
 
 ### 1. OpenSearch Requirements
 
-- **OpenSearch 2.17.0 or higher** with k-NN plugin enabled
-- Alternative: Elasticsearch with k-NN plugin (not officially tested)
+- **OpenSearch 2.17.0 or higher** with k-NN plugin enabled (DataHub ships with `opensearchproject/opensearch:2.19.3`)
+- **Note:** Elasticsearch is not supported for semantic search — OpenSearch's k-NN plugin is required
 
 Verify k-NN plugin is enabled:
 
