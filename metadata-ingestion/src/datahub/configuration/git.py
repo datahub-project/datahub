@@ -109,9 +109,7 @@ class GitInfo(GitReference):
 
     @model_validator(mode="before")
     @classmethod
-    def deploy_key_filled_from_deploy_key_file(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def deploy_key_filled_from_deploy_key_file(cls, values: Any) -> Any:
         if not isinstance(values, dict):
             return values
         # In-place update of the input dict would cause state contamination.
