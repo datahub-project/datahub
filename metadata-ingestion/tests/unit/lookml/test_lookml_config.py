@@ -8,7 +8,6 @@ from datahub.configuration.git import GitInfo
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
 from datahub.ingestion.source.looker.lookml_config import LookMLSourceConfig
 
-
 # ---- GitInfo validator tests ----
 
 
@@ -31,11 +30,13 @@ def test_git_info_validator_handles_dict_with_deploy_key_file(
     test_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
     key_file.write_text(test_key)
 
-    git_info = GitInfo.model_validate({
-        "repo": "https://github.com/org/repo",
-        "branch": "main",
-        "deploy_key_file": str(key_file),
-    })
+    git_info = GitInfo.model_validate(
+        {
+            "repo": "https://github.com/org/repo",
+            "branch": "main",
+            "deploy_key_file": str(key_file),
+        }
+    )
 
     assert git_info.repo == "https://github.com/org/repo"
     assert git_info.branch == "main"
