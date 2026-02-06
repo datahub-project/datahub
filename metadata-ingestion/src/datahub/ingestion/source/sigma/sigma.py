@@ -35,7 +35,6 @@ from datahub.ingestion.source.common.subtypes import (
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sigma.config import (
-    Constant,
     PlatformDetail,
     SigmaSourceConfig,
     SigmaSourceReport,
@@ -288,112 +287,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             aspect=aspect,
         ).as_workunit()
 
-    def _get_platform_from_connection(
-        self, connection_id: str
-    ) -> Optional[Tuple[str, Optional[str], str, Optional[str], Optional[str]]]:
-        """
-        Get platform details from a Sigma connection.
-
-        Returns:
-            Tuple of (platform, platform_instance, env, default_db, default_schema) or None
-        """
-        connection = self.sigma_api.get_connection(connection_id)
-        if not connection:
-            logger.debug(f"Connection {connection_id} not found in cache")
-            return None
-
-        conn_name = connection.get(Constant.NAME, "")
-        conn_type = connection.get(Constant.TYPE, "")
-
-        # Check if there's a custom mapping for this connection by name or ID
-        mapping = self.config.connection_mapping.get(
-            conn_name
-        ) or self.config.connection_mapping.get(connection_id)
-
-        if mapping:
-            # Use custom mapping
-            platform = (
-                mapping.platform
-                or Constant.SIGMA_CONNECTION_TYPE_TO_PLATFORM.get(
-                    conn_type.lower(), conn_type.lower()
-                )
-            )
-            return (
-                platform,
-                mapping.platform_instance,
-                mapping.env,
-                mapping.default_db,
-                mapping.default_schema,
-            )
-
-        # Auto-detect platform from connection type
-        platform = Constant.SIGMA_CONNECTION_TYPE_TO_PLATFORM.get(
-            conn_type.lower(), conn_type.lower()
-        )
-        logger.debug(
-            f"Auto-detected platform '{platform}' for connection '{conn_name}' (type={conn_type})"
-        )
-        return (platform, None, self.config.env, None, None)
-
-    def _gen_dataset_upstream_lineage_from_source(
-        self, dataset: SigmaDataset
-    ) -> Optional[MetadataWorkUnit]:
-        """
-        Generate upstream lineage for a Sigma dataset based on its source connection/table.
-        """
-        if not dataset.source or not dataset.source.connectionId:
-            return None
-
-        platform_info = self._get_platform_from_connection(dataset.source.connectionId)
-        if not platform_info:
-            logger.debug(
-                f"Could not determine platform for dataset {dataset.name} "
-                f"(connectionId={dataset.source.connectionId})"
-            )
-            return None
-
-        platform, platform_instance, env, default_db, default_schema = platform_info
-
-        # Build the table name
-        table_name = dataset.source.table
-        if not table_name:
-            logger.debug(f"Dataset {dataset.name} has no source table name")
-            return None
-
-        # Build fully qualified table name
-        parts = []
-        db = dataset.source.database or default_db
-        schema = dataset.source.schema_name or default_schema
-
-        if db:
-            parts.append(db)
-        if schema:
-            parts.append(schema)
-        parts.append(table_name)
-
-        qualified_table_name = ".".join(parts)
-
-        upstream_urn = builder.make_dataset_urn_with_platform_instance(
-            platform=platform,
-            name=qualified_table_name,
-            platform_instance=platform_instance,
-            env=env or self.config.env,
-        )
-
-        dataset_urn = self._gen_sigma_dataset_urn(dataset.get_urn_part())
-
-        logger.info(
-            f"[DATASET_LINEAGE] {dataset.name} -> {upstream_urn} "
-            f"(connection={dataset.source.connectionId}, table={qualified_table_name})"
-        )
-
-        return MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=UpstreamLineage(
-                upstreams=[Upstream(dataset=upstream_urn, type=DatasetLineageType.COPY)]
-            ),
-        ).as_workunit()
-
     def _gen_entity_browsepath_aspect(
         self,
         entity_urn: str,
@@ -457,12 +350,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 ),
             ).as_workunit()
 
-        # Generate upstream lineage from source connection/table
-        if dataset.source:
-            lineage_wu = self._gen_dataset_upstream_lineage_from_source(dataset)
-            if lineage_wu:
-                yield lineage_wu
-
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
@@ -513,11 +400,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 platform=task.platform,
                 env=task.env,
                 platform_instance=task.platform_instance,
-                graph=self.ctx.graph if self.config.enable_column_lineage else None,
-                schema_aware=self.config.enable_column_lineage,
-                column_lineage_batch_size=self.config.column_lineage_batch_size
-                if self.config.enable_column_lineage
-                else 0,
+                graph=None,
+                schema_aware=False,
             )
             logger.debug(
                 f"[SQL_PARSE_RESULT] element_id={task.element_id}, "
@@ -565,7 +449,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if not tasks:
             return
 
-        num_threads = min(self.config.max_workers, len(tasks))
+        num_threads = min(self.config.sql_parsing_threads, len(tasks))
         logger.info(
             f"Parsing SQL for {len(tasks)} elements using {num_threads} threads"
         )
@@ -635,13 +519,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         platform=data_source_platform_details.data_source_platform,
                         env=data_source_platform_details.env,
                         platform_instance=data_source_platform_details.platform_instance,
-                        graph=self.ctx.graph
-                        if self.config.enable_column_lineage
-                        else None,
-                        schema_aware=self.config.enable_column_lineage,
-                        column_lineage_batch_size=self.config.column_lineage_batch_size
-                        if self.config.enable_column_lineage
-                        else 0,
+                        graph=None,
+                        schema_aware=False,
                     ).in_tables
                 except Exception:
                     logger.debug(f"Unable to parse query of element {element.name}")
@@ -909,14 +788,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         logger.info("Sigma plugin execution is started")
         self.sigma_api.fill_workspaces()
 
-        # Fetch connections for dataset lineage if enabled
-        if self.config.extract_dataset_lineage:
-            self.sigma_api.fill_connections()
-
         for dataset in self.sigma_api.get_sigma_datasets():
-            # Fetch source info for dataset lineage
-            if self.config.extract_dataset_lineage:
-                dataset.source = self.sigma_api.get_dataset_source(dataset.datasetId)
             yield from self._gen_dataset_workunit(dataset)
 
         # Collect all workbooks first to enable parallel SQL parsing

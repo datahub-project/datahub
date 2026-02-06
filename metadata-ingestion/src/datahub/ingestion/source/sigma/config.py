@@ -162,26 +162,6 @@ class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     )
 
 
-class SigmaConnectionMapping(PlatformInstanceConfigMixin, EnvConfigMixin):
-    """Configuration for mapping a Sigma connection to a DataHub platform."""
-
-    platform: Optional[str] = pydantic.Field(
-        default=None,
-        description="Override the DataHub platform for this connection. "
-        "If not specified, the platform is auto-detected from Sigma connection type.",
-    )
-    default_db: Optional[str] = pydantic.Field(
-        default=None,
-        description="Default database name for this connection. "
-        "Used to generate fully qualified table URNs.",
-    )
-    default_schema: Optional[str] = pydantic.Field(
-        default=None,
-        description="Default schema name for this connection. "
-        "Used to generate fully qualified table URNs.",
-    )
-
-
 class SigmaSourceConfig(
     StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
 ):
@@ -217,43 +197,10 @@ class SigmaSourceConfig(
         default={},
         description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.",
     )
-    connection_mapping: Dict[str, SigmaConnectionMapping] = pydantic.Field(
-        default={},
-        description="A mapping of Sigma connection names to DataHub platform details. "
-        "Used for extracting dataset upstream lineage. "
-        "Keys can be connection names or connection IDs. "
-        "Example: {'My Postgres Connection': {'platform': 'postgres', 'default_db': 'mydb', 'default_schema': 'public'}}",
-    )
-    extract_dataset_lineage: bool = pydantic.Field(
-        default=True,
-        description="Whether to extract lineage for Sigma datasets to their underlying warehouse tables. "
-        "Requires connection_mapping to be configured for the relevant connections.",
-    )
-    max_workers: int = pydantic.Field(
+    sql_parsing_threads: int = pydantic.Field(
         default=20,
-        description="Number of parallel threads for API calls and SQL parsing. "
-        "Controls parallelism for fetching element data and lineage extraction.",
-    )
-    enable_rate_limiting: bool = pydantic.Field(
-        default=False,
-        description="Enable rate limiting for Sigma API calls. "
-        "Enable this to avoid 429 rate limit errors from the Sigma API.",
-    )
-    rate_limit_per_second: float = pydantic.Field(
-        default=2.0,
-        description="Maximum API requests per second when rate limiting is enabled. "
-        "Lower values reduce 429 errors but slow down ingestion.",
-    )
-    column_lineage_batch_size: int = pydantic.Field(
-        default=20,
-        description="Number of columns to process per batch during column-level lineage computation. "
-        "Batching reduces peak memory for wide queries (100+ columns). Set to 0 to disable batching.",
-    )
-    enable_column_lineage: bool = pydantic.Field(
-        default=True,
-        description="Enable column-level lineage extraction from SQL queries. "
-        "Set to false to reduce memory usage and improve performance when only "
-        "table-level lineage is needed. Requires extract_lineage to be enabled.",
+        description="Number of parallel threads for SQL parsing. "
+        "SQL parsing is CPU-bound and does not make API calls, so high parallelism is safe.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Sigma Stateful Ingestion Config."

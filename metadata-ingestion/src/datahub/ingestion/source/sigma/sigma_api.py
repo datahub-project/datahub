@@ -1,9 +1,7 @@
 import functools
 import logging
 import sys
-import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
@@ -26,40 +24,9 @@ from datahub.ingestion.source.sigma.data_classes import (
 # Logger instance
 logger = logging.getLogger(__name__)
 
-# Retry constants for 429 errors
+# Retry constants for 429/503 errors
 RETRY_MAX_ATTEMPTS = 3
 RETRY_BASE_DELAY_SECONDS = 2.0  # Exponential backoff: 2s, 4s, 8s
-
-
-class RateLimiter:
-    """Thread-safe rate limiter using token bucket algorithm."""
-
-    def __init__(self, requests_per_second: float):
-        self.requests_per_second = requests_per_second
-        self.tokens = requests_per_second  # Start with full bucket
-        self.last_update = time.monotonic()
-        self.lock = threading.Lock()
-
-    def acquire(self) -> None:
-        """Block until a request can be made."""
-        with self.lock:
-            now = time.monotonic()
-            # Add tokens based on time passed
-            time_passed = now - self.last_update
-            self.tokens = min(
-                self.requests_per_second,
-                self.tokens + time_passed * self.requests_per_second,
-            )
-            self.last_update = now
-
-            if self.tokens >= 1:
-                self.tokens -= 1
-            else:
-                # Wait for enough time to get a token
-                wait_time = (1 - self.tokens) / self.requests_per_second
-                time.sleep(wait_time)
-                self.tokens = 0
-                self.last_update = time.monotonic()
 
 
 class SigmaAPI:
@@ -73,17 +40,6 @@ class SigmaAPI:
         ] = {}  # connectionId -> connection info
         self.session = requests.Session()
         self.refresh_token: Optional[str] = None
-
-        # Enable rate limiting if configured
-        if self.config.enable_rate_limiting:
-            self.rate_limiter: Optional[RateLimiter] = RateLimiter(
-                self.config.rate_limit_per_second
-            )
-            logger.info(
-                f"Rate limiting enabled: {self.config.rate_limit_per_second} requests/sec"
-            )
-        else:
-            self.rate_limiter = None
 
         # Test connection by generating access token
         logger.info(f"Trying to connect to {self.config.api_url}")
@@ -141,20 +97,14 @@ class SigmaAPI:
             )
 
     def _get_api_call(self, url: str) -> requests.Response:
-        """Make an API call with rate limiting and retry on 429/503 errors."""
+        """Make an API call with retry on 429/503 errors."""
         for attempt in range(RETRY_MAX_ATTEMPTS):
-            # Apply rate limiting if enabled
-            if self.rate_limiter:
-                self.rate_limiter.acquire()
-
             get_response = self.session.get(url)
 
             # Handle token refresh on 401
             if get_response.status_code == 401 and self.refresh_token:
                 logger.debug("Access token might expired. Refreshing access token.")
                 self._refresh_access_token()
-                if self.rate_limiter:
-                    self.rate_limiter.acquire()
                 get_response = self.session.get(url)
 
             # Retry on 429 (rate limit) or 503 (service unavailable) with exponential backoff
@@ -567,20 +517,13 @@ class SigmaAPI:
                 and self.config.workbook_lineage_pattern.allowed(workbook.name)
                 and elements
             ):
-                element_map = {e.elementId: e for e in elements}
-                num_threads = min(self.config.max_workers, len(elements))
-
-                with ThreadPoolExecutor(max_workers=num_threads) as executor:
-                    futures = {
-                        executor.submit(
-                            self._fetch_element_lineage_data, element, workbook
-                        ): element
-                        for element in elements
-                    }
-                    for future in as_completed(futures):
-                        element_id, upstream_sources, query = future.result()
-                        element_map[element_id].upstream_sources = upstream_sources
-                        element_map[element_id].query = query
+                # Fetch lineage data sequentially to avoid rate limiting
+                for element in elements:
+                    element_id, upstream_sources, query = (
+                        self._fetch_element_lineage_data(element, workbook)
+                    )
+                    element.upstream_sources = upstream_sources
+                    element.query = query
 
             return elements
         except Exception as e:
