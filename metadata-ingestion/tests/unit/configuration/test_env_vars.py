@@ -59,3 +59,24 @@ def test_is_ci_false_with_invalid_ci_value():
 
     with patch.dict(os.environ, {"CI": "no"}, clear=True):
         assert is_ci() is False
+
+
+def test_is_ci_false_with_github_actions_not_true():
+    """Test that is_ci() returns False when GITHUB_ACTIONS is set but not 'true'"""
+    with patch.dict(os.environ, {"GITHUB_ACTIONS": "false"}, clear=True):
+        assert is_ci() is False
+
+    with patch.dict(os.environ, {"GITHUB_ACTIONS": "1"}, clear=True):
+        assert is_ci() is False
+
+
+def test_is_ci_with_empty_ci_value():
+    """Test that is_ci() returns False when CI is empty string"""
+    with patch.dict(os.environ, {"CI": ""}, clear=True):
+        assert is_ci() is False
+
+
+def test_is_ci_with_ci_and_github_actions_both_true():
+    """Test that is_ci() returns True when both CI and GITHUB_ACTIONS are true"""
+    with patch.dict(os.environ, {"CI": "true", "GITHUB_ACTIONS": "true"}, clear=True):
+        assert is_ci() is True
