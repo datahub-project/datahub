@@ -1,3 +1,4 @@
+import logging
 from enum import Enum
 from typing import TYPE_CHECKING, List, Optional, Union
 
@@ -7,6 +8,8 @@ from pydantic import Field
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub_airflow_plugin._airflow_version_specific import IS_AIRFLOW_3_OR_HIGHER
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from datahub_airflow_plugin.hooks.datahub import (
@@ -227,3 +230,26 @@ def get_lineage_config() -> DatahubLineageConfig:
         dag_filter_pattern=dag_filter_pattern,
         enable_datajob_lineage=enable_lineage,
     )
+
+
+def get_configured_env() -> str:
+    """
+    Get the configured DataHub cluster/environment name.
+
+    Uses cached config from the listener when available, otherwise reads
+    directly from config.
+
+    Returns:
+        The configured cluster name
+    """
+    from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
+
+    listener = get_airflow_plugin_listener()
+    if listener and listener.config:
+        return listener.config.cluster
+
+    # Fallback: listener disabled or failed to initialize
+    logger.debug(
+        "Listener or config not available, falling back to get_lineage_config()"
+    )
+    return get_lineage_config().cluster
