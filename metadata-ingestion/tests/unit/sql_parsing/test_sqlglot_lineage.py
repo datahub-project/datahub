@@ -43,11 +43,11 @@ def test_select_max_with_schema() -> None:
     # Note that `this_will_not_resolve` will be dropped from the result because it's not in the schema.
 
     # With sqlglot v27: When it sees MAX(DECIMAL, DECIMAL, UNKNOWN), it was "smart" enough to infer the result as DECIMAL
-    # With sqlglot v28: Same input → returns UNKNOWN
-    # Is that a regression in sqlglot or just sqlglot being more strict/conservative now?
-    # Reported here https://github.com/tobymao/sqlglot/issues/6983
-    # The impact is that we miss type information for the max_col column.
-    # That doesn't happen with the test_select_max_with_schema_all_resolved test because there we don't have a column that is not in the schema.
+    # With sqlglot v28: Same input → returns UNKNOWN (more conservative behavior)
+    # Sqlglot confirmed this is intentional - v28 is more conservative with type inference when any argument is UNKNOWN.
+    # See https://github.com/tobymao/sqlglot/issues/6983
+    # The impact is that we miss type information for the max_col column when queries reference unresolved columns.
+    # That doesn't happen with the test_select_max_with_schema_all_resolved test because all columns are resolved.
 
     assert_sql_result(
         """
