@@ -42,8 +42,7 @@ export function useOAuthConnect(onSuccess?: () => void) {
                 popupRef.current = null;
 
                 if (success) {
-                    console.log('[OAuth] Connection successful, showing toast and triggering refetch');
-                    message.success(`Connected to ${pluginId || 'plugin'} successfully!`);
+                    console.log('[OAuth] Connection successful, triggering refetch');
                     // Small delay to ensure backend has finished updating before refetch
                     setTimeout(() => {
                         console.log('[OAuth] Calling onSuccess/refetch');

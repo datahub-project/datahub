@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getAuthTypeLabel } from '@app/settingsV2/platform/aiPlugins/utils/pluginDisplayUtils';
+import { getAuthTypeLabel } from '@app/settingsV2/platform/ai/plugins/utils/pluginDisplayUtils';
 import { AiPluginAuthType } from '@src/types.generated';
 
 describe('pluginDisplayUtils', () => {

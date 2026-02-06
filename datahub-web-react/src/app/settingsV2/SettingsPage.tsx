@@ -156,9 +156,9 @@ export const SettingsPage = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'My Integrations',
-                        key: 'my-integrations',
-                        link: `${url}/my-integrations`,
+                        title: 'My AI Settings',
+                        key: 'my-ai-settings',
+                        link: `${url}/my-ai-settings`,
                         isHidden: !showMyIntegrations,
                         icon: <Sparkle />,
                     },

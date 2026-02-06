@@ -11,14 +11,14 @@ import {
     removeCustomHeader,
     updateCustomHeader,
     updateFormField,
-} from '@app/settingsV2/platform/aiPlugins/utils/pluginFormState';
-import { ValidationErrors, validatePluginForm } from '@app/settingsV2/platform/aiPlugins/utils/pluginFormValidation';
-import { extractPlatformFromUrl } from '@app/settingsV2/platform/aiPlugins/utils/pluginLogoUtils';
+} from '@app/settingsV2/platform/ai/plugins/utils/pluginFormState';
+import { ValidationErrors, validatePluginForm } from '@app/settingsV2/platform/ai/plugins/utils/pluginFormValidation';
+import { extractPlatformFromUrl } from '@app/settingsV2/platform/ai/plugins/utils/pluginLogoUtils';
 import {
     buildUpsertOAuthServerInput,
     buildUpsertServiceInput,
     extractOAuthServerIdFromUrn,
-} from '@app/settingsV2/platform/aiPlugins/utils/pluginMutationBuilder';
+} from '@app/settingsV2/platform/ai/plugins/utils/pluginMutationBuilder';
 
 import {
     useOAuthAuthorizationServerQuery,

@@ -1,5 +1,8 @@
 FROM acryldata/datahub-ingestion-base AS base
 
+# Cloudsmith index for observe-models (used only at build time for uv pip install)
+ARG UV_EXTRA_INDEX_URL=
+
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     sudo \
     python3-dev \
@@ -30,7 +33,7 @@ RUN cd /datahub-src/metadata-ingestion && \
     cd .. && \
     . venv/bin/activate && \
     cd smoke-test && \
-    uv pip install -r ./requirements.txt
+    UV_EXTRA_INDEX_URL="${UV_EXTRA_INDEX_URL}" uv pip install -r ./requirements.txt
 
 RUN cd /datahub-src && \
     ./gradlew :smoke-test:yarnInstall

@@ -13,6 +13,8 @@ export interface GlobalPlugin {
         properties?: {
             displayName?: string | null;
             description?: string | null;
+        } | null;
+        mcpServerProperties?: {
             url?: string | null;
         } | null;
     } | null;

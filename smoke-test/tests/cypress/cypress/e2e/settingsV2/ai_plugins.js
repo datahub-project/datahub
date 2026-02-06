@@ -20,9 +20,9 @@ describe.skip("AI Plugins Admin Management", () => {
    * Navigate to the AI Plugins admin tab.
    */
   function navigateToAiPluginsTab() {
-    cy.visit("/settings/integrations");
-    cy.waitTextVisible("Integrations");
-    cy.contains("AI Plugins").should("be.visible").click();
+    cy.visit("/settings/ai");
+    cy.waitTextVisible("AI");
+    cy.contains("Plugins").should("be.visible").click();
     cy.get('[data-testid="ai-plugins-tab"]', { timeout: 10000 }).should(
       "exist",
     );
@@ -154,13 +154,13 @@ describe.skip("AI Plugins Admin Management", () => {
 });
 
 // Skip all tests - feature flag is disabled by default
-describe.skip("My Integrations - User Page", () => {
+describe.skip("My AI Settings - User Page", () => {
   /**
-   * Navigate to My Integrations user page.
+   * Navigate to My AI Settings user page.
    */
-  function navigateToMyIntegrations() {
-    cy.visit("/settings/my-integrations");
-    cy.get('[data-testid="my-integrations-page"]', { timeout: 10000 }).should(
+  function navigateToMyAiSettings() {
+    cy.visit("/settings/my-ai-settings");
+    cy.get('[data-testid="my-ai-settings-page"]', { timeout: 10000 }).should(
       "exist",
     );
   }
@@ -171,17 +171,17 @@ describe.skip("My Integrations - User Page", () => {
     cy.skipIntroducePage();
   });
 
-  it("should navigate to My Integrations page", () => {
-    navigateToMyIntegrations();
-    cy.contains("My Integrations").should("be.visible");
+  it("should navigate to My AI Settings page", () => {
+    navigateToMyAiSettings();
+    cy.contains("My AI Settings").should("be.visible");
     cy.contains("Manage your AI plugin preferences").should("be.visible");
   });
 
   it("should display plugins list or empty state", () => {
-    navigateToMyIntegrations();
+    navigateToMyAiSettings();
 
     // Check if plugins list is displayed (either with plugins or empty state)
-    cy.get('[data-testid="my-integrations-page"]').should("be.visible");
+    cy.get('[data-testid="my-ai-settings-page"]').should("be.visible");
 
     // Either plugins-list exists or empty state message is shown
     cy.get("body").then(($body) => {

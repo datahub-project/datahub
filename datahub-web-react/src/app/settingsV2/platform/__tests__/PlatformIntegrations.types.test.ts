@@ -21,10 +21,6 @@ describe('PlatformIntegrations.types', () => {
             expect(getTabFromPath('/settings/integrations/data')).toBe(IntegrationsTabType.DataIntegrations);
         });
 
-        it('returns correct tab for ai-plugins path', () => {
-            expect(getTabFromPath('/settings/integrations/ai-plugins')).toBe(IntegrationsTabType.AiPlugins);
-        });
-
         it('returns correct tab for nested paths', () => {
             expect(getTabFromPath('/settings/integrations/notifications/slack')).toBe(
                 IntegrationsTabType.Notifications,
@@ -48,15 +44,15 @@ describe('PlatformIntegrations.types', () => {
 
         it('returns false for tab-specific paths', () => {
             expect(isBasePath('/settings/integrations/notifications')).toBe(false);
-            expect(isBasePath('/settings/integrations/ai-plugins')).toBe(false);
+            expect(isBasePath('/settings/integrations/data')).toBe(false);
         });
     });
 
     describe('determineActiveTabFromUrl', () => {
         it('returns tab without redirect for recognized tab path', () => {
-            const result = determineActiveTabFromUrl('/settings/integrations/ai-plugins');
+            const result = determineActiveTabFromUrl('/settings/integrations/notifications');
 
-            expect(result.tab).toBe(IntegrationsTabType.AiPlugins);
+            expect(result.tab).toBe(IntegrationsTabType.Notifications);
             expect(result.shouldRedirect).toBe(false);
             expect(result.redirectUrl).toBeUndefined();
         });
@@ -81,7 +77,6 @@ describe('PlatformIntegrations.types', () => {
         it('has entries for all tab types', () => {
             expect(INTEGRATIONS_TAB_URL_MAP[IntegrationsTabType.Notifications]).toBeDefined();
             expect(INTEGRATIONS_TAB_URL_MAP[IntegrationsTabType.DataIntegrations]).toBeDefined();
-            expect(INTEGRATIONS_TAB_URL_MAP[IntegrationsTabType.AiPlugins]).toBeDefined();
         });
 
         it('has correct URL format', () => {
@@ -137,7 +132,7 @@ describe('PlatformIntegrations.types', () => {
 
         it('returns false for tab paths', () => {
             expect(isIntegrationDetailPage('/settings/integrations/notifications', integrations)).toBe(false);
-            expect(isIntegrationDetailPage('/settings/integrations/ai-plugins', integrations)).toBe(false);
+            expect(isIntegrationDetailPage('/settings/integrations/data', integrations)).toBe(false);
         });
 
         it('returns false for base path', () => {

@@ -133,7 +133,7 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.success).toHaveBeenCalledWith('Connected to test-plugin successfully!');
+            expect(message.success).not.toHaveBeenCalled();
 
             // Fast-forward the 500ms delay for onSuccess
             await act(async () => {
@@ -158,7 +158,7 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.success).toHaveBeenCalledWith('Connected to plugin successfully!');
+            expect(message.success).not.toHaveBeenCalled();
         });
 
         it('should handle failed oauth_callback message with error', () => {
@@ -599,7 +599,7 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.success).toHaveBeenCalled();
+            expect(message.success).not.toHaveBeenCalled();
 
             // Advance timer - should not throw even without callback
             await act(async () => {
@@ -682,7 +682,7 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.success).toHaveBeenCalled();
+            expect(message.success).not.toHaveBeenCalled();
             // close() should only be called once (during the callback processing check)
         });
 
@@ -704,7 +704,7 @@ describe('useOAuthConnect', () => {
 
             // Should still handle the message gracefully
             expect(result.current.isConnecting).toBe(false);
-            expect(message.success).toHaveBeenCalled();
+            expect(message.success).not.toHaveBeenCalled();
         });
     });
 

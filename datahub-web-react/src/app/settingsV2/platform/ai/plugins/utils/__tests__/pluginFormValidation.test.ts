@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_PLUGIN_FORM_STATE, PluginFormState } from '@app/settingsV2/platform/aiPlugins/utils/pluginFormState';
+import { DEFAULT_PLUGIN_FORM_STATE, PluginFormState } from '@app/settingsV2/platform/ai/plugins/utils/pluginFormState';
 import {
     isFormValid,
     validateDisplayName,
@@ -9,7 +9,7 @@ import {
     validateSharedApiKey,
     validateUrl,
     validateUrlFormat,
-} from '@app/settingsV2/platform/aiPlugins/utils/pluginFormValidation';
+} from '@app/settingsV2/platform/ai/plugins/utils/pluginFormValidation';
 import { AiPluginAuthType } from '@src/types.generated';
 
 describe('pluginFormValidation', () => {

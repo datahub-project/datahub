@@ -13,10 +13,9 @@ import {
     filterIntegrationsByFeatureFlags,
     isIntegrationDetailPage,
 } from '@app/settingsV2/platform/PlatformIntegrations.types';
-import { AiPluginsTab } from '@app/settingsV2/platform/aiPlugins/AiPluginsTab';
 import { DATA_INTEGRATIONS, NOTIFICATION_INTEGRATIONS } from '@app/settingsV2/platform/types';
 import { useAppConfig } from '@app/useAppConfig';
-import { Button, PageTitle, Tabs } from '@src/alchemy-components';
+import { PageTitle, Tabs } from '@src/alchemy-components';
 
 const PageContainer = styled.div`
     width: 100%;
@@ -40,11 +39,6 @@ const TitleContainer = styled.div`
     flex: 1;
 `;
 
-const HeaderActionsContainer = styled.div`
-    display: flex;
-    justify-content: flex-end;
-`;
-
 const TabsContainer = styled.div`
     flex: 1;
     display: flex;
@@ -60,7 +54,7 @@ const TabsContainer = styled.div`
 
     .ant-tabs-content-holder {
         flex: 1;
-        overflow: hidden;
+        overflow: clip; // Changed from hidden to clip - prevents ALL scrolling including programmatic
         min-height: 0;
     }
 
@@ -117,7 +111,6 @@ export const PlatformIntegrations = () => {
     const { config } = useAppConfig();
 
     const [selectedTab, setSelectedTab] = useState<IntegrationsTabType | undefined>();
-    const [showCreatePluginModal, setShowCreatePluginModal] = useState(false);
 
     // Filter integrations based on feature flags
     const notificationIntegrations = filterIntegrationsByFeatureFlags(NOTIFICATION_INTEGRATIONS, config.featureFlags);
@@ -160,9 +153,6 @@ export const PlatformIntegrations = () => {
 
     const getCurrentUrl = useCallback(() => location.pathname, [location.pathname]);
 
-    // Check if AI Plugins feature flag is enabled
-    const showAiPluginsTab = config.featureFlags.aiPluginsEnabled;
-
     const tabs: Tab[] = [
         {
             name: 'Notifications',
@@ -181,21 +171,6 @@ export const PlatformIntegrations = () => {
                 <IntegrationsListContent integrations={DATA_INTEGRATIONS} onSelectIntegration={selectIntegration} />
             ),
         },
-        // Only show AI Plugins tab if feature flag is enabled
-        ...(showAiPluginsTab
-            ? [
-                  {
-                      name: 'AI Plugins',
-                      key: IntegrationsTabType.AiPlugins,
-                      component: (
-                          <AiPluginsTab
-                              showCreateModal={showCreatePluginModal}
-                              setShowCreateModal={setShowCreatePluginModal}
-                          />
-                      ),
-                  },
-              ]
-            : []),
     ];
 
     // Check if we're on an integration detail page
@@ -220,18 +195,6 @@ export const PlatformIntegrations = () => {
                                         subTitle="Manage integrations with third party tools and services"
                                     />
                                 </TitleContainer>
-                                <HeaderActionsContainer>
-                                    {selectedTab === IntegrationsTabType.AiPlugins && (
-                                        <Button
-                                            variant="filled"
-                                            onClick={() => setShowCreatePluginModal(true)}
-                                            data-testid="create-ai-plugin-button"
-                                            icon={{ icon: 'Plus', source: 'phosphor' }}
-                                        >
-                                            Create
-                                        </Button>
-                                    )}
-                                </HeaderActionsContainer>
                             </PageHeaderContainer>
                             <TabsContainer>
                                 <Tabs

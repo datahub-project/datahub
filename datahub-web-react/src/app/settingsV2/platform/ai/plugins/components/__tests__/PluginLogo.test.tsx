@@ -2,10 +2,10 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { PluginLogo } from '@app/settingsV2/platform/aiPlugins/components/PluginLogo';
+import { PluginLogo } from '@app/settingsV2/platform/ai/plugins/components/PluginLogo';
 
 // Mock the logo utils
-vi.mock('@app/settingsV2/platform/aiPlugins/utils/pluginLogoUtils', () => ({
+vi.mock('@app/settingsV2/platform/ai/plugins/utils/pluginLogoUtils', () => ({
     getPluginLogoUrl: vi.fn((displayName: string) => {
         if (displayName.toLowerCase().includes('github')) {
             return '/mock-github-logo.png';

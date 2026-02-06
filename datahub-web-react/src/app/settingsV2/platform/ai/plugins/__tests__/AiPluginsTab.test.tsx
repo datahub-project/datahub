@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { AiPluginsTab } from '@app/settingsV2/platform/aiPlugins/AiPluginsTab';
+import { AiPluginsTab } from '@app/settingsV2/platform/ai/plugins/AiPluginsTab';
 import { GetAiPluginsDocument } from '@src/graphql/aiPlugins.generated';
 import { AiPluginAuthType, AiPluginType } from '@src/types.generated';
 

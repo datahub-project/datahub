@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildToggleInput } from '@app/settingsV2/platform/aiPlugins/hooks/usePluginActions';
-import { AiPluginRow } from '@app/settingsV2/platform/aiPlugins/utils/pluginDataUtils';
+import { buildToggleInput } from '@app/settingsV2/platform/ai/plugins/hooks/usePluginActions';
+import { AiPluginRow } from '@app/settingsV2/platform/ai/plugins/utils/pluginDataUtils';
 import { AiPluginAuthType, McpTransport, ServiceSubType } from '@src/types.generated';
 
 describe('usePluginActions', () => {

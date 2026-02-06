@@ -1,4 +1,4 @@
-import { PluginFormState } from '@app/settingsV2/platform/aiPlugins/utils/pluginFormState';
+import { PluginFormState } from '@app/settingsV2/platform/ai/plugins/utils/pluginFormState';
 
 import { AiPluginAuthType, AuthLocation, McpTransport, ServiceSubType, TokenAuthMethod } from '@types';
 

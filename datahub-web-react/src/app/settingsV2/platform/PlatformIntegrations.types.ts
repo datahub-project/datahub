@@ -23,13 +23,11 @@ export interface IntegrationFeatureFlags {
 export enum IntegrationsTabType {
     Notifications = 'notifications',
     DataIntegrations = 'data',
-    AiPlugins = 'ai-plugins',
 }
 
 export const INTEGRATIONS_TAB_URL_MAP: Record<IntegrationsTabType, string> = {
     [IntegrationsTabType.Notifications]: '/settings/integrations/notifications',
     [IntegrationsTabType.DataIntegrations]: '/settings/integrations/data',
-    [IntegrationsTabType.AiPlugins]: '/settings/integrations/ai-plugins',
 };
 
 export const DEFAULT_INTEGRATIONS_TAB = IntegrationsTabType.Notifications;

@@ -5,7 +5,7 @@ import {
     extractHostname,
     getLogoFromDisplayName,
     getPluginLogoUrl,
-} from '@app/settingsV2/platform/aiPlugins/utils/pluginLogoUtils';
+} from '@app/settingsV2/platform/ai/plugins/utils/pluginLogoUtils';
 
 describe('pluginLogoUtils', () => {
     describe('extractHostname', () => {

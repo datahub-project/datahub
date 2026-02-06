@@ -2,7 +2,7 @@ import { CaretDown, CaretRight, CheckCircle, Trash } from '@phosphor-icons/react
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import { usePluginForm } from '@app/settingsV2/platform/aiPlugins/hooks/usePluginForm';
+import { usePluginForm } from '@app/settingsV2/platform/ai/plugins/hooks/usePluginForm';
 import { Button, Checkbox, Input, Modal, SimpleSelect, Text, TextArea, colors } from '@src/alchemy-components';
 
 import { AiPluginAuthType, AiPluginConfig } from '@types';

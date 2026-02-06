@@ -13,6 +13,12 @@ import { UsersOnboardingConfig } from '@app/onboarding/config/UsersOnboardingCon
 import { ALL_V2_ONBOARDING_CONFIGS } from '@app/onboarding/configV2';
 import { OnboardingStep } from '@app/onboarding/types';
 
+/**
+ * Education steps for AI/Chat features.
+ * These are tracking-only steps (no UI) for features like the plugins menu animation.
+ */
+const AiChatOnboardingConfig: OnboardingStep[] = [{ id: 'chat-plugins-menu' }];
+
 const ALL_ONBOARDING_CONFIGS: OnboardingStep[][] = [
     HomePageOnboardingConfig,
     SearchOnboardingConfig,
@@ -26,6 +32,7 @@ const ALL_ONBOARDING_CONFIGS: OnboardingStep[][] = [
     PoliciesOnboardingConfig,
     LineageGraphOnboardingConfig,
     FormOnboardingConfig,
+    AiChatOnboardingConfig,
     ...ALL_V2_ONBOARDING_CONFIGS,
 ];
 export const OnboardingConfig: OnboardingStep[] = ALL_ONBOARDING_CONFIGS.flat();

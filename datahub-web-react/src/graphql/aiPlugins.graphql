@@ -253,6 +253,9 @@ query GetAiPluginsWithUserStatus {
                     displayName
                     description
                 }
+                mcpServerProperties {
+                    url
+                }
             }
             enabled
             authType

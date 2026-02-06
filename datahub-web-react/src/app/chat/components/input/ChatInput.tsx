@@ -4,6 +4,9 @@ import styled from 'styled-components';
 
 import { SelectOption } from '@components/components/Select/types';
 
+import { ChatPluginsMenu } from '@app/chat/components/input/ChatPluginsMenu';
+import { useAppConfig } from '@app/useAppConfig';
+
 const InputContainer = styled.div<{ $isFocused?: boolean; $isWelcomeState?: boolean; $isStreaming?: boolean }>`
     display: flex;
     flex-direction: column;
@@ -35,6 +38,12 @@ const ControlsRow = styled.div`
     flex-shrink: 0;
 `;
 
+const LeftControls = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+`;
+
 interface Props {
     value: string;
     onChange: (value: string) => void;
@@ -63,6 +72,7 @@ export const ChatInput: React.FC<Props> = ({
     onModeChange,
     autoFocus = false,
 }) => {
+    const { config } = useAppConfig();
     const [isFocused, setIsFocused] = useState(false);
     const editorRef = useRef<any>(null);
     const shouldBlurOnClearRef = useRef(false);
@@ -183,26 +193,27 @@ export const ChatInput: React.FC<Props> = ({
                 />
             </EditorArea>
             <ControlsRow>
-                {showModeSelect ? (
-                    <SimpleSelect
-                        options={modeOptions || []}
-                        values={selectedMode ? [selectedMode] : []}
-                        onUpdate={(values) => {
-                            const nextMode = values[0];
-                            if (nextMode) {
-                                onModeChange?.(nextMode);
-                            }
-                        }}
-                        size="sm"
-                        width="fit-content"
-                        showClear={false}
-                        showSearch={false}
-                        isDisabled={isStreaming}
-                        optionSwitchable={false}
-                    />
-                ) : (
-                    <div />
-                )}
+                <LeftControls>
+                    {showModeSelect && (
+                        <SimpleSelect
+                            options={modeOptions || []}
+                            values={selectedMode ? [selectedMode] : []}
+                            onUpdate={(values) => {
+                                const nextMode = values[0];
+                                if (nextMode) {
+                                    onModeChange?.(nextMode);
+                                }
+                            }}
+                            size="sm"
+                            width="fit-content"
+                            showClear={false}
+                            showSearch={false}
+                            isDisabled={isStreaming}
+                            optionSwitchable={false}
+                        />
+                    )}
+                    {config.featureFlags.aiPluginsEnabled ? <ChatPluginsMenu /> : null}
+                </LeftControls>
                 <Button
                     onClick={handleButtonClick}
                     disabled={isSubmitDisabled}

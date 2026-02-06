@@ -2,8 +2,8 @@ import { message } from 'antd';
 import { useCallback } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
-import { AiPluginRow } from '@app/settingsV2/platform/aiPlugins/utils/pluginDataUtils';
-import { extractPlatformFromUrl } from '@app/settingsV2/platform/aiPlugins/utils/pluginLogoUtils';
+import { AiPluginRow } from '@app/settingsV2/platform/ai/plugins/utils/pluginDataUtils';
+import { extractPlatformFromUrl } from '@app/settingsV2/platform/ai/plugins/utils/pluginLogoUtils';
 import { useDeleteAiPluginMutation, useUpsertServiceMutation } from '@src/graphql/aiPlugins.generated';
 import { ServiceSubType } from '@src/types.generated';
 

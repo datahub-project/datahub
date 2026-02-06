@@ -1,384 +1,195 @@
-import { InfoCircleFilled } from '@ant-design/icons';
-import { Spin, message } from 'antd';
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Route, Switch, useHistory, useLocation, useRouteMatch } from 'react-router';
 import styled from 'styled-components';
 
-import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
-import { SLACK_CONNECTION_URN } from '@app/settingsV2/platform/slack/constants';
-import { decodeSlackConnection } from '@app/settingsV2/platform/slack/utils';
-import { PageTitle, Switch, TextArea, colors } from '@src/alchemy-components';
+import { Tab } from '@components/components/Tabs/Tabs';
 
-import { useConnectionQuery } from '@graphql/connection.generated';
 import {
-    useUpdateGlobalAiAssistantSettingsMutation,
-    useUpdateGlobalDocsAiSettingsMutation,
-    useUpdateGlobalIntegrationSettingsMutation,
-} from '@graphql/settings.generated';
-import { AiInstructionType } from '@types';
+    AI_TAB_URL_MAP,
+    AiTabType,
+    DEFAULT_AI_TAB,
+    determineActiveTabFromUrl,
+} from '@app/settingsV2/platform/PlatformAiSettings.types';
+import { AiSettingsTab } from '@app/settingsV2/platform/ai/AiSettingsTab';
+import { AiPluginsTab } from '@app/settingsV2/platform/ai/plugins/AiPluginsTab';
+import { useAppConfig } from '@app/useAppConfig';
+import { Button, PageTitle, Tabs } from '@src/alchemy-components';
 
-const Container = styled.div`
+const PageContainer = styled.div`
     width: 100%;
-    overflow: auto;
+    height: 100%;
     padding: 16px 20px;
-`;
-
-const GlobalAIBanner = styled.div`
-    background: #f9f0ff;
-    border-radius: 8px;
-    border: 1px solid ${colors.violet['500']};
-    padding: 8px 12px;
-    margin: 18px 0 25px;
-    font-size: 14px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    overflow: hidden;
 `;
 
-const InfoIcon = styled(InfoCircleFilled)`
-    color: ${colors.violet['500']};
-    margin-right: 8px;
-`;
-
-const DocsLink = styled.a`
-    color: ${colors.violet['600']};
-    &:hover {
-        color: ${colors.violet['800']};
-    }
-`;
-
-const StyledCard = styled.div`
-    border: 1px solid ${colors.gray[100]};
-    border-radius: 12px;
-    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
-    padding: 16px;
-    margin-bottom: 16px;
-`;
-
-const CardHeader = styled.div`
+const PageHeaderContainer = styled.div`
     display: flex;
+    flex-direction: row;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: 16px;
+    flex-shrink: 0;
 `;
 
-const InstructionsLabel = styled.div`
-    font-family: Mulish, sans-serif;
-    font-size: 12px;
-    font-weight: 700;
-    color: ${colors.gray[1700]};
-    margin-top: 16px;
-    margin-bottom: 4px;
-`;
-
-const TextContainer = styled.div`
-    display: flex;
-    flex-direction: column;
+const TitleContainer = styled.div`
     flex: 1;
 `;
 
-const SettingText = styled.div`
-    font-size: 16px;
-    color: ${colors.gray[600]};
-    font-weight: 700;
+const HeaderActionsContainer = styled.div`
+    display: flex;
+    justify-content: flex-end;
 `;
 
-const DescriptionText = styled.div`
-    color: ${colors.gray[1700]};
-    font-size: 14px;
-    font-weight: 400;
-    line-height: 1.5;
-`;
+const TabsContainer = styled.div`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
 
-const InstructionsContainer = styled.div`
-    margin-top: 0;
-`;
+    .ant-tabs {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
 
-const CharacterCount = styled.div`
-    font-size: 12px;
-    color: ${colors.gray[500]};
-    text-align: right;
-    margin-top: 4px;
-`;
+    .ant-tabs-content-holder {
+        flex: 1;
+        overflow: clip;
+        min-height: 0;
+    }
 
-const SlackToggleSection = styled.div`
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid ${colors.gray[100]};
+    .ant-tabs-content {
+        height: 100%;
+    }
+
+    .ant-tabs-tabpane-active {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
 `;
 
 export const PlatformAiSettings = () => {
-    const { globalSettings, refetch, loading } = useGlobalSettingsContext();
-    const [updateGlobalDocsAiSettings, { loading: updatingDocsAi }] = useUpdateGlobalDocsAiSettingsMutation();
-    const [updateGlobalAiAssistantSettings, { loading: updatingAiAssistant }] =
-        useUpdateGlobalAiAssistantSettingsMutation();
-    const [updateGlobalIntegrationSettings, { loading: updatingSlack }] = useUpdateGlobalIntegrationSettingsMutation();
+    const history = useHistory();
+    const location = useLocation();
+    const { path } = useRouteMatch();
+    const { config } = useAppConfig();
 
-    // Documentation AI settings
-    const aiEnabled = globalSettings?.documentationAi?.enabled ?? false;
-    const docAiInstructions = globalSettings?.documentationAi?.instructions?.[0]?.instruction ?? '';
-    const [docAiSwitchValue, setDocAiSwitchValue] = useState(aiEnabled);
-    const [docAiInstructionsValue, setDocAiInstructionsValue] = useState(docAiInstructions);
+    const [selectedTab, setSelectedTab] = useState<AiTabType | undefined>();
+    const [showCreatePluginModal, setShowCreatePluginModal] = useState(false);
 
-    // AI Assistant settings
-    const aiAssistantInstructions = globalSettings?.aiAssistant?.instructions?.[0]?.instruction ?? '';
-    const [aiAssistantInstructionsValue, setAiAssistantInstructionsValue] = useState(aiAssistantInstructions);
+    // Determine active tab from URL
+    useEffect(() => {
+        if (selectedTab === undefined) {
+            const result = determineActiveTabFromUrl(location.pathname);
 
-    // Slack bot settings
-    const slackBotEnabled = globalSettings?.integrationSettings?.slackSettings?.datahubAtMentionEnabled ?? false;
-    const [slackBotSwitchValue, setSlackBotSwitchValue] = useState(slackBotEnabled);
+            if (result.tab) {
+                setSelectedTab(result.tab);
+            }
 
-    // Get Slack connection to check if it's configured
-    const { data: connData } = useConnectionQuery({
-        variables: {
-            urn: SLACK_CONNECTION_URN,
+            if (result.shouldRedirect && result.redirectUrl) {
+                history.replace(result.redirectUrl);
+            }
+        }
+    }, [selectedTab, location.pathname, history]);
+
+    // Check for create modal query param and open modal
+    useEffect(() => {
+        const searchParams = new URLSearchParams(location.search);
+        if (searchParams.get('create') === 'true' && selectedTab === AiTabType.Plugins) {
+            setShowCreatePluginModal(true);
+            // Clean up URL by removing query param
+            searchParams.delete('create');
+            const newSearch = searchParams.toString();
+            const newUrl = newSearch ? `${location.pathname}?${newSearch}` : location.pathname;
+            history.replace(newUrl);
+        }
+    }, [location.search, location.pathname, selectedTab, history]);
+
+    const handleTabChange = useCallback((tab: string) => {
+        setSelectedTab(tab as AiTabType);
+    }, []);
+
+    const onUrlChange = useCallback(
+        (tabPath: string) => {
+            history.push(tabPath);
         },
-    });
+        [history],
+    );
 
-    const existingConnJson = connData?.connection?.details?.json;
-    const slackConnData = existingConnJson && decodeSlackConnection(existingConnJson.blob as string);
-    const isSlackEnabled = !!slackConnData?.botToken;
+    const getCurrentUrl = useCallback(() => location.pathname, [location.pathname]);
 
-    React.useEffect(() => {
-        setDocAiSwitchValue(aiEnabled);
-        setDocAiInstructionsValue(docAiInstructions);
-        setAiAssistantInstructionsValue(aiAssistantInstructions);
-        setSlackBotSwitchValue(slackBotEnabled);
-    }, [aiEnabled, docAiInstructions, aiAssistantInstructions, slackBotEnabled]);
+    // Check if AI Plugins feature flag is enabled
+    const showAiPluginsTab = config.featureFlags.aiPluginsEnabled;
 
-    const handleDocsAiToggle = (checked: boolean) => {
-        const instructions = docAiInstructionsValue.trim()
-            ? [{ type: AiInstructionType.GeneralContext, instruction: docAiInstructionsValue.trim() }]
-            : [];
+    const tabs: Tab[] = [
+        {
+            name: 'Settings',
+            key: AiTabType.Settings,
+            component: <AiSettingsTab />,
+        },
+        // Only show Plugins tab if feature flag is enabled
+        ...(showAiPluginsTab
+            ? [
+                  {
+                      name: 'Plugins',
+                      key: AiTabType.Plugins,
+                      component: (
+                          <AiPluginsTab
+                              showCreateModal={showCreatePluginModal}
+                              setShowCreateModal={setShowCreatePluginModal}
+                          />
+                      ),
+                  },
+              ]
+            : []),
+    ];
 
-        updateGlobalDocsAiSettings({
-            variables: {
-                input: {
-                    enabled: checked,
-                    instructions,
-                },
-            },
-        })
-            .then((res) => {
-                if (res.data?.updateGlobalSettings) {
-                    message.success(`AI documentation generation ${checked ? 'enabled' : 'disabled'}`);
-                    return refetch();
-                }
-                message.error('Failed to update AI documentation setting');
-                return Promise.resolve();
-            })
-            .catch(() => {
-                message.error('Failed to update AI documentation setting');
-            });
-    };
-
-    const handleDocsAiInstructionsUpdate = () => {
-        const instructions = docAiInstructionsValue.trim()
-            ? [{ type: AiInstructionType.GeneralContext, instruction: docAiInstructionsValue.trim() }]
-            : [];
-
-        updateGlobalDocsAiSettings({
-            variables: {
-                input: {
-                    enabled: docAiSwitchValue,
-                    instructions,
-                },
-            },
-        })
-            .then((res) => {
-                if (res.data?.updateGlobalSettings) {
-                    message.success('Saved instructions!');
-                    return refetch();
-                }
-                message.error('Failed to update documentation AI instructions');
-                return Promise.resolve();
-            })
-            .catch(() => {
-                message.error('Failed to update documentation AI instructions');
-            });
-    };
-
-    const handleAiAssistantInstructionsUpdate = () => {
-        const instructions = aiAssistantInstructionsValue.trim()
-            ? [{ type: AiInstructionType.GeneralContext, instruction: aiAssistantInstructionsValue.trim() }]
-            : [];
-
-        updateGlobalAiAssistantSettings({
-            variables: {
-                input: { instructions },
-            },
-        })
-            .then((res) => {
-                if (res.data?.updateGlobalSettings) {
-                    message.success('Saved instructions!');
-                    return refetch();
-                }
-                message.error('Failed to update AI assistant instructions');
-                return Promise.resolve();
-            })
-            .catch(() => {
-                message.error('Failed to update AI assistant instructions');
-            });
-    };
-
-    const handleSlackBotToggle = (checked: boolean) => {
-        updateGlobalIntegrationSettings({
-            variables: {
-                input: {
-                    slackSettings: {
-                        datahubAtMentionEnabled: checked,
-                    },
-                },
-            },
-        })
-            .then((res) => {
-                if (res.data?.updateGlobalSettings) {
-                    message.success(`Slack @DataHub bot ${checked ? 'enabled' : 'disabled'}`);
-                    return refetch();
-                }
-                message.error('Failed to update Slack bot setting');
-                return Promise.resolve();
-            })
-            .catch(() => {
-                message.error('Failed to update Slack bot setting');
-            });
-    };
-
-    let content: React.ReactNode = null;
-    if (loading) {
-        content = <Spin style={{ marginTop: 40 }} />;
-    } else {
-        content = (
-            <>
-                {/* Ask DataHub Section */}
-                <StyledCard>
-                    <SettingText data-testid="ai-assistant-section-title">Ask DataHub</SettingText>
-                    <DescriptionText>
-                        Customize how Ask DataHub responds to questions. These instructions apply to all conversations,
-                        including across DataHub, Slack, & Microsoft Teams.
-                    </DescriptionText>
-                    <InstructionsLabel data-testid="ai-assistant-instructions-section">
-                        Chat Instructions
-                    </InstructionsLabel>
-                    <InstructionsContainer>
-                        <TextArea
-                            label=""
-                            placeholder="Add custom instructions to guide how Ask DataHub answers questions. Hint: provide specific details about concepts, processes, and anything else unique to your organization. Example: 'Our data warehouse uses Snowflake. The finance team owns all tables in the reporting schema.'"
-                            value={aiAssistantInstructionsValue}
-                            onChange={(e) => setAiAssistantInstructionsValue(e.target.value)}
-                            onBlur={handleAiAssistantInstructionsUpdate}
-                            maxLength={10000}
-                            rows={5}
-                            isDisabled={updatingAiAssistant}
-                            data-testid="ai-assistant-instructions-textarea"
-                        />
-                        {aiAssistantInstructionsValue.length >= 8000 && (
-                            <CharacterCount data-testid="ai-assistant-character-count">
-                                {aiAssistantInstructionsValue.length} / 10,000 characters
-                            </CharacterCount>
-                        )}
-                    </InstructionsContainer>
-
-                    {/* Enable Ask DataHub in Slack - nested inside Ask DataHub card */}
-                    <SlackToggleSection>
-                        <CardHeader>
-                            <TextContainer>
-                                <SettingText>Enable Ask DataHub in Slack</SettingText>
-                                <DescriptionText>
-                                    When enabled, users can mention @DataHub in Slack to ask questions about your
-                                    metadata. The{' '}
-                                    <Link to="/settings/integrations/slack" style={{ color: colors.violet['600'] }}>
-                                        Slack integration
-                                    </Link>{' '}
-                                    must be configured first.{' '}
-                                    <DocsLink
-                                        href="https://docs.datahub.com/docs/managed-datahub/slack/saas-slack-app"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        Learn more about DataHub in Slack.
-                                    </DocsLink>
-                                </DescriptionText>
-                            </TextContainer>
-                            <Switch
-                                label=""
-                                isChecked={slackBotSwitchValue}
-                                isDisabled={!isSlackEnabled || updatingSlack}
-                                onChange={(e) => handleSlackBotToggle(e.target.checked)}
-                                data-testid="slack-bot-toggle"
-                                disabledHoverText={
-                                    !isSlackEnabled
-                                        ? 'Configure Slack integration first to enable @DataHub AI'
-                                        : undefined
-                                }
-                            />
-                        </CardHeader>
-                    </SlackToggleSection>
-                </StyledCard>
-
-                {/* Enable AI Documentation Card */}
-                <StyledCard>
-                    <CardHeader>
-                        <TextContainer>
-                            <SettingText data-testid="ai-documentation-section-title">
-                                AI Documentation Generation
-                            </SettingText>
-                            <DescriptionText>
-                                When enabled, DataHub can generate documentation using AI for supported entities.{' '}
-                                <DocsLink
-                                    href="https://docs.datahub.com/docs/automations/ai-docs"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    Learn more about AI-powered documentation.
-                                </DocsLink>
-                            </DescriptionText>
-                        </TextContainer>
-                        <Switch
-                            label=""
-                            isChecked={docAiSwitchValue}
-                            isDisabled={updatingDocsAi}
-                            onChange={(e) => handleDocsAiToggle(e.target.checked)}
-                            data-testid="ai-docs-toggle"
-                        />
-                    </CardHeader>
-                    {docAiSwitchValue && (
-                        <InstructionsContainer>
-                            <InstructionsLabel data-testid="docs-ai-instructions-section">
-                                Documentation Instructions
-                            </InstructionsLabel>
-                            <TextArea
-                                label=""
-                                placeholder="Add custom instructions to guide how AI generates table and column descriptions. Hint: provide specific details about concepts, processes, and anything else unique to your organization. Example: 'Always mention the data source and refresh frequency. Use business-friendly language.'"
-                                value={docAiInstructionsValue}
-                                onChange={(e) => setDocAiInstructionsValue(e.target.value)}
-                                onBlur={handleDocsAiInstructionsUpdate}
-                                maxLength={10000}
-                                rows={5}
-                                isDisabled={updatingDocsAi}
-                                data-testid="docs-ai-instructions-textarea"
-                            />
-                            {docAiInstructionsValue.length >= 8000 && (
-                                <CharacterCount data-testid="docs-ai-character-count">
-                                    {docAiInstructionsValue.length} / 10,000 characters
-                                </CharacterCount>
-                            )}
-                        </InstructionsContainer>
-                    )}
-                </StyledCard>
-            </>
-        );
-    }
+    // Dynamic title and subtitle based on selected tab
+    const pageTitle = selectedTab === AiTabType.Plugins ? 'Ask DataHub Plugins' : 'AI';
+    const pageSubtitle =
+        selectedTab === AiTabType.Plugins
+            ? 'Configure plugins to add capabilities to Ask DataHub chat assistant. Once configured, plugins will be visible to all users.'
+            : 'Configure AI-powered features';
 
     return (
-        <Container>
-            <PageTitle title="AI" subTitle="Configure AI-powered features" />
-            <GlobalAIBanner>
-                <span>
-                    <InfoIcon />
-                    These settings are global and affect all users.
-                </span>
-            </GlobalAIBanner>
-            {content}
-        </Container>
+        <PageContainer>
+            <Switch>
+                {/* Main tabs view */}
+                <Route path={path}>
+                    <PageHeaderContainer>
+                        <TitleContainer>
+                            <PageTitle title={pageTitle} subTitle={pageSubtitle} />
+                        </TitleContainer>
+                        <HeaderActionsContainer>
+                            {selectedTab === AiTabType.Plugins && (
+                                <Button
+                                    variant="filled"
+                                    onClick={() => setShowCreatePluginModal(true)}
+                                    data-testid="create-ai-plugin-button"
+                                    icon={{ icon: 'Plus', source: 'phosphor' }}
+                                >
+                                    Create
+                                </Button>
+                            )}
+                        </HeaderActionsContainer>
+                    </PageHeaderContainer>
+                    <TabsContainer>
+                        <Tabs
+                            tabs={tabs}
+                            selectedTab={selectedTab}
+                            onChange={handleTabChange}
+                            urlMap={AI_TAB_URL_MAP}
+                            onUrlChange={onUrlChange}
+                            defaultTab={DEFAULT_AI_TAB}
+                            getCurrentUrl={getCurrentUrl}
+                        />
+                    </TabsContainer>
+                </Route>
+            </Switch>
+        </PageContainer>
     );
 };

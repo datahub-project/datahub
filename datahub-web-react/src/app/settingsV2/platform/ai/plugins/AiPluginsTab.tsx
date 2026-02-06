@@ -5,15 +5,15 @@ import styled from 'styled-components';
 import { Menu } from '@components/components/Menu/Menu';
 import { Column } from '@components/components/Table/types';
 
-import CreatePluginModal from '@app/settingsV2/platform/aiPlugins/CreatePluginModal';
-import { PluginLogo } from '@app/settingsV2/platform/aiPlugins/components/PluginLogo';
-import { usePluginActions } from '@app/settingsV2/platform/aiPlugins/hooks/usePluginActions';
+import CreatePluginModal from '@app/settingsV2/platform/ai/plugins/CreatePluginModal';
+import { PluginLogo } from '@app/settingsV2/platform/ai/plugins/components/PluginLogo';
+import { usePluginActions } from '@app/settingsV2/platform/ai/plugins/hooks/usePluginActions';
 import {
     AiPluginRow,
     createDuplicatePlugin,
     transformPluginsToRows,
-} from '@app/settingsV2/platform/aiPlugins/utils/pluginDataUtils';
-import { getAuthTypeLabel } from '@app/settingsV2/platform/aiPlugins/utils/pluginDisplayUtils';
+} from '@app/settingsV2/platform/ai/plugins/utils/pluginDataUtils';
+import { getAuthTypeLabel } from '@app/settingsV2/platform/ai/plugins/utils/pluginDisplayUtils';
 import { Button, Switch, Table, Text, colors } from '@src/alchemy-components';
 import { useGetAiPluginsQuery } from '@src/graphql/aiPlugins.generated';
 import EmptyFormsImage from '@src/images/empty-forms.svg?react';

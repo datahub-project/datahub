@@ -38,7 +38,7 @@ interface CustomHeadersModalState {
     pluginName: string;
 }
 
-export const ManageMyIntegrations: React.FC = () => {
+export const ManageMyAiSettings: React.FC = () => {
     const { data, loading, refetch } = useGetAiPluginsWithUserStatusQuery({
         fetchPolicy: 'cache-and-network',
     });
@@ -113,14 +113,14 @@ export const ManageMyIntegrations: React.FC = () => {
                     },
                 });
                 if (result.errors && result.errors.length > 0) {
-                    console.error('[ManageMyIntegrations] GraphQL errors:', result.errors);
+                    console.error('[ManageMyAiSettings] GraphQL errors:', result.errors);
                     message.error('Failed to update plugin. Please try again.');
                     return;
                 }
                 message.success(enabled ? 'Plugin enabled' : 'Plugin disabled');
                 refetch();
             } catch (err) {
-                console.error('[ManageMyIntegrations] Toggle error:', err);
+                console.error('[ManageMyAiSettings] Toggle error:', err);
                 message.error('Failed to update plugin. Please try again.');
             } finally {
                 setTogglingPluginId(null);
@@ -210,9 +210,9 @@ export const ManageMyIntegrations: React.FC = () => {
     };
 
     return (
-        <Container data-testid="my-integrations-page">
+        <Container data-testid="my-ai-settings-page">
             <PageTitle
-                title="My Integrations"
+                title="My AI Settings"
                 subTitle="Manage your AI plugin preferences for Ask DataHub. Enable plugins to use them in chat."
             />
 
@@ -243,4 +243,4 @@ export const ManageMyIntegrations: React.FC = () => {
     );
 };
 
-export default ManageMyIntegrations;
+export default ManageMyAiSettings;

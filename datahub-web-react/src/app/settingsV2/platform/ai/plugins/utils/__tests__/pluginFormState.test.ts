@@ -8,7 +8,7 @@ import {
     removeCustomHeader,
     updateCustomHeader,
     updateFormField,
-} from '@app/settingsV2/platform/aiPlugins/utils/pluginFormState';
+} from '@app/settingsV2/platform/ai/plugins/utils/pluginFormState';
 import { AiPluginAuthType, McpTransport } from '@src/types.generated';
 
 describe('pluginFormState', () => {

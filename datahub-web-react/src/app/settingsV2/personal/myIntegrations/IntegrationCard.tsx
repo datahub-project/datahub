@@ -6,7 +6,7 @@ import { Menu } from '@components/components/Menu/Menu';
 import { ItemType } from '@components/components/Menu/types';
 
 import { getAuthTypeLabel, requiresUserConnection } from '@app/settingsV2/personal/myIntegrations/utils/authTypeUtils';
-import { PluginLogo } from '@app/settingsV2/platform/aiPlugins/components/PluginLogo';
+import { PluginLogo } from '@app/settingsV2/platform/ai/plugins/components/PluginLogo';
 import { Button, Pill, Switch, colors } from '@src/alchemy-components';
 
 import { AiPluginAuthType } from '@types';
@@ -18,6 +18,8 @@ interface PluginForCard {
         properties?: {
             displayName?: string | null;
             description?: string | null;
+        } | null;
+        mcpServerProperties?: {
             url?: string | null;
         } | null;
     } | null;
@@ -103,7 +105,7 @@ const IntegrationCard: React.FC<IntegrationCardProps> = ({
 }) => {
     const displayName = plugin.service?.properties?.displayName || 'Unknown Plugin';
     const description = plugin.service?.properties?.description;
-    const url = plugin.service?.properties?.url || null;
+    const url = plugin.service?.mcpServerProperties?.url || null;
     const { authType } = plugin;
 
     const needsUserConnection = requiresUserConnection(authType);

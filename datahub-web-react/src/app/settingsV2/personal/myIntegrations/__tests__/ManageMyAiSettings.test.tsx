@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { vi } from 'vitest';
 
-import { ManageMyIntegrations } from '@app/settingsV2/personal/myIntegrations/ManageMyIntegrations';
+import { ManageMyAiSettings } from '@app/settingsV2/personal/myIntegrations/ManageMyAiSettings';
 
 import { GetAiPluginsWithUserStatusDocument } from '@graphql/aiPlugins.generated';
 import { AiPluginAuthType } from '@types';
@@ -99,7 +99,7 @@ vi.mock('@app/settingsV2/personal/aiConnections/CustomHeadersModal', () => ({
 }));
 
 // Mock PluginLogo
-vi.mock('@app/settingsV2/platform/aiPlugins/components/PluginLogo', () => ({
+vi.mock('@app/settingsV2/platform/ai/plugins/components/PluginLogo', () => ({
     PluginLogo: () => <div data-testid="plugin-logo" />,
 }));
 
@@ -140,7 +140,7 @@ const createSuccessMock = (globalPlugins: ReturnType<typeof createMockPlugin>[],
     },
 });
 
-describe('ManageMyIntegrations', () => {
+describe('ManageMyAiSettings', () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
@@ -150,7 +150,7 @@ describe('ManageMyIntegrations', () => {
 
         render(
             <MockedProvider mocks={mocks} addTypename={false}>
-                <ManageMyIntegrations />
+                <ManageMyAiSettings />
             </MockedProvider>,
         );
 
@@ -158,7 +158,7 @@ describe('ManageMyIntegrations', () => {
             expect(screen.getByTestId('page-title')).toBeInTheDocument();
         });
 
-        expect(screen.getByText('My Integrations')).toBeInTheDocument();
+        expect(screen.getByText('My AI Settings')).toBeInTheDocument();
         expect(screen.getByText(/Manage your AI plugin preferences/)).toBeInTheDocument();
     });
 
@@ -167,7 +167,7 @@ describe('ManageMyIntegrations', () => {
 
         render(
             <MockedProvider mocks={mocks} addTypename={false}>
-                <ManageMyIntegrations />
+                <ManageMyAiSettings />
             </MockedProvider>,
         );
 
@@ -179,7 +179,7 @@ describe('ManageMyIntegrations', () => {
 
         render(
             <MockedProvider mocks={mocks} addTypename={false}>
-                <ManageMyIntegrations />
+                <ManageMyAiSettings />
             </MockedProvider>,
         );
 
@@ -197,7 +197,7 @@ describe('ManageMyIntegrations', () => {
 
         render(
             <MockedProvider mocks={mocks} addTypename={false}>
-                <ManageMyIntegrations />
+                <ManageMyAiSettings />
             </MockedProvider>,
         );
 
@@ -216,7 +216,7 @@ describe('ManageMyIntegrations', () => {
 
         render(
             <MockedProvider mocks={mocks} addTypename={false}>
-                <ManageMyIntegrations />
+                <ManageMyAiSettings />
             </MockedProvider>,
         );
 
@@ -240,7 +240,7 @@ describe('ManageMyIntegrations', () => {
 
         render(
             <MockedProvider mocks={mocks} addTypename={false}>
-                <ManageMyIntegrations />
+                <ManageMyAiSettings />
             </MockedProvider>,
         );
 

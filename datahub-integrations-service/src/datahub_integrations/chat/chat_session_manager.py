@@ -447,8 +447,8 @@ mutation DisableUserPlugin($input: UpdateUserAiPluginSettingsInput!) {
             error_timestamp = int(time.time() * 1000)
             error_message = (
                 f"We couldn't connect to AI plugin **{e.plugin_name}** and have disabled it. "
-                f"You can reconnect it in [AI Connections Settings]"
-                f"(/settings/ai-connections#{e.plugin_id})."
+                f"You can reconnect it in [My AI Settings]"
+                f"(/settings/my-ai-settings#{e.plugin_id})."
             )
 
             # Save the error message to conversation
@@ -528,12 +528,12 @@ mutation DisableUserPlugin($input: UpdateUserAiPluginSettingsInput!) {
                 logger.warning(f"Plugin connection error during generation: {e}")
                 self._disable_user_plugin(user_urn, e.plugin_id)
                 settings_url = (
-                    f"{DATAHUB_FRONTEND_URL}/settings/ai-connections#{e.plugin_id}"
+                    f"{DATAHUB_FRONTEND_URL}/settings/my-ai-settings#{e.plugin_id}"
                 )
                 next_message_container[0] = NextMessage(
                     text=(
                         f"We couldn't connect to AI plugin **{e.plugin_name}** and have disconnected it. "
-                        f"You can reconnect it in [AI Connections Settings]({settings_url})."
+                        f"You can reconnect it in [My AI Settings]({settings_url})."
                     )
                 )
             except LlmDailyLimitExceededException:

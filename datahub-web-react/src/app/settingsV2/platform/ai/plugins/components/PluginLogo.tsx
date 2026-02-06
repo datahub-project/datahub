@@ -2,7 +2,7 @@ import { Plug } from '@phosphor-icons/react';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { getPluginLogoUrl } from '@app/settingsV2/platform/aiPlugins/utils/pluginLogoUtils';
+import { getPluginLogoUrl } from '@app/settingsV2/platform/ai/plugins/utils/pluginLogoUtils';
 import { colors } from '@src/alchemy-components';
 
 const LogoImage = styled.img`

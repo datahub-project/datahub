@@ -4,7 +4,7 @@ import {
     AiPluginRow,
     createDuplicatePlugin,
     transformPluginsToRows,
-} from '@app/settingsV2/platform/aiPlugins/utils/pluginDataUtils';
+} from '@app/settingsV2/platform/ai/plugins/utils/pluginDataUtils';
 import { AiPluginAuthType, AiPluginConfig } from '@src/types.generated';
 
 describe('pluginDataUtils', () => {

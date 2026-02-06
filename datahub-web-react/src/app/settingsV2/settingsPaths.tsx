@@ -8,7 +8,7 @@ import { AccessTokens } from '@app/settingsV2/AccessTokens';
 import { IdentitiesContent } from '@app/settingsV2/IdentitiesContent';
 import { Preferences } from '@app/settingsV2/Preferences';
 import ManageHelpLink from '@app/settingsV2/helpLink/ManageHelpLink';
-import { ManageMyIntegrations } from '@app/settingsV2/personal/myIntegrations';
+import { ManageMyAiSettings } from '@app/settingsV2/personal/myIntegrations';
 import { ManageActorNotifications } from '@app/settingsV2/personal/notifications/ManageActorNotifications';
 import { ManageActorSubscriptions } from '@app/settingsV2/personal/subscriptions/ManageActorSubscriptions';
 import { PlatformAiSettings } from '@app/settingsV2/platform/PlatformAiSettings';
@@ -24,7 +24,7 @@ const ACRYL_PATHS = [
     { path: 'ai', content: <PlatformAiSettings /> },
     { path: 'personal-notifications', content: <ManageActorNotifications isPersonal canManageNotifications /> },
     { path: 'personal-subscriptions', content: <ManageActorSubscriptions isPersonal /> },
-    { path: 'my-integrations', content: <ManageMyIntegrations /> },
+    { path: 'my-ai-settings', content: <ManageMyAiSettings /> },
 ];
 
 /**

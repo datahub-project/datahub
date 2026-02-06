@@ -7,7 +7,7 @@ import IntegrationCard from '@app/settingsV2/personal/myIntegrations/Integration
 import { AiPluginAuthType, AiPluginConfig, AiPluginType } from '@types';
 
 // Mock PluginLogo component
-vi.mock('@app/settingsV2/platform/aiPlugins/components/PluginLogo', () => ({
+vi.mock('@app/settingsV2/platform/ai/plugins/components/PluginLogo', () => ({
     PluginLogo: ({ displayName }: { displayName: string }) => <span data-testid="plugin-logo">{displayName}</span>,
 }));
 

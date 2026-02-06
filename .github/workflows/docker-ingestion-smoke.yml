@@ -96,6 +96,8 @@ jobs:
           context: .
           file: ./docker/datahub-ingestion-base/smoke.Dockerfile
           platforms: linux/amd64,linux/arm64/v8
+          build-args: |
+            UV_EXTRA_INDEX_URL=${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
 
   build-ingestion-base:
     name: Build and ${{ (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') && 'Push' || 'test-build' }} datahub-ingestion-base (${{ matrix.app_env == 'full' && 'default' || 'slim' }})

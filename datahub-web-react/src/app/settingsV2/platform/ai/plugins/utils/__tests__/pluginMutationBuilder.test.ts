@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_PLUGIN_FORM_STATE, PluginFormState } from '@app/settingsV2/platform/aiPlugins/utils/pluginFormState';
+import { DEFAULT_PLUGIN_FORM_STATE, PluginFormState } from '@app/settingsV2/platform/ai/plugins/utils/pluginFormState';
 import {
     buildCustomHeadersInput,
     buildNewOAuthServerInput,
@@ -8,7 +8,7 @@ import {
     buildUpsertServiceInput,
     extractOAuthServerIdFromUrn,
     parseCommaSeparatedList,
-} from '@app/settingsV2/platform/aiPlugins/utils/pluginMutationBuilder';
+} from '@app/settingsV2/platform/ai/plugins/utils/pluginMutationBuilder';
 import { AiPluginAuthType, McpTransport, ServiceSubType } from '@src/types.generated';
 
 describe('pluginMutationBuilder', () => {
