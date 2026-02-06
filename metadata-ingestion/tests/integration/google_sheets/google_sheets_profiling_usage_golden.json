@@ -1,0 +1,1292 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:961617059ed22f99bfbc085f24c77baa",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "googlesheets",
+            "description": "googlesheets Root Container"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814545,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:961617059ed22f99bfbc085f24c77baa",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Platform"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814546,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:961617059ed22f99bfbc085f24c77baa",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814546,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b328883d51f548c6f498fafc7d202796",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "My Drive",
+            "description": "Google Drive My Drive"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814548,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b328883d51f548c6f498fafc7d202796",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814549,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b328883d51f548c6f498fafc7d202796",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814549,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b328883d51f548c6f498fafc7d202796",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814550,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8b08e36681a3017248daf5484668a4bd",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "Sales Report 2024",
+            "description": "Annual sales data and analysis"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814550,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8b08e36681a3017248daf5484668a4bd",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Google Sheets Document"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814551,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8b08e36681a3017248daf5484668a4bd",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b328883d51f548c6f498fafc7d202796"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814551,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8b08e36681a3017248daf5484668a4bd",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b328883d51f548c6f498fafc7d202796",
+                    "urn": "urn:li:container:b328883d51f548c6f498fafc7d202796"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814551,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "spreadsheetId": "1abc_sales_report_2024",
+                "sheetId": "0",
+                "sheetName": "Q1 Sales",
+                "createdTime": "2024-01-01T10:00:00.000Z",
+                "modifiedTime": "2024-01-15T14:30:00.000Z",
+                "webViewLink": "https://docs.google.com/spreadsheets/d/1abc_sales_report_2024"
+            },
+            "name": "Q1 Sales",
+            "description": "Annual sales data and analysis",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814553,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:john.doe@company.com",
+                    "type": "DATAOWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jane.smith@company.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814554,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Q1 Sales",
+            "platform": "urn:li:dataPlatform:googlesheets",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Date",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "DATE",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Product",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Quantity",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Revenue",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Region",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814555,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:8b08e36681a3017248daf5484668a4bd"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814556,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Google Sheet Tab"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814557,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814557,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1770115814553,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 3
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814557,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "My Drive",
+                    "urn": "urn:li:container:b328883d51f548c6f498fafc7d202796"
+                },
+                {
+                    "id": "File 1abc_sales_report_2024",
+                    "urn": "urn:li:container:98d1c8d8ecaf631af6ba944d8db68805"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814558,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "spreadsheetId": "1abc_sales_report_2024",
+                "sheetId": "1",
+                "sheetName": "Q2 Sales",
+                "createdTime": "2024-01-01T10:00:00.000Z",
+                "modifiedTime": "2024-01-15T14:30:00.000Z",
+                "webViewLink": "https://docs.google.com/spreadsheets/d/1abc_sales_report_2024"
+            },
+            "name": "Q2 Sales",
+            "description": "Annual sales data and analysis",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814560,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:john.doe@company.com",
+                    "type": "DATAOWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jane.smith@company.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814561,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Q2 Sales",
+            "platform": "urn:li:dataPlatform:googlesheets",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Date",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "DATE",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Product",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Quantity",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Revenue",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Region",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814562,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:8b08e36681a3017248daf5484668a4bd"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814563,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Google Sheet Tab"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814565,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814565,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1770115814559,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 3
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814566,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,1abc_sales_report_2024/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "My Drive",
+                    "urn": "urn:li:container:b328883d51f548c6f498fafc7d202796"
+                },
+                {
+                    "id": "File 1abc_sales_report_2024",
+                    "urn": "urn:li:container:98d1c8d8ecaf631af6ba944d8db68805"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814566,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:113be03a1c021f489d92b99a2c6aa48a",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "Product Catalog",
+            "description": "Master product list"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814567,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:113be03a1c021f489d92b99a2c6aa48a",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Google Sheets Document"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814567,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:113be03a1c021f489d92b99a2c6aa48a",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b328883d51f548c6f498fafc7d202796"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814568,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:113be03a1c021f489d92b99a2c6aa48a",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b328883d51f548c6f498fafc7d202796",
+                    "urn": "urn:li:container:b328883d51f548c6f498fafc7d202796"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814568,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "spreadsheetId": "2def_product_catalog",
+                "sheetId": "0",
+                "sheetName": "Q1 Sales",
+                "createdTime": "2024-02-01T09:00:00.000Z",
+                "modifiedTime": "2024-02-10T11:20:00.000Z",
+                "webViewLink": "https://docs.google.com/spreadsheets/d/2def_product_catalog"
+            },
+            "name": "Q1 Sales",
+            "description": "Master product list",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814570,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:product.manager@company.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814571,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Q1 Sales",
+            "platform": "urn:li:dataPlatform:googlesheets",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Date",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "DATE",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Product",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Quantity",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Revenue",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Region",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814572,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:113be03a1c021f489d92b99a2c6aa48a"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814573,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Google Sheet Tab"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814574,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814574,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1770115814570,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 3
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814574,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q1 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "My Drive",
+                    "urn": "urn:li:container:b328883d51f548c6f498fafc7d202796"
+                },
+                {
+                    "id": "File 2def_product_catalog",
+                    "urn": "urn:li:container:e4043003fd53e4c26fa68366d33c19e3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814575,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "spreadsheetId": "2def_product_catalog",
+                "sheetId": "1",
+                "sheetName": "Q2 Sales",
+                "createdTime": "2024-02-01T09:00:00.000Z",
+                "modifiedTime": "2024-02-10T11:20:00.000Z",
+                "webViewLink": "https://docs.google.com/spreadsheets/d/2def_product_catalog"
+            },
+            "name": "Q2 Sales",
+            "description": "Master product list",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814576,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:product.manager@company.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814577,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Q2 Sales",
+            "platform": "urn:li:dataPlatform:googlesheets",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Date",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "DATE",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Product",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Quantity",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Revenue",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMBER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Region",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814578,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:113be03a1c021f489d92b99a2c6aa48a"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814579,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Google Sheet Tab"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814580,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814581,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1770115814576,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 3
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814581,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,2def_product_catalog/Q2 Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "My Drive",
+                    "urn": "urn:li:container:b328883d51f548c6f498fafc7d202796"
+                },
+                {
+                    "id": "File 2def_product_catalog",
+                    "urn": "urn:li:container:e4043003fd53e4c26fa68366d33c19e3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814582,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:113be03a1c021f489d92b99a2c6aa48a",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814582,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8b08e36681a3017248daf5484668a4bd",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814583,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:961617059ed22f99bfbc085f24c77baa",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770115814583,
+        "runId": "google-sheets-2026_02_03-10_50_14-2ovwam",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

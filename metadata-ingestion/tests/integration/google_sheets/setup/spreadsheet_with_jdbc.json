@@ -1,0 +1,94 @@
+{
+  "spreadsheetId": "3ghi_engineering_metrics",
+  "properties": {
+    "title": "Engineering Metrics Dashboard",
+    "locale": "en_US",
+    "timeZone": "America/Los_Angeles"
+  },
+  "sheets": [
+    {
+      "properties": {
+        "sheetId": 0,
+        "title": "BigQuery Data",
+        "index": 0,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 200,
+          "columnCount": 12
+        }
+      },
+      "data": [
+        {
+          "rowData": [
+            {
+              "values": [
+                {"formattedValue": "Metric", "userEnteredValue": {"stringValue": "Metric"}},
+                {"formattedValue": "Value", "userEnteredValue": {"stringValue": "Value"}},
+                {"formattedValue": "Date", "userEnteredValue": {"stringValue": "Date"}}
+              ]
+            },
+            {
+              "values": [
+                {"formattedValue": "Deployments", "userEnteredValue": {"stringValue": "Deployments"}},
+                {
+                  "formattedValue": "42",
+                  "userEnteredValue": {
+                    "formulaValue": "=QUERY(\"jdbc:bigquery://https://www.googleapis.com/bigquery/v2:443;ProjectId=my-project;OAuthType=0;OAuthServiceAcctEmail=my-service@my-project.iam.gserviceaccount.com;OAuthPvtKeyPath=/path/to/key.json\",\"SELECT COUNT(*) FROM `my-project.analytics.deployments` WHERE date = CURRENT_DATE()\")"
+                  }
+                },
+                {"formattedValue": "2024-03-20", "userEnteredValue": {"stringValue": "2024-03-20"}}
+              ]
+            },
+            {
+              "values": [
+                {"formattedValue": "PR Count", "userEnteredValue": {"stringValue": "PR Count"}},
+                {
+                  "formattedValue": "156",
+                  "userEnteredValue": {
+                    "formulaValue": "=QUERY(\"jdbc:bigquery://https://www.googleapis.com/bigquery/v2:443;ProjectId=my-project\",\"SELECT COUNT(*) as pr_count FROM `my-project.analytics.pull_requests` WHERE status = 'merged'\")"
+                  }
+                },
+                {"formattedValue": "2024-03-20", "userEnteredValue": {"stringValue": "2024-03-20"}}
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "properties": {
+        "sheetId": 1,
+        "title": "Snowflake Data",
+        "index": 1,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 150,
+          "columnCount": 10
+        }
+      },
+      "data": [
+        {
+          "rowData": [
+            {
+              "values": [
+                {"formattedValue": "Team", "userEnteredValue": {"stringValue": "Team"}},
+                {"formattedValue": "Velocity", "userEnteredValue": {"stringValue": "Velocity"}}
+              ]
+            },
+            {
+              "values": [
+                {"formattedValue": "Backend", "userEnteredValue": {"stringValue": "Backend"}},
+                {
+                  "formattedValue": "85",
+                  "userEnteredValue": {
+                    "formulaValue": "=QUERY(\"jdbc:snowflake://acme.snowflakecomputing.com/?warehouse=COMPUTE_WH&db=ANALYTICS&schema=METRICS\",\"SELECT AVG(story_points) FROM team_metrics WHERE team_name = 'Backend'\")"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

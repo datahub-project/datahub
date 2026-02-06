@@ -1,0 +1,258 @@
+# Google Sheets to DataHub - Comprehensive Example Recipe
+# This recipe demonstrates all configuration options for the Google Sheets connector
+
+source:
+  type: "google-sheets"
+  config:
+    # ========================================
+    # REQUIRED: Authentication
+    # ========================================
+    # Path to service account credentials JSON file
+    # Create service account at: https://console.cloud.google.com/iam-admin/serviceaccounts
+    credentials: "/path/to/service-account-credentials.json"
+
+    # ========================================
+    # OPTIONAL: Platform Configuration
+    # ========================================
+    # Platform instance identifier (useful for multiple Google Workspace tenants)
+    platform_instance: "production"
+
+    # Environment for the metadata (PROD, DEV, QA, etc.)
+    env: "PROD"
+
+    # ========================================
+    # FILTERING: Sheet Name Patterns
+    # ========================================
+    # Control which sheets to ingest based on name patterns
+    sheet_patterns:
+      allow:
+        - ".*" # Include all sheets by default
+      deny:
+        - "^test_.*" # Exclude sheets starting with "test_"
+        - ".*_draft$" # Exclude sheets ending with "_draft"
+        - "temp_.*" # Exclude temp sheets
+
+    # ========================================
+    # FILTERING: Folder Paths
+    # ========================================
+    # Control which folders to scan based on path patterns
+    folder_patterns:
+      allow:
+        - "DataSets/**" # Only scan DataSets folders
+        - "Analytics/**"
+        - "Reports/**"
+      deny:
+        - "**/Archive/**" # Exclude Archive folders
+        - "**/WIP/**" # Exclude Work In Progress folders
+
+    # ========================================
+    # FILTERING: Shared Drives (NEW)
+    # ========================================
+    # Scan shared drives in addition to 'My Drive'
+    scan_shared_drives: true
+
+    # Filter which Shared Drives to scan by name (NEW FEATURE)
+    # Only applicable when scan_shared_drives=true
+    shared_drive_patterns:
+      allow:
+        - "Engineering*" # All drives starting with "Engineering"
+        - "Data Team"
+        - "Analytics*"
+        - "Product*"
+      deny:
+        - "*Archive*" # Exclude any drive with "Archive"
+        - "*2020*" # Exclude old year drives
+        - "*2021*"
+        - "*Legacy*"
+
+    # ========================================
+    # HEADER DETECTION (NEW)
+    # ========================================
+    # Configure how header rows are detected
+    # Options: "first_row" (default), "auto_detect", "none"
+    header_detection_mode: "auto_detect"
+
+    # Explicit header row index (0-based), overrides header_detection_mode
+    # Example: header_row_index: 3 means row 4 is the header
+    header_row_index: null
+
+    # Skip empty rows at the beginning before detecting headers
+    skip_empty_leading_rows: true
+
+    # ========================================
+    # DATASET STRUCTURE
+    # ========================================
+    # Choose how sheets are represented in DataHub
+    # - false (default): Each Google Sheets file is a dataset
+    # - true: Each sheet/tab within a file becomes a separate dataset
+    sheets_as_datasets: false
+
+    # ========================================
+    # METADATA EXTRACTION
+    # ========================================
+    # Extract tags from Google Drive labels
+    extract_tags: true
+
+    # Extract named ranges as custom properties
+    extract_named_ranges: true
+
+    # ========================================
+    # LINEAGE & FORMULAS
+    # ========================================
+    # Extract lineage from formulas (IMPORTRANGE, QUERY, database connections)
+    extract_lineage_from_formulas: true
+
+    # Enable cross-platform lineage (e.g., Google Sheets → BigQuery)
+    enable_cross_platform_lineage: true
+
+    # Extract column-level lineage from formulas
+    extract_column_level_lineage: true
+
+    # Parse SQL queries in formulas (QUERY function) for detailed lineage
+    parse_sql_for_lineage: true
+
+    # Convert lineage URNs to lowercase (recommended for case-insensitive databases)
+    convert_lineage_urns_to_lowercase: true
+
+    # Platform instance mapping for cross-platform lineage
+    # Maps database names to platform instances for accurate URN construction
+    database_platform_instance_map:
+      my_bigquery_project: "prod-bigquery"
+      analytics_db: "prod-snowflake"
+      data_warehouse: "prod-redshift"
+
+    # ========================================
+    # USAGE STATISTICS
+    # ========================================
+    # Extract view counts and user activity
+    extract_usage_stats: true
+
+    # ========================================
+    # API & PERFORMANCE
+    # ========================================
+    # Retry settings for Google API requests
+    max_retries: 3
+    retry_delay: 1 # seconds between retries
+
+    # Rate limiting (requests per second)
+    requests_per_second: 10
+
+    # ========================================
+    # DATA PROFILING
+    # ========================================
+    profiling:
+      enabled: true # Enable data profiling
+      
+      # Row limit for profiling (default: 10000)
+      limit: 10000
+      
+      # Profile statistics to include
+      include_field_null_count: true
+      include_field_min_value: true
+      include_field_max_value: true
+      include_field_mean_value: true
+      include_field_median_value: true
+      include_field_stddev_value: true
+      include_field_quantiles: true
+      include_field_distinct_value_frequencies: true
+      include_field_histogram: true
+      include_field_sample_values: true
+      
+      # Limit number of fields to profile (null = all fields)
+      max_number_of_fields_to_profile: null
+
+    # ========================================
+    # INCREMENTAL INGESTION
+    # ========================================
+    # Enable incremental ingestion (only process changed sheets)
+    enable_incremental_ingestion: true
+
+    # ========================================
+    # STATEFUL INGESTION & CLEANUP
+    # ========================================
+    # Track state and remove stale entities
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+      
+      # Fail-safe threshold (% of entities that can be deleted)
+      fail_safe_threshold: 100.0
+      
+      # State provider configuration
+      state_provider:
+        type: datahub
+        config: {}
+
+# ========================================
+# SINK: Where to send metadata
+# ========================================
+sink:
+  type: "datahub-rest"
+  config:
+    # DataHub GMS server
+    server: "http://localhost:8080"
+    
+    # Optional: authentication token
+    # token: "${DATAHUB_TOKEN}"
+
+# ========================================
+# EXAMPLE USE CASES
+# ========================================
+
+# Use Case 1: Basic Setup (My Drive Only)
+# ----------------------------------------
+# source:
+#   type: "google-sheets"
+#   config:
+#     credentials: "/path/to/creds.json"
+
+# Use Case 2: Scan Specific Shared Drives
+# ----------------------------------------
+# source:
+#   type: "google-sheets"
+#   config:
+#     credentials: "/path/to/creds.json"
+#     scan_shared_drives: true
+#     shared_drive_patterns:
+#       allow:
+#         - "Engineering*"
+#         - "Data Team"
+
+# Use Case 3: Auto-Detect Headers with Filtering
+# -----------------------------------------------
+# source:
+#   type: "google-sheets"
+#   config:
+#     credentials: "/path/to/creds.json"
+#     header_detection_mode: "auto_detect"
+#     skip_empty_leading_rows: true
+#     folder_patterns:
+#       allow:
+#         - "DataSets/**"
+
+# Use Case 4: Cross-Platform Lineage (Sheets → BigQuery)
+# -------------------------------------------------------
+# source:
+#   type: "google-sheets"
+#   config:
+#     credentials: "/path/to/creds.json"
+#     enable_cross_platform_lineage: true
+#     parse_sql_for_lineage: true
+#     convert_lineage_urns_to_lowercase: true
+#     database_platform_instance_map:
+#       my_project: "prod-bigquery"
+
+# Use Case 5: Production Setup with Profiling & Incremental
+# ----------------------------------------------------------
+# source:
+#   type: "google-sheets"
+#   config:
+#     credentials: "/path/to/creds.json"
+#     scan_shared_drives: true
+#     header_detection_mode: "auto_detect"
+#     enable_incremental_ingestion: true
+#     profiling:
+#       enabled: true
+#       limit: 10000
+#     stateful_ingestion:
+#       enabled: true

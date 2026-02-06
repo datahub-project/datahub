@@ -11,6 +11,8 @@ export enum FieldType {
     DICT,
     TEXTAREA,
     DATE,
+    NUMBER,
+    FILE,
 }
 
 interface Option {

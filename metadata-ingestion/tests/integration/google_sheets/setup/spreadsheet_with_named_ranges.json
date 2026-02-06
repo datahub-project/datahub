@@ -1,0 +1,82 @@
+{
+  "spreadsheetId": "4jkl_budget_template",
+  "properties": {
+    "title": "Budget Template 2024",
+    "locale": "en_US",
+    "timeZone": "America/New_York"
+  },
+  "sheets": [
+    {
+      "properties": {
+        "sheetId": 0,
+        "title": "Budget",
+        "index": 0,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 100,
+          "columnCount": 15
+        }
+      },
+      "data": [
+        {
+          "rowData": [
+            {
+              "values": [
+                {"formattedValue": "Category", "userEnteredValue": {"stringValue": "Category"}},
+                {"formattedValue": "Q1", "userEnteredValue": {"stringValue": "Q1"}},
+                {"formattedValue": "Q2", "userEnteredValue": {"stringValue": "Q2"}},
+                {"formattedValue": "Q3", "userEnteredValue": {"stringValue": "Q3"}},
+                {"formattedValue": "Q4", "userEnteredValue": {"stringValue": "Q4"}},
+                {"formattedValue": "Total", "userEnteredValue": {"stringValue": "Total"}}
+              ]
+            },
+            {
+              "values": [
+                {"formattedValue": "Engineering", "userEnteredValue": {"stringValue": "Engineering"}},
+                {"formattedValue": "100000", "userEnteredValue": {"numberValue": 100000}},
+                {"formattedValue": "110000", "userEnteredValue": {"numberValue": 110000}},
+                {"formattedValue": "120000", "userEnteredValue": {"numberValue": 120000}},
+                {"formattedValue": "130000", "userEnteredValue": {"numberValue": 130000}},
+                {"formattedValue": "460000", "userEnteredValue": {"formulaValue": "=SUM(B2:E2)"}}
+              ]
+            },
+            {
+              "values": [
+                {"formattedValue": "Marketing", "userEnteredValue": {"stringValue": "Marketing"}},
+                {"formattedValue": "50000", "userEnteredValue": {"numberValue": 50000}},
+                {"formattedValue": "55000", "userEnteredValue": {"numberValue": 55000}},
+                {"formattedValue": "60000", "userEnteredValue": {"numberValue": 60000}},
+                {"formattedValue": "65000", "userEnteredValue": {"numberValue": 65000}},
+                {"formattedValue": "230000", "userEnteredValue": {"formulaValue": "=SUM(B3:E3)"}}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "namedRanges": [
+    {
+      "namedRangeId": "nr1",
+      "name": "QuarterlyBudget",
+      "range": {
+        "sheetId": 0,
+        "startRowIndex": 1,
+        "endRowIndex": 3,
+        "startColumnIndex": 1,
+        "endColumnIndex": 5
+      }
+    },
+    {
+      "namedRangeId": "nr2",
+      "name": "TotalColumn",
+      "range": {
+        "sheetId": 0,
+        "startRowIndex": 1,
+        "endRowIndex": 3,
+        "startColumnIndex": 5,
+        "endColumnIndex": 6
+      }
+    }
+  ]
+}

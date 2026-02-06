@@ -1,0 +1,68 @@
+{
+  "spreadsheetId": "1abc_sales_report_2024",
+  "properties": {
+    "title": "Sales Report 2024",
+    "locale": "en_US",
+    "timeZone": "America/New_York"
+  },
+  "sheets": [
+    {
+      "properties": {
+        "sheetId": 0,
+        "title": "Q1 Sales",
+        "index": 0,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 100,
+          "columnCount": 10,
+          "frozenRowCount": 1
+        }
+      },
+      "data": [
+        {
+          "rowData": [
+            {
+              "values": [
+                {"formattedValue": "Date", "userEnteredValue": {"stringValue": "Date"}},
+                {"formattedValue": "Product", "userEnteredValue": {"stringValue": "Product"}},
+                {"formattedValue": "Quantity", "userEnteredValue": {"stringValue": "Quantity"}},
+                {"formattedValue": "Revenue", "userEnteredValue": {"stringValue": "Revenue"}},
+                {"formattedValue": "Region", "userEnteredValue": {"stringValue": "Region"}}
+              ]
+            },
+            {
+              "values": [
+                {"formattedValue": "2024-01-01", "userEnteredValue": {"stringValue": "2024-01-01"}},
+                {"formattedValue": "Widget A", "userEnteredValue": {"stringValue": "Widget A"}},
+                {"formattedValue": "150", "userEnteredValue": {"numberValue": 150}},
+                {"formattedValue": "15000", "userEnteredValue": {"numberValue": 15000}},
+                {"formattedValue": "North", "userEnteredValue": {"stringValue": "North"}}
+              ]
+            },
+            {
+              "values": [
+                {"formattedValue": "2024-01-02", "userEnteredValue": {"stringValue": "2024-01-02"}},
+                {"formattedValue": "Widget B", "userEnteredValue": {"stringValue": "Widget B"}},
+                {"formattedValue": "200", "userEnteredValue": {"numberValue": 200}},
+                {"formattedValue": "30000", "userEnteredValue": {"numberValue": 30000}},
+                {"formattedValue": "South", "userEnteredValue": {"stringValue": "South"}}
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "properties": {
+        "sheetId": 1,
+        "title": "Q2 Sales",
+        "index": 1,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 100,
+          "columnCount": 10
+        }
+      }
+    }
+  ]
+}

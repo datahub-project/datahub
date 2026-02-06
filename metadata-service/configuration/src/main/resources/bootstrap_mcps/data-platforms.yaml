@@ -796,7 +796,17 @@
     name: hex
     displayName: Hex
     type: OTHERS
-    logoUrl: "assets/platforms/hex.png"
+    logoUrl: "/assets/platforms/hex.png"
+- entityUrn: urn:li:dataPlatform:gsheet
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: gsheet
+    displayName: Google Sheets
+    type: OTHERS
+    logoUrl: "/assets/platforms/gsheet.svg"
 - entityUrn: urn:li:dataPlatform:grafana
   entityType: dataPlatform
   aspectName: dataPlatformInfo

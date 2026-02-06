@@ -185,6 +185,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [DYNAMODB_URN]: dynamodbLogo,
     [ELASTICSEARCH_URN]: elasticsearchLogo,
     [FEAST_URN]: feastLogo,
+    [GOOGLE_SHEETS_URN]: googleSheetsLogo,
     [GLUE_URN]: glueLogo,
     [GRAFANA_URN]: grafanaLogo,
     [HIVE_URN]: hiveLogo,
