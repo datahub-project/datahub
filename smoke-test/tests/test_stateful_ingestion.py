@@ -1,17 +1,13 @@
-from typing import Any, Dict, Optional, Union, cast
+from typing import Any, Dict, Union, cast
 
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
 
 from datahub.ingestion.api.committable import StatefulCommittable
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
-from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
+from datahub.ingestion.source.sql.mysql import MySQLConfig
+from datahub.ingestion.source.sql.postgres import PostgresConfig
+from datahub.testing.state_helpers import get_current_checkpoint_from_pipeline
 from tests.utils import get_db_password, get_db_type, get_db_url, get_db_username
 
 
@@ -49,22 +45,6 @@ def test_stateful_ingestion(auth_session):
             assert stateful_committable.has_successfully_committed()
             assert stateful_committable.state_to_commit
         assert provider_count == 1
-
-    def get_current_checkpoint_from_pipeline(
-        auth_session,
-        pipeline: Pipeline,
-    ) -> Optional[Checkpoint[GenericCheckpointState]]:
-        # TODO: Refactor to use the helper method in the metadata-ingestion tests, instead of copying it here.
-        sql_source: Union[MySQLSource, PostgresSource]
-        if get_db_type() == "mysql":
-            sql_source = cast(MySQLSource, pipeline.source)
-        else:
-            sql_source = cast(PostgresSource, pipeline.source)
-        return sql_source.state_provider.get_current_checkpoint(
-            StaleEntityRemovalHandler.compute_job_id(
-                getattr(sql_source, "platform", "default")
-            )
-        )
 
     source_config_dict: Dict[str, Any] = {
         "host_port": get_db_url(),
@@ -113,14 +93,14 @@ def test_stateful_ingestion(auth_session):
 
     # 3. Do the first run of the pipeline and get the default job's checkpoint.
     pipeline_run1 = run_and_get_pipeline(pipeline_config_dict)
-    checkpoint1 = get_current_checkpoint_from_pipeline(auth_session, pipeline_run1)
+    checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
     assert checkpoint1
     assert checkpoint1.state
 
     # 4. Drop table t1 created during step 2 + rerun the pipeline and get the checkpoint state.
     drop_table(sql_engine, table_names[0])
     pipeline_run2 = run_and_get_pipeline(pipeline_config_dict)
-    checkpoint2 = get_current_checkpoint_from_pipeline(auth_session, pipeline_run2)
+    checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
     assert checkpoint2
     assert checkpoint2.state
 

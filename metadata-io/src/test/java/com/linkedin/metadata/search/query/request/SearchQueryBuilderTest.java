@@ -479,7 +479,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         Optional.<String>empty(),
                         Optional.<Boolean>empty(),
                         Optional.<String>empty(),
-                        Optional.<Boolean>empty()),
+                        Optional.<Boolean>empty(),
+                        false),
                     mock(DataSchema.class)),
                 new SearchableFieldSpec(
                     mock(PathSpec.class),
@@ -504,7 +505,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         Optional.<String>empty(),
                         Optional.<Boolean>empty(),
                         Optional.<String>empty(),
-                        Optional.<Boolean>empty()),
+                        Optional.<Boolean>empty(),
+                        false),
                     mock(DataSchema.class)),
                 new SearchableFieldSpec(
                     mock(PathSpec.class),
@@ -529,7 +531,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         Optional.<String>empty(),
                         Optional.<Boolean>empty(),
                         Optional.<String>empty(),
-                        Optional.<Boolean>empty()),
+                        Optional.<Boolean>empty(),
+                        false),
                     mock(DataSchema.class))));
 
     fieldConfigs =

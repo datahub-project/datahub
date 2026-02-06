@@ -22,8 +22,10 @@ import com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
+import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.PoliciesConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
+import com.linkedin.metadata.entity.AspectSizePayloadValidator;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
 import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidator;
@@ -43,6 +45,7 @@ import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGe
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -578,5 +581,19 @@ public class SpringStandardPluginConfiguration {
                             .aspectName(DATAHUB_POLICY_INFO_ASPECT_NAME)
                             .build()))
                 .build());
+  }
+
+  @Bean
+  public com.linkedin.metadata.aspect.SystemAspectValidator aspectSizePayloadValidator(
+      ConfigurationProvider configProvider,
+      @Nullable com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
+    AspectSizeValidationConfiguration config =
+        configProvider.getDatahub().getValidation().getAspectSize();
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, metricUtils);
+    log.info(
+        "Initialized AspectSizePayloadValidator with config: prePatch={}, postPatch={}",
+        config.getPrePatch(),
+        config.getPostPatch());
+    return validator;
   }
 }

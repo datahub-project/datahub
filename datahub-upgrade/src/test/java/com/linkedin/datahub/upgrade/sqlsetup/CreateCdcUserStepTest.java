@@ -482,6 +482,8 @@ public class CreateCdcUserStepTest {
     verify(mockDatabase).dataSource();
     verify(mockConnection, times(6)).prepareStatement(anyString());
     verify(mockPreparedStatement, times(6)).executeUpdate();
+    // Verify commit is called to persist the transaction
+    verify(mockConnection).commit();
   }
 
   @Test

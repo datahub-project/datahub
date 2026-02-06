@@ -25,7 +25,7 @@ export interface RecipeField {
     label: string;
     dynamicLabel?: (values: FieldsValues) => string;
     tooltip: string | React.ReactNode;
-    helper?: string;
+    helper?: string | React.ReactNode;
     type: FieldType;
     fieldPath: string | string[];
     rules: any[] | null;
@@ -316,7 +316,7 @@ export const INCLUDE_TABLE_LINEAGE: RecipeField = {
     name: 'include_table_lineage',
     label: 'Include Table Lineage',
     helper: 'Extract Table-Level lineage',
-    tooltip: 'Extract Tabel-Level lineage metadata. Enabling this may increase the duration of the sync.',
+    tooltip: 'Extract Table-Level lineage metadata. Enabling this may increase the duration of the sync.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.include_table_lineage',
     rules: null,

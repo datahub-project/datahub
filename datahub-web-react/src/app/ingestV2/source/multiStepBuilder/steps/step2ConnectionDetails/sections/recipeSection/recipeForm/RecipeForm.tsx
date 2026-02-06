@@ -1,6 +1,6 @@
 import { spacing } from '@components';
-import { Form, message } from 'antd';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Form, FormInstance, message } from 'antd';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
@@ -56,15 +56,24 @@ function getInitialValues(displayRecipe: string, allFields: RecipeField[]) {
 interface Props {
     state: MultiStepSourceBuilderState;
     displayRecipe: string;
+    form: FormInstance<any>;
+    runFormValidation: () => void;
     sourceConfigs?: SourceConfig;
     setStagedRecipe: (recipe: string) => void;
     selectedSource?: IngestionSource;
-    setIsRecipeValid?: (isValid: boolean) => void;
 }
 
-function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, selectedSource, setIsRecipeValid }: Props) {
-    const [form] = Form.useForm();
+function RecipeForm({
+    state,
+    displayRecipe,
+    form,
+    runFormValidation,
+    sourceConfigs,
+    setStagedRecipe,
+    selectedSource,
+}: Props) {
     const areFormValuesChangedRef = useRef<boolean>(false);
+    const areFormValuesInitializedRef = useRef<boolean>(false);
 
     const formValues = Form.useWatch([], form);
 
@@ -79,17 +88,7 @@ function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, sele
         };
     }, [recipeFields, formValues]);
 
-    const runFormValidation = useCallback(() => {
-        form.validateFields()
-            .then(() => {
-                setIsRecipeValid?.(true);
-            })
-            .catch((error) => {
-                // FYI: `error` could be triggered with empty list of `errorFields` when form is valid
-                const hasErrors = (error.errorFields?.length ?? 0) > 0;
-                setIsRecipeValid?.(!hasErrors);
-            });
-    }, [form, setIsRecipeValid]);
+    const [initialValues, setInitialValues] = useState({});
 
     // Run validation when fields changed. Required to revalidate hidden/shown fields
     useEffect(() => {
@@ -104,6 +103,16 @@ function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, sele
         () => [...fields, ...advancedFields, ...filterFields],
         [fields, advancedFields, filterFields],
     );
+
+    useEffect(() => {
+        if (areFormValuesInitializedRef.current) {
+            return;
+        }
+        areFormValuesInitializedRef.current = true;
+        const values = getInitialValues(displayRecipe, allFields);
+        setInitialValues(values);
+        form.setFieldsValue(values);
+    }, [allFields, displayRecipe, form]);
 
     const { getConnectorsWithTestConnection: getConnectorsWithTestConnectionFromHook } = useCapabilitySummary();
 
@@ -156,12 +165,7 @@ function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, sele
     );
 
     return (
-        <Form
-            layout="vertical"
-            initialValues={getInitialValues(displayRecipe, allFields)}
-            form={form}
-            onValuesChange={updateFormValues}
-        >
+        <Form layout="vertical" initialValues={initialValues} form={form} onValuesChange={updateFormValues}>
             <SectionsContainer>
                 <FormHeader />
 

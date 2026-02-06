@@ -74,7 +74,7 @@ export function IngestionSourceUpdatePage() {
             const shouldRun = options?.shouldRun;
             try {
                 const source = ingestionSourceData?.ingestionSource as IngestionSource | undefined;
-                const input = getIngestionSourceMutationInput(data);
+                const input = getIngestionSourceMutationInput(data, source);
                 await updateIngestionSource(urn, input, data.owners, source?.ownership?.owners || []);
 
                 if (ingestionSourcesListQueryInputs) {
@@ -117,6 +117,7 @@ export function IngestionSourceUpdatePage() {
 
                 history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
                     createdOrUpdatedSourceUrn: urn,
+                    sourcesListQueryInputs: ingestionSourcesListQueryInputs,
                     shouldRun,
                 });
             } catch (e: unknown) {
@@ -150,8 +151,17 @@ export function IngestionSourceUpdatePage() {
             sourceType: ingestionSourceData?.ingestionSource?.type,
             exitType: 'cancel',
         });
-        history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION);
-    }, [history, ingestionSourceData?.ingestionSource?.type, ingestionSourcesListBackUrl]);
+        history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
+            createdOrUpdatedSourceUrn: urn,
+            sourcesListQueryInputs: ingestionSourcesListQueryInputs,
+        });
+    }, [
+        history,
+        ingestionSourceData?.ingestionSource?.type,
+        ingestionSourcesListBackUrl,
+        urn,
+        ingestionSourcesListQueryInputs,
+    ]);
 
     const isDirtyChecker = useCallback(
         (

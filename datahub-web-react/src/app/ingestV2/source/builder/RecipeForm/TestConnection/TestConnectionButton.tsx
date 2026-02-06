@@ -18,16 +18,18 @@ import {
 } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult, IngestionSource } from '@types';
 
-export function getRecipeJson(recipeYaml: string) {
+export function getRecipeJson(recipeYaml: string, hideWarnings?: boolean) {
     // Convert the recipe into it's json representation, and catch + report exceptions while we do it.
     let recipeJson;
     try {
         recipeJson = yamlToJson(recipeYaml);
     } catch (e) {
-        const messageText = (e as any).parsedLine
-            ? `Please fix line ${(e as any).parsedLine} in your recipe.`
-            : 'Please check your recipe configuration.';
-        message.warn(`Found invalid YAML. ${messageText}`);
+        if (!hideWarnings) {
+            const messageText = (e as any).parsedLine
+                ? `Please fix line ${(e as any).parsedLine} in your recipe.`
+                : 'Please check your recipe configuration.';
+            message.warn(`Found invalid YAML. ${messageText}`);
+        }
         return null;
     }
     return recipeJson;
