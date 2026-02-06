@@ -257,7 +257,7 @@ public class Application extends Controller {
     int verboseGraphQLLongQueryMillis = config.getInt("graphql.verbose.slowQueryMillis");
     long timeElapsed = Duration.between(start, Instant.now()).toMillis();
     if (verboseGraphQLLogging && timeElapsed >= verboseGraphQLLongQueryMillis) {
-      logSlowQuery(request, resolvedUri, timeElapsed);
+      logSlowQuery(request, resolvedUri, (float) timeElapsed);
     }
     ResponseHeader header = buildProxyResponseHeader(apiResponse, useStreaming);
     Optional<String> contentType = apiResponse.headers().firstValue(Http.HeaderNames.CONTENT_TYPE);
