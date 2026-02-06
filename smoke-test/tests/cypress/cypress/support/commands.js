@@ -91,6 +91,7 @@ Cypress.Commands.add("deleteUrn", (urn) => {
       "X-RestLi-Protocol-Version": "2.0.0",
       "Content-Type": "application/json",
     },
+    failOnStatusCode: false,
   });
 });
 

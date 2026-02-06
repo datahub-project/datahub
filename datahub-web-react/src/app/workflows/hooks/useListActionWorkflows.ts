@@ -5,7 +5,7 @@ import { ActionWorkflowFragment, useListActionWorkflowsQuery } from '@graphql/ac
 import { ActionWorkflowCategory, ActionWorkflowEntrypointType, EntityType, ListActionWorkflowsInput } from '@types';
 
 export type WorkflowContext = {
-    entrypointType: ActionWorkflowEntrypointType;
+    entrypointType?: ActionWorkflowEntrypointType;
     entityType?: EntityType;
     entityUrn?: string;
 };
@@ -31,7 +31,7 @@ export const useListActionWorkflows = (options: UseListActionWorkflowsOptions) =
         () => ({
             start: 0,
             count: 1000, // Get all workflows for now
-            entrypointType: context.entrypointType,
+            ...(context.entrypointType && { entrypointType: context.entrypointType }),
             ...(category && { category }),
             ...(customCategory && { customCategory }),
             ...(context.entityType && { entityType: context.entityType }),

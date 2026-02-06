@@ -13,7 +13,7 @@ import { useListActionWorkflows } from '@app/workflows/hooks/useListActionWorkfl
 import { convertWorkflowRequestFieldsToFormData } from '@app/workflows/utils/fieldValueConversion';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 
-import { ActionRequest, ActionWorkflowEntrypointType, EntityType } from '@types';
+import { ActionRequest, EntityType } from '@types';
 
 const StyledSkeleton = styled(Skeleton.Input)`
     border-radius: 4px;
@@ -46,6 +46,10 @@ const ViewDetailsButton = styled(Button)`
     }
 `;
 
+// Empty context fetches ALL workflows without entrypoint filtering.
+// This ensures we can find workflows regardless of their entrypoint configuration.
+const ALL_WORKFLOWS_CONTEXT = {};
+
 /**
  * A V2 workflow request item for the proposals table content column.
  */
@@ -55,28 +59,20 @@ export default function WorkflowFormRequestItem({ actionRequest }: Props) {
 
     const workflowFormRequest = actionRequest.params?.workflowFormRequest;
 
-    // Memoize context to prevent recreating on every render
-    const context = useMemo(
-        () => ({
-            entrypointType: ActionWorkflowEntrypointType.Home,
-        }),
-        [],
-    );
-
-    // Load workflows with cache-first strategy for optimal performance
+    // Fetch all workflows without entrypoint filtering.
+    // The query result is cached and shared across all WorkflowFormRequestItem instances.
     const { workflows, loading } = useListActionWorkflows({
-        context,
+        context: ALL_WORKFLOWS_CONTEXT,
         enabled: !!workflowFormRequest?.workflowUrn,
-        fetchPolicy: 'cache-first', // Cache sharing is a feature, not a bug
+        fetchPolicy: 'cache-first',
     });
 
-    // Find the specific workflow for this request - simplified logic
+    // Find the specific workflow for this request from the cached list
     const selectedWorkflow = useMemo(() => {
         if (!workflows.length || !workflowFormRequest?.workflowUrn) {
             return null;
         }
-        const found = workflows.find((w) => w.urn === workflowFormRequest.workflowUrn);
-        return found || null;
+        return workflows.find((w) => w.urn === workflowFormRequest.workflowUrn) || null;
     }, [workflows, workflowFormRequest?.workflowUrn]);
 
     // Memoize the modal data to ensure fresh computation for each request
