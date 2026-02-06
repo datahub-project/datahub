@@ -3,11 +3,14 @@ package com.linkedin.datahub.graphql.resolvers.user;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -36,6 +39,8 @@ public class SearchUsersResolver implements DataFetcher<CompletableFuture<Search
 
   private static final int DEFAULT_START = 0;
   private static final int DEFAULT_COUNT = 10;
+  private static final String SUB_TYPES_FIELD = "typeNames";
+  private static final String SERVICE_ACCOUNT_SUB_TYPE = "SERVICE_ACCOUNT";
 
   private final EntityClient _entityClient;
   private final ViewService _viewService;
@@ -73,8 +78,26 @@ public class SearchUsersResolver implements DataFetcher<CompletableFuture<Search
                       UrnUtils.getUrn(input.getViewUrn()))
                   : null;
 
+          // Build filter to exclude service accounts (subTypes.typeNames != SERVICE_ACCOUNT)
+          final List<FacetFilterInput> serviceAccountExclusionFilter =
+              ImmutableList.of(
+                  new FacetFilterInput(
+                      SUB_TYPES_FIELD,
+                      null,
+                      ImmutableList.of(SERVICE_ACCOUNT_SUB_TYPE),
+                      true, // negated = true to exclude service accounts
+                      FilterOperator.EQUAL));
+
+          // Combine user-provided filters with service account exclusion filter
           final Filter baseFilter =
-              ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+              ResolverUtils.buildFilter(
+                  input.getFilters() != null
+                      ? ImmutableList.<FacetFilterInput>builder()
+                          .addAll(input.getFilters())
+                          .addAll(serviceAccountExclusionFilter)
+                          .build()
+                      : serviceAccountExclusionFilter,
+                  input.getOrFilters());
 
           SearchFlags searchFlags = SearchUtils.mapInputFlags(context, input.getSearchFlags());
           List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());

@@ -61,39 +61,64 @@ export const TabTitleWithCount = ({ name, count }: TabTitleWithCountProps) => (
     </TabTitle>
 );
 
-type ManageIdentitiesHeaderProps = {
+type ManageUsersAndGroupsHeaderProps = {
     version?: string;
     canManageUsers: boolean;
+    canManageServiceAccounts: boolean;
+    activeTab: string;
     onInviteUsers: () => void;
+    onCreateServiceAccount: () => void;
 };
 
-export const ManageUsersAndGroupsHeader = ({ version, canManageUsers, onInviteUsers }: ManageIdentitiesHeaderProps) => (
-    <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
-        <HeaderLeft>
-            <PageTitle
-                title="Manage Users &amp; Groups"
-                subTitle="View your DataHub users &amp; groups. Take administrative actions."
-            />
-        </HeaderLeft>
-        <HeaderRight>
-            <Button
-                variant="filled"
-                disabled={!canManageUsers}
-                onClick={() => {
-                    // Track invite users CTA click
-                    analytics.event({
-                        type: EventType.ClickInviteUsersCTAEvent,
-                        source: 'settings_page',
-                    });
+export const ManageUsersAndGroupsHeader = ({
+    version,
+    canManageUsers,
+    canManageServiceAccounts,
+    activeTab,
+    onInviteUsers,
+    onCreateServiceAccount,
+}: ManageUsersAndGroupsHeaderProps) => {
+    const isServiceAccountsTab = activeTab === 'service-accounts';
 
-                    onInviteUsers();
-                }}
-            >
-                Invite Users
-            </Button>
-        </HeaderRight>
-    </PageHeaderContainer>
-);
+    return (
+        <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
+            <HeaderLeft>
+                <PageTitle
+                    title="Manage Users &amp; Groups"
+                    subTitle="View your DataHub users &amp; groups. Take administrative actions."
+                />
+            </HeaderLeft>
+            <HeaderRight>
+                {isServiceAccountsTab ? (
+                    <Button
+                        variant="filled"
+                        disabled={!canManageServiceAccounts}
+                        onClick={onCreateServiceAccount}
+                        data-testid="create-service-account-button"
+                    >
+                        Create Service Account
+                    </Button>
+                ) : (
+                    <Button
+                        variant="filled"
+                        disabled={!canManageUsers}
+                        onClick={() => {
+                            // Track invite users CTA click
+                            analytics.event({
+                                type: EventType.ClickInviteUsersCTAEvent,
+                                source: 'settings_page',
+                            });
+
+                            onInviteUsers();
+                        }}
+                    >
+                        Invite Users
+                    </Button>
+                )}
+            </HeaderRight>
+        </PageHeaderContainer>
+    );
+};
 
 const SsoWarningContainer = styled.div`
     display: flex;

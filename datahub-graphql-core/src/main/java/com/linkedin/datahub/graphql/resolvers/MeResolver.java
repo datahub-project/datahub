@@ -119,6 +119,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
                 AuthorizationUtils.canManageOrganizationDisplayPreferences(context));
             platformPrivileges.setCanViewIngestionPage(canViewIngestionPage(context));
             platformPrivileges.setCreateSupportTickets(canCreateSupportTickets(context));
+            platformPrivileges.setManageServiceAccounts(canManageServiceAccounts(context));
 
             // Settings not in OSS (yet)
             platformPrivileges.setManageGlobalSettings(
@@ -242,5 +243,11 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
   private boolean canCreateSupportTickets(final QueryContext context) {
     return isAuthorized(
         context.getOperationContext(), PoliciesConfig.CREATE_SUPPORT_TICKETS_PRIVILEGE);
+  }
+
+  /** Returns true if the authenticated user has privileges to manage service accounts */
+  private boolean canManageServiceAccounts(@Nonnull QueryContext context) {
+    return isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_SERVICE_ACCOUNTS_PRIVILEGE);
   }
 }

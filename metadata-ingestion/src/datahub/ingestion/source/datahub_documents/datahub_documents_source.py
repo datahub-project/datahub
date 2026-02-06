@@ -15,7 +15,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Optional, cast
+from typing import Any, Dict, Iterable, Optional, cast
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -939,22 +939,94 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
         current_hash = self._calculate_text_hash(text)
 
+        # Use state_handler if available (proper stateful ingestion)
+        if self.state_handler and self.state_handler.is_checkpointing_enabled():
+            previous_hash = self.state_handler.get_document_hash(document_urn)
+            return previous_hash != current_hash
+
+        # Fall back to local document_state (simple incremental mode)
         if document_urn not in self.document_state:
             return True
 
         previous_hash = self.document_state[document_urn].get("content_hash")
         return previous_hash != current_hash
 
+    def _get_processing_config_fingerprint(self) -> Dict[str, Any]:
+        """Extract processing configuration that affects output artifacts.
+
+        This fingerprint is included in the document hash to trigger reprocessing
+        when configuration changes (e.g., enabling chunking, changing embedding model).
+
+        Returns:
+            Dictionary of config values that affect processing output.
+        """
+        # Chunking/embedding is enabled when embedding provider is configured
+        embedding_enabled = self.config.embedding.provider is not None
+
+        return {
+            # Chunking affects chunk boundaries and structure
+            "chunking_enabled": embedding_enabled,
+            "chunking_strategy": self.config.chunking.strategy
+            if embedding_enabled
+            else None,
+            "chunking_max_characters": self.config.chunking.max_characters
+            if embedding_enabled
+            else None,
+            "chunking_overlap": self.config.chunking.overlap
+            if embedding_enabled
+            else None,
+            "chunking_combine_under": self.config.chunking.combine_text_under_n_chars
+            if embedding_enabled
+            else None,
+            # Embedding affects vector embeddings on chunks
+            "embedding_enabled": embedding_enabled,
+            "embedding_provider": self.config.embedding.provider
+            if embedding_enabled
+            else None,
+            "embedding_model": self.config.embedding.model
+            if embedding_enabled
+            else None,
+            # Partitioning affects how text is extracted
+            "partition_strategy": self.config.partition_strategy,
+        }
+
     def _calculate_text_hash(self, text: str) -> str:
-        """Calculate SHA256 hash of document text for incremental tracking."""
-        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+        """Calculate hash of document content AND processing configuration.
+
+        This ensures documents are reprocessed when:
+        1. Content changes (text is different)
+        2. Processing config changes (chunking enabled, embedding model changed, etc.)
+
+        Args:
+            text: Document text content
+
+        Returns:
+            SHA256 hash hex string
+        """
+        hash_input = {
+            "content": text,
+            "config": self._get_processing_config_fingerprint(),
+        }
+        # Deterministic JSON serialization
+        hash_str = json.dumps(hash_input, sort_keys=True)
+        return hashlib.sha256(hash_str.encode("utf-8")).hexdigest()
 
     def _update_document_state(self, document_urn: str, text: str) -> None:
         """Update state after processing document."""
-        self.document_state[document_urn] = {
-            "content_hash": self._calculate_text_hash(text),
-            "last_processed": datetime.utcnow().isoformat(),
-        }
+        content_hash = self._calculate_text_hash(text)
+        last_processed = datetime.utcnow().isoformat()
+
+        # Use state_handler if available (proper stateful ingestion)
+        if self.state_handler and self.state_handler.is_checkpointing_enabled():
+            self.state_handler.update_document_state(
+                document_urn, content_hash, last_processed
+            )
+        else:
+            # Fall back to local document_state (simple incremental mode)
+            self.document_state[document_urn] = {
+                "content_hash": content_hash,
+                "last_processed": last_processed,
+            }
 
     def _process_single_document(
         self, doc: dict[str, Any]

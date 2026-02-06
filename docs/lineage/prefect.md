@@ -41,7 +41,7 @@ Install `prefect-datahub` using pip:
 pip install 'prefect-datahub'
 ```
 
-Note: Requires Python 3.7+
+Note: Requires Python 3.10+
 
 ### 2. Saving Configurations to a Block
 

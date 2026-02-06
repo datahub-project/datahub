@@ -53,6 +53,7 @@ vi.stubGlobal(
         root: null,
         rootMargin: '',
         thresholds: [],
+        takeRecords: vi.fn(() => []),
     })),
 );
 

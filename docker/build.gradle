@@ -524,9 +524,6 @@ quickstart_configs.each { taskName, config ->
         dependsOn(config.modules.collect { it + ":generateBakeSnippet${taskSuffix}" })
         dependsOn(tasks.getByName("prepareAll${taskName}"))
 
-        // OSS Merge Notes: generateQuickStartComposeConfig dependency is required only for OSS
-        // dependsOn tasks.named("generateQuickstartComposeConfig")
-
         def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
 
         def bakeCmdArgs = ["bake", "-f",  "${jsonFile.absolutePath}"]

@@ -674,7 +674,10 @@ class CursorProxy:
                         elif description:
                             # Convert tuples to dicts using column names
                             col_names = [d[0] for d in description]
-                            results = [dict(zip(col_names, row)) for row in fetched]
+                            results = [
+                                dict(zip(col_names, row, strict=False))
+                                for row in fetched
+                            ]
                         else:
                             # No description, wrap in generic format
                             results = [{"row": list(row)} for row in fetched]
