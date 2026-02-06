@@ -588,16 +588,6 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         config = ClickHouseConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_view_default_db_schema(
-        self, _inspector: "Inspector", _dataset_identifier: str
-    ) -> Tuple[Optional[str], Optional[str]]:
-        # ClickHouse uses 2-level naming (database.table), and view definitions
-        # typically use fully-qualified table names. Passing default_db would cause
-        # sqlglot to prepend it to already-qualified names, creating incorrect URNs
-        # like "fingerprint.analytics_aggregate.default.signals" instead of
-        # "fingerprint.default.signals".
-        return None, None
-
     def _process_table(
         self,
         dataset_name: str,
@@ -612,8 +602,8 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             dataset_name, inspector, schema, table, sql_config, data_reader
         )
 
-        # Emit DatasetProfile with row count and size from ClickHouse system tables.
-        # These stats are pre-computed by ClickHouse (no query execution needed).
+        # Emit DatasetProfile with row count and size. ClickHouse pre-computes these
+        # in system.tables, so we can emit Stats without enabling profiling.
         _, properties, _ = self.get_table_properties(inspector, schema, table)
 
         total_rows_str = properties.get("total_rows")
@@ -622,13 +612,6 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         # Only emit profile if we have at least one stat
         if not total_rows_str and not total_bytes_str:
             return
-
-        dataset_urn = builder.make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
 
         dataset_profile = DatasetProfileClass(timestampMillis=get_sys_time())
 
@@ -654,7 +637,12 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             or dataset_profile.sizeInBytes is not None
         ):
             yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
+                entityUrn=builder.make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    dataset_name,
+                    self.config.platform_instance,
+                    self.config.env,
+                ),
                 aspect=dataset_profile,
             ).as_workunit()
 
