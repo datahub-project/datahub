@@ -194,6 +194,9 @@ def default_source_config():
         "extract_lineage": False,
         "extract_reports": False,
         "extract_ownership": False,
+        "ownership": {
+            "create_corp_user": True,  # Keep existing behavior for tests
+        },
         "stateful_ingestion": {
             "enabled": True,
             "state_provider": {

@@ -98,7 +98,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "let\n    Source = Odbc.DataSource(\"driver={MySQL ODBC 9.2 Unicode Driver};server=18.222.189.189;database=employees;dsn=testdb01\", [HierarchicalNavigation=true]),\n    employees_Database = Source{[Name=\"employees\",Kind=\"Database\"]}[Data],\n    employees_Table = employees_Database{[Name=\"employees\",Kind=\"Table\"]}[Data]\nin\n    employees_Table",
+            "viewLogic": "let\n    Source = MySQL.Database(\"127.0.0.1\", \"employees\", [ReturnSingleDatabase=true]),\n    employees_employees = Source{[Schema=\"employees\",Item=\"employees\"]}[Data]\nin\n    employees_employees",
             "viewLanguage": "m_query"
         }
     },
@@ -417,22 +417,6 @@
     }
 },
 {
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:john.doe@acryldata.io",
-    "changeType": "UPSERT",
-    "aspectName": "corpUserKey",
-    "aspect": {
-        "json": {
-            "username": "john.doe@acryldata.io"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,pages.5e420b19-ee14-4bba-ab4b-1e1063847f37.ReportSection)",
     "changeType": "UPSERT",
@@ -523,10 +507,10 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,pages.5e420b19-ee14-4bba-ab4b-1e1063847f37.ReportSection)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:powerbi"
+            "container": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
         }
     },
     "systemMetadata": {
@@ -539,10 +523,10 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,pages.5e420b19-ee14-4bba-ab4b-1e1063847f37.ReportSection)",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "container": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
+            "platform": "urn:li:dataPlatform:powerbi"
         }
     },
     "systemMetadata": {
@@ -701,22 +685,6 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,reports.5e420b19-ee14-4bba-ab4b-1e1063847f37)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:powerbi"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,reports.5e420b19-ee14-4bba-ab4b-1e1063847f37)",
-    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
@@ -759,15 +727,10 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,reports.5e420b19-ee14-4bba-ab4b-1e1063847f37)",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:1ef10eb69a6800020b384274a129fe20",
-                    "urn": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
-                }
-            ]
+            "platform": "urn:li:dataPlatform:powerbi"
         }
     },
     "systemMetadata": {
@@ -777,17 +740,18 @@
     }
 },
 {
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:john.doe@acryldata.io",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.5e420b19-ee14-4bba-ab4b-1e1063847f37)",
     "changeType": "UPSERT",
-    "aspectName": "corpUserInfo",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "customProperties": {},
-            "active": true,
-            "displayName": "John Doe",
-            "email": "john.doe@acryldata.io",
-            "system": false
+            "path": [
+                {
+                    "id": "urn:li:container:1ef10eb69a6800020b384274a129fe20",
+                    "urn": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
+                }
+            ]
         }
     },
     "systemMetadata": {

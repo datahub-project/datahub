@@ -74,6 +74,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
     ContainerClass,
+    CorpUserInfoClass,
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
@@ -168,7 +169,7 @@ class Mapper:
         )
 
     def _to_work_unit(
-        self, mcp: MetadataChangeProposalWrapper
+        self, mcp: MetadataChangeProposalWrapper, is_primary_source: bool = True
     ) -> EquableMetadataWorkUnit:
         return Mapper.EquableMetadataWorkUnit(
             id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
@@ -177,7 +178,23 @@ class Mapper:
                 ASPECT_NAME=mcp.aspectName,
             ),
             mcp=mcp,
+            is_primary_source=is_primary_source,
         )
+
+    def _to_user_work_unit(
+        self, mcp: MetadataChangeProposalWrapper
+    ) -> EquableMetadataWorkUnit:
+        """
+        Create work unit for user entities with is_primary_source=False.
+
+        PowerBI is NOT the authoritative source for users (LDAP/Okta/SCIM are).
+        By marking is_primary_source=False, we prevent stateful ingestion from:
+        1. Tracking these user entities in its state
+        2. Soft-deleting them when they disappear from PowerBI
+
+        This follows the pattern used by dbt, Unity Catalog, and other non-authoritative sources.
+        """
+        return self._to_work_unit(mcp, is_primary_source=False)
 
     def _get_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
         """
@@ -840,7 +857,9 @@ class Mapper:
         )
 
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
-        user_urn_list: List[str] = self.to_urn_set(user_mcps)
+        user_urn_list: List[str] = self._get_user_urns_for_ownership(
+            dashboard.users, user_mcps
+        )
 
         def chart_custom_properties(dashboard: powerbi_data_classes.Dashboard) -> dict:
             return {
@@ -1024,56 +1043,133 @@ class Mapper:
             )
             list_of_mcps.append(tags_mcp)
 
-    def to_datahub_user(
-        self, user: powerbi_data_classes.User
-    ) -> List[MetadataChangeProposalWrapper]:
+    def _make_user_urn(self, user: powerbi_data_classes.User) -> str:
         """
-        Map PowerBi user to datahub user
+        Single source of truth for user URN generation.
+        Handles email/ID selection and suffix removal based on config.
         """
-
-        logger.debug(f"Mapping user {user.displayName}(id={user.id}) to datahub's user")
-
-        # Create an URN for user
         user_id = user.get_urn_part(
             use_email=self.__config.ownership.use_powerbi_email,
             remove_email_suffix=self.__config.ownership.remove_email_suffix,
         )
-        user_urn = builder.make_user_urn(user_id)
-        user_key = CorpUserKeyClass(username=user.id)
+        return builder.make_user_urn(user_id)
 
-        user_key_mcp = self.new_mcp(
-            entity_urn=user_urn,
-            aspect=user_key,
+    def to_datahub_user(
+        self, user: powerbi_data_classes.User
+    ) -> List[MetadataChangeProposalWrapper]:
+        """
+        Create user entity with Key and Info aspects.
+        Only called when create_corp_user=True (opt-in).
+        User accepts conflict risk - PowerBI data may overwrite existing profiles.
+        """
+        logger.debug(
+            "Mapping user %s (id=%s) to datahub corpuser",
+            user.displayName,
+            user.id,
         )
 
-        return [user_key_mcp]
+        user_urn = self._make_user_urn(user)
+        # Extract user_id from URN for Key aspect (must match URN identity)
+        user_id = user_urn.split(":")[-1]
+
+        user_key = CorpUserKeyClass(username=user_id)
+
+        user_info = CorpUserInfoClass(
+            displayName=user.displayName or user_id,  # Fallback to user_id if null
+            email=user.emailAddress
+            or None,  # PowerBI API may return "" for missing email
+            active=True,
+        )
+
+        return [
+            self.new_mcp(entity_urn=user_urn, aspect=user_key),
+            self.new_mcp(entity_urn=user_urn, aspect=user_info),
+        ]
+
+    def _get_qualified_owners(
+        self, users: List[powerbi_data_classes.User]
+    ) -> List[powerbi_data_classes.User]:
+        """
+        Filter users based on principalType and owner_criteria.
+        Returns users that qualify for ownership assignment.
+
+        Filtering rules:
+        - Must be non-None
+        - principalType must be "User" (not Group, App, etc.)
+        - If owner_criteria is set, user must have at least one matching access right
+        - If owner_criteria is None or [], all User-type principals qualify
+        """
+        qualified_users = []
+        for user in users:
+            if not user:
+                continue
+
+            # Check principalType first
+            if not user.principalType or user.principalType != "User":
+                continue
+
+            user_rights = [
+                user.datasetUserAccessRight,
+                user.reportUserAccessRight,
+                user.dashboardUserAccessRight,
+                user.groupUserAccessRight,
+            ]
+
+            # Check if user qualifies based on criteria
+            # Note: Empty list [] is treated same as None (no criteria = all qualify)
+            if not self.__config.ownership.owner_criteria:
+                # No criteria (None or []) - all User-type principals qualify
+                qualified_users.append(user)
+            elif (
+                len(set(user_rights) & set(self.__config.ownership.owner_criteria)) > 0
+            ):
+                # Has matching access rights
+                qualified_users.append(user)
+
+        return qualified_users
 
     def to_datahub_users(
         self, users: List[powerbi_data_classes.User]
     ) -> List[MetadataChangeProposalWrapper]:
-        user_mcps = []
+        """
+        Return user MCPs if create_corp_user=True, empty list otherwise.
+        When True: Emits full user entities (Key + Info).
+        When False: Returns empty (ownership uses URNs only via to_datahub_user_urns).
+        """
+        # Check flag FIRST, return empty if False (soft reference mode)
+        if not self.__config.ownership.create_corp_user:
+            return []
 
-        for user in users:
-            if user:
-                user_rights = [
-                    user.datasetUserAccessRight,
-                    user.reportUserAccessRight,
-                    user.dashboardUserAccessRight,
-                    user.groupUserAccessRight,
-                ]
-                if (
-                    user.principalType == "User"
-                    and self.__config.ownership.owner_criteria
-                    and len(
-                        set(user_rights) & set(self.__config.ownership.owner_criteria)
-                    )
-                    > 0
-                ) or self.__config.ownership.owner_criteria is None:
-                    user_mcps.extend(self.to_datahub_user(user))
-                else:
-                    continue
+        # Opt-in mode: Create full user entities
+        user_mcps = []
+        for user in self._get_qualified_owners(users):
+            user_mcps.extend(self.to_datahub_user(user))
 
         return user_mcps
+
+    def to_datahub_user_urns(self, users: List[powerbi_data_classes.User]) -> List[str]:
+        """
+        Return user URNs for ownership references (soft references).
+        Used when create_corp_user=False (default mode).
+        No entity creation - follows Tableau/Looker pattern.
+        """
+        return [self._make_user_urn(user) for user in self._get_qualified_owners(users)]
+
+    def _get_user_urns_for_ownership(
+        self,
+        users: List[powerbi_data_classes.User],
+        user_mcps: List[MetadataChangeProposalWrapper],
+    ) -> List[str]:
+        """
+        Get user URNs for ownership based on create_corp_user mode.
+
+        When create_corp_user=True (opt-in): Extract URNs from created user MCPs
+        When create_corp_user=False (default): Get URNs directly (soft references)
+        """
+        if self.__config.ownership.create_corp_user:
+            return self.to_urn_set(user_mcps)
+        else:
+            return self.to_datahub_user_urns(users)
 
     def to_datahub_chart(
         self,
@@ -1149,17 +1245,26 @@ class Mapper:
             )
         )
 
-        # Now add MCPs in sequence
+        # Now add MCPs in sequence (excluding user MCPs which are handled separately)
         mcps.extend(ds_mcps)
-        if self.__config.ownership.create_corp_user:
-            mcps.extend(user_mcps)
         mcps.extend(chart_mcps)
         mcps.extend(dashboard_mcps)
 
         # Convert MCP to work_units
-        work_units = map(self._to_work_unit, mcps)
+        work_units: List[Mapper.EquableMetadataWorkUnit] = [
+            wu for wu in map(self._to_work_unit, mcps) if wu is not None
+        ]
+
+        # Handle user MCPs separately with is_primary_source=False
+        # This prevents stateful ingestion from tracking/soft-deleting users
+        if self.__config.ownership.create_corp_user:
+            user_work_units = [
+                wu for wu in map(self._to_user_work_unit, user_mcps) if wu is not None
+            ]
+            work_units.extend(user_work_units)
+
         # Return set of work_unit
-        return deduplicate_list([wu for wu in work_units if wu is not None])
+        return deduplicate_list(work_units)
 
     def pages_to_chart(
         self,
@@ -1279,7 +1384,9 @@ class Mapper:
         )
 
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
-        user_urn_list: List[str] = self.to_urn_set(user_mcps)
+        user_urn_list: List[str] = self._get_user_urns_for_ownership(
+            report.users, user_mcps
+        )
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
@@ -1408,14 +1515,20 @@ class Mapper:
             dataset_edges=dataset_edges,
         )
 
-        # Now add MCPs in sequence
+        # Now add MCPs in sequence (excluding user MCPs which are handled separately)
         mcps.extend(ds_mcps)
-        if self.__config.ownership.create_corp_user:
-            mcps.extend(user_mcps)
         mcps.extend(chart_mcps)
         mcps.extend(report_mcps)
 
-        return map(self._to_work_unit, mcps)
+        # Convert primary MCPs to work units
+        for mcp in mcps:
+            yield self._to_work_unit(mcp)
+
+        # Handle user MCPs separately with is_primary_source=False
+        # This prevents stateful ingestion from tracking/soft-deleting users
+        if self.__config.ownership.create_corp_user:
+            for mcp in user_mcps:
+                yield self._to_user_work_unit(mcp)
 
 
 @platform_name("PowerBI")
@@ -1487,6 +1600,14 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         self.mapper = Mapper(
             ctx, config, self.reporter, self.dataplatform_instance_resolver
         )
+
+        # Log info if user has opted-in to user creation (may overwrite LDAP/Okta users)
+        if self.source_config.ownership.create_corp_user:
+            logger.info(
+                "PowerBI user creation is ENABLED (create_corp_user=True). "
+                "User entities will be created with displayName and email from PowerBI. "
+                "Note: This may overwrite existing user profiles from LDAP/Okta/SCIM."
+            )
 
         # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
