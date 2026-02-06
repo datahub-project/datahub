@@ -23,9 +23,11 @@ def test_mean_between_min_max(values):
         and stats["min"] is not None
         and stats["max"] is not None
     ):
-        # Use absolute tolerance to handle floating-point precision issues
-        abs_tol = max(abs(stats["max"] - stats["min"]) * 1e-9, 1e-15)
-        assert stats["min"] - abs_tol <= stats["mean"] <= stats["max"] + abs_tol, (
+        # Use relative tolerance based on magnitude of values
+        # For identical values (min==max), use relative tolerance of the value itself
+        magnitude = max(abs(stats["min"]), abs(stats["max"]), 1.0)
+        rel_tol = magnitude * 1e-14  # Relative tolerance for floating-point precision
+        assert stats["min"] - rel_tol <= stats["mean"] <= stats["max"] + rel_tol, (
             f"Mean {stats['mean']} not between min {stats['min']} and max {stats['max']}"
         )
 

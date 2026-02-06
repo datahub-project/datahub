@@ -598,7 +598,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         try:
             # Get metadata for all partitions
-            topic_metadata = self.consumer.list_topics(topic).topics[topic]
+            topic_metadata = self.consumer.list_topics(
+                topic, timeout=self.source_config.connection.client_timeout_seconds
+            ).topics[topic]
             partitions = [
                 confluent_kafka.TopicPartition(topic, p)
                 for p in topic_metadata.partitions
