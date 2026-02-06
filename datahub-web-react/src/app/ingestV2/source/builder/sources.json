@@ -460,6 +460,16 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:google-sheets",
+        "name": "google-sheets",
+        "displayName": "Google Sheets",
+        "description": "Import Spreadsheets, Sheets, usage statistics, and lineage from Google Sheets.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/google-sheets",
+        "recipe": "source:\n  type: google-sheets\n  config:\n    credentials: \"${GOOGLE_SHEETS_CREDENTIALS}\"\n\n    extract_usage_stats: true\n    extract_tags: true\n    extract_lineage_from_formulas: true\n    parse_sql_for_lineage: true\n    enable_cross_platform_lineage: true\n    \n    scan_shared_drives: false\n    sheets_as_datasets: false",
+        "category": "Miscellaneous",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:grafana",
         "name": "grafana",
         "displayName": "Grafana",
