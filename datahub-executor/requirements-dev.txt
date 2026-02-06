@@ -1142,7 +1142,7 @@ oauthlib==3.3.1
     # via
     #   -r requirements.txt
     #   databricks-sql-connector
-observe-models==0.1.0+pr24.125
+observe-models==0.1.0.dev55
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
