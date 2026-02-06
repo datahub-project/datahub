@@ -1,6 +1,6 @@
 import { DocumentTreeNode } from '@app/document/DocumentTreeContext';
 
-import { Document, DocumentState } from '@types';
+import { Document, DocumentState, EntityType } from '@types';
 
 /**
  * Converts a Document to a DocumentTreeNode.
@@ -85,13 +85,34 @@ export function createDefaultDocumentInput(options?: {
 }
 
 /**
- * Entity types that are NOT allowed as related assets.
- * - corpuser/corpgroup: Not supported by the backend RelatedAsset.pdl schema
- * - structuredproperty: Supported by backend but doesn't display properly
- *   (GraphQL entityPreview fragment doesn't fetch definition.displayName)
- * - dataplatform: Not supported by the backend RelatedAsset.pdl schema
+ * Allowed entity types for document related assets.
+ * Single source of truth matching backend RelatedAsset.pdl.
+ * Keys are lowercase URN entity type strings (for @mention validation).
+ * Values are EntityType enum values (for the dropdown picker).
+ *
+ * Note: Document is handled separately via relatedDocuments and is not in this map.
+ * Note: structuredProperty is in the PDL but excluded because the GraphQL
+ *   entityPreview fragment doesn't fetch definition.displayName, causing raw URN display.
  */
-export const DISALLOWED_RELATED_ASSET_TYPES = ['corpuser', 'corpgroup', 'structuredproperty', 'dataplatform'];
+export const ALLOWED_RELATED_ASSET_TYPES: Record<string, EntityType> = {
+    container: EntityType.Container,
+    dataset: EntityType.Dataset,
+    datajob: EntityType.DataJob,
+    dataflow: EntityType.DataFlow,
+    dashboard: EntityType.Dashboard,
+    chart: EntityType.Chart,
+    application: EntityType.Application,
+    mlmodel: EntityType.Mlmodel,
+    mlmodelgroup: EntityType.MlmodelGroup,
+    mlprimarykey: EntityType.MlprimaryKey,
+    mlfeature: EntityType.Mlfeature,
+    mlfeaturetable: EntityType.MlfeatureTable,
+    dataproduct: EntityType.DataProduct,
+    domain: EntityType.Domain,
+    glossaryterm: EntityType.GlossaryTerm,
+    glossarynode: EntityType.GlossaryNode,
+    tag: EntityType.Tag,
+};
 
 /**
  * Checks if a string has balanced parentheses.
@@ -116,13 +137,12 @@ export function hasBalancedParens(str: string): boolean {
  * Checks if a URN is valid for use as a related asset.
  * Validates that:
  * 1. The URN has balanced parentheses
- * 2. The entity type is not in the disallowed list
+ * 2. The entity type is in the allowed list (ALLOWED_RELATED_ASSET_TYPES)
  *
  * @param urn - The URN to validate
  * @returns true if the URN can be used as a related asset
  */
 export function isAllowedRelatedAssetUrn(urn: string): boolean {
-    // Check for balanced parentheses
     if (!hasBalancedParens(urn)) {
         return false;
     }
@@ -134,7 +154,7 @@ export function isAllowedRelatedAssetUrn(urn: string): boolean {
     }
 
     const entityType = parts[2].toLowerCase();
-    return !DISALLOWED_RELATED_ASSET_TYPES.includes(entityType);
+    return entityType in ALLOWED_RELATED_ASSET_TYPES;
 }
 
 /**

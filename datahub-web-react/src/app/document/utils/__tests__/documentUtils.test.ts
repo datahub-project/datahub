@@ -323,13 +323,16 @@ describe('documentUtils', () => {
             expect(isAllowedRelatedAssetUrn('urn:li:dataJob:(urn:li:dataFlow:(a,b,c),task)')).toBe(true);
             expect(isAllowedRelatedAssetUrn('urn:li:dashboard:123')).toBe(true);
             expect(isAllowedRelatedAssetUrn('urn:li:glossaryTerm:term1')).toBe(true);
+            expect(isAllowedRelatedAssetUrn('urn:li:container:abc')).toBe(true);
+            expect(isAllowedRelatedAssetUrn('urn:li:tag:myTag')).toBe(true);
         });
 
-        it('should return false for disallowed entity types', () => {
+        it('should return false for entity types not in the allow list', () => {
             expect(isAllowedRelatedAssetUrn('urn:li:corpuser:john')).toBe(false);
             expect(isAllowedRelatedAssetUrn('urn:li:corpgroup:engineering')).toBe(false);
             expect(isAllowedRelatedAssetUrn('urn:li:structuredProperty:prop1')).toBe(false);
             expect(isAllowedRelatedAssetUrn('urn:li:dataPlatform:mysql')).toBe(false);
+            expect(isAllowedRelatedAssetUrn('urn:li:schemaField:abc')).toBe(false);
         });
 
         it('should return false for malformed URNs', () => {

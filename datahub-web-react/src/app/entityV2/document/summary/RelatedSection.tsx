@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { ALLOWED_RELATED_ASSET_TYPES } from '@app/document/utils/documentUtils';
 import { AddRelatedEntityDropdown } from '@app/entityV2/document/summary/AddRelatedEntityDropdown';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -98,28 +99,9 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
 
-    // Entity types that can be related (must match backend RelatedAsset.pdl)
-    // Note: CorpUser, CorpGroup, StructuredProperty, and DataPlatform are NOT supported
-    const allowedEntityTypes: EntityType[] = [
-        EntityType.Container,
-        EntityType.Dataset,
-        EntityType.DataJob,
-        EntityType.DataFlow,
-        EntityType.Dashboard,
-        EntityType.Chart,
-        EntityType.Application,
-        EntityType.Mlmodel,
-        EntityType.MlmodelGroup,
-        EntityType.MlprimaryKey,
-        EntityType.Mlfeature,
-        EntityType.MlfeatureTable,
-        EntityType.DataProduct,
-        EntityType.Domain,
-        EntityType.GlossaryTerm,
-        EntityType.GlossaryNode,
-        EntityType.Tag,
-        EntityType.Document, // Handled separately via relatedDocuments
-    ];
+    // Derive allowed entity types from the single source of truth (ALLOWED_RELATED_ASSET_TYPES)
+    // Document is appended separately since it's handled via relatedDocuments
+    const allowedEntityTypes: EntityType[] = [...Object.values(ALLOWED_RELATED_ASSET_TYPES), EntityType.Document];
 
     // Combine all related entities
     const allRelatedEntities = [
