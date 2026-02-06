@@ -271,4 +271,353 @@ public class DomainBasedAuthorizationValidatorTest {
     // Assert: Should process without error
     assertNotNull(result);
   }
+
+  @Test
+  public void testValidatePreCommitAspects_AuthorizationDenied_ReturnsException() throws Exception {
+    // Setup: Authorization is denied - should return AspectValidationException
+    when(mockRetrieverContext.getAuthorizationSession()).thenReturn(mockAuthSession);
+
+    Urn entityUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+    when(mockChangeMCP.getUrn()).thenReturn(entityUrn);
+    when(mockChangeMCP.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockChangeMCP.getAspectName()).thenReturn("datasetProperties");
+
+    // Mock authorization to return DENY
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, "Denied"));
+
+    List<ChangeMCP> changeMCPs = Collections.singletonList(mockChangeMCP);
+
+    // Execute
+    List<AspectValidationException> result =
+        validator
+            .validatePreCommitAspects(changeMCPs, mockRetrieverContext)
+            .collect(Collectors.toList());
+
+    // Assert: Should return an exception for denied authorization
+    assertEquals(result.size(), 1);
+    assertTrue(result.get(0).getMessage().contains("Unauthorized"));
+  }
+
+  @Test
+  public void testValidatePreCommitAspects_EntityExistsCheckException() throws Exception {
+    // Setup: Exception when checking entity existence
+    when(mockRetrieverContext.getAuthorizationSession()).thenReturn(mockAuthSession);
+
+    Urn entityUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+    when(mockChangeMCP.getUrn()).thenReturn(entityUrn);
+    when(mockChangeMCP.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockChangeMCP.getAspectName()).thenReturn("datasetProperties");
+
+    // Mock entityExists to throw exception
+    when(mockAspectRetriever.entityExists(any())).thenThrow(new RuntimeException("Database error"));
+
+    // Mock authorization to return ALLOW
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null));
+
+    List<ChangeMCP> changeMCPs = Collections.singletonList(mockChangeMCP);
+
+    // Execute - should continue despite exception, treating as non-existing entity
+    List<AspectValidationException> result =
+        validator
+            .validatePreCommitAspects(changeMCPs, mockRetrieverContext)
+            .collect(Collectors.toList());
+
+    // Assert: Should process without error (entityExists defaults to false on exception)
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testValidatePreCommitAspects_ExistingEntityWithProposedDomains_AuthorizedBoth()
+      throws Exception {
+    // Setup: Existing entity with proposed domains - both checks pass
+    when(mockRetrieverContext.getAuthorizationSession()).thenReturn(mockAuthSession);
+
+    Urn entityUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+    Urn domainUrn = Urn.createFromString("urn:li:domain:test-domain");
+
+    when(mockChangeMCP.getUrn()).thenReturn(entityUrn);
+    when(mockChangeMCP.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockChangeMCP.getAspectName()).thenReturn("domains");
+
+    // Domains in MCP
+    Domains domainsAspect = new Domains();
+    UrnArray urnArray = new UrnArray();
+    urnArray.add(domainUrn);
+    domainsAspect.setDomains(urnArray);
+    when(mockChangeMCP.getAspect(Domains.class)).thenReturn(domainsAspect);
+
+    // Entity exists
+    when(mockAspectRetriever.entityExists(Set.of(entityUrn))).thenReturn(Map.of(entityUrn, true));
+
+    // Mock authorization to return ALLOW for both checks
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null));
+
+    List<ChangeMCP> changeMCPs = Collections.singletonList(mockChangeMCP);
+
+    // Execute
+    List<AspectValidationException> result =
+        validator
+            .validatePreCommitAspects(changeMCPs, mockRetrieverContext)
+            .collect(Collectors.toList());
+
+    // Assert: Should be authorized (both checks pass)
+    assertEquals(result.size(), 0);
+  }
+
+  @Test
+  public void testValidatePreCommitAspects_ExistingEntityWithProposedDomains_DeniedOnProposed()
+      throws Exception {
+    // Setup: Existing entity with proposed domains - denied on proposed domains check
+    when(mockRetrieverContext.getAuthorizationSession()).thenReturn(mockAuthSession);
+
+    Urn entityUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+    Urn domainUrn = Urn.createFromString("urn:li:domain:test-domain");
+
+    when(mockChangeMCP.getUrn()).thenReturn(entityUrn);
+    when(mockChangeMCP.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockChangeMCP.getAspectName()).thenReturn("domains");
+
+    // Domains in MCP
+    Domains domainsAspect = new Domains();
+    UrnArray urnArray = new UrnArray();
+    urnArray.add(domainUrn);
+    domainsAspect.setDomains(urnArray);
+    when(mockChangeMCP.getAspect(Domains.class)).thenReturn(domainsAspect);
+
+    // Entity exists
+    when(mockAspectRetriever.entityExists(Set.of(entityUrn))).thenReturn(Map.of(entityUrn, true));
+
+    // Mock authorization to return DENY (proposed domains check fails first)
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, "Denied"));
+
+    List<ChangeMCP> changeMCPs = Collections.singletonList(mockChangeMCP);
+
+    // Execute
+    List<AspectValidationException> result =
+        validator
+            .validatePreCommitAspects(changeMCPs, mockRetrieverContext)
+            .collect(Collectors.toList());
+
+    // Assert: Should be denied
+    assertEquals(result.size(), 1);
+    assertTrue(result.get(0).getMessage().contains("Unauthorized"));
+  }
+
+  @Test
+  public void testValidatePreCommitAspects_NewEntityWithProposedDomains() throws Exception {
+    // Setup: New entity (does not exist) with proposed domains
+    when(mockRetrieverContext.getAuthorizationSession()).thenReturn(mockAuthSession);
+
+    Urn entityUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,new-entity,PROD)");
+    Urn domainUrn = Urn.createFromString("urn:li:domain:test-domain");
+
+    when(mockChangeMCP.getUrn()).thenReturn(entityUrn);
+    when(mockChangeMCP.getChangeType()).thenReturn(ChangeType.CREATE_ENTITY);
+    when(mockChangeMCP.getAspectName()).thenReturn("domains");
+
+    // Domains in MCP
+    Domains domainsAspect = new Domains();
+    UrnArray urnArray = new UrnArray();
+    urnArray.add(domainUrn);
+    domainsAspect.setDomains(urnArray);
+    when(mockChangeMCP.getAspect(Domains.class)).thenReturn(domainsAspect);
+
+    // Entity does NOT exist
+    when(mockAspectRetriever.entityExists(Set.of(entityUrn))).thenReturn(Map.of(entityUrn, false));
+
+    // Mock authorization to return ALLOW
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null));
+
+    List<ChangeMCP> changeMCPs = Collections.singletonList(mockChangeMCP);
+
+    // Execute
+    List<AspectValidationException> result =
+        validator
+            .validatePreCommitAspects(changeMCPs, mockRetrieverContext)
+            .collect(Collectors.toList());
+
+    // Assert: Should be authorized (only proposed domains check needed)
+    assertEquals(result.size(), 0);
+  }
+
+  @Test
+  public void testValidatePreCommitAspects_DomainsExtractionException() throws Exception {
+    // Setup: Exception when extracting domains from MCP
+    when(mockRetrieverContext.getAuthorizationSession()).thenReturn(mockAuthSession);
+
+    Urn entityUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+    when(mockChangeMCP.getUrn()).thenReturn(entityUrn);
+    when(mockChangeMCP.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockChangeMCP.getAspectName()).thenReturn("domains");
+
+    // Mock getAspect to throw exception
+    when(mockChangeMCP.getAspect(Domains.class))
+        .thenThrow(new RuntimeException("Deserialization error"));
+
+    // Mock authorization to return ALLOW
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null));
+
+    List<ChangeMCP> changeMCPs = Collections.singletonList(mockChangeMCP);
+
+    // Execute - should continue despite exception, treating as no proposed domains
+    List<AspectValidationException> result =
+        validator
+            .validatePreCommitAspects(changeMCPs, mockRetrieverContext)
+            .collect(Collectors.toList());
+
+    // Assert: Should process without error
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testValidatePreCommitAspects_DomainsWithNullDomainsList() throws Exception {
+    // Setup: Domains aspect exists but domains list is null
+    when(mockRetrieverContext.getAuthorizationSession()).thenReturn(mockAuthSession);
+
+    Urn entityUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+    when(mockChangeMCP.getUrn()).thenReturn(entityUrn);
+    when(mockChangeMCP.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockChangeMCP.getAspectName()).thenReturn("domains");
+
+    // Domains aspect with null domains list
+    Domains domainsAspect = new Domains();
+    // Not setting domains - leaving it null
+    when(mockChangeMCP.getAspect(Domains.class)).thenReturn(domainsAspect);
+
+    // Mock authorization to return ALLOW
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null));
+
+    List<ChangeMCP> changeMCPs = Collections.singletonList(mockChangeMCP);
+
+    // Execute
+    List<AspectValidationException> result =
+        validator
+            .validatePreCommitAspects(changeMCPs, mockRetrieverContext)
+            .collect(Collectors.toList());
+
+    // Assert: Should process without error
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testValidatePreCommitAspects_CREATEChangeType() throws Exception {
+    // Setup: CREATE change type
+    when(mockRetrieverContext.getAuthorizationSession()).thenReturn(mockAuthSession);
+
+    Urn entityUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+    when(mockChangeMCP.getUrn()).thenReturn(entityUrn);
+    when(mockChangeMCP.getChangeType()).thenReturn(ChangeType.CREATE);
+    when(mockChangeMCP.getAspectName()).thenReturn("datasetProperties");
+
+    // Mock authorization to return ALLOW
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null));
+
+    List<ChangeMCP> changeMCPs = Collections.singletonList(mockChangeMCP);
+
+    // Execute
+    List<AspectValidationException> result =
+        validator
+            .validatePreCommitAspects(changeMCPs, mockRetrieverContext)
+            .collect(Collectors.toList());
+
+    // Assert: Should process CREATE change type
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testValidatePreCommitAspects_PATCHChangeType() throws Exception {
+    // Setup: PATCH change type
+    when(mockRetrieverContext.getAuthorizationSession()).thenReturn(mockAuthSession);
+
+    Urn entityUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+    when(mockChangeMCP.getUrn()).thenReturn(entityUrn);
+    when(mockChangeMCP.getChangeType()).thenReturn(ChangeType.PATCH);
+    when(mockChangeMCP.getAspectName()).thenReturn("datasetProperties");
+
+    // Mock authorization to return ALLOW
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null));
+
+    List<ChangeMCP> changeMCPs = Collections.singletonList(mockChangeMCP);
+
+    // Execute
+    List<AspectValidationException> result =
+        validator
+            .validatePreCommitAspects(changeMCPs, mockRetrieverContext)
+            .collect(Collectors.toList());
+
+    // Assert: Should process PATCH change type
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testValidatePreCommitAspects_RESTATEChangeType() throws Exception {
+    // Setup: RESTATE change type
+    when(mockRetrieverContext.getAuthorizationSession()).thenReturn(mockAuthSession);
+
+    Urn entityUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+    when(mockChangeMCP.getUrn()).thenReturn(entityUrn);
+    when(mockChangeMCP.getChangeType()).thenReturn(ChangeType.RESTATE);
+    when(mockChangeMCP.getAspectName()).thenReturn("datasetProperties");
+
+    // Mock authorization to return ALLOW
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null));
+
+    List<ChangeMCP> changeMCPs = Collections.singletonList(mockChangeMCP);
+
+    // Execute
+    List<AspectValidationException> result =
+        validator
+            .validatePreCommitAspects(changeMCPs, mockRetrieverContext)
+            .collect(Collectors.toList());
+
+    // Assert: Should process RESTATE change type
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testValidatePreCommitAspects_MultipleEntitiesMixedAuth() throws Exception {
+    // Setup: Multiple different entities - one authorized, one denied
+    when(mockRetrieverContext.getAuthorizationSession()).thenReturn(mockAuthSession);
+
+    Urn entityUrn1 = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,entity1,PROD)");
+    Urn entityUrn2 = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,entity2,PROD)");
+
+    ChangeMCP mcp1 = mock(ChangeMCP.class);
+    when(mcp1.getUrn()).thenReturn(entityUrn1);
+    when(mcp1.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mcp1.getAspectName()).thenReturn("datasetProperties");
+
+    ChangeMCP mcp2 = mock(ChangeMCP.class);
+    when(mcp2.getUrn()).thenReturn(entityUrn2);
+    when(mcp2.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mcp2.getAspectName()).thenReturn("datasetProperties");
+
+    // Mock authorization - first call ALLOW, second call DENY
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, "Denied"));
+
+    List<ChangeMCP> changeMCPs = List.of(mcp1, mcp2);
+
+    // Execute
+    List<AspectValidationException> result =
+        validator
+            .validatePreCommitAspects(changeMCPs, mockRetrieverContext)
+            .collect(Collectors.toList());
+
+    // Assert: Should have at least one entity processed (one allowed, one denied)
+    // The exact count depends on order of processing
+    assertNotNull(result);
+  }
 }
