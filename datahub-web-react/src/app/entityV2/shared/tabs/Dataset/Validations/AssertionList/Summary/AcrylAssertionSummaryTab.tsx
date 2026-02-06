@@ -11,13 +11,17 @@ import {
     getAssertionGroupTypeIcon,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { useGetValidationsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/useGetValidationsTab';
-import { ASSERTION_TYPE_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
+import {
+    ASSERTION_STATUS_FILTER_NAME,
+    ASSERTION_TYPE_FILTER_NAME,
+    LEGACY_ENTITY_FILTER_NAME,
+} from '@app/searchV2/utils/constants';
 import { Button } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import { useSearchAssertionsQuery } from '@src/graphql/monitor.generated';
 
-import { AssertionResultType, AssertionType, EntityType, FacetFilterInput, FilterOperator } from '@types';
+import { AssertionType, EntityType, FacetFilterInput, FilterOperator } from '@types';
 
 const LoadingBody = styled.div`
     display: grid;
@@ -95,15 +99,14 @@ const AcrylAssertionTypeSummary = ({
         return <CardSkeleton loading />;
     }
 
-    const statusFacet = data?.searchAcrossEntities?.facets?.find((facet) => facet.field === 'lastResultType');
-    const passingCount =
-        statusFacet?.aggregations?.find((aggregation) => aggregation.value === AssertionResultType.Success)?.count || 0;
-    const failingCount =
-        statusFacet?.aggregations?.find((aggregation) => aggregation.value === AssertionResultType.Failure)?.count || 0;
-    const erroringCount =
-        statusFacet?.aggregations?.find((aggregation) => aggregation.value === AssertionResultType.Error)?.count || 0;
+    const statusFacet = data?.searchAcrossEntities?.facets?.find(
+        (facet) => facet.field === ASSERTION_STATUS_FILTER_NAME,
+    );
+    const passingCount = statusFacet?.aggregations?.find((aggregation) => aggregation.value === 'PASSING')?.count || 0;
+    const failingCount = statusFacet?.aggregations?.find((aggregation) => aggregation.value === 'FAILING')?.count || 0;
+    const erroringCount = statusFacet?.aggregations?.find((aggregation) => aggregation.value === 'ERROR')?.count || 0;
     const initializingCount =
-        statusFacet?.aggregations?.find((aggregation) => aggregation.value === AssertionResultType.Init)?.count || 0;
+        statusFacet?.aggregations?.find((aggregation) => aggregation.value === 'INIT')?.count || 0;
     const totalCount = data?.searchAcrossEntities?.total ?? 0;
     const totalAssertionsCount = data?.searchAcrossEntities?.total ?? 0;
 

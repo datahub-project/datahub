@@ -2,44 +2,46 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { colors } from '@src/alchemy-components';
-import { AssertionResultType, AssertionRunEvent } from '@src/types.generated';
+import { AssertionStatus } from '@src/types.generated';
 
 const StyledAssertionResultDotContainer = styled.div`
     display: flex;
 `;
 
-const statusColors = {
-    success: {
+const statusColors: Record<AssertionStatus, { backgroundColor: string; outerColor: string }> = {
+    [AssertionStatus.Passing]: {
         backgroundColor: '#248F5B',
         outerColor: '#F7FBF4',
     },
-    failure: {
+    [AssertionStatus.Failing]: {
         backgroundColor: '#E54D1F',
         outerColor: '#FBF3EF',
     },
-    error: {
+    [AssertionStatus.Error]: {
         backgroundColor: colors.yellow[500],
         outerColor: colors.yellow[50],
     },
-    init: {
+    [AssertionStatus.Init]: {
         backgroundColor: colors.blue[500],
         outerColor: colors.blue[50],
     },
-    gray: {
-        backgroundColor: '#d9d9d9',
-        outerColor: '#f5f5f5',
-    },
+};
+
+const defaultStatusColors = {
+    backgroundColor: '#d9d9d9',
+    outerColor: '#f5f5f5',
 };
 
 type Props = {
-    run?: AssertionRunEvent;
+    assertionStatus?: AssertionStatus | null;
     disabled?: boolean;
     size?: number;
 };
 
-const AcrylAssertionListStatusDot = ({ run, disabled, size = 12 }: Props) => {
-    const status = (run?.result?.type as AssertionResultType) || 'gray';
-    const { backgroundColor, outerColor } = statusColors[status.toLocaleLowerCase()] || statusColors.gray;
+const AcrylAssertionListStatusDot = ({ assertionStatus, disabled, size = 12 }: Props) => {
+    const { backgroundColor, outerColor } = assertionStatus
+        ? statusColors[assertionStatus] || defaultStatusColors
+        : defaultStatusColors;
 
     const dotStyle = {
         backgroundColor,
@@ -52,7 +54,10 @@ const AcrylAssertionListStatusDot = ({ run, disabled, size = 12 }: Props) => {
     };
 
     return (
-        <StyledAssertionResultDotContainer className="assertion-result-dot" data-assertion-result-type={status}>
+        <StyledAssertionResultDotContainer
+            className="assertion-result-dot"
+            data-assertion-result-type={assertionStatus}
+        >
             <span style={dotStyle} />
         </StyledAssertionResultDotContainer>
     );

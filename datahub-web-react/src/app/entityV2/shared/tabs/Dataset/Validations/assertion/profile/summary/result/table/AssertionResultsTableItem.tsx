@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { getAnomalyFeedbackContext } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopover';
+import { AssertionResultPopoverMode } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverMode';
 import { getFormattedTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
 import {
     ResultStatusType,
@@ -93,6 +94,7 @@ export const AssertionResultsTableItem = ({ assertion, monitor, run, refetchResu
                 placement="bottom"
                 refetchResults={refetchResults}
                 openAssertionNote={openAssertionNote}
+                mode={AssertionResultPopoverMode.IndividualRun}
             >
                 <ResultColumn>
                     <PreHeaderText color={resultTextColor}>

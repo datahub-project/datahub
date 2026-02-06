@@ -19,6 +19,7 @@ public class AssertionRunSummaryPatchBuilder
   private static final String LAST_ERRORED_AT_PATH = "/lastErroredAtMillis";
   private static final String LAST_FAILED_AT_PATH = "/lastFailedAtMillis";
   private static final String LAST_INITIALIZED_AT_PATH = "/lastInitializedAtMillis";
+  private static final String ASSERTION_STATUS_PATH = "/assertionStatus";
 
   public AssertionRunSummaryPatchBuilder setLastPassedAt(@Nonnull final Long timestamp) {
     ObjectNode value = instance.objectNode();
@@ -76,6 +77,19 @@ public class AssertionRunSummaryPatchBuilder
             PatchOperationType.ADD.getValue(),
             LAST_INITIALIZED_AT_PATH,
             value.get(LAST_INITIALIZED_AT_PATH)));
+
+    return this;
+  }
+
+  public AssertionRunSummaryPatchBuilder setAssertionStatus(@Nonnull final String assertionStatus) {
+    ObjectNode value = instance.objectNode();
+    value.put(ASSERTION_STATUS_PATH, assertionStatus);
+
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            ASSERTION_STATUS_PATH,
+            value.get(ASSERTION_STATUS_PATH)));
 
     return this;
   }

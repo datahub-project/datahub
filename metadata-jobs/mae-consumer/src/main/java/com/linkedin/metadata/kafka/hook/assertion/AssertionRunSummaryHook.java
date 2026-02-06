@@ -8,21 +8,30 @@ import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
 import com.linkedin.assertion.AssertionRunSummary;
+import com.linkedin.assertion.AssertionStatus;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.monitor.MonitorServiceFactory;
 import com.linkedin.metadata.aspect.patch.builder.AssertionRunSummaryPatchBuilder;
 import com.linkedin.metadata.kafka.hook.HookUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.service.AssertionService;
+import com.linkedin.metadata.service.MonitorService;
+import com.linkedin.metadata.utils.AssertionStatusUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.monitor.MonitorError;
+import com.linkedin.monitor.MonitorInfo;
+import com.linkedin.monitor.MonitorStatus;
+import com.linkedin.monitor.MonitorType;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +48,7 @@ import org.springframework.stereotype.Component;
 @Import({
   EntityRegistryFactory.class,
   AssertionServiceFactory.class,
+  MonitorServiceFactory.class,
   SystemAuthenticationFactory.class
 })
 public class AssertionRunSummaryHook implements MetadataChangeLogHook {
@@ -46,9 +56,10 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
   private static final Set<ChangeType> SUPPORTED_UPDATE_TYPES =
       ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.RESTATE);
   private static final Set<String> SUPPORTED_UPDATE_ASPECTS =
-      ImmutableSet.of(ASSERTION_RUN_EVENT_ASPECT_NAME);
+      ImmutableSet.of(ASSERTION_RUN_EVENT_ASPECT_NAME, MONITOR_INFO_ASPECT_NAME);
 
   private final AssertionService assertionService;
+  private final MonitorService monitorService;
   private final boolean isEnabled;
 
   private OperationContext systemOperationContext;
@@ -57,18 +68,22 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
   @Autowired
   public AssertionRunSummaryHook(
       @Nonnull final AssertionService assertionService,
+      @Nonnull final MonitorService monitorService,
       @Nonnull @Value("${assertions.hook.enabled:true}") Boolean isEnabled,
       @Nonnull @Value("${assertions.hook.consumerGroupSuffix}") String consumerGroupSuffix) {
     this.assertionService =
         Objects.requireNonNull(assertionService, "assertionService is required");
+    this.monitorService = Objects.requireNonNull(monitorService, "monitorService is required");
     this.isEnabled = isEnabled;
     this.consumerGroupSuffix = consumerGroupSuffix;
   }
 
   @VisibleForTesting
   public AssertionRunSummaryHook(
-      @Nonnull final AssertionService assertionService, @Nonnull Boolean isEnabled) {
-    this(assertionService, isEnabled, "");
+      @Nonnull final AssertionService assertionService,
+      @Nonnull final MonitorService monitorService,
+      @Nonnull Boolean isEnabled) {
+    this(assertionService, monitorService, isEnabled, "");
   }
 
   @Override
@@ -87,8 +102,13 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
   public void invoke(@Nonnull final MetadataChangeLog event) {
     if (isEnabled && isEligibleForProcessing(event)) {
       log.debug("Urn {} received by Assertion Run Summary Hook.", event.getEntityUrn());
-      final Urn urn = HookUtils.getUrnFromEvent(event, systemOperationContext.getEntityRegistry());
-      handleAssertionRunCompleted(urn, extractAssertionRunEvent(event));
+      if (isAssertionRunCompleteEvent(event)) {
+        final Urn urn =
+            HookUtils.getUrnFromEvent(event, systemOperationContext.getEntityRegistry());
+        handleAssertionRunCompleted(urn, extractAssertionRunEvent(event));
+      } else if (isMonitorInfoEvent(event)) {
+        handleMonitorInfoUpdated(extractMonitorInfo(event));
+      }
     }
   }
 
@@ -110,18 +130,26 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
       return;
     }
 
+    final MonitorError monitorError = getMonitorErrorForAssertion(assertionUrn);
+    final AssertionStatus assertionStatus =
+        AssertionStatusUtils.resolveStatus(monitorError, result.getType());
+
     switch (result.getType()) {
       case SUCCESS:
-        updateAssertionSummaryWithPass(assertionUrn, runEvent, assertionRunSummary);
+        updateAssertionSummaryWithPass(
+            assertionUrn, runEvent, assertionRunSummary, assertionStatus);
         break;
       case FAILURE:
-        updateAssertionSummaryWithFail(assertionUrn, runEvent, assertionRunSummary);
+        updateAssertionSummaryWithFail(
+            assertionUrn, runEvent, assertionRunSummary, assertionStatus);
         break;
       case ERROR:
-        updateAssertionSummaryWithError(assertionUrn, runEvent, assertionRunSummary);
+        updateAssertionSummaryWithError(
+            assertionUrn, runEvent, assertionRunSummary, assertionStatus);
         break;
       case INIT:
-        updateAssertionSummaryWithInit(assertionUrn, runEvent, assertionRunSummary);
+        updateAssertionSummaryWithInit(
+            assertionUrn, runEvent, assertionRunSummary, assertionStatus);
         break;
       default:
         log.warn(
@@ -134,7 +162,8 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
   private void updateAssertionSummaryWithPass(
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionRunEvent runEvent,
-      @Nonnull final AssertionRunSummary assertionSummary) {
+      @Nonnull final AssertionRunSummary assertionSummary,
+      @Nullable final AssertionStatus assertionStatus) {
 
     AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
     patchBuilder.urn(assertionUrn);
@@ -145,6 +174,9 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
     // If the new event is more recent, update the summary.
     if (maybeLastPassedAt == null || runEvent.getTimestampMillis() > maybeLastPassedAt) {
       patchBuilder.setLastPassedAt(runEvent.getTimestampMillis());
+      if (assertionStatus != null) {
+        patchBuilder.setAssertionStatus(assertionStatus.name());
+      }
       // And also emit.
       emitAssertionSummaryPatch(patchBuilder);
     }
@@ -153,7 +185,8 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
   private AssertionRunSummaryPatchBuilder updateAssertionSummaryWithFail(
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionRunEvent runEvent,
-      @Nonnull final AssertionRunSummary assertionSummary) {
+      @Nonnull final AssertionRunSummary assertionSummary,
+      @Nullable final AssertionStatus assertionStatus) {
 
     AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
     patchBuilder.urn(assertionUrn);
@@ -164,6 +197,9 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
     // If the new event is more recent, update the summary.
     if (maybeLastFailedAt == null || runEvent.getTimestampMillis() > maybeLastFailedAt) {
       patchBuilder.setLastFailedAt(runEvent.getTimestampMillis());
+      if (assertionStatus != null) {
+        patchBuilder.setAssertionStatus(assertionStatus.name());
+      }
       // And also emit.
       emitAssertionSummaryPatch(patchBuilder);
     }
@@ -174,7 +210,8 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
   private AssertionRunSummaryPatchBuilder updateAssertionSummaryWithError(
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionRunEvent runEvent,
-      @Nonnull final AssertionRunSummary assertionSummary) {
+      @Nonnull final AssertionRunSummary assertionSummary,
+      @Nullable final AssertionStatus assertionStatus) {
 
     AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
     patchBuilder.urn(assertionUrn);
@@ -185,6 +222,9 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
     // If the new event is more recent, update the summary.
     if (maybeLastErroredAt == null || runEvent.getTimestampMillis() > maybeLastErroredAt) {
       patchBuilder.setLastErroredAt(runEvent.getTimestampMillis());
+      if (assertionStatus != null) {
+        patchBuilder.setAssertionStatus(assertionStatus.name());
+      }
       // And also emit.
       emitAssertionSummaryPatch(patchBuilder);
     }
@@ -195,7 +235,8 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
   private AssertionRunSummaryPatchBuilder updateAssertionSummaryWithInit(
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionRunEvent runEvent,
-      @Nonnull final AssertionRunSummary assertionSummary) {
+      @Nonnull final AssertionRunSummary assertionSummary,
+      @Nullable final AssertionStatus assertionStatus) {
 
     AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
     patchBuilder.urn(assertionUrn);
@@ -206,6 +247,9 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
     // If the new event is more recent, update the summary.
     if (maybeLastInitializedAt == null || runEvent.getTimestampMillis() > maybeLastInitializedAt) {
       patchBuilder.setLastInitializedAt(runEvent.getTimestampMillis());
+      if (assertionStatus != null) {
+        patchBuilder.setAssertionStatus(assertionStatus.name());
+      }
       // And also emit.
       emitAssertionSummaryPatch(patchBuilder);
     }
@@ -227,7 +271,7 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
    * assertion status aspect
    */
   private boolean isEligibleForProcessing(@Nonnull final MetadataChangeLog event) {
-    return isAssertionRunCompleteEvent(event);
+    return isAssertionRunCompleteEvent(event) || isMonitorInfoEvent(event);
   }
 
   /**
@@ -240,6 +284,12 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
         && isAssertionRunCompleted(event);
   }
 
+  private boolean isMonitorInfoEvent(@Nonnull final MetadataChangeLog event) {
+    return MONITOR_ENTITY_NAME.equals(event.getEntityType())
+        && SUPPORTED_UPDATE_TYPES.contains(event.getChangeType())
+        && MONITOR_INFO_ASPECT_NAME.equals(event.getAspectName());
+  }
+
   private boolean isAssertionRunCompleted(@Nonnull final MetadataChangeLog event) {
     final AssertionRunEvent runEvent = extractAssertionRunEvent(event);
     return AssertionRunStatus.COMPLETE.equals(runEvent.getStatus()) && runEvent.hasResult();
@@ -249,5 +299,71 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
   private AssertionRunEvent extractAssertionRunEvent(@Nonnull final MetadataChangeLog event) {
     return GenericRecordUtils.deserializeAspect(
         event.getAspect().getValue(), event.getAspect().getContentType(), AssertionRunEvent.class);
+  }
+
+  @Nonnull
+  private MonitorInfo extractMonitorInfo(@Nonnull final MetadataChangeLog event) {
+    return GenericRecordUtils.deserializeAspect(
+        event.getAspect().getValue(), event.getAspect().getContentType(), MonitorInfo.class);
+  }
+
+  private void handleMonitorInfoUpdated(@Nonnull final MonitorInfo monitorInfo) {
+    if (!MonitorType.ASSERTION.equals(monitorInfo.getType())
+        || !monitorInfo.hasAssertionMonitor()
+        || !monitorInfo.hasStatus()) {
+      return;
+    }
+
+    final MonitorStatus status = monitorInfo.getStatus();
+    final MonitorError monitorError = status.hasError() ? status.getError() : null;
+    final boolean hasMonitorError = AssertionStatusUtils.isMonitorError(monitorError);
+
+    monitorInfo.getAssertionMonitor().getAssertions().stream()
+        .map(spec -> spec.getAssertion())
+        .forEach(
+            assertionUrn ->
+                updateAssertionStatusFromMonitor(assertionUrn, monitorError, hasMonitorError));
+  }
+
+  private void updateAssertionStatusFromMonitor(
+      @Nonnull final Urn assertionUrn,
+      @Nullable final MonitorError monitorError,
+      final boolean hasMonitorError) {
+    AssertionRunSummary assertionRunSummary =
+        assertionService.getAssertionRunSummary(systemOperationContext, assertionUrn);
+
+    if (assertionRunSummary == null) {
+      assertionRunSummary = new AssertionRunSummary();
+    }
+
+    AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
+    patchBuilder.urn(assertionUrn);
+
+    AssertionStatus currentStatus =
+        assertionRunSummary != null ? assertionRunSummary.getAssertionStatus() : null;
+    AssertionStatus nextStatus =
+        AssertionStatusUtils.resolveStatus(
+            hasMonitorError ? monitorError : null, assertionRunSummary);
+
+    if (nextStatus != null && !nextStatus.equals(currentStatus)) {
+      patchBuilder.setAssertionStatus(nextStatus.name());
+      emitAssertionSummaryPatch(patchBuilder);
+    }
+  }
+
+  @Nullable
+  private MonitorError getMonitorErrorForAssertion(@Nonnull final Urn assertionUrn) {
+    final Urn monitorUrn =
+        assertionService.getMonitorUrnForAssertion(systemOperationContext, assertionUrn);
+    if (monitorUrn == null) {
+      return null;
+    }
+    final MonitorInfo monitorInfo =
+        monitorService.getMonitorInfo(systemOperationContext, monitorUrn);
+    if (monitorInfo == null || !monitorInfo.hasStatus()) {
+      return null;
+    }
+    final MonitorStatus status = monitorInfo.getStatus();
+    return status.hasError() ? status.getError() : null;
   }
 }

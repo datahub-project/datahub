@@ -45,4 +45,14 @@ record AssertionRunSummary {
   }
   lastInitializedAtMillis: optional long
 
+  /**
+   * The latest assertion status, incorporating run results and monitor errors.
+   */
+  @Searchable = {
+    "fieldName": "assertionStatus",
+    "fieldType": "KEYWORD",
+    "addToFilters": true
+  }
+  assertionStatus: optional AssertionStatus
+
 }

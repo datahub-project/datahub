@@ -36,7 +36,10 @@ import com.linkedin.datahub.graphql.resolvers.application.BatchUnsetApplicationR
 import com.linkedin.datahub.graphql.resolvers.application.CreateApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.application.DeleteApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionHealthResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.AssertionResultErrorDisplayMessageResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.AssertionResultErrorRecommendedActionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.AssertionStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.ListAssertionsResolver;
@@ -170,6 +173,8 @@ import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.logical.SetLogicalParentResolver;
 import com.linkedin.datahub.graphql.resolvers.module.DeletePageModuleResolver;
 import com.linkedin.datahub.graphql.resolvers.module.UpsertPageModuleResolver;
+import com.linkedin.datahub.graphql.resolvers.monitor.MonitorErrorDisplayMessageResolver;
+import com.linkedin.datahub.graphql.resolvers.monitor.MonitorErrorRecommendedActionResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
@@ -376,6 +381,7 @@ import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
+import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.PageModuleService;
 import com.linkedin.metadata.service.PageTemplateService;
@@ -461,6 +467,7 @@ public class GmsGraphQLEngine {
   private final RestrictedService restrictedService;
   private ConnectionService connectionService;
   private AssertionService assertionService;
+  private final MonitorService monitorService;
   private final DocumentService documentService;
   private final EntityVersioningService entityVersioningService;
   private final ApplicationService applicationService;
@@ -635,6 +642,7 @@ public class GmsGraphQLEngine {
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
     this.assertionService = args.assertionService;
+    this.monitorService = args.monitorService;
     this.documentService = args.documentService;
     this.entityVersioningService = args.entityVersioningService;
 
@@ -3460,7 +3468,23 @@ public class GmsGraphQLEngine {
                     "runEvents", new AssertionRunEventResolver(entityClient, assertionService))
                 .dataFetcher("health", new AssertionHealthResolver(entityClient, assertionService))
                 .dataFetcher(
+                    "assertionStatus",
+                    new AssertionStatusResolver(assertionService, monitorService))
+                .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
+    builder.type(
+        "AssertionResultError",
+        typeWiring ->
+            typeWiring
+                .dataFetcher("displayMessage", new AssertionResultErrorDisplayMessageResolver())
+                .dataFetcher(
+                    "recommendedAction", new AssertionResultErrorRecommendedActionResolver()));
+    builder.type(
+        "MonitorError",
+        typeWiring ->
+            typeWiring
+                .dataFetcher("displayMessage", new MonitorErrorDisplayMessageResolver())
+                .dataFetcher("recommendedAction", new MonitorErrorRecommendedActionResolver()));
   }
 
   private void configureContractResolvers(final RuntimeWiring.Builder builder) {

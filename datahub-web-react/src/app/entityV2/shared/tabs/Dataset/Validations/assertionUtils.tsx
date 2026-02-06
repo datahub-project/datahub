@@ -3,15 +3,20 @@ import { Location } from 'history';
 import QueryString from 'query-string';
 import React from 'react';
 
-import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
+import {
+    ERROR_COLOR_HEX,
+    FAILURE_COLOR_HEX,
+    INFO_COLOR_HEX,
+    SUCCESS_COLOR_HEX,
+} from '@components/theme/foundations/colors';
 
 // TODO
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 import {
     AssertionResult,
-    AssertionResultErrorType,
     AssertionResultType,
+    AssertionStatus,
     AssertionStdParameter,
     AssertionStdParameterType,
     DatasetAssertionInfo,
@@ -60,8 +65,7 @@ export const getResultText = (result: AssertionResultType, isSmartAssertion?: bo
 /**
  * Returns the display color associated with an AssertionResultType
  */
-const INIT_COLOR_HEX = '#2F54EB';
-const NO_RESULTS_COLOR_HEX = ANTD_GRAY[8];
+export const NO_RESULTS_COLOR_HEX = ANTD_GRAY[8];
 
 export const getResultColor = (result?: AssertionResultType) => {
     if (!result) {
@@ -75,7 +79,7 @@ export const getResultColor = (result?: AssertionResultType) => {
         case AssertionResultType.Error:
             return ERROR_COLOR_HEX;
         case AssertionResultType.Init:
-            return INIT_COLOR_HEX;
+            return INFO_COLOR_HEX;
         default:
             throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
     }
@@ -112,33 +116,6 @@ export const convertNativeParametersArrayToMap = (nativeParameters: Maybe<Array<
         return map;
     }
     return undefined;
-};
-
-export const getResultErrorMessage = (result: AssertionResult) => {
-    if (result.type !== AssertionResultType.Error) {
-        return undefined;
-    }
-
-    const errorType = result.error?.type;
-
-    switch (errorType) {
-        case AssertionResultErrorType.SourceConnectionError:
-            return 'Unable to connect to source data platform. Please check the connection.';
-        case AssertionResultErrorType.SourceQueryFailed:
-            return 'Failed to evaluate query against the source platform.';
-        case AssertionResultErrorType.InsufficientData:
-            return 'Not enough data to evaluate assertion.';
-        case AssertionResultErrorType.InvalidParameters:
-            return 'Invalid parameters. Please check the assertion configuration.';
-        case AssertionResultErrorType.InvalidSourceType:
-            return 'Invalid source type selected. Please select different source type in assertion configuration.';
-        case AssertionResultErrorType.UnsupportedPlatform:
-            return 'Unsupported platform.';
-        case AssertionResultErrorType.CustomSqlError:
-            return 'Custom SQL query resulted in an error.';
-        default:
-            return 'An unknown error occurred.';
-    }
 };
 
 /**
@@ -178,13 +155,16 @@ export const getQueryParams = (param: string, location: Location): string | null
     return params[param] ? String(params[param]) : null;
 };
 
-export const getResultDotIcon = (result?: AssertionResultType, size?: number, disabled?: boolean) => {
+export const getResultDotIconFromResultType = (
+    resultType: AssertionResultType | undefined,
+    size?: number,
+    disabled?: boolean,
+) => {
     const opacity = disabled ? 0.4 : 1;
-    if (!result) {
-        // Todo replace will no results yet icon.
+    if (!resultType) {
         return <AssertionNoResultsIcon width={size} height={size} opacity={opacity} />;
     }
-    switch (result) {
+    switch (resultType) {
         case AssertionResultType.Success:
             return <AssertionSuccessIcon width={size} height={size} opacity={opacity} />;
         case AssertionResultType.Failure:
@@ -194,6 +174,39 @@ export const getResultDotIcon = (result?: AssertionResultType, size?: number, di
         case AssertionResultType.Init:
             return <AssertionInitIcon width={size} height={size} opacity={opacity} />;
         default:
-            throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
+            throw new Error(`Unsupported Assertion Result Type ${resultType} provided.`);
+    }
+};
+
+export const getResultErrorMessage = (result: AssertionResult) => {
+    if (result.type !== AssertionResultType.Error) {
+        return undefined;
+    }
+
+    const displayMessage = result.error?.displayMessage;
+    if (displayMessage) {
+        return displayMessage;
+    }
+
+    const messageProperty = result.error?.properties?.find((property) => property.key === 'message')?.value;
+    return messageProperty || 'An unknown error occurred.';
+};
+
+export type AssertionHealthDotStatus = 'success' | 'failure' | 'error' | 'init' | 'gray';
+
+export const getAssertionStatusResultType = (
+    assertionStatus?: AssertionStatus | null,
+): AssertionResultType | undefined => {
+    switch (assertionStatus) {
+        case AssertionStatus.Passing:
+            return AssertionResultType.Success;
+        case AssertionStatus.Failing:
+            return AssertionResultType.Failure;
+        case AssertionStatus.Error:
+            return AssertionResultType.Error;
+        case AssertionStatus.Init:
+            return AssertionResultType.Init;
+        default:
+            return undefined;
     }
 };

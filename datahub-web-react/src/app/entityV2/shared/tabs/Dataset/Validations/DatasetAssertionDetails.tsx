@@ -22,7 +22,7 @@ import { getFixedLookbackWindow, getLocaleTimezone } from '@app/shared/time/time
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetAssertionRunsLazyQuery } from '@graphql/assertion.generated';
-import { AssertionResultType, AssertionRunStatus, EntityType } from '@types';
+import { AssertionResult, AssertionResultType, AssertionRunStatus, EntityType } from '@types';
 
 const RESULT_CHART_WIDTH_PX = 800;
 
@@ -168,7 +168,7 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
             const gmtTime = resultTime.toUTCString();
             const resultUrl: string | undefined = result.externalUrl?.valueOf();
             const isInitializing = result.type === AssertionResultType.Init;
-            const errorMessage = getResultErrorMessage(result);
+            const errorMessage = getResultErrorMessage(result as AssertionResult);
             const platformName = data?.assertion?.platform
                 ? entityRegistry.getDisplayName(EntityType.DataPlatform, data?.assertion?.platform)
                 : undefined;
@@ -191,7 +191,7 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
                     content: (
                         <>
                             <AssertionResultDetailsContainer>
-                                <DatasetAssertionResultDetails result={result} />
+                                <DatasetAssertionResultDetails result={result as AssertionResult} />
                             </AssertionResultDetailsContainer>
                             {isInitializing && (
                                 <AssertionResultInitializingMessage>

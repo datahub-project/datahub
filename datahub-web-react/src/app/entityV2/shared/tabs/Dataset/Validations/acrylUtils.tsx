@@ -22,6 +22,7 @@ import {
     AssertionResultType,
     AssertionRunEvent,
     AssertionSourceType,
+    AssertionStatus,
     AssertionType,
     CronSchedule,
     DatasetFreshnessSourceType,
@@ -198,18 +199,20 @@ export const getAssertionsSummary = (assertions: AssertionWithMonitorDetails[]):
         }
 
         if ((assertion.runEvents?.runEvents?.length || 0) > 0) {
-            const mostRecentRun = assertion.runEvents?.runEvents?.[0];
-            const resultType = mostRecentRun?.result?.type;
-            if (AssertionResultType.Success === resultType) {
+            const { assertionStatus } = assertion;
+            if (!assertionStatus) {
+                return;
+            }
+            if (AssertionStatus.Passing === assertionStatus) {
                 summary.passing++;
             }
-            if (AssertionResultType.Failure === resultType) {
+            if (AssertionStatus.Failing === assertionStatus) {
                 summary.failing++;
             }
-            if (AssertionResultType.Error === resultType) {
+            if (AssertionStatus.Error === assertionStatus) {
                 summary.erroring++;
             }
-            if (AssertionResultType.Init !== resultType) {
+            if (AssertionStatus.Init !== assertionStatus) {
                 summary.total++; // only count assertions for which there is one completed run event, ignoring INIT statuses!
             }
         }

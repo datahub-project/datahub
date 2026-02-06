@@ -4,10 +4,10 @@ import styled from 'styled-components';
 import { Actions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/Actions';
 import { CloseButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/CloseButton';
 import { AssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionDescription';
-import { AssertionResultPill } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionResultPill';
+import { AssertionStatusPill } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionStatusPill';
 import { AssertionSourceType, AssertionType, Maybe } from '@src/types.generated';
 
-import { Assertion, AssertionResult, DataContract, Monitor } from '@types';
+import { Assertion, DataContract, Monitor } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -45,7 +45,6 @@ type Props = {
     assertion: Assertion;
     monitor?: Maybe<Monitor>;
     contract?: DataContract | null;
-    result?: AssertionResult;
     canEditAssertion: boolean;
     canEditMonitor: boolean;
     canEditContract: boolean;
@@ -53,13 +52,11 @@ type Props = {
     refetch: () => void;
 };
 
-// TODO: Add support for V2 styled actions: Delete, start, stop.
 // TODO: Replace with the newer close Icon.
 export const AssertionProfileHeader = ({
     assertion,
     monitor,
     contract,
-    result,
     canEditAssertion,
     canEditMonitor,
     canEditContract,
@@ -99,7 +96,7 @@ export const AssertionProfileHeader = ({
                         'Assertion details'}
                 </Title>
                 <Status>
-                    <AssertionResultPill result={result} isSmartAssertion={isSmartAssertion} />
+                    <AssertionStatusPill status={assertion.assertionStatus} isSmartAssertion={isSmartAssertion} />
                 </Status>
             </Container>
         </>

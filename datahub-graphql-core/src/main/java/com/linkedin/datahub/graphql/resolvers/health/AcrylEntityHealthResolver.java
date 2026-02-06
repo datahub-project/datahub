@@ -361,7 +361,7 @@ public class AcrylEntityHealthResolver implements DataFetcher<CompletableFuture<
                     .toList()));
         assertionHealthStatusByType.setStatusCount(failingAssertionsForType.size());
       } else if (erroringAssertionsForType.size() > 0) {
-        assertionHealthStatusByType.setStatus(HealthStatus.FAIL);
+        assertionHealthStatusByType.setStatus(HealthStatus.WARN);
         assertionHealthStatusByType.setLastStatusResultAt(
             Collections.max(
                 erroringAssertionsForType.stream()

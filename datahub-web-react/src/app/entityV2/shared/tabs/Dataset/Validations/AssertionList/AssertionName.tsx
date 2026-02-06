@@ -12,6 +12,7 @@ import { InferredAssertionBadge } from '@app/entityV2/shared/tabs/Dataset/Valida
 import { InferredAssertionPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/InferredAssertionPopover';
 import { extractLatestGeneratedAt, isMonitorActive } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopover';
+import { AssertionResultPopoverMode } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverMode';
 import { ResultStatusType } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
 import { useBuildAssertionPrimaryLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
 import { isAssertionPartOfContract } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
@@ -98,24 +99,29 @@ export const AssertionName = ({
     const isSmartAssertion = assertionInfo?.source?.type === AssertionSourceType.Inferred;
 
     const generatedAt = extractLatestGeneratedAt(monitor);
-    // NOTE: replace this with the Assertion status
     const smartAssertionAgeDays = generatedAt ? moment().diff(moment(generatedAt), 'days') : undefined;
     const isSmartAssertionStale =
         isSmartAssertion && smartAssertionAgeDays && smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS;
+    const latestRunEvent = lastEvaluation || assertion.runEvents?.runEvents?.[0];
 
     return (
         <StyledAssertionNameContainer>
             {/* ******** Popover on hover ******** */}
             <AssertionResultPopover
                 assertion={assertion}
-                run={lastEvaluation}
+                run={latestRunEvent}
                 showProfileButton
                 placement="right"
                 onClickProfileButton={onClickProfileButton}
                 resultStatusType={ResultStatusType.LATEST}
+                mode={AssertionResultPopoverMode.Holistic}
             >
                 <Result>
-                    <AcrylAssertionListStatusDot run={lastEvaluation} disabled={disabled} size={10} />
+                    <AcrylAssertionListStatusDot
+                        assertionStatus={assertion.assertionStatus}
+                        disabled={disabled}
+                        size={10}
+                    />
                 </Result>
             </AssertionResultPopover>
 

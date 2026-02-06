@@ -57,7 +57,7 @@ export const AssertionResultsTable = ({ assertion, monitor, openAssertionNote }:
         return {
             dot: (
                 <div style={{ paddingTop: 12 }}>
-                    <AssertionResultDot run={run as AssertionRunEvent} />
+                    <AssertionResultDot resultType={run.result?.type as AssertionResultType} />
                 </div>
             ),
             color: getResultColor(run.result?.type as AssertionResultType),

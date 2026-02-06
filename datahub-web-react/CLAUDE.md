@@ -158,6 +158,7 @@ _Mostly handled by linter and formatter (prettier). Mostly unimportant changes t
 - When to optional chain
     - If it type checks, it should be fine, except for the array access case above
 - Prefer direct imports, e.g. `import React, { useState } from 'react'` over `React.useState`
+- If you are creating a component, design it to be reusable. (ex. parent component controls margin)
 
 ## Development Commands
 

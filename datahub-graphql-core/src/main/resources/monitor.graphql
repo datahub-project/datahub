@@ -723,6 +723,16 @@ type MonitorError {
   An optional message
   """
   message: String
+
+  """
+  User-friendly summary of the error, if any.
+  """
+  displayMessage: String
+
+  """
+  Recommended action to resolve the error, if any.
+  """
+  recommendedAction: String
 }
 
 """

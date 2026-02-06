@@ -9,6 +9,7 @@ import React, { useMemo } from 'react';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';
+import { AssertionResultPopoverMode } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverMode';
 import AssertionChartHeader from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionChartHeader';
 import {
     AssertionResultChartData,
@@ -126,6 +127,7 @@ export const StatusOverTimeAssertionResultChart = ({
                                             assertion={data.context.assertion}
                                             monitor={data.context.monitor}
                                             run={dataPoint.relatedRunEvent}
+                                            mode={AssertionResultPopoverMode.IndividualRun}
                                         />
                                     }
                                     showArrow={false}

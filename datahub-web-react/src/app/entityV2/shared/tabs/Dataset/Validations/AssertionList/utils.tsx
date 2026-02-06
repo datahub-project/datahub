@@ -29,6 +29,7 @@ import {
 import { isEntityEligibleForAssertionMonitoring } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
+import { getAssertionStatusResultType } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import {
     ASSERTION_SOURCE_FILTER_NAME,
     ASSERTION_STATUS_FILTER_NAME,
@@ -77,6 +78,26 @@ const RECOMMENDED_FILTER_NAME_MAP = {
     [AssertionSourceType.External]: 'External',
     [AssertionSourceType.Native]: 'Native',
     [AssertionSourceType.Inferred]: 'Smart Assertions',
+};
+
+// FIXME: Switch the status filters and grouping to use AssertionStatus directly, and remove this function.
+const normalizeAssertionStatusValue = (value?: string): AssertionResultType | undefined => {
+    switch (value) {
+        case 'PASSING':
+        case AssertionResultType.Success:
+            return AssertionResultType.Success;
+        case 'FAILING':
+        case AssertionResultType.Failure:
+            return AssertionResultType.Failure;
+        case 'ERROR':
+        case AssertionResultType.Error:
+            return AssertionResultType.Error;
+        case 'INIT':
+        case AssertionResultType.Init:
+            return AssertionResultType.Init;
+        default:
+            return undefined;
+    }
 };
 
 // Create Group's Summary to name and number of records for each group
@@ -178,6 +199,7 @@ export const mapAssertionDataToTableProperties = (
         const monitor = assertion.monitor?.relationships?.[0]?.entity;
         const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
         const isCompleted = mostRecentRun?.status === AssertionRunStatus.Complete;
+        const lastEvaluationResult = getAssertionStatusResultType(assertion.assertionStatus);
         const rowData: AssertionListTableRow = {
             key: assertion.urn,
             type: getAssertionType(assertion),
@@ -189,7 +211,7 @@ export const mapAssertionDataToTableProperties = (
             platform: assertion.platform,
             lastEvaluation: (isCompleted && mostRecentRun) as AssertionRunEvent,
             lastEvaluationTimeMs: mostRecentRun?.timestampMillis,
-            lastEvaluationResult: (isCompleted && mostRecentRun?.result?.type) as AssertionResultType,
+            lastEvaluationResult: lastEvaluationResult as AssertionResultType,
             lastEvaluationUrl: (isCompleted && mostRecentRun?.result?.externalUrl) || '',
             assertion: assertion as AssertionWithMonitorDetails,
             monitor: monitor as Monitor,
@@ -209,8 +231,7 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
 
     assertionStatus.forEach((status) => {
         const filteredAssertions = assertions.filter((assertion) => {
-            const mostRecentRun = assertion.runEvents?.runEvents?.[0];
-            const resultType = mostRecentRun?.result?.type;
+            const resultType = getAssertionStatusResultType(assertion.assertionStatus);
             if (status === NO_STATUS) {
                 return assertion.info?.type && resultType === undefined;
             }
@@ -328,8 +349,9 @@ export const extractFilterOptionListFromAssertions = (
         const statusFacet = facets.find((facet) => facet.field === ASSERTION_STATUS_FILTER_NAME);
         if (statusFacet?.aggregations) {
             statusFacet.aggregations.forEach((agg) => {
-                if (agg.value && agg.count !== undefined) {
-                    filterGroupCounts.status[agg.value] = agg.count;
+                const normalizedStatus = normalizeAssertionStatusValue(agg.value);
+                if (normalizedStatus && agg.count !== undefined) {
+                    filterGroupCounts.status[normalizedStatus] = agg.count;
                 }
             });
         }
@@ -366,8 +388,9 @@ export const extractFilterOptionListFromAssertions = (
         const statusFacet = facets.find((facet) => facet.field === ASSERTION_STATUS_FILTER_NAME);
         if (statusFacet?.aggregations) {
             statusFacet.aggregations.forEach((agg) => {
-                if (agg.value) {
-                    const index = remainingAssertionStatus.indexOf(agg.value as AssertionResultType);
+                const normalizedStatus = normalizeAssertionStatusValue(agg.value);
+                if (normalizedStatus) {
+                    const index = remainingAssertionStatus.indexOf(normalizedStatus);
                     if (index > -1) {
                         remainingAssertionStatus.splice(index, 1);
                     }
@@ -404,8 +427,7 @@ export const extractFilterOptionListFromAssertions = (
 
         // filter out tracked statuses (only needed when not using facets)
         if (shouldCountFromAssertions) {
-            const mostRecentRun = assertion.runEvents?.runEvents?.[0];
-            const resultType = mostRecentRun?.result?.type || '';
+            const resultType = getAssertionStatusResultType(assertion.assertionStatus) || '';
             if (resultType) {
                 const statusIndex = remainingAssertionStatus.indexOf(resultType);
                 if (statusIndex > -1) {
@@ -520,7 +542,7 @@ const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: A
     const { type, status, source, column } = filter.filterCriteria;
     // Apply type, status, and other filters
     return assertions.filter((assertion: AssertionWithMonitorDetails) => {
-        const resultType = assertion.runEvents?.runEvents?.[0]?.result?.type as AssertionResultType;
+        const resultType = getAssertionStatusResultType(assertion.assertionStatus) as AssertionResultType;
         const columnId = getColumnIdFromAssertion(assertion) || '';
         const matchesType = type.length === 0 || type.includes(getAssertionType(assertion) as AssertionType);
         const matchesStatus = status.length === 0 || status.includes(resultType);

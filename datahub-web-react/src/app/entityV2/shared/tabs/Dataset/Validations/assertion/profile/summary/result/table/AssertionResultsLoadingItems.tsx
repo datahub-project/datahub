@@ -4,7 +4,7 @@ import { range } from 'remirror';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { getResultDotIcon } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+import { getResultDotIconFromResultType } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 
 const ItemSkeleton = styled(Skeleton.Input)`
     && {
@@ -22,7 +22,7 @@ export const AssertionResultsLoadingItems = () => {
                     key={index}
                     dot={
                         <div className="assertion-result-dot" style={{ opacity: 0.3, display: 'flex' }}>
-                            {getResultDotIcon(undefined, 14)}
+                            {getResultDotIconFromResultType(undefined, 14)}
                         </div>
                     }
                 >

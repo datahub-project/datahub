@@ -31,6 +31,7 @@ import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 import {
     AndFilterInput,
     Assertion,
+    AssertionResultType,
     AssertionSourceType,
     DataContract,
     EntityPrivileges,
@@ -55,6 +56,21 @@ const AssertionListContainer = styled.div`
 const DEFAULT_ASSERTION_PAGE_SIZE = 25;
 const DEFAULT_SORT_ORDER = SortOrder.Descending;
 const DEFAULT_SORT_FIELD = LAST_ASSERTION_RUN_AT_SORT_FIELD;
+
+const mapAssertionResultTypeToStatus = (status: AssertionResultType): string => {
+    switch (status) {
+        case AssertionResultType.Success:
+            return 'PASSING';
+        case AssertionResultType.Failure:
+            return 'FAILING';
+        case AssertionResultType.Error:
+            return 'ERROR';
+        case AssertionResultType.Init:
+            return 'INIT';
+        default:
+            return status;
+    }
+};
 
 const convertSortFieldToQueryField = (field: string | undefined) => {
     if (!field) {
@@ -93,7 +109,7 @@ const buildOrFilters = (
     if (statusFilters.length > 0) {
         filters.push({
             field: ASSERTION_STATUS_FILTER_NAME,
-            values: statusFilters,
+            values: statusFilters.map(mapAssertionResultTypeToStatus),
             condition: FilterOperator.Equal,
         });
     }

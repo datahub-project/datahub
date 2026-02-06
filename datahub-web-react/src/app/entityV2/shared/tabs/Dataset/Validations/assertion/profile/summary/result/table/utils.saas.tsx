@@ -4,7 +4,7 @@ import { AssertionResultDot } from '@app/entityV2/shared/tabs/Dataset/Validation
 import { AssertionPredictionTableItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/table/AssertionPredictionTableItem.saas';
 import { getResultColor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { useAppConfig } from '@src/app/useAppConfig';
-import { Assertion, AssertionResultType, AssertionRunEvent, Maybe, Monitor } from '@src/types.generated';
+import { Assertion, AssertionResultType, Maybe, Monitor } from '@src/types.generated';
 
 export const useAssertionPredictionItem = (assertion: Assertion, monitor?: Maybe<Monitor>) => {
     // We can only show predictions if smart assertions are being trained online
@@ -24,7 +24,7 @@ export const useAssertionPredictionItem = (assertion: Assertion, monitor?: Maybe
         ? {
               dot: (
                   <div style={{ paddingTop: 12 }}>
-                      <AssertionResultDot run={{ result: { type: AssertionResultType.Init } } as AssertionRunEvent} />
+                      <AssertionResultDot resultType={AssertionResultType.Init} />
                   </div>
               ),
               color: getResultColor(AssertionResultType.Init),

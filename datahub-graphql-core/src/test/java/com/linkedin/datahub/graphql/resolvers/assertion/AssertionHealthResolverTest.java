@@ -71,8 +71,7 @@ public class AssertionHealthResolverTest {
     AssertionHealth health = resolver.get(mockEnv(assertionUrn.toString())).get();
 
     assertEquals(health.getStatus(), AssertionHealthStatus.HEALTHY);
-    assertNull(health.getMonitorError());
-    assertNull(health.getEvaluationError());
+    assertNull(health.getRawErrorMessage());
   }
 
   @Test
@@ -113,10 +112,9 @@ public class AssertionHealthResolverTest {
     AssertionHealth health = resolver.get(mockEnv(assertionUrn.toString())).get();
 
     assertEquals(health.getStatus(), AssertionHealthStatus.HEALTHY);
-    assertNotNull(health.getMonitorError());
-    assertEquals(health.getMonitorError().getType(), MonitorErrorType.TRAINING_DATA_INSUFFICIENT);
     assertNotNull(health.getRecommendedAction());
     assertNotNull(health.getDisplayMessage());
+    assertNull(health.getRawErrorMessage());
   }
 
   @Test
@@ -125,10 +123,7 @@ public class AssertionHealthResolverTest {
         resolveWithEvaluationError(AssertionResultErrorType.STATE_PERSISTENCE_FAILED);
 
     assertEquals(health.getStatus(), AssertionHealthStatus.DEGRADED);
-    assertNotNull(health.getEvaluationError());
-    assertEquals(
-        health.getEvaluationError().getType(),
-        com.linkedin.datahub.graphql.generated.AssertionResultErrorType.STATE_PERSISTENCE_FAILED);
+    assertNull(health.getRawErrorMessage());
   }
 
   @Test
@@ -137,10 +132,7 @@ public class AssertionHealthResolverTest {
         resolveWithEvaluationError(AssertionResultErrorType.INVALID_PARAMETERS);
 
     assertEquals(health.getStatus(), AssertionHealthStatus.ERROR);
-    assertNotNull(health.getEvaluationError());
-    assertEquals(
-        health.getEvaluationError().getType(),
-        com.linkedin.datahub.graphql.generated.AssertionResultErrorType.INVALID_PARAMETERS);
+    assertNull(health.getRawErrorMessage());
   }
 
   @Test
@@ -151,6 +143,7 @@ public class AssertionHealthResolverTest {
 
     assertEquals(health.getStatus(), AssertionHealthStatus.ERROR);
     assertNotNull(health.getDisplayMessage());
+    assertEquals(health.getRawErrorMessage(), "BadRequest: 400 invalid query");
   }
 
   @Test
@@ -160,6 +153,7 @@ public class AssertionHealthResolverTest {
             AssertionResultErrorType.SOURCE_QUERY_FAILED, "ServiceUnavailable: 503 timeout");
 
     assertEquals(health.getStatus(), AssertionHealthStatus.DEGRADED);
+    assertEquals(health.getRawErrorMessage(), "ServiceUnavailable: 503 timeout");
   }
 
   @Test
@@ -168,6 +162,7 @@ public class AssertionHealthResolverTest {
         resolveWithEvaluationError(AssertionResultErrorType.SOURCE_QUERY_FAILED, "message", "403");
 
     assertEquals(health.getStatus(), AssertionHealthStatus.ERROR);
+    assertEquals(health.getRawErrorMessage(), "message");
   }
 
   @Test
@@ -178,6 +173,9 @@ public class AssertionHealthResolverTest {
             "Source query (Snowflake) failed with error: 003001 (42501): SQL access control error: Insufficient privileges");
 
     assertEquals(health.getStatus(), AssertionHealthStatus.ERROR);
+    assertEquals(
+        health.getRawErrorMessage(),
+        "Source query (Snowflake) failed with error: 003001 (42501): SQL access control error: Insufficient privileges");
   }
 
   @Test
@@ -187,6 +185,7 @@ public class AssertionHealthResolverTest {
             AssertionResultErrorType.SOURCE_QUERY_FAILED, null, null, "42501");
 
     assertEquals(health.getStatus(), AssertionHealthStatus.ERROR);
+    assertNull(health.getRawErrorMessage());
   }
 
   @Test
@@ -196,6 +195,7 @@ public class AssertionHealthResolverTest {
             AssertionResultErrorType.SOURCE_QUERY_FAILED, null, null, "08006");
 
     assertEquals(health.getStatus(), AssertionHealthStatus.DEGRADED);
+    assertNull(health.getRawErrorMessage());
   }
 
   @Test
@@ -205,6 +205,7 @@ public class AssertionHealthResolverTest {
             AssertionResultErrorType.SOURCE_QUERY_FAILED, null, "403", "08006");
 
     assertEquals(health.getStatus(), AssertionHealthStatus.ERROR);
+    assertNull(health.getRawErrorMessage());
   }
 
   @Test
@@ -213,6 +214,7 @@ public class AssertionHealthResolverTest {
         resolveWithEvaluationError(AssertionResultErrorType.SOURCE_QUERY_FAILED, "message", "503");
 
     assertEquals(health.getStatus(), AssertionHealthStatus.DEGRADED);
+    assertEquals(health.getRawErrorMessage(), "message");
   }
 
   @Test
@@ -267,7 +269,58 @@ public class AssertionHealthResolverTest {
     AssertionHealth health = resolver.get(mockEnv(assertionUrn.toString())).get();
 
     assertEquals(health.getStatus(), AssertionHealthStatus.HEALTHY);
-    assertNull(health.getEvaluationError());
+    assertNull(health.getRawErrorMessage());
+  }
+
+  @Test
+  public void testRawErrorMessageMonitorTakesPrecedence() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    AssertionService mockAssertionService = Mockito.mock(AssertionService.class);
+    AssertionHealthResolver resolver =
+        new AssertionHealthResolver(mockClient, mockAssertionService);
+
+    final Urn assertionUrn = Urn.createFromString("urn:li:assertion:health-raw-1");
+    final Urn monitorUrn = Urn.createFromString("urn:li:monitor:health-raw-1");
+
+    Mockito.when(mockAssertionService.getMonitorUrnForAssertion(any(), eq(assertionUrn)))
+        .thenReturn(monitorUrn);
+    Mockito.when(
+            mockClient.getV2(
+                any(),
+                eq(Constants.MONITOR_ENTITY_NAME),
+                eq(monitorUrn),
+                eq(Set.of(Constants.MONITOR_KEY_ASPECT_NAME, Constants.MONITOR_INFO_ASPECT_NAME)),
+                eq(false)))
+        .thenReturn(
+            buildMonitorResponse(
+                monitorUrn,
+                com.linkedin.monitor.MonitorErrorType.INPUT_DATA_INVALID,
+                "monitor message"));
+    Mockito.when(
+            mockClient.getTimeseriesAspectValues(
+                any(),
+                eq(assertionUrn.toString()),
+                eq(Constants.ASSERTION_ENTITY_NAME),
+                eq(Constants.ASSERTION_RUN_EVENT_ASPECT_NAME),
+                Mockito.isNull(),
+                Mockito.isNull(),
+                eq(1),
+                any()))
+        .thenReturn(
+            ImmutableList.of(
+                new com.linkedin.metadata.aspect.EnvelopedAspect()
+                    .setAspect(
+                        GenericRecordUtils.serializeAspect(
+                            buildRunEventWithError(
+                                assertionUrn,
+                                AssertionResultErrorType.INVALID_PARAMETERS,
+                                "evaluation message",
+                                null,
+                                null)))));
+
+    AssertionHealth health = resolver.get(mockEnv(assertionUrn.toString())).get();
+
+    assertEquals(health.getRawErrorMessage(), "monitor message");
   }
 
   @Test
@@ -462,8 +515,17 @@ public class AssertionHealthResolverTest {
 
   private EntityResponse buildMonitorResponse(
       Urn monitorUrn, com.linkedin.monitor.MonitorErrorType errorType) {
+    return buildMonitorResponse(monitorUrn, errorType, null);
+  }
+
+  private EntityResponse buildMonitorResponse(
+      Urn monitorUrn, com.linkedin.monitor.MonitorErrorType errorType, String message) {
     MonitorStatus status = new MonitorStatus().setMode(MonitorMode.ACTIVE);
-    status.setError(new MonitorError().setType(errorType));
+    MonitorError error = new MonitorError().setType(errorType);
+    if (message != null) {
+      error.setMessage(message);
+    }
+    status.setError(error);
 
     MonitorInfo info = new MonitorInfo().setType(MonitorType.ASSERTION).setStatus(status);
     MonitorKey key =

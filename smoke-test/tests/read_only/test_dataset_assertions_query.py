@@ -24,7 +24,7 @@ def test_dataset_assertions_query(auth_session):
     This query filters datasets by various assertion states:
     - hasFailingAssertions
     - hasPassingAssertions
-    - hasErroredAssertions
+    - hasErroringAssertions
     - hasInitializingAssertions
 
     And sorts by lastAssertionResultAt in descending order.

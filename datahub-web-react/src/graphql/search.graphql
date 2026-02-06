@@ -1581,6 +1581,12 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
             ... on Dataset {
                 assertions(start: 0, count: 1000) @include(if: $includeAssertions) {
                     assertions {
+                        health {
+                            status
+                            displayMessage
+                            recommendedAction
+                            rawErrorMessage
+                        }
                         runEvents(status: COMPLETE, limit: 1) {
                             total
                             failed

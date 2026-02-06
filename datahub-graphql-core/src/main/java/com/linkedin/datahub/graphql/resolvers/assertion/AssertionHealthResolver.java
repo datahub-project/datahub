@@ -9,7 +9,6 @@ import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionHealth;
 import com.linkedin.datahub.graphql.generated.AssertionHealthStatus;
 import com.linkedin.datahub.graphql.generated.AssertionResultError;
-import com.linkedin.datahub.graphql.generated.AssertionResultErrorType;
 import com.linkedin.datahub.graphql.generated.AssertionRunEvent;
 import com.linkedin.datahub.graphql.generated.AssertionRunStatus;
 import com.linkedin.datahub.graphql.generated.Monitor;
@@ -23,6 +22,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.service.AssertionService;
+import com.linkedin.metadata.utils.AssertionHealthUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -129,15 +129,10 @@ public class AssertionHealthResolver implements DataFetcher<CompletableFuture<As
         resolveDisplayMessage(monitorError, evaluationError, monitorStatus, evaluationStatus);
     final String recommendedAction =
         resolveRecommendedAction(monitorError, evaluationError, monitorStatus, evaluationStatus);
+    final String rawErrorMessage = resolveRawErrorMessage(monitorError, evaluationError);
 
     final AssertionHealth health = new AssertionHealth();
     health.setStatus(resolvedStatus);
-    if (monitorError != null) {
-      health.setMonitorError(monitorError);
-    }
-    if (evaluationError != null) {
-      health.setEvaluationError(evaluationError);
-    }
     if (lastRunAt != null) {
       health.setLastRunAt(lastRunAt);
     }
@@ -147,7 +142,22 @@ public class AssertionHealthResolver implements DataFetcher<CompletableFuture<As
     if (recommendedAction != null) {
       health.setRecommendedAction(recommendedAction);
     }
+    if (rawErrorMessage != null) {
+      health.setRawErrorMessage(rawErrorMessage);
+    }
     return health;
+  }
+
+  @Nullable
+  private String resolveRawErrorMessage(
+      @Nullable MonitorError monitorError, @Nullable AssertionResultError evaluationError) {
+    if (monitorError != null && monitorError.getMessage() != null) {
+      return monitorError.getMessage();
+    }
+    if (evaluationError != null) {
+      return getPropertyValue(evaluationError, "message");
+    }
+    return null;
   }
 
   @Nonnull
@@ -212,32 +222,39 @@ public class AssertionHealthResolver implements DataFetcher<CompletableFuture<As
 
   @Nonnull
   private AssertionHealthStatus mapMonitorErrorToStatus(@Nullable MonitorError monitorError) {
-    if (monitorError == null) {
-      return AssertionHealthStatus.HEALTHY;
-    }
-    if (monitorError.getType() == null) {
-      return AssertionHealthStatus.UNKNOWN;
-    }
-    switch (monitorError.getType()) {
-      case INVALID_PARAMETERS:
-      case UNKNOWN:
-        return AssertionHealthStatus.ERROR;
-        /* Even though these are reported as errors, they are transient and
-         * expected to happen as a part of normal setup. */
-      case TRAINING_DATA_INSUFFICIENT:
-      case PREDICTION_NOT_CONFIDENT:
+    final com.linkedin.monitor.MonitorError modelError = toModelMonitorError(monitorError);
+    final AssertionHealthUtils.MonitorHealthStatus status =
+        AssertionHealthUtils.mapMonitorErrorToStatus(modelError);
+    switch (status) {
+      case HEALTHY:
         return AssertionHealthStatus.HEALTHY;
-      case INPUT_DATA_INVALID:
-      case INPUT_DATA_INSUFFICIENT:
-      case MODEL_CREATION_FAILED:
-      case MODEL_TRAINING_FAILED:
-      case MODEL_EVALUATION_FAILED:
-      case PREDICTION_FORMAT_ERROR:
-      case PERSISTENCE_FAILED:
+      case DEGRADED:
         return AssertionHealthStatus.DEGRADED;
+      case ERROR:
+        return AssertionHealthStatus.ERROR;
+      case UNKNOWN:
+        return AssertionHealthStatus.UNKNOWN;
+      default:
+        throw new IllegalStateException(String.format("Unhandled monitor error status %s", status));
     }
-    throw new IllegalStateException(
-        String.format("Unhandled monitor error type %s", monitorError.getType()));
+  }
+
+  @Nullable
+  private com.linkedin.monitor.MonitorError toModelMonitorError(
+      @Nullable MonitorError monitorError) {
+    if (monitorError == null) {
+      return null;
+    }
+    final com.linkedin.monitor.MonitorError modelError = new com.linkedin.monitor.MonitorError();
+    final MonitorErrorType type = monitorError.getType();
+    if (type != null) {
+      try {
+        modelError.setType(com.linkedin.monitor.MonitorErrorType.valueOf(type.name()));
+      } catch (IllegalArgumentException e) {
+        return modelError;
+      }
+    }
+    return modelError;
   }
 
   @Nonnull
@@ -421,10 +438,11 @@ public class AssertionHealthResolver implements DataFetcher<CompletableFuture<As
     final int monitorSeverity = severity(monitorStatus);
 
     if (evaluationError != null && evaluationSeverity >= monitorSeverity) {
-      return recommendedActionForEvaluationError(evaluationError.getType());
+      return AssertionErrorMessageMapper.recommendedActionForEvaluationError(
+          evaluationError.getType());
     }
     if (monitorError != null) {
-      return recommendedActionForMonitorError(monitorError.getType());
+      return AssertionErrorMessageMapper.recommendedActionForMonitorError(monitorError.getType());
     }
     return null;
   }
@@ -439,10 +457,11 @@ public class AssertionHealthResolver implements DataFetcher<CompletableFuture<As
     final int monitorSeverity = severity(monitorStatus);
 
     if (evaluationError != null && evaluationSeverity >= monitorSeverity) {
-      return displayMessageForEvaluationError(evaluationError.getType());
+      return AssertionErrorMessageMapper.displayMessageForEvaluationError(
+          evaluationError.getType());
     }
     if (monitorError != null) {
-      return displayMessageForMonitorError(monitorError.getType());
+      return AssertionErrorMessageMapper.displayMessageForMonitorError(monitorError.getType());
     }
     return null;
   }
@@ -458,149 +477,6 @@ public class AssertionHealthResolver implements DataFetcher<CompletableFuture<As
       default:
         return 0;
     }
-  }
-
-  @Nullable
-  private String recommendedActionForMonitorError(@Nullable MonitorErrorType type) {
-    if (type == null) {
-      return null;
-    }
-    switch (type) {
-      case TRAINING_DATA_INSUFFICIENT:
-        return "Check back in a bit—training will start automatically once we have enough historical data.";
-      case PREDICTION_NOT_CONFIDENT:
-        return "Keep waiting — confidence will improve as more data comes in.";
-      case INPUT_DATA_INSUFFICIENT:
-        return "This usually resolves on its own. If it persists, check your data source connection.";
-      case INPUT_DATA_INVALID:
-        return "Verify input data format and required fields for training.";
-      case INVALID_PARAMETERS:
-        return "Check the assertion configuration and fill in any missing fields.";
-      case MODEL_CREATION_FAILED:
-      case MODEL_TRAINING_FAILED:
-      case MODEL_EVALUATION_FAILED:
-      case PREDICTION_FORMAT_ERROR:
-      case PERSISTENCE_FAILED:
-        return "This is usually temporary. If it persists, contact support.";
-      case UNKNOWN:
-        return "If this persists, contact support with the error details.";
-    }
-    throw new IllegalStateException(String.format("Unhandled monitor error type %s", type));
-  }
-
-  @Nullable
-  private String recommendedActionForEvaluationError(@Nullable AssertionResultErrorType type) {
-    if (type == null) {
-      return null;
-    }
-    switch (type) {
-      case SOURCE_CONNECTION_ERROR:
-        return "Check that your data source credentials are valid and the service is accessible.";
-      case SOURCE_QUERY_FAILED:
-        return "The data source might be temporarily unavailable, or the query needs adjustment.";
-      case INSUFFICIENT_DATA:
-        return "Make sure your data source has recent data and is being ingested properly.";
-      case INVALID_PARAMETERS:
-      case MISSING_EVALUATION_PARAMETERS:
-        return "Check the assertion configuration and fill in any missing fields.";
-      case INVALID_SOURCE_TYPE:
-        return "Choose a different assertion type or check which types are supported for your data source.";
-      case METRIC_RESOLVER_INVALID_SOURCE_TYPE:
-        return "This source type might not be fully supported yet. Contact support for details";
-      case UNSUPPORTED_PLATFORM:
-        return "You'll need to either choose a different assertion type or use a different platform.";
-      case CUSTOM_SQL_ERROR:
-        return "Make sure your SQL returns exactly 1 row with 1 value.";
-      case FIELD_ASSERTION_ERROR:
-        return "Check your field-level metrics configuration.";
-      case EVALUATOR_NOT_FOUND:
-        return "Choose a supported assertion type (Volume, Freshness, Schema, etc.).";
-      case METRIC_RESOLVER_UNSUPPORTED_METRIC:
-        return "This metric type might not be fully supported yet. Contact support for details.";
-      case STATE_PERSISTENCE_FAILED:
-      case METRIC_PERSISTENCE_FAILED:
-      case RESULT_EMISSION_FAILED:
-        return "This is usually temporary. If it persists, contact support.";
-      case UNKNOWN_ERROR:
-        return "If this persists, contact support with the error details.";
-    }
-    throw new IllegalStateException(
-        String.format("Unhandled assertion result error type %s", type));
-  }
-
-  @Nullable
-  private String displayMessageForMonitorError(@Nullable MonitorErrorType type) {
-    if (type == null) {
-      return null;
-    }
-    switch (type) {
-      case TRAINING_DATA_INSUFFICIENT:
-        return "Still gathering data to train the model.";
-      case PREDICTION_NOT_CONFIDENT:
-        return "The model needs more data before it can make reliable predictions.";
-      case INPUT_DATA_INSUFFICIENT:
-        return "Couldn't retrieve enough data to train.";
-      case INPUT_DATA_INVALID:
-        return "The data format doesn't match what we expected.";
-      case INVALID_PARAMETERS:
-        return "This assertion is missing required settings.";
-      case MODEL_CREATION_FAILED:
-        return "Something went wrong while setting up the model.";
-      case MODEL_TRAINING_FAILED:
-        return "Training failed unexpectedly.";
-      case MODEL_EVALUATION_FAILED:
-        return "Couldn't evaluate the trained model.";
-      case PREDICTION_FORMAT_ERROR:
-        return "The model output was in an unexpected format.";
-      case PERSISTENCE_FAILED:
-        return "Training finished, but we couldn't save the results.";
-      case UNKNOWN:
-        return "Something unexpected happened during training.";
-    }
-    throw new IllegalStateException(String.format("Unhandled monitor error type %s", type));
-  }
-
-  @Nullable
-  private String displayMessageForEvaluationError(@Nullable AssertionResultErrorType type) {
-    if (type == null) {
-      return null;
-    }
-    switch (type) {
-      case SOURCE_CONNECTION_ERROR:
-        return "Can't connect to your data source.";
-      case SOURCE_QUERY_FAILED:
-        return "The query to your data source failed.";
-      case INSUFFICIENT_DATA:
-        return "Not enough data available to evaluate.";
-      case INVALID_PARAMETERS:
-        return "This assertion is missing required settings.";
-      case MISSING_EVALUATION_PARAMETERS:
-        return "This assertion is missing evaluation criteria.";
-      case INVALID_SOURCE_TYPE:
-        return "This data source type isn't supported for your assertion.";
-      case METRIC_RESOLVER_INVALID_SOURCE_TYPE:
-        return "Can't resolve metrics for this data source type.";
-      case UNSUPPORTED_PLATFORM:
-        return "This platform doesn't support this assertion type.";
-      case CUSTOM_SQL_ERROR:
-        return "Your custom SQL query didn't return the expected format.";
-      case FIELD_ASSERTION_ERROR:
-        return "Field metrics query returned unexpected data.";
-      case EVALUATOR_NOT_FOUND:
-        return "This assertion type isn't recognized.";
-      case METRIC_RESOLVER_UNSUPPORTED_METRIC:
-        return "Can't resolve metrics for this metric type.";
-      case STATE_PERSISTENCE_FAILED:
-        return "The evaluation ran but couldn't save results.";
-      case METRIC_PERSISTENCE_FAILED:
-        return "Collected metrics but couldn't save them.";
-      case RESULT_EMISSION_FAILED:
-        return "Couldn't record the evaluation results.";
-      case UNKNOWN_ERROR:
-        return "Something unexpected happened during evaluation.";
-    }
-    throw new IllegalStateException(
-        String.format("Unhandled assertion result error type %s", type));
   }
 
   @Value

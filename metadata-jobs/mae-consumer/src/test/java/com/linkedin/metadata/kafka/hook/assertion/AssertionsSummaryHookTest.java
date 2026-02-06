@@ -12,8 +12,10 @@ import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.assertion.AssertionRunSummary;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
+import com.linkedin.assertion.AssertionStatus;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.FixedIntervalSchedule;
@@ -31,10 +33,13 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.patch.builder.AssertionsSummaryPatchBuilder;
 import com.linkedin.metadata.service.AssertionService;
+import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
 import com.linkedin.monitor.AssertionMonitor;
+import com.linkedin.monitor.MonitorError;
+import com.linkedin.monitor.MonitorErrorType;
 import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
@@ -71,16 +76,19 @@ public class AssertionsSummaryHookTest {
       UrnUtils.getUrn("urn:li:assertion:inferred-test");
 
   private OperationContext opContext;
+  private MonitorService monitorService;
 
   @BeforeTest
   public void setup() {
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    monitorService = Mockito.mock(MonitorService.class);
   }
 
   @Test
   public void testInvokeNotEnabled() throws Exception {
     AssertionService service = mockAssertionService(new AssertionsSummary());
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, false).init(opContext);
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, false).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_ASSERTION_URN,
@@ -96,7 +104,8 @@ public class AssertionsSummaryHookTest {
   @Test
   public void testInvokeNotEligibleChange() throws Exception {
     AssertionService service = mockAssertionService(new AssertionsSummary());
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
 
     // Case 1: Incorrect aspect
     MetadataChangeLog event =
@@ -189,7 +198,8 @@ public class AssertionsSummaryHookTest {
   public void testInvokeAssertionRunEventSuccess(AssertionsSummary initialSummary)
       throws Exception {
     AssertionService service = mockAssertionService(initialSummary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
 
     final AssertionInfo info =
         new AssertionInfo()
@@ -210,7 +220,8 @@ public class AssertionsSummaryHookTest {
         .getAssertionInfo(any(OperationContext.class), eq(TEST_ASSERTION_URN));
 
     Mockito.verify(service, Mockito.times(1))
-        .getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
+        .batchGetAssertionsSummary(
+            any(OperationContext.class), eq(ImmutableSet.of(TEST_DATASET_URN)));
 
     AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
     patchBuilder.urn(TEST_ASSERTION_URN);
@@ -230,7 +241,8 @@ public class AssertionsSummaryHookTest {
   public void testInvokeAssertionRunEventFailure(AssertionsSummary initialSummary)
       throws Exception {
     AssertionService service = mockAssertionService(initialSummary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
 
     final AssertionInfo info =
         new AssertionInfo()
@@ -249,7 +261,8 @@ public class AssertionsSummaryHookTest {
         .getAssertionInfo(any(OperationContext.class), eq(TEST_ASSERTION_URN));
 
     Mockito.verify(service, Mockito.times(1))
-        .getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
+        .batchGetAssertionsSummary(
+            any(OperationContext.class), eq(ImmutableSet.of(TEST_DATASET_URN)));
 
     AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
     patchBuilder.urn(TEST_ASSERTION_URN);
@@ -268,7 +281,8 @@ public class AssertionsSummaryHookTest {
   @Test(dataProvider = "assertionsSummaryProvider")
   public void testInvokeAssertionRunEventError(AssertionsSummary initialSummary) throws Exception {
     AssertionService service = mockAssertionService(initialSummary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
 
     final AssertionInfo info =
         new AssertionInfo()
@@ -287,7 +301,8 @@ public class AssertionsSummaryHookTest {
         .getAssertionInfo(any(OperationContext.class), eq(TEST_ASSERTION_URN));
 
     Mockito.verify(service, Mockito.times(1))
-        .getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
+        .batchGetAssertionsSummary(
+            any(OperationContext.class), eq(ImmutableSet.of(TEST_DATASET_URN)));
 
     AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
     patchBuilder.urn(TEST_ASSERTION_URN);
@@ -306,7 +321,8 @@ public class AssertionsSummaryHookTest {
   @Test(dataProvider = "assertionsSummaryProvider")
   public void testInvokeAssertionRunEventInit(AssertionsSummary initialSummary) throws Exception {
     AssertionService service = mockAssertionService(initialSummary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
 
     final AssertionInfo info =
         new AssertionInfo()
@@ -325,7 +341,8 @@ public class AssertionsSummaryHookTest {
         .getAssertionInfo(any(OperationContext.class), eq(TEST_ASSERTION_URN));
 
     Mockito.verify(service, Mockito.times(1))
-        .getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
+        .batchGetAssertionsSummary(
+            any(OperationContext.class), eq(ImmutableSet.of(TEST_DATASET_URN)));
 
     AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
     patchBuilder.urn(TEST_ASSERTION_URN);
@@ -367,7 +384,8 @@ public class AssertionsSummaryHookTest {
                     .setSource(AssertionSourceType.EXTERNAL.toString()))));
 
     AssertionService service = mockAssertionService(existingSummary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
 
     // 1. Mock failing assertion
     final AssertionRunEvent runEvent =
@@ -401,7 +419,8 @@ public class AssertionsSummaryHookTest {
   @Test(dataProvider = "assertionsSummaryProvider")
   public void testInvokeAssertionSoftDeleted(AssertionsSummary summary) throws Exception {
     AssertionService service = mockAssertionService(summary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_ASSERTION_URN, STATUS_ASPECT_NAME, ChangeType.UPSERT, mockAssertionSoftDeleted());
@@ -421,7 +440,8 @@ public class AssertionsSummaryHookTest {
   @Test(dataProvider = "assertionsSummaryProvider")
   public void testInvokeAssertionInfoHardDeleted(AssertionsSummary summary) throws Exception {
     AssertionService service = mockAssertionService(summary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_ASSERTION_URN,
@@ -451,7 +471,8 @@ public class AssertionsSummaryHookTest {
                 any(OperationContext.class), eq(TEST_ASSERTION_URN)))
         .thenReturn(ImmutableList.of(TEST_DATASET_URN));
 
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_ASSERTION_URN, ASSERTION_KEY_ASPECT_NAME, ChangeType.DELETE, null, null);
@@ -476,7 +497,8 @@ public class AssertionsSummaryHookTest {
 
     // Ensure that the previous summary is removed.
     AssertionService service = mockAssertionService(summary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_ASSERTION_URN,
@@ -501,7 +523,8 @@ public class AssertionsSummaryHookTest {
   @Test(dataProvider = "assertionsSummaryProvider")
   public void testInvokeMonitorDisabled(AssertionsSummary summary) throws Exception {
     AssertionService service = mockAssertionService(summary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_MONITOR_URN,
@@ -517,6 +540,138 @@ public class AssertionsSummaryHookTest {
     patchBuilder.removeFromFailingAssertionDetails(TEST_ASSERTION_URN);
 
     // Ensure we patched correctly.
+    Mockito.verify(service, Mockito.times(1))
+        .patchAssertionsSummary(any(OperationContext.class), eq(patchBuilder));
+  }
+
+  @Test
+  public void testRunEventSuccessKeepsErrorWhenMonitorErrorPresent() throws Exception {
+    AssertionsSummary summary = new AssertionsSummary();
+    summary.setFailingAssertionDetails(new AssertionSummaryDetailsArray());
+    summary.setPassingAssertionDetails(new AssertionSummaryDetailsArray());
+    summary.setErroringAssertionDetails(new AssertionSummaryDetailsArray());
+    summary.setInitializingAssertionDetails(new AssertionSummaryDetailsArray());
+
+    AssertionInfo info = mockFreshnessAssertion(TEST_DATASET_URN);
+    AssertionRunEvent runEvent =
+        mockAssertionRunEvent(
+            TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS);
+
+    AssertionService service = mockAssertionService(summary);
+    Mockito.when(
+            service.getAssertionRunSummary(any(OperationContext.class), eq(TEST_ASSERTION_URN)))
+        .thenReturn(new AssertionRunSummary().setAssertionStatus(AssertionStatus.ERROR));
+
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
+
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_ASSERTION_URN, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, runEvent);
+
+    hook.invoke(event);
+
+    AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
+    patchBuilder.urn(TEST_ASSERTION_URN);
+    patchBuilder.withEntityName(TEST_DATASET_URN.getEntityType());
+    patchBuilder.removeFromPassingAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.removeFromFailingAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.addErroringAssertionDetails(
+        buildAssertionSummaryDetails(TEST_ASSERTION_URN, info, runEvent));
+    patchBuilder.addOverallLastAssertionResultAt(runEvent.getTimestampMillis());
+
+    Mockito.verify(service, Mockito.times(1))
+        .patchAssertionsSummary(any(OperationContext.class), eq(patchBuilder));
+  }
+
+  @Test
+  public void testMonitorInfoNoErrorKeepsErroringFromEvaluation() throws Exception {
+    AssertionsSummary summary = new AssertionsSummary();
+    summary.setFailingAssertionDetails(new AssertionSummaryDetailsArray());
+    summary.setPassingAssertionDetails(new AssertionSummaryDetailsArray());
+    summary.setErroringAssertionDetails(new AssertionSummaryDetailsArray());
+    summary.setInitializingAssertionDetails(new AssertionSummaryDetailsArray());
+
+    AssertionInfo info = mockFreshnessAssertion(TEST_DATASET_URN);
+    AssertionRunEvent runEvent =
+        mockAssertionRunEvent(
+            TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.ERROR);
+    AssertionSummaryDetails details =
+        buildAssertionSummaryDetails(TEST_ASSERTION_URN, info, runEvent);
+    summary.getErroringAssertionDetails().add(details);
+
+    AssertionService service = mockAssertionService(summary);
+    Mockito.when(
+            service.batchGetAssertionRunSummary(
+                any(OperationContext.class), eq(ImmutableSet.of(TEST_ASSERTION_URN))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_ASSERTION_URN,
+                new AssertionRunSummary().setAssertionStatus(AssertionStatus.ERROR)));
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
+
+    MonitorInfo monitorInfo =
+        mockMonitorInfoEvent(MonitorMode.ACTIVE, ImmutableList.of(TEST_ASSERTION_URN));
+
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_MONITOR_URN, MONITOR_INFO_ASPECT_NAME, ChangeType.UPSERT, monitorInfo);
+
+    hook.invoke(event);
+
+    Mockito.verify(service, Mockito.never())
+        .patchAssertionsSummary(
+            any(OperationContext.class), any(AssertionsSummaryPatchBuilder.class));
+  }
+
+  @Test
+  public void testMonitorErrorMovesPassingToErroring() throws Exception {
+    AssertionsSummary summary = new AssertionsSummary();
+    summary.setFailingAssertionDetails(new AssertionSummaryDetailsArray());
+    summary.setPassingAssertionDetails(new AssertionSummaryDetailsArray());
+    summary.setErroringAssertionDetails(new AssertionSummaryDetailsArray());
+    summary.setInitializingAssertionDetails(new AssertionSummaryDetailsArray());
+
+    AssertionInfo info = mockFreshnessAssertion(TEST_DATASET_URN);
+    AssertionRunEvent runEvent =
+        mockAssertionRunEvent(
+            TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS);
+    AssertionSummaryDetails details =
+        buildAssertionSummaryDetails(TEST_ASSERTION_URN, info, runEvent);
+    summary.getPassingAssertionDetails().add(details);
+
+    AssertionService service = mockAssertionService(summary);
+    Mockito.when(
+            service.batchGetAssertionRunSummary(
+                any(OperationContext.class), eq(ImmutableSet.of(TEST_ASSERTION_URN))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_ASSERTION_URN,
+                new AssertionRunSummary().setAssertionStatus(AssertionStatus.PASSING)));
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
+
+    MonitorInfo monitorInfo =
+        mockMonitorInfoEvent(MonitorMode.ACTIVE, ImmutableList.of(TEST_ASSERTION_URN));
+    monitorInfo
+        .getStatus()
+        .setError(new MonitorError().setType(MonitorErrorType.INPUT_DATA_INSUFFICIENT));
+
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_MONITOR_URN, MONITOR_INFO_ASPECT_NAME, ChangeType.UPSERT, monitorInfo);
+
+    hook.invoke(event);
+
+    AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
+    patchBuilder.urn(TEST_DATASET_URN);
+    patchBuilder.withEntityName(TEST_DATASET_URN.getEntityType());
+    patchBuilder.addErroringAssertionDetails(details);
+    patchBuilder.removeFromFailingAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.removeFromInitializingAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.removeFromPassingAssertionDetails(TEST_ASSERTION_URN);
+
     Mockito.verify(service, Mockito.times(1))
         .patchAssertionsSummary(any(OperationContext.class), eq(patchBuilder));
   }
@@ -553,7 +708,8 @@ public class AssertionsSummaryHookTest {
     Mockito.when(service.getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN)))
         .thenReturn(null);
 
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+    AssertionsSummaryHook hook =
+        new AssertionsSummaryHook(service, monitorService, true).init(opContext);
 
     final MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -658,6 +814,14 @@ public class AssertionsSummaryHookTest {
                 any(OperationContext.class), eq(ImmutableSet.of(TEST_ASSERTION_URN))))
         .thenReturn(ImmutableMap.of(TEST_ASSERTION_URN, testAssertionInfo));
 
+    Mockito.when(mockService.getMonitorUrnForAssertion(any(OperationContext.class), any(Urn.class)))
+        .thenReturn(null);
+
+    Mockito.when(
+            mockService.batchGetAssertionRunSummary(
+                any(OperationContext.class), eq(ImmutableSet.of(TEST_ASSERTION_URN))))
+        .thenReturn(ImmutableMap.of());
+
     Mockito.when(
             mockService.getAssertionInfo(
                 any(OperationContext.class), eq(TEST_INFERRED_ASSERTION_URN)))
@@ -670,6 +834,13 @@ public class AssertionsSummaryHookTest {
     Mockito.when(
             mockService.getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN)))
         .thenReturn(summary);
+
+    Map<Urn, AssertionsSummary> summariesMap = new HashMap<>();
+    summariesMap.put(TEST_DATASET_URN, summary);
+    Mockito.when(
+            mockService.batchGetAssertionsSummary(
+                any(OperationContext.class), eq(ImmutableSet.of(TEST_DATASET_URN))))
+        .thenReturn(summariesMap);
 
     return mockService;
   }

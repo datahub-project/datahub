@@ -29,6 +29,13 @@ fragment assertionDetails on Assertion {
             type
         }
     }
+    assertionStatus
+    health {
+        status
+        displayMessage
+        recommendedAction
+        rawErrorMessage
+    }
     tags {
         ...globalTagsFields
     }
@@ -59,6 +66,8 @@ fragment assertionResultDetails on AssertionResult {
     }
     error {
         type
+        displayMessage
+        recommendedAction
         properties {
             key
             value

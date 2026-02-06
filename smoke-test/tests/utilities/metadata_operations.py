@@ -850,7 +850,7 @@ def search_datasets_by_assertions(auth_session) -> Dict[str, Any]:
     It searches for datasets with any of:
     - hasFailingAssertions
     - hasPassingAssertions
-    - hasErroredAssertions
+    - hasErroringAssertions
     - hasInitializingAssertions
 
     Returns:
@@ -881,7 +881,7 @@ def search_datasets_by_assertions(auth_session) -> Dict[str, Any]:
             "orFilters": [
                 {"and": [{"field": "hasFailingAssertions", "values": ["true"]}]},
                 {"and": [{"field": "hasPassingAssertions", "values": ["true"]}]},
-                {"and": [{"field": "hasErroredAssertions", "values": ["true"]}]},
+                {"and": [{"field": "hasErroringAssertions", "values": ["true"]}]},
                 {"and": [{"field": "hasInitializingAssertions", "values": ["true"]}]},
             ],
             "sortInput": {

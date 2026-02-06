@@ -10,7 +10,7 @@ import {
     StyledExclamationOutlined,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/shared/styledComponents';
 
-import { Assertion, AssertionResultType } from '@types';
+import { Assertion, AssertionStatus } from '@types';
 
 const StatusContainer = styled.div`
     width: 100%;
@@ -23,23 +23,22 @@ type Props = {
 };
 
 export const DataContractAssertionStatus = ({ assertion }: Props) => {
-    const latestRun = (assertion.runEvents?.runEvents?.length && assertion.runEvents?.runEvents[0]) || undefined;
-    const latestResultType = latestRun?.result?.type || undefined;
+    const { assertionStatus } = assertion;
 
     return (
         <StatusContainer>
-            {latestResultType === undefined && <StopOutlined />}
+            {!assertionStatus && <StopOutlined />}
             <Tooltip title="Assertion is passing">
-                {latestResultType === AssertionResultType.Success && <StyledCheckOutlined />}
+                {assertionStatus === AssertionStatus.Passing && <StyledCheckOutlined />}
             </Tooltip>
             <Tooltip title="Assertion is failing">
-                {latestResultType === AssertionResultType.Failure && <StyledCloseOutlined />}
+                {assertionStatus === AssertionStatus.Failing && <StyledCloseOutlined />}
             </Tooltip>
             <Tooltip title="Assertion has completed with errors">
-                {latestResultType === AssertionResultType.Error && <StyledExclamationOutlined />}
+                {assertionStatus === AssertionStatus.Error && <StyledExclamationOutlined />}
             </Tooltip>
             <Tooltip title="Assertion is initializing">
-                {latestResultType === AssertionResultType.Init && <StyledClockCircleOutlined />}
+                {assertionStatus === AssertionStatus.Init && <StyledClockCircleOutlined />}
             </Tooltip>
         </StatusContainer>
     );

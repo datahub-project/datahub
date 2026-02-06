@@ -307,7 +307,7 @@ export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEv
         return `${formattedError}`;
     }
 
-    // Some historical assertion results may not have asseriton info...
+    // Some historical assertion results may not have assertion info...
     // so we coalesce the current info onto there to avoid blanks
     const coalescedResult: AssertionResult | undefined | null = run.result && {
         ...run.result,

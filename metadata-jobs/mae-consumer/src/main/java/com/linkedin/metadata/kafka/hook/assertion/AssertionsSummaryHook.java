@@ -7,9 +7,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
-import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.assertion.AssertionStatus;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.AssertionSummaryDetails;
 import com.linkedin.common.AssertionSummaryDetailsArray;
@@ -20,14 +20,19 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.monitor.MonitorServiceFactory;
 import com.linkedin.metadata.aspect.patch.builder.AssertionsSummaryPatchBuilder;
 import com.linkedin.metadata.kafka.hook.HookUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.service.AssertionService;
+import com.linkedin.metadata.service.MonitorService;
+import com.linkedin.metadata.utils.AssertionStatusUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.monitor.AssertionEvaluationSpec;
+import com.linkedin.monitor.MonitorError;
 import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
+import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
@@ -59,6 +64,7 @@ import org.springframework.stereotype.Component;
 @Import({
   EntityRegistryFactory.class,
   AssertionServiceFactory.class,
+  MonitorServiceFactory.class,
   SystemAuthenticationFactory.class
 })
 public class AssertionsSummaryHook implements MetadataChangeLogHook {
@@ -69,6 +75,7 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
       ImmutableSet.of(ASSERTION_RUN_EVENT_ASPECT_NAME, MONITOR_INFO_ASPECT_NAME);
 
   private final AssertionService assertionService;
+  private final MonitorService monitorService;
   private OperationContext systemOperationContext;
   private final boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
@@ -76,18 +83,22 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   @Autowired
   public AssertionsSummaryHook(
       @Nonnull final AssertionService assertionService,
+      @Nonnull final MonitorService monitorService,
       @Nonnull @Value("${assertions.hook.enabled:true}") Boolean isEnabled,
       @Nonnull @Value("${assertions.hook.consumerGroupSuffix}") String consumerGroupSuffix) {
     this.assertionService =
         Objects.requireNonNull(assertionService, "assertionService is required");
+    this.monitorService = Objects.requireNonNull(monitorService, "monitorService is required");
     this.isEnabled = isEnabled;
     this.consumerGroupSuffix = consumerGroupSuffix;
   }
 
   @VisibleForTesting
   public AssertionsSummaryHook(
-      @Nonnull final AssertionService assertionService, @Nonnull Boolean isEnabled) {
-    this(assertionService, isEnabled, "");
+      @Nonnull final AssertionService assertionService,
+      @Nonnull final MonitorService monitorService,
+      @Nonnull Boolean isEnabled) {
+    this(assertionService, monitorService, isEnabled, "");
   }
 
   @Override
@@ -120,6 +131,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
         handleAssertionRunCompleted(urn, extractAssertionRunEvent(event));
       } else if (isMonitorDisabledEvent(event)) {
         handleMonitorDisabled(urn, extractMonitorInfo(event));
+      } else if (isMonitorInfoEvent(event)) {
+        handleMonitorErrorUpdated(urn, extractMonitorInfo(event));
       }
       // TODO: Handle un-soft-deleted by adding it back into the result list.
     }
@@ -327,18 +340,6 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   /**
    * Adds an assertion to the AssertionSummary aspect for a related entity. This is used to search
    * for entity by active and resolved assertions.
-   */
-  private void addAssertionToSummary(
-      @Nonnull final Urn entityUrn,
-      @Nonnull final Urn assertionUrn,
-      @Nonnull final AssertionInfo info,
-      @Nonnull final AssertionRunEvent event) {
-    addAssertionToSummary(entityUrn, assertionUrn, info, event, null);
-  }
-
-  /**
-   * Adds an assertion to the AssertionSummary aspect for a related entity. This is used to search
-   * for entity by active and resolved assertions.
    *
    * @param summary if provided, uses this summary instead of fetching; if null, fetches it
    */
@@ -363,22 +364,19 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
     // If yes, we patch!
     AssertionsSummaryPatchBuilder patchBuilder;
 
-    // 3. Add the assertion to passing or failing assertions
-    if (AssertionResultType.SUCCESS.equals(result.getType())) {
-      patchBuilder = buildAssertionSuccessSummaryPatch(assertionUrn, details, entityUrn);
-    } else if (AssertionResultType.FAILURE.equals(result.getType())) {
-      patchBuilder = buildAssertionFailureSummaryPatch(assertionUrn, details, entityUrn);
-    } else if (AssertionResultType.ERROR.equals(result.getType())) {
-      patchBuilder = buildAssertionErrorSummaryPatch(assertionUrn, details, entityUrn);
-    } else if (AssertionResultType.INIT.equals(result.getType())) {
-      patchBuilder = buildAssertionInitSummaryPatch(assertionUrn, details, entityUrn);
-    } else {
+    final MonitorError monitorError = getMonitorErrorForAssertion(assertionUrn);
+    final AssertionStatus assertionStatus =
+        AssertionStatusUtils.resolveStatus(monitorError, result.getType());
+    SummaryBucket targetBucket = getSummaryBucketFromStatus(assertionStatus);
+    if (targetBucket == null) {
       log.debug(
           "Ignoring assertion run event with unknown result type {} for assertion with urn {}",
           result.getType(),
           assertionUrn);
       return;
     }
+    patchBuilder =
+        buildAssertionSummaryPatchForBucket(targetBucket, assertionUrn, details, entityUrn);
     patchBuilder = patchBuilder.addOverallLastAssertionResultAt(event.getTimestampMillis());
 
     // 4. Emit the patch back!
@@ -470,6 +468,7 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
         || isAssertionTargetEntityChanged(event)
         || isAssertionRunCompleteEvent(event)
         || isMonitorDisabledEvent(event)
+        || isMonitorInfoEvent(event)
         || isAssertionInfoHardDeleted(event)
         || isAssertionKeyHardDeleted(event);
   }
@@ -547,6 +546,12 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
     return false;
   }
 
+  private boolean isMonitorInfoEvent(@Nonnull final MetadataChangeLog event) {
+    return MONITOR_ENTITY_NAME.equals(event.getEntityType())
+        && SUPPORTED_UPDATE_TYPES.contains(event.getChangeType())
+        && MONITOR_INFO_ASPECT_NAME.equals(event.getAspectName());
+  }
+
   /**
    * Returns true if the event represents an assertion run event, which may mean a status change.
    */
@@ -572,6 +577,198 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   private MonitorInfo extractMonitorInfo(@Nonnull final MetadataChangeLog event) {
     return GenericRecordUtils.deserializeAspect(
         event.getAspect().getValue(), event.getAspect().getContentType(), MonitorInfo.class);
+  }
+
+  private void handleMonitorErrorUpdated(
+      @Nonnull final Urn monitorUrn, @Nonnull final MonitorInfo monitorInfo) {
+    if (!MonitorType.ASSERTION.equals(monitorInfo.getType())
+        || !monitorInfo.hasAssertionMonitor()
+        || !monitorInfo.hasStatus()) {
+      log.debug("Skipping non-assertion monitor update for monitor {}", monitorUrn);
+      return;
+    }
+
+    final MonitorStatus status = monitorInfo.getStatus();
+    final MonitorError monitorError = status.hasError() ? status.getError() : null;
+    final List<Urn> assertionUrns =
+        monitorInfo.getAssertionMonitor().getAssertions().stream()
+            .map(AssertionEvaluationSpec::getAssertion)
+            .toList();
+    if (assertionUrns.isEmpty()) {
+      return;
+    }
+
+    final Map<Urn, AssertionInfo> assertionInfoMap =
+        assertionService.batchGetAssertionInfo(
+            systemOperationContext, new java.util.HashSet<>(assertionUrns));
+    final java.util.Set<Urn> entityUrns = new java.util.HashSet<>();
+    assertionUrns.forEach(
+        assertionUrn -> {
+          AssertionInfo info = assertionInfoMap.get(assertionUrn);
+          if (info != null) {
+            entityUrns.addAll(extractAssertionEntities(info));
+          }
+        });
+
+    final Map<Urn, AssertionsSummary> summariesMap =
+        assertionService.batchGetAssertionsSummary(systemOperationContext, entityUrns);
+
+    for (Urn assertionUrn : assertionUrns) {
+      AssertionInfo info = assertionInfoMap.get(assertionUrn);
+      if (info == null) {
+        continue;
+      }
+      final AssertionStatus assertionStatus =
+          AssertionStatusUtils.resolveStatus(
+              monitorError, (com.linkedin.assertion.AssertionRunSummary) null);
+      for (Urn entityUrn : extractAssertionEntities(info)) {
+        AssertionsSummary summary = summariesMap.get(entityUrn);
+        updateMonitorErrorInSummary(entityUrn, assertionUrn, info, summary, assertionStatus);
+      }
+    }
+  }
+
+  private void updateMonitorErrorInSummary(
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final AssertionInfo info,
+      @Nullable final AssertionsSummary summary,
+      @Nullable final AssertionStatus assertionStatus) {
+    AssertionsSummary assertionsSummary =
+        summary != null ? summary : getAssertionsSummary(entityUrn);
+
+    SummaryBucket targetBucket = getSummaryBucketFromStatus(assertionStatus);
+    if (targetBucket == null) {
+      return;
+    }
+
+    final java.util.Optional<AssertionDetailsLocation> location =
+        findAssertionSummaryDetails(assertionsSummary, assertionUrn);
+    if (location.isEmpty()) {
+      // Monitor updates only move existing summary entries; they do not create new ones.
+      return;
+    }
+
+    AssertionDetailsLocation detailsLocation = location.get();
+    AssertionSummaryDetails details = detailsLocation.details;
+    if (detailsLocation.bucket.equals(targetBucket)) {
+      return;
+    }
+    AssertionsSummaryPatchBuilder patchBuilder =
+        buildAssertionSummaryPatchForBucket(targetBucket, assertionUrn, details, entityUrn);
+
+    patchAssertionSummary(entityUrn, patchBuilder);
+  }
+
+  @Nullable
+  private SummaryBucket getSummaryBucketFromStatus(@Nullable final AssertionStatus status) {
+    if (status == null) {
+      return null;
+    }
+    switch (status) {
+      case PASSING:
+        return SummaryBucket.PASSING;
+      case FAILING:
+        return SummaryBucket.FAILING;
+      case ERROR:
+        return SummaryBucket.ERRORING;
+      case INIT:
+        return SummaryBucket.INITIALIZING;
+      default:
+        throw new IllegalStateException(String.format("Unhandled assertion status %s", status));
+    }
+  }
+
+  private AssertionsSummaryPatchBuilder buildAssertionSummaryPatchForBucket(
+      @Nonnull final SummaryBucket bucket,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final AssertionSummaryDetails details,
+      @Nonnull final Urn entityUrn) {
+    switch (bucket) {
+      case PASSING:
+        return buildAssertionSuccessSummaryPatch(assertionUrn, details, entityUrn);
+      case FAILING:
+        return buildAssertionFailureSummaryPatch(assertionUrn, details, entityUrn);
+      case ERRORING:
+        return buildAssertionErrorSummaryPatch(assertionUrn, details, entityUrn);
+      case INITIALIZING:
+        return buildAssertionInitSummaryPatch(assertionUrn, details, entityUrn);
+      default:
+        throw new IllegalStateException(String.format("Unhandled summary bucket %s", bucket));
+    }
+  }
+
+  private java.util.Optional<AssertionDetailsLocation> findAssertionSummaryDetails(
+      @Nonnull final AssertionsSummary summary, @Nonnull final Urn assertionUrn) {
+    if (summary.hasFailingAssertionDetails()) {
+      for (AssertionSummaryDetails details : summary.getFailingAssertionDetails()) {
+        if (details.getUrn().equals(assertionUrn)) {
+          return java.util.Optional.of(
+              new AssertionDetailsLocation(SummaryBucket.FAILING, details));
+        }
+      }
+    }
+    if (summary.hasPassingAssertionDetails()) {
+      for (AssertionSummaryDetails details : summary.getPassingAssertionDetails()) {
+        if (details.getUrn().equals(assertionUrn)) {
+          return java.util.Optional.of(
+              new AssertionDetailsLocation(SummaryBucket.PASSING, details));
+        }
+      }
+    }
+    if (summary.hasErroringAssertionDetails()) {
+      for (AssertionSummaryDetails details : summary.getErroringAssertionDetails()) {
+        if (details.getUrn().equals(assertionUrn)) {
+          return java.util.Optional.of(
+              new AssertionDetailsLocation(SummaryBucket.ERRORING, details));
+        }
+      }
+    }
+    if (summary.hasInitializingAssertionDetails()) {
+      for (AssertionSummaryDetails details : summary.getInitializingAssertionDetails()) {
+        if (details.getUrn().equals(assertionUrn)) {
+          return java.util.Optional.of(
+              new AssertionDetailsLocation(SummaryBucket.INITIALIZING, details));
+        }
+      }
+    }
+    return java.util.Optional.empty();
+  }
+
+  // No monitor-only creation of AssertionSummaryDetails entries.
+
+  @Nullable
+  private MonitorError getMonitorErrorForAssertion(@Nonnull final Urn assertionUrn) {
+    final Urn monitorUrn =
+        assertionService.getMonitorUrnForAssertion(systemOperationContext, assertionUrn);
+    if (monitorUrn == null) {
+      return null;
+    }
+    final MonitorInfo monitorInfo =
+        monitorService.getMonitorInfo(systemOperationContext, monitorUrn);
+    if (monitorInfo == null || !monitorInfo.hasStatus()) {
+      return null;
+    }
+    final MonitorStatus status = monitorInfo.getStatus();
+    return status.hasError() ? status.getError() : null;
+  }
+
+  private enum SummaryBucket {
+    FAILING,
+    PASSING,
+    ERRORING,
+    INITIALIZING
+  }
+
+  private static class AssertionDetailsLocation {
+    private final SummaryBucket bucket;
+    private final AssertionSummaryDetails details;
+
+    private AssertionDetailsLocation(
+        @Nonnull final SummaryBucket bucket, @Nonnull final AssertionSummaryDetails details) {
+      this.bucket = bucket;
+      this.details = details;
+    }
   }
 
   private AssertionsSummaryPatchBuilder buildRemoveAssertionFromSummaryPatch(

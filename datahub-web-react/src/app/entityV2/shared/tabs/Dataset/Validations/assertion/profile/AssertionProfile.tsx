@@ -1,5 +1,6 @@
 import { Skeleton } from 'antd';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -11,6 +12,7 @@ import { AssertionProfileHeaderLoading } from '@app/entityV2/shared/tabs/Dataset
 import { AssertionTabs } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionTabs';
 import { AssertionNoteTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/note/AssertionNoteTab';
 import { AssertionSettingsLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/settings/AssertionSettingsLoading';
+import { AssertionHealthMessage } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/AssertionHealthMessage';
 import { AssertionSummaryLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionSummaryLoading';
 import { AssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionSummaryTab';
 import {
@@ -27,6 +29,10 @@ enum TabType {
     Note = 'Note',
     Settings = 'Settings',
 }
+
+const HealthMessageWrapper = styled.div`
+    margin: 8px 16px 12px;
+`;
 
 type Props = {
     urn: string;
@@ -139,7 +145,6 @@ export const AssertionProfile = ({
     }
 
     const monitor = assertionData?.assertion?.monitor?.relationships?.[0]?.entity as Maybe<Monitor>;
-    const result = assertion?.runEvents?.runEvents[0]?.result;
     const canEditAssertion = (assertion.info?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions;
     const editAllowed = canEditMonitors && canEditAssertion;
 
@@ -192,13 +197,15 @@ export const AssertionProfile = ({
                 assertion={assertion}
                 monitor={monitor}
                 contract={contract}
-                result={result || undefined}
                 canEditAssertion={canEditAssertion}
                 canEditMonitor={canEditMonitors}
                 canEditContract
                 refetch={fullRefetch}
                 close={close}
             />
+            <HealthMessageWrapper>
+                <AssertionHealthMessage health={assertion.health} />
+            </HealthMessageWrapper>
             <AssertionTabs selectedTab={selectedTab} setSelectedTab={setSelectedTab} tabs={tabs} />
             <AssertionProfileFooter />
         </>

@@ -8646,6 +8646,11 @@ type Assertion implements EntityWithRelationships & Entity {
   health: AssertionHealth
 
   """
+  The latest status of this assertion, combining monitor errors and run results.
+  """
+  assertionStatus: AssertionStatus
+
+  """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -8703,6 +8708,16 @@ enum AssertionHealthStatus {
 }
 
 """
+The latest status of an assertion.
+"""
+enum AssertionStatus {
+  PASSING
+  FAILING
+  ERROR
+  INIT
+}
+
+"""
 Unified health information for an assertion.
 """
 type AssertionHealth {
@@ -8710,16 +8725,6 @@ type AssertionHealth {
   The resolved health status.
   """
   status: AssertionHealthStatus!
-
-  """
-  Monitor error, if present.
-  """
-  monitorError: MonitorError
-
-  """
-  Latest evaluation error, if present.
-  """
-  evaluationError: AssertionResultError
 
   """
   Timestamp of the latest run event, if present.
@@ -8735,6 +8740,11 @@ type AssertionHealth {
   Recommended action based on the most severe error, if any.
   """
   recommendedAction: String
+
+  """
+  Raw error message from monitor or evaluation, if any.
+  """
+  rawErrorMessage: String
 }
 
 """
@@ -8985,6 +8995,16 @@ type AssertionResultError {
   Additional metadata depending on the type of error
   """
   properties: [StringMapEntry!]
+
+  """
+  User-friendly summary of the error, if any.
+  """
+  displayMessage: String
+
+  """
+  Recommended action to resolve the error, if any.
+  """
+  recommendedAction: String
 }
 
 """

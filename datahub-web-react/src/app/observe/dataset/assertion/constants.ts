@@ -8,7 +8,7 @@ export const PASSING_ASSERTION_TYPE_FILTER_FIELD = 'passingAssertionType';
 export const ERRORED_ASSERTION_TYPE_FILTER_FIELD = 'erroredAssertionType';
 export const HAS_FAILING_ASSERTIONS_FILTER_FIELD = 'hasFailingAssertions';
 export const HAS_PASSING_ASSERTIONS_FILTER_FIELD = 'hasPassingAssertions';
-export const HAS_ERRORED_ASSERTIONS_FILTER_FIELD = 'hasErroredAssertions';
+export const HAS_ERRORED_ASSERTIONS_FILTER_FIELD = 'hasErroringAssertions';
 export const HAS_INITIALIZING_ASSERTIONS_FILTER_FIELD = 'hasInitializingAssertions';
 export const ASSERTION_RESULT_TYPE_OPTIONS_TO_FILTER_FIELD: Record<AssertionResultTypeOptions, string> = {
     Failing: HAS_FAILING_ASSERTIONS_FILTER_FIELD,

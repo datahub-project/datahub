@@ -18,6 +18,7 @@ import {
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { getAnomalyFeedbackContext } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';
+import { AssertionResultPopoverMode } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverMode';
 import AssertionChartHeader from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionChartHeader';
 import {
     AssertionDataPoint,
@@ -443,6 +444,7 @@ export const ValuesOverTimeAssertionResultChart = ({
                                                 run={dataPoint.relatedRunEvent}
                                                 refetchResults={refreshData}
                                                 openAssertionNote={openAssertionNote}
+                                                mode={AssertionResultPopoverMode.IndividualRun}
                                             />
                                         }
                                         showArrow={false}

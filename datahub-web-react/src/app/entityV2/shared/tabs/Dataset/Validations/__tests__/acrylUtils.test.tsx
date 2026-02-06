@@ -24,6 +24,7 @@ import {
     Assertion,
     AssertionResultType,
     AssertionRunStatus,
+    AssertionStatus,
     AssertionStdOperator,
     AssertionType,
     CronSchedule,
@@ -80,6 +81,7 @@ describe('acrylUtils', () => {
         it('should correctly count passing, failing, and erroring assertions', () => {
             const assertions: Partial<Assertion>[] = [
                 {
+                    assertionStatus: AssertionStatus.Passing,
                     runEvents: {
                         runEvents: [
                             {
@@ -99,6 +101,7 @@ describe('acrylUtils', () => {
                     },
                 },
                 {
+                    assertionStatus: AssertionStatus.Failing,
                     runEvents: {
                         runEvents: [
                             {
@@ -118,6 +121,7 @@ describe('acrylUtils', () => {
                     },
                 },
                 {
+                    assertionStatus: AssertionStatus.Error,
                     runEvents: {
                         runEvents: [
                             {
@@ -188,6 +192,7 @@ describe('acrylUtils', () => {
         it('should convert new summary format to legacy format', () => {
             const assertions: Partial<Assertion>[] = [
                 {
+                    assertionStatus: AssertionStatus.Passing,
                     runEvents: {
                         runEvents: [
                             {
@@ -207,6 +212,7 @@ describe('acrylUtils', () => {
                     },
                 },
                 {
+                    assertionStatus: AssertionStatus.Failing,
                     runEvents: {
                         runEvents: [
                             {
