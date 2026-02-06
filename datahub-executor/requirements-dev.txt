@@ -1491,6 +1491,8 @@ python-dotenv==1.2.1
 python-json-logger==4.0.0
     # via
     #   -r requirements.txt
+    #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-executor
     #   jupyter-events
 python-stdnum==2.2
     # via

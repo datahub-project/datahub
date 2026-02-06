@@ -1019,7 +1019,10 @@ python-dotenv==1.2.1
     #   observe-models
     #   uvicorn
 python-json-logger==4.0.0
-    # via jupyter-events
+    # via
+    #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-executor
+    #   jupyter-events
 python-stdnum==2.2
     # via acryl-datahub-classify
 python-utils==3.9.1
