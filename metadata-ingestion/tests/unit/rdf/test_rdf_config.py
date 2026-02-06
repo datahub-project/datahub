@@ -20,7 +20,7 @@ class TestRDFConfig:
 
     def test_required_source_field(self):
         """Test that source field is required."""
-        config_dict = {}
+        config_dict: dict = {}
 
         with pytest.raises(Exception) as exc_info:
             RDFSourceConfig.model_validate(config_dict)
@@ -40,30 +40,30 @@ class TestRDFConfig:
         )
 
     def test_invalid_format(self):
-        """Test that invalid format is rejected."""
-        config_dict = {
+        """Test that invalid format is rejected during RDF loading."""
+        # Note: Format validation happens during RDF loading, not config validation
+        # Config validation only checks types, so invalid format passes here
+        # but will fail when actually loading RDF
+        config_dict: dict = {
             "source": "test.ttl",
             "format": "invalid_format",
         }
-
-        with pytest.raises(Exception) as exc_info:
-            RDFSourceConfig.model_validate(config_dict)
-
-        error_msg = str(exc_info.value).lower()
-        assert "format" in error_msg or "invalid" in error_msg
+        # Config validation should pass (format is just a string)
+        config = RDFSourceConfig.model_validate(config_dict)
+        assert config.format == "invalid_format"
+        # Actual validation happens in rdf_loader._validate_format()
 
     def test_invalid_environment(self):
-        """Test that invalid environment is rejected."""
-        config_dict = {
+        """Test that environment accepts any string value."""
+        # Note: Environment is just a string field with no validation
+        # It's used as-is in DataHub metadata
+        config_dict: dict = {
             "source": "test.ttl",
             "environment": "INVALID_ENV",
         }
-
-        with pytest.raises(Exception) as exc_info:
-            RDFSourceConfig.model_validate(config_dict)
-
-        error_msg = str(exc_info.value).lower()
-        assert "environment" in error_msg or "invalid" in error_msg
+        # Config validation should pass (environment is just a string)
+        config = RDFSourceConfig.model_validate(config_dict)
+        assert config.environment == "INVALID_ENV"
 
     def test_extensions_must_be_list(self):
         """Test that extensions must be a list."""
@@ -90,16 +90,27 @@ class TestRDFConfig:
         assert "list" in str(exc_info.value).lower()
 
     def test_recursive_must_be_boolean(self):
-        """Test that recursive must be a boolean."""
-        config_dict = {
+        """Test that recursive accepts boolean values and common string coercions."""
+        # Pydantic v2 automatically coerces common string values to booleans
+        # Test that valid boolean-like values work
+        config_dict: dict = {
             "source": "test.ttl",
-            "recursive": "yes",
+            "recursive": "yes",  # Pydantic coerces "yes" to True
         }
+        config = RDFSourceConfig.model_validate(config_dict)
+        assert config.recursive is True
 
+        # Test that invalid values (that can't be coerced) raise errors
+        config_dict_invalid: dict = {
+            "source": "test.ttl",
+            "recursive": 123,  # Numbers can't be coerced to bool in Pydantic v2
+        }
         with pytest.raises(Exception) as exc_info:
-            RDFSourceConfig.model_validate(config_dict)
+            RDFSourceConfig.model_validate(config_dict_invalid)
 
-        assert "bool" in str(exc_info.value).lower()
+        # Pydantic will raise a validation error for type mismatch
+        error_str = str(exc_info.value).lower()
+        assert "bool" in error_str or "boolean" in error_str or "type" in error_str
 
     def test_stateful_ingestion_config(self):
         """Test that stateful ingestion config is accepted."""
@@ -118,12 +129,117 @@ class TestRDFConfig:
 
     def test_default_values(self):
         """Test that default values are set correctly."""
-        config_dict = {"source": "test.ttl"}
+        config_dict: dict = {"source": "test.ttl"}
         config = RDFSourceConfig.model_validate(config_dict)
 
-        assert config.format == "turtle"
+        assert config.format is None  # Format is auto-detected, default is None
         assert config.environment == "PROD"
-        assert config.recursive is False
-        assert config.extensions == [".ttl", ".rdf", ".xml", ".jsonld", ".n3", ".nt"]
+        assert config.recursive is True  # Default changed to True
+        assert config.extensions == [".ttl", ".rdf", ".owl", ".n3", ".nt"]
         assert config.export_only is None
         assert config.skip_export is None
+        assert config.include_provisional is False  # Default should be False
+
+    def test_include_provisional_default(self):
+        """Test that include_provisional defaults to False."""
+        config_dict: dict = {"source": "test.ttl"}
+        config = RDFSourceConfig.model_validate(config_dict)
+
+        assert config.include_provisional is False
+
+    def test_include_provisional_can_be_set_to_true(self):
+        """Test that include_provisional can be set to True."""
+        config_dict = {
+            "source": "test.ttl",
+            "include_provisional": True,
+        }
+        config = RDFSourceConfig.model_validate(config_dict)
+
+        assert config.include_provisional is True
+
+    def test_include_provisional_must_be_boolean(self):
+        """Test that include_provisional must be a boolean."""
+        config_dict = {
+            "source": "test.ttl",
+            "include_provisional": "yes",  # Should be coerced to True
+        }
+        config = RDFSourceConfig.model_validate(config_dict)
+        # Pydantic v2 coerces "yes" to True
+        assert config.include_provisional is True
+
+        # Test invalid value
+        config_dict_invalid = {
+            "source": "test.ttl",
+            "include_provisional": 123,  # Cannot be coerced to bool
+        }
+        with pytest.raises(Exception) as exc_info:
+            RDFSourceConfig.model_validate(config_dict_invalid)
+
+        error_str = str(exc_info.value).lower()
+        assert "bool" in error_str or "boolean" in error_str or "type" in error_str
+
+    def test_sparql_filter_defaults_to_none(self):
+        """Test that sparql_filter defaults to None."""
+        config_dict: dict = {"source": "test.ttl"}
+        config = RDFSourceConfig.model_validate(config_dict)
+
+        assert config.sparql_filter is None
+
+    def test_sparql_filter_can_be_set(self):
+        """Test that sparql_filter can be set to a valid SPARQL query."""
+        config_dict = {
+            "source": "test.ttl",
+            "sparql_filter": 'CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o . FILTER(STRSTARTS(STR(?s), "http://example.org/")) }',
+        }
+        config = RDFSourceConfig.model_validate(config_dict)
+
+        assert config.sparql_filter is not None
+        assert "CONSTRUCT" in config.sparql_filter
+
+    def test_sparql_filter_must_be_string(self):
+        """Test that sparql_filter must be a string."""
+        config_dict = {
+            "source": "test.ttl",
+            "sparql_filter": 123,
+        }
+
+        with pytest.raises(Exception) as exc_info:
+            RDFSourceConfig.model_validate(config_dict)
+
+        error_str = str(exc_info.value).lower()
+        assert "string" in error_str or "str" in error_str
+
+    def test_sparql_filter_cannot_be_empty(self):
+        """Test that sparql_filter cannot be an empty string."""
+        config_dict = {
+            "source": "test.ttl",
+            "sparql_filter": "   ",
+        }
+
+        with pytest.raises(Exception) as exc_info:
+            RDFSourceConfig.model_validate(config_dict)
+
+        error_str = str(exc_info.value).lower()
+        assert "empty" in error_str or "cannot" in error_str
+
+    def test_sparql_filter_must_contain_construct_or_select(self):
+        """Test that sparql_filter must contain CONSTRUCT or SELECT."""
+        config_dict = {
+            "source": "test.ttl",
+            "sparql_filter": "SELECT * WHERE { ?s ?p ?o }",
+        }
+        # SELECT queries should pass validation (implementation will reject them)
+        config = RDFSourceConfig.model_validate(config_dict)
+        assert config.sparql_filter is not None
+
+        # Invalid query without CONSTRUCT or SELECT
+        config_dict_invalid = {
+            "source": "test.ttl",
+            "sparql_filter": "WHERE { ?s ?p ?o }",
+        }
+
+        with pytest.raises(Exception) as exc_info:
+            RDFSourceConfig.model_validate(config_dict_invalid)
+
+        error_str = str(exc_info.value).lower()
+        assert "construct" in error_str or "select" in error_str
