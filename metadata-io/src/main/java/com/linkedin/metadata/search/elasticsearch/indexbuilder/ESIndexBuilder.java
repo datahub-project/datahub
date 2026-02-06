@@ -93,7 +93,6 @@ public class ESIndexBuilder {
   private static final String INDEX_NUMBER_OF_REPLICAS = "index." + NUMBER_OF_REPLICAS;
   private static final String NUMBER_OF_SHARDS = "number_of_shards";
   private static final String ORIGINALPREFIX = "original";
-  private static final Integer REINDEX_BATCHSIZE = 5000;
   private static final Float MINJVMHEAP = 10.F;
   // for debugging
   // private static final Float MINJVMHEAP = 0.1F;
@@ -742,7 +741,7 @@ public class ESIndexBuilder {
               submitReindex(
                   new String[] {indexState.name()},
                   tempIndexName,
-                  REINDEX_BATCHSIZE,
+                  getReindexBatchSize(),
                   null,
                   null,
                   targetShards);
@@ -805,16 +804,18 @@ public class ESIndexBuilder {
               estimatedMinutesRemaining);
 
           long lastUpdateDelta = System.currentTimeMillis() - documentCountsLastUpdated;
-          if (lastUpdateDelta > (300 * 1000)) {
+          int noProgressRetryMinutes = getReindexNoProgressRetryMinutes();
+          if (lastUpdateDelta > (noProgressRetryMinutes * 60L * 1000)) {
             if (reindexCount <= indexConfig.getNumRetries()) {
               log.warn(
-                  "No change in index count after 5 minutes, re-triggering reindex #{}.",
+                  "No change in index count after {} minutes, re-triggering reindex #{}.",
+                  noProgressRetryMinutes,
                   reindexCount);
               reinfo =
                   submitReindex(
                       new String[] {indexState.name()},
                       tempIndexName,
-                      REINDEX_BATCHSIZE,
+                      getReindexBatchSize(),
                       null,
                       null,
                       targetShards);
@@ -967,6 +968,18 @@ public class ESIndexBuilder {
     }
   }
 
+  private int getReindexBatchSize() {
+    return Objects.requireNonNull(
+        config.getBuildIndices().getReindexBatchSize(),
+        "elasticsearch.buildIndices.reindexBatchSize must be set (e.g. in application.yaml)");
+  }
+
+  private int getReindexNoProgressRetryMinutes() {
+    return Objects.requireNonNull(
+        config.getBuildIndices().getReindexNoProgressRetryMinutes(),
+        "elasticsearch.buildIndices.reindexNoProgressRetryMinutes must be set (e.g. in application.yaml)");
+  }
+
   private Map<String, Object> setReindexOptimalSettings(String tempIndexName, int targetShards)
       throws IOException {
     Map<String, Object> res = new HashMap<>();
@@ -998,11 +1011,12 @@ public class ESIndexBuilder {
     //    }
     // calculate best slices number..., by def == primary shards
     int slices = targetShards;
-    // but if too large, tone it done
-    // we have max of 60 shards as of now in some huge index, and this sounds fine regarding nb of
-    // slices, ES sets the max of slices at 1024, so hour number is quite conservative, just cap it
-    // lower, like 256
-    slices = Math.min(256, slices);
+    // but if too large, tone it down; ES sets the max of slices at 1024
+    int maxSlices =
+        Objects.requireNonNull(
+            config.getBuildIndices().getReindexMaxSlices(),
+            "elasticsearch.buildIndices.reindexMaxSlices must be set (e.g. in application.yaml)");
+    slices = Math.min(maxSlices, slices);
     res.put("optimalSlices", slices);
     return res;
   }
@@ -1190,6 +1204,11 @@ public class ESIndexBuilder {
                           info.getHeaders().get(ESUtils.OPAQUE_ID_HEADER),
                           gitVersion.getVersion(),
                           indexName))
+              .filter(
+                  info ->
+                      !Boolean.TRUE.equals(
+                          info.isCancelled())) // null or false = not cancelled, only skip when
+              // explicitly true
               .findFirst();
         });
   }

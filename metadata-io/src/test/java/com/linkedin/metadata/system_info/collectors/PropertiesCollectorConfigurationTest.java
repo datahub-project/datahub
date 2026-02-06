@@ -537,6 +537,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Elasticsearch configuration
           "elasticsearch.buildIndices.allowDocCountMismatch",
           "elasticsearch.buildIndices.cloneIndices",
+          "elasticsearch.buildIndices.reindexBatchSize",
+          "elasticsearch.buildIndices.reindexMaxSlices",
+          "elasticsearch.buildIndices.reindexNoProgressRetryMinutes",
           "elasticsearch.buildIndices.reindexOptimizationEnabled",
           "elasticsearch.buildIndices.retentionUnit",
           "elasticsearch.buildIndices.retentionValue",
