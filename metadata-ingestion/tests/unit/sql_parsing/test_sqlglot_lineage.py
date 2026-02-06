@@ -1684,7 +1684,7 @@ def test_snowflake_semantic_view_query() -> None:
 
 
 @pytest.mark.xfail(
-    reason="sqlglot v28.10.0 does not support aliases in semantic view dimensions (e.g., '... as month')",
+    reason="sqlglot v28.10.0 does not support aliases in semantic view dimensions (e.g., '... as month') https://github.com/tobymao/sqlglot/issues/6993",
     strict=True,
 )
 def test_snowflake_semantic_view_query_with_metrics() -> None:
