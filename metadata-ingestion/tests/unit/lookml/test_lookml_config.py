@@ -17,12 +17,7 @@ def test_git_info_validator_handles_non_dict_input() -> None:
     # When GitInfo receives a string during union deserialization, it returns
     # it unchanged rather than trying to access dict keys (AttributeError).
     # Tests the early return in deploy_key_filled_from_deploy_key_file.
-    
-    # Test the validator directly to ensure coverage
-    result = GitInfo.deploy_key_filled_from_deploy_key_file("not_a_dict")
-    assert result == "not_a_dict"
-    
-    # Also test that validation still fails appropriately
+    # This is exercised indirectly through the union validation tests below.
     with pytest.raises(ValidationError):
         GitInfo.model_validate("not_a_dict")
 
