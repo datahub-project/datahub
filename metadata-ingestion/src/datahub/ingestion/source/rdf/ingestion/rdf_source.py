@@ -394,12 +394,33 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
                 file_extensions=self.config.extensions,
             )
             triple_count = len(rdf_graph)
-            self.report.report_triples_processed(triple_count)
             logger.info(f"Loaded {triple_count} triples from source")
 
-            if triple_count > 10000:
+            # Apply SPARQL filter if provided
+            if self.config.sparql_filter:
+                rdf_graph = self._apply_sparql_filter(rdf_graph)
+                if rdf_graph is None:
+                    return None
+                filtered_count = len(rdf_graph)
+                if triple_count > 0:
+                    percentage = filtered_count / triple_count * 100
+                    logger.info(
+                        f"SPARQL filter applied: {triple_count} → {filtered_count} triples "
+                        f"({percentage:.1f}% retained)"
+                    )
+                else:
+                    logger.info(
+                        f"SPARQL filter applied: {triple_count} → {filtered_count} triples"
+                    )
+                # Report filtered triple count (what will actually be processed)
+                self.report.report_triples_processed(filtered_count)
+            else:
+                # Report original triple count when no filter
+                self.report.report_triples_processed(triple_count)
+
+            if len(rdf_graph) > 10000:
                 logger.warning(
-                    f"Large RDF graph detected ({triple_count} triples). "
+                    f"Large RDF graph detected ({len(rdf_graph)} triples). "
                     "Processing may take some time. Consider splitting large files "
                     "or using more specific export filters to improve performance."
                 )
@@ -452,6 +473,67 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
             )
             logger.error(
                 f"Failed to load RDF graph from {self.config.source}. {error_context}",
+                exc_info=True,
+            )
+            return None
+
+    def _apply_sparql_filter(self, graph: Graph) -> Optional[Graph]:
+        """
+        Apply SPARQL CONSTRUCT query to filter RDF graph.
+
+        Args:
+            graph: Original RDF graph to filter
+
+        Returns:
+            Filtered RDF graph, or None if filtering failed
+        """
+        try:
+            from rdflib.plugins.sparql import prepareQuery
+
+            logger.info("Applying SPARQL filter to RDF graph")
+            query = prepareQuery(self.config.sparql_filter)
+
+            # Execute query - for CONSTRUCT queries, RDFLib returns a Graph
+            # For SELECT queries, it returns a Result object (which we don't support)
+            query_result = graph.query(query)
+
+            # Check query type and handle accordingly
+            if query.algebra.name == "ConstructQuery":
+                # CONSTRUCT query returns a Graph directly
+                filtered_graph = query_result
+                if not isinstance(filtered_graph, Graph):
+                    # Fallback: if it's not a Graph, try to iterate and build one
+                    filtered_graph = Graph()
+                    for triple in query_result:
+                        filtered_graph.add(triple)
+            elif query.algebra.name == "SelectQuery":
+                # SELECT queries return Result objects, which we can't use for filtering
+                raise ValueError(
+                    "SELECT queries are not supported for SPARQL filtering. "
+                    "Please use a CONSTRUCT query instead. "
+                    "Example: 'CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o . FILTER(...) }'"
+                )
+            else:
+                raise ValueError(
+                    f"Unsupported SPARQL query type: {query.algebra.name}. "
+                    "Only CONSTRUCT queries are supported for filtering."
+                )
+
+            return filtered_graph
+
+        except Exception as e:
+            error_context = (
+                f"SPARQL query: {self.config.sparql_filter[:100]}... "
+                f"Error: {str(e)}. "
+                "Please verify your SPARQL query syntax and ensure it's a valid CONSTRUCT query."
+            )
+            self.report.report_failure(
+                "Failed to apply SPARQL filter",
+                context=error_context,
+                exc=e,
+            )
+            logger.error(
+                f"Failed to apply SPARQL filter: {e}. {error_context}",
                 exc_info=True,
             )
             return None

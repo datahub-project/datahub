@@ -97,6 +97,24 @@ class RDFSourceConfig(
             export_only: ["glossary"]
             environment: PROD
         ```
+
+    Example with SPARQL filter (filtering by namespace/module):
+        ```yaml
+        source:
+          type: rdf
+          config:
+            source: https://spec.edmcouncil.org/fibo/ontology/master/latest/fibo-all.ttl
+            sparql_filter: |
+              CONSTRUCT { ?s ?p ?o }
+              WHERE {
+                ?s ?p ?o .
+                FILTER(
+                  STRSTARTS(STR(?s), "https://spec.edmcouncil.org/fibo/ontology/FBC/") ||
+                  STRSTARTS(STR(?s), "https://spec.edmcouncil.org/fibo/ontology/FND/")
+                )
+              }
+            environment: PROD
+        ```
     """
 
     # Source Options
@@ -150,6 +168,19 @@ class RDFSourceConfig(
     skip_export: Optional[List[str]] = Field(
         default=None,
         description="Skip exporting specified entity types. Options are dynamically determined from registered entity types.",
+    )
+
+    # SPARQL Filter Options
+    sparql_filter: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional SPARQL CONSTRUCT query to filter the RDF graph before ingestion. "
+            "Useful for filtering by namespace, module, or custom patterns. "
+            "The query should use CONSTRUCT to build a filtered graph. "
+            "Example: Filter to specific FIBO modules: "
+            "'CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o . "
+            'FILTER(STRSTARTS(STR(?s), "https://spec.edmcouncil.org/fibo/ontology/FBC/")) }\''
+        ),
     )
 
     # Stateful Ingestion Options
@@ -207,6 +238,30 @@ class RDFSourceConfig(
                 "or comma-separated list of files."
             )
         return v.strip()
+
+    @field_validator("sparql_filter")
+    @classmethod
+    def validate_sparql_filter(cls, v):
+        """Validate SPARQL filter query syntax."""
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError(
+                    "SPARQL filter cannot be empty. Provide a valid SPARQL CONSTRUCT query, "
+                    "or omit this field to disable filtering."
+                )
+            # Basic validation: check if it looks like a SPARQL query
+            v_upper = v.upper()
+            if "CONSTRUCT" not in v_upper and "SELECT" not in v_upper:
+                raise ValueError(
+                    "SPARQL filter must be a CONSTRUCT or SELECT query. "
+                    "CONSTRUCT queries are recommended for filtering RDF graphs. "
+                    "Example: 'CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o . FILTER(...) }'"
+                )
+            # Note: We don't fully validate the query here because it may reference
+            # namespaces or prefixes that will be available when executed against the graph.
+            # Full validation will happen when the query is executed.
+        return v
 
     def model_post_init(self, __context):
         """Validate configuration after initialization."""

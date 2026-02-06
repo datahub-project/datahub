@@ -177,3 +177,69 @@ class TestRDFConfig:
 
         error_str = str(exc_info.value).lower()
         assert "bool" in error_str or "boolean" in error_str or "type" in error_str
+
+    def test_sparql_filter_defaults_to_none(self):
+        """Test that sparql_filter defaults to None."""
+        config_dict: dict = {"source": "test.ttl"}
+        config = RDFSourceConfig.model_validate(config_dict)
+
+        assert config.sparql_filter is None
+
+    def test_sparql_filter_can_be_set(self):
+        """Test that sparql_filter can be set to a valid SPARQL query."""
+        config_dict = {
+            "source": "test.ttl",
+            "sparql_filter": 'CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o . FILTER(STRSTARTS(STR(?s), "http://example.org/")) }',
+        }
+        config = RDFSourceConfig.model_validate(config_dict)
+
+        assert config.sparql_filter is not None
+        assert "CONSTRUCT" in config.sparql_filter
+
+    def test_sparql_filter_must_be_string(self):
+        """Test that sparql_filter must be a string."""
+        config_dict = {
+            "source": "test.ttl",
+            "sparql_filter": 123,
+        }
+
+        with pytest.raises(Exception) as exc_info:
+            RDFSourceConfig.model_validate(config_dict)
+
+        error_str = str(exc_info.value).lower()
+        assert "string" in error_str or "str" in error_str
+
+    def test_sparql_filter_cannot_be_empty(self):
+        """Test that sparql_filter cannot be an empty string."""
+        config_dict = {
+            "source": "test.ttl",
+            "sparql_filter": "   ",
+        }
+
+        with pytest.raises(Exception) as exc_info:
+            RDFSourceConfig.model_validate(config_dict)
+
+        error_str = str(exc_info.value).lower()
+        assert "empty" in error_str or "cannot" in error_str
+
+    def test_sparql_filter_must_contain_construct_or_select(self):
+        """Test that sparql_filter must contain CONSTRUCT or SELECT."""
+        config_dict = {
+            "source": "test.ttl",
+            "sparql_filter": "SELECT * WHERE { ?s ?p ?o }",
+        }
+        # SELECT queries should pass validation (implementation will reject them)
+        config = RDFSourceConfig.model_validate(config_dict)
+        assert config.sparql_filter is not None
+
+        # Invalid query without CONSTRUCT or SELECT
+        config_dict_invalid = {
+            "source": "test.ttl",
+            "sparql_filter": "WHERE { ?s ?p ?o }",
+        }
+
+        with pytest.raises(Exception) as exc_info:
+            RDFSourceConfig.model_validate(config_dict_invalid)
+
+        error_str = str(exc_info.value).lower()
+        assert "construct" in error_str or "select" in error_str
