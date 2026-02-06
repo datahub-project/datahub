@@ -1741,7 +1741,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             any(),
             nullable(String.class),
             nullable(String.class),
-            anyInt()))
+            anyInt(),
+            nullable(String.class)))
         .thenReturn(expectedResult);
 
     when(mockEntityService.getEnvelopedVersionedAspects(
