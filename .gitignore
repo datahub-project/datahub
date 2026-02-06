@@ -94,6 +94,10 @@ smoke-test/rollback-reports
 coverage*.xml
 .vercel
 .envrc
+
+# Local dev environment overrides (user-specific GMS/Kafka settings)
+docker/profiles/my-settings.env
+
 **/.claude/settings.local.json
 # Claude agent files (session-specific, not to be committed)
 **/.claude/agents/
