@@ -626,7 +626,6 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
         res.body.data.appConfig.featureFlags.assetSummaryPageV1 = false;
         res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
         res.body.data.appConfig.featureFlags.themeV2Toggleable = false;
-        res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
       });
     } else if (hasOperationName(req, "getMe")) {
       req.alias = "gqlgetMeQuery";
