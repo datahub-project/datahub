@@ -6,7 +6,7 @@ let myUrl;
 
 const nevigateGlossaryPage = () => {
   cy.visit("/glossary");
-  cy.getWithTestId("v2-search-bar-wrapper").should("be.visible");
+  cy.get('[id="v2-search-bar"]').should("be.visible");
   cy.waitTextVisible("Business Glossary");
   cy.wait(1000);
 };
