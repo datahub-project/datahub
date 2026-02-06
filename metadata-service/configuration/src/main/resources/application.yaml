@@ -1111,6 +1111,10 @@ graphQL:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
     introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
+    # Parent chain traversal (glossary, domains, containers, documents)
+    maxParentDepth: ${GRAPHQL_QUERY_MAX_PARENT_DEPTH:50}
+    # Relationship resolution cap per request (cycle/unbounded protection)
+    maxVisitedUrns: ${GRAPHQL_QUERY_MAX_VISITED_URNS:20000}
   metrics:
     # Master switch for all GraphQL metrics collection via Micrometer
     # When false, no GraphQL metrics are collected (request-level or field-level)
