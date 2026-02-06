@@ -422,10 +422,11 @@ class SigmaAPI:
 
             # The response contains source entries with inode IDs and type info
             # Look for sources that are tables (not other datasets)
-            entries = sources_response.get("entries", [])
-            if not entries:
-                # Try alternative response structure
-                entries = sources_response if isinstance(sources_response, list) else []
+            # API may return either {"entries": [...]} or just [...]
+            if isinstance(sources_response, list):
+                entries = sources_response
+            else:
+                entries = sources_response.get("entries", [])
 
             for source in entries:
                 # Log each source entry
