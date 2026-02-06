@@ -11,13 +11,23 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 ## Overview
 
-This guide will walk you through the process of setting up Remote Executors in your environment, including:
+This guide walks you through setting up a Remote Executor to run metadata ingestion within your private network.
 
-1. Understanding Remote Executors and Pools
-2. Configuration prerequisites
-3. Creating and managing Executor Pools
-4. Deploying Remote Executors in your environment
-5. Assigning Ingestion Sources to Pools
+:::info
+For architecture details and security model, see [About Remote Executor](../remote-executor/about.md).
+:::
+
+## Quick Start Checklist
+
+| Step | Who     | Action                                               |
+| ---- | ------- | ---------------------------------------------------- |
+| 1    | You     | Prepare prerequisites (Admin access, generate token) |
+| 2    | You     | Request container registry access from DataHub       |
+| 3    | DataHub | Grants registry access to your environment           |
+| 4    | You     | Create an Executor Pool in DataHub UI                |
+| 5    | You     | Deploy the executor (ECS, Kubernetes, etc.)          |
+| 6    | You     | Verify the executor is running                       |
+| 7    | You     | Assign ingestion sources to your Pool                |
 
 ## Understanding Remote Executors and Pools
 
@@ -29,184 +39,202 @@ A Remote Executor Pool provides a way to organize and manage your Remote Executo
 - One Pool can be designated as the **Default Pool** for new Ingestion Sources
 - Multiple Pools can be created for different purposes (e.g., by region, department, or workload type)
 
-## Configuration Prerequisites
+## Prerequisites
 
 Before deploying a Remote Executor, ensure you have the following:
 
-1. **DataHub Cloud**
+### What You Need from DataHub
 
-   - A DataHub User with the **Manage Metadata Ingestion** Platform privilege
-   - A DataHub Remote Executor Access Token (generate from **Settings > Access Tokens > Generate new token > Remote Executor**)
-   - Your DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`). **NOTE:** you MUST include the trailing `/gms` when configuring the executor.
+| Item                         | How to Get It                                                       |
+| ---------------------------- | ------------------------------------------------------------------- |
+| **Admin** role               | Contact your DataHub admin to assign this role                      |
+| Remote Executor Access Token | **Settings > Access Tokens > Generate new token > Remote Executor** |
+| Your DataHub Cloud URL       | Format: `https://<your-company>.acryl.io/gms` (must include `/gms`) |
+| Container Registry Access    | Contact DataHub to set up access (see deployment steps for details) |
 
-2. **Deployment Environment**
+### What You Need in Your Environment
 
-   - Access to your deployment platform (AWS ECS or Kubernetes)
-   - Necessary permissions to create resources
+| Item                | Details                                                                |
+| ------------------- | ---------------------------------------------------------------------- |
+| Network             | A subnet/network with outbound internet access                         |
+| Deployment Platform | AWS ECS, Kubernetes (EKS, GKE, AKS, etc.), or other container platform |
+| Permissions         | Ability to create required resources on your chosen platform           |
 
-3. **Registry Access**
-   - For AWS: Provide your AWS account ID to DataHub Cloud
-   - For Kubernetes: Work with DataHub team to set up access to the Remote Executor Docker Image Registry
+## Creating an Executor Pool
 
-## Creating and Managing Executor Pools
+Before deploying, create a Pool in DataHub Cloud:
 
-Complete the following steps to create a new Executor Pool from the DataHub Cloud UI:
-
-1. Navigate to the **Data Sources** section on the left sidebar
-2. Click the **Executors** tab and click **Create**
+1. Navigate to **Data Sources** in the left sidebar
+2. Click the **Executors** tab
+3. Click **Create**
 
 <p align="center">
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/pool-list-before.png?raw=true"/>
 </p>
 
-3. Configure Pool settings:
-   - **Pool Identifier**: A unique identifier for this Pool
+4. Configure Pool settings:
+   - **Pool Identifier**: A unique identifier for this Pool (you'll use this in deployment)
    - **Description**: Purpose or details about the Pool
-   - **Default Pool**: Optionally set as the Default Pool for new Ingestion Sources
+   - **Set as Default**: Enable this toggle to make this Pool the default for new Ingestion Sources
 
 <p align="center">
   <img width="85%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/configure-pool-modal.png?raw=true"/>
 </p>
 
-4. Click **Create** to provision the Pool
-
-## Deploying Remote Executors in Your Environment
-
-Once you have created an Executor Pool in DataHub Cloud, you are now ready to deploy an Executor within your environment.
+5. Click **Create** to provision the Pool
 
 :::note
-Work with DataHub team to receive deployment templates specific to your environment (Helm charts, CloudFormation, or Terraform) for deploying Remote Executors in this Pool.
+Save the **Pool Identifier** - you'll need it for the `ExecutorPoolId` parameter during deployment.
 :::
+
+## Deploying Remote Executors
+
+<Tabs>
+<TabItem value="ecs" label="Amazon ECS">
 
 ### Deploy on Amazon ECS
 
-1. **AWS Account Configuration**
+#### Step 1: Request ECR Access
 
-To access the private DataHub Cloud ECR registry, you'll need to provide your AWS account ID to DataHub Cloud. You can securely share your account ID through:
+Share your **AWS Account ID** with DataHub so they can grant access to the private ECR registry:
 
-- Your DataHub Cloud representative
-- A secure secret-sharing service like [One Time Secret](https://onetimesecret.com/)
-
-This step is required to grant your AWS account access to pull the Remote Executor container image.
-
-2. **Configure CloudFormation Template**
-
-The DataHub Team will provide a [Cloudformation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml) that you can run to provision an ECS cluster with a single remote ingestion task. It will also provision an AWS role for the task which grants the permissions necessary to read and delete from the private queue created for you, along with reading the secrets you've specified. At minimum, the template requires the following parameters:
-
-- Deployment Location (VPC and subnet)
-- DataHub Personal Access Token
-- DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`)
-- Executor Pool ID you set in the Datahub UI
-- Optional: DataHub Cloud Remote Executor Version; defaults to latest
-
-Optional parameters:
-
-- Source Secrets: `SECRET_NAME=SECRET_ARN` (up to 10); separate multiple secrets by comma, e.g. `SECRET_NAME_1=SECRET_ARN_1,SECRET_NAME_2,SECRET_ARN_2`.
-- Environment Variables: `ENV_VAR_NAME=ENV_VAR_VALUE` (up to 10); separate multiple variable by comma, e.g. `ENV_VAR_NAME_1=ENV_VAR_VALUE_1,ENV_VAR_NAME_2,ENV_VAR_VALUE_2`.
+- Contact your DataHub Cloud representative, or
+- Use a secure sharing service like [One Time Secret](https://onetimesecret.com/)
 
 :::note
-Configuring Secrets enables you to manage ingestion sources from the DataHub UI without storing credentials inside DataHub. Once defined, secrets can be referenced by name inside of your DataHub Ingestion Source configurations using the usual convention: `${SECRET_NAME}`.
+Wait for confirmation from DataHub that ECR access has been granted before proceeding.
 :::
 
-3. **Deploy Stack**
+#### Step 2: Download the CloudFormation Template
 
-   ```bash
+Download the [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml).
 
-   # Using AWS CLI
+#### Step 3: Deploy the Stack
 
-    aws --region us-east-1 cloudformation create-stack \
-      --stack-name datahub-remote-executor \
-      --template-body file://datahub-executor.ecs.template.yaml \
-      --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM \
-      --parameters ParameterKey=ExecutorPoolId,ParameterValue="remote" \
-      ParameterKey=VPCID,ParameterValue="<your-vpc>" \
-      ParameterKey=SubnetID,ParameterValue="<your-subnet>" \
-      ParameterKey=DataHubBaseUrl,ParameterValue="https://<your-company>.acryl.io/gms" \
-      ParameterKey=DataHubAccessToken,ParameterValue="<your-remote-executor-access-token>"
-   ```
+**Required Parameters:**
 
-   Or use the [CloudFormation Console](https://console.aws.amazon.com/cloudformation)
+| Parameter        | Description                                              | Example                     |
+| ---------------- | -------------------------------------------------------- | --------------------------- |
+| `VPCID`          | Your VPC ID                                              | `vpc-12345678`              |
+| `SubnetID`       | Subnet with outbound internet access                     | `subnet-12345678`           |
+| `DataHubBaseUrl` | Your DataHub Cloud URL (must include `/gms`)             | `https://acme.acryl.io/gms` |
+| `ExecutorPoolId` | Pool Identifier from "Creating an Executor Pool" section | `remote`                    |
 
-4. **Configure Secrets (Optional)**
+**Access Token (required - provide one of the following):**
 
-   ```bash
+| Parameter                             | Description                                           | Example                                                    |
+| ------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------- |
+| `DataHubAccessToken`                  | Remote Executor access token (plaintext)              | `eyJ...`                                                   |
+| `ExistingDataHubAccessTokenSecretArn` | ARN of existing Secrets Manager secret with the token | `arn:aws:secretsmanager:us-west-2:123456789:secret:my-tok` |
 
-   # Create a secret in AWS Secrets Manager
+**Optional Parameters:**
 
-   aws secretsmanager create-secret \
-     --name my-source-secret \
-     --secret-string '{"username":"user","password":"pass"}'
-   ```
+| Parameter                       | Description                                                          |
+| ------------------------------- | -------------------------------------------------------------------- |
+| `ImageTag`                      | Executor version                                                     |
+| `DesiredCount`                  | Number of executor replicas                                          |
+| `TaskCpu`                       | CPU units (256, 512, 1024, 2048, 4096)                               |
+| `TaskMemory`                    | Memory in MiB                                                        |
+| `TaskEphemeralStorageSizeInGiB` | Ephemeral storage in GiB                                             |
+| `AwsRegion`                     | AWS region for the executor                                          |
+| `OptionalSecrets`               | Data source secrets (format: `NAME=ARN,NAME2=ARN2`)                  |
+| `OptionalEnvVars`               | Additional environment variables (format: `NAME=VALUE,NAME2=VALUE2`) |
 
-### Update Amazon ECS Deployment
-
-To update your Remote Executor deployment (e.g., to deploy a new container version or modify configuration), you'll need to update your existing CloudFormation Stack. This process involves re-deploying the CloudFormation template with your updated parameters while preserving your existing resources.
-
-1. **Access CloudFormation**
-
-   - Navigate to the AWS CloudFormation Console
-   - Locate and select your Remote Executor stack
-   - Click the **Update** button
-
-2. **Update Template**
-   - Select **Replace current template**
-   - Choose **Upload a template file**
-   - Download the latest DataHub Cloud Remote Executor [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml)
-   - Upload the template file
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-4.23.32-PM.png"/>
-</p>
-
-3. **Configure Parameters**
-
-   - Review and update parameters as needed:
-     - `ImageTag`: Specify a new version if upgrading
-     - `DatahubGmsURL`: Verify your DataHub URL is correct
-     - Other parameters will retain their previous values unless changed
-   - Click **Next** to proceed
-
-4. **Review and Deploy**
-   - Review the configuration changes
-   - Acknowledge any capabilities if prompted
-   - Click **Update stack** to begin the update process
-
-:::note
-The update process will maintain your existing resources (e.g., secrets, IAM roles) while deploying the new configuration. Monitor the stack events to track the update progress.
+:::warning
+The following parameters should only be changed after consulting with your DataHub representative:
+`DataHubIngestionsMaxWorkers`, `DataHubMonitorsMaxWorkers`, `DataHubIngestionsSignalPollInterval`
 :::
+
+**Deploy using AWS CLI:**
+
+```bash
+aws cloudformation create-stack \
+  --stack-name datahub-remote-executor \
+  --template-body file://datahub-executor.ecs.template.yaml \
+  --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM \
+  --parameters \
+    ParameterKey=VPCID,ParameterValue="<your-vpc>" \
+    ParameterKey=SubnetID,ParameterValue="<your-subnet>" \
+    ParameterKey=DataHubBaseUrl,ParameterValue="https://<your-company>.acryl.io/gms" \
+    ParameterKey=ExecutorPoolId,ParameterValue="<your-pool-id>" \
+    ParameterKey=DataHubAccessToken,ParameterValue="<your-token>"
+```
+
+Or use the [CloudFormation Console](https://console.aws.amazon.com/cloudformation).
+
+#### Step 4: Configure Secrets for Data Sources (Optional)
+
+To use secrets in your ingestion recipes without storing them in DataHub:
+
+1. Create secrets in AWS Secrets Manager:
+
+```bash
+aws secretsmanager create-secret \
+  --name my-database-password \
+  --secret-string 'your-secret-value'
+```
+
+2. Pass secrets to the CloudFormation stack using the `OptionalSecrets` parameter:
+
+```
+OptionalSecrets=DB_PASSWORD=arn:aws:secretsmanager:us-west-2:123456789012:secret:my-database-password
+```
+
+Format: `SECRET_NAME=SECRET_ARN` (comma-separated for multiple, up to 10, no spaces)
+
+3. Reference in your ingestion recipe:
+
+```yaml
+source:
+  type: postgres
+  config:
+    password: "${DB_PASSWORD}"
+```
+
+### Update ECS Deployment
+
+To update your deployment (e.g., new version or configuration change):
+
+1. Navigate to **AWS CloudFormation Console**
+2. Select your Remote Executor stack
+3. Click **Update**
+4. Select **Replace current template** and upload the latest template
+5. Update parameters as needed (e.g., `ImageTag` for version upgrade)
+6. Click **Next**, review, and **Update stack**
+
+</TabItem>
+<TabItem value="k8s" label="Kubernetes">
 
 ### Deploy on Kubernetes
 
-The [datahub-executor-worker](https://executor-helm.acryl.io/index.yaml) Helm chart provides a streamlined way to deploy Remote Executors on any Kubernetes cluster, including Amazon EKS and Google GKE.
+The [datahub-executor-worker](https://executor-helm.acryl.io/index.yaml) Helm chart deploys Remote Executors on any Kubernetes cluster (EKS, GKE, AKS, etc.).
 
-1. **Registry Access Configuration**
+#### Step 1: Request Registry Access
 
-To access the private DataHub Cloud container registry, you'll need to work with your DataHub Cloud representative to set up the necessary permissions:
+Contact your DataHub Cloud representative to set up access to the container registry. Provide:
 
-For AWS EKS: Provide the IAM principal that will pull from the ECR repository
+- **AWS EKS**: The IAM principal that will pull from the ECR repository
+- **Google Cloud GKE**: The cluster's IAM service account
+- **Other platforms**: Contact DataHub team for specific requirements
 
-- For Google Cloud: Provide the cluster's IAM service account
-- For other platforms: Contact DataHub team for specific requirements
+:::note
+Wait for confirmation from DataHub that registry access has been granted before proceeding.
+:::
 
-2. **Configure Secrets**
-
-Create the required secrets in your Kubernetes cluster:
+#### Step 2: Create Secrets
 
 ```bash
-# Create DataHub PAT secret (required)
-# Generate token from Settings > Access Tokens in DataHub UI
+# Create DataHub access token secret (required)
 kubectl create secret generic datahub-access-token-secret \
-  --from-literal=datahub-access-token-secret-key=<DATAHUB-ACCESS-TOKEN>
+  --from-literal=datahub-access-token-secret-key=<your-remote-executor-token>
 
 # Create source credentials (optional)
 kubectl create secret generic datahub-secret-store \
-  --from-literal=REDSHIFT_PASSWORD=password \
-  --from-literal=SNOWFLAKE_PASSWORD=password
+  --from-literal=SNOWFLAKE_PASSWORD=<password> \
+  --from-literal=REDSHIFT_PASSWORD=<password>
 ```
 
-3. **Install Helm Chart**
-
-Add the DataHub Cloud Helm repository and install the chart:
+#### Step 3: Install Helm Chart
 
 ```bash
 # Add Helm repository
@@ -214,38 +242,46 @@ helm repo add acryl https://executor-helm.acryl.io
 helm repo update
 
 # Install the chart
-helm install \
-  --set global.datahub.executor.pool_id="remote" \
+helm install acryl-executor-worker acryl/datahub-executor-worker \
   --set global.datahub.gms.url="https://<your-company>.acryl.io/gms" \
-  acryl-executor-worker acryl/datahub-executor-worker
+  --set global.datahub.executor.pool_id="<your-pool-id>"
 ```
 
-Required parameters:
+**Required Helm Values:**
 
-- `global.datahub.executor.pool_id`: Your Executor Pool ID
-- `global.datahub.gms.url`: Your DataHub Cloud URL (must include `/gms`)
-- `image.tag`: DataHub Cloud Remote Executor version
+| Value                             | Description                                              | Example                     |
+| --------------------------------- | -------------------------------------------------------- | --------------------------- |
+| `global.datahub.gms.url`          | Your DataHub Cloud URL (must include `/gms`)             | `https://acme.acryl.io/gms` |
+| `global.datahub.executor.pool_id` | Pool Identifier from "Creating an Executor Pool" section | `remote`                    |
 
-4. **Configure Secret Mounting (Optional)**
+**Access Token (required - uses the secret created in Step 2):**
 
-Starting from DataHub Cloud v0.3.8.2, you can manage secrets using Kubernetes Secret CRDs. This enables runtime secret updates without executor restarts.
+The Helm chart references the Kubernetes Secret you created. These defaults match the secret name from Step 2:
 
-Create a Kubernetes secret:
+| Value                          | Default                           | Description            |
+| ------------------------------ | --------------------------------- | ---------------------- |
+| `global.datahub.gms.secretRef` | `datahub-access-token-secret`     | Kubernetes Secret name |
+| `global.datahub.gms.secretKey` | `datahub-access-token-secret-key` | Key within the Secret  |
+
+**Optional Helm Values:**
+
+| Value                                            | Description                      |
+| ------------------------------------------------ | -------------------------------- |
+| `image.tag`                                      | Executor version                 |
+| `replicaCount`                                   | Number of executor replicas      |
+| `resources.requests.cpu`                         | CPU allocation                   |
+| `resources.requests.memory`                      | Memory allocation                |
+| `global.datahub.executor.ingestions.max_workers` | Max concurrent ingestion tasks   |
+| `extraVolumes`                                   | Additional volumes for secrets   |
+| `extraVolumeMounts`                              | Volume mount paths               |
+| `extraEnvs`                                      | Additional environment variables |
+
+#### Step 4: Configure Secret Mounting (Optional)
+
+Starting from DataHub Cloud v0.3.8.2, you can mount secrets from Kubernetes Secrets:
 
 ```yaml
-# secret.yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: datahub-secret-store
-data:
-  REDSHIFT_PASSWORD: <base64-encoded-password>
-  SNOWFLAKE_PASSWORD: <base64-encoded-password>
-```
-
-Mount the secret in your `values.yaml`:
-
-```yaml
+# values.yaml
 extraVolumes:
   - name: datahub-secret-store
     secret:
@@ -255,77 +291,97 @@ extraVolumeMounts:
     name: datahub-secret-store
 ```
 
-:::note
-Secret Configuration:
-
-- Default mount path: `/mnt/secrets` (override with `DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR`)
-- Default file size limit: 1MB (override with `DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN`)
-- Reference secrets in ingestion recipes using `${SECRET_NAME}` syntax
-
-:::
-
-Example ingestion recipe using mounted secrets:
+Reference in your ingestion recipe:
 
 ```yaml
 source:
-  type: redshift
+  type: snowflake
   config:
-    host_port: "<redshift-host:port>"
-    username: connector_test
-    password: "${REDSHIFT_PASSWORD}"
-    # ... other configuration ...
+    password: "${SNOWFLAKE_PASSWORD}"
 ```
 
-For additional configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file in the Helm chart repository.
+:::note
+Default mount path: `/mnt/secrets` (override with `DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR`). Reference secrets using `${SECRET_NAME}` syntax.
+:::
+
+For additional configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file.
+
+</TabItem>
+</Tabs>
 
 ## Checking Remote Executor status
 
-Once you have successfully deployed the Executor in your environment, DataHub will automatically begin reporting Executor Status in the UI:
+## Verifying Your Deployment
+
+After deployment, verify the executor is running:
+
+**Check logs for success message:**
+
+<Tabs>
+<TabItem value="ecs" label="Amazon ECS">
+
+1. Navigate to **ECS > Clusters > [your-stack-name] > Tasks**
+2. Click on the running task
+3. Go to **Logs** tab
+4. Look for: `celery worker initialization finished`
+
+</TabItem>
+<TabItem value="k8s" label="Kubernetes">
+
+```bash
+kubectl logs -l app.kubernetes.io/name=datahub-executor-worker | grep "celery worker initialization finished"
+```
+
+</TabItem>
+</Tabs>
+
+**Check Pool status in DataHub UI:**
+
+Once deployed, DataHub will show the executor status:
 
 <p align="center">
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/pool-list-after.png?raw=true"/>
 </p>
 
-## Assigning Ingestion Sources to an Executor Pool
+## Assigning Ingestion Sources to a Pool
 
-After you have created an Executor Pool and deployed the Executor within your environment, you are now ready to configure an Ingestion Source to run in that Pool.
+After verifying your deployment:
 
-1. Navigate to **Manage Data Sources** in DataHub Cloud
-2. Edit an existing Source or click **Create new source**
-3. In the **Finish Up** step, expand the **Advanced** to select your desired **Executor Pool**
+1. Navigate to **Data Sources** in DataHub Cloud
+2. Edit an existing source or click **Create new source**
+3. In the **Finish Up** step, expand **Advanced**
+4. Select your **Executor Pool** from the dropdown
 
 <p align="center">
   <img width="80%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/ingestion-select-executor-pool.png?raw=true"/>
 </p>
 
-:::note
-New Ingestion Sources will automatically use your designated Default Pool if you have assigned one. You can override this assignment when creating or editing an Ingestion Source at any time.
-:::
+5. Click **Save & Run**
 
-5. Click **Save & Run**. The task should show as 'Running' if properly configured.
+:::note
+New Ingestion Sources will automatically use your designated Default Pool if you have assigned one.
+:::
 
 <p align="center">
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/view-ingestion-running.png?raw=true"/>
 </p>
 
-## Advanced: Performance Settings and Task Weight-Based Queuing
+## Advanced: Performance Settings
 
-Executors use a weight-based queuing system to manage resource allocation efficiently:
+Executors use a weight-based queuing system to manage resource allocation:
 
 - **Default Behavior**: With 4 ingestion threads (default), each task gets a weight of 0.25, allowing up to 4 parallel tasks
 - **Resource-Intensive Tasks**: Tasks can be assigned a higher weight (up to 1.0) to limit parallelism
-- **Queue Management**: If the total weight of running tasks exceeds 1.0, new tasks are queued until capacity becomes available
-- **Priority Tasks**: Setting a weight of 1.0 ensures exclusive resource access - the task will run alone until completion
+- **Queue Management**: If the total weight of running tasks exceeds 1.0, new tasks are queued
+- **Priority Tasks**: Setting a weight of 1.0 ensures exclusive resource access
 
-The following environment variables can be configured to manage memory-intensive ingestion tasks, prevent resource contention, and ensure stable execution of resource-demanding processes:
+The following can be configured per Ingestion Source under **Extra Environment Variables**:
 
-- `DATAHUB_EXECUTOR_INGESTION_MAX_WORKERS` (default: 4) - Maximum concurrent Ingestion tasks
-- `DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS` (default: 10) - Maximum concurrent Observe monitoring tasks
-- `EXECUTOR_TASK_MEMORY_LIMIT` - Memory limit per task in kilobytes, configured per Ingestion Source under **Extra Environment Variables**. This setting helps prevent the executor's master process from being OOM-killed and protects against memory-leaking ingestion tasks. Example configuration:
+- `EXECUTOR_TASK_MEMORY_LIMIT` - Memory limit per task in kilobytes
   ```json
   { "EXECUTOR_TASK_MEMORY_LIMIT": "128000000" }
   ```
-- `EXECUTOR_TASK_WEIGHT` - Task weight for resource allocation, configured per Ingestion Source under **Extra Environment Variables**. By default, each task is assigned a weight of 1/MAX_THREADS (e.g., 0.25 with 4 threads). The total weight of concurrent tasks cannot exceed 1.0. Example configuration for a resource-intensive task:
+- `EXECUTOR_TASK_WEIGHT` - Task weight for resource allocation (default: 0.25 with 4 threads)
   ```json
   { "EXECUTOR_TASK_WEIGHT": "1.0" }
   ```
@@ -336,33 +392,34 @@ The following environment variables can be configured to manage memory-intensive
 
 1. **Connection Failed**
 
-   - Verify network connectivity
-   - Check DataHub URL configuration
-   - Validate Executor Pool ID
-   - Validate access token
+   Example logs: `Received error while fetching executor_configs from GMS!`, `Failed to find credentials for queue_id = [QUEUE_ID]`
+
+   - Verify network connectivity (outbound HTTPS to `*.acryl.io`)
+   - Check DataHub URL includes `/gms` suffix
+   - Validate Executor Pool ID matches exactly
+   - Validate access token is Remote Executor type (not Personal Access Token)
 
 2. **Secret Access Failed**
 
-   - Confirm secret ARNs/names
-   - Check permissions
-   - Verify secret format
+   - Confirm secret ARNs are correct
+   - Check IAM permissions for Secrets Manager
+   - Verify secret format matches expected structure
 
 3. **Container Failed to Start**
-   - Check resource limits
-   - Verify registry access
-   - Review container logs
+   - Verify ECR registry access was granted by DataHub
+   - Check resource limits (memory/CPU)
+   - Review container logs for specific errors
 
-### Frequently Asked Questions
+### FAQ
 
 **Do AWS Secrets Manager secrets automatically update in the executor?**
 
-No. Secrets are wired into the executor container at deployment time. The ECS Task needs to be restarted when secrets change.
+No. Secrets are injected at container startup. Restart the ECS task to pick up secret changes.
 
-**How can I verify successful deployment?**
+**How do I upgrade the executor version?**
 
-For ECS deployments, check AWS Console:
+Update the `ImageTag` parameter (for ECS) or `image.tag` value (for Kubernetes), then redeploy. See [Update ECS Deployment](#update-ecs-deployment) for detailed steps.
 
-1. Navigate to **ECS > Cluster > Stack Name > Services > Logs**
-2. Look for the log line: `Starting datahub executor worker`
+**Can I run multiple executors in the same Pool?**
 
-This indicates successful connection to DataHub Cloud.
+Yes. Increase `DesiredCount` in CloudFormation or `replicaCount` in Helm to run multiple executor instances for high availability.

@@ -28,6 +28,7 @@ The Remote Executor is a powerful feature of DataHub Cloud that enables secure m
 ### Enterprise-Ready Integration & Operations
 
 - Compatible with all DataHub Ingestion Sources
+- Run data quality assertions and monitor training within your environment
 - Easy deployment on various platforms (AWS ECS, Kubernetes, etc.)
 - Multiple executor support for high availability
 - Built-in monitoring and observability
@@ -35,18 +36,48 @@ The Remote Executor is a powerful feature of DataHub Cloud that enables secure m
 
 ## Architecture
 
-The Remote Executor works by:
+Remote Executors use a **pull-based** architecture. The executor polls for tasks—it never exposes any inbound ports.
 
-1. Deploying as a container in your environment
-2. Establishing a secure connection to DataHub Cloud
-3. Receiving and executing Ingestion and Observe tasks
-4. Reporting results back to DataHub Cloud
+```mermaid
+flowchart TB
+    subgraph Cloud["Control Plane (DataHub Cloud)"]
+        UI["DataHub UI"]
+        GMS["GMS (Metadata Service)"]
+        Coord["Coordinator"]
+        SQS[("AWS SQS Queue")]
+    end
 
-This architecture ensures that:
+    subgraph Customer["Data Plane (Your Network)"]
+        Executor["Remote Executor"]
+        Subprocess["Ingestion Subprocess"]
+    end
 
-- All sensitive operations occur within your environment
-- No inbound connections are required
-- Your security policies remain intact
+    DB[("Data Sources<br/>Snowflake, Postgres, etc.")]
+
+    UI -- "1. Trigger Ingestion" --> GMS
+    GMS -- "2. Create Request" --> Coord
+    Coord -- "3. Push Task" --> SQS
+    Executor -- "4. Poll (Outbound HTTPS)" --> SQS
+    SQS -- "5. Receive Task" --> Executor
+    Executor -- "6. Spawn Process" --> Subprocess
+    Subprocess -- "7. Extract Metadata" --> DB
+    Subprocess -- "8. Send Metadata (HTTPS)" --> GMS
+```
+
+### How It Works
+
+1. **Job Creation**: You trigger ingestion from the DataHub UI, or a scheduled job is triggered automatically
+2. **Queuing**: DataHub creates a task and pushes it to an SQS queue
+3. **Polling**: The Remote Executor (running in your VPC) polls SQS for tasks
+4. **Execution**: The executor receives the task and spawns a subprocess to run ingestion
+5. **Reporting**: Status updates and metadata are sent back to DataHub via HTTPS
+
+### Assertions and Monitor Training
+
+Remote Executors also support running data quality assertions and monitor training within your environment. These tasks follow the same pull-based architecture:
+
+- **Assertions**: Data quality checks run against your data sources, with results reported back to DataHub Cloud
+- **Monitor Training**: Machine learning models for anomaly detection are trained on your data locally, keeping sensitive data in your environment
 
 ## Next Steps
 
@@ -59,7 +90,7 @@ To get started with Remote Executor:
 
 ### Is Remote Executor required for DataHub Cloud?
 
-No, DataHub Cloud comes with an managed executor by default. Remote Executor is an optional feature for cases where you need to ingest from private sources or maintain stricter control over credentials and network access.
+No, DataHub Cloud comes with a managed executor by default. Remote Executor is an optional feature for cases where you need to ingest from private sources or maintain stricter control over credentials and network access.
 
 ### Can I use multiple Remote Executors?
 
