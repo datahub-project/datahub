@@ -80,14 +80,16 @@ jobs:
             fi
           done < /tmp/projects_to_check.txt
 
-      - name: Checkout master branch
+      # Use github.base_ref to automatically detect the PR's target branch.
+      # Fork repositories no longer need to override the base branch name.
+      - name: Checkout base branch
         run: |
-          git fetch origin master
-          git checkout origin/master
+          git fetch origin ${{ github.base_ref }}
+          git checkout origin/${{ github.base_ref }}
 
-      - name: Analyze dependencies on master branch
+      - name: Analyze dependencies on base branch
         run: |
-          echo "Analyzing Python dependencies on master branch..."
+          echo "Analyzing Python dependencies on base branch (${{ github.base_ref }})..."
           mkdir -p /tmp/master-results
 
           while IFS= read -r project; do
@@ -97,7 +99,7 @@ jobs:
               echo "  Analyzing: $project -> /tmp/master-${safe_name}.json"
 
               python .github/scripts/dep-analyzer.py --exec --json "$project" > "/tmp/master-${safe_name}.json" 2>&1 || {
-                echo "Warning: Failed to analyze $project on master branch"
+                echo "Warning: Failed to analyze $project on base branch"
                 echo '{"by_level": {}, "errors": ["Analysis failed"]}' > "/tmp/master-${safe_name}.json"
               }
             fi
@@ -115,6 +117,7 @@ jobs:
 
           has_violations=false
           total_violations=0
+          total_excluded=0
 
           while IFS= read -r project; do
             if [ -n "$project" ]; then
@@ -127,6 +130,7 @@ jobs:
                 --baseline-file "/tmp/master-${safe_name}.json" \
                 --pr-file "/tmp/pr-${safe_name}.json" \
                 --project-name "$project" \
+                --exclusions-file ".github/python-deps-exclusions.txt" \
                 > "/tmp/comparison-results/${safe_name}.json"
               exit_code=$?
               set -e
@@ -138,13 +142,20 @@ jobs:
               elif [ $exit_code -eq 2 ]; then
                 echo "    ⚠️  Error analyzing project"
               else
-                echo "    ✅ No violations"
+                excluded=$(jq -r '.excluded_violations | length' "/tmp/comparison-results/${safe_name}.json")
+                if [ "$excluded" -gt 0 ]; then
+                  total_excluded=$((total_excluded + excluded))
+                  echo "    ⚠️  No violations (but $excluded excluded)"
+                else
+                  echo "    ✅ No violations"
+                fi
               fi
             fi
           done < /tmp/projects_to_check.txt
 
           echo "has_violations=$has_violations" >> $GITHUB_OUTPUT
           echo "total_violations=$total_violations" >> $GITHUB_OUTPUT
+          echo "total_excluded=$total_excluded" >> $GITHUB_OUTPUT
 
       - name: Generate GitHub Actions Summary
         if: always()
@@ -155,11 +166,17 @@ jobs:
           # Check if we have violations
           has_violations="${{ steps.compare.outputs.has_violations }}"
           total_violations="${{ steps.compare.outputs.total_violations }}"
+          total_excluded="${{ steps.compare.outputs.total_excluded }}"
 
           if [ "$has_violations" = "true" ]; then
             echo "### Status: ❌ FAILED ($total_violations violations)" >> $GITHUB_STEP_SUMMARY
           else
             echo "### Status: ✅ PASSED" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "$total_excluded" -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️  **Note:** $total_excluded unpinned dependencies are allowed via exclusion list" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -168,6 +185,7 @@ jobs:
 
           # Process results for each project
           projects_with_violations=()
+          projects_with_exclusions=()
           projects_without_violations=()
 
           while IFS= read -r project; do
@@ -177,9 +195,12 @@ jobs:
 
               if [ -f "$result_file" ]; then
                 has_viol=$(jq -r '.has_violations' "$result_file")
+                excluded_count=$(jq -r '.excluded_violations | length' "$result_file")
 
                 if [ "$has_viol" = "true" ]; then
                   projects_with_violations+=("$project")
+                elif [ "$excluded_count" -gt 0 ]; then
+                  projects_with_exclusions+=("$project")
                 else
                   projects_without_violations+=("$project")
                 fi
@@ -189,7 +210,7 @@ jobs:
 
           # Show violations
           if [ ${#projects_with_violations[@]} -gt 0 ]; then
-            echo "### Violations Detected" >> $GITHUB_STEP_SUMMARY
+            echo "### ❌ Violations Detected" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
             for project in "${projects_with_violations[@]}"; do
@@ -206,6 +227,43 @@ jobs:
                   (if .type == "new_unpinned" then "🆕 New Unpinned"
                    elif .type == "new_lower_bound" then "🆕 New Lower Bound"
                    else "📉 Downgraded" end),
+                  .name,
+                  (if .old_spec then .old_spec + " (" + .old_level + ")" else "N/A" end),
+                  (if .new_spec == "" then "(none)" else .new_spec + " (" + .new_level + ")" end),
+                  .source
+                ] | @tsv' "$result_file" | \
+              while IFS=$'\t' read -r type name old new source; do
+                echo "| $type | $name | $old | $new | $source |" >> $GITHUB_STEP_SUMMARY
+              done
+
+              echo "" >> $GITHUB_STEP_SUMMARY
+            done
+
+            echo "---" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Show excluded violations
+          if [ ${#projects_with_exclusions[@]} -gt 0 ]; then
+            echo "### ⚠️  Unpinned But Allowed (Exclusions)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "These dependencies are unpinned but allowed via \`.github/python-deps-exclusions.txt\`:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            for project in "${projects_with_exclusions[@]}"; do
+              echo "#### $project" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "| Type | Dependency | Old Pinning | New Pinning | Source |" >> $GITHUB_STEP_SUMMARY
+              echo "|------|------------|-------------|-------------|--------|" >> $GITHUB_STEP_SUMMARY
+
+              safe_name=$(echo "$project" | sed 's/[\/.]/-/g; s/^-//; s/-$//')
+              result_file="/tmp/comparison-results/${safe_name}.json"
+
+              jq -r '.excluded_violations[] |
+                [
+                  (if .type == "new_unpinned" then "✓ New Unpinned"
+                   elif .type == "new_lower_bound" then "✓ New Lower Bound"
+                   else "✓ Downgraded" end),
                   .name,
                   (if .old_spec then .old_spec + " (" + .old_level + ")" else "N/A" end),
                   (if .new_spec == "" then "(none)" else .new_spec + " (" + .new_level + ")" end),
@@ -263,6 +321,8 @@ jobs:
           echo "2. For existing dependencies being modified, maintain or improve pinning level" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "3. If you must use loose pinning, ensure it exists in master first (grandfathered)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "4. For special cases, add to \`.github/python-deps-exclusions.txt\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Fail if violations found
         if: steps.compare.outputs.has_violations == 'true'

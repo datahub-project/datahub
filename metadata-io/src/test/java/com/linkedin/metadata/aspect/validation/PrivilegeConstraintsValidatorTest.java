@@ -1,8 +1,11 @@
 package com.linkedin.metadata.aspect.validation;
 
+import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
+import static com.linkedin.metadata.Constants.UI_SOURCE;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
@@ -16,6 +19,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
@@ -31,6 +35,7 @@ import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -801,6 +806,142 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertNotNull(exception);
     Assert.assertTrue(
         exception.getMessage().contains("Unauthorized to modify one or more tag Urns"));
+  }
+
+  /** Test that empty mcpItems collection returns empty stream without throwing exception. */
+  @Test
+  public void testValidateEmptyCollection() {
+    // When no items are passed (empty collection), should return empty without error
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            Collections.emptyList(), retrieverContext, mockAuthSession);
+
+    Assert.assertTrue(result.findAny().isEmpty());
+  }
+
+  /**
+   * Test that empty collection with null session returns empty stream without
+   * IllegalStateException.
+   */
+  @Test
+  public void testValidateEmptyCollectionWithNullSession() {
+    // This is the scenario that caused the original bug:
+    // Empty collection + null session should return empty, not throw IllegalStateException
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(Collections.emptyList(), retrieverContext, null);
+
+    Assert.assertTrue(result.findAny().isEmpty());
+  }
+
+  /** Test that UI source items are skipped during validation. */
+  @Test
+  public void testValidateGlobalTagsWithUISourceSkipped() {
+    GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
+    TestMCP item =
+        TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
+            .map(i -> (TestMCP) i)
+            .findFirst()
+            .get();
+
+    // Set UI source in system metadata
+    SystemMetadata systemMetadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, UI_SOURCE);
+    systemMetadata.setProperties(properties);
+    item.setSystemMetadata(systemMetadata);
+
+    // UI source items should be skipped, no authorization check needed
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            Collections.singletonList(item), retrieverContext, mockAuthSession);
+
+    Assert.assertTrue(result.findAny().isEmpty());
+  }
+
+  /** Test that system update source items are skipped during validation. */
+  @Test
+  public void testValidateGlobalTagsWithSystemUpdateSourceSkipped() {
+    GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
+    TestMCP item =
+        TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
+            .map(i -> (TestMCP) i)
+            .findFirst()
+            .get();
+
+    // Set system update source in system metadata
+    SystemMetadata systemMetadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
+    systemMetadata.setProperties(properties);
+    item.setSystemMetadata(systemMetadata);
+
+    // System update source items should be skipped, no authorization check needed
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            Collections.singletonList(item), retrieverContext, mockAuthSession);
+
+    Assert.assertTrue(result.findAny().isEmpty());
+  }
+
+  /** Test that system update source items are skipped even with null session. */
+  @Test
+  public void testValidateGlobalTagsWithSystemUpdateSourceAndNullSession() {
+    GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
+    TestMCP item =
+        TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
+            .map(i -> (TestMCP) i)
+            .findFirst()
+            .get();
+
+    // Set system update source in system metadata
+    SystemMetadata systemMetadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
+    systemMetadata.setProperties(properties);
+    item.setSystemMetadata(systemMetadata);
+
+    // System update source items should be skipped even with null session
+    // This ensures upgrade steps can process tags without failing on auth
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            Collections.singletonList(item), retrieverContext, null);
+
+    Assert.assertTrue(result.findAny().isEmpty());
+  }
+
+  /** Test that items without system metadata properties still get validated. */
+  @Test
+  public void testValidateGlobalTagsWithNullSystemMetadataProperties() {
+    GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
+    TestMCP item =
+        TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
+            .map(i -> (TestMCP) i)
+            .findFirst()
+            .get();
+
+    // Set system metadata without properties
+    SystemMetadata systemMetadata = new SystemMetadata();
+    item.setSystemMetadata(systemMetadata);
+
+    // Without APP_SOURCE property, should still validate normally
+    Mockito.when(
+            mockAspectRetriever.getLatestAspectObject(TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
+        .thenReturn(null);
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+                    Mockito.eq(mockAuthSession),
+                    Mockito.eq(ApiOperation.UPDATE),
+                    Mockito.eq(List.of(TEST_DATASET_URN)),
+                    Mockito.eq(Collections.singleton(TEST_TAG_URN))))
+        .thenReturn(true);
+
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            Collections.singletonList(item), retrieverContext, mockAuthSession);
+
+    Assert.assertTrue(result.findAny().isEmpty());
   }
 
   private GlobalTags createGlobalTags(TagUrn... tagUrns) {

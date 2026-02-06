@@ -23,7 +23,7 @@ from datahub.emitter.mce_builder import (
     make_domain_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_domain_to_entity_wu
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu, add_tags_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -83,6 +83,7 @@ if TYPE_CHECKING:
     from mypy_boto3_dynamodb.type_defs import (
         AttributeValueTypeDef,
         TableDescriptionTypeDef,
+        TagTypeDef,
     )
 
 
@@ -113,6 +114,14 @@ class DynamoDBConfig(
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion. The table name format is 'region.table'",
+    )
+    extract_table_tags: bool = Field(
+        default=False,
+        description=(
+            "When enabled, tags associated with DynamoDB tables in AWS will be emitted as DataHub tags. "
+            "Tags are applied using OVERWRITE mode, meaning any existing tags including tags manually "
+            "added or modified from the UI will be replaced. Use with caution."
+        ),
     )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -171,6 +180,10 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
 @capability(
     SourceCapability.CLASSIFICATION,
     "Optionally enabled via `classification.enabled`",
+)
+@capability(
+    SourceCapability.TAGS,
+    "Optionally enabled via `extract_table_tags` to extract dynamoDB table tags as DataHub tags",
 )
 class DynamoDBSource(StatefulIngestionSourceBase):
     """
@@ -282,6 +295,16 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             entityUrn=dataset_urn,
             aspect=dataset_properties,
         ).as_workunit()
+
+        # Add AWS resource tags if enabled
+        if self.config.extract_table_tags:
+            table_arn = table_info.get("TableArn")
+            if table_arn:
+                yield from self._get_dynamodb_table_tags_wu(
+                    dynamodb_client=dynamodb_client,
+                    table_arn=table_arn,
+                    dataset_urn=dataset_urn,
+                )
 
         yield from self._get_domain_wu(
             dataset_name=table_name,
@@ -583,4 +606,50 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             yield from add_domain_to_entity_wu(
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
+            )
+
+    def _get_dynamodb_table_tags(
+        self,
+        dynamodb_client: "DynamoDBClient",
+        table_arn: str,
+    ) -> List["TagTypeDef"]:
+        resp = dynamodb_client.list_tags_of_resource(ResourceArn=table_arn)
+        return resp.get("Tags", [])
+
+    def _get_dynamodb_table_tags_wu(
+        self,
+        dynamodb_client: "DynamoDBClient",
+        table_arn: str,
+        dataset_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Extract DynamoDB table AWS tags and emit them as DataHub tags.
+        """
+        try:
+            aws_tags_kv = self._get_dynamodb_table_tags(
+                dynamodb_client=dynamodb_client,
+                table_arn=table_arn,
+            )
+
+            tags = [
+                f"{tag_dict['Key']}:{tag_dict['Value']}"
+                if tag_dict.get("Value")
+                else f"{tag_dict['Key']}"
+                for tag_dict in aws_tags_kv
+                if tag_dict.get("Key")
+            ]
+
+            # Emit tags as a work unit (even if empty to remove existing tags)
+            yield from add_tags_to_entity_wu(
+                entity_type="dataset",
+                entity_urn=dataset_urn,
+                tags=tags,
+            )
+
+        except Exception as e:
+            self.report.warning(
+                title="DynamoDB Tags",
+                message="Failed to extract tags for table. This may be due to missing 'dynamodb:ListTagsOfResource' IAM permission.",
+                context=f"dataset_urn: {dataset_urn}; error={e}",
+                exc=e,
             )

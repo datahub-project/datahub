@@ -1,8 +1,9 @@
 import { Icon, Switch, Text } from '@components';
 import cronstrue from 'cronstrue';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { TimezoneSelect } from '@app/ingestV2/source/builder/TimezoneSelect';
 import { SourceBuilderState } from '@app/ingestV2/source/builder/types';
 import CronField from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/CronField';
@@ -45,6 +46,8 @@ export function ScheduleStep() {
     const [scheduleEnabled, setScheduleEnabled] = useState(!!schedule);
     const [scheduleCronInterval, setScheduleCronInterval] = useState(interval);
     const [scheduleTimezone, setScheduleTimezone] = useState(timezone);
+
+    const analyticsRef = useRef(false);
 
     const cronAsText = useMemo(() => {
         if (scheduleCronInterval) {
@@ -93,6 +96,19 @@ export function ScheduleStep() {
             setCurrentStepCompleted();
         }
     }, [cronAsText, setCurrentStepCompleted, setCurrentStepUncompleted]);
+
+    useEffect(() => {
+        if (analyticsRef.current) return;
+        if (state) {
+            analyticsRef.current = true;
+            analytics.event({
+                type: EventType.IngestionEnterSyncScheduleEvent,
+                sourceType: state.type || '',
+                sourceUrn: state.ingestionSource?.urn,
+                configurationType: state.isEditing ? 'edit_existing' : 'create_new',
+            });
+        }
+    }, [state]);
 
     return (
         <StepContainer>

@@ -1,0 +1,71 @@
+name: DataHub Agent Context
+on:
+  push:
+    branches:
+      - master
+      - releases/**
+      - hotfixes/**
+    paths:
+      - ".github/workflows/agent-context.yml"
+      - "datahub-agent-context**"
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+  pull_request:
+    branches:
+      - "**"
+    paths:
+      - ".github/workflows/agent-context.yml"
+      - "datahub-agent-context**"
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: Test packages are correct
+        run: |
+          cd datahub-agent-context;
+          python -c 'import setuptools; where="./src"; assert setuptools.find_packages(where) == setuptools.find_namespace_packages(where), "you seem to be missing or have extra __init__.py files"'
+      - name: Gradle build (and test)
+        run: |
+          ./gradlew :datahub-agent-context:build
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Test Results (build)
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+      - name: Upload datahub-agent-context coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          name: datahub-agent-context
+          verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
+
+  event-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Event File
+          path: ${{ github.event_path }}

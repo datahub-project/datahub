@@ -257,7 +257,7 @@ export const SearchResultItem: React.FC<SearchResultItemProps> = ({
                 </LeftContent>
                 {onCreateChild && (
                     <Actions className="search-result-actions">
-                        <Tooltip title="New context document" placement="bottom" showArrow={false}>
+                        <Tooltip title="New document" placement="bottom" showArrow={false}>
                             <ActionButton
                                 icon={{ icon: 'Plus', source: 'phosphor' }}
                                 variant="text"

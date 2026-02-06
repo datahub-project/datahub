@@ -163,7 +163,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     }
 
     if (rootNodes.length === 0) {
-        return <DocumentTreeEmptyState onCreateDocument={() => onCreateChild(null)} />;
+        return <DocumentTreeEmptyState />;
     }
 
     return <TreeContainer>{rootNodes.map((node) => renderTreeNode(node.urn, 0))}</TreeContainer>;

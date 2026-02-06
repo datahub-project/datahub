@@ -512,44 +512,39 @@ if getattr(dag, "is_subdag", False) and dag.parent_dag is not None:
 
 ### 7. Database Commit Restrictions in Listener Hooks
 
-Airflow 3.x introduces strict High Availability (HA) lock management that prohibits database commits within listener hooks.
+Airflow listener hooks are called during SQLAlchemy's `after_flush` event, before the main transaction commits. Any database operations that create new sessions and commit them can interfere with the outer transaction and cause data loss.
 
 #### Problem
 
-The kill switch feature used `Variable.get()` to check if the plugin should be disabled:
+The kill switch feature originally used `Variable.get()` to check if the plugin should be disabled:
 
 ```python
-# This causes: RuntimeError: UNEXPECTED COMMIT - THIS WILL BREAK HA LOCKS!
+# This causes issues:
+# - Airflow 3.x: RuntimeError: UNEXPECTED COMMIT - THIS WILL BREAK HA LOCKS!
+# - Airflow 2.x: Can cause TaskInstanceHistory records to not be persisted
+#   (see: https://github.com/apache/airflow/pull/48780)
 if Variable.get("datahub_airflow_plugin_disable_listener", "false").lower() == "true":
     return True
 ```
 
+`Variable.get()` uses the `@provide_session` decorator which creates a new database session and commits it. When called from listener hooks (which execute during `after_flush`, before the main transaction commits), this nested commit can corrupt the outer transaction state and cause data loss.
+
 #### Solution
 
-The plugin now has separate kill switch implementations for each version:
+Both Airflow 2.x and 3.x versions now use environment variables instead of database queries:
 
-**Airflow 2.x** (`airflow2/datahub_listener.py`):
-
-```python
-def check_kill_switch(self) -> bool:
-    # For Airflow 2.x, use Variable.get()
-    try:
-        if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
-            logger.debug("DataHub listener disabled by kill switch")
-            return True
-    except Exception as e:
-        logger.debug(f"Error checking kill switch variable: {e}")
-    return False
-```
-
-**Airflow 3.x** (`airflow3/datahub_listener.py`):
+**Both versions** (`airflow2/datahub_listener.py` and `airflow3/datahub_listener.py`):
 
 ```python
 def check_kill_switch(self) -> bool:
     """
-    Variable.get() cannot be called from listener hooks in Airflow 3.0+
-    because it creates a database session commit which breaks HA locks.
-    Use environment variable instead.
+    Check kill switch using environment variable.
+
+    We use os.getenv() instead of Variable.get() because Variable.get()
+    creates a new database session and commits it. When called from listener
+    hooks (which execute during SQLAlchemy's after_flush event, before the
+    main transaction commits), this nested commit can corrupt the outer
+    transaction state and cause data loss.
     """
     if (
         os.getenv(
@@ -562,20 +557,16 @@ def check_kill_switch(self) -> bool:
     return False
 ```
 
-**Migration Note:** To disable the plugin:
+**To disable the plugin (both Airflow 2.x and 3.x):**
 
 ```bash
-# Airflow 2.x - Use Airflow Variable
-airflow variables set datahub_airflow_plugin_disable_listener true
-
-# Airflow 3.x - Use environment variable
 export AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER=true
 ```
 
 **Files Updated:**
 
-- `src/datahub_airflow_plugin/airflow2/datahub_listener.py` - Kill switch for Airflow 2.x
-- `src/datahub_airflow_plugin/airflow3/datahub_listener.py` - Kill switch for Airflow 3.x
+- `src/datahub_airflow_plugin/airflow2/datahub_listener.py` - Kill switch using env var
+- `src/datahub_airflow_plugin/airflow3/datahub_listener.py` - Kill switch using env var
 
 ### 8. Threading Support in Airflow 3.x
 

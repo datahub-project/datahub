@@ -70,6 +70,9 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
                 value
             }
         }
+        documentation {
+            ...documentationFields
+        }
         ownership {
             ...ownershipFields
         }
@@ -78,6 +81,9 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
         }
         glossaryTerms {
             ...glossaryTerms
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
         domain {
             ...entityDomain

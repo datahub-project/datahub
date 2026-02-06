@@ -52,6 +52,12 @@ def evaluate_test(auth_session, test_name, test_data):
                 description = req_resp["request"].pop("description")
             else:
                 description = None
+            if "skip" in req_resp["request"]:
+                skip_reason = req_resp["request"].pop("skip")
+                logger.info(
+                    f"Skipping step {idx}: {description or 'no description'} - {skip_reason}"
+                )
+                continue
             if "wait" in req_resp["request"]:
                 time.sleep(req_resp["request"]["wait"])
                 continue

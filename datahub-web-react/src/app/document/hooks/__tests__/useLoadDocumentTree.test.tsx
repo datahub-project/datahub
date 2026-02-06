@@ -8,12 +8,14 @@ import { DocumentTreeContext } from '@app/document/DocumentTreeContext';
 import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import * as useSearchDocumentsModule from '@app/document/hooks/useSearchDocuments';
 
-import { SearchDocumentsDocument } from '@graphql/document.generated';
+import * as documentGenerated from '@graphql/document.generated';
 
 vi.mock('../useSearchDocuments');
+vi.mock('@graphql/document.generated');
 
 describe('useLoadDocumentTree', () => {
     let mockClient: ApolloClient<any>;
+    let mockSearchDocumentsLazyQuery: any;
     const mockInitializeTree = vi.fn();
     const mockSetNodeChildren = vi.fn();
     const mockGetRootNodes = vi.fn();
@@ -52,6 +54,21 @@ describe('useLoadDocumentTree', () => {
         });
 
         mockGetRootNodes.mockReturnValue([]);
+
+        // Set up default mock for useSearchDocumentsLazyQuery
+        mockSearchDocumentsLazyQuery = vi.fn().mockResolvedValue({
+            data: {
+                searchDocuments: {
+                    documents: [],
+                    total: 0,
+                },
+            },
+        });
+
+        vi.mocked(documentGenerated.useSearchDocumentsLazyQuery).mockReturnValue([
+            mockSearchDocumentsLazyQuery,
+            {} as any, // query result object (not used in the implementation)
+        ]);
     });
 
     it('should load and initialize tree with root documents', async () => {
@@ -82,7 +99,7 @@ describe('useLoadDocumentTree', () => {
             refetch: vi.fn(),
         });
 
-        mockClient.query = vi.fn().mockResolvedValue({
+        mockSearchDocumentsLazyQuery.mockResolvedValue({
             data: {
                 searchDocuments: {
                     documents: [],
@@ -90,8 +107,6 @@ describe('useLoadDocumentTree', () => {
                 },
             },
         });
-
-        // Note: useApolloClient is mocked via module mock in real implementation
 
         const wrapper = ({ children }: any) => (
             <ApolloProvider client={mockClient}>
@@ -187,7 +202,7 @@ describe('useLoadDocumentTree', () => {
             },
         ];
 
-        mockClient.query = vi.fn().mockResolvedValue({
+        mockSearchDocumentsLazyQuery.mockResolvedValue({
             data: {
                 searchDocuments: {
                     documents: mockChildDocuments,
@@ -195,8 +210,6 @@ describe('useLoadDocumentTree', () => {
                 },
             },
         });
-
-        // Note: useApolloClient is mocked via module mock in real implementation
 
         const wrapper = ({ children }: any) => (
             <ApolloProvider client={mockClient}>
@@ -277,7 +290,7 @@ describe('useLoadDocumentTree', () => {
             },
         ];
 
-        mockClient.query = vi.fn().mockResolvedValue({
+        mockSearchDocumentsLazyQuery.mockResolvedValue({
             data: {
                 searchDocuments: {
                     documents: mockChildDocuments,
@@ -285,8 +298,6 @@ describe('useLoadDocumentTree', () => {
                 },
             },
         });
-
-        // Note: useApolloClient is mocked via module mock in real implementation
 
         const wrapper = ({ children }: any) => (
             <ApolloProvider client={mockClient}>
@@ -303,8 +314,7 @@ describe('useLoadDocumentTree', () => {
             'urn:li:document:2': false,
         });
 
-        expect(mockClient.query).toHaveBeenCalledWith({
-            query: SearchDocumentsDocument,
+        expect(mockSearchDocumentsLazyQuery).toHaveBeenCalledWith({
             variables: {
                 input: {
                     query: '*',
@@ -348,9 +358,7 @@ describe('useLoadDocumentTree', () => {
             refetch: vi.fn(),
         });
 
-        mockClient.query = vi.fn().mockRejectedValue(new Error('Network error'));
-
-        // Note: useApolloClient is mocked via module mock in real implementation
+        mockSearchDocumentsLazyQuery.mockRejectedValue(new Error('Network error'));
 
         const wrapper = ({ children }: any) => (
             <ApolloProvider client={mockClient}>
@@ -413,7 +421,7 @@ describe('useLoadDocumentTree', () => {
         ];
 
         let queryCount = 0;
-        mockClient.query = vi.fn().mockImplementation(() => {
+        mockSearchDocumentsLazyQuery.mockImplementation(() => {
             queryCount++;
             // First call is to fetch children
             if (queryCount === 1) {
@@ -426,8 +434,6 @@ describe('useLoadDocumentTree', () => {
                 data: { searchDocuments: { documents: [], total: 0 } },
             });
         });
-
-        // Note: useApolloClient is mocked via module mock in real implementation
 
         const wrapper = ({ children }: any) => (
             <ApolloProvider client={mockClient}>
@@ -445,10 +451,8 @@ describe('useLoadDocumentTree', () => {
         expect(mockSetNodeChildren).toHaveBeenCalledWith(parentUrn, children);
 
         // Verify the first query call (loadChildren) matches the implementation
-        const queryMock = vi.mocked(mockClient.query);
-        const firstCall = queryMock.mock.calls[0];
+        const firstCall = mockSearchDocumentsLazyQuery.mock.calls[0];
         expect(firstCall[0]).toMatchObject({
-            query: SearchDocumentsDocument,
             variables: {
                 input: {
                     query: '*',
@@ -457,7 +461,7 @@ describe('useLoadDocumentTree', () => {
                     count: 100,
                 },
             },
-            fetchPolicy: 'cache-first',
+            fetchPolicy: 'network-only',
         });
     });
 
@@ -470,9 +474,7 @@ describe('useLoadDocumentTree', () => {
             refetch: vi.fn(),
         });
 
-        mockClient.query = vi.fn().mockRejectedValue(new Error('Network error'));
-
-        // Note: useApolloClient is mocked via module mock in real implementation
+        mockSearchDocumentsLazyQuery.mockRejectedValue(new Error('Network error'));
 
         const wrapper = ({ children }: any) => (
             <ApolloProvider client={mockClient}>
@@ -506,7 +508,7 @@ describe('useLoadDocumentTree', () => {
             refetch: vi.fn(),
         });
 
-        mockClient.query = vi.fn().mockResolvedValue({
+        mockSearchDocumentsLazyQuery.mockResolvedValue({
             data: {
                 searchDocuments: {
                     documents: [],
@@ -514,8 +516,6 @@ describe('useLoadDocumentTree', () => {
                 },
             },
         });
-
-        // Note: useApolloClient is mocked via module mock in real implementation
 
         const wrapper = ({ children }: any) => (
             <ApolloProvider client={mockClient}>

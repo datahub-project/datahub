@@ -68,6 +68,8 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         return updateBusinessAttributeDescription(targetUrn, input, environment.getContext());
       case Constants.APPLICATION_ENTITY_NAME:
         return updateApplicationDescription(targetUrn, input, environment.getContext());
+      case Constants.DOCUMENT_ENTITY_NAME:
+        return updateDocumentDescription(targetUrn, input, environment.getContext());
       default:
         throw new RuntimeException(
             String.format(
@@ -617,5 +619,36 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         },
         this.getClass().getSimpleName(),
         "updateBusinessAttributeDescription");
+  }
+
+  private CompletableFuture<Boolean> updateDocumentDescription(
+      Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> {
+          if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
+
+          try {
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+            DescriptionUtils.updateDocumentDescription(
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
+            return true;
+          } catch (Exception e) {
+            log.error(
+                "Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+            throw new RuntimeException(
+                String.format("Failed to perform update against input %s", input.toString()), e);
+          }
+        },
+        this.getClass().getSimpleName(),
+        "updateDocumentDescription");
   }
 }

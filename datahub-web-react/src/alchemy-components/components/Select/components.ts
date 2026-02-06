@@ -57,12 +57,14 @@ export const SelectLabelContainer = styled.div({
 interface ContainerProps {
     size: SelectSizeOptions;
     width?: number | 'full' | 'fit-content';
+    $minWidth?: string;
     $selectLabelVariant?: SelectLabelVariants;
     isSelected?: boolean;
 }
 
-export const Container = styled.div<ContainerProps>(({ size, width, $selectLabelVariant, isSelected }) => {
+export const Container = styled.div<ContainerProps>(({ size, width, $minWidth, $selectLabelVariant, isSelected }) => {
     const getMinWidth = () => {
+        if ($minWidth) return $minWidth;
         if (width === 'fit-content') return 'undefined';
         if ($selectLabelVariant === 'labeled') {
             return isSelected ? '145px' : '103px';

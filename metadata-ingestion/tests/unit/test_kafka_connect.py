@@ -961,7 +961,9 @@ class TestFullConnectorConfigValidation:
         )
 
         # Validate each lineage matches expectations
-        for i, (actual, expected) in enumerate(zip(lineages, expected_lineages)):
+        for i, (actual, expected) in enumerate(
+            zip(lineages, expected_lineages, strict=False)
+        ):
             assert actual.source_dataset == expected["source_dataset"], (
                 f"Lineage {i}: Expected source_dataset '{expected['source_dataset']}', "
                 f"got '{actual.source_dataset}'"

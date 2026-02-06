@@ -117,6 +117,7 @@ export function IngestionSourceUpdatePage() {
 
                 history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
                     createdOrUpdatedSourceUrn: urn,
+                    sourcesListQueryInputs: ingestionSourcesListQueryInputs,
                     shouldRun,
                 });
             } catch (e: unknown) {
@@ -152,8 +153,15 @@ export function IngestionSourceUpdatePage() {
         });
         history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
             createdOrUpdatedSourceUrn: urn,
+            sourcesListQueryInputs: ingestionSourcesListQueryInputs,
         });
-    }, [history, ingestionSourceData?.ingestionSource?.type, ingestionSourcesListBackUrl, urn]);
+    }, [
+        history,
+        ingestionSourceData?.ingestionSource?.type,
+        ingestionSourcesListBackUrl,
+        urn,
+        ingestionSourcesListQueryInputs,
+    ]);
 
     const isDirtyChecker = useCallback(
         (

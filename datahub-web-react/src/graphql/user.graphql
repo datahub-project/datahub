@@ -203,6 +203,113 @@ query listUsers($input: ListUsersInput!) {
                     }
                 }
             }
+            relationships(
+                input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: OUTGOING, start: 0 }
+            ) {
+                start
+                count
+                total
+                relationships {
+                    type
+                    entity {
+                        ... on CorpGroup {
+                            urn
+                            type
+                            name
+                            info {
+                                displayName
+                                description
+                                email
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+query searchUsers($input: SearchAcrossEntitiesInput!) {
+    searchUsers(input: $input) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                ... on CorpUser {
+                    urn
+                    username
+                    isNativeUser
+                    info {
+                        active
+                        displayName
+                        title
+                        firstName
+                        lastName
+                        fullName
+                        email
+                    }
+                    editableProperties {
+                        displayName
+                        pictureLink
+                        teams
+                        title
+                        skills
+                    }
+                    status
+                    groups: relationships(
+                        input: {
+                            types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                            direction: OUTGOING
+                            start: 0
+                            count: 10
+                        }
+                    ) {
+                        start
+                        count
+                        total
+                        relationships {
+                            entity {
+                                ... on CorpGroup {
+                                    urn
+                                    type
+                                    name
+                                    info {
+                                        displayName
+                                        description
+                                        email
+                                    }
+                                    properties {
+                                        displayName
+                                        description
+                                        email
+                                        slack
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0 }) {
+                        start
+                        count
+                        total
+                        relationships {
+                            entity {
+                                ... on DataHubRole {
+                                    urn
+                                    type
+                                    name
+                                    relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING }) {
+                                        start
+                                        count
+                                        total
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

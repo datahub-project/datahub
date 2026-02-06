@@ -547,6 +547,9 @@ def _prepend_platform_instance(
 ) -> List[BrowsePathEntryClass]:
     if platform and platform_instance:
         urn = make_dataplatform_instance_urn(platform, platform_instance)
+        # Check if platform instance is already the first entry to avoid duplication
+        if entries and entries[0].urn == urn:
+            return entries
         return [BrowsePathEntryClass(id=urn, urn=urn)] + entries
 
     return entries

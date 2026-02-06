@@ -1538,6 +1538,17 @@ query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!) {
     }
 }
 
+# Lightweight search query
+query getEntitySearchResultsAutoCompleteFields($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        searchResults {
+            entity {
+                ...autoCompleteFields
+            }
+        }
+    }
+}
+
 query getSearchCount($input: SearchAcrossEntitiesInput!) {
     searchAcrossEntities(input: $input) {
         total

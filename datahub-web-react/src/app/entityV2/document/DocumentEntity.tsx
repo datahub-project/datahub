@@ -128,7 +128,6 @@ export class DocumentEntity implements Entity<Document> {
         return {
             name: data.info?.title,
             externalUrl,
-            platform: data.platform,
             properties: {
                 name: data.info?.title,
                 externalUrl,

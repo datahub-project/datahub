@@ -146,6 +146,152 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "catchup": "false",
+                "description": "A simple DAG that runs a few fake data tasks.",
+                "doc_md": "",
+                "fileloc": "<fileloc>",
+                "is_paused_upon_creation": "",
+                "start_date": "2023-01-01T00:00:00+00:00",
+                "tags": "[]",
+                "timezone": "UTC"
+            },
+            "externalUrl": "http://airflow.example.com/tree?dag_id=simple_dag",
+            "name": "simple_dag",
+            "description": "A simple DAG that runs a few fake data tasks.",
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.simple_dag,prod),task_1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.simple_dag,prod),run_another_data_task)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "myairflow",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+                },
+                {
+                    "id": "simple_dag"
+                }
+            ]
+        }
+    }
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.simple_dag,prod),task_1)",
     "changeType": "UPSERT",
@@ -161,8 +307,8 @@
                 "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
                 "wait_for_downstream": "False",
                 "downstream_task_ids": "['run_another_data_task']",
-                "inlets": "[Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None), Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)'), Urn(_urn='urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.test_dag,PROD),test_task)')]",
-                "outlets": "[Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None)]"
+                "inlets": "['urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)', 'urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.test_dag,PROD),test_task)']",
+                "outlets": "['urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)']"
             },
             "externalUrl": "http://airflow.example.com/dags/simple_dag/tasks/task_1",
             "name": "task_1",
@@ -246,8 +392,8 @@
                 "task_id": "task_1",
                 "dag_id": "simple_dag",
                 "end_date": "<end_date>",
-                "max_tries": "0",
                 "operator": "BashOperator",
+                "max_tries": "0",
                 "log_url": "http://airflow.example.com/dags/simple_dag/runs/manual_run_test/tasks/task_1?try_number=1",
                 "orchestrator": "airflow"
             },
@@ -255,7 +401,7 @@
             "name": "simple_dag_task_1_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760950991898,
+                "time": 1769521154849,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -292,7 +438,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760950991898,
+            "timestampMillis": 1769521154849,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -318,8 +464,8 @@
                 "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
                 "wait_for_downstream": "False",
                 "downstream_task_ids": "['run_another_data_task']",
-                "inlets": "[Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None), Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)'), Urn(_urn='urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.test_dag,PROD),test_task)')]",
-                "outlets": "[Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None)]"
+                "inlets": "['urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)', 'urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.test_dag,PROD),test_task)']",
+                "outlets": "['urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)']"
             },
             "externalUrl": "http://airflow.example.com/dags/simple_dag/tasks/task_1",
             "name": "task_1",
@@ -395,7 +541,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760950994048,
+            "timestampMillis": 1769521155974,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -405,6 +551,152 @@
                 "type": "SUCCESS",
                 "nativeResultType": "airflow"
             }
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "catchup": "false",
+                "description": "A simple DAG that runs a few fake data tasks.",
+                "doc_md": "",
+                "fileloc": "<fileloc>",
+                "is_paused_upon_creation": "",
+                "start_date": "2023-01-01T00:00:00+00:00",
+                "tags": "[]",
+                "timezone": "UTC"
+            },
+            "externalUrl": "http://airflow.example.com/tree?dag_id=simple_dag",
+            "name": "simple_dag",
+            "description": "A simple DAG that runs a few fake data tasks.",
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.simple_dag,prod),task_1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.simple_dag,prod),run_another_data_task)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.simple_dag,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "myairflow",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+                },
+                {
+                    "id": "simple_dag"
+                }
+            ]
         }
     }
 },
@@ -509,8 +801,8 @@
                 "task_id": "run_another_data_task",
                 "dag_id": "simple_dag",
                 "end_date": "<end_date>",
-                "max_tries": "0",
                 "operator": "BashOperator",
+                "max_tries": "0",
                 "log_url": "http://airflow.example.com/dags/simple_dag/runs/manual_run_test/tasks/run_another_data_task?try_number=1",
                 "orchestrator": "airflow"
             },
@@ -518,7 +810,7 @@
             "name": "simple_dag_run_another_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760950994460,
+                "time": 1769521156938,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -555,7 +847,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760950994460,
+            "timestampMillis": 1769521156938,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -658,7 +950,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760950996029,
+            "timestampMillis": 1769521157254,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

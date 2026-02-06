@@ -1,7 +1,7 @@
 import { Button, Icon, Text, borders, colors, radius, spacing, typography } from '@components';
 import Editor, { loader } from '@monaco-editor/react';
 import { message } from 'antd';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
@@ -41,6 +41,16 @@ const EditorWrapper = styled.div`
 
     padding-bottom: 8px;
     height: 100%;
+
+    .monaco-editor .scrollbar.vertical .slider {
+        width: 6px !important;
+        border-radius: 4px;
+    }
+
+    .monaco-editor .scrollbar.horizontal .slider {
+        height: 6px !important;
+        border-radius: 4px;
+    }
 `;
 
 const NoPaddingButton = styled(Button)`
@@ -56,6 +66,8 @@ type Props = {
 
 export function YamlEditor({ value, onChange }: Props) {
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
+    const editorRef = useRef<any>(null);
+    const editorWrapperRef = useRef<HTMLDivElement>(null);
 
     const onCopy = useCallback(() => {
         navigator.clipboard.writeText(value);
@@ -66,40 +78,41 @@ export function YamlEditor({ value, onChange }: Props) {
         setIsExpanded((currentIsExpanded) => !currentIsExpanded);
     }, []);
 
-    const handleEditorWillMount = (monaco) => {
-        const commentColor = colors.gray[1700].slice(1);
-        const primaryColor = colors.primary[500].slice(1);
-
-        monaco.editor.defineTheme('my-custom-theme', {
-            base: 'vs',
-            inherit: false,
-            rules: [
-                { token: 'comment', foreground: commentColor, fontStyle: 'italic' },
-                { token: 'string', foreground: primaryColor },
-                { token: 'string.key.yaml', foreground: primaryColor, fontStyle: 'bold' },
-                { token: 'keyword', foreground: primaryColor },
-                { token: 'number', foreground: primaryColor },
-                { token: 'operator', foreground: primaryColor },
-                { token: 'delimiter', foreground: primaryColor },
-                { token: 'type', foreground: primaryColor, fontStyle: 'bold' },
-            ],
-            colors: {
-                'editor.background': colors.gray[0],
-                'editor.foreground': colors.primary[500],
-                'editor.selectionBackground': colors.primary[100],
-                'editorLineNumber.foreground': colors.primary[500],
-                'editorCursor.foreground': colors.gray[600],
-            },
-        });
-
-        monaco.editor.setTheme('my-custom-theme');
-    };
-
     const containerRef = useRef<HTMLDivElement>(null);
 
     const fullContentHeight = useMemo(() => {
         return `${value.split('\n').length * LINE_HEIGHT}px`;
     }, [value]);
+
+    const handleEditorMount = useCallback((editor: any) => {
+        editorRef.current = editor;
+    }, []);
+
+    // monaco editor consumes scroll events so you can't scroll the page when fully expanded
+    // this adds scrolling for the page back when mouse is inside of editor
+    useEffect(() => {
+        if (!isExpanded || !editorWrapperRef.current) {
+            return undefined;
+        }
+
+        const editorElement = editorWrapperRef.current;
+
+        const handleWheel = (event: WheelEvent) => {
+            const scrollableParent = containerRef.current?.parentElement;
+            if (scrollableParent) {
+                scrollableParent.scrollBy({
+                    top: event.deltaY,
+                    behavior: 'auto',
+                });
+            }
+        };
+
+        editorElement.addEventListener('wheel', handleWheel, { passive: false });
+
+        return () => {
+            editorElement.removeEventListener('wheel', handleWheel);
+        };
+    }, [isExpanded]);
 
     return (
         <Container ref={containerRef}>
@@ -119,30 +132,23 @@ export function YamlEditor({ value, onChange }: Props) {
                     )}
                 </NoPaddingButton>
             </Header>
-            <EditorWrapper>
+            <EditorWrapper ref={editorWrapperRef}>
                 <Editor
                     options={{
                         minimap: { enabled: false },
                         scrollbar: {
-                            vertical: 'hidden',
-                            horizontal: 'hidden',
+                            vertical: 'auto',
+                            horizontal: 'auto',
+                            alwaysConsumeMouseWheel: false,
+                            handleMouseWheel: !isExpanded,
                         },
-                        overviewRulerLanes: 0,
-                        overviewRulerBorder: false,
-                        lineNumbers: 'off',
-                        fontFamily: typography.fonts.mono,
-                        fontSize: 14,
-                        renderIndentGuides: false,
-                        theme: 'my-custom-theme',
-                        renderLineHighlight: 'none',
                         scrollBeyondLastLine: false,
                     }}
                     height={isExpanded ? fullContentHeight : '30vh'}
                     defaultLanguage="yaml"
-                    theme="my-custom-theme"
                     defaultValue={value}
                     onChange={onChange}
-                    beforeMount={handleEditorWillMount}
+                    onMount={handleEditorMount}
                 />
             </EditorWrapper>
         </Container>

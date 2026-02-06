@@ -90,6 +90,15 @@ class BigQueryFilter:
         self.filter_config = filter_config
         self.structured_reporter = structured_reporter
 
+    def is_dataset_allowed(self, dataset_name: str, project_id: str) -> bool:
+        """Check if a dataset should be processed based on dataset_pattern."""
+        return is_schema_allowed(
+            self.filter_config.dataset_pattern,
+            dataset_name,
+            project_id,
+            self.filter_config.match_fully_qualified_names,
+        )
+
     def is_allowed(self, table_id: BigqueryTableIdentifier) -> bool:
         return AllowDenyPattern(deny=BQ_SYSTEM_TABLES_PATTERN).allowed(
             str(table_id)

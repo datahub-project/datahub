@@ -298,4 +298,10 @@ public interface AspectDao {
                         MetricUtils.DELIMITER, List.of(ASPECT_WRITE_BYTES_METRIC_NAME, aspectName)),
                     bytes));
   }
+
+  @Nonnull
+  List<com.linkedin.metadata.aspect.SystemAspectValidator> getSystemAspectValidators();
+
+  @Nullable
+  com.linkedin.metadata.config.AspectSizeValidationConfiguration getValidationConfig();
 }

@@ -9,8 +9,8 @@ DataHub's SQL parser, enabling lineage extraction.
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
-import datahub.emitter.mce_builder as builder
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub_airflow_plugin._config import get_configured_env
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 
 if TYPE_CHECKING:
@@ -104,12 +104,14 @@ def _enhance_teradata_lineage_with_sql_parsing(
                 f"default_db={default_database}): {rendered_sql[:200] if rendered_sql else 'None'}"
             )
 
+            env = get_configured_env()
+
             # Use DataHub's SQL parser
             sql_parsing_result = create_lineage_sql_parsed_result(
                 query=rendered_sql,
                 platform=platform,
                 platform_instance=None,
-                env=builder.DEFAULT_ENV,
+                env=env,
                 default_db=default_database,
                 default_schema=None,
             )

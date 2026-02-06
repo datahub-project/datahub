@@ -52,6 +52,35 @@ PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 
 Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, and ODBC data sources.
 
+### Athena Federated Query Platform Override
+
+When using Amazon Athena via ODBC that queries federated data sources (e.g., Athena querying MySQL or PostgreSQL via federated connectors), the lineage URNs will default to the Athena platform. Use `athena_table_platform_override` to point lineage to the actual source platform instead of Athena.
+
+**Configuration:**
+
+```yaml
+source:
+  type: powerbi
+  config:
+    # ... other config ...
+    dsn_to_platform_name:
+      MyAthenaDSN: athena
+    athena_table_platform_override:
+      # DSN-scoped key (takes precedence)
+      "MyAthenaDSN:analytics.users": mysql
+      # Global key (fallback for any DSN)
+      "reporting.orders": postgres
+```
+
+**Key format:**
+
+- **DSN-scoped**: `"DSN_NAME:database.table"` - applies only to specific DSN
+- **Global**: `"database.table"` - applies to all DSNs
+
+DSN-scoped keys take precedence over global keys, allowing different overrides for the same table name across different Athena data sources.
+
+**Note:** This override only applies to Athena ODBC connections. For other ODBC platforms, lineage will use the platform determined from the DSN configuration.
+
 For example, consider the SQL query shown below. The table `OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_UNIT_TARGET` will be ingested as an upstream table.
 
 ```shell

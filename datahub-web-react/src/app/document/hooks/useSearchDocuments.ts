@@ -20,6 +20,10 @@ export interface SearchDocumentsInput {
      * - [DocumentSourceType.Native, DocumentSourceType.External]: Search all documents (both native and external)
      */
     sourceTypes: DocumentSourceType[];
+    /**
+     * If true, skip the query execution.
+     */
+    skip?: boolean;
 }
 
 /**
@@ -54,6 +58,7 @@ export function useSearchDocuments(input: SearchDocumentsInput) {
         // Default to cache-first to respect Apollo cache updates from moves/creates
         // Use cache-and-network only when you want to ensure fresh data from backend
         fetchPolicy: input.fetchPolicy || 'cache-first',
+        skip: input.skip,
     });
 
     const documents = useMemo(() => {

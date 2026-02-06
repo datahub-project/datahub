@@ -40,6 +40,8 @@ export enum PageRoutes {
     DATA_PRODUCTS = '/search?filter__entityType___false___EQUAL___0=DATA_PRODUCT&page=1&query=%2A&unionType=0',
     MANAGE_TAGS = '/tags',
     MANAGE_APPLICATIONS = '/applications',
+    CONTEXT = '/context',
+    CONTEXT_DOCUMENTS = '/context/documents',
 }
 
 export enum HelpLinkRoutes {

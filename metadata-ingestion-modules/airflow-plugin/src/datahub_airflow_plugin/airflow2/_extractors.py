@@ -18,6 +18,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
+from datahub_airflow_plugin._config import get_configured_env
 from datahub_airflow_plugin._constants import SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
 from datahub_airflow_plugin.airflow2._openlineage_compat import (
@@ -332,6 +333,8 @@ def _parse_sql_into_task_metadata(
     if hasattr(self, "context"):
         graph = self.context.get(_DATAHUB_GRAPH_CONTEXT_KEY, None)  # type: ignore[attr-defined]
 
+    env = get_configured_env()
+
     self.log.debug(
         "Running the SQL parser %s (platform=%s, default db=%s, schema=%s): %s",
         "with graph client" if graph else "in offline mode",
@@ -345,7 +348,7 @@ def _parse_sql_into_task_metadata(
         graph=graph,
         platform=platform,
         platform_instance=None,
-        env=builder.DEFAULT_ENV,
+        env=env,
         default_db=default_database,
         default_schema=default_schema,
     )
@@ -395,10 +398,12 @@ class BigQueryInsertJobOperatorExtractor(BaseExtractor):
             table_id = destination_table.get("tableId")
 
             if project_id and dataset_id and table_id:
+                env = get_configured_env()
+
                 destination_table_urn = builder.make_dataset_urn(
                     platform="bigquery",
                     name=f"{project_id}.{dataset_id}.{table_id}",
-                    env=builder.DEFAULT_ENV,
+                    env=env,
                 )
 
         task_metadata = _parse_sql_into_task_metadata(

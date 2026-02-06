@@ -678,4 +678,21 @@ public class ChartTest {
       assertEquals("chartInfo", patch.getAspectName());
     }
   }
+
+  @Test
+  public void testChartGetDefaultAspects() throws Exception {
+    Chart chart = Chart.builder().tool("looker").id("my_chart").build();
+
+    List<?> aspects = chart.getDefaultAspects();
+    assertNotNull(aspects);
+    assertFalse("Default aspects should not be empty", aspects.isEmpty());
+    assertTrue("Should include ChartInfo", aspects.contains(com.linkedin.chart.ChartInfo.class));
+    assertTrue("Should include Ownership", aspects.contains(com.linkedin.common.Ownership.class));
+    try {
+      ((List) aspects).add(com.linkedin.common.GlobalTags.class);
+      fail("getDefaultAspects() should return an immutable list");
+    } catch (UnsupportedOperationException expected) {
+      // expected
+    }
+  }
 }

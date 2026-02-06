@@ -44,7 +44,7 @@ import org.opensearch.client.Request;
  *
  * <p>REQUIREMENTS: - OpenSearch 2.17.0 or higher (for pre-filtering support with nested kNN
  * vectors) - k-NN plugin installed and enabled - Semantic indices with nested vector fields at
- * embeddings.cohere_embed_v3.chunks.vector
+ * embeddings.{modelEmbeddingKey}.chunks.vector
  *
  * <p>Implementation details: - No caching - No hybrid search (semantic only) - Uses Low Level REST
  * Client to support pre-filtering inside kNN block - Oversamples candidates and slices in-memory
@@ -82,31 +82,62 @@ import org.opensearch.client.Request;
 @Slf4j
 public class SemanticEntitySearchService implements SemanticEntitySearch {
 
-  private static final String NESTED_PATH = "embeddings.cohere_embed_v3.chunks";
-  private static final String VECTOR_FIELD = NESTED_PATH + ".vector";
+  private static final String EMBEDDINGS_PREFIX = "embeddings.";
+  private static final String CHUNKS_SUFFIX = ".chunks";
+  private static final String VECTOR_SUFFIX = ".vector";
   private static final double DEFAULT_OVERSAMPLE_FACTOR = 1.2d; // Lower for pre-filtering
   private static final int MAX_K = 500;
+  private static final String DEFAULT_MODEL_EMBEDDING_KEY = "cohere_embed_v3";
 
   private final SearchClientShim<?> searchClient;
   private final EmbeddingProvider embeddingProvider;
   private final QueryFilterRewriteChain queryFilterRewriteChain;
   private final MappingsBuilder mappingsBuilder;
+  private final String modelEmbeddingKey;
+  private final String nestedPath;
+  private final String vectorField;
 
   /**
    * Constructs a semantic entity search service backed by OpenSearch's low-level REST client.
    *
    * @param searchClient high-level client used only to obtain the low-level client
    * @param embeddingProvider provider capable of generating query embeddings
+   * @param mappingsBuilder mappings builder for the indices
    */
   public SemanticEntitySearchService(
       @Nonnull SearchClientShim<?> searchClient,
       @Nonnull EmbeddingProvider embeddingProvider,
       MappingsBuilder mappingsBuilder) {
+    this(searchClient, embeddingProvider, mappingsBuilder, DEFAULT_MODEL_EMBEDDING_KEY);
+  }
+
+  /**
+   * Constructs a semantic entity search service backed by OpenSearch's low-level REST client.
+   *
+   * @param searchClient high-level client used only to obtain the low-level client
+   * @param embeddingProvider provider capable of generating query embeddings
+   * @param mappingsBuilder mappings builder for the indices
+   * @param modelEmbeddingKey the model embedding key (e.g., "cohere_embed_v3",
+   *     "text_embedding_3_small")
+   */
+  public SemanticEntitySearchService(
+      @Nonnull SearchClientShim<?> searchClient,
+      @Nonnull EmbeddingProvider embeddingProvider,
+      MappingsBuilder mappingsBuilder,
+      @Nonnull String modelEmbeddingKey) {
     this.searchClient = Objects.requireNonNull(searchClient, "searchClientShim");
     this.embeddingProvider = Objects.requireNonNull(embeddingProvider, "embeddingProvider");
     // Initialize with empty chain for POC - in production this would be injected
     this.queryFilterRewriteChain = QueryFilterRewriteChain.EMPTY;
     this.mappingsBuilder = mappingsBuilder;
+    this.modelEmbeddingKey = Objects.requireNonNull(modelEmbeddingKey, "modelEmbeddingKey");
+    this.nestedPath = EMBEDDINGS_PREFIX + modelEmbeddingKey + CHUNKS_SUFFIX;
+    this.vectorField = nestedPath + VECTOR_SUFFIX;
+    log.info(
+        "SemanticEntitySearchService initialized with modelEmbeddingKey={}, nestedPath={}, vectorField={}",
+        modelEmbeddingKey,
+        nestedPath,
+        vectorField);
   }
 
   /**
@@ -348,8 +379,8 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   /**
    * Build the complete OpenSearch query JSON with pre-filtering inside the kNN block. This produces
    * a query structure like: { "size": k, "track_total_hits": false, "_source": [fieldsToFetch],
-   * "query": { "nested": { "path": "embeddings.cohere_embed_v3.chunks", "score_mode": "max",
-   * "query": { "knn": { "embeddings.cohere_embed_v3.chunks.vector": { "vector": [...], "k": k,
+   * "query": { "nested": { "path": "embeddings.{modelEmbeddingKey}.chunks", "score_mode": "max",
+   * "query": { "knn": { "embeddings.{modelEmbeddingKey}.chunks.vector": { "vector": [...], "k": k,
    * "filter": { "bool": { "filter": [...] } } } } } } } }
    *
    * <p>Note: track_total_hits=false for performance, following keyword search pattern. In k-NN
@@ -396,11 +427,11 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
                 "nested",
                 Map.of(
                     "path",
-                    NESTED_PATH,
+                    nestedPath,
                     "score_mode",
                     "max",
                     "query",
-                    Map.of("knn", Map.of(VECTOR_FIELD, knnParams)))));
+                    Map.of("knn", Map.of(vectorField, knnParams)))));
 
     return query;
   }

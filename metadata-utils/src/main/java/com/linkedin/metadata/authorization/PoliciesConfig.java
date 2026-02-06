@@ -160,6 +160,12 @@ public class PoliciesConfig {
           "Manage Ownership Types",
           "Create, update and delete Ownership Types.");
 
+  public static final Privilege MANAGE_SERVICE_ACCOUNTS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_SERVICE_ACCOUNTS",
+          "Manage Service Accounts",
+          "Create, update, and delete service accounts for programmatic API access.");
+
   public static final Privilege CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE =
       Privilege.of(
           "CREATE_BUSINESS_ATTRIBUTE",
@@ -245,6 +251,7 @@ public class PoliciesConfig {
           MANAGE_SECRETS_PRIVILEGE,
           GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
           MANAGE_ACCESS_TOKENS,
+          MANAGE_SERVICE_ACCOUNTS_PRIVILEGE,
           VIEW_TESTS_PRIVILEGE,
           MANAGE_TESTS_PRIVILEGE,
           MANAGE_GLOSSARIES_PRIVILEGE,
@@ -854,6 +861,9 @@ public class PoliciesConfig {
               EXISTS_ENTITY_PRIVILEGE,
               EDIT_ENTITY_DOMAINS_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
+              EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE,
               MANAGE_DOCUMENTS_PRIVILEGE));
 
   // Group Privileges

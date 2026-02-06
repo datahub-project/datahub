@@ -36,7 +36,8 @@ public class DefaultAspectsUtilTest {
   public void testAdditionalChanges() {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     server = EbeanTestUtils.createTestServer(DefaultAspectsUtilTest.class.getSimpleName());
-    EbeanAspectDao aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
+    EbeanAspectDao aspectDao =
+        new EbeanAspectDao(server, EbeanConfiguration.testDefault, null, List.of(), null);
     aspectDao.setConnectionValidated(true);
     EventProducer mockProducer = mock(EventProducer.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();

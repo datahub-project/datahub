@@ -152,8 +152,8 @@ describe('utils', () => {
             expect(getPillLabel(make({ name: 'A', isExternal: true }))).toBe('External');
         });
 
-        it('should return empty string for normal sources', () => {
-            expect(getPillLabel(make({ name: 'A' }))).toBe('');
+        it('should return null for normal sources', () => {
+            expect(getPillLabel(make({ name: 'A' }))).toBeNull();
         });
     });
 });
