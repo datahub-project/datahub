@@ -66,7 +66,7 @@ describe('utils', () => {
         it('should add presorted start categories when they are defined', () => {
             const groups: Record<string, SourceConfig[]> = {
                 Test: [make({ name: 'A', category: 'Test' })],
-                DATA_LAKE_CATEGORY_NAME: [make({ name: 'B', category: DATA_LAKE_CATEGORY_NAME })],
+                [DATA_LAKE_CATEGORY_NAME]: [make({ name: 'B', category: DATA_LAKE_CATEGORY_NAME })],
             };
 
             const result = getOrderedByCategoryEntriesOfGroups(groups);
@@ -93,7 +93,7 @@ describe('utils', () => {
                 C: [make({ name: 'Name', category: 'C' })],
                 B: [make({ name: 'Name', category: 'B' })],
                 A: [make({ name: 'Name', category: 'A' })],
-                DATA_LAKE_CATEGORY_NAME: [make({ name: 'Name', category: DATA_LAKE_CATEGORY_NAME })],
+                [DATA_LAKE_CATEGORY_NAME]: [make({ name: 'Name', category: DATA_LAKE_CATEGORY_NAME })],
             };
 
             const result = getOrderedByCategoryEntriesOfGroups(groups);
