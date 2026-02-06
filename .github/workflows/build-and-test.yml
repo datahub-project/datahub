@@ -177,6 +177,10 @@ jobs:
         env:
           # Support both username/password and API key authentication for Cloudsmith PyPI
           UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
+      - name: Gradle compile (jdk8) for legacy Spark
+        if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
+        run: |
+          ./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:spark-lineage:compileJava
       - name: Gather coverage files
         run: |
           {
