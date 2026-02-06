@@ -1,10 +1,10 @@
 # Semantic Search Configuration
 
-This guide walks you through configuring semantic search in DataHub using AWS Bedrock for embedding generation.
+This guide walks you through configuring semantic search in DataHub. The default embedding provider is **OpenAI**, which requires only an API key to get started. AWS Bedrock and Cohere are also supported as alternatives.
 
 ## Overview
 
-DataHub's semantic search uses vector embeddings to find semantically similar entities. In OSS, embeddings are generated using AWS Bedrock with Cohere Embed models. This provides:
+DataHub's semantic search uses vector embeddings to find semantically similar entities. This provides:
 
 - **Natural language search**: Find datasets using conversational queries like "customer churn analysis"
 - **Semantic understanding**: Match concepts even when exact keywords differ
@@ -25,9 +25,21 @@ curl -X GET "localhost:9200/_cat/plugins?v&s=component&h=name,component,version"
 
 You should see `opensearch-knn` in the output.
 
-### 2. AWS Bedrock Requirements
+### 2. Embedding Provider Requirements
 
-#### AWS Account Setup
+Choose one of the supported providers:
+
+#### OpenAI (Default)
+
+- An OpenAI API key (`sk-...`)
+- That's it — no additional setup needed
+
+#### AWS Bedrock (Alternative)
+
+<details>
+<summary>Click to expand AWS Bedrock setup</summary>
+
+##### AWS Account Setup
 
 1. **AWS Account** with Bedrock access
 2. **Supported AWS Region**: Bedrock with Cohere Embed v3 is available in:
@@ -35,13 +47,13 @@ You should see `opensearch-knn` in the output.
    - `us-east-1` (N. Virginia)
    - Other regions - check [AWS Bedrock documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-bedrock.html)
 
-#### Enable Model Access
+##### Enable Model Access
 
 1. Go to AWS Console → Amazon Bedrock → Model access
 2. Request access to **Cohere Embed English v3** (`cohere.embed-english-v3`)
 3. Wait for approval (usually instant for Cohere models)
 
-#### IAM Permissions
+##### IAM Permissions
 
 Your AWS credentials (IAM user or role) need:
 
@@ -61,17 +73,13 @@ Your AWS credentials (IAM user or role) need:
 }
 ```
 
-For broader access (all Bedrock models):
-
-```json
-{
-  "Effect": "Allow",
-  "Action": "bedrock:InvokeModel",
-  "Resource": "arn:aws:bedrock:*::foundation-model/*"
-}
-```
-
 **Important:** Ensure AWS roles are configured for **both** the GMS container (for query embeddings at search time) and the ingestion container (for document embeddings during ingestion). In typical Kubernetes deployments using the [DataHub Helm chart](https://github.com/acryl-data/datahub-helm), you'll need to configure IAM roles for service accounts (IRSA) for both the `datahub-gms` and `datahub-ingestion` pods.
+
+</details>
+
+#### Cohere Direct API (Alternative)
+
+- A Cohere API key
 
 ## Configuration
 
@@ -81,24 +89,46 @@ Edit your `application.yaml` or set environment variables:
 
 #### Option A: Environment Variables (Recommended for Production)
 
+**OpenAI (default):**
+
 ```bash
 # Enable semantic search
 export ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
 export ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document  # Comma-separated: dataset,dashboard,chart
 
-# Configure embedding provider
+# Configure embedding provider (OpenAI is the default)
+export EMBEDDING_PROVIDER_TYPE=openai
+export OPENAI_API_KEY=sk-your-api-key-here
+
+# Optional: override model (default is text-embedding-3-large)
+# export OPENAI_EMBEDDING_MODEL=text-embedding-3-large
+
+# Vector index configuration (3072 matches text-embedding-3-large)
+export ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION=3072
+export ELASTICSEARCH_SEMANTIC_KNN_ENGINE=faiss
+export ELASTICSEARCH_SEMANTIC_SPACE_TYPE=cosinesimil
+```
+
+**AWS Bedrock (alternative):**
+
+```bash
+# Enable semantic search
+export ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
+export ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document
+
+# Configure for AWS Bedrock
 export EMBEDDING_PROVIDER_TYPE=aws-bedrock
 export EMBEDDING_PROVIDER_AWS_REGION=us-west-2
 export EMBEDDING_PROVIDER_MODEL_ID=cohere.embed-english-v3
 export EMBEDDING_PROVIDER_MAX_CHAR_LENGTH=2048
 
-# Vector index configuration
+# Vector index configuration (1024 matches Cohere Embed v3)
 export ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION=1024
-export ELASTICSEARCH_SEMANTIC_KNN_ENGINE=faiss
-export ELASTICSEARCH_SEMANTIC_SPACE_TYPE=cosinesimil
 ```
 
 #### Option B: application.yaml
+
+**OpenAI (default):**
 
 ```yaml
 elasticsearch:
@@ -106,6 +136,28 @@ elasticsearch:
     semanticSearch:
       enabled: true
       enabledEntities: document # Or: dataset,dashboard,chart
+      models:
+        text_embedding_3_large:
+          vectorDimension: 3072
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
+      embeddingProvider:
+        type: openai
+        openai:
+          apiKey: sk-your-api-key-here
+          model: text-embedding-3-large
+```
+
+**AWS Bedrock (alternative):**
+
+```yaml
+elasticsearch:
+  index:
+    semanticSearch:
+      enabled: true
+      enabledEntities: document
       models:
         cohere_embed_v3:
           vectorDimension: 1024
@@ -120,11 +172,18 @@ elasticsearch:
         maxCharacterLength: 2048
 ```
 
-### Step 2: Configure AWS Credentials
+### Step 2: Configure Credentials
 
-Choose one of these authentication methods:
+#### OpenAI
 
-#### Option 1: AWS Profile (Development)
+Set the `OPENAI_API_KEY` environment variable or configure it in `application.yaml` (see above). No additional credential setup needed.
+
+#### AWS Bedrock
+
+<details>
+<summary>Click to expand AWS credential options</summary>
+
+##### Option 1: AWS Profile (Development)
 
 Create/edit `~/.aws/credentials`:
 
@@ -140,7 +199,7 @@ Then set the profile:
 export AWS_PROFILE=datahub-dev
 ```
 
-#### Option 2: Environment Variables (CI/CD)
+##### Option 2: Environment Variables (CI/CD)
 
 ```bash
 export AWS_ACCESS_KEY_ID=YOUR_ACCESS_KEY_ID
@@ -148,7 +207,7 @@ export AWS_SECRET_ACCESS_KEY=YOUR_SECRET_ACCESS_KEY
 export AWS_REGION=us-west-2  # Optional, uses config default if not set
 ```
 
-#### Option 3: EC2 Instance Role (Production - Recommended)
+##### Option 3: EC2 Instance Role (Production - Recommended)
 
 For production deployments on EC2:
 
@@ -156,13 +215,15 @@ For production deployments on EC2:
 2. Attach the role to your EC2 instance
 3. **No additional configuration needed** - credentials auto-discovered via IMDS
 
-#### Option 4: ECS Task Role (Container Deployments)
+##### Option 4: ECS Task Role (Container Deployments)
 
 For ECS/Fargate deployments:
 
 1. Create an IAM role with Bedrock permissions
 2. Assign the role to your ECS task definition
 3. **No additional configuration needed** - credentials auto-discovered
+
+</details>
 
 ### Step 3: Restart DataHub
 
@@ -183,7 +244,14 @@ Check DataHub logs for successful initialization:
 docker-compose logs datahub-gms | grep -i "semantic\|embedding"
 ```
 
-Expected output:
+Expected output (OpenAI):
+
+```
+Creating embedding provider with type: openai
+Initialized OpenAiEmbeddingProvider with model=text-embedding-3-large
+```
+
+Expected output (AWS Bedrock):
 
 ```
 Creating embedding provider with type: aws-bedrock
@@ -197,7 +265,7 @@ Embeddings are generated by dedicated ingestion sources that connect to specific
 
 1. Extracting document content from the source system
 2. Chunking the text into manageable segments
-3. Generating embeddings for each chunk using the configured provider (e.g., AWS Bedrock)
+3. Generating embeddings for each chunk using the configured provider (e.g., OpenAI)
 4. Emitting the embeddings to DataHub as `SemanticContent` aspects
 
 ### DataHub Documents Source
@@ -400,14 +468,21 @@ results = emitter.semantic_search(
 
 ## Supported Models
 
-### Cohere Embed v3 (Default)
+### OpenAI (Default)
+
+| Model ID                 | Dimensions | Max Tokens | Notes                     |
+| ------------------------ | ---------- | ---------- | ------------------------- |
+| `text-embedding-3-large` | 3072       | 8191       | Default, higher quality   |
+| `text-embedding-3-small` | 1536       | 8191       | Fast, cost-effective      |
+
+### AWS Bedrock — Cohere Embed v3
 
 | Model ID                       | Dimensions | Max Tokens | Languages      |
 | ------------------------------ | ---------- | ---------- | -------------- |
 | `cohere.embed-english-v3`      | 1024       | 512        | English        |
 | `cohere.embed-multilingual-v3` | 1024       | 512        | 100+ languages |
 
-### Amazon Titan Embed
+### AWS Bedrock — Amazon Titan Embed
 
 | Model ID                       | Dimensions          | Max Tokens | Languages |
 | ------------------------------ | ------------------- | ---------- | --------- |
@@ -421,6 +496,14 @@ results = emitter.semantic_search(
 ### Issue: "Semantic search is disabled or not configured"
 
 **Solution**: Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` and restart GMS.
+
+### Issue: OpenAI API Key Error
+
+```
+Invalid API key provided
+```
+
+**Solution**: Verify `OPENAI_API_KEY` is set correctly in the environment where GMS runs.
 
 ### Issue: AWS Credentials Error
 
@@ -465,10 +548,10 @@ Codec [zstd_no_dict] cannot be used with k-NN indices
 ### Issue: Vector Dimension Mismatch
 
 ```
-Dimension mismatch: expected 1024, got 1536
+Dimension mismatch: expected 3072, got 1024
 ```
 
-**Solution**: Your model's dimensions don't match the configuration. Update `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match your model.
+**Solution**: Your model's dimensions don't match the configuration. Update `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match your model (3072 for `text-embedding-3-large`, 1024 for Cohere).
 
 ## Performance Tuning
 
@@ -479,7 +562,7 @@ For better performance, tune these parameters in `application.yaml`:
 ```yaml
 semanticSearch:
   models:
-    cohere_embed_v3:
+    text_embedding_3_large:
       efConstruction: 128 # Higher = better recall, slower indexing (default: 128)
       m: 16 # Higher = better recall, more memory (default: 16)
       spaceType: cosinesimil # cosinesimil, l2, innerproduct
@@ -492,6 +575,10 @@ semanticSearch:
 - **Medium datasets (10K-100K docs)**: `efConstruction: 256, m: 32`
 - **Large datasets (>100K docs)**: `efConstruction: 512, m: 48`
 
+### OpenAI Rate Limits
+
+OpenAI embedding API has rate limits that vary by tier. Check your [OpenAI usage dashboard](https://platform.openai.com/usage) for current limits.
+
 ### AWS Bedrock Rate Limits
 
 Cohere Embed v3 on Bedrock has default limits:
@@ -503,9 +590,11 @@ For higher limits, request a quota increase in AWS Service Quotas.
 
 ## Cost Estimation
 
-### AWS Bedrock Pricing (Cohere Embed v3)
+### OpenAI Pricing (text-embedding-3-large)
 
-As of December 2024 in us-west-2:
+Check current pricing at [OpenAI pricing](https://openai.com/pricing).
+
+### AWS Bedrock Pricing (Cohere Embed v3)
 
 - **$0.0001 per 1,000 input tokens** (~750 words)
 
@@ -515,23 +604,19 @@ As of December 2024 in us-west-2:
 - 100,000 datasets with 200 tokens each = 20M tokens = **$2.00**
 - Query embeddings: ~50 tokens per query = 10,000 queries = **$0.05**
 
-**Monthly estimates** (assuming daily re-indexing):
-
-- 10K entities: ~$6/month
-- 100K entities: ~$60/month
-
 Check current pricing: https://aws.amazon.com/bedrock/pricing/
 
 ## Security Best Practices
 
-1. **Use IAM Roles**: Prefer EC2 instance roles over static credentials
-2. **Principle of Least Privilege**: Grant only `bedrock:InvokeModel` permission
-3. **Enable CloudTrail**: Monitor Bedrock API calls
-4. **Resource Tags**: Tag IAM roles for cost tracking
-5. **Rotate Credentials**: If using access keys, rotate regularly
+1. **Use secrets management**: Store API keys in Kubernetes secrets or vault, not in plain config files
+2. **Use IAM Roles** (for Bedrock): Prefer EC2 instance roles over static credentials
+3. **Principle of Least Privilege**: Grant only required permissions
+4. **Rotate Credentials**: Rotate API keys regularly
+5. **Monitor Usage**: Track API usage and costs through provider dashboards
 
 ## References
 
+- [OpenAI Embeddings Guide](https://platform.openai.com/docs/guides/embeddings)
 - [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
 - [Cohere Embed Models](https://docs.cohere.com/docs/embed-2)
 - [OpenSearch k-NN Plugin](https://opensearch.org/docs/latest/search-plugins/knn/index/)

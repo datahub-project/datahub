@@ -6,7 +6,7 @@ This guide explains how to switch between different embedding providers for sema
 
 DataHub supports the following embedding providers out of the box:
 
-> **Note:** OpenAI and Cohere (direct API) providers were added as example implementations to demonstrate how to integrate additional embedding providers. AWS Bedrock remains the recommended provider for production deployments.
+> **Note:** OpenAI is the default provider. AWS Bedrock and Cohere (direct API) are supported as alternatives.
 
 | Provider    | Type Value | Models                                         | Use Case                           |
 | ----------- | ---------- | ---------------------------------------------- | ---------------------------------- |
@@ -25,9 +25,9 @@ OPENAI_API_KEY=sk-your-api-key-here
 
 # Optional - defaults shown
 # OPENAI_EMBEDDING_MODEL: Model used to generate query embeddings via OpenAI API
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_EMBEDDING_MODEL=text-embedding-3-large
 # EMBEDDING_PROVIDER_MODEL_ID: Model key used to look up embeddings in the semantic index
-EMBEDDING_PROVIDER_MODEL_ID=text-embedding-3-small
+EMBEDDING_PROVIDER_MODEL_ID=text-embedding-3-large
 ```
 
 > **Important:** Both values should match to ensure query embeddings are compared against the correct document embeddings in the index.
@@ -118,8 +118,8 @@ Update your environment configuration with the new provider settings.
 # Example: Switching to OpenAI
 EMBEDDING_PROVIDER_TYPE=openai
 OPENAI_API_KEY=sk-your-api-key
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-EMBEDDING_PROVIDER_MODEL_ID=text-embedding-3-small
+OPENAI_EMBEDDING_MODEL=text-embedding-3-large
+EMBEDDING_PROVIDER_MODEL_ID=text-embedding-3-large
 ```
 
 **For Kubernetes**, update your ConfigMap or secrets:
@@ -133,8 +133,8 @@ type: Opaque
 stringData:
   EMBEDDING_PROVIDER_TYPE: "openai"
   OPENAI_API_KEY: "sk-your-api-key"
-  OPENAI_EMBEDDING_MODEL: "text-embedding-3-small"
-  EMBEDDING_PROVIDER_MODEL_ID: "text-embedding-3-small"
+  OPENAI_EMBEDDING_MODEL: "text-embedding-3-large"
+  EMBEDDING_PROVIDER_MODEL_ID: "text-embedding-3-large"
 ```
 
 ### Step 4: Update Index Configuration
