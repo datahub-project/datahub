@@ -58,7 +58,7 @@ class RelationshipConverter(EntityConverter[RDFRelationship, DataHubRelationship
                 properties=rdf_rel.properties or {},
             )
 
-        except Exception as e:
+        except (ValueError, RuntimeError, KeyError) as e:
             logger.warning(f"Error converting relationship: {e}")
             return None
 

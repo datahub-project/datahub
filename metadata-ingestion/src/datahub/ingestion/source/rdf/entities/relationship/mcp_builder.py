@@ -102,7 +102,7 @@ class RelationshipMCPBuilder(EntityMCPBuilder[DataHubRelationship]):
                     f"Created isRelatedTerms MCP for {child_urn} with {len(unique_parents)} parent terms"
                 )
 
-            except Exception as e:
+            except (ValueError, RuntimeError, AttributeError) as e:
                 logger.error(
                     f"Failed to create isRelatedTerms MCP for {child_urn}: {e}"
                 )

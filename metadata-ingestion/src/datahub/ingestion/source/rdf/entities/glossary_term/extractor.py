@@ -141,7 +141,7 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
                 path_segments=path_segments,
             )
 
-        except Exception as e:
+        except (ValueError, RuntimeError, KeyError) as e:
             logger.warning(f"Error extracting glossary term from {uri}: {e}")
             return None
 

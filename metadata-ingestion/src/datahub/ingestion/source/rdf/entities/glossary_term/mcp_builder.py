@@ -52,7 +52,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
             term_info_mcp = self._create_term_info_mcp(term, parent_node_urn)
             mcps.append(term_info_mcp)
 
-        except Exception as e:
+        except (ValueError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to create MCP for glossary term {term.name}: {e}")
 
         return mcps
@@ -232,7 +232,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
                         for _ in term_mcps:
                             if report and hasattr(report, "report_entity_emitted"):
                                 report.report_entity_emitted()
-                    except Exception as e:
+                    except (ValueError, RuntimeError, AttributeError) as e:
                         logger.warning(
                             f"Failed to create MCP for glossary term {term.urn}: {e}"
                         )
@@ -261,7 +261,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
                     for _ in term_mcps:
                         if report:
                             report.report_entity_emitted()
-                except Exception as e:
+                except (ValueError, RuntimeError, AttributeError) as e:
                     logger.warning(
                         f"Failed to create MCP for glossary term {term.urn}: {e}"
                     )
