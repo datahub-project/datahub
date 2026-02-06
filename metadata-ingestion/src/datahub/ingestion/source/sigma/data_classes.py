@@ -33,15 +33,6 @@ class Workspace(BaseModel):
         return values
 
 
-class DatasetSource(BaseModel):
-    """Source information for a Sigma dataset (underlying warehouse table)."""
-
-    connectionId: Optional[str] = None
-    table: Optional[str] = None
-    schema_name: Optional[str] = None  # 'schema' is a reserved pydantic field
-    database: Optional[str] = None
-
-
 class SigmaDataset(BaseModel):
     datasetId: str
     name: str
@@ -53,7 +44,6 @@ class SigmaDataset(BaseModel):
     workspaceId: Optional[str] = None
     path: Optional[str] = None
     badge: Optional[str] = None
-    source: Optional[DatasetSource] = None
 
     def get_urn_part(self):
         # As element lineage api provide this id as source dataset id

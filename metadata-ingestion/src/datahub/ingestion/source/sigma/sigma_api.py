@@ -12,7 +12,6 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
 )
 from datahub.ingestion.source.sigma.data_classes import (
-    DatasetSource,
     Element,
     File,
     Page,
@@ -35,9 +34,6 @@ class SigmaAPI:
         self.report = report
         self.workspaces: Dict[str, Workspace] = {}
         self.users: Dict[str, str] = {}
-        self.connections: Dict[
-            str, Dict[str, Any]
-        ] = {}  # connectionId -> connection info
         self.session = requests.Session()
         self.refresh_token: Optional[str] = None
 
@@ -197,42 +193,6 @@ class SigmaAPI:
     def get_user_name(self, user_id: str) -> Optional[str]:
         return self._get_users().get(user_id)
 
-    def fill_connections(self) -> None:
-        """Fetch all connections and cache them."""
-        logger.debug("Fetching all accessible connections metadata.")
-        connections_url = url = f"{self.config.api_url}/connections?limit=50"
-        try:
-            while True:
-                response = self._get_api_call(url)
-                response.raise_for_status()
-                response_dict = response.json()
-                for connection in response_dict.get(Constant.ENTRIES, []):
-                    conn_id = connection.get(Constant.CONNECTION_ID)
-                    if conn_id:
-                        self.connections[conn_id] = connection
-                        logger.debug(
-                            f"Cached connection: {connection.get(Constant.NAME)} "
-                            f"(id={conn_id}, type={connection.get(Constant.TYPE)})"
-                        )
-                if response_dict.get(Constant.NEXTPAGE):
-                    url = f"{connections_url}&page={response_dict[Constant.NEXTPAGE]}"
-                else:
-                    break
-            logger.info(f"Fetched {len(self.connections)} connections")
-        except Exception as e:
-            self._log_http_error(message=f"Unable to fetch connections. Exception: {e}")
-
-    def get_connection(self, connection_id: str) -> Optional[Dict[str, Any]]:
-        """Get connection info by ID."""
-        return self.connections.get(connection_id)
-
-    def get_connection_by_name(self, name: str) -> Optional[Dict[str, Any]]:
-        """Get connection info by name."""
-        for conn in self.connections.values():
-            if conn.get(Constant.NAME) == name:
-                return conn
-        return None
-
     @functools.lru_cache()
     def get_workspace_id_from_file_path(
         self, parent_id: str, path: str
@@ -346,76 +306,6 @@ class SigmaAPI:
                 message=f"Unable to fetch sigma datasets. Exception: {e}"
             )
             return []
-
-    def get_dataset_source(self, dataset_id: str) -> Optional[DatasetSource]:
-        """
-        Fetch source information for a dataset (underlying warehouse table).
-
-        Uses the /datasets/{datasetId}/sources endpoint to get source table info.
-        """
-        try:
-            # Use the /sources endpoint to get source information
-            response = self._get_api_call(
-                f"{self.config.api_url}/datasets/{dataset_id}/sources"
-            )
-            if response.status_code == 404:
-                logger.debug(f"Dataset sources not found for {dataset_id}")
-                return None
-            if response.status_code == 403:
-                logger.debug(f"Dataset sources not accessible for {dataset_id}")
-                return None
-            response.raise_for_status()
-            sources_response = response.json()
-
-            # Log the full response for debugging
-            logger.debug(f"Dataset {dataset_id} sources response: {sources_response}")
-
-            # The response contains source entries with inode IDs and type info
-            # Look for sources that are tables (not other datasets)
-            # API may return either {"entries": [...]} or just [...]
-            if isinstance(sources_response, list):
-                entries = sources_response
-            else:
-                entries = sources_response.get("entries", [])
-
-            for source in entries:
-                # Log each source entry
-                logger.debug(f"Dataset {dataset_id} source entry: {source}")
-
-                # Extract source info - the structure may vary
-                connection_id = source.get("connectionId")
-
-                # If this is a table source with connection info
-                if connection_id:
-                    table = (
-                        source.get("table")
-                        or source.get("tableName")
-                        or source.get("name")
-                        or source.get("path")
-                    )
-                    schema_name = source.get("schema") or source.get("schemaName")
-                    database = source.get("database") or source.get("databaseName")
-
-                    logger.debug(
-                        f"Dataset {dataset_id} found source: connection={connection_id}, "
-                        f"table={table}, schema={schema_name}, database={database}"
-                    )
-
-                    return DatasetSource(
-                        connectionId=connection_id,
-                        table=table,
-                        schema_name=schema_name,
-                        database=database,
-                    )
-
-            logger.debug(f"Dataset {dataset_id} has no table sources in response")
-            return None
-
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch source for dataset {dataset_id}. Exception: {e}"
-            )
-            return None
 
     def _get_element_upstream_sources(
         self, element: Element, workbook: Workbook
