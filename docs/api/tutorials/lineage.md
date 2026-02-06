@@ -384,6 +384,38 @@ query scrollAcrossLineage {
 }
 ```
 
+#### Get Time-Filtered Lineage with GraphQL
+
+Filter lineage edges by their last update time using `lineageFlags`:
+
+```graphql
+query searchAcrossLineage {
+  searchAcrossLineage(
+    input: {
+      query: "*"
+      urn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders,PROD)"
+      count: 10
+      direction: UPSTREAM
+      orFilters: [{ and: [{ field: "degree", values: ["1"] }] }]
+      lineageFlags: {
+        startTimeMillis: 1625097600000
+        endTimeMillis: 1627776000000
+      }
+    }
+  ) {
+    searchResults {
+      entity {
+        urn
+        type
+      }
+      degree
+    }
+  }
+}
+```
+
+This returns only upstream lineage edges that were last updated between July 1 and August 1, 2021.
+
 ## FAQ
 
 **Can I get lineage at the column level?**
