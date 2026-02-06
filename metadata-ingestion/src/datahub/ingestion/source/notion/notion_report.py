@@ -46,6 +46,12 @@ class NotionSourceReport(StaleEntityRemovalSourceReport):
     num_embedding_failures: int = 0
     embedding_failures: LossyList[str] = field(default_factory=LossyList)
 
+    # Synced blocks (unsupported in unstructured-ingest v0.7.2)
+    num_synced_blocks_skipped: int = 0
+    synced_blocks_skipped: LossyList[str] = field(
+        default_factory=LossyList
+    )  # page_ids with synced blocks
+
     def report_file_scanned(self) -> None:
         self.num_files_scanned += 1
 
@@ -74,3 +80,16 @@ class NotionSourceReport(StaleEntityRemovalSourceReport):
         self.partitioning_strategy_used[strategy] = (
             self.partitioning_strategy_used.get(strategy, 0) + 1
         )
+
+    def report_synced_block_skipped(self, page_id: str) -> None:
+        """Report that a synced block was skipped due to unstructured-ingest limitation."""
+        self.num_synced_blocks_skipped += 1
+        if page_id not in self.synced_blocks_skipped:
+            self.synced_blocks_skipped.append(page_id)
+            self.report_warning(
+                title="Synced Block Content Skipped",
+                message="Page contains synced blocks that cannot be fully ingested. "
+                "The page will be ingested but synced block content will be missing. "
+                "This is a known limitation of the current connector version.",
+                context=f"Page ID: {page_id}",
+            )

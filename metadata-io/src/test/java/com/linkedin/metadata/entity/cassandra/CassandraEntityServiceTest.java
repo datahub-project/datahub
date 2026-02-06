@@ -83,7 +83,7 @@ public class CassandraEntityServiceTest
     reset(_mockUpdateIndicesService);
 
     _currentSession = CassandraTestUtils.createTestSession(_cassandraContainer);
-    _aspectDao = new CassandraAspectDao(_currentSession);
+    _aspectDao = new CassandraAspectDao(_currentSession, List.of(), null);
     _aspectDao.setConnectionValidated(true);
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();

@@ -46,12 +46,15 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - `browsePaths` aspect replaced with `browsePathsV2`
   - In `Dashboard` entitiy and `dashboardInfo` aspect, `charts` property (deprecated) is replaced with `chartEdges`
   - Only emits MCPs
+- #16023: In PowerBI, Container URNs change for users with `platform_instance` configured, as this PR now passes `platform_instance` to dataset containers (affects GUID generation). The `env` parameter addition is harmless as it's excluded from GUID calculation. Stateful ingestion will soft-delete old containers and create new ones on the next run. Dataset entities and their lineage are unaffected.
 
 ### Known Issues
 
 ### Potential Downtime
 
 ### Deprecations
+
+- (CLI) The `--use-password` flag in `datahub init` command is deprecated. Token generation is now automatically detected when both `--username` and `--password` are provided together. The flag continues to work for backward compatibility but will be removed in a future release.
 
 ### Other Notable Changes
 

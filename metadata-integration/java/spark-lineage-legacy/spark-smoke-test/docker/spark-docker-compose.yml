@@ -23,5 +23,5 @@ services:
 networks:
   default:
     external: true
-    name: datahub_network
+    name: acryl_network
 

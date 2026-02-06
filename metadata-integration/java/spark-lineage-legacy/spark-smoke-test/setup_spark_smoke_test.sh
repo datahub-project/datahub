@@ -37,7 +37,7 @@ echo "Executing spark-submit jobs"
 echo "--------------------------------------------------------------------"
 
 #Execute spark-submit jobs
-docker run --network datahub_network spark-submit
+docker run --network acryl_network spark-submit
 
 echo "--------------------------------------------------------------------"
 echo "Starting pytest"

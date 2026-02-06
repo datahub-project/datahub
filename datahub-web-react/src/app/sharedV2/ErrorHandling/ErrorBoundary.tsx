@@ -12,12 +12,15 @@ type ErrorBoundaryProps = {
     resetKeys?: string[];
 };
 
-const logError = (error: Error, info: { componentStack: string }, enableSentry) => {
+const logError = (error: unknown, info: { componentStack: string }, enableSentry) => {
+    // Convert unknown error to Error type for Sentry
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+
     if (enableSentry) {
         // The sentry client is configured in App.tsx
         Sentry.withScope((scope) => {
             scope.setTag('page_url', window.location.href);
-            Sentry.captureReactException(error, info);
+            Sentry.captureReactException(errorObj, info);
         });
     } else {
         console.group('🔴 UI Crash Error Report');

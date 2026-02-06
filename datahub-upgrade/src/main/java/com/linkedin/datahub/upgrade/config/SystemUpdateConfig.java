@@ -292,7 +292,9 @@ public class SystemUpdateConfig {
             systemUpdateCDCMode, // Use system update CDC mode
             featureFlags.getPreProcessHooks(),
             ebeanMaxTransactionRetry,
-            enableBrowsePathV2);
+            enableBrowsePathV2,
+            com.linkedin.metadata.config.EntityServiceConfiguration.EMPTY,
+            null); // metricUtils
 
     if (throttleSensors != null
         && !throttleSensors.isEmpty()

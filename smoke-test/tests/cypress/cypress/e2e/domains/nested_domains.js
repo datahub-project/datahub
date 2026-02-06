@@ -164,7 +164,8 @@ describe("Verify nested domains test functionalities", () => {
     );
     cy.clickOptionWithText("Find a user or group");
     cy.clickOptionWithId("#addOwnerButton");
-    cy.waitTextVisible(TEST_GROUP_NAME);
+    cy.waitTextVisible("Owners Added");
+    cy.waitTextVisible(Cypress.env("ADMIN_DISPLAYNAME"));
     cy.goToDomainList();
     cy.waitTextVisible("Test documentation");
     cy.waitTextVisible(TEST_GROUP_NAME);

@@ -106,7 +106,9 @@ public class ScimpleSpringTestApp {
       @Qualifier("systemOperationContext") OperationContext systemOperationContext)
       throws EntityRegistryException, IOException, URISyntaxException {
 
-    EbeanAspectDao _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
+    EbeanAspectDao _aspectDao =
+        new EbeanAspectDao(
+            server, EbeanConfiguration.testDefault, null, java.util.Collections.emptyList(), null);
 
     UpdateIndicesService updateIndicesService =
         new UpdateIndicesService(

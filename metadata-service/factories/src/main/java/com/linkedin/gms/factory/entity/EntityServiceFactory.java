@@ -34,7 +34,9 @@ public class EntityServiceFactory {
       @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
       @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
       @Value("${featureFlags.cdcModeChangeLog}") final boolean enableCDCModeChangeLog,
-      final List<ThrottleSensor> throttleSensors) {
+      final List<ThrottleSensor> throttleSensors,
+      @javax.annotation.Nullable
+          final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
 
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
     EntityServiceConfiguration entityServiceConfiguration =
@@ -49,7 +51,8 @@ public class EntityServiceFactory {
             featureFlags.getPreProcessHooks(),
             _ebeanMaxTransactionRetry,
             enableBrowsePathV2,
-            entityServiceConfiguration);
+            entityServiceConfiguration,
+            metricUtils);
 
     if (throttleSensors != null
         && !throttleSensors.isEmpty()
