@@ -216,6 +216,10 @@ dependencies {
   testImplementation externalDependency.awaitility
 
   testImplementation project(':metadata-test-util:java')
+  // SDK dependencies for integration tests (comparing our implementation vs official SDKs)
+  testImplementation 'com.openai:openai-java:0.18.0'
+  testImplementation 'com.cohere:cohere-java:1.5.0'
+
   testImplementation(testFixtures(project(":entity-registry")))
 
   testAnnotationProcessor externalDependency.lombok

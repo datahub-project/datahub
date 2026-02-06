@@ -253,10 +253,17 @@ def test_normalize_provider_from_server_cohere():
     assert EmbeddingConfig._normalize_provider_from_server("COHERE") == "cohere"
 
 
+def test_normalize_provider_from_server_openai():
+    """Test converting server provider format to local format (OpenAI)."""
+    assert EmbeddingConfig._normalize_provider_from_server("openai") == "openai"
+    assert EmbeddingConfig._normalize_provider_from_server("OpenAI") == "openai"
+    assert EmbeddingConfig._normalize_provider_from_server("OPENAI") == "openai"
+
+
 def test_normalize_provider_from_server_unsupported():
     """Test converting unsupported provider raises error."""
     with pytest.raises(ValueError, match="Unsupported provider from server"):
-        EmbeddingConfig._normalize_provider_from_server("openai")
+        EmbeddingConfig._normalize_provider_from_server("azure")
 
 
 def test_default_values():
