@@ -130,6 +130,16 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:airbyte",
+        "name": "airbyte",
+        "displayName": "Airbyte",
+        "description": "Import Connections, Sources, Destinations, and lineage from Airbyte (OSS and Cloud).",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/airbyte",
+        "recipe": "source:\n  type: airbyte\n  config:\n    deployment_type: oss\n    host_port: http://localhost:8000\n    username: airbyte\n    password: password\n\n    extract_column_level_lineage: true\n    include_statuses: true\n    incremental_lineage: true",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:kafka",
         "name": "kafka",
         "displayName": "Kafka",
