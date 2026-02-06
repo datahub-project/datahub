@@ -145,7 +145,10 @@ def mssql_connection(mssql_runner):
 
     # Drop database using master connection
     with master_engine.connect() as master_conn:
-        master_conn.execute(text("DROP DATABASE IF EXISTS lineage_test"))
+        master_conn.execute(
+            text("ALTER DATABASE lineage_test SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
+        )
+        master_conn.execute(text("DROP DATABASE lineage_test"))
 
     master_engine.dispose()
 
@@ -430,7 +433,12 @@ class TestMSSQLLineageIntegration:
         test_engine.dispose()
 
         with master_engine.connect() as master_conn:
-            master_conn.execute(text("DROP DATABASE IF EXISTS test_no_qs"))
+            master_conn.execute(
+                text(
+                    "ALTER DATABASE test_no_qs SET SINGLE_USER WITH ROLLBACK IMMEDIATE"
+                )
+            )
+            master_conn.execute(text("DROP DATABASE test_no_qs"))
 
         master_engine.dispose()
 
