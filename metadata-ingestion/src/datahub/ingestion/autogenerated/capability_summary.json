@@ -2548,7 +2548,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.postgres.PostgresSource",
+      "classname": "datahub.ingestion.source.sql.postgres.source.PostgresSource",
       "platform_id": "postgres",
       "platform_name": "Postgres",
       "support_status": "CERTIFIED"

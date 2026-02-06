@@ -59,8 +59,8 @@ from datahub_agent_context.mcp_tools.entities import get_entities
 client = DataHubClient.from_env()
 # Or: client = DataHubClient(server="http://localhost:8080", token="YOUR_TOKEN")
 
-# Use DataHubContext to set up the graph for tool calls
-with DataHubContext(client.graph):
+# Use DataHubContext to set up the client for tool calls
+with DataHubContext(client):
     # Search for datasets
     results = search(
         query="user_data",
@@ -88,7 +88,7 @@ Before using Agent Context Kit, familiarize yourself with these DataHub concepts
 - **Entity**: A metadata object in DataHub (e.g., Dataset, Dashboard, Chart, User). Think of these as the "nouns" of your data ecosystem.
 - **URN (Uniform Resource Name)**: A unique identifier for an entity. Format: `urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.users,PROD)`. This is like a primary key for metadata.
 - **MCP (Model Context Protocol)**: A standard protocol for connecting AI agents to external data sources. These tools implement MCP for DataHub.
-- **Graph**: The underlying client used internally to query DataHub. For LangChain users, this is handled automatically by the builder.
+- **Client**: The underlying client used internally to query DataHub. For LangChain users, this is handled automatically by the builder.
 
 ## Agent Platforms
 
@@ -105,96 +105,113 @@ Before using Agent Context Kit, familiarize yourself with these DataHub concepts
 
 #### Search Tools
 
-- **`search(graph, query, filters, num_results)`**
+- **`search(client, query, filters, num_results)`**
 
   - **Use when**: Finding entities by keyword across DataHub
   - **Returns**: List of matching entities with URNs, names, and descriptions
-  - **Example**: `search(graph, "customer", {"entity_type": ["dataset"]}, 10)` to find datasets about customers
+  - **Example**: `search(client, "customer", {"entity_type": ["dataset"]}, 10)` to find datasets about customers
   - **Filters**: Can filter by entity_type, platform, domain, tags, and more
 
-- **`search_documents(graph, query, num_results)`**
+- **`search_documents(client, query, semantic_query, num_results)`**
 
   - **Use when**: Searching for documentation, business glossaries, or knowledge base articles
   - **Returns**: Document entities with titles and content
-  - **Example**: `search_documents(graph, "data retention policy", 5)` to find policy documents
+  - **Example**: `search_documents(client, "*", "data retention policy", 5)` to find policy documents
 
-- **`grep_documents(graph, pattern, num_results)`**
+- **`grep_documents(client, pattern, num_results)`**
   - **Use when**: Searching for specific patterns or exact phrases in documentation
   - **Returns**: Documents containing the pattern with matched excerpts
-  - **Example**: `grep_documents(graph, "PII.*encrypted", 10)` to find docs mentioning PII encryption
+  - **Example**: `grep_documents(client, "PII.*encrypted", 10)` to find docs mentioning PII encryption
 
 #### Entity Tools
 
-- **`get_entities(graph, urns)`**
+- **`get_entities(client, urns)`**
 
   - **Use when**: Retrieving detailed metadata for specific entities you already know the URNs for
   - **Returns**: Full entity metadata including all aspects (schema, ownership, properties, etc.)
   - **Example**: After search, use this to get complete details about the found entities
 
-- **`list_schema_fields(graph, urn, filters)`**
+- **`list_schema_fields(client, urn, filters)`**
   - **Use when**: Exploring columns/fields in a dataset
   - **Returns**: List of fields with names, types, descriptions, and tags
-  - **Example**: `list_schema_fields(graph, dataset_urn, {"field_path": "customer_"})` to find customer-related columns
+  - **Example**: `list_schema_fields(client, dataset_urn, {"field_path": "customer_"})` to find customer-related columns
   - **Filters**: Can filter by field name patterns, data types, or tags
 
 #### Lineage Tools
 
-- **`get_lineage(graph, urn, direction, max_depth)`**
+- **`get_lineage(client, urn, direction, max_depth)`**
 
   - **Use when**: Understanding data flow and dependencies
   - **Returns**: Upstream (sources) or downstream (consumers) entities
-  - **Example**: `get_lineage(graph, dashboard_urn, "UPSTREAM", 3)` to trace data sources for a dashboard
+  - **Example**: `get_lineage(client, dashboard_urn, "UPSTREAM", 3)` to trace data sources for a dashboard
   - **Direction**: Use "UPSTREAM" for sources, "DOWNSTREAM" for consumers
 
-- **`get_lineage_paths_between(graph, source_urn, destination_urn)`**
+- **`get_lineage_paths_between(client, source_urn, destination_urn)`**
   - **Use when**: Finding how data flows between two specific entities
   - **Returns**: All paths connecting the entities with intermediate steps
   - **Example**: Find how raw data flows to a specific dashboard
 
 #### Query Tools
 
-- **`get_dataset_queries(graph, urn, column_name)`**
+- **`get_dataset_queries(client, urn, column_name)`**
   - **Use when**: Finding SQL queries that use a dataset or specific column
   - **Returns**: List of queries with SQL text and metadata
-  - **Example**: `get_dataset_queries(graph, dataset_urn, "email")` to see how the email column is used
+  - **Example**: `get_dataset_queries(client, dataset_urn, "email")` to see how the email column is used
   - **Use cases**: Understanding data usage patterns, finding query examples
 
 #### Mutation Tools
 
 **Note**: These tools modify metadata. Use with caution in production environments.
 
-- **`add_tags(graph, urn, tags)`** / **`remove_tags(graph, urn, tags)`**
+- **`add_tags(client, urn, tags)`** / **`remove_tags(client, urn, tags)`**
 
   - **Use when**: Categorizing or labeling entities
-  - **Example**: `add_tags(graph, dataset_urn, ["PII", "Finance"])` to mark sensitive data
+  - **Example**: `add_tags(client, dataset_urn, ["PII", "Finance"])` to mark sensitive data
 
-- **`update_description(graph, urn, description)`**
+- **`update_description(client, urn, description)`**
 
   - **Use when**: Adding or updating documentation for entities
   - **Example**: Agents can auto-generate and update descriptions
 
-- **`set_domains(graph, urn, domain_urns)`** / **`remove_domains(graph, urn, domain_urns)`**
+- **`set_domains(client, urn, domain_urns)`** / **`remove_domains(client, urn, domain_urns)`**
 
   - **Use when**: Organizing entities into business domains
   - **Example**: Assign datasets to "Marketing" or "Finance" domains
 
-- **`add_owners(graph, urn, owners)`** / **`remove_owners(graph, urn, owners)`**
+- **`add_owners(client, urn, owners)`** / **`remove_owners(client, urn, owners)`**
 
   - **Use when**: Assigning data ownership and accountability
-  - **Example**: `add_owners(graph, dataset_urn, [{"owner": user_urn, "type": "TECHNICAL_OWNER"}])`
+  - **Example**: `add_owners(client, dataset_urn, [{"owner": user_urn, "type": "TECHNICAL_OWNER"}])`
 
-- **`add_glossary_terms(graph, urn, term_urns)`** / **`remove_glossary_terms(graph, urn, term_urns)`**
+- **`add_glossary_terms(client, urn, term_urns)`** / **`remove_glossary_terms(client, urn, term_urns)`**
 
   - **Use when**: Linking entities to business glossary definitions
   - **Example**: Link a revenue column to the "Revenue" glossary term
 
-- **`add_structured_properties(graph, urn, properties)`** / **`remove_structured_properties(graph, urn, properties)`**
+- **`add_structured_properties(client, urn, properties)`** / **`remove_structured_properties(client, urn, properties)`**
+
   - **Use when**: Adding custom metadata fields to entities
   - **Example**: Add "data_retention_days" or "compliance_tier" properties
 
+- **`save_document(document_type, title, content, urn, topics, related_documents, related_assets)`**
+
+  - **Use when**: Creating or updating standalone documents in DataHub's knowledge base (insights, decisions, FAQs, analysis, etc.)
+  - **Document types**: "Insight", "Decision", "FAQ", "Analysis", "Summary", "Recommendation", "Note", "Context"
+  - **Parameters**:
+    - `document_type`: Type of document (required)
+    - `title`: Document title (required)
+    - `content`: Full document content in markdown format (required)
+    - `urn`: URN of existing document to update (optional, creates new if not provided)
+    - `topics`: List of topic tags for categorization (optional)
+    - `related_documents`: URNs of related documents (optional)
+    - `related_assets`: URNs of related data assets like datasets or dashboards (optional)
+  - **Example**: `save_document("Insight", "High Null Rate in Customer Emails", "## Finding\\n\\n23% of customer records have null email...", topics=["data-quality", "customer-data"], related_assets=["urn:li:dataset:(urn:li:dataPlatform:snowflake,customers,PROD)"])`
+  - **Important**: Always confirm with user before saving. Documents are visible to all DataHub users.
+  - **Note**: For updating descriptions on data assets (datasets, dashboards), use `update_description` instead
+
 #### User Tools
 
-- **`get_me(graph)`**
+- **`get_me(client)`**
   - **Use when**: Getting information about the authenticated user
   - **Returns**: User details including name, email, and roles
   - **Use cases**: Personalization, permission checks, audit logging
