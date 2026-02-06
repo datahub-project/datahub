@@ -17,35 +17,8 @@ assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
-
 SQL_PARSE_CACHE_SIZE = get_sql_parse_cache_size()
 FORMAT_QUERY_CACHE_SIZE = get_sql_parse_cache_size()
-
-
-def _get_dialect_str(platform: str) -> str:
-    if platform == "presto-on-hive":
-        return "hive"
-    elif platform == "mssql":
-        return "tsql"
-    elif platform == "athena":
-        return "trino"
-    # TODO: define SalesForce SOQL dialect
-    # Temporary workaround is to treat SOQL as databricks dialect
-    # At least it allows to parse simple SQL queries and built linage for them
-    elif platform == "salesforce":
-        return "databricks"
-    elif platform in {"mysql", "mariadb"}:
-        # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
-        # default behavior on Linux. However, MySQL's default case sensitivity
-        # actually depends on the underlying OS.
-        # For us, it's simpler to just assume that it's case-insensitive, and
-        # let the fuzzy resolution logic handle it.
-        # MariaDB is a fork of MySQL, so we reuse the same dialect.
-        return "mysql, normalization_strategy = lowercase"
-    elif platform == "timescaledb":
-        return "postgres"
-    else:
-        return platform
 
 
 def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:

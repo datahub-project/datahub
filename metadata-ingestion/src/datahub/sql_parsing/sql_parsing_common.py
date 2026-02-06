@@ -44,6 +44,8 @@ def get_dialect_str(platform: str) -> str:
         # let the fuzzy resolution logic handle it.
         # MariaDB is a fork of MySQL, so we reuse the same dialect.
         return "mysql, normalization_strategy = lowercase"
+    elif platform == "timescaledb":
+        return "postgres"
     else:
         return platform_lower
 
