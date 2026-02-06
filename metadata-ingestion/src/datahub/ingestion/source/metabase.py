@@ -4,12 +4,19 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Pattern, Tuple, Type, Union
 
 import dateutil.parser as dp
 import pydantic
 import requests
-from pydantic import Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from requests.models import HTTPError
 
 import datahub.emitter.mce_builder as builder
@@ -17,6 +24,7 @@ from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     LowerCaseDatasetUrnConfigMixin,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -37,32 +45,315 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    AuditStamp,
-    ChangeAuditStamps,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    ChartSnapshot,
-    DashboardSnapshot,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    BooleanTypeClass,
+    BytesTypeClass,
+    ChangeAuditStampsClass,
     ChartInfoClass,
     ChartQueryClass,
     ChartQueryTypeClass,
     ChartTypeClass,
     DashboardInfoClass,
+    DatasetLineageTypeClass,
+    DatasetPropertiesClass,
+    DateTypeClass,
     EdgeClass,
+    EnumTypeClass,
+    GlobalTagsClass,
+    MySqlDDLClass,
+    NullTypeClass,
+    NumberTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+    SubTypesClass,
+    TagAssociationClass,
+    TimeTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities import config_clean
 
 logger = logging.getLogger(__name__)
 
+
+# ============================================================================
+# Pydantic Models for Metabase API Responses
+# ============================================================================
+
+
+class MetabaseBaseModel(BaseModel):
+    """Base model for Metabase API responses with common config."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+
+class MetabaseUser(MetabaseBaseModel):
+    """Metabase user model."""
+
+    id: int
+    email: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    common_name: Optional[str] = None
+
+
+class MetabaseResultMetadata(MetabaseBaseModel):
+    """Metadata for query result fields."""
+
+    name: Optional[str] = None
+    display_name: Optional[str] = None
+    base_type: Optional[str] = None
+    semantic_type: Optional[str] = None
+    field_ref: Optional[List] = None  # Heterogeneous list: ["field", "name", {...}]
+
+
+class MetabaseNativeQuery(MetabaseBaseModel):
+    """Native SQL query configuration."""
+
+    query: Optional[str] = None
+    template_tags: Optional[Dict] = Field(
+        None, alias="template-tags"
+    )  # Metabase template tag definitions
+
+
+class MetabaseQuery(MetabaseBaseModel):
+    """Query builder query configuration."""
+
+    source_table: Optional[Union[int, str]] = Field(None, alias="source-table")
+    filter: Optional[List] = None  # Metabase filter expression
+    aggregation: Optional[List] = None  # Metabase aggregation expression
+    breakout: Optional[List] = None  # Metabase breakout (group by) fields
+
+
+class MetabaseDatasetQuery(MetabaseBaseModel):
+    """Dataset query configuration."""
+
+    type: str
+    database: Optional[int] = None
+    native: Optional[MetabaseNativeQuery] = None
+    query: Optional[MetabaseQuery] = None
+
+
+class MetabaseLastEditInfo(MetabaseBaseModel):
+    """Information about last edit of a Metabase object."""
+
+    id: Optional[int] = None
+    email: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    timestamp: Optional[str] = None
+
+
+class MetabaseCard(MetabaseBaseModel):
+    """Metabase card (question/chart/model) model."""
+
+    id: int
+    name: str
+    description: Optional[str] = None
+    display: Optional[str] = None
+    dataset_query: MetabaseDatasetQuery = Field(
+        default_factory=lambda: MetabaseDatasetQuery(type="native")
+    )
+    query_type: Optional[str] = None
+    result_metadata: List[MetabaseResultMetadata] = Field(default_factory=list)
+    creator_id: Optional[int] = None
+    collection_id: Optional[int] = None
+    type: Optional[str] = None
+    database_id: Optional[int] = None
+    table_id: Optional[int] = None
+    last_edit_info: Optional[MetabaseLastEditInfo] = Field(None, alias="last-edit-info")
+    public_uuid: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class MetabaseCardInfo(MetabaseBaseModel):
+    """Basic card info (used in dashcards)."""
+
+    id: Optional[int] = None
+    name: Optional[str] = None
+
+
+class MetabaseDashCard(MetabaseBaseModel):
+    """Dashboard card (panel) in a dashboard."""
+
+    id: int
+    card: MetabaseCardInfo
+    dashboard_id: int
+
+
+class MetabaseDashboard(MetabaseBaseModel):
+    """Metabase dashboard model."""
+
+    id: int
+    name: str
+    description: Optional[str] = None
+    creator_id: Optional[int] = None
+    collection_id: Optional[int] = None
+    dashcards: List[MetabaseDashCard] = Field(default_factory=list)
+    last_edit_info: Optional[MetabaseLastEditInfo] = Field(None, alias="last-edit-info")
+
+
+class MetabaseDashboardListItem(MetabaseBaseModel):
+    """Dashboard item from collection items API (minimal fields)."""
+
+    id: int
+    name: Optional[str] = None
+    model: str  # Always "dashboard" for these items
+
+
+class MetabaseCardListItem(MetabaseBaseModel):
+    """Card/question item from cards list API (minimal fields)."""
+
+    id: int
+    name: Optional[str] = None
+    type: Optional[str] = None  # "question" or "model"
+
+
+class MetabaseCollectionItemsResponse(MetabaseBaseModel):
+    """Response from /api/collection/{id}/items API."""
+
+    data: List[MetabaseDashboardListItem] = Field(default_factory=list)
+    total: Optional[int] = None
+
+
+class MetabaseCollection(MetabaseBaseModel):
+    """Metabase collection model."""
+
+    id: int
+    name: str
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    archived: Optional[bool] = None
+
+
+class MetabaseLoginResponse(MetabaseBaseModel):
+    """Response from /api/session API."""
+
+    id: str  # Session token
+
+
+class MetabaseDatabaseDetails(MetabaseBaseModel):
+    """Database connection details."""
+
+    model_config = ConfigDict(extra="allow")
+
+    host: Optional[str] = None
+    port: Optional[int] = None
+    dbname: Optional[str] = None
+    db: Optional[str] = None
+    database: Optional[str] = None
+    catalog: Optional[str] = None
+    project_id: Optional[str] = Field(None, alias="project-id")
+    dataset_id: Optional[str] = Field(None, alias="dataset-id")
+    schema_: Optional[str] = Field(None, alias="schema")
+    service_name: Optional[str] = Field(None, alias="service-name")
+
+
+class MetabaseDatabase(MetabaseBaseModel):
+    """Metabase database connection model."""
+
+    id: int
+    name: str
+    engine: str
+    details: MetabaseDatabaseDetails = Field(default_factory=MetabaseDatabaseDetails)
+
+
+class MetabaseTable(MetabaseBaseModel):
+    """Metabase table metadata."""
+
+    id: int
+    name: str
+    display_name: Optional[str] = None
+    schema_: Optional[str] = Field(None, alias="schema")
+    db_id: int
+
+
+class DatasourceInfo(MetabaseBaseModel):
+    """Information about a datasource extracted from Metabase database."""
+
+    platform: str
+    database_name: Optional[str] = None
+    schema: Optional[str] = None  # type: ignore[assignment]
+    platform_instance: Optional[str] = None
+
+
+# ============================================================================
+# Constants
+# ============================================================================
+
+# Prevent stack overflow from circular card references
 DATASOURCE_URN_RECURSION_LIMIT = 5
+
+# Maps Metabase base_type to DataHub types
+METABASE_TYPE_TO_DATAHUB_TYPE: Dict[
+    str,
+    Type[
+        Union[
+            NumberTypeClass,
+            StringTypeClass,
+            BooleanTypeClass,
+            EnumTypeClass,
+            BytesTypeClass,
+            DateTypeClass,
+            TimeTypeClass,
+        ]
+    ],
+] = {
+    "Integer": NumberTypeClass,
+    "BigInteger": NumberTypeClass,
+    "Float": NumberTypeClass,
+    "Decimal": NumberTypeClass,
+    "Number": NumberTypeClass,
+    "Text": StringTypeClass,
+    "String": StringTypeClass,
+    "UUID": StringTypeClass,
+    "Array": StringTypeClass,  # Metabase serializes as text
+    "JSON": StringTypeClass,  # Displayed as text unless unfolded
+    "Enum": EnumTypeClass,  # PostgresEnum, MySQLEnum
+    "Boolean": BooleanTypeClass,
+    "JSONB": BytesTypeClass,
+    "Blob": BytesTypeClass,
+    "Bytes": BytesTypeClass,
+    "Date": DateTypeClass,
+    "DateTime": DateTypeClass,
+    "DateTimeWithTZ": DateTypeClass,
+    "Time": TimeTypeClass,
+}
+
+# Maps Metabase database engine to the connection detail field containing the database name
+METABASE_DATABASE_FIELD_MAPPING: Dict[str, str] = {
+    "athena": "catalog",
+    "bigquery": "dataset_id",  # Python attribute (JSON: "dataset-id")
+    "bigquery-cloud-sdk": "project_id",  # Python attribute (JSON: "project-id")
+    "clickhouse": "dbname",
+    "databricks": "catalog",
+    "druid": "dbname",
+    "h2": "db",
+    "mongo": "dbname",
+    "mysql": "dbname",
+    "oracle": "service_name",  # Python attribute (JSON: "service-name")
+    "postgres": "dbname",
+    "presto": "catalog",
+    "presto-jdbc": "catalog",
+    "redshift": "db",
+    "snowflake": "db",
+    "sparksql": "dbname",
+    "sqlserver": "db",
+    "trino": "catalog",
+    "vertica": "database",
+}
+
+# Pre-compiled regex patterns for collection name sanitization
+_SPECIAL_CHARS_PATTERN: Pattern[str] = re.compile(r"[^a-zA-Z0-9_]")
+_MULTIPLE_UNDERSCORES_PATTERN: Pattern[str] = re.compile(r"_+")
 
 
 class MetabaseConfig(
@@ -91,8 +382,6 @@ class MetabaseConfig(
         default=None,
         description="Metabase API key. If provided, the username and password will be ignored. Recommended method.",
     )
-    # TODO: Check and remove this if no longer needed.
-    # Config database_alias is removed from sql sources.
     database_alias_map: Optional[dict] = Field(
         default=None,
         description="Database name map to use when constructing dataset URN.",
@@ -113,11 +402,21 @@ class MetabaseConfig(
         default=False,
         description="Flag that if true, exclude other user collections",
     )
+    extract_collections_as_tags: bool = Field(
+        default=True,
+        description="Extract Metabase collections as tags on dashboards and charts",
+    )
+    extract_models: bool = Field(
+        default=True,
+        description="Extract Metabase models (saved questions used as data sources) as datasets",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @field_validator("connect_uri", "display_uri", mode="after")
     @classmethod
-    def remove_trailing_slash(cls, v):
+    def remove_trailing_slash(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
         return config_clean.remove_trailing_slashes(v)
 
     @model_validator(mode="after")
@@ -136,56 +435,17 @@ class MetabaseReport(StaleEntityRemovalSourceReport):
 @config_class(MetabaseConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
-@capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
+@capability(
+    SourceCapability.LINEAGE_COARSE, "Supported by default for charts and dashboards"
+)
 class MetabaseSource(StatefulIngestionSourceBase):
-    """
-    This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested
-    on PostgreSQL and H2 database.
-
-    ### Collection
-
-    [/api/collection](https://www.metabase.com/docs/latest/api/collection) endpoint is used to
-    retrieve the available collections.
-
-    [/api/collection/<COLLECTION_ID>/items?models=dashboard](https://www.metabase.com/docs/latest/api/collection#get-apicollectioniditems) endpoint is used to retrieve a given collection and list their dashboards.
-
-     ### Dashboard
-
-    [/api/dashboard/<DASHBOARD_ID>](https://www.metabase.com/docs/latest/api/dashboard) endpoint is used to retrieve a given Dashboard and grab its information.
-
-    - Title and description
-    - Last edited by
-    - Owner
-    - Link to the dashboard in Metabase
-    - Associated charts
-
-    ### Chart
-
-    [/api/card](https://www.metabase.com/docs/latest/api-documentation.html#card) endpoint is used to
-    retrieve the following information.
-
-    - Title and description
-    - Last edited by
-    - Owner
-    - Link to the chart in Metabase
-    - Datasource and lineage
-
-    The following properties for a chart are ingested in DataHub.
-
-    | Name          | Description                                     |
-    | ------------- | ----------------------------------------------- |
-    | `Dimensions`  | Column names                                    |
-    | `Filters`     | Any filters applied to the chart                |
-    | `Metrics`     | All columns that are being used for aggregation |
-
-
-    """
+    """Extracts dashboards, charts, models, and lineage from Metabase."""
 
     config: MetabaseConfig
     report: MetabaseReport
     platform = "metabase"
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return id(self)
 
     def __init__(self, ctx: PipelineContext, config: MetabaseConfig):
@@ -206,7 +466,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 }
             )
         else:
-            # If no API key is provided, generate a session token using username and password.
             login_response = requests.post(
                 f"{self.config.connect_uri}/api/session",
                 None,
@@ -221,7 +480,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
 
             login_response.raise_for_status()
-            self.access_token = login_response.json().get("id", "")
+            login_data = MetabaseLoginResponse.model_validate(login_response.json())
+            self.access_token = login_data.id
 
             self.session.headers.update(
                 {
@@ -231,7 +491,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 }
             )
 
-        # Test the connection
         try:
             test_response = self.session.get(
                 f"{self.config.connect_uri}/api/user/current"
@@ -245,7 +504,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
 
     def close(self) -> None:
-        # API key authentication does not require session closure.
+        # Only username/password auth creates sessions that need cleanup
         if not self.config.api_key:
             response = requests.delete(
                 f"{self.config.connect_uri}/api/session",
@@ -258,32 +517,46 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 )
         super().close()
 
-    def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
+    def emit_dashboard_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Emit dashboard entities as work units."""
         try:
             collections_response = self.session.get(
                 f"{self.config.connect_uri}/api/collection/"
                 f"?exclude-other-user-collections={json.dumps(self.config.exclude_other_user_collections)}"
             )
             collections_response.raise_for_status()
-            collections = collections_response.json()
+            collections_data = collections_response.json()
 
-            for collection in collections:
-                collection_dashboards_response = self.session.get(
-                    f"{self.config.connect_uri}/api/collection/{collection['id']}/items?models=dashboard"
-                )
-                collection_dashboards_response.raise_for_status()
-                collection_dashboards = collection_dashboards_response.json()
-
-                if not collection_dashboards.get("data"):
+            for collection_data in collections_data:
+                try:
+                    collection = MetabaseCollection.model_validate(collection_data)
+                except ValidationError:
                     continue
 
-                for dashboard_info in collection_dashboards.get("data"):
-                    dashboard_snapshot = self.construct_dashboard_from_api_data(
-                        dashboard_info
+                collection_dashboards_response = self.session.get(
+                    f"{self.config.connect_uri}/api/collection/{collection.id}/items?models=dashboard"
+                )
+                collection_dashboards_response.raise_for_status()
+
+                try:
+                    collection_dashboards = (
+                        MetabaseCollectionItemsResponse.model_validate(
+                            collection_dashboards_response.json()
+                        )
                     )
-                    if dashboard_snapshot is not None:
-                        mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                        yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+                except ValidationError as e:
+                    self.report.report_warning(
+                        title="Invalid Collection Items Response",
+                        message="Collection items response failed validation.",
+                        context=f"Collection ID: {collection.id}, Error: {str(e)}",
+                    )
+                    continue
+
+                if not collection_dashboards.data:
+                    continue
+
+                for dashboard_info in collection_dashboards.data:
+                    yield from self._emit_dashboard_workunits(dashboard_info)
 
         except HTTPError as http_error:
             self.report.report_failure(
@@ -300,52 +573,65 @@ class MetabaseSource(StatefulIngestionSourceBase):
         """
         try:
             return int(dp.parse(ts_str).timestamp() * 1000)
-        except (dp.ParserError, OverflowError):
+        except (dp.ParserError, OverflowError) as e:
+            logger.warning(
+                f"Failed to parse timestamp '{ts_str}': {e}. Using current time instead."
+            )
             return int(datetime.now(timezone.utc).timestamp() * 1000)
 
-    def construct_dashboard_from_api_data(
-        self, dashboard_info: dict
-    ) -> Optional[DashboardSnapshot]:
-        dashboard_id = dashboard_info.get("id", "")
+    def _emit_dashboard_workunits(
+        self, dashboard_info: MetabaseDashboardListItem
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit workunits for a Metabase Dashboard using MCPs."""
+        dashboard_id = dashboard_info.id
         dashboard_url = f"{self.config.connect_uri}/api/dashboard/{dashboard_id}"
         try:
             dashboard_response = self.session.get(dashboard_url)
             dashboard_response.raise_for_status()
-            dashboard_details = dashboard_response.json()
+            dashboard = MetabaseDashboard.model_validate(dashboard_response.json())
         except HTTPError as http_error:
             self.report.report_warning(
                 title="Unable to Retrieve Dashboard",
                 message="Request to retrieve dashboards from Metabase failed.",
                 context=f"Dashboard ID: {dashboard_id}, Error: {str(http_error)}",
             )
-            return None
+            return
+        except ValidationError as e:
+            self.report.report_warning(
+                title="Invalid Dashboard Data",
+                message="Dashboard data from Metabase API failed validation.",
+                context=f"Dashboard ID: {dashboard_id}, Error: {str(e)}",
+            )
+            return
 
-        dashboard_urn = builder.make_dashboard_urn(
-            self.platform, str(dashboard_details.get("id", ""))
-        )
-        dashboard_snapshot = DashboardSnapshot(
-            urn=dashboard_urn,
-            aspects=[],
-        )
-        last_edit_by = dashboard_details.get("last-edit-info") or {}
-        modified_actor = builder.make_user_urn(last_edit_by.get("email", "unknown"))
-        modified_ts = self.get_timestamp_millis_from_ts_string(
-            f"{last_edit_by.get('timestamp')}"
-        )
-        title = dashboard_details.get("name", "") or ""
-        description = dashboard_details.get("description", "") or ""
-        last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=modified_ts, actor=modified_actor),
-            lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
+        dashboard_urn = builder.make_dashboard_urn(self.platform, str(dashboard.id))
+
+        # Handle last_edit_info
+        if dashboard.last_edit_info:
+            email = dashboard.last_edit_info.email or "unknown"
+            timestamp = dashboard.last_edit_info.timestamp
+        else:
+            email = "unknown"
+            timestamp = None
+
+        modified_actor = builder.make_user_urn(email)
+        modified_ts = self.get_timestamp_millis_from_ts_string(f"{timestamp}")
+        title = dashboard.name
+        description = dashboard.description or ""
+        last_modified = ChangeAuditStampsClass(
+            created=AuditStampClass(time=modified_ts, actor=modified_actor),
+            lastModified=AuditStampClass(time=modified_ts, actor=modified_actor),
         )
 
-        # Convert chart URNs to chart edges (instead of deprecated charts field)
         chart_edges = []
-        cards_data = dashboard_details.get("dashcards", {})
-        for card_info in cards_data:
-            card_id = card_info.get("card").get("id", "")
+        for dashcard in dashboard.dashcards:
+            if not dashcard.card or not dashcard.card.id:
+                continue
+
+            card_id = dashcard.card.id
+
             if not card_id:
-                continue  # most likely a virtual card without an id (text or heading), not relevant.
+                continue
             chart_urn = builder.make_chart_urn(self.platform, str(card_id))
             chart_edges.append(
                 EdgeClass(
@@ -354,22 +640,206 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 )
             )
 
-        dashboard_info_class = DashboardInfoClass(
-            description=description,
-            title=title,
-            chartEdges=chart_edges,
-            lastModified=last_modified,
-            dashboardUrl=f"{self.config.display_uri}/dashboard/{dashboard_id}",
-            customProperties={},
+        dataset_edges = self.construct_dashboard_lineage(
+            dashboard, last_modified.lastModified
         )
-        dashboard_snapshot.aspects.append(dashboard_info_class)
 
-        # Ownership
-        ownership = self._get_ownership(dashboard_details.get("creator_id", ""))
-        if ownership is not None:
-            dashboard_snapshot.aspects.append(ownership)
+        # Emit dashboard info
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
+            aspect=DashboardInfoClass(
+                description=description,
+                title=title,
+                chartEdges=chart_edges,
+                lastModified=last_modified,
+                dashboardUrl=f"{self.config.display_uri}/dashboard/{dashboard_id}",
+                customProperties={},
+                datasetEdges=dataset_edges if dataset_edges else None,
+            ),
+        ).as_workunit()
 
-        return dashboard_snapshot
+        # Emit ownership
+        if dashboard.creator_id:
+            ownership = self._get_ownership(dashboard.creator_id)
+            if ownership is not None:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dashboard_urn,
+                    aspect=ownership,
+                ).as_workunit()
+
+        # Emit collection tags
+        tags = self._get_tags_from_collection(dashboard.collection_id)
+        if tags:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
+                aspect=tags,
+            ).as_workunit()
+
+    def construct_dashboard_lineage(
+        self, dashboard: MetabaseDashboard, last_modified: AuditStampClass
+    ) -> Optional[List[EdgeClass]]:
+        """
+        Construct dashboard lineage by extracting table dependencies from all charts in the dashboard.
+        This creates lineage from database tables to the dashboard using datasetEdges.
+        """
+        upstream_tables = []
+
+        for dashcard in dashboard.dashcards:
+            if not dashcard.card or not dashcard.card.id:
+                continue
+
+            card_id = dashcard.card.id
+
+            if not card_id:
+                continue
+
+            card = self.get_card_details_by_id(card_id)
+            if not card:
+                continue
+
+            table_urns = self._get_table_urns_from_card(card)
+            if table_urns:
+                upstream_tables.extend(table_urns)
+
+        unique_table_urns = list(set(upstream_tables))
+
+        if not unique_table_urns:
+            return None
+
+        dataset_edges = [
+            EdgeClass(
+                destinationUrn=table_urn,
+                lastModified=last_modified,
+            )
+            for table_urn in unique_table_urns
+        ]
+
+        return dataset_edges
+
+    def _check_recursion_limit(
+        self, recursion_depth: int, context: str, card_id: int
+    ) -> bool:
+        """Check if recursion limit is exceeded and report warning if so."""
+        if recursion_depth > DATASOURCE_URN_RECURSION_LIMIT:
+            self.report.report_warning(
+                title="Card Recursion Limit Exceeded",
+                message=f"Unable to extract lineage for {context}. Nested card reference depth exceeded limit.",
+                context=f"Card ID: {card_id}, Recursion Depth: {recursion_depth}, Limit: {DATASOURCE_URN_RECURSION_LIMIT}",
+            )
+            return True
+        return False
+
+    def _get_table_urns_from_card(
+        self, card: MetabaseCard, recursion_depth: int = 0
+    ) -> List[str]:
+        """
+        Extract table URNs from a card, handling both native queries and query builder queries.
+        Handles nested cards (cards referencing other cards) with recursion depth tracking.
+        """
+        if self._check_recursion_limit(recursion_depth, "card lineage", card.id):
+            return []
+
+        if not card.dataset_query:
+            return []
+
+        query_type = card.dataset_query.type
+
+        if query_type == "native":
+            return self._get_table_urns_from_native_query(card)
+        elif query_type == "query":
+            return self._get_table_urns_from_query_builder(card, recursion_depth)
+
+        return []
+
+    def _extract_native_query(self, card: MetabaseCard) -> Optional[str]:
+        """Extract native SQL query from card details."""
+        if card.dataset_query and card.dataset_query.native:
+            return card.dataset_query.native.query
+        return None
+
+    def _get_table_urns_from_native_query(self, card: MetabaseCard) -> List[str]:
+        """Extract table URNs from a native SQL query by parsing the SQL."""
+        if not card.database_id:
+            return []
+
+        datasource = self.get_datasource_from_id(card.database_id)
+        if not datasource or not datasource.platform:
+            return []
+
+        raw_query = self._extract_native_query(card)
+        if not raw_query:
+            return []
+
+        raw_query_stripped = self.strip_template_expressions(raw_query)
+
+        result = create_lineage_sql_parsed_result(
+            query=raw_query_stripped,
+            default_db=datasource.database_name,
+            default_schema=datasource.schema or self.config.default_schema,
+            platform=datasource.platform,
+            platform_instance=datasource.platform_instance,
+            env=self.config.env,
+            graph=self.ctx.graph,
+        )
+
+        if result.debug_info.table_error:
+            logger.debug(
+                "Failed to parse lineage from query: %s",
+                result.debug_info.table_error,
+            )
+
+        return [str(t) for t in result.in_tables]
+
+    def _get_table_urns_from_query_builder(
+        self, card: MetabaseCard, recursion_depth: int = 0
+    ) -> List[str]:
+        """
+        Extract table URNs from a query builder query by getting the source table ID.
+        Handles nested card references with recursion depth tracking.
+
+        Metabase's query builder allows cards to use other cards as data sources:
+        - Direct table reference: source-table: 123 (table ID)
+        - Card reference: source-table: "card__456" (references another card by ID)
+        """
+        if not card.dataset_query or not card.dataset_query.query:
+            return []
+
+        source_table_id = card.dataset_query.query.source_table
+
+        if not source_table_id:
+            return []
+
+        source_table_str = str(source_table_id)
+        if source_table_str.startswith("card__"):
+            referenced_card_id = source_table_str.replace("card__", "")
+            referenced_card = self.get_card_details_by_id(referenced_card_id)
+            if referenced_card:
+                return self._get_table_urns_from_card(
+                    referenced_card, recursion_depth + 1
+                )
+            return []
+
+        if not card.database_id:
+            return []
+
+        datasource = self.get_datasource_from_id(card.database_id)
+        if not datasource or not datasource.platform:
+            return []
+
+        schema_name, table_name = self.get_source_table_from_id(source_table_id)
+
+        if not table_name:
+            return []
+
+        name_components = [datasource.database_name, schema_name, table_name]
+        table_urn = builder.make_dataset_urn_with_platform_instance(
+            platform=datasource.platform,
+            name=".".join([v for v in name_components if v]),
+            platform_instance=datasource.platform_instance,
+            env=self.config.env,
+        )
+
+        return [table_urn]
 
     @lru_cache(maxsize=None)
     def _get_ownership(self, creator_id: int) -> Optional[OwnershipClass]:
@@ -377,7 +847,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         try:
             user_info_response = self.session.get(user_info_url)
             user_info_response.raise_for_status()
-            user_details = user_info_response.json()
+            user = MetabaseUser.model_validate(user_info_response.json())
         except HTTPError as http_error:
             if (
                 http_error.response is not None
@@ -389,15 +859,21 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     context=f"Creator ID: {creator_id}",
                 )
                 return None
-            # For cases when the error is not 404 but something else
             self.report.report_warning(
                 title="Failed to retrieve user",
                 message="Request to Metabase Failed",
                 context=f"Creator ID: {creator_id}, Error: {str(http_error)}",
             )
             return None
+        except ValidationError as e:
+            self.report.report_warning(
+                title="Invalid User Data",
+                message="User data from Metabase API failed validation.",
+                context=f"Creator ID: {creator_id}, Error: {str(e)}",
+            )
+            return None
 
-        owner_urn = builder.make_user_urn(user_details.get("email", ""))
+        owner_urn = builder.make_user_urn(user.email)
         if owner_urn is not None:
             ownership: OwnershipClass = OwnershipClass(
                 owners=[
@@ -411,17 +887,109 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         return None
 
-    def emit_card_mces(self) -> Iterable[MetadataWorkUnit]:
+    @lru_cache(maxsize=None)
+    def _get_collections_map(self) -> Dict[str, MetabaseCollection]:
+        """
+        Fetch all collections once and return as a dict keyed by collection ID.
+        Cached to avoid N+1 API calls when extracting tags for multiple entities.
+        """
+        try:
+            collections_response = self.session.get(
+                f"{self.config.connect_uri}/api/collection/"
+                f"?exclude-other-user-collections={json.dumps(self.config.exclude_other_user_collections)}"
+            )
+            collections_response.raise_for_status()
+            collections_data = collections_response.json()
+
+            # Parse each collection
+            collections_dict = {}
+            for coll_data in collections_data:
+                try:
+                    coll = MetabaseCollection.model_validate(coll_data)
+                    collections_dict[str(coll.id)] = coll
+                except ValidationError:
+                    # Skip invalid collections
+                    continue
+            return collections_dict
+        except HTTPError as http_error:
+            if (
+                http_error.response is not None
+                and http_error.response.status_code == 404
+            ):
+                # 404 is expected when collection features are disabled or unavailable
+                logger.debug("Collections endpoint not found: %s", str(http_error))
+                return {}
+            self.report.report_warning(
+                title="Failed to retrieve collections",
+                message="Unable to fetch collections from Metabase API",
+                context=f"Error: {str(http_error)} - Check API credentials and permissions",
+            )
+            return {}
+
+    def _sanitize_collection_name(self, collection_name: str) -> str:
+        """
+        Sanitize collection name for use in tag URNs.
+        Removes special characters that are invalid in tag URNs.
+        """
+        sanitized = collection_name.replace(" ", "_")
+        sanitized = _SPECIAL_CHARS_PATTERN.sub("", sanitized)
+        sanitized = sanitized.lower()
+        sanitized = _MULTIPLE_UNDERSCORES_PATTERN.sub("_", sanitized)
+        sanitized = sanitized.strip("_")
+        return sanitized
+
+    def _get_tags_from_collection(
+        self, collection_id: Optional[Union[int, str]]
+    ) -> Optional[GlobalTagsClass]:
+        """
+        Extract tags from a Metabase collection.
+        Maps collection names to DataHub tags for better organization and searchability.
+        Uses cached collection map for O(1) lookup instead of O(n) linear search.
+        """
+        if not self.config.extract_collections_as_tags or not collection_id:
+            return None
+
+        collections_map = self._get_collections_map()
+        collection = collections_map.get(str(collection_id))
+
+        if not collection:
+            logger.debug(
+                f"Collection {collection_id} not found in available collections"
+            )
+            return None
+
+        collection_name = self._sanitize_collection_name(collection.name)
+        if not collection_name:
+            logger.debug(
+                f"Collection {collection_id} has empty name after sanitization"
+            )
+            return None
+
+        tag_urn = builder.make_tag_urn(f"metabase_collection_{collection_name}")
+
+        return GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
+
+    def emit_chart_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Emit chart entities for non-model cards as work units."""
         try:
             card_response = self.session.get(f"{self.config.connect_uri}/api/card")
             card_response.raise_for_status()
             cards = card_response.json()
 
-            for card_info in cards:
-                chart_snapshot = self.construct_card_from_api_data(card_info)
-                if chart_snapshot is not None:
-                    mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                    yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+            for card_data in cards:
+                try:
+                    card_info = MetabaseCardListItem.model_validate(card_data)
+                    # Models are emitted as datasets by emit_model_workunits()
+                    if self.config.extract_models and card_info.type == "model":
+                        continue
+
+                    yield from self._emit_chart_workunits(card_info)
+                except ValidationError as e:
+                    self.report.report_warning(
+                        title="Invalid Card List Item",
+                        message="Card list item failed validation.",
+                        context=f"Error: {str(e)}",
+                    )
 
         except HTTPError as http_error:
             self.report.report_failure(
@@ -429,71 +997,63 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 message="Request to retrieve cards from Metabase failed.",
                 context=f"Error: {str(http_error)}",
             )
-            return None
+            return
 
-    def get_card_details_by_id(self, card_id: Union[int, str]) -> dict:
-        """
-        Method will attempt to get detailed information on card
-        from Metabase API by card ID and return this info as dict.
-        If information can't be retrieved, an empty dict is returned
-        to unify return value of failed call with successful call of the method.
-        :param Union[int, str] card_id: ID of card (question) in Metabase
-        :param int datasource_id: Numeric datasource ID received from Metabase API
-        :return: dict with info or empty dict
-        """
+    def get_card_details_by_id(
+        self, card_id: Union[int, str]
+    ) -> Optional[MetabaseCard]:
+        """Fetch card details by ID from Metabase API."""
         card_url = f"{self.config.connect_uri}/api/card/{card_id}"
         try:
             # Use legacy-mbql=true to get MBQL 4 format for compatibility.
             # Metabase 0.57+ returns MBQL 5 by default which has a different structure.
             card_response = self.session.get(card_url, params={"legacy-mbql": "true"})
             card_response.raise_for_status()
-            return card_response.json()
+            return MetabaseCard.model_validate(card_response.json())
         except HTTPError as http_error:
             self.report.report_warning(
                 title="Unable to Retrieve Card",
                 message="Request to retrieve Card from Metabase failed.",
                 context=f"Card ID: {card_id}, Error: {str(http_error)}",
             )
-            return {}
-
-    def construct_card_from_api_data(self, card_data: dict) -> Optional[ChartSnapshot]:
-        card_id = card_data.get("id")
-        if card_id is None:
+            return None
+        except ValidationError as e:
             self.report.report_warning(
-                title="Card is missing 'id'",
-                message="Unable to get field id from card data.",
-                context=f"Card Details: {str(card_data)}",
+                title="Invalid Card Data",
+                message="Card data from Metabase API failed validation.",
+                context=f"Card ID: {card_id}, Error: {str(e)}",
             )
             return None
 
-        card_details = self.get_card_details_by_id(card_id)
+    def _emit_chart_workunits(
+        self, card_info: MetabaseCardListItem
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit workunits for a Metabase Chart using MCPs."""
+        # Fetch full card details
+        card_details = self.get_card_details_by_id(card_info.id)
         if not card_details:
-            self.report.report_warning(
-                title="Missing Card Details",
-                message="Unable to construct Card due to empty card details",
-                context=f"Card ID: {card_id}",
-            )
-            return None
+            return
 
-        chart_urn = builder.make_chart_urn(self.platform, str(card_id))
-        chart_snapshot = ChartSnapshot(
-            urn=chart_urn,
-            aspects=[],
-        )
+        chart_urn = builder.make_chart_urn(self.platform, str(card_details.id))
 
-        last_edit_by = card_details.get("last-edit-info") or {}
-        modified_actor = builder.make_user_urn(last_edit_by.get("email", "unknown"))
-        modified_ts = self.get_timestamp_millis_from_ts_string(
-            f"{last_edit_by.get('timestamp')}"
-        )
-        last_modified = ChangeAuditStamps(
+        last_edit_info = card_details.last_edit_info
+        if last_edit_info:
+            email = last_edit_info.email or "unknown"
+            timestamp = last_edit_info.timestamp
+        else:
+            email = "unknown"
+            timestamp = None
+
+        modified_actor = builder.make_user_urn(email)
+        modified_ts = self.get_timestamp_millis_from_ts_string(f"{timestamp}")
+        last_modified = ChangeAuditStampsClass(
             created=None,
-            lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
+            lastModified=AuditStampClass(time=modified_ts, actor=modified_actor),
         )
 
-        chart_type = self._get_chart_type(card_id, card_details.get("display") or "")
-        description = card_details.get("description") or ""
-        title = card_details.get("name") or ""
+        chart_type = self._get_chart_type(card_details.id, card_details.display or "")
+        description = card_details.description or ""
+        title = card_details.name
         datasource_urn = self.get_datasource_urn(card_details)
         custom_properties = self.construct_card_custom_properties(card_details)
 
@@ -509,33 +1069,48 @@ class MetabaseSource(StatefulIngestionSourceBase):
             else None
         )
 
-        chart_info = ChartInfoClass(
-            type=chart_type,
-            description=description,
-            title=title,
-            lastModified=last_modified,
-            chartUrl=f"{self.config.display_uri}/card/{card_id}",
-            inputEdges=input_edges,
-            customProperties=custom_properties,
-        )
-        chart_snapshot.aspects.append(chart_info)
+        # Emit chart info
+        yield MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
+            aspect=ChartInfoClass(
+                type=chart_type,
+                description=description,
+                title=title,
+                lastModified=last_modified,
+                chartUrl=f"{self.config.display_uri}/card/{card_details.id}",
+                inputEdges=input_edges,
+                customProperties=custom_properties,
+            ),
+        ).as_workunit()
 
-        if card_details.get("query_type", "") == "native":
-            raw_query = (
-                card_details.get("dataset_query", {}).get("native", {}).get("query", "")
-            )
-            chart_query_native = ChartQueryClass(
-                rawQuery=raw_query,
-                type=ChartQueryTypeClass.SQL,
-            )
-            chart_snapshot.aspects.append(chart_query_native)
+        # Emit chart query for native SQL
+        if card_details.query_type == "native":
+            raw_query = self._extract_native_query(card_details)
+            if raw_query:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=chart_urn,
+                    aspect=ChartQueryClass(
+                        rawQuery=raw_query,
+                        type=ChartQueryTypeClass.SQL,
+                    ),
+                ).as_workunit()
 
-        # Ownership
-        ownership = self._get_ownership(card_details.get("creator_id", ""))
-        if ownership is not None:
-            chart_snapshot.aspects.append(ownership)
+        # Emit ownership
+        if card_details.creator_id:
+            ownership = self._get_ownership(card_details.creator_id)
+            if ownership is not None:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=chart_urn,
+                    aspect=ownership,
+                ).as_workunit()
 
-        return chart_snapshot
+        # Emit collection tags
+        tags = self._get_tags_from_collection(card_details.collection_id)
+        if tags is not None:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=tags,
+            ).as_workunit()
 
     def _get_chart_type(self, card_id: int, display_type: str) -> Optional[str]:
         type_mapping = {
@@ -575,113 +1150,46 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         return chart_type
 
-    def construct_card_custom_properties(self, card_details: dict) -> Dict:
-        result_metadata = card_details.get("result_metadata") or []
+    def construct_card_custom_properties(self, card: MetabaseCard) -> Dict[str, str]:
+        """Construct custom properties from card for chart aspect."""
+        result_metadata = card.result_metadata or []
         metrics, dimensions = [], []
         for meta_data in result_metadata:
-            display_name = meta_data.get("display_name", "") or ""
-            (
-                metrics.append(display_name)
-                if "aggregation" in meta_data.get("field_ref", "")
-                else dimensions.append(display_name)
-            )
+            display_name = meta_data.display_name or ""
+            field_ref = meta_data.field_ref or ""
 
-        filters = (card_details.get("dataset_query", {}).get("query", {})).get(
-            "filter", []
-        )
+            if "aggregation" in str(field_ref):
+                metrics.append(display_name)
+            else:
+                dimensions.append(display_name)
+
+        filters = []
+        if card.dataset_query and card.dataset_query.query:
+            filters = card.dataset_query.query.filter or []
 
         custom_properties = {
             "Metrics": ", ".join(metrics),
-            "Filters": f"{filters}" if len(filters) else "",
+            "Filters": f"{filters}" if filters else "",
             "Dimensions": ", ".join(dimensions),
         }
 
         return custom_properties
 
     def get_datasource_urn(
-        self, card_details: dict, recursion_depth: int = 0
-    ) -> Optional[List]:
-        if recursion_depth > DATASOURCE_URN_RECURSION_LIMIT:
-            self.report.report_warning(
-                title="Unable to Retrieve Card Info",
-                message="Unable to retrieve Card info. Source table recursion depth exceeded.",
-                context=f"Card Details: {card_details}",
-            )
-            return None
+        self, card: MetabaseCard, recursion_depth: int = 0
+    ) -> Optional[List[str]]:
+        """
+        Extract datasource URNs from a card.
+        This method now delegates to _get_table_urns_from_card() to avoid code duplication.
+        Maintains backward compatibility with existing recursion_depth parameter.
+        """
+        if self._check_recursion_limit(
+            recursion_depth, "datasource URN extraction", card.id
+        ):
+            return []
 
-        datasource_id = card_details.get("database_id") or ""
-        (
-            platform,
-            database_name,
-            database_schema,
-            platform_instance,
-        ) = self.get_datasource_from_id(datasource_id)
-        if not platform:
-            self.report.report_warning(
-                title="Unable to find Data Platform",
-                message="Unable to detect Data Platform for database id",
-                context=f"Data Source ID: {datasource_id}",
-            )
-            return None
-
-        query_type = card_details.get("dataset_query", {}).get("type", {})
-
-        if query_type == "query":
-            source_table_id = (
-                card_details.get("dataset_query", {})
-                .get("query", {})
-                .get("source-table")
-                or ""
-            )
-            if str(source_table_id).startswith("card__"):
-                # question is built not directly from table in DB but from results of other question in Metabase
-                # trying to get source table from source question. Recursion depth is limited
-                return self.get_datasource_urn(
-                    card_details=self.get_card_details_by_id(
-                        source_table_id.replace("card__", "")
-                    ),
-                    recursion_depth=recursion_depth + 1,
-                )
-            elif source_table_id != "":
-                # the question is built directly from table in DB
-                schema_name, table_name = self.get_source_table_from_id(source_table_id)
-                if table_name:
-                    name_components = [database_name, schema_name, table_name]
-                    return [
-                        builder.make_dataset_urn_with_platform_instance(
-                            platform=platform,
-                            name=".".join([v for v in name_components if v]),
-                            platform_instance=platform_instance,
-                            env=self.config.env,
-                        )
-                    ]
-        else:
-            raw_query_stripped = self.strip_template_expressions(
-                card_details.get("dataset_query", {}).get("native", {}).get("query", "")
-            )
-
-            result = create_lineage_sql_parsed_result(
-                query=raw_query_stripped,
-                default_db=database_name,
-                default_schema=database_schema or self.config.default_schema,
-                platform=platform,
-                platform_instance=platform_instance,
-                env=self.config.env,
-                graph=self.ctx.graph,
-            )
-            if result.debug_info.table_error:
-                logger.info(
-                    f"Failed to parse lineage from query {raw_query_stripped}: "
-                    f"{result.debug_info.table_error}"
-                )
-                self.report.report_warning(
-                    title="Failed to Extract Lineage",
-                    message="Unable to retrieve lineage from query",
-                    context=f"Query: {raw_query_stripped}",
-                )
-            return result.in_tables
-
-        return None
+        table_urns = self._get_table_urns_from_card(card, recursion_depth)
+        return table_urns if table_urns else None if table_urns else None
 
     @staticmethod
     def strip_template_expressions(raw_query: str) -> str:
@@ -694,10 +1202,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
         reference: https://www.metabase.com/docs/latest/questions/native-editor/sql-parameters
         """
 
-        # drop [[ WHERE {{FILTER}} ]]
+        # Metabase SQL templates use {{variable}} and [[optional clauses]] syntax
+        # SQL parsers don't understand these, so we strip them to extract table lineage
         query_patched = re.sub(r"\[\[.+?\]\]", r" ", raw_query)
-
-        # replace {{FILTER}} with 1
         query_patched = re.sub(r"\{\{.+?\}\}", r"1", query_patched)
         return query_patched
 
@@ -710,10 +1217,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 f"{self.config.connect_uri}/api/table/{table_id}"
             )
             dataset_response.raise_for_status()
-            dataset_json = dataset_response.json()
-            schema = dataset_json.get("schema", "")
-            name = dataset_json.get("name", "")
-            return schema, name
+            table = MetabaseTable.model_validate(dataset_response.json())
+            return table.schema_, table.name
 
         except HTTPError as http_error:
             self.report.report_warning(
@@ -741,14 +1246,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
         :return: platform instance name or None
         """
         platform_instance = None
-        # For cases when metabase has several platform instances (e.g. several individual ClickHouse clusters)
+        # Allows users to distinguish prod-clickhouse vs dev-clickhouse, or us-east-postgres vs eu-west-postgres
         if datasource_id is not None and self.config.database_id_to_instance_map:
             platform_instance = self.config.database_id_to_instance_map.get(
                 str(datasource_id)
             )
 
-        # If Metabase datasource ID is not mapped to platform instace, fall back to platform mapping
-        # Set platform_instance if configuration provides a mapping from platform name to instance
         if platform and self.config.platform_instance_map and platform_instance is None:
             platform_instance = self.config.platform_instance_map.get(platform)
 
@@ -757,26 +1260,31 @@ class MetabaseSource(StatefulIngestionSourceBase):
     @lru_cache(maxsize=None)
     def get_datasource_from_id(
         self, datasource_id: Union[int, str]
-    ) -> Tuple[str, Optional[str], Optional[str], Optional[str]]:
+    ) -> Optional[DatasourceInfo]:
         try:
             dataset_response = self.session.get(
                 f"{self.config.connect_uri}/api/database/{datasource_id}"
             )
             dataset_response.raise_for_status()
-            dataset_json = dataset_response.json()
+            database = MetabaseDatabase.model_validate(dataset_response.json())
         except HTTPError as http_error:
             self.report.report_warning(
                 title="Unable to Retrieve Data Source",
                 message="Request to retrieve data source from Metabase failed.",
                 context=f"Data Source ID: {datasource_id}, Error: {str(http_error)}",
             )
-            # returning empty string as `platform` because
-            # `make_dataset_urn_with_platform_instance()` only accepts `str`
-            return "", None, None, None
+            return None
+        except ValidationError as e:
+            self.report.report_warning(
+                title="Invalid Database Data",
+                message="Database data from Metabase API failed validation.",
+                context=f"Database ID: {datasource_id}, Error: {str(e)}",
+            )
+            return None
 
         # Map engine names to what datahub expects in
         # https://github.com/datahub-project/datahub/blob/master/metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml
-        engine = dataset_json.get("engine", "")
+        engine = database.engine
 
         engine_mapping = {
             "sparksql": "spark",
@@ -800,30 +1308,17 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 context=f"Platform: {platform}",
             )
 
-        platform_instance = self.get_platform_instance(
-            platform, dataset_json.get("id", None)
-        )
+        platform_instance = self.get_platform_instance(platform, database.id)
 
-        field_for_dbname_mapping = {
-            "postgres": "dbname",
-            "sparksql": "dbname",
-            "mongo": "dbname",
-            "redshift": "db",
-            "snowflake": "db",
-            "presto-jdbc": "catalog",
-            "presto": "catalog",
-            "mysql": "dbname",
-            "sqlserver": "db",
-            "bigquery-cloud-sdk": "project-id",
-        }
+        # Extract database name and schema from details
+        dbname = None
+        schema = None
+        if database.details and engine in METABASE_DATABASE_FIELD_MAPPING:
+            field_name = METABASE_DATABASE_FIELD_MAPPING[engine]
+            dbname = getattr(database.details, field_name, None)
 
-        dbname = (
-            dataset_json.get("details", {}).get(field_for_dbname_mapping[engine])
-            if engine in field_for_dbname_mapping
-            else None
-        )
-
-        schema = dataset_json.get("details", {}).get("schema")
+        if database.details:
+            schema = database.details.schema_
 
         if (
             self.config.database_alias_map is not None
@@ -837,7 +1332,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 context=f"Platform: {platform}",
             )
 
-        return platform, dbname, schema, platform_instance
+        return DatasourceInfo(
+            platform=platform,
+            database_name=dbname,
+            schema=schema,
+            platform_instance=platform_instance,
+        )
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -847,9 +1347,195 @@ class MetabaseSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
+    def _is_metabase_model(self, card_info: MetabaseCardListItem) -> bool:
+        """
+        Check if a card is a Metabase Model.
+        Models are special saved questions that can be used as data sources for other questions.
+        They act like views - you can query a model instead of the underlying tables.
+        Introduced in Metabase v0.41+
+        """
+        return card_info.type == "model"
+
+    def emit_model_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Emit Metabase Models as Dataset entities as work units."""
+        if not self.config.extract_models:
+            return
+
+        try:
+            card_response = self.session.get(f"{self.config.connect_uri}/api/card")
+            card_response.raise_for_status()
+            cards = card_response.json()
+
+            for card_data in cards:
+                try:
+                    card_info = MetabaseCardListItem.model_validate(card_data)
+                    if card_info.type != "model":
+                        continue
+
+                    yield from self._emit_model_workunits(card_info)
+                except ValidationError as e:
+                    self.report.report_warning(
+                        title="Invalid Model List Item",
+                        message="Model list item failed validation.",
+                        context=f"Error: {str(e)}",
+                    )
+
+        except HTTPError as http_error:
+            self.report.report_failure(
+                title="Unable to Retrieve Models",
+                message="Request to retrieve models from Metabase failed.",
+                context=f"Error: {str(http_error)}",
+            )
+
+    def _map_metabase_type_to_datahub_type(
+        self, metabase_type: str
+    ) -> Union[
+        NumberTypeClass,
+        StringTypeClass,
+        BooleanTypeClass,
+        EnumTypeClass,
+        BytesTypeClass,
+        DateTypeClass,
+        TimeTypeClass,
+        NullTypeClass,
+    ]:
+        """Map Metabase base_type (e.g. "type/Integer") to DataHub type."""
+        for type_keyword, datahub_class in METABASE_TYPE_TO_DATAHUB_TYPE.items():
+            if type_keyword in metabase_type:
+                return datahub_class()
+
+        return NullTypeClass()
+
+    def _get_schema_fields_from_result_metadata(
+        self, result_metadata: List[MetabaseResultMetadata]
+    ) -> List[SchemaFieldClass]:
+        """Extract schema fields from Metabase result_metadata."""
+        schema_fields: List[SchemaFieldClass] = []
+
+        for field_meta in result_metadata:
+            field_name = field_meta.name or field_meta.display_name or ""
+            base_type = field_meta.base_type or ""
+            display_name = field_meta.display_name or field_name
+
+            if not field_name:
+                continue
+
+            data_type = self._map_metabase_type_to_datahub_type(base_type)
+
+            schema_field = SchemaFieldClass(
+                fieldPath=field_name,
+                type=SchemaFieldDataTypeClass(type=data_type),
+                nativeDataType=base_type,
+                description=display_name,
+                nullable=True,
+            )
+            schema_fields.append(schema_field)
+
+        return schema_fields
+
+    def _emit_model_workunits(
+        self, card_info: MetabaseCardListItem
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit workunits for a Metabase Model using MCPs."""
+        # Fetch full card details
+        card = self.get_card_details_by_id(card_info.id)
+        if not card:
+            return
+
+        model_urn = builder.make_dataset_urn(
+            platform="metabase",
+            name=f"model.{card.id}",
+            env=self.config.env,
+        )
+
+        # Emit dataset properties
+        yield MetadataChangeProposalWrapper(
+            entityUrn=model_urn,
+            aspect=DatasetPropertiesClass(
+                name=card.name,
+                description=card.description or "",
+                customProperties={
+                    "model_id": str(card.id),
+                    "display_type": card.display or "",
+                    "metabase_url": f"{self.config.display_uri}/model/{card.id}",
+                },
+            ),
+        ).as_workunit()
+
+        # Emit schema metadata
+        if card.result_metadata:
+            schema_fields = self._get_schema_fields_from_result_metadata(
+                card.result_metadata
+            )
+            if schema_fields:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=model_urn,
+                    aspect=SchemaMetadataClass(
+                        schemaName=card.name,
+                        platform=f"urn:li:dataPlatform:{self.platform}",
+                        version=0,
+                        hash="",
+                        platformSchema=MySqlDDLClass(tableSchema=""),
+                        fields=schema_fields,
+                    ),
+                ).as_workunit()
+
+        # Emit subtypes
+        yield MetadataChangeProposalWrapper(
+            entityUrn=model_urn,
+            aspect=SubTypesClass(typeNames=["Model", "View"]),
+        ).as_workunit()
+
+        # Emit view properties if SQL query exists
+        if card.dataset_query and card.query_type == "native":
+            raw_query = self._extract_native_query(card)
+            if raw_query:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=model_urn,
+                    aspect=ViewPropertiesClass(
+                        materialized=False,
+                        viewLogic=raw_query,
+                        viewLanguage="SQL",
+                    ),
+                ).as_workunit()
+
+        # Emit upstream lineage
+        table_urns = self._get_table_urns_from_card(card)
+        if table_urns:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=model_urn,
+                aspect=UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=table_urn,
+                            type=DatasetLineageTypeClass.TRANSFORMED,
+                        )
+                        for table_urn in table_urns
+                    ]
+                ),
+            ).as_workunit()
+
+        # Emit ownership
+        if card.creator_id:
+            ownership = self._get_ownership(card.creator_id)
+            if ownership is not None:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=model_urn,
+                    aspect=ownership,
+                ).as_workunit()
+
+        # Emit collection tags
+        tags = self._get_tags_from_collection(card.collection_id)
+        if tags:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=model_urn,
+                aspect=tags,
+            ).as_workunit()
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.emit_card_mces()
-        yield from self.emit_dashboard_mces()
+        yield from self.emit_chart_workunits()
+        yield from self.emit_dashboard_workunits()
+        yield from self.emit_model_workunits()
 
     def get_report(self) -> SourceReport:
         return self.report
