@@ -115,7 +115,10 @@ def _restore_mssql_temp_table_prefix(
 
     table_name = identifier.name if hasattr(identifier, "name") else table.name
 
-    is_global_temp = identifier.args.get("global", False)
+    # Note: sqlglot v28+ uses "global_" instead of "global"
+    is_global_temp = identifier.args.get("global_", False) or identifier.args.get(
+        "global", False
+    )
     is_local_temp = identifier.args.get("temporary", False)
 
     if is_global_temp and not table_name.startswith("##"):
@@ -176,7 +179,10 @@ def _table_name_from_sqlglot_table(
         # Only restore prefix on the final part (the actual table name)
         final_part = exp.name
         if is_dialect_instance(dialect, ["mssql"]) and hasattr(exp, "args"):
-            is_global_temp = exp.args.get("global", False)
+            # Note: sqlglot v28+ uses "global_" instead of "global"
+            is_global_temp = exp.args.get("global_", False) or exp.args.get(
+                "global", False
+            )
             is_local_temp = exp.args.get("temporary", False)
             if is_global_temp and not final_part.startswith("##"):
                 final_part = f"##{final_part}"
