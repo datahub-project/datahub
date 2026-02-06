@@ -3472,3 +3472,196 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **cf8a31a644** - fix(fivetran): databricks auth issue (#15996)
   *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-01-28*
+
+## Upstream Merge Session - 2026-02-06 09:18:01
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 60
+- **Strategy**: stacked
+- **Started**: 2026-02-06 09:18:01
+
+### Commits Included in This Merge
+
+- **01cab0b9e0** - feat(validation): add aspect size validation (#15753)
+  *by rob-1019 <rob.caskey@datahub.com> on 2026-01-28*
+
+- **9ee70852f4** - feat(mcp tools): create agent-context package for oss tool (#15994)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-01-28*
+
+- **b8e86b8190** - feat(snowflake): add usage statistics extraction for semantic views (#15979)
+  *by kyungsoo-datahub <kyungsoo.lee@datahub.com> on 2026-01-28*
+
+- **2cb5fcba4e** - CAT-1292: allow configuration of reset password expiration (#16003)
+  *by ani-malgari <anirudh.malgari@datahub.com> on 2026-01-28*
+
+- **663dd1a0b5** - fix(release permissions): allow release script to execute (#16005)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-01-28*
+
+- **84e151ecab** - fix(document search tool): fix document search tool (#16009)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-01-28*
+
+- **d60933d689** - add docs for agent-context (#16011)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-01-28*
+
+- **b10d3c4473** - test(sqlparsing): adjust minimum throughput threshold for CI (#16015)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-01-29*
+
+- **c4016815b5** - feat(iceberg): add sizeInBytes to Iceberg profiler (#16001)
+  *by Harsh Sharma <harshsrharsh@gmail.com> on 2026-01-29*
+
+- **404ba6101b** - fix(read_documents): use correct graphql operation (#16013)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-01-29*
+
+- **7770202ef0** - feat(powerbi): Add DirectLake lineage extraction for Microsoft Fabric (#15927)
+  *by Anush Kumar <anush.kumar@datahub.com> on 2026-01-30*
+
+- **2d52822fec** - fix(ci): restore Java 8 compatibility check and fix code for Java 8 (#16025)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-01-30*
+
+- **50986061ca** - fix(powerbi): update dataset and workspace key generation to include platform instance and environment parameters (#16023)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-01-30*
+
+- **1d2794f31a** - fix(cypress): bring fixes from saas (#15920)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-01-30*
+
+- **5dbfae692e** - fix(cypress): fix mutationsV2/v2_managing_secrets.js test (#15922)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-01-30*
+
+- **4b97d74174** - fix(cypress): fix domains/nested_domains.js test (#15923)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-01-30*
+
+- **771676b5f9** - fix(ui) Default to show new UI/nav bar/home page before appConfig is loaded (#15974)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-01-30*
+
+- **6f60da9868** - improve(ui/components): update styles of executor selector (#16000)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-01-30*
+
+- **e584a38fa0** - refactor(ingest/databricks): use separate connection per profiling thread (#15852)
+  *by Michael Maltese <michael.maltese@datahub.com> on 2026-01-30*
+
+- **30943e96aa** - feat(ingest/config_loader): support HTTP urls with username/password (#15936)
+  *by Michael Maltese <michael.maltese@datahub.com> on 2026-01-30*
+
+- **025e16f90b** - fix(applications): add proper permissions check for application creation (#16027)
+  *by Kevin Karch <kevin.karch@acryl.io> on 2026-01-30*
+
+- **435268ba5b** - docs(ingestion): adding additional details to security comparison (#15803)
+  *by Gabe Lyons <gabe.lyons@acryl.io> on 2026-01-30*
+
+- **0b169a0546** - fix(ci): use dynamic base branch in check-python-deps workflow (#16037)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-02-01*
+
+- **e68a12d1a5** - chore(pyiceberg): updated pyiceberg documentation and test scripts for big-lake connector (#15985)
+  *by Alok Ranjan <alok.ranjan@datahub.com> on 2026-02-02*
+
+- **8982a0ea8d** - feat(sdk): automatically parse lineage from view definitions (#15926)
+  *by Alfiya S <alfiya.samiulla@datahub.com> on 2026-02-02*
+
+- **9fb19e948d** - fix(frontend): enable GzipFilter (#16036)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-02*
+
+- **6a2d30eac3** - feat(dbt): add dbt source freshness assertions support (#15885)
+  *by Benjamin Maquet <ben.maquet@consensys.net> on 2026-02-02*
+
+- **e27a376ef8** - feat(ingest): add Confluence source connector with semantic search su… (#16052)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-02-02*
+
+- **008bca26b7** - fix(agent-context): fix _is_datahub_cloud check for OSS (#16053)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-02-02*
+
+- **40b84604eb** - feat(cli): make init command agent-friendly for automation and long-running workflows (#16038)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-02-02*
+
+- **c81d027f6b** - feat(dynamodb): Add support for ingesting AWS resource tags from DynamoDB tables (#15940)
+  *by Aviraj Gour <252974426+aviraj-gour@users.noreply.github.com> on 2026-02-03*
+
+- **4f0c058144** - tests(sqlparsing): snowflake create statement with tags (#16061)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-02-03*
+
+- **8a5a308092** - feat(dbt): emit Query entities from meta.queries field (#15150) (#15386)
+  *by Dinesh Verma <dinesh.mca.iitr@gmail.com> on 2026-02-04*
+
+- **2ea1f963a1** - feat(snowflake agent): add generators for snowflake sql agent (#16032)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-02-03*
+
+- **652bb76790** - docs: add snowflake agent docs (#16017)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-02-03*
+
+- **7ed3f40e8a** - feat(assertions): Patch AssertionInfo in Great Expectations Ingestion when one exists already (#16047)
+  *by Adrian Machado <adrian.machado@datahub.com> on 2026-02-03*
+
+- **ed4a2791bd** - fix(notion): handle synced blocks and better logging for embedding failures (#16055)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-02-03*
+
+- **e723ebd890** - fix(ingest): confluence connector should emit browse paths (#16056)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-02-03*
+
+- **d50ab369d1** - docs: add Gradle-first guidance for linting and formatting (#16066)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-02-03*
+
+- **1871df1074** - chore(deps): bump lodash from 4.17.21 to 4.17.23 in /smoke-test/tests/cypress (#15964)
+  *by dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com> on 2026-02-03*
+
+- **a1e4f05ba2** - build(deps): bump lodash from 4.17.21 to 4.17.23 in /datahub-web-react (#15944)
+  *by dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com> on 2026-02-03*
+
+- **fa09dbca1e** - build(deps): bump lodash-es from 4.17.21 to 4.17.23 in /docs-website (#15943)
+  *by dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com> on 2026-02-03*
+
+- **b3d783145f** - chore(deps): bump lodash-es from 4.17.21 to 4.17.23 in /datahub-web-react (#15965)
+  *by dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com> on 2026-02-03*
+
+- **e234e3a06f** - build(deps): bump diff from 5.0.0 to 8.0.3 in /datahub-web-react (#15880)
+  *by dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com> on 2026-02-03*
+
+- **6c2ddd58be** - docs(agent-context): improve documentation for AI and developer usability (#16065)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-02-03*
+
+- **7882f10820** - chore(release): Fix dependabot warnings for Storybook.  (#16070)
+  *by John Joyce <john@acryl.io> on 2026-02-03*
+
+- **05c2591c2a** - chore(deps): bump js-yaml from 4.1.0 to 4.1.1 in /smoke-test/tests/cypress (#15363)
+  *by dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com> on 2026-02-03*
+
+- **09c6fc163e** - chore(deps): bump js-yaml from 4.1.0 to 4.1.1 in /datahub-web-react (#15336)
+  *by dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com> on 2026-02-03*
+
+- **b695458e04** - fix(ingest): Remove pinned datahub-context-kit dependency for Snowflake agent (#16073)
+  *by John Joyce <john@acryl.io> on 2026-02-03*
+
+- **41d5110942** - feat(save_document tool): add save_document tool to datahub-agent-con… (#16069)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-02-03*
+
+- **df9ab6f754** - feat(semantic-search): add OpenAI and Cohere embedding providers (#16071)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-02-03*
+
+- **fc05603871** - feat(snowflake): added retry logic to snowflake ingestion, to make ingestion more stable (#15898)
+  *by Rajat Singh <rajats2502@gmail.com> on 2026-02-04*
+
+- **7eb9abf16e** - test(ingest): add PEP 508 validation for setup.py dependencies (#16079)
+  *by Tamas Nemeth <treff7es@gmail.com> on 2026-02-04*
+
+- **8a5e460da9** - feat(postgres): added lineage support from query history (#15924)
+  *by Alok Ranjan <alok.ranjan@datahub.com> on 2026-02-04*
+
+- **12c21e8c8a** - fix(snowflake): add missing tenacity dependency for retry logic (#16083)
+  *by Rajat Singh <rajats2502@gmail.com> on 2026-02-04*
+
+- **b5539be7fa** - docs(): Adding service account user guide  (#16072)
+  *by John Joyce <john@acryl.io> on 2026-02-04*
+
+- **dff1b4e5e9** - feat(ingestion): add set_attribution transformer with GenericJsonPatch support (#15790)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-02-04*
+
+- **894a866024** - feat(semantic document search): add semantic document search to datah… (#16076)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-02-04*
+
+- **07639b5067** - fix(ingest/config_loader): call requests.raise_for_status in load_config_file (#15935)
+  *by Michael Maltese <michael.maltese@datahub.com> on 2026-02-04*
+
+- **2dd918ea60** - fix(agent-context-docs): update agent-context docs with latest changes (#16086)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-02-04*
