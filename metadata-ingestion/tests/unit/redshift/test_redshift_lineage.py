@@ -216,6 +216,30 @@ class TestSigmaSqlPreprocessing:
         """
         assert preprocess_query_for_sigma(query) == query
 
+    def test_common_words_not_corrupted(self) -> None:
+        """Words starting with SQL keywords should NOT be corrupted."""
+        # Words starting with "and" - android, anderson, etc.
+        query = "WHERE android_version > 10"
+        assert preprocess_query_for_sigma(query) == query
+        query = "SELECT anderson_count FROM users"
+        assert preprocess_query_for_sigma(query) == query
+
+        # Words starting with "when" - whenever, whence
+        query = "CASE WHEN whenever_flag > 0 THEN 1 END"
+        assert preprocess_query_for_sigma(query) == query
+
+        # Words starting with "select" - selection, selector, selectivity
+        query = "SELECT selection_id, selector, selectivity FROM t"
+        assert preprocess_query_for_sigma(query) == query
+
+        # Words starting with "else" - elsewhere
+        query = "SELECT elsewhere.col FROM t"
+        assert preprocess_query_for_sigma(query) == query
+
+        # Words starting with "then" - thence
+        query = "CASE WHEN x THEN thence.value ELSE 0 END"
+        assert preprocess_query_for_sigma(query) == query
+
 
 def get_lineage_extractor() -> RedshiftSqlLineage:
     config = RedshiftConfig(
