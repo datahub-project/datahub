@@ -22,22 +22,25 @@ def test_git_info_validator_handles_non_dict_input() -> None:
         GitInfo.model_validate("not_a_dict")
 
 
-def test_git_info_validator_handles_dict_with_deploy_key_file(tmp_path: pathlib.Path) -> None:
+def test_git_info_validator_handles_dict_with_deploy_key_file(
+    tmp_path: pathlib.Path,
+) -> None:
     """GitInfo validator properly processes dict inputs with deploy_key_file."""
     # Create a temporary deploy key file
     key_file = tmp_path / "deploy_key"
-    key_file.write_text("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC...")
-    
+    test_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
+    key_file.write_text(test_key)
+
     git_info = GitInfo.model_validate({
         "repo": "https://github.com/org/repo",
         "branch": "main",
         "deploy_key_file": str(key_file),
     })
-    
+
     assert git_info.repo == "https://github.com/org/repo"
     assert git_info.branch == "main"
     assert git_info.deploy_key is not None
-    assert git_info.deploy_key.get_secret_value() == "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
+    assert git_info.deploy_key.get_secret_value() == test_key
 
 
 @pytest.fixture
