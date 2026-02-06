@@ -420,6 +420,11 @@ public class SearchTestUtils {
           public DataHubAppConfiguration getDataHubAppConfig() {
             return new DataHubAppConfiguration();
           }
+
+          @Override
+          public int getMaxParentDepth() {
+            return 50;
+          }
         });
   }
 
