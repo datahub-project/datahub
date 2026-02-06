@@ -1,4 +1,4 @@
-import { FieldType, RecipeField, setListValuesOnRecipe } from './common';
+import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
 
 const urlFieldPath = 'source.config.url';
 export const CONFLUENCE_URL: RecipeField = {

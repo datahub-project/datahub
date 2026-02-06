@@ -1,4 +1,4 @@
-import { FieldType, RecipeField, setListValuesOnRecipe } from './common';
+import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
 
 const apiKeyFieldPath = 'source.config.api_key';
 export const NOTION_API_KEY: RecipeField = {
