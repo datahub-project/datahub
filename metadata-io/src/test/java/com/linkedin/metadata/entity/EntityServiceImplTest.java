@@ -109,6 +109,7 @@ public class EntityServiceImplTest {
             mock(PreProcessHooks.class),
             0,
             true,
+            EntityServiceConfiguration.EMPTY,
             null);
 
     // Create test aspects
@@ -515,6 +516,7 @@ public class EntityServiceImplTest {
             mock(PreProcessHooks.class),
             0,
             true,
+            EntityServiceConfiguration.EMPTY,
             null); // metricUtils
 
     RecordTemplate sameAspect = newAspect;
@@ -951,6 +953,7 @@ public class EntityServiceImplTest {
             mock(PreProcessHooks.class),
             0,
             true,
+            EntityServiceConfiguration.EMPTY,
             null);
 
     // Create RestoreIndicesArgs
@@ -1000,6 +1003,7 @@ public class EntityServiceImplTest {
             mock(PreProcessHooks.class),
             0,
             true,
+            EntityServiceConfiguration.EMPTY,
             null);
 
     // Create test inputs
@@ -1105,7 +1109,15 @@ public class EntityServiceImplTest {
     EntityServiceImpl entityServiceSpy =
         spy(
             new EntityServiceImpl(
-                mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true));
+                mockAspectDao,
+                mockEventProducer,
+                false,
+                false,
+                mock(PreProcessHooks.class),
+                0,
+                true,
+                EntityServiceConfiguration.EMPTY,
+                null));
 
     // Create RestoreIndicesArgs
     RestoreIndicesArgs args =
@@ -1347,6 +1359,7 @@ public class EntityServiceImplTest {
                 mock(PreProcessHooks.class),
                 0,
                 true,
+                EntityServiceConfiguration.EMPTY,
                 null));
 
     // Create test data

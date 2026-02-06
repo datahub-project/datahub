@@ -293,6 +293,7 @@ public class SystemUpdateConfig {
             featureFlags.getPreProcessHooks(),
             ebeanMaxTransactionRetry,
             enableBrowsePathV2,
+            com.linkedin.metadata.config.EntityServiceConfiguration.EMPTY,
             null); // metricUtils
 
     if (throttleSensors != null
