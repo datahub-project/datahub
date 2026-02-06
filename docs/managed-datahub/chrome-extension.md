@@ -1,5 +1,5 @@
 ---
-description: Learn how to upload and use the DataHub Cloud Chrome extension (beta) locally before it's available on the Chrome store.
+description: Learn how to use the DataHub Cloud Chrome extension.
 ---
 
 # DataHub Cloud Chrome Extension
