@@ -1847,10 +1847,9 @@ class TableauSiteSource:
                 self.report.warning(
                     title="No upstream table lineage found",
                     message=(
-                        "No upstream tables or columns were returned for this datasource. "
-                        "If upstream lineage is not expected, this warning can be ignored. "
-                        "If lineage is expected, the Tableau Metadata API may not have returned "
-                        "complete information."
+                        "No upstream tables lineage found for this datasource."
+                        "If lineage is expected, this may be due to known limitations in the Tableau Metadata API not returning complete information;"
+                        "else, this warning can be ignored."
                     ),
                     context=f"{datasource.get(c.NAME)} (ID: {datasource.get(c.ID)})",
                 )
