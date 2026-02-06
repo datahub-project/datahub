@@ -406,6 +406,50 @@ class SigmaAPI:
                 return conn_id
         return None
 
+    def _get_connection_id_from_parent_chain(
+        self, parent_id: str, max_depth: int = 5
+    ) -> Optional[str]:
+        """
+        Traverse the parent chain to find a folder with connectionId.
+
+        Tables are nested: table -> schema folder -> connection folder
+        The connection folder should have the connectionId.
+        """
+        current_id = parent_id
+        for depth in range(max_depth):
+            try:
+                response = self._get_api_call(
+                    f"{self.config.api_url}/files/{current_id}"
+                )
+                if response.status_code in (404, 403):
+                    logger.debug(f"Parent {current_id} not accessible at depth {depth}")
+                    return None
+                response.raise_for_status()
+                parent_info = response.json()
+
+                # Check if this folder has a connectionId
+                connection_id = parent_info.get("connectionId")
+                if connection_id:
+                    logger.debug(
+                        f"Found connectionId={connection_id} at depth {depth} "
+                        f"(folder: {parent_info.get('name')})"
+                    )
+                    return connection_id
+
+                # Move up to the next parent
+                next_parent = parent_info.get("parentId")
+                if not next_parent:
+                    logger.debug(f"No more parents at depth {depth}")
+                    return None
+                current_id = next_parent
+
+            except Exception as e:
+                logger.debug(f"Error traversing parent chain at depth {depth}: {e}")
+                return None
+
+        logger.debug(f"Max depth {max_depth} reached without finding connectionId")
+        return None
+
     def _get_table_info_from_inode(self, inode_id: str) -> Optional[DatasetSource]:
         """
         Fetch table details from an inode ID using the /files/{inodeId} endpoint.
@@ -449,7 +493,7 @@ class SigmaAPI:
                     schema_name = path_parts[-1]
 
             # connectionId is usually not present for individual tables
-            # Try to resolve it from the connection name
+            # Try to resolve it from the connection name or parent chain
             connection_id = file_info.get("connectionId")
             if not connection_id and connection_name:
                 connection_id = self._get_connection_id_from_name(connection_name)
@@ -457,6 +501,16 @@ class SigmaAPI:
                     logger.debug(
                         f"Resolved connectionId={connection_id} from connection name '{connection_name}'"
                     )
+
+            # If still no connectionId, traverse the parent chain
+            if not connection_id:
+                parent_id = file_info.get("parentId")
+                if parent_id:
+                    connection_id = self._get_connection_id_from_parent_chain(parent_id)
+                    if connection_id:
+                        logger.debug(
+                            f"Resolved connectionId={connection_id} from parent chain"
+                        )
 
             logger.debug(
                 f"Table inode {inode_id} extracted: table={table}, "
