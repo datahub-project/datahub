@@ -196,3 +196,26 @@ class RDFSourceConfig(
                         f"Supported entity types are: {valid_types_str}."
                     )
         return v
+
+    @field_validator("source")
+    @classmethod
+    def validate_source(cls, v):
+        """Validate source parameter is not empty."""
+        if not v or not v.strip():
+            raise ValueError(
+                "Source parameter cannot be empty. Please provide a file path, folder path, URL, "
+                "or comma-separated list of files."
+            )
+        return v.strip()
+
+    def model_post_init(self, __context):
+        """Validate configuration after initialization."""
+        # Check for conflicting filters
+        if self.export_only and self.skip_export:
+            overlapping = set(self.export_only) & set(self.skip_export)
+            if overlapping:
+                raise ValueError(
+                    f"Conflicting filters: export_only and skip_export both include: {', '.join(sorted(overlapping))}. "
+                    "You cannot both export and skip the same entity types. "
+                    "Please remove the conflicting entity types from one of the filters."
+                )

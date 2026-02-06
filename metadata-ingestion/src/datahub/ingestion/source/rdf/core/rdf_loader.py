@@ -8,7 +8,9 @@ web folder URLs (HTML directory listings), and glob patterns.
 
 import glob
 import io
+import ipaddress
 import logging
+import socket
 import tempfile
 import zipfile
 from pathlib import Path
@@ -24,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 # Security and performance constants
 DEFAULT_URL_TIMEOUT = 30  # seconds
-DEFAULT_MAX_URL_SIZE = 100 * 1024 * 1024  # 100MB
+DEFAULT_MAX_URL_SIZE = 10 * 1024 * 1024  # 10MB (reduced from 100MB for security)
 DEFAULT_MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB
 MAX_GLOB_RESULTS = 1000  # Maximum files to process from glob pattern
 # Threshold for using temp file vs memory for URL downloads (10MB)
@@ -47,6 +49,76 @@ VALID_RDF_FORMATS: Set[str] = {
     "trig",
     "hext",
 }
+
+# Private/internal IP ranges that should be blocked to prevent SSRF
+PRIVATE_IP_RANGES = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),  # Link-local
+    ipaddress.ip_network("::1/128"),  # IPv6 localhost
+    ipaddress.ip_network("fc00::/7"),  # IPv6 private
+    ipaddress.ip_network("fe80::/10"),  # IPv6 link-local
+]
+
+
+def _validate_url_security(url: str) -> None:
+    """
+    Validate URL to prevent SSRF attacks.
+
+    Blocks:
+    - Private/internal IP addresses
+    - Localhost (127.0.0.1, ::1)
+    - Link-local addresses
+    - URLs that resolve to private IPs
+
+    Args:
+        url: URL to validate
+
+    Raises:
+        ValueError: If URL is blocked for security reasons
+    """
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+
+    if not hostname:
+        raise ValueError(f"Invalid URL: missing hostname in {url}")
+
+    # Block localhost variations
+    if hostname.lower() in ("localhost", "127.0.0.1", "::1", "0.0.0.0"):
+        raise ValueError(
+            f"URL blocked for security: {url} points to localhost. "
+            "This is blocked to prevent SSRF attacks."
+        )
+
+    # Try to resolve hostname to IP
+    try:
+        # Resolve hostname to IP addresses
+        ip_addresses = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC)
+        for addr_info in ip_addresses:
+            ip_str = addr_info[4][0]
+            try:
+                ip = ipaddress.ip_address(ip_str)
+                # Check if IP is in private ranges
+                for private_range in PRIVATE_IP_RANGES:
+                    if ip in private_range:
+                        raise ValueError(
+                            f"URL blocked for security: {url} resolves to private IP {ip_str}. "
+                            "Accessing private/internal networks is blocked to prevent SSRF attacks."
+                        )
+            except ValueError:
+                # Not a valid IP address, skip
+                continue
+    except socket.gaierror:
+        # Could not resolve hostname - allow it (might be a valid external domain)
+        # but log a warning
+        logger.warning(f"Could not resolve hostname {hostname} for URL {url}")
+    except Exception as e:
+        # Unexpected error during resolution - be conservative and block
+        raise ValueError(
+            f"URL validation failed for {url}: {e}. This may indicate a security issue."
+        ) from e
 
 
 def _validate_format(format_str: str) -> str:
@@ -129,6 +201,9 @@ def load_rdf_graph(
 
     # Check if it's a server URL
     if source.startswith(("http://", "https://")):
+        # Validate URL security (prevent SSRF)
+        _validate_url_security(source)
+
         # Check if it's a zip file URL
         if _is_zip_url(source):
             return _load_from_zip_url(
@@ -251,15 +326,24 @@ def _load_from_url(
         response = session.get(url, timeout=timeout, stream=True)
         response.raise_for_status()
 
-        # Check content length if available
+        # Check content length if available (but don't trust it - validate during download)
         content_length = None
         if "content-length" in response.headers:
-            content_length = int(response.headers["content-length"])
-            if content_length > max_size:
-                raise ValueError(
-                    f"URL content too large: {content_length} bytes "
-                    f"(max: {max_size} bytes). Consider downloading and processing locally."
+            try:
+                content_length = int(response.headers["content-length"])
+            except ValueError:
+                # Invalid content-length header - ignore it and validate during download
+                logger.warning(
+                    f"Invalid Content-Length header for {url}, validating during download"
                 )
+                content_length = None
+            else:
+                # Only check size if we successfully parsed the header
+                if content_length > max_size:
+                    raise ValueError(
+                        f"URL content too large: {content_length} bytes "
+                        f"(max: {max_size} bytes). Consider downloading and processing locally."
+                    )
 
         # For large files, use temporary file to avoid memory issues
         # For smaller files, use in-memory buffer for better performance
@@ -292,7 +376,7 @@ def _load_from_url(
                     # Clean up temporary file
                     try:
                         tmp_path.unlink()
-                    except Exception as e:
+                    except OSError as e:
                         logger.warning(f"Failed to delete temp file {tmp_path}: {e}")
         else:
             # Read content with size limit (in-memory for smaller files)
@@ -375,7 +459,7 @@ def _load_single_file(
                     f"which is outside the allowed base directory {base_dir}. "
                     "This is blocked for security reasons."
                 )
-        except Exception as e:
+        except (OSError, ValueError) as e:
             if isinstance(e, ValueError):
                 raise
             logger.warning(f"Could not validate path against base_dir: {e}")
@@ -390,7 +474,7 @@ def _load_single_file(
                     "This may be a security concern if processing untrusted input. "
                     "Consider setting base_dir parameter for stricter security."
                 )
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.warning(f"Could not resolve path {file_path}: {e}")
 
     format_str = format or _detect_format_from_extension(path.suffix)
@@ -405,9 +489,9 @@ def _load_single_file(
         raise FileNotFoundError(
             f"File not found: {file_path} (may have been deleted)"
         ) from None
-    except Exception as e:
+    except (OSError, ValueError, SyntaxError) as e:
         logger.error(f"Failed to load file {file_path}: {e}")
-        raise
+        raise ValueError(f"Failed to parse RDF file {file_path}: {e}") from e
 
 
 def _load_multiple_files(
@@ -445,7 +529,7 @@ def _load_multiple_files(
                     f"File {file_path} too large ({file_size} bytes), skipping"
                 )
                 continue
-        except Exception as e:
+        except OSError as e:
             logger.warning(f"Could not check size of {file_path}: {e}, skipping")
             continue
 
@@ -462,7 +546,7 @@ def _load_multiple_files(
                         f"(resolves to {resolved_path}, outside {base_dir})"
                     )
                     continue
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 logger.warning(f"Could not validate path {file_path}: {e}, skipping")
                 continue
 
@@ -471,7 +555,7 @@ def _load_multiple_files(
             graph.parse(str(file_path), format=format_str)
             files_loaded += 1
             logger.debug(f"Loaded {file_path}")
-        except Exception as e:
+        except (OSError, ValueError, SyntaxError) as e:
             logger.warning(f"Failed to load {file_path}: {e}")
 
     logger.info(f"Loaded {len(graph)} triples from {files_loaded} files")
@@ -539,7 +623,7 @@ def _load_folder(
                         f"File {file_path} too large ({file_size} bytes), skipping"
                     )
                     continue
-            except Exception as e:
+            except OSError as e:
                 logger.warning(f"Could not check size of {file_path}: {e}, skipping")
                 continue
 
@@ -556,7 +640,7 @@ def _load_folder(
                             f"(resolves to {resolved_file}, outside {base_dir})"
                         )
                         continue
-                except Exception as e:
+                except (OSError, ValueError) as e:
                     logger.warning(
                         f"Could not validate path {file_path}: {e}, skipping"
                     )
@@ -567,7 +651,7 @@ def _load_folder(
                 graph.parse(str(file_path), format=format_str)
                 files_loaded += 1
                 logger.debug(f"Loaded {file_path}")
-            except Exception as e:
+            except (OSError, ValueError, SyntaxError) as e:
                 logger.warning(f"Failed to load {file_path}: {e}")
 
     logger.info(
@@ -723,7 +807,7 @@ def _load_from_zip_file(
                             f"File {file_name} in zip too large ({file_info.file_size} bytes), skipping"
                         )
                         continue
-                except Exception as e:
+                except (zipfile.BadZipFile, OSError) as e:
                     logger.warning(
                         f"Could not check size of {file_name} in zip: {e}, skipping"
                     )
@@ -747,14 +831,14 @@ def _load_from_zip_file(
                         graph.parse(data=content, format=format_str)
                         files_loaded += 1
                         logger.debug(f"Loaded {file_name} from zip {zip_path}")
-                except Exception as e:
+                except (OSError, ValueError, SyntaxError, zipfile.BadZipFile) as e:
                     logger.warning(f"Failed to load {file_name} from zip: {e}")
 
     except zipfile.BadZipFile:
         raise ValueError(f"Invalid zip file: {zip_path}") from None
-    except Exception as e:
+    except (OSError, IOError) as e:
         logger.error(f"Failed to process zip file {zip_path}: {e}")
-        raise
+        raise ValueError(f"Failed to process zip file {zip_path}: {e}") from e
 
     logger.info(
         f"Loaded {len(graph)} triples from {files_loaded} files in zip {zip_path}"
@@ -809,14 +893,23 @@ def _load_from_zip_url(
         response = session.get(url, timeout=url_timeout, stream=True)
         response.raise_for_status()
 
-        # Check content length
+        # Check content length (but don't trust it - validate during download)
         content_length = None
         if "content-length" in response.headers:
-            content_length = int(response.headers["content-length"])
-            if content_length > max_url_size:
-                raise ValueError(
-                    f"Zip file too large: {content_length} bytes (max: {max_url_size} bytes)"
+            try:
+                content_length = int(response.headers["content-length"])
+            except ValueError:
+                # Invalid content-length header - ignore it and validate during download
+                logger.warning(
+                    f"Invalid Content-Length header for {url}, validating during download"
                 )
+                content_length = None
+            else:
+                # Only check size if we successfully parsed the header
+                if content_length > max_url_size:
+                    raise ValueError(
+                        f"Zip file too large: {content_length} bytes (max: {max_url_size} bytes)"
+                    )
 
         # Download zip content
         zip_content = b""
@@ -860,7 +953,7 @@ def _load_from_zip_url(
                             f"File {file_name} in zip too large ({file_info.file_size} bytes), skipping"
                         )
                         continue
-                except Exception as e:
+                except (zipfile.BadZipFile, OSError) as e:
                     logger.warning(
                         f"Could not check size of {file_name} in zip: {e}, skipping"
                     )
@@ -876,7 +969,7 @@ def _load_from_zip_url(
                         graph.parse(data=content, format=format_str)
                         files_loaded += 1
                         logger.debug(f"Loaded {file_name} from zip URL {url}")
-                except Exception as e:
+                except (OSError, ValueError, SyntaxError, zipfile.BadZipFile) as e:
                     logger.warning(f"Failed to load {file_name} from zip: {e}")
 
         logger.info(
@@ -961,14 +1054,20 @@ def _download_and_parse_rdf_file(
         file_response = session.get(file_url, timeout=url_timeout, stream=True)
         file_response.raise_for_status()
 
-        # Check content length
+        # Check content length (but don't trust it - validate during download)
         if "content-length" in file_response.headers:
-            file_size = int(file_response.headers["content-length"])
-            if file_size > max_url_size:
-                logger.warning(
-                    f"File {file_url} too large ({file_size} bytes), skipping"
+            try:
+                file_size = int(file_response.headers["content-length"])
+                if file_size > max_url_size:
+                    logger.warning(
+                        f"File {file_url} too large ({file_size} bytes), skipping"
+                    )
+                    return False
+            except ValueError:
+                # Invalid content-length header - ignore it and validate during download
+                logger.debug(
+                    f"Invalid Content-Length header for {file_url}, validating during download"
                 )
-                return False
 
         # Download file content
         file_content = b""
@@ -989,7 +1088,7 @@ def _download_and_parse_rdf_file(
         logger.debug(f"Loaded {file_url}")
         return True
 
-    except Exception as e:
+    except (requests.RequestException, ValueError, SyntaxError) as e:
         logger.warning(f"Failed to load {file_url}: {e}")
         return False
 
@@ -1078,7 +1177,7 @@ def _load_from_web_folder(
                     # Merge subgraph into main graph
                     for triple in subgraph:
                         graph.add(triple)
-                except Exception as e:
+                except (requests.RequestException, ValueError) as e:
                     logger.warning(f"Failed to process subfolder {folder_url}: {e}")
 
         logger.info(
