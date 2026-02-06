@@ -399,9 +399,23 @@ class SigmaAPI:
             )
             return []
 
+    def _get_connection_id_from_name(self, connection_name: str) -> Optional[str]:
+        """Look up a connection ID by its name in the cached connections."""
+        for conn_id, conn in self.connections.items():
+            if conn.get(Constant.NAME) == connection_name:
+                return conn_id
+        return None
+
     def _get_table_info_from_inode(self, inode_id: str) -> Optional[DatasetSource]:
         """
         Fetch table details from an inode ID using the /files/{inodeId} endpoint.
+
+        The API returns file metadata including:
+        - name: table name (e.g., "salesforce_account")
+        - path: folder path (e.g., "Connection Name/schema" where first part is connection)
+        - connectionId: usually not present for tables (only for connection roots)
+
+        We extract table name, schema, and resolve connectionId from the path.
         """
         try:
             response = self._get_api_call(f"{self.config.api_url}/files/{inode_id}")
@@ -413,36 +427,48 @@ class SigmaAPI:
 
             logger.debug(f"Table inode {inode_id} file info: {file_info}")
 
-            # Extract connection and table info from file response
-            connection_id = file_info.get("connectionId")
-            if not connection_id:
-                logger.debug(f"Table inode {inode_id} has no connectionId")
+            # Extract table name from the file info
+            table = file_info.get("name")
+            if not table:
+                logger.debug(f"Table inode {inode_id} has no name")
                 return None
 
-            # Table path is usually in format: database.schema.table or schema.table
-            path = file_info.get("path") or file_info.get("name") or ""
-            table = file_info.get("table") or file_info.get("tableName")
-            schema_name = file_info.get("schema") or file_info.get("schemaName")
-            database = file_info.get("database") or file_info.get("databaseName")
+            # Extract connection name and schema from path
+            # Path format: "Connection Name/schema" or "Connection Name/database/schema"
+            path = file_info.get("path") or ""
+            schema_name = None
+            connection_name = None
 
-            # If path exists but individual fields don't, try to parse path
-            if path and not table:
-                parts = path.split(".")
-                if len(parts) >= 3:
-                    database = database or parts[0]
-                    schema_name = schema_name or parts[1]
-                    table = parts[2]
-                elif len(parts) == 2:
-                    schema_name = schema_name or parts[0]
-                    table = parts[1]
-                elif len(parts) == 1:
-                    table = parts[0]
+            if path:
+                path_parts = path.split("/")
+                if len(path_parts) >= 1:
+                    # First part of path is the connection name
+                    connection_name = path_parts[0]
+                if len(path_parts) >= 2:
+                    # Last part of path is usually the schema
+                    schema_name = path_parts[-1]
+
+            # connectionId is usually not present for individual tables
+            # Try to resolve it from the connection name
+            connection_id = file_info.get("connectionId")
+            if not connection_id and connection_name:
+                connection_id = self._get_connection_id_from_name(connection_name)
+                if connection_id:
+                    logger.debug(
+                        f"Resolved connectionId={connection_id} from connection name '{connection_name}'"
+                    )
+
+            logger.debug(
+                f"Table inode {inode_id} extracted: table={table}, "
+                f"schema={schema_name}, connectionId={connection_id}, "
+                f"connectionName={connection_name}"
+            )
 
             return DatasetSource(
                 connectionId=connection_id,
                 table=table,
                 schema_name=schema_name,
-                database=database,
+                database=None,  # Database not available from this API
             )
 
         except Exception as e:
@@ -489,13 +515,19 @@ class SigmaAPI:
                 # Only process table sources (not dataset sources)
                 if source_type == "table" and inode_id:
                     table_info = self._get_table_info_from_inode(inode_id)
-                    if table_info and table_info.connectionId:
-                        logger.debug(
-                            f"Dataset {dataset_id} resolved table source: "
-                            f"connection={table_info.connectionId}, table={table_info.table}, "
-                            f"schema={table_info.schema_name}, database={table_info.database}"
-                        )
-                        return table_info
+                    if table_info:
+                        if table_info.connectionId:
+                            logger.debug(
+                                f"Dataset {dataset_id} resolved table source: "
+                                f"connection={table_info.connectionId}, table={table_info.table}, "
+                                f"schema={table_info.schema_name}, database={table_info.database}"
+                            )
+                            return table_info
+                        else:
+                            logger.debug(
+                                f"Dataset {dataset_id} table source has no connectionId: "
+                                f"table={table_info.table}, schema={table_info.schema_name}"
+                            )
 
             logger.debug(f"Dataset {dataset_id} has no resolvable table sources")
             return None
