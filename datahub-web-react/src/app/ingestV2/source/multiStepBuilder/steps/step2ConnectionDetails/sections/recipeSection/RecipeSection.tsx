@@ -70,6 +70,7 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                 key: 'yaml',
                 name: 'YAML',
                 component: <YamlEditor value={displayRecipe} onChange={setStagedRecipe} />,
+                dataTestId: 'yaml-editor-tab',
             },
         ],
         [displayRecipe, state, sourceConfigs, setStagedRecipe, form, runFormValidation],
