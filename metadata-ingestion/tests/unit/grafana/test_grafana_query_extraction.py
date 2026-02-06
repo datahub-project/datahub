@@ -110,15 +110,15 @@ class TestGrafanaTemplateVariableCleaning:
                 "WHERE $__timeFilter(timestamp_column)",
                 "WHERE TRUE",
             ),
-            # Simple $variable format → string literal
+            # Simple $variable format → removes $ prefix
             (
                 "SELECT * FROM $datasource.table",
-                "SELECT * FROM '$datasource'.table",
+                "SELECT * FROM datasource.table",
             ),
             # Multiple variables in one query
             (
                 "SELECT * FROM $table WHERE date > ${__from} AND status = '$status'",
-                "SELECT * FROM '$table' WHERE date > 'grafana_var' AND status = '$status'",
+                "SELECT * FROM table WHERE date > 'grafana_var' AND status = 'status'",
             ),
             # Real-world complex query from user
             (
@@ -140,29 +140,35 @@ class TestGrafanaTemplateVariableCleaning:
                 "WHERE event_timestamp $__timeFilter AND status = 'active'",
                 "WHERE event_timestamp > TIMESTAMP '2000-01-01' AND status = 'active'",
             ),
-            # Variable inside quotes (preserved - already quoted)
+            # Variable inside quotes ($ prefix removed for SQL parser compatibility)
             (
                 "WHERE lower(sensor_serial) = lower('$serial')",
-                "WHERE lower(sensor_serial) = lower('$serial')",
+                "WHERE lower(sensor_serial) = lower('serial')",
             ),
             # Real-world user query with standalone macro and quoted variable
             (
                 "select cast(event_timestamp as timestamp) from datalake_agg.devices where event_timestamp $__timeFilter and lower(sensor_serial) = lower('$serial') order by 1",
-                "select cast(event_timestamp as timestamp) from datalake_agg.devices where event_timestamp > TIMESTAMP '2000-01-01' and lower(sensor_serial) = lower('$serial') order by 1",
+                "select cast(event_timestamp as timestamp) from datalake_agg.devices where event_timestamp > TIMESTAMP '2000-01-01' and lower(sensor_serial) = lower('serial') order by 1",
+            ),
+            # Query with standalone macro and quoted variable (reported issue pattern)
+            (
+                "SELECT CAST(ts as timestamp), col1, col2\nfrom schema.table\nwhere ts $__timeFilter\nand lower(device_id) = lower('$device_var')\nORDER BY ts ASC",
+                "SELECT CAST(ts as timestamp), col1, col2\nfrom schema.table\nwhere ts > TIMESTAMP '2000-01-01'\nand lower(device_id) = lower('device_var')\nORDER BY ts ASC",
             ),
         ],
         ids=[
             "braced_with_format",
             "deprecated_brackets",
             "time_filter_macro",
-            "simple_dollar",
+            "simple_dollar_removes_prefix",
             "multiple_variables",
             "realworld_complex",
             "no_variables",
             "time_macros",
             "macro_without_parens",
-            "variable_in_quotes",
-            "realworld_user_query",
+            "variable_in_quotes_removes_dollar",
+            "realworld_user_query_with_camera_serial",
+            "standalone_macro_with_quoted_variable",
         ],
     )
     def test_removes_all_grafana_variable_formats(self, input_query, expected_pattern):

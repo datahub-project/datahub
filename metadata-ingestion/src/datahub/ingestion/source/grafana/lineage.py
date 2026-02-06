@@ -50,9 +50,9 @@ _GRAFANA_GENERIC_MACRO_PATTERN = re.compile(r"\$__\w+(?:\([^)]*\))?")
 _GRAFANA_BRACKET_VAR_PATTERN = re.compile(r"\[\[[^\]]+\]\]")
 _GRAFANA_BRACED_VAR_PATTERN = re.compile(r"\$\{[^}]+\}")
 
-# Simple variables NOT inside quotes: $var
-# Use negative lookbehind/lookahead to skip variables already in quotes
-_GRAFANA_SIMPLE_VAR_PATTERN = re.compile(r"(?<!')(\$[a-zA-Z_][a-zA-Z0-9_]*)(?!')")
+# Simple variables: $var (matches anywhere, including inside quotes)
+# We remove $ prefix to make SQL parseable - keeps variable name for context
+_GRAFANA_SIMPLE_VAR_PATTERN = re.compile(r"\$([a-zA-Z_][a-zA-Z0-9_]*)")
 
 
 def _clean_grafana_template_variables(query: str) -> str:
@@ -80,8 +80,7 @@ def _clean_grafana_template_variables(query: str) -> str:
     - Standalone macros: $__timeFilter -> > TIMESTAMP '2000-01-01' (valid predicate)
     - ${...} variables -> 'grafana_var' (string literal)
     - [[...]] identifiers -> grafana_identifier (valid identifier)
-    - $simple variables (not in quotes) -> 'grafana_var' (string literal)
-    - Variables already in quotes: '$var' -> left unchanged
+    - $simple variables -> removes $ prefix (keeps variable name for context)
 
     Examples:
         ${__from:date:'YYYY/MM/DD'} -> 'grafana_var'
@@ -90,8 +89,9 @@ def _clean_grafana_template_variables(query: str) -> str:
         $__timeFilter(column) -> TRUE
         WHERE event_timestamp $__timeFilter -> WHERE event_timestamp > TIMESTAMP '2000-01-01'
         $__interval -> 1
-        WHERE status = '$status' -> WHERE status = '$status' (unchanged - already quoted)
-        WHERE status = $status -> WHERE status = 'grafana_var'
+        WHERE status = '$status' -> WHERE status = 'status'
+        WHERE status = $status -> WHERE status = status
+        WHERE lower(serial) = lower('$camera_serial') -> WHERE lower(serial) = lower('camera_serial')
     """
 
     # Replace time/filter macros WITH args with TRUE (they form complete boolean expressions)
@@ -117,9 +117,9 @@ def _clean_grafana_template_variables(query: str) -> str:
     # Replace ${...} with string literal (handles ${var} and ${var:format})
     query = _GRAFANA_BRACED_VAR_PATTERN.sub("'grafana_var'", query)
 
-    # Replace simple $variable format with string literal (but skip if already in quotes)
-    # The regex already has negative lookbehind/lookahead to avoid double-quoting
-    query = _GRAFANA_SIMPLE_VAR_PATTERN.sub(r"'\1'", query)
+    # Replace simple $variable format - just remove the $ prefix
+    # This makes SQL parseable while keeping variable name for context
+    query = _GRAFANA_SIMPLE_VAR_PATTERN.sub(r"\1", query)
 
     return query
 
