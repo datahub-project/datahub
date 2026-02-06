@@ -954,6 +954,9 @@ full_test_dev_requirements = {
 
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
+    "sqlalchemy.dialects": [
+        "doris.pymysql = datahub.ingestion.source.sql.doris:DorisDialect",
+    ],
     "datahub.ingestion.source.plugins": [
         "abs = datahub.ingestion.source.abs.source:ABSSource",
         "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
