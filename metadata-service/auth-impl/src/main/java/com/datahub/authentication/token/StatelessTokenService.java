@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
@@ -131,8 +132,9 @@ public class StatelessTokenService {
     try {
       byte[] apiKeySecretBytes = this.signingKey.getBytes(StandardCharsets.UTF_8);
       final String base64Key = Base64.getEncoder().encodeToString(apiKeySecretBytes);
+      final Key key = new SecretKeySpec(apiKeySecretBytes, this.signingAlgorithm.getJcaName());
       final Jws<Claims> jws =
-          Jwts.parserBuilder().setSigningKey(base64Key).build().parseClaimsJws(accessToken);
+          Jwts.parser().verifyWith((SecretKey) key).build().parseClaimsJws(accessToken);
       validateTokenAlgorithm(jws.getHeader().getAlgorithm());
       final Claims claims = jws.getBody();
       final String tokenVersion = claims.get(TokenClaims.TOKEN_VERSION_CLAIM_NAME, String.class);
