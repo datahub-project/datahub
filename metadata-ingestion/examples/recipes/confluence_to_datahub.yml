@@ -14,7 +14,8 @@ source:
     api_token: "${CONFLUENCE_API_TOKEN}"  # Generate at: https://id.atlassian.com/manage-profile/security/api-tokens
 
     # Optional: specify spaces to ingest (omit to ingest all accessible spaces)
-    spaces: ["TEAM", "DOCS", "ENGINEERING"]
+    spaces:
+      allow: ["TEAM", "DOCS", "ENGINEERING"]
 
 sink:
   type: datahub-rest
@@ -32,7 +33,8 @@ sink:
 #     url: "https://confluence.your-company.com"
 #     cloud: false
 #     personal_access_token: "${CONFLUENCE_PAT}"
-#     spaces: ["TEAM", "DOCS"]
+#     spaces:
+#       allow: ["TEAM", "DOCS"]
 
 # sink:
 #   type: datahub-rest
@@ -138,8 +140,8 @@ sink:
 # - Only one authentication method should be provided
 
 # Space Discovery:
-# - If 'spaces' is provided: only those spaces are ingested
-# - If 'spaces' is omitted: all accessible spaces are auto-discovered (up to max_spaces)
+# - If 'spaces.allow' is provided: only those spaces are ingested
+# - If 'spaces.allow' is omitted: all accessible spaces are auto-discovered (up to max_spaces)
 
 # Chunking Strategies:
 # - basic: Split by character count
