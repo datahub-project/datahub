@@ -91,7 +91,7 @@ class PowerBiAPI:
         logger.warning(message)
         _, e, _ = sys.exc_info()
         if isinstance(e, requests.exceptions.HTTPError):
-            logger.warning(f"HTTP status-code = {e.response.status_code}")
+            logger.warning("HTTP status-code = %s", e.response.status_code)
 
         if isinstance(e, requests.exceptions.Timeout):
             url: str = e.request.url if e.request else "URL not available"
@@ -331,7 +331,7 @@ class PowerBiAPI:
         # Scan is complete lets take the result
         scan_result = self.__admin_api_resolver.get_scan_result(scan_id=scan_id)
         pretty_json: str = json.dumps(scan_result, indent=1)
-        logger.debug(f"scan result = {pretty_json}")
+        logger.debug("scan result = %s", pretty_json)
 
         return scan_result
 
@@ -476,7 +476,9 @@ class PowerBiAPI:
                 )
                 dataset_instance.parameters = dataset_parameters
             except Exception as e:
-                logger.info(f"Unable to fetch dataset parameters for {dataset_id}: {e}")
+                logger.info(
+                    "Unable to fetch dataset parameters for %s: %s", dataset_id, e
+                )
 
             if self.__config.extract_endorsements_to_tags:
                 dataset_instance.tags = self._parse_endorsement(
@@ -503,7 +505,7 @@ class PowerBiAPI:
                 if dataset_instance.name is not None
                 else dataset_instance.id
             )
-            logger.debug(f"dataset_dict = {dataset_dict}")
+            logger.debug("dataset_dict = %s", dataset_dict)
             for table_dict in dataset_dict.get(Constant.TABLES) or []:
                 expression: Optional[str] = (
                     table_dict[Constant.SOURCE][0][Constant.EXPRESSION]
@@ -611,7 +613,7 @@ class PowerBiAPI:
         # workspace doesn't have an App. Above two loops can be avoided
         # if app_id is available at root level in workspace_metadata
         if app_id is None:
-            logger.debug(f"Workspace {workspace.name} does not contain an app.")
+            logger.debug("Workspace %s does not contain an app.", workspace.name)
             return
 
         app: Optional[App] = self.get_app(app_id=app_id)
@@ -804,3 +806,76 @@ class PowerBiAPI:
         for workspace in workspaces:
             self._fill_regular_metadata_detail(workspace=workspace)
         return workspaces
+
+    def export_report_to_pbix(
+        self, workspace_id: str, report_id: str, output_path: str
+    ) -> Optional[str]:
+        """
+        Export a Power BI report to .pbix file using Export Report API.
+        Returns the file path if successful, None on failure.
+
+        Note: The Export Report API uses a simple GET request to download the PBIX file directly.
+
+        Args:
+            workspace_id: Power BI workspace/group ID
+            report_id: Power BI report ID
+            output_path: Path where the .pbix file should be saved
+
+        Returns:
+            Path to the downloaded .pbix file if successful, None otherwise
+        """
+        import os
+
+        logger.info("Exporting report %s to PBIX file", report_id)
+        self.reporter.pbix_export_attempts += 1
+
+        try:
+            # Get access token
+            access_token = self._get_resolver().get_access_token()
+
+            # Export Report API: Direct GET request to download PBIX
+            # Include workspace/group ID for workspace-scoped reports
+            export_url = f"{data_resolver.DataResolverBase.MY_ORG_URL}/groups/{workspace_id}/reports/{report_id}/Export"
+
+            # Note: access_token already includes "Bearer " prefix
+            headers = {
+                Constant.Authorization: access_token,
+            }
+
+            logger.debug("Downloading PBIX file via GET from %s", export_url)
+
+            # Make the GET request with streaming enabled
+            # Use configurable timeout for large PBIX file downloads
+            export_response = self._get_resolver()._request_session.get(
+                export_url,
+                headers=headers,
+                stream=True,
+                timeout=self.__config.pbix_download_timeout_seconds,
+            )
+
+            if data_resolver.is_http_failure(
+                export_response, f"Failed to export PBIX for report {report_id}"
+            ):
+                self.reporter.pbix_export_failures += 1
+                return None
+
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+            # Write file to disk
+            logger.debug("Writing PBIX file to %s", output_path)
+            with open(output_path, "wb") as f:
+                for chunk in export_response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+
+            logger.info("Successfully exported report %s to %s", report_id, output_path)
+            self.reporter.pbix_export_successes += 1
+            return output_path
+
+        except Exception as e:
+            logger.warning(
+                f"Error exporting report {report_id} to PBIX: {e}", exc_info=True
+            )
+            self.reporter.pbix_export_failures += 1
+            return None
