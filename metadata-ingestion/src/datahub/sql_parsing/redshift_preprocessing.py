@@ -29,6 +29,18 @@ TriggerType = Union[Tuple[str, ...], Callable[[str], bool]]
 _SIGMA_ALIAS_PATTERN = r"(q\d{1,3}|t\d{1,3})"
 
 # =============================================================================
+# IDENTIFIER LENGTH LIMITS (ReDoS Prevention)
+# =============================================================================
+# All identifier patterns use {1,100} length limits to prevent catastrophic
+# backtracking (ReDoS) on malformed input with very long identifiers.
+# 100 chars is generous for any real SQL identifier while preventing DoS.
+_MAX_IDENTIFIER_LEN = 100
+_IDENTIFIER_PATTERN = rf"[a-z][a-z0-9_]{{1,{_MAX_IDENTIFIER_LEN}}}"
+_IDENTIFIER_PATTERN_OPT = (
+    rf"[a-z][a-z0-9_]{{0,{_MAX_IDENTIFIER_LEN}}}"  # Optional length
+)
+
+# =============================================================================
 # SAFE WORD FILTERING (Blacklist Approach - for column/identifier patterns)
 # =============================================================================
 # For patterns involving arbitrary column names (not aliases), we use safe word
@@ -139,7 +151,7 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
     # e.g., "case whenarr_down>" -> "case when arr_down >"
     (
         lambda q: _has_keyword_followed_by_letter(q, "when"),
-        re.compile(r"\bcase\s+when([a-z][a-z0-9_]+)(>|<|=|!)", re.IGNORECASE),
+        re.compile(rf"\bcase\s+when({_IDENTIFIER_PATTERN})(>|<|=|!)", re.IGNORECASE),
         r"case when \1 \2",
     ),
     # case when<identifier> <keyword> -> case when <identifier> <keyword>
@@ -147,7 +159,7 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
     (
         lambda q: _has_keyword_followed_by_letter(q, "when"),
         re.compile(
-            r"\bcase\s+when([a-z][a-z0-9_]+)\s+(then|and|or|is\b|in\b|not\b|between\b)",
+            rf"\bcase\s+when({_IDENTIFIER_PATTERN})\s+(then|and|or|is\b|in\b|not\b|between\b)",
             re.IGNORECASE,
         ),
         r"case when \1 \2",
@@ -216,7 +228,7 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
     (
         lambda q: _has_keyword_followed_by_letter(q, "when"),
         re.compile(
-            r"\bwhen(?!ever|ce\b)([a-z][a-z0-9_]+)\s+(then|and|or|>|<|=|!)",
+            rf"\bwhen(?!ever|ce\b)({_IDENTIFIER_PATTERN})\s+(then|and|or|>|<|=|!)",
             re.IGNORECASE,
         ),
         r"when \1 \2",
@@ -226,13 +238,15 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
     # Exclude common words: whenever, whence
     (
         lambda q: _has_keyword_followed_by_letter(q, "when"),
-        re.compile(r"\bwhen(?!ever|ce\b)([a-z][a-z0-9_]+)(>|<|=|!)", re.IGNORECASE),
+        re.compile(
+            rf"\bwhen(?!ever|ce\b)({_IDENTIFIER_PATTERN})(>|<|=|!)", re.IGNORECASE
+        ),
         r"when \1 \2",
     ),
     # from<schema>.<table> or from<schema>.t_ (Sigma temp table pattern)
     (
         lambda q: _has_keyword_followed_by_letter(q, "from"),
-        re.compile(r"\bfrom([a-z][a-z0-9_]*)\.([a-z])", re.IGNORECASE),
+        re.compile(rf"\bfrom({_IDENTIFIER_PATTERN_OPT})\.([a-z])", re.IGNORECASE),
         r"from \1.\2",
     ),
     # groupby -> group by
@@ -254,7 +268,7 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
     (
         lambda q: _has_keyword_followed_by_letter(q, "and"),
         re.compile(
-            r"\band(?!roid|erson|ersen|rew|re\b|y\b|es\b|ora|romeda)([a-z][a-z0-9_]+)\s*(>|<|=|!|is\b|in\b)",
+            rf"\band(?!roid|erson|ersen|rew|re\b|y\b|es\b|ora|romeda)({_IDENTIFIER_PATTERN})\s*(>|<|=|!|is\b|in\b)",
             re.IGNORECASE,
         ),
         r"and \1 \2",
@@ -282,7 +296,7 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
     (
         lambda q: _has_keyword_followed_by_letter(q, "select"),
         re.compile(
-            r"\bselect(?!ion|or\b|ive|ivity|ed\b|ing\b)([a-z][a-z0-9_]*)\s*,",
+            rf"\bselect(?!ion|or\b|ive|ivity|ed\b|ing\b)({_IDENTIFIER_PATTERN_OPT})\s*,",
             re.IGNORECASE,
         ),
         r"select \1,",
@@ -292,7 +306,7 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
     # end then<identifier> -> end then <identifier> (e.g., "end thencase when")
     (
         lambda q: _has_keyword_followed_by_letter(q, "then"),
-        re.compile(r"\bend\s+then([a-z][a-z0-9_]+)", re.IGNORECASE),
+        re.compile(rf"\bend\s+then({_IDENTIFIER_PATTERN})", re.IGNORECASE),
         r"end then \1",
     ),
     # end else<function>( -> end else <function>( (e.g., "end elsedateadd(")
@@ -344,13 +358,13 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
     # e.g., "group byrep_name" -> "group by rep_name"
     (
         lambda q: _has_keyword_followed_by_letter(q, "by"),
-        re.compile(r"\bgroup\s+by([a-z][a-z0-9_]+)", re.IGNORECASE),
+        re.compile(rf"\bgroup\s+by({_IDENTIFIER_PATTERN})", re.IGNORECASE),
         r"group by \1",
     ),
     # order by<identifier> -> order by <identifier>
     (
         lambda q: _has_keyword_followed_by_letter(q, "by"),
-        re.compile(r"\border\s+by([a-z][a-z0-9_]+)", re.IGNORECASE),
+        re.compile(rf"\border\s+by({_IDENTIFIER_PATTERN})", re.IGNORECASE),
         r"order by \1",
     ),
     # <alias>on <keyword> -> <alias> on <keyword> (alias followed directly by ON)
@@ -358,7 +372,8 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
     (
         lambda q: "on " in q,  # looking for "aliaSON " pattern
         re.compile(
-            r"\)(\s*)([a-z][a-z0-9_]*)on\s+(coalesce|q\d+\.|[a-z])", re.IGNORECASE
+            rf"\)(\s*)({_IDENTIFIER_PATTERN_OPT})on\s+(coalesce|q\d+\.|[a-z])",
+            re.IGNORECASE,
         ),
         r")\1\2 on \3",
     ),
