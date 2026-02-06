@@ -14,8 +14,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Base branch for comparison (OSS: master, internal fork: acryl-main)
-  BASE_BRANCH: acryl-main
   EXCLUSION_PATTERNS: |
     examples
 
@@ -82,14 +80,16 @@ jobs:
             fi
           done < /tmp/projects_to_check.txt
 
+      # Use github.base_ref to automatically detect the PR's target branch.
+      # Fork repositories no longer need to override the base branch name.
       - name: Checkout base branch
         run: |
-          git fetch origin $BASE_BRANCH
-          git checkout origin/$BASE_BRANCH
+          git fetch origin ${{ github.base_ref }}
+          git checkout origin/${{ github.base_ref }}
 
       - name: Analyze dependencies on base branch
         run: |
-          echo "Analyzing Python dependencies on $BASE_BRANCH branch..."
+          echo "Analyzing Python dependencies on base branch (${{ github.base_ref }})..."
           mkdir -p /tmp/master-results
 
           while IFS= read -r project; do
@@ -99,7 +99,7 @@ jobs:
               echo "  Analyzing: $project -> /tmp/master-${safe_name}.json"
 
               python .github/scripts/dep-analyzer.py --exec --json "$project" > "/tmp/master-${safe_name}.json" 2>&1 || {
-                echo "Warning: Failed to analyze $project on $BASE_BRANCH branch"
+                echo "Warning: Failed to analyze $project on base branch"
                 echo '{"by_level": {}, "errors": ["Analysis failed"]}' > "/tmp/master-${safe_name}.json"
               }
             fi
@@ -112,7 +112,7 @@ jobs:
       - name: Compare dependencies and collect results
         id: compare
         run: |
-          echo "Comparing dependencies between $BASE_BRANCH and PR..."
+          echo "Comparing dependencies between ${{ github.base_ref }} and PR..."
           mkdir -p /tmp/comparison-results
 
           has_violations=false
@@ -320,7 +320,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "2. For existing dependencies being modified, maintain or improve pinning level" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "3. If you must use loose pinning, ensure it exists in $BASE_BRANCH first (grandfathered)" >> $GITHUB_STEP_SUMMARY
+          echo "3. If you must use loose pinning, ensure it exists in ${{ github.base_ref }} first (grandfathered)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "4. For special cases, add to \`.github/python-deps-exclusions.txt\`" >> $GITHUB_STEP_SUMMARY
 
