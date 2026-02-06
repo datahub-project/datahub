@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canViewRelationship;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
 
 import com.linkedin.common.urn.Urn;
@@ -30,7 +31,7 @@ public class ParentDomainsResolver implements DataFetcher<CompletableFuture<Pare
 
   @Override
   public CompletableFuture<ParentDomainsResult> get(DataFetchingEnvironment environment) {
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
     final Urn urn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
     final List<Entity> parentDomains = new ArrayList<>();
     final Set<String> visitedParentUrns = new HashSet<>();
@@ -43,11 +44,15 @@ public class ParentDomainsResolver implements DataFetcher<CompletableFuture<Pare
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
+            visitedParentUrns.add(urn.toString());
             Entity parentDomain = DomainUtils.getParentDomain(urn, context, _entityClient);
+            int depth = 0;
 
-            while (parentDomain != null && !visitedParentUrns.contains(parentDomain.getUrn())) {
+            while (parentDomain != null
+                && depth < context.getMaxParentDepth()
+                && visitedParentUrns.add(parentDomain.getUrn())) {
               parentDomains.add(parentDomain);
-              visitedParentUrns.add(parentDomain.getUrn());
+              depth++;
               parentDomain =
                   DomainUtils.getParentDomain(
                       Urn.createFromString(parentDomain.getUrn()), context, _entityClient);
@@ -57,11 +62,8 @@ public class ParentDomainsResolver implements DataFetcher<CompletableFuture<Pare
                 parentDomains.stream()
                     .filter(
                         e ->
-                            context == null
-                                || canViewRelationship(
-                                    context.getOperationContext(),
-                                    UrnUtils.getUrn(e.getUrn()),
-                                    urn))
+                            canViewRelationship(
+                                context.getOperationContext(), UrnUtils.getUrn(e.getUrn()), urn))
                     .collect(Collectors.toList());
 
             final ParentDomainsResult result = new ParentDomainsResult();
