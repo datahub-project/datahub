@@ -1695,9 +1695,9 @@
         },
         {
           "capability": "DATA_PROFILING",
-          "description": "Not supported",
+          "description": "Optionally enabled via configuration `profiling.enabled.`",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "DESCRIPTIONS",

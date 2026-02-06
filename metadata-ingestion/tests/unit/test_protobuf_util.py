@@ -1,9 +1,10 @@
 from typing import List
-
-import pytest
+from unittest.mock import patch
 
 from datahub.ingestion.extractor.protobuf_util import (
+    _DESCRIPTOR_CACHE,
     ProtobufSchema,
+    _from_protobuf_schema_to_descriptors,
     protobuf_schema_to_mce_fields,
 )
 from datahub.metadata.schema_classes import ArrayTypeClass, SchemaFieldClass
@@ -301,7 +302,150 @@ message Test11 {
     Test11 recursive = 2;
 }
 """
-    with pytest.raises(Exception) as e_info:
-        protobuf_schema_to_mce_fields(ProtobufSchema("main_9.proto", schema))
+    # Cyclic schemas should return empty fields instead of raising exceptions
+    # This follows DataHub's "log and continue" pattern for graceful degradation
+    fields = protobuf_schema_to_mce_fields(ProtobufSchema("main_9.proto", schema))
+    assert fields == []
 
-    assert str(e_info.value) == "Cyclic schemas are not supported"
+
+def test_descriptor_cache_hit() -> None:
+    _DESCRIPTOR_CACHE.clear()
+
+    schema = """
+syntax = "proto3";
+
+message CacheTestMessage {
+  string id = 1;
+  int32 value = 2;
+}
+"""
+
+    schema1 = ProtobufSchema("cache_test.proto", schema)
+    schema2 = ProtobufSchema("cache_test.proto", schema)
+
+    with patch("grpc.protos") as mock_protos:
+        mock_descriptor = object()
+        mock_protos.return_value.DESCRIPTOR = mock_descriptor
+
+        result1 = _from_protobuf_schema_to_descriptors(schema1)
+        assert result1 is mock_descriptor
+        assert mock_protos.call_count == 1
+
+        result2 = _from_protobuf_schema_to_descriptors(schema2)
+        assert result2 is mock_descriptor
+        assert mock_protos.call_count == 1
+
+
+def test_descriptor_cache_different_schemas() -> None:
+    _DESCRIPTOR_CACHE.clear()
+
+    schema1_content = """
+syntax = "proto3";
+
+message Message1 {
+  string field1 = 1;
+}
+"""
+
+    schema2_content = """
+syntax = "proto3";
+
+message Message2 {
+  int32 field2 = 1;
+}
+"""
+
+    schema1 = ProtobufSchema("schema1.proto", schema1_content)
+    schema2 = ProtobufSchema("schema2.proto", schema2_content)
+
+    with patch("grpc.protos") as mock_protos:
+        mock_descriptor1 = object()
+        mock_descriptor2 = object()
+        mock_protos.return_value.DESCRIPTOR = mock_descriptor1
+
+        result1 = _from_protobuf_schema_to_descriptors(schema1)
+        assert result1 is mock_descriptor1
+        assert mock_protos.call_count == 1
+
+        mock_protos.return_value.DESCRIPTOR = mock_descriptor2
+
+        result2 = _from_protobuf_schema_to_descriptors(schema2)
+        assert result2 is mock_descriptor2
+        assert mock_protos.call_count == 2
+
+
+def test_descriptor_cache_failed_compilation() -> None:
+    _DESCRIPTOR_CACHE.clear()
+
+    schema = """
+syntax = "proto3";
+
+message DuplicateMessage {
+  string id = 1;
+}
+"""
+
+    schema1 = ProtobufSchema("duplicate.proto", schema)
+    schema2 = ProtobufSchema("duplicate.proto", schema)
+
+    with patch("grpc.protos") as mock_protos:
+        mock_protos.side_effect = Exception(
+            "Couldn't build proto file into descriptor pool: duplicate symbol 'DuplicateMessage'"
+        )
+
+        result1 = _from_protobuf_schema_to_descriptors(schema1)
+        assert result1 is None
+        assert mock_protos.call_count == 1
+
+        result2 = _from_protobuf_schema_to_descriptors(schema2)
+        assert result2 is None
+        assert mock_protos.call_count == 1
+
+
+def test_descriptor_cache_with_imported_schemas() -> None:
+    _DESCRIPTOR_CACHE.clear()
+
+    main_schema_content = """
+syntax = "proto3";
+
+import "imported.proto";
+
+message MainMessage {
+  ImportedMessage field = 1;
+}
+"""
+
+    imported_schema1_content = """
+syntax = "proto3";
+
+message ImportedMessage {
+  string id = 1;
+}
+"""
+
+    imported_schema2_content = """
+syntax = "proto3";
+
+message ImportedMessage {
+  int32 id = 1;
+}
+"""
+
+    main_schema = ProtobufSchema("main.proto", main_schema_content)
+    imported1 = ProtobufSchema("imported.proto", imported_schema1_content)
+    imported2 = ProtobufSchema("imported.proto", imported_schema2_content)
+
+    with patch("grpc.protos") as mock_protos:
+        mock_descriptor1 = object()
+        mock_descriptor2 = object()
+        mock_protos.return_value.DESCRIPTOR = mock_descriptor1
+
+        result1 = _from_protobuf_schema_to_descriptors(main_schema, [imported1])
+        assert result1 is mock_descriptor1
+        assert mock_protos.call_count == 1
+
+        mock_protos.return_value.DESCRIPTOR = mock_descriptor2
+
+        result2 = _from_protobuf_schema_to_descriptors(main_schema, [imported2])
+        assert result2 is mock_descriptor2
+        assert mock_protos.call_count == 2
