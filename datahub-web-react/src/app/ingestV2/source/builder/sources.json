@@ -140,6 +140,16 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:matillion-dpc",
+        "name": "matillion-dpc",
+        "displayName": "Matillion",
+        "description": "Import Pipelines, Streaming Pipelines, Projects, Environments, and lineage from Matillion Data Productivity Cloud.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/matillion-dpc",
+        "recipe": "source:\n  type: matillion-dpc\n  config:\n    api_config:\n      client_id: \"${MATILLION_CLIENT_ID}\"\n      client_secret: \"${MATILLION_CLIENT_SECRET}\"\n      region: \"EU1\"  # EU1 or US1\n\n    env: \"PROD\"\n    include_pipeline_executions: true\n    extract_projects_to_containers: true\n    parse_sql_for_lineage: true\n    \n    stateful_ingestion:\n      enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:hive",
         "name": "hive",
         "displayName": "Hive",
