@@ -31,6 +31,7 @@ _SAFE_KEYWORD_SUFFIXES: dict[str, tuple[str, ...]] = {
         "romeda",
     ),  # android, anderson, etc.
     "select": ("ion", "or", "ive", "ivity", "ed", "ing"),  # selection, selector, etc.
+    "on": ("ce", "ly", "to"),  # once, only, onto
 }
 
 
@@ -239,9 +240,12 @@ _SIGMA_SQL_FIX_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
         r"on \1.\2",
     ),
     # Also match short alphanumeric aliases (2-3 chars starting with letter)
+    # Exclude common words: once, only, onto
     (
         lambda q: _has_keyword_followed_by_letter(q, "on"),
-        re.compile(r"\bon([a-z][a-z0-9]{1,2})\.([a-z])", re.IGNORECASE),
+        re.compile(
+            r"\bon(?!ce\b|ly\b|to\b)([a-z][a-z0-9]{1,2})\.([a-z])", re.IGNORECASE
+        ),
         r"on \1.\2",
     ),
     # or<identifier starting with if_> -> or <identifier>
