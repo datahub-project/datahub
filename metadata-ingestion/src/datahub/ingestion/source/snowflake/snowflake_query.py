@@ -110,6 +110,21 @@ class SnowflakeQuery:
         """Build SQL WHERE clause for database_pattern filtering."""
         return SnowflakeQuery._build_pattern_filter(database_pattern, "database_name")
 
+    @staticmethod
+    def build_schema_filter(
+        schema_pattern: Optional[AllowDenyPattern],
+        db_name: str,
+        match_fully_qualified_names: bool,
+    ) -> str:
+        """Build SQL WHERE clause for schema_pattern filtering."""
+        if match_fully_qualified_names:
+            escaped_db = db_name.replace("'", "''")
+            column_expr = f"CONCAT('{escaped_db}', '.', schema_name)"
+        else:
+            column_expr = "schema_name"
+
+        return SnowflakeQuery._build_pattern_filter(schema_pattern, column_expr)
+
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS = {
         SnowflakeObjectDomain.TABLE.capitalize(),
         SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize(),
@@ -188,16 +203,23 @@ class SnowflakeQuery:
         ORDER BY database_name"""
 
     @staticmethod
-    def schemas_for_database(db_name: str) -> str:
+    def schemas_for_database(db_name: str, schema_filter: str = "") -> str:
         db_clause = f'"{db_name}".'
+
+        where_conditions = ["schema_name != 'INFORMATION_SCHEMA'"]
+        if schema_filter:
+            where_conditions.append(schema_filter)
+
+        where_clause = " AND ".join(where_conditions)
+
         return f"""
         SELECT schema_name AS "SCHEMA_NAME",
         created AS "CREATED",
         last_altered AS "LAST_ALTERED",
         comment AS "COMMENT"
-        from {db_clause}information_schema.schemata
-        WHERE schema_name != 'INFORMATION_SCHEMA'
-        order by schema_name"""
+        FROM {db_clause}information_schema.schemata
+        WHERE {where_clause}
+        ORDER BY schema_name"""
 
     @staticmethod
     def tables_for_database(db_name: str) -> str:
