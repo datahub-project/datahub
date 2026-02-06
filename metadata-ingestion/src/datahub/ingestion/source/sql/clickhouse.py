@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from functools import cached_property
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import clickhouse_driver
 import clickhouse_sqlalchemy.types as custom_types
@@ -16,7 +16,7 @@ from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Inspector, reflection
+from sqlalchemy.engine import reflection
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
@@ -43,14 +43,18 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.sql_common import (
-    SQLCommonConfig,
     SqlWorkUnit,
     logger,
     register_custom_type,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Inspector
+
+    from datahub.ingestion.source.common.data_reader import DataReader
+    from datahub.ingestion.source.sql.sql_common import SQLCommonConfig
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
@@ -585,7 +589,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         return cls(config, ctx)
 
     def get_view_default_db_schema(
-        self, _inspector: Any, _dataset_identifier: str
+        self, _inspector: "Inspector", _dataset_identifier: str
     ) -> Tuple[Optional[str], Optional[str]]:
         # ClickHouse uses 2-level naming (database.table), and view definitions
         # typically use fully-qualified table names. Passing default_db would cause
@@ -597,11 +601,11 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
     def _process_table(
         self,
         dataset_name: str,
-        inspector: Inspector,
+        inspector: "Inspector",
         schema: str,
         table: str,
-        sql_config: SQLCommonConfig,
-        data_reader: Optional[DataReader],
+        sql_config: "SQLCommonConfig",
+        data_reader: Optional["DataReader"],
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         # Yield all workunits from parent implementation
         yield from super()._process_table(
