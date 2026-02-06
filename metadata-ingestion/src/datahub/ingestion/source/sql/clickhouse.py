@@ -16,7 +16,7 @@ from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import reflection
+from sqlalchemy.engine import Inspector, reflection
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
@@ -30,6 +30,7 @@ from datahub.configuration.time_window_config import (
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import get_sys_time
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -42,8 +43,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.sql_common import (
+    SQLCommonConfig,
     SqlWorkUnit,
     logger,
     register_custom_type,
@@ -65,6 +68,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
+    DatasetProfileClass,
     DatasetSnapshotClass,
     UpstreamClass,
 )
@@ -590,6 +594,66 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         # "fingerprint.default.signals".
         return None, None
 
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader],
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        # Yield all workunits from parent implementation
+        yield from super()._process_table(
+            dataset_name, inspector, schema, table, sql_config, data_reader
+        )
+
+        # Emit DatasetProfile with row count and size from ClickHouse system tables.
+        # These stats are pre-computed by ClickHouse (no query execution needed).
+        _, properties, _ = self.get_table_properties(inspector, schema, table)
+
+        total_rows_str = properties.get("total_rows")
+        total_bytes_str = properties.get("total_bytes")
+
+        # Only emit profile if we have at least one stat
+        if not total_rows_str and not total_bytes_str:
+            return
+
+        dataset_urn = builder.make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+
+        dataset_profile = DatasetProfileClass(timestampMillis=get_sys_time())
+
+        if total_rows_str:
+            try:
+                dataset_profile.rowCount = int(total_rows_str)
+            except ValueError:
+                logger.debug(
+                    f"Could not parse total_rows '{total_rows_str}' for {table}"
+                )
+
+        if total_bytes_str:
+            try:
+                dataset_profile.sizeInBytes = int(total_bytes_str)
+            except ValueError:
+                logger.debug(
+                    f"Could not parse total_bytes '{total_bytes_str}' for {table}"
+                )
+
+        # Only emit if we successfully parsed at least one stat
+        if (
+            dataset_profile.rowCount is not None
+            or dataset_profile.sizeInBytes is not None
+        ):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=dataset_profile,
+            ).as_workunit()
+
     def _add_view_to_aggregator(
         self,
         view_urn: str,
@@ -602,20 +666,31 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         ClickHouse materialized views can specify a separate target table using the
         TO clause: CREATE MATERIALIZED VIEW view_name TO target_table AS SELECT ...
         The target table stores the actual data, while the materialized view is just a trigger.
-        For lineage, we want source → target_table (not source → materialized view).
+
+        We register lineage for BOTH the MV and the target table:
+        - source → MV (so users can see column lineage on the MV)
+        - source → target_table (so users can see column lineage on the target table)
+        - MV → target_table (1:1 column mapping)
         """
         target_table_urn = self._extract_to_table_urn(
             view_urn, view_definition, default_db
         )
         if target_table_urn:
-            # Register lineage to the target table instead of the view
+            # Register lineage for the MV itself (source → MV)
+            self.aggregator.add_view_definition(
+                view_urn=view_urn,
+                view_definition=view_definition,
+                default_db=default_db,
+                default_schema=default_schema,
+            )
+            # Register lineage for the target table (source → target_table)
             self.aggregator.add_view_definition(
                 view_urn=target_table_urn,
                 view_definition=view_definition,
                 default_db=default_db,
                 default_schema=default_schema,
             )
-            # Also add view → target table relationship
+            # Also add view → target table relationship (MV → target_table)
             self.aggregator.add_known_lineage_mapping(
                 upstream_urn=view_urn,
                 downstream_urn=target_table_urn,
