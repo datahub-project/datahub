@@ -240,6 +240,28 @@ class TestSigmaSqlPreprocessing:
         query = "CASE WHEN x THEN thence.value ELSE 0 END"
         assert preprocess_query_for_sigma(query) == query
 
+    def test_whitelist_alias_patterns(self) -> None:
+        """Sigma alias patterns (q1, t1, etc.) are whitelisted for safe fixing.
+
+        We use a WHITELIST approach for alias-based patterns:
+        - Only matches q + digits (q1, q11, q123) and t + digits (t1, t12)
+        - Safe from false positives like once., only., onto.
+        """
+        # Sigma alias patterns should be FIXED
+        assert "when q11." in preprocess_query_for_sigma("CASE whenq11.col = 1")
+        assert "then q3." in preprocess_query_for_sigma("thenq3.value")
+        assert "else q1." in preprocess_query_for_sigma("elseq1.result")
+        assert "on q3." in preprocess_query_for_sigma("JOIN x onq3.id = y.id")
+        assert "on t12." in preprocess_query_for_sigma("JOIN x ont12.id = y.id")
+
+        # English words with dots should NOT be touched (not Sigma aliases)
+        query = "SELECT * FROM once.table_name"
+        assert preprocess_query_for_sigma(query) == query
+        query = "SELECT * FROM only.schema_table"
+        assert preprocess_query_for_sigma(query) == query
+        query = "SELECT * FROM onto.target"
+        assert preprocess_query_for_sigma(query) == query
+
 
 def get_lineage_extractor() -> RedshiftSqlLineage:
     config = RedshiftConfig(
