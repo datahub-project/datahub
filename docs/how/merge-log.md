@@ -3665,3 +3665,115 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **2dd918ea60** - fix(agent-context-docs): update agent-context docs with latest changes (#16086)
   *by Nick Adams <nick.adams@datahub.com> on 2026-02-04*
+
+## Upstream Merge Session - 2026-02-06 19:41:24
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 33
+- **Strategy**: stacked
+- **Started**: 2026-02-06 19:41:24
+
+### Commits Included in This Merge
+
+- **9d8539b425** - feat(report): extend daily report to include additional stats (#16089)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-02-04*
+
+- **f47e282437** - docs(): metadata examples library imports fix (#16087)
+  *by Jay <159848059+jayacryl@users.noreply.github.com> on 2026-02-04*
+
+- **33a9a836cd** - fix(ui): fix mentions dropdown bugs and keyboard shortcut conflicts (#16051)
+  *by Anna Everhart <149417426+annadoesdesign@users.noreply.github.com> on 2026-02-04*
+
+- **b6ab8a1edb** - chore(release): Set default feature flags to showcase redesigned experiences (#16088)
+  *by John Joyce <john@acryl.io> on 2026-02-04*
+
+- **629237fa36** - feat(hive): add Kerberos QOP configuration for Thrift connections (#16098)
+  *by Max Margalith <max.margalith@datahub.com> on 2026-02-05*
+
+- **9636f5394d** - feat(logging): add function to reset loggers and support external config file (#16091)
+  *by Craig Rueda <craig@craigrueda.com> on 2026-02-05*
+
+- **94ee07c0a0** - Enable scrolling on Groups tab (#16094)
+  *by Ben Blazke <benjiaming@users.noreply.github.com> on 2026-02-05*
+
+- **611db774b7** - feat(ingest/clickhouse): add column-level lineage support (#16031)
+  *by kyungsoo-datahub <kyungsoo.lee@datahub.com> on 2026-02-05*
+
+- **43e6694bf1** - fix(preset): fix Preset/Superset dashboard lineage and database alias transformation (#16034)
+  *by kyungsoo-datahub <kyungsoo.lee@datahub.com> on 2026-02-05*
+
+- **3e9e8907ad** - Product url slash (#15983)
+  *by Ben Blazke <benjiaming@users.noreply.github.com> on 2026-02-05*
+
+- **34193ae1fc** - (fix: asset downloads) Asset download queries do not apply filters and download all assets (#16075)
+  *by ani-malgari <anirudh.malgari@datahub.com> on 2026-02-05*
+
+- **0dfd48af73** - docs(lineage): updating docs to show example with time filtering (#16033)
+  *by Gabe Lyons <gabe.lyons@acryl.io> on 2026-02-05*
+
+- **1335594b37** - fix(docker): restore auth enabled default in GMS dev profile (#16110)
+  *by rob-1019 <rob.caskey@datahub.com> on 2026-02-05*
+
+- **ea01d6f203** - refactor: default semantic search to OpenAI text-embedding-3-large (#16111)
+  *by Alex <alex.skurikhin@datahub.com> on 2026-02-05*
+
+- **be0b7f1814** - fix(openapi/scroll): Do not mutate default search flags for scrolling with slice (#16107)
+  *by Andrew Sikowitz <andrew.sikowitz@acryl.io> on 2026-02-05*
+
+- **724f75fb69** - fix(documents): prevent duplicate document creation on page refresh (#16085)
+  *by Anna Everhart <149417426+annadoesdesign@users.noreply.github.com> on 2026-02-05*
+
+- **8281e875a4** - fix(airflow): use configured cluster environment for dataset URNs in lineage (#16040)
+  *by Aviraj Gour <252974426+aviraj-gour@users.noreply.github.com> on 2026-02-06*
+
+- **38cfb12de8** - MFE Config reads from cache, and passing cache headers for /mfe/config endpoint (#16116)
+  *by ani-malgari <anirudh.malgari@datahub.com> on 2026-02-05*
+
+- **490a1881f6** - feat(ui): Add support for notion + confluence to ingestion form V1 (#16117)
+  *by John Joyce <john@acryl.io> on 2026-02-05*
+
+- **fc24192bd7** - fix(search): register suggestion parsers in ES8 XContent registry (#16109)
+  *by Pedro Silva <pedro@acryl.io> on 2026-02-06*
+
+- **8934806bf7** - docs(ingestion): Update dbt test docs (#16113)
+  *by Adrian Machado <adrian.machado@datahub.com> on 2026-02-06*
+
+- **a02c9f301d** - fix(ingest/snowflake): map MERGE and COPY operations to semantic types (#16118)
+  *by Tamas Nemeth <treff7es@gmail.com> on 2026-02-06*
+
+- **5dc301f2e7** - fix(lookml): project_dependencies union deserialization and config validation (#16080)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-02-06*
+
+- **c6212cea59** - feat(snowflake): add retention time property to Snowflake tables (#16016)
+  *by Neha Gslab <46673172+NehaGslab@users.noreply.github.com> on 2026-02-06*
+
+- **2ebf023cbe** - fix: CI environment detection (#16119)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-02-06*
+
+- **350328c1ab** - refactor(ingestion): rename capability summary to connector registry and split into package-based files (#16106)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-02-06*
+
+- **43ba0ed50d** - chore(ingestion/tableau): add warning when Metadata API returns no upstream lineage (#16095)
+  *by Aviraj Gour <252974426+aviraj-gour@users.noreply.github.com> on 2026-02-06*
+
+- **23b371c6ae** - feat(graphql): configurable parent traversal depth and visit limits (#16114)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-06*
+
+- **8fab821e1a** - fix(ui): fix document related assets validation and nested URN extraction AI-297 (#16090)
+  *by Anna Everhart <149417426+annadoesdesign@users.noreply.github.com> on 2026-02-06*
+
+- **1661b849f8** - fix(): Adding fixes for service account tests (#16092)
+  *by John Joyce <john@acryl.io> on 2026-02-06*
+
+- **53a749e415** - docs(chrome_extension): add list of supported tools (#16126)
+  *by Michael Maltese <michael.maltese@datahub.com> on 2026-02-06*
+
+- **9a7e3cf279** - feat(): Show redesigned ingestion page by default (#16125)
+  *by John Joyce <john@acryl.io> on 2026-02-06*
+
+- **574e5ad07c** - feat(): Updating datahub upgrade guide for v1.4.0  (#16093)
+  *by John Joyce <john@acryl.io> on 2026-02-06*
