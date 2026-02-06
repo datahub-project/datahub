@@ -580,6 +580,16 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         config = ClickHouseConfig.model_validate(config_dict)
         return cls(config, ctx)
 
+    def get_view_default_db_schema(
+        self, _inspector: Any, _dataset_identifier: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        # ClickHouse uses 2-level naming (database.table), and view definitions
+        # typically use fully-qualified table names. Passing default_db would cause
+        # sqlglot to prepend it to already-qualified names, creating incorrect URNs
+        # like "fingerprint.analytics_aggregate.default.signals" instead of
+        # "fingerprint.default.signals".
+        return None, None
+
     def _add_view_to_aggregator(
         self,
         view_urn: str,
