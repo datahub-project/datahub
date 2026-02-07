@@ -85,6 +85,8 @@ docker-compose restart datahub-gms
 kubectl rollout restart deployment datahub-gms
 ```
 
+> **Kubernetes users:** If you deploy DataHub via Helm, semantic search environment variables can be configured in the [DataHub Helm chart](https://github.com/acryldata/datahub-helm). See the chart's `values.yaml` for the `datahub-gms` extra environment variable settings.
+
 ### Step 3: Verify Configuration
 
 Check DataHub logs for successful initialization:
