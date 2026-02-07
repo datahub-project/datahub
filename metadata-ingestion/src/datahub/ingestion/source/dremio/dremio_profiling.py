@@ -1,7 +1,7 @@
 import logging
 import re
 import time
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -11,7 +11,11 @@ from datahub.ingestion.source.dremio.dremio_api import (
 )
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_entities import DremioDataset
+from datahub.ingestion.source.dremio.dremio_models import (
+    DremioProfilingResult,
+)
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -32,10 +36,12 @@ class DremioProfiler:
         config: DremioSourceConfig,
         report: DremioSourceReport,
         api_operations: DremioAPIOperations,
+        state_handler: Optional[ProfilingHandler] = None,
     ) -> None:
         self.api_operations = api_operations
         self.config = config
         self.report = report
+        self.state_handler = state_handler
         self.QUERY_TIMEOUT = (
             config.profiling.query_timeout
         )  # 5 minutes timeout for each query
@@ -245,31 +251,39 @@ class DremioProfiler:
         self, results: List[Dict], columns: List[Tuple[str, str]]
     ) -> Dict:
         profile: Dict[str, Any] = {"column_stats": {}}
-        result = results[0] if results else {}  # We expect only one row of results
+        result_dict = results[0] if results else {}  # We expect only one row of results
 
-        profile["row_count"] = int(result.get("row_count", 0))
+        # Parse profiling result using Pydantic model for flexible API response handling
+        profiling_result = DremioProfilingResult.model_validate(result_dict)
 
-        profile["column_count"] = int(result.get("column_count", 0))
+        # Use dot notation to access parsed data
+        profile["row_count"] = profiling_result.row_count
+        profile["column_count"] = profiling_result.column_count
 
         for column_name, data_type in columns:
             safe_column_name = re.sub(r"\W|^(?=\d)", "_", column_name)
+
+            # Get structured column statistics with full dot notation
+            col_stats = profiling_result.get_column_stats(safe_column_name)
             column_stats: Dict[str, Any] = {}
+
+            # Use clean dot notation access throughout
             if self.config.profiling.include_field_distinct_count:
-                null_distinct = result.get(f"{safe_column_name}_distinct_count", 0)
-                null_distinct = int(null_distinct) if null_distinct is not None else 0
-                column_stats["distinct_count"] = null_distinct
+                column_stats["distinct_count"] = (
+                    int(col_stats.distinct_count)
+                    if col_stats.distinct_count is not None
+                    else 0
+                )
 
             if self.config.profiling.include_field_null_count:
-                null_count_value = result.get(f"{safe_column_name}_null_count", 0)
-                null_count = (
-                    int(null_count_value) if null_count_value is not None else 0
+                column_stats["null_count"] = (
+                    int(col_stats.null_count) if col_stats.null_count is not None else 0
                 )
-                column_stats["null_count"] = null_count
 
             if self.config.profiling.include_field_min_value:
-                column_stats["min"] = result.get(f"{safe_column_name}_min")
+                column_stats["min"] = col_stats.min
             if self.config.profiling.include_field_max_value:
-                column_stats["max"] = result.get(f"{safe_column_name}_max")
+                column_stats["max"] = col_stats.max
 
             if data_type.lower() in [
                 "int",
@@ -280,16 +294,13 @@ class DremioProfiler:
                 "decimal",
             ]:
                 if self.config.profiling.include_field_mean_value:
-                    column_stats["mean"] = result.get(f"{safe_column_name}_mean")
+                    column_stats["mean"] = col_stats.mean
                 if self.config.profiling.include_field_stddev_value:
-                    column_stats["stdev"] = result.get(f"{safe_column_name}_stdev")
+                    column_stats["stdev"] = col_stats.stdev
                 if self.config.profiling.include_field_median_value:
-                    column_stats["median"] = result.get(f"{safe_column_name}_median")
+                    column_stats["median"] = col_stats.median
                 if self.config.profiling.include_field_quantiles:
-                    column_stats["quantiles"] = [
-                        result.get(f"{safe_column_name}_25th_percentile"),
-                        result.get(f"{safe_column_name}_75th_percentile"),
-                    ]
+                    column_stats["quantiles"] = col_stats.quantiles
 
             profile["column_stats"][column_name] = column_stats
 

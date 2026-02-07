@@ -6,7 +6,8 @@ source:
     port: 9047
     tls: true
 
-    # Credentials with personal access token(recommended)
+    # Credentials with personal access token (recommended)
+    # Note: User must have READ METADATA and SELECT ON SYSTEM privileges
     authentication_method: PAT
     password: pass
     # OR Credentials with basic auth
@@ -14,20 +15,22 @@ source:
     # username: user
     # password: pass
 
-    #For cloud instance
-    #is_dremio_cloud: True
-    #dremio_cloud_project_id: <project_id>
+    # For Dremio Cloud instances
+    # is_dremio_cloud: True
+    # dremio_cloud_project_id: <project_id>
 
+    # Enable query lineage extraction
     include_query_lineage: True
 
+    # Extract ownership information
     ingest_owner: true
 
-    #Optional
+    # Optional: Map Dremio sources to external platforms
     source_mappings:
       - platform: s3
         source_name: samples
 
-    #Optional
+    # Optional: Filter datasets by schema patterns
     schema_pattern:
       allow:
         - "<source_name>.<table_name>"
