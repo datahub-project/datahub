@@ -694,6 +694,26 @@ type Mutation {
   unsetDomain(entityUrn: String!): Boolean
 
   """
+  Adds multiple Domains to a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Preserves existing domains. Returns true if the Domains were successfully added. Requires the Edit Domains privilege for the Entity.
+  """
+  addDomains(entityUrn: String!, domainUrns: [String!]!): Boolean
+
+  """
+  Removes multiple Domains from a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Preserves other domains. Returns true if the Domains were successfully removed. Requires the Edit Domains privilege for the Entity.
+  """
+  removeDomains(entityUrn: String!, domainUrns: [String!]!): Boolean
+
+  """
+  Add domains to multiple Entities
+  """
+  batchAddDomains(input: BatchAddDomainsInput!): Boolean
+
+  """
+  Remove domains from multiple Entities
+  """
+  batchRemoveDomains(input: BatchRemoveDomainsInput!): Boolean
+
+  """
   Create a ERModelRelationship
   """
   createERModelRelationship(
@@ -1767,9 +1787,15 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   dataPlatformInstance: DataPlatformInstance
 
   """
+  The Domains associated with the Dataset
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the Dataset
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the dataset
@@ -2254,9 +2280,15 @@ type VersionedDataset implements Entity {
   glossaryTerms: GlossaryTerms
 
   """
+  The Domains associated with the Dataset
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the Dataset
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the entity
@@ -2482,9 +2514,15 @@ type GlossaryTerm implements Entity {
   ownership: Ownership
 
   """
+  The Domains associated with the glossary term
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the glossary term
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the glossary term
@@ -3173,9 +3211,15 @@ type Container implements Entity {
   subTypes: SubTypes
 
   """
+  The Domains associated with the Dataset
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the Dataset
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the entity
@@ -5755,9 +5799,15 @@ type Notebook implements Entity & BrowsableEntity {
   institutionalMemory: InstitutionalMemory
 
   """
+  The Domains associated with the Notebook
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the Notebook
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the entity
@@ -6054,9 +6104,15 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   glossaryTerms: GlossaryTerms
 
   """
+  The Domains associated with the Dashboard
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the Dashboard
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the entity
@@ -6409,9 +6465,15 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
   glossaryTerms: GlossaryTerms
 
   """
+  The Domains associated with the Chart
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the Chart
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the entity
@@ -6825,9 +6887,15 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   glossaryTerms: GlossaryTerms
 
   """
+  The Domains associated with the DataFlow
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the DataFlow
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the entity
@@ -7099,9 +7167,15 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   glossaryTerms: GlossaryTerms
 
   """
+  The Domains associated with the Data Job
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the Data Job
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the entity
@@ -9599,6 +9673,36 @@ input BatchSetDomainInput {
 }
 
 """
+Input provided when adding domains to a batch of assets
+"""
+input BatchAddDomainsInput {
+  """
+  The primary keys of the Domains
+  """
+  domainUrns: [String!]!
+
+  """
+  The target assets to attach the domains to
+  """
+  resources: [ResourceRefInput!]!
+}
+
+"""
+Input provided when removing domains from a batch of assets
+"""
+input BatchRemoveDomainsInput {
+  """
+  The primary keys of the Domains
+  """
+  domainUrns: [String!]!
+
+  """
+  The target assets to remove the domains from
+  """
+  resources: [ResourceRefInput!]!
+}
+
+"""
 Input provided when creating or updating an Access Policy
 """
 input PolicyUpdateInput {
@@ -10501,9 +10605,15 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   glossaryTerms: GlossaryTerms
 
   """
+  The Domains associated with the entity
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the entity
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the entity
@@ -10655,9 +10765,15 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   glossaryTerms: GlossaryTerms
 
   """
+  The Domains associated with the entity
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the entity
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the entity
@@ -10854,9 +10970,15 @@ type MLFeature implements EntityWithRelationships & Entity {
   glossaryTerms: GlossaryTerms
 
   """
+  The Domains associated with the entity
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the entity
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the entity
@@ -11125,9 +11247,15 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   glossaryTerms: GlossaryTerms
 
   """
+  The Domains associated with the entity
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the entity
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the entity
@@ -11291,9 +11419,15 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   glossaryTerms: GlossaryTerms
 
   """
+  The Domains associated with the entity
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the entity
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the entity
@@ -11688,6 +11822,16 @@ type DomainAssociation {
   Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+}
+
+"""
+Domains attached to a particular Metadata Entity
+"""
+type DomainsAssociations {
+  """
+  The set of domains attached to the Metadata Entity
+  """
+  domains: [DomainAssociation!]
 }
 
 """
@@ -13321,9 +13465,15 @@ type DataProduct implements Entity {
   glossaryTerms: GlossaryTerms
 
   """
+  The Domains associated with the Data Product
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the Data Product
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   The applications associated with the data product
@@ -13536,9 +13686,15 @@ type Application implements Entity {
   glossaryTerms: GlossaryTerms
 
   """
+  The Domains associated with the Application
+  """
+  domainsAssociations: DomainsAssociations
+
+  """
   The Domain associated with the Application
   """
   domain: DomainAssociation
+    @deprecated(reason: "Use domainsAssociations instead")
 
   """
   Tags used for searching Application

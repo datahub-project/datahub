@@ -1,0 +1,129 @@
+package com.linkedin.datahub.graphql.resolvers.domain;
+
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.testng.Assert.*;
+
+import com.google.common.collect.ImmutableList;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.domain.Domains;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import graphql.schema.DataFetchingEnvironment;
+import java.util.concurrent.CompletionException;
+import org.mockito.Mockito;
+import org.testng.annotations.Test;
+
+public class AddDomainsEdgeCasesTest {
+
+  private static final String TEST_ENTITY_URN =
+      "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)";
+  private static final String TEST_DOMAIN_URN = "urn:li:domain:engineering";
+
+  @Test
+  public void testGetSuccessWithEmptyExistingDomains() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    final Domains originalDomains = new Domains();
+    originalDomains.setDomains(new UrnArray());
+
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
+                Mockito.eq("domains"),
+                Mockito.eq(0L)))
+        .thenReturn(originalDomains);
+
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_URN)), eq(true)))
+        .thenReturn(true);
+
+    AddDomainsResolver resolver = new AddDomainsResolver(mockClient, mockService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("entityUrn"))).thenReturn(TEST_ENTITY_URN);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("domainUrns")))
+        .thenReturn(ImmutableList.of(TEST_DOMAIN_URN));
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+  }
+
+  @Test
+  public void testGetFailureIngestThrowsIllegalArgumentException() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
+                Mockito.eq(DOMAINS_ASPECT_NAME),
+                Mockito.eq(0L)))
+        .thenReturn(null);
+
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_URN)), eq(true)))
+        .thenReturn(true);
+
+    Mockito.doThrow(new IllegalArgumentException("Invalid argument"))
+        .when(mockService)
+        .ingestProposal(any(), any(AspectsBatchImpl.class), Mockito.anyBoolean());
+
+    AddDomainsResolver resolver = new AddDomainsResolver(mockClient, mockService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("entityUrn"))).thenReturn(TEST_ENTITY_URN);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("domainUrns")))
+        .thenReturn(ImmutableList.of(TEST_DOMAIN_URN));
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testGetFailureIngestThrowsNullPointerException() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
+                Mockito.eq(DOMAINS_ASPECT_NAME),
+                Mockito.eq(0L)))
+        .thenReturn(null);
+
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_URN)), eq(true)))
+        .thenReturn(true);
+
+    Mockito.doThrow(new NullPointerException("Null value"))
+        .when(mockService)
+        .ingestProposal(any(), any(AspectsBatchImpl.class), Mockito.anyBoolean());
+
+    AddDomainsResolver resolver = new AddDomainsResolver(mockClient, mockService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("entityUrn"))).thenReturn(TEST_ENTITY_URN);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("domainUrns")))
+        .thenReturn(ImmutableList.of(TEST_DOMAIN_URN));
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+}
