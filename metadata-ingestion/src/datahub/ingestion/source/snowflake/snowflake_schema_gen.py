@@ -1313,6 +1313,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         "IS_HYBRID": "true" if table.is_hybrid else None,
                         "IS_DYNAMIC": "true" if table.is_dynamic else None,
                         "IS_ICEBERG": "true" if table.is_iceberg else None,
+                        "RETENTION_TIME": (
+                            str(table.retention_time)
+                            if table.retention_time is not None
+                            else None
+                        ),
                     }.items()
                     if v
                 }

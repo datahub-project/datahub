@@ -1645,3 +1645,89 @@ JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers".
         dialect="dremio",
         expected_file=RESOURCE_DIR / "test_dremio_quoted_identifiers.json",
     )
+
+
+def test_clickhouse_dictget_not_treated_as_table() -> None:
+    """Test that ClickHouse DICTGET function arguments are not treated as table references.
+
+    DICTGET(dict_name, attr_name, key) takes a dictionary name as the first argument,
+    which sqlglot parses as a Table node but should NOT appear in lineage.
+
+    Expected lineage:
+        analytics.events
+              |
+              v
+          [output]
+
+    NOT included (dictionary reference, not a table):
+        default.subscriptions
+    """
+    assert_sql_result(
+        """\
+SELECT
+    subscription_id,
+    DICTGET(default.subscriptions, 'type', subscription_id) AS subscription_type,
+    DICTGET(default.subscriptions, 'domain', subscription_id) AS subscription_domain
+FROM analytics.events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget.json",
+    )
+
+
+def test_clickhouse_dictget_with_multiple_tables() -> None:
+    """Test DICTGET with actual table joins.
+
+    Dictionary refs should be excluded, but real table refs should be included.
+
+    Expected lineage:
+        analytics.events    analytics.users
+                    \           /
+                     \         /
+                      v       v
+                      [output]
+
+    NOT included (dictionary reference, not a table):
+        default.categories
+    """
+    assert_sql_result(
+        """\
+SELECT
+    e.event_id,
+    u.user_name,
+    DICTGETORDEFAULT(default.categories, 'name', e.category_id, 'Unknown') AS category_name
+FROM analytics.events e
+JOIN analytics.users u ON e.user_id = u.id
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget_with_joins.json",
+    )
+
+
+def test_clickhouse_materialized_view_to_table() -> None:
+    """Test ClickHouse CREATE MATERIALIZED VIEW ... TO target_table syntax.
+
+    The TO table is the storage target (downstream), not a data source (upstream).
+    The MV acts as a trigger that inserts into the target table.
+
+    Expected lineage:
+        analytics.events
+              |
+              v
+        analytics.agg_daily_stats  (target table from TO clause)
+
+    The MV name (analytics.mv_daily_stats) is NOT the downstream - the TO table is.
+    """
+    assert_sql_result(
+        """\
+CREATE MATERIALIZED VIEW analytics.mv_daily_stats TO analytics.agg_daily_stats
+(date Date, total_events UInt64)
+AS SELECT
+    toDate(timestamp) AS date,
+    count(*) AS total_events
+FROM analytics.events
+GROUP BY date
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_materialized_view_to.json",
+    )

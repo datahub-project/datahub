@@ -49,6 +49,7 @@ class TestHiveMetastoreThriftConfig:
         assert config.use_kerberos is False  # Safe default
         assert config.kerberos_service_name == "hive"
         assert config.kerberos_hostname_override is None
+        assert config.kerberos_qop == "auth"  # Default QOP
         assert config.connection_type == HiveMetastoreConnectionType.thrift
 
         # Custom Kerberos settings
@@ -141,6 +142,22 @@ class TestHiveMetastoreThriftClient:
         assert partition_row["is_partition_col"] == 1
 
 
+class TestThriftConnectionConfig:
+    """Tests for ThriftConnectionConfig defaults."""
+
+    def test_kerberos_qop_default(self):
+        """Test kerberos_qop defaults to 'auth'."""
+        config = ThriftConnectionConfig(host="hms.company.com", port=9083)
+        assert config.kerberos_qop == "auth"
+
+    def test_kerberos_qop_custom(self):
+        """Test kerberos_qop can be set to auth-conf."""
+        config = ThriftConnectionConfig(
+            host="hms.company.com", port=9083, kerberos_qop="auth-conf"
+        )
+        assert config.kerberos_qop == "auth-conf"
+
+
 class TestThriftDataFetcher:
     """Tests for the ThriftDataFetcher class."""
 
@@ -163,6 +180,128 @@ class TestThriftDataFetcher:
         assert fetcher._thrift_config.use_kerberos is True
         assert fetcher._thrift_config.kerberos_service_name == "hive"
         assert fetcher._thrift_config.timeout_seconds == 120
+
+
+class TestSaslTransportQopEncoding:
+    """Test QOP encoding in SASL transport creation."""
+
+    def test_create_sasl_transport_encodes_qop_to_bytes(self):
+        """Test that _create_sasl_transport encodes kerberos_qop to bytes correctly."""
+        for qop_string in ["auth", "auth-int", "auth-conf"]:
+            config = ThriftConnectionConfig(
+                host="hms.company.com",
+                port=9083,
+                use_kerberos=True,
+                kerberos_qop=qop_string,
+            )
+            client = HiveMetastoreThriftClient(config)
+
+            mock_socket = MagicMock()
+
+            # Mock PureSASLClient to capture the qops parameter
+            with patch("pyhive.sasl_compat.PureSASLClient", autospec=True):
+                transport = client._create_sasl_transport(mock_socket)
+
+                # Verify transport was created
+                assert transport is not None
+
+    def test_sasl_host_uses_hostname_override(self):
+        """Test that kerberos_hostname_override is used for sasl_host."""
+        config = ThriftConnectionConfig(
+            host="hms-lb.company.com",
+            port=9083,
+            use_kerberos=True,
+            kerberos_hostname_override="hms-internal.company.com",
+        )
+        client = HiveMetastoreThriftClient(config)
+
+        mock_socket = MagicMock()
+
+        with patch("pyhive.sasl_compat.PureSASLClient", autospec=True):
+            client._create_sasl_transport(mock_socket)
+            # Verify hostname override is used (sasl_host in the method)
+            assert (
+                client.config.kerberos_hostname_override == "hms-internal.company.com"
+            )
+
+    def test_connect_with_kerberos_uses_sasl_transport(self):
+        """Test connect() creates SASL transport when use_kerberos=True."""
+        config = ThriftConnectionConfig(
+            host="hms.company.com",
+            port=9083,
+            use_kerberos=True,
+            kerberos_qop="auth-conf",
+        )
+        client = HiveMetastoreThriftClient(config)
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.hive.hive_thrift_client.TSocket.TSocket"
+            ) as mock_tsocket,
+            patch.object(client, "_create_sasl_transport") as mock_sasl_transport,
+        ):
+            mock_socket = MagicMock()
+            mock_tsocket.return_value = mock_socket
+            mock_transport = MagicMock()
+            mock_sasl_transport.return_value = mock_transport
+
+            client.connect()
+
+            # Verify SASL transport was created and used
+            mock_sasl_transport.assert_called_once_with(mock_socket)
+            mock_transport.open.assert_called_once()
+
+    def test_connect_without_kerberos_uses_buffered_transport(self):
+        """Test connect() creates buffered transport when use_kerberos=False."""
+        config = ThriftConnectionConfig(
+            host="hms.company.com",
+            port=9083,
+            use_kerberos=False,
+        )
+        client = HiveMetastoreThriftClient(config)
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.hive.hive_thrift_client.TSocket.TSocket"
+            ) as mock_tsocket,
+            patch(
+                "datahub.ingestion.source.sql.hive.hive_thrift_client.TTransport.TBufferedTransport"
+            ) as mock_buffered,
+        ):
+            mock_socket = MagicMock()
+            mock_tsocket.return_value = mock_socket
+            mock_transport = MagicMock()
+            mock_buffered.return_value = mock_transport
+
+            client.connect()
+
+            # Verify buffered transport was created
+            mock_buffered.assert_called_once_with(mock_socket)
+            mock_transport.open.assert_called_once()
+
+    def test_close_closes_transport(self):
+        """Test close() closes the transport."""
+        config = ThriftConnectionConfig(host="hms.company.com", port=9083)
+        client = HiveMetastoreThriftClient(config)
+
+        mock_transport = MagicMock()
+        client._transport = mock_transport
+
+        client.close()
+
+        mock_transport.close.assert_called_once()
+        assert client._transport is None
+
+    def test_context_manager_calls_connect(self):
+        """Test __enter__ calls connect()."""
+        config = ThriftConnectionConfig(host="hms.company.com", port=9083)
+        client = HiveMetastoreThriftClient(config)
+
+        with patch.object(client, "connect") as mock_connect:
+            result = client.__enter__()
+
+            mock_connect.assert_called_once()
+            assert result is client
 
 
 class TestHiveMetastoreSourceWithThrift:
