@@ -389,20 +389,20 @@ elasticsearch:
       # Multi-model configuration: map of model name to embedding config
       # Example with multiple models:
       # models:
+      #   text_embedding_3_large:
+      #     vectorDimension: 3072
+      #     knnEngine: faiss
+      #     spaceType: cosinesimil
+      #     efConstruction: 128
+      #     m: 16
       #   cohere_embed_v3:
       #     vectorDimension: 1024
       #     knnEngine: faiss
       #     spaceType: cosinesimil
       #     efConstruction: 128
       #     m: 16
-      #   openai_text_embedding_3_small:
-      #     vectorDimension: 1536
-      #     knnEngine: faiss
-      #     spaceType: cosinesimil
-      #     efConstruction: 128
-      #     m: 16
       models:
-        cohere_embed_v3:
+        text_embedding_3_large:
           vectorDimension: ${ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION:3072}
           knnEngine: ${ELASTICSEARCH_SEMANTIC_KNN_ENGINE:faiss}
           spaceType: ${ELASTICSEARCH_SEMANTIC_SPACE_TYPE:cosinesimil}

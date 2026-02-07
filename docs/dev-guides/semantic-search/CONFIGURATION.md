@@ -16,7 +16,7 @@ ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
 ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document
 
 # Vector dimensions (must match embedding model)
-ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION=1024
+ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION=3072
 ```
 
 ### Application Configuration
@@ -29,7 +29,7 @@ In `metadata-service/configuration/src/main/resources/application.yaml`, you nee
 
 #### Index Model Mappings
 
-The `models:` section defines the structure of the semantic index. **You must add a mapping for each embedding model you plan to use.** The model key (e.g., `cohere_embed_v3`) must match the key used when ingesting document embeddings.
+The `models:` section defines the structure of the semantic index. **You must add a mapping for each embedding model you plan to use.** The model key (e.g., `text_embedding_3_large`) must match the key used when ingesting document embeddings.
 
 ```yaml
 elasticsearch:
@@ -40,9 +40,9 @@ elasticsearch:
 
       # Define index mappings for each embedding model you use
       models:
-        # Example: AWS Bedrock with Cohere
-        cohere_embed_v3:
-          vectorDimension: 1024
+        # Default: OpenAI text-embedding-3-large
+        text_embedding_3_large:
+          vectorDimension: 3072
           knnEngine: faiss
           spaceType: cosinesimil
           efConstruction: 128
@@ -79,7 +79,7 @@ elasticsearch:
       # ... models section above ...
 
       embeddingProvider:
-        type: ${EMBEDDING_PROVIDER_TYPE:aws-bedrock}
+        type: ${EMBEDDING_PROVIDER_TYPE:openai}
         modelId: ${EMBEDDING_PROVIDER_MODEL_ID:cohere.embed-english-v3}
         awsRegion: ${EMBEDDING_PROVIDER_AWS_REGION:us-west-2}
         maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
@@ -87,7 +87,7 @@ elasticsearch:
         # OpenAI configuration (used when type is "openai")
         openai:
           apiKey: ${OPENAI_API_KEY:}
-          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-large}
           endpoint: ${OPENAI_EMBEDDING_ENDPOINT:https://api.openai.com/v1/embeddings}
 
         # Cohere configuration (used when type is "cohere")
@@ -135,8 +135,8 @@ Document embeddings are sent to DataHub via MCP using the `SemanticContent` aspe
 ```json
 {
   "embeddings": {
-    "cohere_embed_v3": {
-      "modelVersion": "bedrock/cohere.embed-english-v3",
+    "text_embedding_3_large": {
+      "modelVersion": "openai/text-embedding-3-large",
       "generatedAt": 1702234567890,
       "chunkingStrategy": "sentence_boundary_400t",
       "totalChunks": 2,
@@ -179,12 +179,13 @@ public interface EmbeddingProvider {
 
 **Built-in Implementations:**
 
-- `AwsBedrockEmbeddingProvider` - Uses AWS Bedrock (default)
+- `OpenAiEmbeddingProvider` - Uses OpenAI API (default)
+- `AwsBedrockEmbeddingProvider` - Uses AWS Bedrock
 - `NoOpEmbeddingProvider` - Throws exception if called (used when semantic search disabled)
 
 The following providers can be configured:
 
-#### AWS Bedrock (Default)
+#### AWS Bedrock
 
 AWS Bedrock provides managed access to embedding models:
 
@@ -211,9 +212,7 @@ AWS_SECRET_ACCESS_KEY=...
 | `amazon.titan-embed-text-v1`   | 1536         | 8192       | Amazon's model          |
 | `amazon.titan-embed-text-v2:0` | 256/512/1024 | 8192       | Configurable dimensions |
 
-#### OpenAI
-
-> **Note:** The OpenAI provider was added as an example implementation to demonstrate how to integrate additional embedding providers. See the implementation in `OpenAiEmbeddingProvider.java`.
+#### OpenAI (Default)
 
 OpenAI provides high-quality embedding models with simple API access:
 
@@ -224,9 +223,9 @@ OPENAI_API_KEY=sk-your-api-key-here
 
 # Optional - defaults shown
 # OPENAI_EMBEDDING_MODEL: Model used to generate query embeddings via OpenAI API
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_EMBEDDING_MODEL=text-embedding-3-large
 # EMBEDDING_PROVIDER_MODEL_ID: Model key used to look up embeddings in the semantic index
-EMBEDDING_PROVIDER_MODEL_ID=text-embedding-3-small
+EMBEDDING_PROVIDER_MODEL_ID=text-embedding-3-large
 ```
 
 > **Important:** Both values should match to ensure query embeddings are compared against the correct document embeddings in the index.
@@ -239,8 +238,6 @@ EMBEDDING_PROVIDER_MODEL_ID=text-embedding-3-small
 | `text-embedding-3-large` | 3072       | 8191       | Higher quality       |
 
 #### Cohere (Direct API)
-
-> **Note:** The Cohere direct API provider was added as an example implementation to demonstrate how to integrate additional embedding providers. See the implementation in `CohereEmbeddingProvider.java`.
 
 Use Cohere's embedding API directly (without AWS Bedrock):
 
@@ -423,17 +420,17 @@ You can configure multiple embedding models in the index for migration scenarios
 
 ```yaml
 models:
-  # Current production model
-  cohere_embed_v3:
-    vectorDimension: 1024
+  # Current production model (OpenAI default)
+  text_embedding_3_large:
+    vectorDimension: 3072
     knnEngine: faiss
     spaceType: cosinesimil
     efConstruction: 128
     m: 16
 
-  # New model being tested
-  text_embedding_3_small:
-    vectorDimension: 1536
+  # Alternative model being tested
+  cohere_embed_v3:
+    vectorDimension: 1024
     knnEngine: faiss
     spaceType: cosinesimil
     efConstruction: 128
@@ -505,10 +502,10 @@ curl "http://localhost:9200/documentindex_v2_semantic/_search" \
     "size": 0,
     "aggs": {
       "with_embeddings": {
-        "filter": { "exists": { "field": "embeddings.cohere_embed_v3" } }
+        "filter": { "exists": { "field": "embeddings.text_embedding_3_large" } }
       },
       "without_embeddings": {
-        "filter": { "bool": { "must_not": { "exists": { "field": "embeddings.cohere_embed_v3" } } } }
+        "filter": { "bool": { "must_not": { "exists": { "field": "embeddings.text_embedding_3_large" } } } }
       }
     }
   }'

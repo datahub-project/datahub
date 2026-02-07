@@ -85,7 +85,7 @@ When a user performs a semantic search:
 ### Prerequisites
 
 - DataHub running with semantic search enabled
-- AWS credentials (for Bedrock) or API key (for Cohere/OpenAI)
+- OpenAI API key (default), or AWS credentials (for Bedrock), or Cohere API key
 
 ### 1. Enable Semantic Search
 
