@@ -73,13 +73,13 @@ global:
       enabled: true
       vectorDimension: 1024
       provider:
-        type: "bedrock"
+        type: "aws-bedrock"
         bedrock:
           modelId: "cohere.embed-english-v3"
           awsRegion: "us-west-2"
 ```
 
-> **Note:** Bedrock uses IAM credentials from the pod's service account or instance profile. Configure [IAM Roles for Service Accounts (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) to grant Bedrock access.
+> **Note:** Bedrock authenticates using the [AWS SDK default credential chain](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials-chain.html) — typically via [IAM Roles for Service Accounts (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) on EKS, or EC2/ECS instance credentials.
 
 2. Upgrade the release:
 
@@ -140,17 +140,17 @@ OPENAI_API_KEY=sk-your-api-key-here
 ```bash
 ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
 ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document
-EMBEDDING_PROVIDER_TYPE=bedrock
+EMBEDDING_PROVIDER_TYPE=aws-bedrock
 ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION=1024
-
-# Authentication — use IAM role, profile, or explicit keys
-AWS_REGION=us-west-2
-# AWS_PROFILE=your-profile           # local development
-# AWS_ACCESS_KEY_ID=...              # production
-# AWS_SECRET_ACCESS_KEY=...
+EMBEDDING_PROVIDER_AWS_REGION=us-west-2
 
 # Optional — default shown:
-# BEDROCK_EMBEDDING_MODEL=cohere.embed-english-v3
+# EMBEDDING_PROVIDER_MODEL_ID=cohere.embed-english-v3
+
+# Authentication uses the AWS SDK default credential chain:
+# - EC2/ECS instance credentials (recommended for production)
+# - AWS_PROFILE env var (for local development)
+# - AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY env vars (explicit keys)
 ```
 
 #### Cohere
