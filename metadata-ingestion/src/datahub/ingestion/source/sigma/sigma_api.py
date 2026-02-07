@@ -94,6 +94,7 @@ class SigmaAPI:
 
     def _get_api_call(self, url: str) -> requests.Response:
         """Make an API call with retry on 429/503 errors."""
+        get_response: requests.Response
         for attempt in range(RETRY_MAX_ATTEMPTS):
             get_response = self.session.get(url)
 
@@ -103,23 +104,23 @@ class SigmaAPI:
                 self._refresh_access_token()
                 get_response = self.session.get(url)
 
-            # Retry on 429 (rate limit) or 503 (service unavailable) with exponential backoff
-            if get_response.status_code in (429, 503):
-                if attempt < RETRY_MAX_ATTEMPTS - 1:
-                    delay = RETRY_BASE_DELAY_SECONDS * (2**attempt)
-                    logger.debug(
-                        f"Retryable error ({get_response.status_code}) on {url}, "
-                        f"retrying in {delay}s (attempt {attempt + 1}/{RETRY_MAX_ATTEMPTS})"
-                    )
-                    time.sleep(delay)
-                    continue
-                else:
-                    logger.warning(
-                        f"Retryable error ({get_response.status_code}) on {url}, "
-                        f"max retries exceeded"
-                    )
+            # Success or non-retryable error
+            if get_response.status_code not in (429, 503):
+                break
 
-            return get_response
+            # Retry with exponential backoff, or give up on last attempt
+            if attempt < RETRY_MAX_ATTEMPTS - 1:
+                delay = RETRY_BASE_DELAY_SECONDS * (2**attempt)
+                logger.debug(
+                    f"Retryable error ({get_response.status_code}) on {url}, "
+                    f"retrying in {delay}s (attempt {attempt + 1}/{RETRY_MAX_ATTEMPTS})"
+                )
+                time.sleep(delay)
+            else:
+                logger.warning(
+                    f"Retryable error ({get_response.status_code}) on {url}, "
+                    f"max retries exceeded"
+                )
 
         return get_response
 

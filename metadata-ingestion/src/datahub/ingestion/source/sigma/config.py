@@ -185,8 +185,8 @@ class SigmaSourceConfig(
     )
     sql_parsing_threads: int = pydantic.Field(
         default=20,
-        description="Number of parallel threads for SQL parsing. "
-        "SQL parsing is CPU-bound and does not make API calls, so high parallelism is safe.",
+        ge=1,
+        description="Number of parallel threads for SQL parsing.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Sigma Stateful Ingestion Config."

@@ -450,8 +450,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 executor.submit(self._parse_sql_task, task): task for task in tasks
             }
             for future in as_completed(futures):
-                element_id, result = future.result()
-                self._sql_parsing_cache[element_id] = result
+                try:
+                    element_id, result = future.result()
+                    self._sql_parsing_cache[element_id] = result
+                except Exception as e:
+                    task = futures[future]
+                    logger.debug(
+                        f"SQL parsing failed for element {task.element_id}: {e}"
+                    )
+                    self._sql_parsing_cache[task.element_id] = (
+                        SqlParsingResult.make_from_error(e)
+                    )
 
         logger.info(f"SQL parsing complete: {len(self._sql_parsing_cache)} elements")
 
