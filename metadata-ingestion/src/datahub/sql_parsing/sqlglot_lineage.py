@@ -2148,21 +2148,21 @@ def sqlglot_lineage(
 ) -> SqlParsingResult:
     if schema_resolver.includes_temp_tables():
         return _sqlglot_lineage_nocache(
-            sql,
-            schema_resolver,
-            default_db,
-            default_schema,
-            override_dialect,
-            generate_column_lineage,
+            sql=sql,
+            schema_resolver=schema_resolver,
+            default_db=default_db,
+            default_schema=default_schema,
+            override_dialect=override_dialect,
+            generate_column_lineage=generate_column_lineage,
         )
     else:
         return _sqlglot_lineage_cached(
-            sql,
-            schema_resolver,
-            default_db,
-            default_schema,
-            override_dialect,
-            generate_column_lineage,
+            sql=sql,
+            schema_resolver=schema_resolver,
+            default_db=default_db,
+            default_schema=default_schema,
+            override_dialect=override_dialect,
+            generate_column_lineage=generate_column_lineage,
         )
 
 
