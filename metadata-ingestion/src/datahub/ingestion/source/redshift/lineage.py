@@ -770,12 +770,48 @@ class RedshiftSqlLineage(Closeable):
                 f"stl scan entry is missing query text for {lineage_row.source_schema}.{lineage_row.source_table}"
             )
             return
+
+        # Parse SQL to extract column-level lineage
+        # Extract default_db and default_schema from target URN to ensure
+        # column lineage URNs match the actual dataset URNs in DataHub.
+        column_lineage: Optional[List[sqlglot_l.ColumnLineageInfo]] = None
+        try:
+            target_parts = target.name.split(".")
+            default_db = target_parts[0] if len(target_parts) >= 1 else self.database
+            default_schema = (
+                target_parts[1]
+                if len(target_parts) >= 2
+                else self.config.default_schema
+            )
+
+            parsed_result = sqlglot_l.create_lineage_sql_parsed_result(
+                query=lineage_row.ddl,
+                platform=LineageDatasetPlatform.REDSHIFT.value,
+                platform_instance=self.config.platform_instance,
+                default_db=default_db,
+                default_schema=str(default_schema) if default_schema else None,
+                graph=self.context.graph,
+                env=self.config.env,
+            )
+            if parsed_result and parsed_result.column_lineage:
+                column_lineage = parsed_result.column_lineage
+                logger.debug(
+                    f"Parsed column lineage for stl_scan: "
+                    f"{len(column_lineage)} column mappings found"
+                )
+        except Exception as e:
+            logger.debug(
+                f"Failed to parse column lineage for stl_scan query: {e}",
+                exc_info=True,
+            )
+
         self.aggregator.add_known_query_lineage(
             KnownQueryLineageInfo(
                 query_text=lineage_row.ddl,
                 downstream=target.urn(),
                 upstreams=[source.urn()],
                 timestamp=lineage_row.timestamp,
+                column_lineage=column_lineage,
             ),
             merge_lineage=True,
         )
