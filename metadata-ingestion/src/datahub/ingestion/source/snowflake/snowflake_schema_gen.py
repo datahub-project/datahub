@@ -259,10 +259,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.databases = []
         for database in self.get_databases() or []:
             self.report.report_entity_scanned(database.name, "database")
-            if not self.filters.filter_config.database_pattern.allowed(database.name):
-                self.report.report_dropped(f"{database.name}.*")
-            else:
+
+            if getattr(self.config, "push_down_metadata_patterns", False):
+                # SQL already filtered, no Python check needed
                 self.databases.append(database)
+            else:
+                # Original behavior: Python filtering
+                if not self.filters.filter_config.database_pattern.allowed(
+                    database.name
+                ):
+                    self.report.report_dropped(f"{database.name}.*")
+                else:
+                    self.databases.append(database)
 
         if len(self.databases) == 0:
             return
@@ -306,8 +314,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
             return None
         else:
+            # Build database filter for SQL pushdown if enabled
+            database_filter = ""
+            if getattr(self.config, "push_down_metadata_patterns", False):
+                database_filter = SnowflakeQuery.build_database_filter(
+                    self.filters.filter_config.database_pattern
+                )
+
             ischema_databases: List[SnowflakeDatabase] = (
-                self.get_databases_from_ischema(databases)
+                self.get_databases_from_ischema(databases, database_filter)
             )
 
             if len(ischema_databases) == 0:
@@ -318,12 +333,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return ischema_databases
 
     def get_databases_from_ischema(
-        self, databases: List[SnowflakeDatabase]
+        self, databases: List[SnowflakeDatabase], database_filter: str = ""
     ) -> List[SnowflakeDatabase]:
         ischema_databases: List[SnowflakeDatabase] = []
         for database in databases:
             try:
-                ischema_databases = self.data_dictionary.get_databases(database.name)
+                ischema_databases = self.data_dictionary.get_databases(
+                    database.name, database_filter
+                )
                 break
             except Exception:
                 # query fails if "USAGE" access is not granted for database
@@ -416,18 +433,36 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self, snowflake_db: SnowflakeDatabase, db_name: str
     ) -> None:
         schemas: List[SnowflakeSchema] = []
+
+        # Build schema filter for SQL pushdown if enabled
+        schema_filter = ""
+        if getattr(self.config, "push_down_metadata_patterns", False):
+            schema_filter = SnowflakeQuery.build_schema_filter(
+                self.filters.filter_config.schema_pattern,
+                db_name,
+                self.filters.filter_config.match_fully_qualified_names,
+            )
+
         try:
-            for schema in self.data_dictionary.get_schemas_for_database(db_name):
+            for schema in self.data_dictionary.get_schemas_for_database(
+                db_name, schema_filter
+            ):
                 self.report.report_entity_scanned(schema.name, "schema")
-                if not is_schema_allowed(
-                    self.filters.filter_config.schema_pattern,
-                    schema.name,
-                    db_name,
-                    self.filters.filter_config.match_fully_qualified_names,
-                ):
-                    self.report.report_dropped(f"{db_name}.{schema.name}.*")
-                else:
+
+                if getattr(self.config, "push_down_metadata_patterns", False):
+                    # SQL already filtered, no Python check needed
                     schemas.append(schema)
+                else:
+                    # Original behavior: Python filtering
+                    if not is_schema_allowed(
+                        self.filters.filter_config.schema_pattern,
+                        schema.name,
+                        db_name,
+                        self.filters.filter_config.match_fully_qualified_names,
+                    ):
+                        self.report.report_dropped(f"{db_name}.{schema.name}.*")
+                    else:
+                        schemas.append(schema)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = f"Failed to get schemas for database {db_name}. Please check permissions."

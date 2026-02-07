@@ -465,6 +465,13 @@ class SnowflakeV2Config(
         "This filters on the accessed objects in access_history.",
     )
 
+    push_down_metadata_patterns: bool = Field(
+        default=False,
+        description="If enabled, pushes down database_pattern, schema_pattern, table_pattern, and view_pattern "
+        "filtering to Snowflake metadata queries for improved performance. "
+        "All patterns use Snowflake RLIKE operator. Ensure your regex patterns follow Snowflake's regex syntax.",
+    )
+
     additional_database_names_allowlist: List[str] = Field(
         default=[],
         description="Additional database names (no pattern matching) to be included in the access_history filter. "

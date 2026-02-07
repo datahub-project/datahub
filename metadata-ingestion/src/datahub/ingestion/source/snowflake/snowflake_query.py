@@ -31,6 +31,100 @@ def create_deny_regex_sql_filter(
 
 
 class SnowflakeQuery:
+    @staticmethod
+    def _build_pattern_filter(
+        pattern: Optional[AllowDenyPattern],
+        column_expr: str,
+    ) -> str:
+        """
+        Build SQL WHERE clause from AllowDenyPattern.
+
+        Behavior mirrors Python AllowDenyPattern.allowed():
+        - Deny patterns checked first (if any match → excluded)
+        - Then allow patterns checked (if any match → included)
+        - ".*" in allow list means "allow all" (other allow patterns are redundant)
+
+        Implementation:
+        - ALL patterns use Snowflake RLIKE operator (both allow and deny)
+        - Handles ignoreCase flag via UPPER() wrapper
+        - Patterns must follow Snowflake's regex syntax
+
+        Args:
+            pattern: The AllowDenyPattern to convert
+            column_expr: SQL expression for the column (e.g., "database_name",
+                         "CONCAT(table_catalog, '.', table_schema, '.', table_name)")
+
+        Returns:
+            SQL WHERE clause string, or empty string if no filtering needed
+        """
+        if not pattern:
+            return ""
+
+        # === EARLY EXIT: Default allow-all with no deny = no filtering ===
+        if pattern.allow == [".*"] and not pattern.deny:
+            return ""
+
+        # Case sensitivity handling
+        def transform(v: str) -> str:
+            return v.upper() if pattern.ignoreCase else v
+
+        col_expr = f"UPPER({column_expr})" if pattern.ignoreCase else column_expr
+
+        conditions: List[str] = []
+
+        # === ALLOW PATTERNS (all use RLIKE) ===
+        # CRITICAL: If ".*" is anywhere in allow list, it matches everything
+        # so we skip building allow conditions (but still process deny!)
+        has_allow_all = ".*" in pattern.allow
+
+        if not has_allow_all and pattern.allow:
+            allow_conditions: List[str] = []
+
+            # ALL patterns use RLIKE (Python treats all as regex)
+            for p in pattern.allow:
+                escaped = transform(p).replace("'", "''")
+                allow_conditions.append(f"{col_expr} RLIKE '{escaped}'")
+
+            if allow_conditions:
+                if len(allow_conditions) == 1:
+                    conditions.append(allow_conditions[0])
+                else:
+                    conditions.append(f"({' OR '.join(allow_conditions)})")
+
+        # === DENY PATTERNS (always RLIKE - literals work as regex) ===
+        if pattern.deny:
+            deny_conditions: List[str] = []
+            for p in pattern.deny:
+                escaped = transform(p).replace("'", "''")
+                deny_conditions.append(f"{col_expr} NOT RLIKE '{escaped}'")
+
+            if len(deny_conditions) == 1:
+                conditions.append(deny_conditions[0])
+            else:
+                conditions.append(f"({' AND '.join(deny_conditions)})")
+
+        return " AND ".join(conditions) if conditions else ""
+
+    @staticmethod
+    def build_database_filter(database_pattern: Optional[AllowDenyPattern]) -> str:
+        """Build SQL WHERE clause for database_pattern filtering."""
+        return SnowflakeQuery._build_pattern_filter(database_pattern, "database_name")
+
+    @staticmethod
+    def build_schema_filter(
+        schema_pattern: Optional[AllowDenyPattern],
+        db_name: str,
+        match_fully_qualified_names: bool,
+    ) -> str:
+        """Build SQL WHERE clause for schema_pattern filtering."""
+        if match_fully_qualified_names:
+            escaped_db = db_name.replace("'", "''")
+            column_expr = f"CONCAT('{escaped_db}', '.', schema_name)"
+        else:
+            column_expr = "schema_name"
+
+        return SnowflakeQuery._build_pattern_filter(schema_pattern, column_expr)
+
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS = {
         SnowflakeObjectDomain.TABLE.capitalize(),
         SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize(),
@@ -92,27 +186,40 @@ class SnowflakeQuery:
         return f'use schema "{schema_name}"'
 
     @staticmethod
-    def get_databases(db_name: Optional[str]) -> str:
+    def get_databases(db_name: Optional[str], database_filter: str = "") -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
+
+        where_clause = ""
+        if database_filter:
+            where_clause = f"WHERE {database_filter}"
+
         return f"""
         SELECT database_name AS "DATABASE_NAME",
         created AS "CREATED",
         last_altered AS "LAST_ALTERED",
         comment AS "COMMENT"
-        from {db_clause}information_schema.databases
-        order by database_name"""
+        FROM {db_clause}information_schema.databases
+        {where_clause}
+        ORDER BY database_name"""
 
     @staticmethod
-    def schemas_for_database(db_name: str) -> str:
+    def schemas_for_database(db_name: str, schema_filter: str = "") -> str:
         db_clause = f'"{db_name}".'
+
+        where_conditions = ["schema_name != 'INFORMATION_SCHEMA'"]
+        if schema_filter:
+            where_conditions.append(schema_filter)
+
+        where_clause = " AND ".join(where_conditions)
+
         return f"""
         SELECT schema_name AS "SCHEMA_NAME",
         created AS "CREATED",
         last_altered AS "LAST_ALTERED",
         comment AS "COMMENT"
-        from {db_clause}information_schema.schemata
-        WHERE schema_name != 'INFORMATION_SCHEMA'
-        order by schema_name"""
+        FROM {db_clause}information_schema.schemata
+        WHERE {where_clause}
+        ORDER BY schema_name"""
 
     @staticmethod
     def tables_for_database(db_name: str) -> str:
