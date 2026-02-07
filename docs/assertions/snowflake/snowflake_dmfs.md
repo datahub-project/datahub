@@ -208,6 +208,103 @@ either via CLI or the UI visible as normal assertions.
 
 `datahub ingest -c snowflake.yml`
 
+## Ingesting External (User-Created) DMFs
+
+In addition to DataHub-created DMFs, you can also ingest results from your own custom Snowflake Data Metric Functions. This allows you to monitor data quality assertions that were created outside of DataHub.
+
+### Enabling External DMF Ingestion
+
+To ingest external DMFs, add the `include_external_dmf_assertions` flag to your Snowflake recipe:
+
+```yaml
+source:
+  type: snowflake
+  config:
+    # ... connection config ...
+
+    # Enable assertion results ingestion (required)
+    include_assertion_results: true
+
+    # Enable external DMF ingestion (new)
+    include_external_dmf_assertions: true
+
+    # Time window for assertion results
+    start_time: "-7 days"
+```
+
+Both flags must be enabled for external DMF ingestion to work.
+
+### Requirements for External DMFs
+
+**External DMFs must return `1` for SUCCESS and `0` for FAILURE.**
+
+DataHub interprets the `VALUE` column from Snowflake's `DATA_QUALITY_MONITORING_RESULTS` table as:
+
+- `VALUE = 1` → Assertion **PASSED**
+- `VALUE = 0` → Assertion **FAILED**
+
+This is because DataHub cannot interpret arbitrary return values (e.g., "100 null rows" - is that good or bad?). You must build the pass/fail logic into your DMF.
+
+#### Example: Writing External DMFs Correctly
+
+**WRONG** - Returns raw count (DataHub can't interpret this):
+
+```sql
+CREATE DATA METRIC FUNCTION my_null_check(ARGT TABLE(col VARCHAR))
+RETURNS NUMBER AS
+$$
+  SELECT COUNT(*) FROM ARGT WHERE col IS NULL
+$$;
+-- Returns: 0, 5, 100, etc. - DataHub can't determine pass/fail!
+```
+
+**CORRECT** - Returns 1 (pass) or 0 (fail):
+
+```sql
+CREATE DATA METRIC FUNCTION my_null_check(ARGT TABLE(col VARCHAR))
+RETURNS NUMBER AS
+$$
+  SELECT CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
+  FROM ARGT WHERE col IS NULL
+$$;
+-- Returns: 1 if no nulls (pass), 0 if has nulls (fail)
+```
+
+**CORRECT** - With threshold:
+
+```sql
+CREATE DATA METRIC FUNCTION my_null_check_threshold(ARGT TABLE(col VARCHAR))
+RETURNS NUMBER AS
+$$
+  SELECT CASE WHEN COUNT(*) <= 10 THEN 1 ELSE 0 END
+  FROM ARGT WHERE col IS NULL
+$$;
+-- Returns: 1 if ≤10 nulls (pass), 0 if >10 nulls (fail)
+```
+
+### How External DMFs Differ from DataHub-Created DMFs
+
+| Aspect             | DataHub-Created DMFs                                    | External DMFs                             |
+| ------------------ | ------------------------------------------------------- | ----------------------------------------- |
+| **Naming**         | Prefixed with `datahub__`                               | Any name                                  |
+| **Definition**     | Created via `datahub assertions compile`                | Created manually by user                  |
+| **Assertion Type** | Based on assertion definition (Freshness, Volume, etc.) | CUSTOM                                    |
+| **Source**         | INFERRED                                                | EXTERNAL                                  |
+| **URN Generation** | Extracted from DMF name                                 | Generated from Snowflake's `REFERENCE_ID` |
+
+### How External DMFs Appear in DataHub UI
+
+External DMFs appear in DataHub with:
+
+- **Assertion Type**: CUSTOM
+- **Source**: EXTERNAL
+- **Description**: "External Snowflake DMF: {dmf_name}"
+- **Custom Properties**:
+  - `snowflake_dmf_name`: The DMF function name
+  - `snowflake_dmf_columns`: Comma-separated list of columns the DMF operates on
+
+You can view external DMF assertions in the **Quality** tab of the associated dataset in the DataHub UI. They will show pass/fail history alongside any DataHub-created assertions.
+
 ## Caveats
 
 - Currently, Snowflake supports at most 1000 DMF-table associations at the moment so you can not define more than 1000 assertions for snowflake.

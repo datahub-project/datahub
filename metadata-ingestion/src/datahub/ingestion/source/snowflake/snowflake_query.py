@@ -1126,9 +1126,20 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         """
 
     @staticmethod
-    def dmf_assertion_results(start_time_millis: int, end_time_millis: int) -> str:
-        pattern = r"datahub\\_\\_%"
-        escape_pattern = r"\\"
+    def dmf_assertion_results(
+        start_time_millis: int,
+        end_time_millis: int,
+        include_external: bool = False,
+    ) -> str:
+        # When include_external=True, don't filter by pattern
+        pattern_filter = ""
+        if not include_external:
+            pattern = r"datahub\\_\\_%"
+            escape_pattern = r"\\"
+            pattern_filter = (
+                f"AND METRIC_NAME ilike '{pattern}' escape '{escape_pattern}'"
+            )
+
         return f"""
             SELECT
                 MEASUREMENT_TIME AS "MEASUREMENT_TIME",
@@ -1136,15 +1147,16 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 TABLE_NAME AS "TABLE_NAME",
                 TABLE_SCHEMA AS "TABLE_SCHEMA",
                 TABLE_DATABASE AS "TABLE_DATABASE",
+                REFERENCE_ID AS "REFERENCE_ID",
+                ARGUMENT_NAMES AS "ARGUMENT_NAMES",
                 VALUE::INT AS "VALUE"
             FROM
                 SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS
             WHERE
                 MEASUREMENT_TIME >= to_timestamp_ltz({start_time_millis}, 3)
                 AND MEASUREMENT_TIME < to_timestamp_ltz({end_time_millis}, 3)
-                AND METRIC_NAME ilike '{pattern}' escape '{escape_pattern}'
-                ORDER BY MEASUREMENT_TIME ASC;
-
+                {pattern_filter}
+            ORDER BY MEASUREMENT_TIME ASC;
             """
 
     @staticmethod

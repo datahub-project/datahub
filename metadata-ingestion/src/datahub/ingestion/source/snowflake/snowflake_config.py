@@ -445,6 +445,16 @@ class SnowflakeV2Config(
         " assertions CLI in snowflake",
     )
 
+    include_external_dmf_assertions: bool = Field(
+        default=False,
+        description="Ingest user-created Snowflake DMFs (not created via DataHub) "
+        "as external assertions. Requires `include_assertion_results: true`. "
+        "When enabled, all DMFs (not just datahub__* prefixed) "
+        "will be ingested with their execution results. "
+        "IMPORTANT: External DMFs must return 1 for SUCCESS and 0 for FAILURE. "
+        "DataHub interprets VALUE=1 as passed, VALUE=0 as failed.",
+    )
+
     pushdown_deny_usernames: List[str] = Field(
         default=[],
         description="List of snowflake usernames (SQL LIKE patterns, e.g., 'SERVICE_%', '%_PROD', 'TEST_USER') which will NOT be considered for lineage/usage/queries extraction. "
@@ -496,6 +506,15 @@ class SnowflakeV2Config(
         if not info.data.get("include_table_lineage") and v:
             raise ValueError(
                 "include_table_lineage must be True for include_column_lineage to be set."
+            )
+        return v
+
+    @field_validator("include_external_dmf_assertions", mode="after")
+    @classmethod
+    def validate_include_external_dmf_assertions(cls, v, info):
+        if not info.data.get("include_assertion_results") and v:
+            raise ValueError(
+                "include_assertion_results must be True for include_external_dmf_assertions to be set."
             )
         return v
 
