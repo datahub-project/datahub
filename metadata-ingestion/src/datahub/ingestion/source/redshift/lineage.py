@@ -774,13 +774,13 @@ class RedshiftSqlLineage(Closeable):
             )
             return
 
-        # Preprocess the query to fix DMS password redaction issues
-        # This must be done before parsing to ensure INSERT column count matches SELECT
-        preprocessed_query = preprocess_dms_password_redaction(lineage_row.ddl)
+        # Preprocess the query to fix Sigma and DMS malformations
+        preprocessed_query = preprocess_query_for_sigma(lineage_row.ddl)
+        preprocessed_query = preprocess_dms_password_redaction(preprocessed_query)
 
         # Parse SQL to extract column-level lineage
-        # Extract default_db and default_schema from target URN to ensure
-        # column lineage URNs match the actual dataset URNs in DataHub.
+        # Use the aggregator's schema resolver which has all schemas loaded during ingestion.
+        # This is more complete than creating a new resolver via graph.
         column_lineage: Optional[List[sqlglot_l.ColumnLineageInfo]] = None
         try:
             target_parts = target.name.split(".")
@@ -791,14 +791,13 @@ class RedshiftSqlLineage(Closeable):
                 else self.config.default_schema
             )
 
-            parsed_result = sqlglot_l.create_lineage_sql_parsed_result(
-                query=preprocessed_query,
-                platform=LineageDatasetPlatform.REDSHIFT.value,
-                platform_instance=self.config.platform_instance,
+            # Use sqlglot_lineage directly with aggregator's schema resolver
+            # This ensures we have access to all schemas discovered during ingestion
+            parsed_result = sqlglot_l.sqlglot_lineage(
+                sql=preprocessed_query,
+                schema_resolver=self.aggregator._schema_resolver,
                 default_db=default_db,
                 default_schema=str(default_schema) if default_schema else None,
-                graph=self.context.graph,
-                env=self.config.env,
             )
             if parsed_result and parsed_result.column_lineage:
                 column_lineage = parsed_result.column_lineage
