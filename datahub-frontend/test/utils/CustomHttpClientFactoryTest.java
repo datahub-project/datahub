@@ -63,8 +63,8 @@ class CustomHttpClientFactoryTest {
   void testCreateSslContextWithValidTruststore() throws Exception {
     Path truststorePath = generateTempTruststore();
     SSLContext context =
-        CustomHttpClientFactory.createSslContext(
-            truststorePath.toString(), TRUSTSTORE_PASSWORD, TRUSTSTORE_TYPE);
+        CustomHttpClientFactory.createSslContextWithKeyStore(
+            null, null, null, truststorePath.toString(), TRUSTSTORE_PASSWORD, TRUSTSTORE_TYPE);
     assertNotNull(context);
     assertEquals("TLS", context.getProtocol());
   }
@@ -74,8 +74,8 @@ class CustomHttpClientFactoryTest {
     assertThrows(
         Exception.class,
         () ->
-            CustomHttpClientFactory.createSslContext(
-                "doesnotexist.p12", "wrongpassword", TRUSTSTORE_TYPE));
+            CustomHttpClientFactory.createSslContextWithKeyStore(
+                null, null, null, "doesnotexist.p12", "wrongpassword", TRUSTSTORE_TYPE));
   }
 
   @Test
@@ -83,7 +83,7 @@ class CustomHttpClientFactoryTest {
     Path truststorePath = generateTempTruststore();
     HttpClient client =
         CustomHttpClientFactory.getJavaHttpClient(
-            truststorePath.toString(), TRUSTSTORE_PASSWORD, TRUSTSTORE_TYPE);
+            null, null, null, truststorePath.toString(), TRUSTSTORE_PASSWORD, TRUSTSTORE_TYPE);
     assertNotNull(client);
   }
 
@@ -91,7 +91,7 @@ class CustomHttpClientFactoryTest {
   void testGetJavaHttpClientWithInvalidTruststoreFallsBack() {
     HttpClient client =
         CustomHttpClientFactory.getJavaHttpClient(
-            "doesnotexist.p12", "wrongpassword", TRUSTSTORE_TYPE);
+            null, null, null, "doesnotexist.p12", "wrongpassword", TRUSTSTORE_TYPE);
     assertNotNull(client);
   }
 
@@ -100,7 +100,7 @@ class CustomHttpClientFactoryTest {
     Path truststorePath = generateTempTruststore();
     CloseableHttpClient client =
         CustomHttpClientFactory.getApacheHttpClient(
-            truststorePath.toString(), TRUSTSTORE_PASSWORD, TRUSTSTORE_TYPE);
+            null, null, null, truststorePath.toString(), TRUSTSTORE_PASSWORD, TRUSTSTORE_TYPE);
     assertNotNull(client);
   }
 
@@ -108,7 +108,7 @@ class CustomHttpClientFactoryTest {
   void testGetApacheHttpClientWithInvalidTruststoreFallsBack() {
     CloseableHttpClient client =
         CustomHttpClientFactory.getApacheHttpClient(
-            "doesnotexist.p12", "wrongpassword", TRUSTSTORE_TYPE);
+            null, null, null, "doesnotexist.p12", "wrongpassword", TRUSTSTORE_TYPE);
     assertNotNull(client);
   }
 }
