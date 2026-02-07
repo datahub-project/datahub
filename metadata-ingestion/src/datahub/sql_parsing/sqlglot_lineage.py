@@ -1846,6 +1846,7 @@ def _sqlglot_lineage_inner(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
+    generate_column_lineage: bool = True,
 ) -> SqlParsingResult:
     if override_dialect:
         dialect = get_dialect(override_dialect)
@@ -1957,31 +1958,32 @@ def _sqlglot_lineage_inner(
 
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     joins = None
-    try:
-        with cooperative_timeout(
-            timeout=(
-                SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None
-            )
-        ):
-            column_lineage_debug_info = _column_level_lineage(
-                statement,
-                dialect=dialect,
-                downstream_table=downstream_table,
-                table_name_schema_mapping=table_name_schema_mapping,
-                default_db=default_db,
-                default_schema=default_schema,
-            )
-            column_lineage = column_lineage_debug_info.column_lineage
-            joins = column_lineage_debug_info.joins
-    except CooperativeTimeoutError as e:
-        logger.debug(f"Timed out while generating column-level lineage: {e}")
-        debug_info.column_error = e
-    except UnsupportedStatementTypeError as e:
-        # For this known exception type, we assume the error is logged at the point of failure.
-        debug_info.column_error = e
-    except Exception as e:
-        logger.debug(f"Failed to generate column-level lineage: {e}", exc_info=True)
-        debug_info.column_error = e
+    if generate_column_lineage:
+        try:
+            with cooperative_timeout(
+                timeout=(
+                    SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None
+                )
+            ):
+                column_lineage_debug_info = _column_level_lineage(
+                    statement,
+                    dialect=dialect,
+                    downstream_table=downstream_table,
+                    table_name_schema_mapping=table_name_schema_mapping,
+                    default_db=default_db,
+                    default_schema=default_schema,
+                )
+                column_lineage = column_lineage_debug_info.column_lineage
+                joins = column_lineage_debug_info.joins
+        except CooperativeTimeoutError as e:
+            logger.debug(f"Timed out while generating column-level lineage: {e}")
+            debug_info.column_error = e
+        except UnsupportedStatementTypeError as e:
+            # For this known exception type, we assume the error is logged at the point of failure.
+            debug_info.column_error = e
+        except Exception as e:
+            logger.debug(f"Failed to generate column-level lineage: {e}", exc_info=True)
+            debug_info.column_error = e
 
     # TODO: Can we generate a common JOIN tables / keys section?
     # TODO: Can we generate a common WHERE clauses section?
@@ -2043,6 +2045,7 @@ def _sqlglot_lineage_nocache(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
+    generate_column_lineage: bool = True,
 ) -> SqlParsingResult:
     """Parse a SQL statement and generate lineage information.
 
@@ -2102,6 +2105,7 @@ def _sqlglot_lineage_nocache(
             default_db=default_db,
             default_schema=default_schema,
             override_dialect=override_dialect,
+            generate_column_lineage=generate_column_lineage,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
@@ -2140,14 +2144,25 @@ def sqlglot_lineage(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
+    generate_column_lineage: bool = True,
 ) -> SqlParsingResult:
     if schema_resolver.includes_temp_tables():
         return _sqlglot_lineage_nocache(
-            sql, schema_resolver, default_db, default_schema, override_dialect
+            sql,
+            schema_resolver,
+            default_db,
+            default_schema,
+            override_dialect,
+            generate_column_lineage,
         )
     else:
         return _sqlglot_lineage_cached(
-            sql, schema_resolver, default_db, default_schema, override_dialect
+            sql,
+            schema_resolver,
+            default_db,
+            default_schema,
+            override_dialect,
+            generate_column_lineage,
         )
 
 
@@ -2200,6 +2215,7 @@ def create_lineage_sql_parsed_result(
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
     override_dialect: Optional[DialectOrStr] = None,
+    generate_column_lineage: bool = True,
 ) -> SqlParsingResult:
     schema_resolver = create_schema_resolver(
         platform=platform,
@@ -2220,6 +2236,7 @@ def create_lineage_sql_parsed_result(
             default_db=default_db,
             default_schema=default_schema,
             override_dialect=override_dialect,
+            generate_column_lineage=generate_column_lineage,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)

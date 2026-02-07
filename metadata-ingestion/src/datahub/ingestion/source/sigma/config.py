@@ -183,12 +183,11 @@ class SigmaSourceConfig(
         default={},
         description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.",
     )
-    sql_parsing_threads: int = pydantic.Field(
-        default=4,
-        ge=1,
-        le=100,
-        description="Number of parallel threads for SQL parsing. "
-        "Only used when chart_sources_platform_mapping is configured.",
+    generate_column_lineage: bool = pydantic.Field(
+        default=False,
+        description="Whether to generate column-level lineage. "
+        "Disabled by default as Sigma only uses table-level lineage and "
+        "column lineage computation can be expensive for complex queries.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Sigma Stateful Ingestion Config."
