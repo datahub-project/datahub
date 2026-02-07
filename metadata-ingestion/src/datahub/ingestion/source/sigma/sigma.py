@@ -86,10 +86,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TagAssociationClass,
 )
-from datahub.sql_parsing.sqlglot_lineage import (
-    SqlParsingResult,
-    create_lineage_sql_parsed_result,
-)
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 # Logger instance
@@ -131,8 +128,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.reporter = SigmaSourceReport()
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
-        # Cache for SQL parsing results: element_id -> SqlParsingResult
-        self._sql_parsing_cache: Dict[str, SqlParsingResult] = {}
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
@@ -370,43 +365,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dashboard_urn, aspect=dashboard_info_cls
         ).as_workunit()
 
-    def _parse_sql_queries(self, workbooks: List[Workbook]) -> None:
-        """Parse all SQL queries and cache results for lineage extraction."""
-        if not self.config.chart_sources_platform_mapping:
-            return
-
-        for workbook in workbooks:
-            for page in workbook.pages:
-                for element in page.elements:
-                    if not element.query:
-                        continue
-                    full_path = f"{workbook.path}/{workbook.name}/{element.name}"
-                    platform_details = self._get_element_data_source_platform_details(
-                        full_path
-                    )
-                    if not platform_details:
-                        continue
-                    try:
-                        result = create_lineage_sql_parsed_result(
-                            query=element.query.strip(),
-                            default_db=platform_details.default_db,
-                            default_schema=platform_details.default_schema,
-                            platform=platform_details.data_source_platform,
-                            env=platform_details.env,
-                            platform_instance=platform_details.platform_instance,
-                            graph=None,
-                            schema_aware=False,
-                            generate_column_lineage=self.config.generate_column_lineage,
-                        )
-                        self._sql_parsing_cache[element.elementId] = result
-                    except Exception as e:
-                        logger.debug(
-                            f"Unable to parse query for element {element.elementId}: {e}"
-                        )
-                        self._sql_parsing_cache[element.elementId] = (
-                            SqlParsingResult.make_from_error(e)
-                        )
-
     def _get_element_data_source_platform_details(
         self, full_path: str
     ) -> Optional[PlatformDetail]:
@@ -429,6 +387,33 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         return data_source_platform_details
 
+    def _parse_element_sql(self, element: Element, workbook: Workbook) -> List[str]:
+        """Parse SQL query for an element and return list of input table URNs."""
+        if not element.query or not self.config.chart_sources_platform_mapping:
+            return []
+
+        full_path = f"{workbook.path}/{workbook.name}/{element.name}"
+        platform_details = self._get_element_data_source_platform_details(full_path)
+        if not platform_details:
+            return []
+
+        try:
+            result = create_lineage_sql_parsed_result(
+                query=element.query.strip(),
+                default_db=platform_details.default_db,
+                default_schema=platform_details.default_schema,
+                platform=platform_details.data_source_platform,
+                env=platform_details.env,
+                platform_instance=platform_details.platform_instance,
+                graph=None,
+                schema_aware=False,
+                generate_column_lineage=self.config.generate_column_lineage,
+            )
+            return list(result.in_tables)
+        except Exception as e:
+            logger.debug(f"Unable to parse query for element {element.elementId}: {e}")
+            return []
+
     def _get_element_input_details(
         self, element: Element, workbook: Workbook
     ) -> Dict[str, List[str]]:
@@ -436,8 +421,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Returns dict with keys as the all element input dataset urn and values as their all upstream dataset urns
         """
         inputs: Dict[str, List[str]] = {}
-        cached_result = self._sql_parsing_cache.get(element.elementId)
-        sql_parser_in_tables = cached_result.in_tables if cached_result else []
+        sql_parser_in_tables = self._parse_element_sql(element, workbook)
 
         # Add sigma dataset as input of element if present
         # and its matched sql parser in_table as its upsteam dataset
@@ -699,14 +683,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         for dataset in self.sigma_api.get_sigma_datasets():
             yield from self._gen_dataset_workunit(dataset)
 
-        # Collect all workbooks into memory to enable parallel SQL parsing.
-        # For very large deployments, this may increase peak memory usage.
-        workbooks = list(self.sigma_api.get_sigma_workbooks())
-
-        # Parse SQL queries for lineage extraction
-        self._parse_sql_queries(workbooks)
-
-        for workbook in workbooks:
+        for workbook in self.sigma_api.get_sigma_workbooks():
             yield from self._gen_workbook_workunit(workbook)
 
         for workspace in self._get_allowed_workspaces():
