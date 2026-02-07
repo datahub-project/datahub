@@ -187,7 +187,8 @@ class SigmaSourceConfig(
         default=4,
         ge=1,
         le=100,
-        description="Number of parallel threads for SQL parsing.",
+        description="Number of parallel threads for SQL parsing. "
+        "Only used when chart_sources_platform_mapping is configured.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Sigma Stateful Ingestion Config."

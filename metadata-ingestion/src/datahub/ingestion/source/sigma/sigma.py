@@ -756,7 +756,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         for dataset in self.sigma_api.get_sigma_datasets():
             yield from self._gen_dataset_workunit(dataset)
 
-        # Collect all workbooks first to enable parallel SQL parsing
+        # Collect all workbooks into memory to enable parallel SQL parsing.
+        # For very large deployments, this may increase peak memory usage.
         workbooks = list(self.sigma_api.get_sigma_workbooks())
 
         # Pre-parse SQL in parallel for all elements
