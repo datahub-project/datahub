@@ -441,7 +441,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         num_threads = min(self.config.sql_parsing_threads, len(tasks))
-        logger.info(
+        logger.debug(
             f"Parsing SQL for {len(tasks)} elements using {num_threads} threads"
         )
 
@@ -462,7 +462,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         SqlParsingResult.make_from_error(e)
                     )
 
-        logger.info(f"SQL parsing complete: {len(self._sql_parsing_cache)} elements")
+        logger.debug(f"SQL parsing complete: {len(self._sql_parsing_cache)} elements")
 
     def _get_element_data_source_platform_details(
         self, full_path: str
@@ -493,35 +493,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Returns dict with keys as the all element input dataset urn and values as their all upstream dataset urns
         """
         inputs: Dict[str, List[str]] = {}
-        sql_parser_in_tables: List[str] = []
-
-        # Check cache first (populated by parallel parsing)
-        if element.elementId in self._sql_parsing_cache:
-            cached_result = self._sql_parsing_cache[element.elementId]
-            sql_parser_in_tables = cached_result.in_tables
-        elif element.query:
-            # Fallback to direct parsing if not in cache
-            data_source_platform_details = (
-                self._get_element_data_source_platform_details(
-                    f"{workbook.path}/{workbook.name}/{element.name}"
-                )
-            )
-            if data_source_platform_details:
-                try:
-                    sql_parser_in_tables = create_lineage_sql_parsed_result(
-                        query=element.query.strip(),
-                        default_db=data_source_platform_details.default_db,
-                        default_schema=data_source_platform_details.default_schema,
-                        platform=data_source_platform_details.data_source_platform,
-                        env=data_source_platform_details.env,
-                        platform_instance=data_source_platform_details.platform_instance,
-                        graph=None,
-                        schema_aware=False,
-                    ).in_tables
-                except Exception as e:
-                    logger.debug(
-                        f"Unable to parse query for element {element.elementId}: {e}"
-                    )
+        cached_result = self._sql_parsing_cache.get(element.elementId)
+        sql_parser_in_tables = cached_result.in_tables if cached_result else []
 
         # Add sigma dataset as input of element if present
         # and its matched sql parser in_table as its upsteam dataset
