@@ -31,7 +31,7 @@ const SectionTitle = styled.div`
 `;
 
 const LogicContainer = styled.div`
-    background: #1e1e1e;
+    background: ${ANTD_GRAY[2]};
     border-radius: 6px;
     padding: 16px;
     overflow-x: auto;
@@ -45,7 +45,7 @@ const LogicContainer = styled.div`
     }
 
     code {
-        color: #d4d4d4;
+        color: ${ANTD_GRAY[9]};
         font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         font-size: 12px;
         line-height: 1.5;
