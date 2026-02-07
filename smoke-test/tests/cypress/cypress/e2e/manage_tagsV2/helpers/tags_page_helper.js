@@ -19,7 +19,12 @@ export default class TagsPageHelper {
 
     if (shouldBeSuccessfullyCreated) {
       // Wait for modal to close - check that add button is available again
-      cy.getWithTestId("add-tag-button").should("be.visible");
+      cy.getWithTestId("add-tag-button", { timeout: 10000 }).should(
+        "be.visible",
+      );
+
+      // Wait for tag to be indexed and available
+      cy.wait(2000);
     } else {
       // Wait for any error message that starts with "Failed to create tag."
       cy.contains(/Failed to create tag\./).should("be.visible");
@@ -29,9 +34,19 @@ export default class TagsPageHelper {
 
   static remove(name) {
     cy.getWithTestId("tag-search-input").focus().type(name, { delay: 0 });
+
+    // Wait for search to complete and tag to appear
+    cy.getWithTestId(`${TagsPageHelper.getTagUrn(name)}-actions`, {
+      timeout: 10000,
+    }).should("be.visible");
+
     cy.clickOptionWithTestId(`${TagsPageHelper.getTagUrn(name)}-actions`);
     cy.clickOptionWithTestId("action-delete");
     cy.clickOptionWithTestId("delete-tag-button");
+
+    // Wait for deletion to complete
+    cy.wait(2000);
+
     cy.getWithTestId("tag-search-input").clear();
   }
 

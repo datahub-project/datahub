@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
@@ -33,6 +34,7 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
   private final EntityClient _entityClient;
   private final EntityService<?>
       _entityService; // TODO: Remove this when 'exists' added to EntityClient
+  private final FeatureFlags _featureFlags;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -43,11 +45,17 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(
-              environment.getContext(), entityUrn, _entityClient)) {
-            throw new AuthorizationException(
-                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          // Domain-based authorization (when enabled) is now handled inside the transaction
+          // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
+          if (!_featureFlags.isDomainBasedAuthorizationEnabled()) {
+            // Legacy authorization approach when domain-based auth is disabled
+            if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(
+                context, entityUrn, _entityClient)) {
+              throw new AuthorizationException(
+                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
+            }
           }
+
           validateSetDomainInput(
               context.getOperationContext(), entityUrn, domainUrn, _entityService);
           try {

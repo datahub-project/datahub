@@ -125,6 +125,12 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     processing_threads: int = Field(
         default=1, description="How many threads will be processing tables"
     )
+    default_domain: Optional[str] = Field(
+        default=None,
+        description="Optional domain URN to associate with all ingested entities (tables, namespaces). "
+        "If specified, enables domain-scoped permission checks on the backend. "
+        "Example: 'urn:li:domain:engineering'",
+    )
 
     @field_validator("catalog", mode="before")
     @classmethod
