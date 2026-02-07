@@ -69,7 +69,7 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
         <PageLayout
             title={currentStep?.label}
             subTitle={currentStep?.subTitle}
-            rightPanelContent={currentStep?.hideRightPanel ? null : <AIChat />}
+            rightPanelContent={currentStep?.hideRightPanel ? null : AIChat()}
             bottomPanelContent={currentStep?.hideBottomPanel ? null : <IngestionSourceBottomPanel />}
             topBreadcrumb={breadCrumb}
         >
