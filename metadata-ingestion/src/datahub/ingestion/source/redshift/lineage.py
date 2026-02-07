@@ -40,6 +40,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.redshift_preprocessing import (
+    preprocess_dms_password_redaction,
     preprocess_dms_update_query,
     preprocess_query_for_sigma,
 )
@@ -716,9 +717,11 @@ class RedshiftSqlLineage(Closeable):
         This applies Redshift-specific preprocessing before SQL parsing:
         - Sigma Computing generates SQL with missing spaces between keywords
         - AWS DMS UPDATE queries reference staging tables without FROM clauses
+        - AWS DMS password redaction merges column names in INSERT statements
         """
         query = preprocess_query_for_sigma(query)
         query = preprocess_dms_update_query(query)
+        query = preprocess_dms_password_redaction(query)
         return query
 
     def _process_sql_parser_lineage(self, lineage_row: LineageRow) -> None:
@@ -771,6 +774,10 @@ class RedshiftSqlLineage(Closeable):
             )
             return
 
+        # Preprocess the query to fix DMS password redaction issues
+        # This must be done before parsing to ensure INSERT column count matches SELECT
+        preprocessed_query = preprocess_dms_password_redaction(lineage_row.ddl)
+
         # Parse SQL to extract column-level lineage
         # Extract default_db and default_schema from target URN to ensure
         # column lineage URNs match the actual dataset URNs in DataHub.
@@ -785,7 +792,7 @@ class RedshiftSqlLineage(Closeable):
             )
 
             parsed_result = sqlglot_l.create_lineage_sql_parsed_result(
-                query=lineage_row.ddl,
+                query=preprocessed_query,
                 platform=LineageDatasetPlatform.REDSHIFT.value,
                 platform_instance=self.config.platform_instance,
                 default_db=default_db,
