@@ -12,7 +12,7 @@ jobs:
     continue-on-error: true
     timeout-minutes: 5
     steps:
-      - name: Close Linear ticket if PR closed
+      - name: Mark Linear ticket as Done if PR closed
         if: github.event.action == 'closed'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -66,10 +66,10 @@ jobs:
 
           echo "Current ticket state: $CURRENT_STATE"
 
-          # Get the "Canceled" state ID for the ING team
+          # Get the "Done" state ID for the ING team
           STATE_QUERY=$(cat <<'EOF'
           {
-            "query": "query { workflowStates(filter: { team: { key: { eq: \"ING\" } }, name: { eq: \"Canceled\" } }) { nodes { id name } } }"
+            "query": "query { workflowStates(filter: { team: { key: { eq: \"ING\" } }, name: { eq: \"Done\" } }) { nodes { id name } } }"
           }
           EOF
           )
@@ -84,18 +84,18 @@ jobs:
             exit 0
           fi
 
-          CANCELED_STATE_ID=$(echo "$STATE_RESPONSE" | jq -r '.data.workflowStates.nodes[0].id' 2>/dev/null || echo "")
+          DONE_STATE_ID=$(echo "$STATE_RESPONSE" | jq -r '.data.workflowStates.nodes[0].id' 2>/dev/null || echo "")
 
-          if [ -z "$CANCELED_STATE_ID" ] || [ "$CANCELED_STATE_ID" = "null" ]; then
-            echo "❌ Could not find 'Canceled' state for ING team"
+          if [ -z "$DONE_STATE_ID" ] || [ "$DONE_STATE_ID" = "null" ]; then
+            echo "❌ Could not find 'Done' state for ING team"
             echo "Response: $STATE_RESPONSE" | jq . 2>/dev/null || echo "$STATE_RESPONSE"
             exit 0
           fi
 
-          # Update the ticket to Canceled state
+          # Update the ticket to Done state
           UPDATE_MUTATION=$(cat <<EOF
           {
-            "query": "mutation { issueUpdate(id: \"$TICKET_UUID\", input: { stateId: \"$CANCELED_STATE_ID\" }) { success issue { identifier state { name } } } }"
+            "query": "mutation { issueUpdate(id: \"$TICKET_UUID\", input: { stateId: \"$DONE_STATE_ID\" }) { success issue { identifier state { name } } } }"
           }
           EOF
           )
@@ -113,9 +113,9 @@ jobs:
           SUCCESS=$(echo "$UPDATE_RESPONSE" | jq -r '.data.issueUpdate.success' 2>/dev/null || echo "false")
 
           if [ "$SUCCESS" = "true" ]; then
-            echo "✅ Closed Linear ticket $TICKET_ID"
+            echo "✅ Marked Linear ticket $TICKET_ID as Done"
           else
-            echo "❌ Failed to close Linear ticket"
+            echo "❌ Failed to mark Linear ticket as Done"
             echo "$UPDATE_RESPONSE" | jq . 2>/dev/null || echo "$UPDATE_RESPONSE"
             exit 0
           fi
