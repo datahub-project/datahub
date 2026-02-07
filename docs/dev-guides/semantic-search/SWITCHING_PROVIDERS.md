@@ -12,12 +12,12 @@ This guide explains how to migrate from one embedding provider to another. Switc
 
 ## Provider and Model Reference
 
-| Provider | Model | Model Key | Dimensions |
-| --- | --- | --- | --- |
-| OpenAI | `text-embedding-3-large` | `text_embedding_3_large` | 3072 |
-| OpenAI | `text-embedding-3-small` | `text_embedding_3_small` | 1536 |
-| AWS Bedrock | `cohere.embed-english-v3` | `cohere_embed_v3` | 1024 |
-| Cohere | `embed-english-v3.0` | `embed_english_v3_0` | 1024 |
+| Provider    | Model                     | Model Key                | Dimensions |
+| ----------- | ------------------------- | ------------------------ | ---------- |
+| OpenAI      | `text-embedding-3-large`  | `text_embedding_3_large` | 3072       |
+| OpenAI      | `text-embedding-3-small`  | `text_embedding_3_small` | 1536       |
+| AWS Bedrock | `cohere.embed-english-v3` | `cohere_embed_v3`        | 1024       |
+| Cohere      | `embed-english-v3.0`      | `embed_english_v3_0`     | 1024       |
 
 > **Important:** The model key is derived from the model name by replacing `-` and `.` with `_`. Both the ingestion connector and GMS must use the same model to ensure query embeddings match document embeddings.
 

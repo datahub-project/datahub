@@ -19,11 +19,11 @@ You should see `opensearch-knn` in the output.
 
 ### Embedding Provider Credentials
 
-| Provider | What You Need |
-| --- | --- |
+| Provider             | What You Need                                                          |
+| -------------------- | ---------------------------------------------------------------------- |
 | **OpenAI** (default) | API key (`sk-...`) from [OpenAI](https://platform.openai.com/api-keys) |
-| **AWS Bedrock** | AWS credentials with Bedrock access |
-| **Cohere** | API key from [Cohere](https://dashboard.cohere.com/api-keys) |
+| **AWS Bedrock**      | AWS credentials with Bedrock access                                    |
+| **Cohere**           | API key from [Cohere](https://dashboard.cohere.com/api-keys)           |
 
 ## How to Configure Semantic Search
 
@@ -406,13 +406,13 @@ results = emitter.semantic_search(
 
 ### Supported Models
 
-| Provider | Model | Dimensions | Notes |
-| --- | --- | --- | --- |
-| OpenAI | `text-embedding-3-large` | 3072 | Default, higher quality |
-| OpenAI | `text-embedding-3-small` | 1536 | Fast, cost-effective |
-| AWS Bedrock | `cohere.embed-english-v3` | 1024 | AWS-managed |
-| Cohere | `embed-english-v3.0` | 1024 | English optimized |
-| Cohere | `embed-multilingual-v3.0` | 1024 | 100+ languages |
+| Provider    | Model                     | Dimensions | Notes                   |
+| ----------- | ------------------------- | ---------- | ----------------------- |
+| OpenAI      | `text-embedding-3-large`  | 3072       | Default, higher quality |
+| OpenAI      | `text-embedding-3-small`  | 1536       | Fast, cost-effective    |
+| AWS Bedrock | `cohere.embed-english-v3` | 1024       | AWS-managed             |
+| Cohere      | `embed-english-v3.0`      | 1024       | English optimized       |
+| Cohere      | `embed-multilingual-v3.0` | 1024       | 100+ languages          |
 
 ### application.yaml Reference
 
