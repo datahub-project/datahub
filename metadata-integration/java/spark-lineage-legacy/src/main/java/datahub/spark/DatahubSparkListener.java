@@ -30,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkEnv;
+import org.apache.spark.package$;
 import org.apache.spark.scheduler.SparkListener;
 import org.apache.spark.scheduler.SparkListenerApplicationEnd;
 import org.apache.spark.scheduler.SparkListenerApplicationStart;
@@ -42,7 +43,6 @@ import org.apache.spark.sql.execution.SQLExecution;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart;
 import org.apache.spark.util.JsonProtocol;
-import org.json4s.jackson.JsonMethods$;
 import scala.collection.JavaConversions;
 import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractPartialFunction;
@@ -68,6 +68,29 @@ public class DatahubSparkListener extends SparkListener {
     log.info("DatahubSparkListener initialised.");
   }
 
+  /**
+   * Serialize SparkListenerSQLExecutionStart to JSON string. Handles both Spark 3.4+ (Jackson API)
+   * and older versions (json4s API).
+   */
+  private static String serializeSqlStartEvent(SparkListenerSQLExecutionStart event) {
+    try {
+      if ("3.4".compareTo(package$.MODULE$.SPARK_VERSION()) <= 0) {
+        // Spark 3.4+: Use new Jackson-based API
+        return JsonProtocol.sparkEventToJsonString(event);
+      } else {
+        // Spark < 3.4: Use old json4s-based API (method removed in 3.4)
+        // Use reflection since we compile against Spark 3.5 where this method doesn't exist
+        java.lang.reflect.Method method =
+            JsonProtocol.class.getMethod("sparkEventToJson", SparkListenerEvent.class);
+        Object jValue = method.invoke(null, event);
+        return org.json4s.jackson.JsonMethods$.MODULE$.compact((org.json4s.JsonAST.JValue) jValue);
+      }
+    } catch (Exception e) {
+      log.debug("Failed to serialize SQL execution event to JSON, using toString()", e);
+      return event.toString();
+    }
+  }
+
   private class SqlStartTask {
 
     private final SparkListenerSQLExecutionStart sqlStart;
@@ -81,10 +104,7 @@ public class DatahubSparkListener extends SparkListener {
       this.ctx = ctx;
 
       String jsonPlan = (plan != null) ? plan.toJSON() : null;
-      String sqlStartJson =
-          (sqlStart != null)
-              ? JsonMethods$.MODULE$.compact(JsonProtocol.sparkEventToJson(sqlStart))
-              : null;
+      String sqlStartJson = (sqlStart != null) ? serializeSqlStartEvent(sqlStart) : null;
       log.debug(
           "SqlStartTask with parameters: sqlStart: {}, plan: {}, ctx: {}",
           sqlStartJson,
