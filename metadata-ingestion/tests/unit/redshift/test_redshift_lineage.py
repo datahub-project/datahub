@@ -20,6 +20,7 @@ from datahub.ingestion.source.redshift.redshift_schema import (
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.sql_parsing.redshift_preprocessing import (
+    preprocess_dms_password_redaction,
     preprocess_query_for_sigma,
 )
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -261,6 +262,34 @@ class TestSigmaSqlPreprocessing:
         assert preprocess_query_for_sigma(query) == query
         query = "SELECT * FROM onto.target"
         assert preprocess_query_for_sigma(query) == query
+
+
+class TestDmsPasswordRedaction:
+    """Tests for DMS password redaction preprocessing."""
+
+    def test_password_redaction_splits_columns(self):
+        """DMS '***' password redaction that merges columns should be fixed."""
+        query = """INSERT INTO t ("password '***'next_col") SELECT col1 FROM s"""
+        result = preprocess_dms_password_redaction(query)
+        # The space + '***' is replaced with ", " - no trailing space
+        assert '''"password", "next_col"''' in result
+
+    def test_password_redaction_full_query(self):
+        """Full INSERT query with merged columns should have correct column count."""
+        query = """INSERT INTO "target" ("id","password '***'role","status") SELECT col1,col2,col3 FROM t"""
+        result = preprocess_dms_password_redaction(query)
+        # Should split into 4 columns to match SELECT - no trailing space
+        assert '''"password", "role"''' in result
+
+    def test_no_password_redaction_unchanged(self):
+        """Queries without password redaction should be unchanged."""
+        query = "INSERT INTO t (a, b, c) SELECT 1, 2, 3"
+        assert preprocess_dms_password_redaction(query) == query
+
+    def test_normal_asterisk_unchanged(self):
+        """Normal asterisks (not '***') should be unchanged."""
+        query = "SELECT * FROM t WHERE col = '**'"
+        assert preprocess_dms_password_redaction(query) == query
 
 
 def get_lineage_extractor() -> RedshiftSqlLineage:

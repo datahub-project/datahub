@@ -561,3 +561,28 @@ def preprocess_dms_update_query(query: str) -> str:
 
     logger.debug(f"Injected FROM clause for DMS UPDATE: {from_clause}")
     return result
+
+
+# DMS password redaction pattern
+# DMS redacts passwords with '***' which can merge with the next column name in INSERT
+# Example: "password '***'next_col" should be two columns: "password", "next_col"
+_DMS_PASSWORD_REDACTION_PATTERN = re.compile(
+    r" '\*\*\*'([a-zA-Z])",  # space + '***' followed by start of next column name
+)
+
+
+def preprocess_dms_password_redaction(query: str) -> str:
+    """Fix DMS password redaction that merges column names in INSERT statements.
+
+    AWS DMS redacts password values with '***' in query logs. When this appears
+    in an INSERT column list, it can merge with the next column name:
+
+        INSERT INTO t ("password '***'next_col", ...) SELECT col1, col2, ...
+
+    This causes INSERT column count (N-1) to mismatch SELECT column count (N),
+    breaking the INSERT column name mapping for column-level lineage.
+
+    This function splits the merged column names:
+        "password '***'next_col" -> "password", "next_col"
+    """
+    return _DMS_PASSWORD_REDACTION_PATTERN.sub(r'", "\1', query)
