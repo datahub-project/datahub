@@ -2,7 +2,7 @@ import functools
 import logging
 import sys
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -374,14 +374,6 @@ class SigmaAPI:
             )
         return None
 
-    def _fetch_element_lineage_data(
-        self, element: Element, workbook: Workbook
-    ) -> Tuple[str, Dict[str, str], Optional[str]]:
-        """Fetch upstream sources and SQL query for an element."""
-        upstream_sources = self._get_element_upstream_sources(element, workbook)
-        query = self._get_element_sql_query(element, workbook)
-        return (element.elementId, upstream_sources, query)
-
     def get_page_elements(self, workbook: Workbook, page: Page) -> List[Element]:
         try:
             elements: List[Element] = []
@@ -389,8 +381,6 @@ class SigmaAPI:
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages/{page.pageId}/elements"
             )
             response.raise_for_status()
-
-            # First pass: create all elements without lineage data
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
                 if not element_dict.get(Constant.NAME):
                     element_dict[Constant.NAME] = (
@@ -400,22 +390,15 @@ class SigmaAPI:
                     f"{workbook.url}?:nodeId={element_dict[Constant.ELEMENTID]}&:fullScreen=true"
                 )
                 element = Element.model_validate(element_dict)
-                elements.append(element)
-
-            # Second pass: fetch lineage data if needed
-            if (
-                self.config.extract_lineage
-                and self.config.workbook_lineage_pattern.allowed(workbook.name)
-                and elements
-            ):
-                # Fetch lineage data sequentially to avoid rate limiting
-                for element in elements:
-                    element_id, upstream_sources, query = (
-                        self._fetch_element_lineage_data(element, workbook)
+                if (
+                    self.config.extract_lineage
+                    and self.config.workbook_lineage_pattern.allowed(workbook.name)
+                ):
+                    element.upstream_sources = self._get_element_upstream_sources(
+                        element, workbook
                     )
-                    element.upstream_sources = upstream_sources
-                    element.query = query
-
+                    element.query = self._get_element_sql_query(element, workbook)
+                elements.append(element)
             return elements
         except Exception as e:
             self._log_http_error(

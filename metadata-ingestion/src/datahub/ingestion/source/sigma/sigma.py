@@ -387,33 +387,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         return data_source_platform_details
 
-    def _parse_element_sql(self, element: Element, workbook: Workbook) -> List[str]:
-        """Parse SQL query for an element and return list of input table URNs."""
-        if not element.query or not self.config.chart_sources_platform_mapping:
-            return []
-
-        full_path = f"{workbook.path}/{workbook.name}/{element.name}"
-        platform_details = self._get_element_data_source_platform_details(full_path)
-        if not platform_details:
-            return []
-
-        try:
-            result = create_lineage_sql_parsed_result(
-                query=element.query.strip(),
-                default_db=platform_details.default_db,
-                default_schema=platform_details.default_schema,
-                platform=platform_details.data_source_platform,
-                env=platform_details.env,
-                platform_instance=platform_details.platform_instance,
-                graph=None,
-                schema_aware=False,
-                generate_column_lineage=self.config.generate_column_lineage,
-            )
-            return list(result.in_tables)
-        except Exception as e:
-            logger.debug(f"Unable to parse query for element {element.elementId}: {e}")
-            return []
-
     def _get_element_input_details(
         self, element: Element, workbook: Workbook
     ) -> Dict[str, List[str]]:
@@ -421,7 +394,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Returns dict with keys as the all element input dataset urn and values as their all upstream dataset urns
         """
         inputs: Dict[str, List[str]] = {}
-        sql_parser_in_tables = self._parse_element_sql(element, workbook)
+        sql_parser_in_tables: List[str] = []
+
+        data_source_platform_details = self._get_element_data_source_platform_details(
+            f"{workbook.path}/{workbook.name}/{element.name}"
+        )
+
+        if element.query and data_source_platform_details:
+            try:
+                sql_parser_in_tables = create_lineage_sql_parsed_result(
+                    query=element.query.strip(),
+                    default_db=data_source_platform_details.default_db,
+                    default_schema=data_source_platform_details.default_schema,
+                    platform=data_source_platform_details.data_source_platform,
+                    env=data_source_platform_details.env,
+                    platform_instance=data_source_platform_details.platform_instance,
+                    generate_column_lineage=self.config.generate_column_lineage,
+                ).in_tables
+            except Exception:
+                logger.debug(f"Unable to parse query of element {element.name}")
 
         # Add sigma dataset as input of element if present
         # and its matched sql parser in_table as its upsteam dataset
