@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from functools import cached_property
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import clickhouse_driver
 import clickhouse_sqlalchemy.types as custom_types
@@ -30,6 +30,7 @@ from datahub.configuration.time_window_config import (
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import get_sys_time
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -48,6 +49,12 @@ from datahub.ingestion.source.sql.sql_common import (
     logger,
     register_custom_type,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Inspector
+
+    from datahub.ingestion.source.common.data_reader import DataReader
+    from datahub.ingestion.source.sql.sql_common import SQLCommonConfig
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
@@ -65,6 +72,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
+    DatasetProfileClass,
     DatasetSnapshotClass,
     UpstreamClass,
 )
@@ -579,6 +587,64 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = ClickHouseConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: "Inspector",
+        schema: str,
+        table: str,
+        sql_config: "SQLCommonConfig",
+        data_reader: Optional["DataReader"],
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        # Yield all workunits from parent implementation
+        yield from super()._process_table(
+            dataset_name, inspector, schema, table, sql_config, data_reader
+        )
+
+        # Emit DatasetProfile with row count and size. ClickHouse pre-computes these
+        # in system.tables, so we can emit Stats without enabling profiling.
+        _, properties, _ = self.get_table_properties(inspector, schema, table)
+
+        total_rows_str = properties.get("total_rows")
+        total_bytes_str = properties.get("total_bytes")
+
+        # Only emit profile if we have at least one stat
+        if not total_rows_str and not total_bytes_str:
+            return
+
+        dataset_profile = DatasetProfileClass(timestampMillis=get_sys_time())
+
+        if total_rows_str:
+            try:
+                dataset_profile.rowCount = int(total_rows_str)
+            except ValueError:
+                logger.debug(
+                    f"Could not parse total_rows '{total_rows_str}' for {table}"
+                )
+
+        if total_bytes_str:
+            try:
+                dataset_profile.sizeInBytes = int(total_bytes_str)
+            except ValueError:
+                logger.debug(
+                    f"Could not parse total_bytes '{total_bytes_str}' for {table}"
+                )
+
+        # Only emit if we successfully parsed at least one stat
+        if (
+            dataset_profile.rowCount is not None
+            or dataset_profile.sizeInBytes is not None
+        ):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=builder.make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    dataset_name,
+                    self.config.platform_instance,
+                    self.config.env,
+                ),
+                aspect=dataset_profile,
+            ).as_workunit()
 
     def _add_view_to_aggregator(
         self,
