@@ -404,13 +404,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             try:
                 sql_parser_in_tables = create_lineage_sql_parsed_result(
                     query=element.query.strip(),
-                    default_db=None,
+                    default_db=data_source_platform_details.default_db,
+                    default_schema=data_source_platform_details.default_schema,
                     platform=data_source_platform_details.data_source_platform,
                     env=data_source_platform_details.env,
                     platform_instance=data_source_platform_details.platform_instance,
+                    generate_column_lineage=self.config.generate_column_lineage,
                 ).in_tables
             except Exception:
-                logging.debug(f"Unable to parse query of element {element.name}")
+                logger.debug(f"Unable to parse query of element {element.name}")
 
         # Add sigma dataset as input of element if present
         # and its matched sql parser in_table as its upsteam dataset
@@ -671,6 +673,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         for dataset in self.sigma_api.get_sigma_datasets():
             yield from self._gen_dataset_workunit(dataset)
+
         for workbook in self.sigma_api.get_sigma_workbooks():
             yield from self._gen_workbook_workunit(workbook)
 
