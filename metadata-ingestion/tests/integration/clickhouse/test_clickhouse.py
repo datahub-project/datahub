@@ -11,6 +11,10 @@ pytestmark = pytest.mark.integration_batch_2
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
+@pytest.mark.xfail(
+    reason="sqlglot v28 cannot parse ClickHouse 'PRIMARY KEY tuple()' syntax (https://github.com/tobymao/sqlglot/issues/6989)",
+    strict=True,
+)
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
@@ -40,6 +44,10 @@ def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_t
         )
 
 
+@pytest.mark.xfail(
+    reason="sqlglot v28 cannot parse ClickHouse 'PRIMARY KEY tuple()' syntax (https://github.com/tobymao/sqlglot/issues/6989)",
+    strict=True,
+)
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_clickhouse_ingest_uri_form(
