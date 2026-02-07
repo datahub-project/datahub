@@ -113,7 +113,8 @@ public class RddPathUtils {
                       .getParent();
                 } else {
                   // Spark < 3.4: filePath returns String
-                  // Use reflection to avoid binary incompatibility when compiled with Spark 3.5+
+                  // Use reflection to support runtime Spark 3.4+ while compiling against Spark
+                  // 3.3.4
                   return ReflectionUtils.tryExecuteMethod(f, "filePath")
                       .map(o -> parentOf(o.toString()))
                       .orElse(null);

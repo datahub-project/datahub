@@ -87,7 +87,7 @@ public class DatahubSparkListener extends SparkListener {
             JsonProtocol.sparkEventToJson(event));
       }
     } catch (Exception e) {
-      log.debug("Failed to serialize SQL execution event to JSON, using toString()", e);
+      log.warn("Failed to serialize SQL execution event to JSON, using toString() fallback", e);
       return event.toString();
     }
   }
