@@ -215,6 +215,8 @@ class DocumentEntityBuilder:
         custom_properties: Dict[str, str],
         parent_urn: Optional[str] = None,
         related_assets: Optional[List[str]] = None,
+        created_time: Optional[datetime] = None,
+        last_modified_time: Optional[datetime] = None,
     ) -> Document:
         """Build a Document entity from Unstructured output."""
         filename = metadata.get("filename", "unknown")
@@ -279,6 +281,8 @@ class DocumentEntityBuilder:
             status=status,
             custom_properties=custom_properties,
             parent_document=parent_urn,
+            created_time=created_time,
+            last_modified_time=last_modified_time,
         )
 
         return doc
