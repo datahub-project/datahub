@@ -33,6 +33,11 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #8114: **Java 17 Runtime Required** - DataHub now compiles to Java 17 bytecode (previously Java 11). All Docker images already ship with Java 17 runtime, so cloud/managed deployments are unaffected. Self-hosted users must ensure their runtime environment uses Java 17+. The Maven artifact name remains `datahub-client-java8` for backward compatibility, but now requires Java 17+ at runtime. This change also includes:
+  - Spark integration upgraded from 3.0.3 to 3.5.3 with backward compatibility for Spark 3.1-3.3 via reflection-based shims
+  - Simplified build configuration by removing complex Spring Boot version detection logic
+  - Note: If you're a self-hosted user still running Java 11, you must upgrade to Java 17 before deploying this release
+
 ### Known Issues
 
 ### Potential Downtime
