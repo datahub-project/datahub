@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.linkedin.common.UrnArray;
@@ -17,10 +18,12 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import java.lang.reflect.Field;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -33,10 +36,15 @@ public class DomainBasedAuthorizationValidatorTest {
   @Mock private ChangeMCP mockChangeMCP;
 
   private DomainBasedAuthorizationValidator validator;
+  private boolean originalRestApiAuthorizationEnabled;
 
   @BeforeMethod
-  public void setUp() {
+  public void setUp() throws Exception {
     MockitoAnnotations.openMocks(this);
+
+    // Save original value and enable REST API authorization for tests
+    originalRestApiAuthorizationEnabled = getRestApiAuthorizationEnabled();
+    setRestApiAuthorizationEnabled(true);
 
     validator = new DomainBasedAuthorizationValidator();
     AspectPluginConfig config =
@@ -51,6 +59,31 @@ public class DomainBasedAuthorizationValidatorTest {
 
     when(mockRetrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(mockEntityRegistry);
+
+    // Default mock for authorization - returns ALLOW by default
+    // Individual tests can override this as needed
+    when(mockAuthSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null));
+  }
+
+  @AfterMethod
+  public void tearDown() throws Exception {
+    // Restore original REST API authorization setting
+    setRestApiAuthorizationEnabled(originalRestApiAuthorizationEnabled);
+  }
+
+  /** Helper method to get the static isRestApiAuthorizationEnabled field via reflection */
+  private boolean getRestApiAuthorizationEnabled() throws Exception {
+    Field field = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    field.setAccessible(true);
+    return field.getBoolean(null);
+  }
+
+  /** Helper method to set the static isRestApiAuthorizationEnabled field via reflection */
+  private void setRestApiAuthorizationEnabled(boolean value) throws Exception {
+    Field field = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    field.setAccessible(true);
+    field.setBoolean(null, value);
   }
 
   @Test
@@ -89,9 +122,10 @@ public class DomainBasedAuthorizationValidatorTest {
   @Test
   public void testValidatePreCommitAspects_ExecutionRequestEntity_Skipped() throws Exception {
     // Setup: ExecutionRequest entity should be skipped
+    // The entity type is "dataHubExecutionRequest" (from Constants.EXECUTION_REQUEST_ENTITY_NAME)
     when(mockRetrieverContext.getAuthorizationSession()).thenReturn(mockAuthSession);
 
-    Urn entityUrn = Urn.createFromString("urn:li:executionRequest:test");
+    Urn entityUrn = Urn.createFromString("urn:li:dataHubExecutionRequest:test");
     when(mockChangeMCP.getUrn()).thenReturn(entityUrn);
     when(mockChangeMCP.getChangeType()).thenReturn(ChangeType.UPSERT);
     when(mockChangeMCP.getAspectName()).thenReturn("executionRequestInput");
