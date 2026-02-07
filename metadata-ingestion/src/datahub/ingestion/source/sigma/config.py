@@ -184,8 +184,9 @@ class SigmaSourceConfig(
         description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.",
     )
     sql_parsing_threads: int = pydantic.Field(
-        default=20,
+        default=4,
         ge=1,
+        le=100,
         description="Number of parallel threads for SQL parsing.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(

@@ -402,7 +402,7 @@ class SigmaAPI:
                 element = Element.model_validate(element_dict)
                 elements.append(element)
 
-            # Second pass: fetch lineage data in parallel if needed
+            # Second pass: fetch lineage data if needed
             if (
                 self.config.extract_lineage
                 and self.config.workbook_lineage_pattern.allowed(workbook.name)
