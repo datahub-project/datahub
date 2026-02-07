@@ -61,8 +61,9 @@ type Layer = string; // [main (entity) layer, mini (transformation) layer]
 const defaultLayer = '0.0';
 
 function createLayer(main: number, mini: number): Layer {
-    // toLocaleString preserves negative 0, used for transformational nodes directly upstream of home node
-    return `${main.toLocaleString()}.${mini}`;
+    // Object.is detects -0 since String(-0) === "0". Must use ASCII minus for startsWith('-') checks.
+    const mainStr = Object.is(main, -0) ? '-0' : String(main);
+    return `${mainStr}.${mini}`;
 }
 
 function parseLayer(layer?: Layer): { main: number; mini: number } {
