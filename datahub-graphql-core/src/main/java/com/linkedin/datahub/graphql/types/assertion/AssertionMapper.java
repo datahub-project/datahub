@@ -37,6 +37,7 @@ import com.linkedin.datahub.graphql.generated.SchemaAssertionInfo;
 import com.linkedin.datahub.graphql.generated.SchemaFieldRef;
 import com.linkedin.datahub.graphql.generated.SqlAssertionInfo;
 import com.linkedin.datahub.graphql.generated.VolumeAssertionInfo;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaFieldMapper;
@@ -47,7 +48,9 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.schema.SchemaField;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -65,7 +68,8 @@ public class AssertionMapper {
         aspects.get(Constants.ASSERTION_INFO_ASPECT_NAME);
     if (envelopedAssertionInfo != null) {
       result.setInfo(
-          mapAssertionInfo(context, new AssertionInfo(envelopedAssertionInfo.getValue().data())));
+          mapAssertionInfo(
+              context, new AssertionInfo(envelopedAssertionInfo.getValue().data()), entityUrn));
     }
 
     final EnvelopedAspect envelopedAssertionActions =
@@ -111,7 +115,7 @@ public class AssertionMapper {
   }
 
   public static com.linkedin.datahub.graphql.generated.AssertionInfo mapAssertionInfo(
-      @Nullable QueryContext context, final AssertionInfo gmsAssertionInfo) {
+      @Nullable QueryContext context, final AssertionInfo gmsAssertionInfo, final Urn entityUrn) {
     final com.linkedin.datahub.graphql.generated.AssertionInfo assertionInfo =
         new com.linkedin.datahub.graphql.generated.AssertionInfo();
     assertionInfo.setType(AssertionType.valueOf(gmsAssertionInfo.getType().name()));
@@ -177,6 +181,13 @@ public class AssertionMapper {
     if (gmsAssertionInfo.hasExternalUrl()) {
       assertionInfo.setExternalUrl(gmsAssertionInfo.getExternalUrl().toString());
     }
+
+    // Custom Properties
+    if (gmsAssertionInfo.hasCustomProperties()) {
+      assertionInfo.setCustomProperties(
+          CustomPropertiesMapper.map(gmsAssertionInfo.getCustomProperties(), entityUrn));
+    }
+
     return assertionInfo;
   }
 
@@ -337,9 +348,24 @@ public class AssertionMapper {
     CustomAssertionInfo result = new CustomAssertionInfo();
     result.setType(gmsCustomAssertionInfo.getType());
     result.setEntityUrn(gmsCustomAssertionInfo.getEntity().toString());
-    if (gmsCustomAssertionInfo.hasField()) {
-      result.setField(AssertionMapper.mapDatasetSchemaField(gmsCustomAssertionInfo.getField()));
+
+    // Merge field (deprecated) and fields into single array for backward compatibility
+    List<SchemaFieldRef> allFields = new ArrayList<>();
+    if (gmsCustomAssertionInfo.hasFields()) {
+      allFields.addAll(
+          gmsCustomAssertionInfo.getFields().stream()
+              .map(AssertionMapper::mapDatasetSchemaField)
+              .collect(Collectors.toList()));
     }
+    // Add deprecated field if present and not already in array
+    if (gmsCustomAssertionInfo.hasField()) {
+      SchemaFieldRef legacyField = mapDatasetSchemaField(gmsCustomAssertionInfo.getField());
+      if (allFields.stream().noneMatch(f -> f.getUrn().equals(legacyField.getUrn()))) {
+        allFields.add(legacyField);
+      }
+    }
+    result.setFields(allFields);
+
     if (gmsCustomAssertionInfo.hasLogic()) {
       result.setLogic(gmsCustomAssertionInfo.getLogic());
     }

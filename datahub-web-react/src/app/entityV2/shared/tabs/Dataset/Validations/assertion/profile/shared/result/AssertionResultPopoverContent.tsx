@@ -1,4 +1,4 @@
-import { ClockCircleOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined, PartitionOutlined } from '@ant-design/icons';
 import { Divider, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -89,6 +89,18 @@ const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
     font-size: 12px;
 `;
 
+const StyledPartitionOutlined = styled(PartitionOutlined)`
+    margin-right: 4px;
+    font-size: 12px;
+`;
+
+const PartitionRow = styled.div`
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    color: ${ANTD_GRAY[8]};
+`;
+
 const ThinDivider = styled(Divider)`
     margin: 12px 0px;
     padding: 0px;
@@ -131,6 +143,10 @@ export const AssertionResultPopoverContent = ({
     const isExternal = isExternalAssertion(assertion);
     const hasPlatform = !!assertion.platform;
 
+    // Partition
+    const partitionSpec = run?.partitionSpec;
+    const hasPartition = !!partitionSpec?.partition;
+
     return (
         <>
             <HeaderRow>
@@ -158,6 +174,17 @@ export const AssertionResultPopoverContent = ({
                         undefined}
                 </Actions>
             </HeaderRow>
+            {hasPartition && (
+                <>
+                    <ThinDivider />
+                    <PartitionRow>
+                        <StyledPartitionOutlined />
+                        <span>
+                            <strong>Partition:</strong> {partitionSpec?.partition}
+                        </span>
+                    </PartitionRow>
+                </>
+            )}
             {hasReason && (
                 <>
                     <ThinDivider />

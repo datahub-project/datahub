@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.assertion.CustomAssertionInfo;
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
@@ -102,7 +103,15 @@ public class UpsertCustomAssertionResolver implements DataFetcher<CompletableFut
     customAssertionInfo.setEntity(entityUrn);
     customAssertionInfo.setLogic(input.getLogic(), SetMode.IGNORE_NULL);
 
-    if (input.getFieldPath() != null) {
+    // Handle new fieldPaths array (preferred)
+    if (input.getFieldPaths() != null && !input.getFieldPaths().isEmpty()) {
+      UrnArray fieldUrns = new UrnArray();
+      for (String fieldPath : input.getFieldPaths()) {
+        fieldUrns.add(SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, fieldPath));
+      }
+      customAssertionInfo.setFields(fieldUrns);
+    } else if (input.getFieldPath() != null) {
+      // Backward compatibility: support deprecated fieldPath
       customAssertionInfo.setField(
           SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, input.getFieldPath()));
     }

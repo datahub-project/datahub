@@ -8119,6 +8119,11 @@ type AssertionInfo {
   URL where assertion details are available
   """
   externalUrl: String
+
+  """
+  Custom properties for the assertion
+  """
+  customProperties: [CustomPropertiesEntry!]
 }
 
 """

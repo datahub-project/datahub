@@ -51,8 +51,15 @@ input UpsertCustomAssertionInput {
 
   """
   The dataset field targeted by this assertion, if any.
+  Deprecated: Use fieldPaths instead for multi-column support.
   """
   fieldPath: String
+
+  """
+  The dataset fields targeted by this assertion, if any.
+  Use this for assertions involving multiple columns.
+  """
+  fieldPaths: [String!]
 
   """
   The external Platform associated with the assertion
@@ -1052,9 +1059,9 @@ type CustomAssertionInfo {
   entityUrn: String!
 
   """
-  The field serving as input to the assertion, if any.
+  The fields serving as input to the assertion, if any.
   """
-  field: SchemaFieldRef
+  fields: [SchemaFieldRef!]!
 
   """
   Logic comprising a raw, unstructured assertion.

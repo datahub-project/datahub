@@ -120,18 +120,40 @@ public class AssertionMapperTest {
 
   @Test
   public void testMapCustomAssertion() {
-    // Case 1: Without nullable fields
+    // Case 1: Without nullable fields (no field or fields)
     AssertionInfo input = createCustomAssertionInfoWithoutNullableFields();
     EntityResponse customAssertionEntityResponse = createAssertionInfoEntityResponse(input);
     Assertion output = AssertionMapper.map(null, customAssertionEntityResponse);
     verifyAssertionInfo(input, output);
 
-    // Case 2: With nullable fields
+    // Case 2: With fields array (new format)
     input = createCustomAssertionInfoWithNullableFields();
     EntityResponse customAssertionEntityResponseWithNullables =
         createAssertionInfoEntityResponse(input);
     output = AssertionMapper.map(null, customAssertionEntityResponseWithNullables);
     verifyAssertionInfo(input, output);
+
+    // Case 3: Backward compatibility - legacy field only
+    input = createCustomAssertionInfoWithLegacyField();
+    EntityResponse legacyFieldEntityResponse = createAssertionInfoEntityResponse(input);
+    output = AssertionMapper.map(null, legacyFieldEntityResponse);
+    verifyAssertionInfo(input, output);
+    // Verify legacy field is converted to fields array
+    Assert.assertEquals(output.getInfo().getCustomAssertion().getFields().size(), 1);
+
+    // Case 4: Both field and fields present - deduplication
+    input = createCustomAssertionInfoWithBothFieldAndFields();
+    EntityResponse bothFieldsEntityResponse = createAssertionInfoEntityResponse(input);
+    output = AssertionMapper.map(null, bothFieldsEntityResponse);
+    // Should have 2 fields (field2 from fields array + field1 from legacy field)
+    Assert.assertEquals(output.getInfo().getCustomAssertion().getFields().size(), 2);
+
+    // Case 5: Both field and fields present with duplicate - should deduplicate
+    input = createCustomAssertionInfoWithDuplicateField();
+    EntityResponse duplicateFieldEntityResponse = createAssertionInfoEntityResponse(input);
+    output = AssertionMapper.map(null, duplicateFieldEntityResponse);
+    // Should have 1 field (deduplicated)
+    Assert.assertEquals(output.getInfo().getCustomAssertion().getFields().size(), 1);
   }
 
   private void verifyAssertionInfo(AssertionInfo input, Assertion output) {
@@ -219,8 +241,21 @@ public class AssertionMapperTest {
     if (input.hasLogic()) {
       Assert.assertEquals(output.getLogic(), input.getLogic());
     }
-    if (input.hasField()) {
-      Assert.assertEquals(output.getField().getPath(), input.getField().getEntityKey().get(1));
+    // Verify fields array (merged from field and fields)
+    Assert.assertNotNull(output.getFields());
+    if (input.hasFields()) {
+      Assert.assertTrue(
+          input.getFields().stream()
+              .allMatch(
+                  field ->
+                      output.getFields().stream()
+                          .anyMatch(outField -> field.toString().equals(outField.getUrn()))));
+    }
+    if (input.hasField() && !input.hasFields()) {
+      // Legacy field should be in the output fields array
+      Assert.assertEquals(output.getFields().size(), 1);
+      Assert.assertEquals(
+          output.getFields().get(0).getPath(), input.getField().getEntityKey().get(1));
     }
   }
 
@@ -374,13 +409,72 @@ public class AssertionMapperTest {
     customAssertionInfo.setType("Custom Type 1");
     customAssertionInfo.setEntity(
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)"));
-    customAssertionInfo.setField(
-        UrnUtils.getUrn(
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field)"));
+    customAssertionInfo.setFields(
+        new UrnArray(
+            Arrays.asList(
+                UrnUtils.getUrn(
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field1)"),
+                UrnUtils.getUrn(
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field2)"))));
     customAssertionInfo.setLogic("custom logic");
     info.setCustomAssertion(customAssertionInfo);
     info.setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL));
 
+    return info;
+  }
+
+  private AssertionInfo createCustomAssertionInfoWithLegacyField() {
+    AssertionInfo info = new AssertionInfo();
+    info.setType(AssertionType.CUSTOM);
+    CustomAssertionInfo customAssertionInfo = new CustomAssertionInfo();
+    customAssertionInfo.setType("Custom Type 1");
+    customAssertionInfo.setEntity(
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)"));
+    // Use deprecated field only (backward compatibility test)
+    customAssertionInfo.setField(
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),legacyField)"));
+    info.setCustomAssertion(customAssertionInfo);
+    return info;
+  }
+
+  private AssertionInfo createCustomAssertionInfoWithBothFieldAndFields() {
+    AssertionInfo info = new AssertionInfo();
+    info.setType(AssertionType.CUSTOM);
+    CustomAssertionInfo customAssertionInfo = new CustomAssertionInfo();
+    customAssertionInfo.setType("Custom Type 1");
+    customAssertionInfo.setEntity(
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)"));
+    // Set both field (deprecated) and fields array
+    customAssertionInfo.setField(
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field1)"));
+    customAssertionInfo.setFields(
+        new UrnArray(
+            Arrays.asList(
+                UrnUtils.getUrn(
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field2)"))));
+    info.setCustomAssertion(customAssertionInfo);
+    return info;
+  }
+
+  private AssertionInfo createCustomAssertionInfoWithDuplicateField() {
+    AssertionInfo info = new AssertionInfo();
+    info.setType(AssertionType.CUSTOM);
+    CustomAssertionInfo customAssertionInfo = new CustomAssertionInfo();
+    customAssertionInfo.setType("Custom Type 1");
+    customAssertionInfo.setEntity(
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)"));
+    // Set both field and fields with the same URN (should deduplicate)
+    customAssertionInfo.setField(
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),sameField)"));
+    customAssertionInfo.setFields(
+        new UrnArray(
+            Arrays.asList(
+                UrnUtils.getUrn(
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),sameField)"))));
+    info.setCustomAssertion(customAssertionInfo);
     return info;
   }
 
