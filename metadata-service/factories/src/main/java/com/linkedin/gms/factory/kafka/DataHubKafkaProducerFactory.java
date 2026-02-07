@@ -5,11 +5,13 @@ import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import java.util.Arrays;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
@@ -17,6 +19,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
+@Slf4j
 @Configuration
 @DependsOn("configurationProvider")
 public class DataHubKafkaProducerFactory {
@@ -28,8 +31,9 @@ public class DataHubKafkaProducerFactory {
       @Qualifier("schemaRegistryConfig")
           final KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
-    return new KafkaProducer<>(
-        buildProducerProperties(schemaRegistryConfig, kafkaConfiguration, properties));
+    Map<String, Object> props =
+        buildProducerProperties(schemaRegistryConfig, kafkaConfiguration, properties);
+    return createProducerWithRetry(props, kafkaConfiguration.getProducer());
   }
 
   /**
@@ -67,7 +71,48 @@ public class DataHubKafkaProducerFactory {
     props.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, producerConfiguration.getMaxRequestSize());
     props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, producerConfiguration.getCompressionType());
 
-    return new KafkaProducer<>(props);
+    return createProducerWithRetry(props, producerConfiguration);
+  }
+
+  /**
+   * Creates a KafkaProducer with retry logic for initialization failures. This handles transient
+   * issues like DNS resolution failures that can occur during container startup in Kubernetes
+   * environments.
+   *
+   * @param props the producer configuration properties
+   * @param producerConfiguration the producer configuration containing retry settings
+   * @return the created KafkaProducer
+   */
+  public static <K, V> Producer<K, V> createProducerWithRetry(
+      Map<String, Object> props, ProducerConfiguration producerConfiguration) {
+    int maxRetries = producerConfiguration.getInitializationRetryCount();
+    long retryDelayMs = producerConfiguration.getInitializationRetryBackoffMs();
+    KafkaException lastException = null;
+
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return new KafkaProducer<>(props);
+      } catch (KafkaException e) {
+        lastException = e;
+        if (attempt < maxRetries) {
+          log.warn(
+              "Failed to construct Kafka producer, retrying in {}ms (attempt {}/{}): {}",
+              retryDelayMs,
+              attempt,
+              maxRetries,
+              e.getMessage());
+          try {
+            Thread.sleep(retryDelayMs);
+            retryDelayMs *= 2; // Exponential backoff
+          } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw e;
+          }
+        }
+      }
+    }
+    log.error("Failed to construct Kafka producer after {} attempts", maxRetries);
+    throw lastException;
   }
 
   public static Map<String, Object> buildProducerProperties(

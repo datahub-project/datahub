@@ -643,6 +643,8 @@ kafka:
     backoffTimeout: ${KAFKA_PRODUCER_BACKOFF_TIMEOUT:500}
     compressionType: ${KAFKA_PRODUCER_COMPRESSION_TYPE:snappy} # producer's compression algorithm
     maxRequestSize: ${KAFKA_PRODUCER_MAX_REQUEST_SIZE:5242880} # the max bytes sent by the producer, also see kafka-setup MAX_MESSAGE_BYTES for matching value
+    initializationRetryCount: ${KAFKA_PRODUCER_INITIALIZATION_RETRY_COUNT:5} # retries for producer initialization
+    initializationRetryBackoffMs: ${KAFKA_PRODUCER_INITIALIZATION_RETRY_BACKOFF_MS:500} # initial backoff delay in ms for initialization retries
   consumer:
     bootstrapServers: ${KAFKA_CONSUMER_BOOTSTRAP_SERVER:} # Used as an override for the base setting for when split producer/consumer is desired
     maxPartitionFetchBytes: ${KAFKA_CONSUMER_MAX_PARTITION_FETCH_BYTES:5242880} # the max bytes consumed per partition
