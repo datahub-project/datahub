@@ -518,8 +518,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         graph=None,
                         schema_aware=False,
                     ).in_tables
-                except Exception:
-                    logger.debug(f"Unable to parse query of element {element.name}")
+                except Exception as e:
+                    logger.debug(
+                        f"Unable to parse query for element {element.elementId}: {e}"
+                    )
 
         # Add sigma dataset as input of element if present
         # and its matched sql parser in_table as its upsteam dataset

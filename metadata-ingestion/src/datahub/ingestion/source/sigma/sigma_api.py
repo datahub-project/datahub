@@ -377,7 +377,7 @@ class SigmaAPI:
     def _fetch_element_lineage_data(
         self, element: Element, workbook: Workbook
     ) -> Tuple[str, Dict[str, str], Optional[str]]:
-        """Fetch upstream sources and SQL query for an element. Used for parallel fetching."""
+        """Fetch upstream sources and SQL query for an element."""
         upstream_sources = self._get_element_upstream_sources(element, workbook)
         query = self._get_element_sql_query(element, workbook)
         return (element.elementId, upstream_sources, query)
