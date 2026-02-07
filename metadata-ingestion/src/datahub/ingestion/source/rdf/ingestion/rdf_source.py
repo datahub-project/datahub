@@ -398,9 +398,10 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
 
             # Apply SPARQL filter if provided
             if self.config.sparql_filter:
-                rdf_graph = self._apply_sparql_filter(rdf_graph)
-                if rdf_graph is None:
+                filtered_graph = self._apply_sparql_filter(rdf_graph)
+                if filtered_graph is None:
                     return None
+                rdf_graph = filtered_graph
                 filtered_count = len(rdf_graph)
                 if triple_count > 0:
                     percentage = filtered_count / triple_count * 100
@@ -487,25 +488,39 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             Filtered RDF graph, or None if filtering failed
         """
+        # Ensure sparql_filter is not None (should be checked by caller)
+        sparql_filter_str = self.config.sparql_filter
+        if sparql_filter_str is None:
+            return None
+
         try:
             from rdflib.plugins.sparql import prepareQuery
 
             logger.info("Applying SPARQL filter to RDF graph")
-            query = prepareQuery(self.config.sparql_filter)
+            query = prepareQuery(sparql_filter_str)
 
             # Execute query - for CONSTRUCT queries, RDFLib returns a Graph
             # For SELECT queries, it returns a Result object (which we don't support)
             query_result = graph.query(query)
 
             # Check query type and handle accordingly
+            filtered_graph: Graph
             if query.algebra.name == "ConstructQuery":
                 # CONSTRUCT query returns a Graph directly
-                filtered_graph = query_result
-                if not isinstance(filtered_graph, Graph):
+                if isinstance(query_result, Graph):
+                    filtered_graph = query_result
+                else:
                     # Fallback: if it's not a Graph, try to iterate and build one
                     filtered_graph = Graph()
-                    for triple in query_result:
-                        filtered_graph.add(triple)
+                    for item in query_result:
+                        # Type check: ensure we have a valid triple (tuple of 3 Nodes)
+                        if isinstance(item, tuple) and len(item) == 3:
+                            filtered_graph.add(item)  # type: ignore[arg-type]
+                        else:
+                            # Skip invalid items (shouldn't happen for CONSTRUCT queries)
+                            logger.warning(
+                                f"Skipping invalid query result item: {type(item)}"
+                            )
             elif query.algebra.name == "SelectQuery":
                 # SELECT queries return Result objects, which we can't use for filtering
                 raise ValueError(
@@ -522,8 +537,13 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
             return filtered_graph
 
         except Exception as e:
+            query_preview = (
+                sparql_filter_str[:100]
+                if len(sparql_filter_str) > 100
+                else sparql_filter_str
+            )
             error_context = (
-                f"SPARQL query: {self.config.sparql_filter[:100]}... "
+                f"SPARQL query: {query_preview}... "
                 f"Error: {str(e)}. "
                 "Please verify your SPARQL query syntax and ensure it's a valid CONSTRUCT query."
             )
