@@ -561,12 +561,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
     @serialized_lru_cache(maxsize=1)
     def get_tables_for_database(
-        self, db_name: str
+        self, db_name: str, table_filter: str = ""
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
         tables: Dict[str, List[SnowflakeTable]] = {}
         try:
             cur = self.connection.query(
-                SnowflakeQuery.tables_for_database(db_name),
+                SnowflakeQuery.tables_for_database(db_name, table_filter),
             )
         except Exception as e:
             logger.debug(
@@ -605,12 +605,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return tables
 
     def get_tables_for_schema(
-        self, schema_name: str, db_name: str
+        self, schema_name: str, db_name: str, table_filter: str = ""
     ) -> List[SnowflakeTable]:
         tables: List[SnowflakeTable] = []
 
         cur = self.connection.query(
-            SnowflakeQuery.tables_for_schema(schema_name, db_name),
+            SnowflakeQuery.tables_for_schema(schema_name, db_name, table_filter),
         )
 
         for table in cur:
@@ -642,10 +642,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
     @serialized_lru_cache(maxsize=1)
     def get_views_for_database(
-        self, db_name: str
+        self, db_name: str, view_filter: str = ""
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
         if self._fetch_views_from_information_schema:
-            return self._get_views_for_database_using_information_schema(db_name)
+            return self._get_views_for_database_using_information_schema(
+                db_name, view_filter
+            )
         else:
             return self._get_views_for_database_using_show(db_name)
 
@@ -801,11 +803,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return views_with_empty_definition
 
     def _get_views_for_database_using_information_schema(
-        self, db_name: str
+        self, db_name: str, view_filter: str = ""
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
         try:
             cur = self.connection.query(
-                SnowflakeQuery.get_views_for_database(db_name),
+                SnowflakeQuery.get_views_for_database(db_name, view_filter),
             )
         except Exception as e:
             logger.debug(f"Failed to get all views for database {db_name}", exc_info=e)
@@ -831,11 +833,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return views
 
     def get_views_for_schema_using_information_schema(
-        self, *, schema_name: str, db_name: str
+        self, *, schema_name: str, db_name: str, view_filter: str = ""
     ) -> List[SnowflakeView]:
         cur = self.connection.query(
             SnowflakeQuery.get_views_for_schema(
-                db_name=db_name, schema_name=schema_name
+                db_name=db_name, schema_name=schema_name, view_filter=view_filter
             ),
         )
 
