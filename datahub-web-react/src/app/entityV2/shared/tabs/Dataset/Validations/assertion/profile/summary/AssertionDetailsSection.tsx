@@ -92,7 +92,7 @@ export const AssertionDetailsSection = ({ assertion }: Props) => {
     const customPropertiesObject = hasCustomProperties
         ? customProperties.reduce(
               (acc, prop) => {
-                  acc[prop.key] = prop.value;
+                  acc[prop.key] = prop.value ?? '';
                   return acc;
               },
               {} as Record<string, string>,
