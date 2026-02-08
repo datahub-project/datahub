@@ -190,6 +190,135 @@ public class DataHubKafkaProducerFactoryRetryTest {
     }
   }
 
+  @Test(expectedExceptions = KafkaException.class)
+  public void testCreateProducerWithRetry_InterruptedDuringSleep() {
+    ProducerConfiguration config = new ProducerConfiguration();
+    config.setInitializationRetryCount(3);
+    config.setInitializationRetryBackoffMs(1000); // Long delay to ensure interrupt happens
+
+    Map<String, Object> props = createMinimalProducerProps();
+    AtomicInteger attemptCount = new AtomicInteger(0);
+    Thread testThread = Thread.currentThread();
+
+    // Mock producer factory that fails, then interrupts the thread
+    Function<Map<String, Object>, Producer<String, String>> mockFactory =
+        p -> {
+          int attempt = attemptCount.incrementAndGet();
+          if (attempt == 1) {
+            // First attempt fails and triggers sleep
+            throw new KafkaException("Failed to construct kafka producer");
+          } else if (attempt == 2) {
+            // Second attempt should not happen because thread should be interrupted
+            fail("Should not reach second attempt after interrupt");
+          }
+          return createMockProducer();
+        };
+
+    // Create a thread that will interrupt the test thread after a short delay
+    Thread interrupter =
+        new Thread(
+            () -> {
+              try {
+                Thread.sleep(100); // Wait for the retry logic to start sleeping
+                testThread.interrupt();
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
+            });
+    interrupter.start();
+
+    try {
+      createProducerWithRetryTestable(props, config, mockFactory);
+      fail("Should have thrown KafkaException due to interrupt");
+    } catch (KafkaException e) {
+      // Expected - should throw the original KafkaException
+      assertEquals(attemptCount.get(), 1, "Should only attempt once before being interrupted");
+      assertTrue(
+          Thread.interrupted(),
+          "Thread interrupt flag should be set after InterruptedException handling");
+      throw e;
+    } finally {
+      try {
+        interrupter.join();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
+
+  @Test
+  public void testCreateProducerWithRetry_VerifyBackoffMultiplication() {
+    ProducerConfiguration config = new ProducerConfiguration();
+    config.setInitializationRetryCount(3);
+    config.setInitializationRetryBackoffMs(100);
+
+    Map<String, Object> props = createMinimalProducerProps();
+    AtomicInteger attemptCount = new AtomicInteger(0);
+    long[] sleepTimestamps = new long[3];
+
+    // Mock producer factory that fails twice then succeeds
+    Function<Map<String, Object>, Producer<String, String>> mockFactory =
+        p -> {
+          int attempt = attemptCount.incrementAndGet();
+          sleepTimestamps[attempt - 1] = System.currentTimeMillis();
+          if (attempt < 3) {
+            throw new KafkaException("Failed to construct kafka producer");
+          }
+          return createMockProducer();
+        };
+
+    Producer<String, String> producer = createProducerWithRetryTestable(props, config, mockFactory);
+
+    assertNotNull(producer);
+    assertEquals(attemptCount.get(), 3);
+
+    // Verify exponential backoff: delay between attempts should roughly double each time
+    // First delay: ~100ms, Second delay: ~200ms
+    long firstDelay = sleepTimestamps[1] - sleepTimestamps[0];
+    long secondDelay = sleepTimestamps[2] - sleepTimestamps[1];
+
+    assertTrue(firstDelay >= 90, "First delay should be at least 90ms");
+    assertTrue(
+        secondDelay >= 180,
+        "Second delay should be at least 180ms (approximately double the first)");
+    assertTrue(
+        secondDelay > firstDelay * 1.5,
+        "Second delay should be significantly longer than first delay");
+  }
+
+  @Test(expectedExceptions = KafkaException.class)
+  public void testCreateProducerWithRetry_DifferentKafkaExceptionTypes() {
+    ProducerConfiguration config = new ProducerConfiguration();
+    config.setInitializationRetryCount(2);
+    config.setInitializationRetryBackoffMs(10);
+
+    Map<String, Object> props = createMinimalProducerProps();
+    AtomicInteger attemptCount = new AtomicInteger(0);
+
+    // Mock producer factory that throws different exceptions on each attempt
+    Function<Map<String, Object>, Producer<String, String>> mockFactory =
+        p -> {
+          int attempt = attemptCount.incrementAndGet();
+          if (attempt == 1) {
+            throw new KafkaException("No resolvable bootstrap urls given in bootstrap.servers");
+          } else {
+            throw new KafkaException("Failed to create new KafkaAdminClient");
+          }
+        };
+
+    try {
+      createProducerWithRetryTestable(props, config, mockFactory);
+      fail("Should have thrown KafkaException");
+    } catch (KafkaException e) {
+      assertEquals(attemptCount.get(), 2);
+      // Should preserve the last exception
+      assertTrue(
+          e.getMessage().contains("Failed to create new KafkaAdminClient"),
+          "Should throw the last exception encountered");
+      throw e;
+    }
+  }
+
   /**
    * Testable version of createProducerWithRetry that accepts a factory function. This mirrors the
    * logic in DataHubKafkaProducerFactory.createProducerWithRetry but allows injecting a mock
