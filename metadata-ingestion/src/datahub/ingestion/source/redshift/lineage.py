@@ -190,29 +190,13 @@ class RedshiftSqlLineage(Closeable):
         - Mixed: "db"."sigma"."t_mat_123" -> sigma.t_mat_123
         - Already normalized: sigma.t_mat_123 -> sigma.t_mat_123
         """
-        # Strip quotes and split by dot
-        # Handle both "schema"."table" and schema.table formats
-        parts = []
-        current = ""
-        in_quotes = False
-        for char in name:
-            if char == '"':
-                in_quotes = not in_quotes
-            elif char == "." and not in_quotes:
-                if current:
-                    parts.append(current)
-                current = ""
-            else:
-                current += char
-        if current:
-            parts.append(current)
+        # Remove quotes and split by dot
+        parts = name.replace('"', "").split(".")
 
-        # Take last two parts (schema.table), or all if fewer than 2
+        # Take last two parts (schema.table)
         if len(parts) >= 2:
             return f"{parts[-2]}.{parts[-1]}"
-        elif len(parts) == 1:
-            return parts[0]
-        return name
+        return parts[0] if parts else name
 
     def _is_sigma_temp_table(self, name: str) -> bool:
         """Check if the table name matches Sigma Computing temp table patterns.
@@ -684,13 +668,10 @@ class RedshiftSqlLineage(Closeable):
                     try:
                         processor(lineage_row)
                     except Exception as e:
-                        # Log per-row errors but continue processing other rows.
-                        # This prevents one bad query from stopping the entire phase.
-                        # Skip logging permission errors (expected, not parsing issues).
+                        # Skip permission errors; log others and continue
                         error_str = str(e).lower()
                         if "permission" in error_str or "access denied" in error_str:
                             continue
-                        # Include DDL snippet to help debug parsing issues.
                         ddl_snippet = (
                             lineage_row.ddl[:200] + "..."
                             if lineage_row.ddl and len(lineage_row.ddl) > 200
@@ -778,9 +759,7 @@ class RedshiftSqlLineage(Closeable):
         preprocessed_query = preprocess_query_for_sigma(lineage_row.ddl)
         preprocessed_query = preprocess_dms_password_redaction(preprocessed_query)
 
-        # Parse SQL to extract column-level lineage
-        # Use the aggregator's schema resolver which has all schemas loaded during ingestion.
-        # This is more complete than creating a new resolver via graph.
+        # Extract column-level lineage using aggregator's schema resolver
         column_lineage: Optional[List[sqlglot_l.ColumnLineageInfo]] = None
         try:
             target_parts = target.name.split(".")
@@ -791,8 +770,6 @@ class RedshiftSqlLineage(Closeable):
                 else self.config.default_schema
             )
 
-            # Use sqlglot_lineage directly with aggregator's schema resolver
-            # This ensures we have access to all schemas discovered during ingestion
             parsed_result = sqlglot_l.sqlglot_lineage(
                 sql=preprocessed_query,
                 schema_resolver=self.aggregator._schema_resolver,
