@@ -180,7 +180,7 @@ snowsql -f dmf_definitions.sql
 snowsql -f dmf_associations.sql
 ```
 
-:::NOTE
+::: NOTE
 Scheduling Data Metric Function on table incurs Serverless Credit Usage in Snowflake. Refer [Billing and Pricing](https://docs.snowflake.com/en/user-guide/data-quality-intro#billing-and-pricing) for more details.
 Please ensure you DROP Data Metric Function created via dmf_associations.sql if the assertion is no longer in use.
 :::
