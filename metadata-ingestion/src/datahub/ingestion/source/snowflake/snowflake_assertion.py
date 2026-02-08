@@ -135,6 +135,7 @@ class SnowflakeAssertionsHandler:
         dataset_urn: str,
         dmf_name: str,
         argument_names: List[str],
+        reference_id: str,
     ) -> MetadataWorkUnit:
         """Create AssertionInfo for external DMFs."""
         # Field URN is only set for single-column DMFs. Multi-column DMFs are
@@ -145,6 +146,7 @@ class SnowflakeAssertionsHandler:
 
         custom_properties: Dict[str, str] = {
             "snowflake_dmf_name": dmf_name,
+            "snowflake_reference_id": reference_id,
         }
         # Store all columns in custom properties regardless of count
         if argument_names:
@@ -202,6 +204,7 @@ class SnowflakeAssertionsHandler:
                     dataset_urn=dataset_urn,
                     dmf_name=result.METRIC_NAME,
                     argument_names=result.ARGUMENT_NAMES,
+                    reference_id=result.REFERENCE_ID,
                 )
                 workunits.append(assertion_info_wu)
 

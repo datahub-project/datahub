@@ -441,8 +441,9 @@ class SnowflakeV2Config(
 
     include_assertion_results: bool = Field(
         default=False,
-        description="Whether to ingest assertion run results for assertions created using Datahub"
-        " assertions CLI in snowflake",
+        description="Whether to ingest assertion run results for assertions "
+        "[created using DataHub assertions CLI](/docs/assertions/snowflake/snowflake_dmfs) "
+        "in Snowflake. Also required for external DMF ingestion.",
     )
 
     include_external_dmf_assertions: bool = Field(
@@ -452,7 +453,8 @@ class SnowflakeV2Config(
         "When enabled, all DMFs (not just datahub__* prefixed) "
         "will be ingested with their execution results. "
         "IMPORTANT: External DMFs must return 1 for SUCCESS and 0 for FAILURE. "
-        "DataHub interprets VALUE=1 as passed, VALUE=0 as failed.",
+        "DataHub interprets VALUE=1 as passed, VALUE=0 as failed. "
+        "See [Snowflake DMF Assertions](/docs/assertions/snowflake/snowflake_dmfs) for details.",
     )
 
     pushdown_deny_usernames: List[str] = Field(

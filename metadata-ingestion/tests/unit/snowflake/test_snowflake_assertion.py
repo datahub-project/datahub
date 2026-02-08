@@ -193,11 +193,13 @@ class TestAssertionInfoCreation:
             dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.orders,PROD)",
             dmf_name="null_check",
             argument_names=[],
+            reference_id="ref_abc123",
         )
         assertion_info = wu.metadata.aspect
         assert assertion_info.type == AssertionTypeClass.CUSTOM
         assert assertion_info.source.type == AssertionSourceTypeClass.EXTERNAL
         assert assertion_info.customProperties["snowflake_dmf_name"] == "null_check"
+        assert assertion_info.customProperties["snowflake_reference_id"] == "ref_abc123"
 
     def test_field_urn_set_for_single_column(self, handler):
         """Field URN should be set when DMF operates on single column."""
@@ -206,6 +208,7 @@ class TestAssertionInfoCreation:
             dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.orders,PROD)",
             dmf_name="null_check",
             argument_names=["amount"],
+            reference_id="ref_abc123",
         )
         assertion_info = wu.metadata.aspect
         assert assertion_info.customAssertion.field is not None
@@ -218,6 +221,7 @@ class TestAssertionInfoCreation:
             dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.orders,PROD)",
             dmf_name="compare_columns",
             argument_names=["col1", "col2"],
+            reference_id="ref_abc123",
         )
         assertion_info = wu.metadata.aspect
         assert assertion_info.customAssertion.field is None

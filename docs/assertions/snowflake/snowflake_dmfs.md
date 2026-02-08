@@ -210,7 +210,16 @@ either via CLI or the UI visible as normal assertions.
 
 ## Ingesting External (User-Created) DMFs
 
-In addition to DataHub-created DMFs, you can also ingest results from your own custom Snowflake Data Metric Functions. This allows you to monitor data quality assertions that were created outside of DataHub.
+In addition to DataHub-created DMFs, you can also ingest results from your own custom Snowflake Data Metric Functions. "External" here means DMFs that were created directly in Snowflake without using DataHub's assertion compiler - they exist outside of DataHub's management.
+
+### Why Use External DMFs?
+
+You might want to ingest external DMFs if:
+
+- **Pre-existing DMFs**: You already have DMFs in Snowflake that were created before adopting DataHub, and you want to see their results in DataHub without recreating them
+- **Custom logic**: You need DMF logic that isn't supported by DataHub's assertion compiler (e.g., complex multi-table checks)
+- **Team workflows**: Different teams manage DMFs directly in Snowflake, but you want centralized visibility in DataHub
+- **Gradual adoption**: You want to start monitoring existing data quality checks in DataHub before fully migrating to DataHub-managed assertions
 
 ### Enabling External DMF Ingestion
 
@@ -244,6 +253,15 @@ DataHub interprets the `VALUE` column from Snowflake's `DATA_QUALITY_MONITORING_
 - `VALUE = 0` → Assertion **FAILED**
 
 This is because DataHub cannot interpret arbitrary return values (e.g., "100 null rows" - is that good or bad?). You must build the pass/fail logic into your DMF.
+
+::: warning What if my DMF returns other values?
+If your DMF returns values other than 0 or 1, DataHub will interpret them as follows:
+
+- `VALUE = 0` → **FAILED**
+- `VALUE != 0` (any non-zero value like 5, 100, -1) → **PASSED**
+
+This can lead to misleading results. For example, if your DMF returns the count of null rows (e.g., 100), DataHub will mark it as PASSED because 100 != 0. To identify misconfigured DMFs, check the assertion results in the DataHub UI - if you see unexpected pass/fail patterns, verify your DMF is returning 1/0 correctly.
+:::
 
 #### Example: Writing External DMFs Correctly
 
@@ -284,13 +302,13 @@ $$;
 
 ### How External DMFs Differ from DataHub-Created DMFs
 
-| Aspect             | DataHub-Created DMFs                                    | External DMFs                             |
-| ------------------ | ------------------------------------------------------- | ----------------------------------------- |
-| **Naming**         | Prefixed with `datahub__`                               | Any name                                  |
-| **Definition**     | Created via `datahub assertions compile`                | Created manually by user                  |
-| **Assertion Type** | Based on assertion definition (Freshness, Volume, etc.) | CUSTOM                                    |
-| **Source**         | INFERRED                                                | EXTERNAL                                  |
-| **URN Generation** | Extracted from DMF name                                 | Generated from Snowflake's `REFERENCE_ID` |
+| Aspect             | DataHub-Created DMFs                               | External DMFs                             |
+| ------------------ | -------------------------------------------------- | ----------------------------------------- |
+| **Naming**         | Prefixed with `datahub__`                          | Any name                                  |
+| **Definition**     | Created via `datahub assertions compile`           | Created manually in Snowflake             |
+| **Assertion Type** | Based on YAML definition (Freshness, Volume, etc.) | CUSTOM                                    |
+| **Source**         | NATIVE (defined in DataHub)                        | EXTERNAL                                  |
+| **URN Generation** | Extracted from DMF name (`datahub__<guid>`)        | Generated from Snowflake's `REFERENCE_ID` |
 
 ### How External DMFs Appear in DataHub UI
 
@@ -298,9 +316,11 @@ External DMFs appear in DataHub with:
 
 - **Assertion Type**: CUSTOM
 - **Source**: EXTERNAL
+- **Platform Instance**: Snowflake platform instance (if configured)
 - **Description**: "External Snowflake DMF: {dmf_name}"
 - **Custom Properties**:
   - `snowflake_dmf_name`: The DMF function name
+  - `snowflake_reference_id`: Snowflake's unique identifier for the DMF-table binding
   - `snowflake_dmf_columns`: Comma-separated list of columns the DMF operates on
 
 You can view external DMF assertions in the **Quality** tab of the associated dataset in the DataHub UI. They will show pass/fail history alongside any DataHub-created assertions.
