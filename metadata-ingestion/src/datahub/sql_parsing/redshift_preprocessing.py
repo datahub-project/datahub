@@ -43,13 +43,9 @@ _SAFE_KEYWORD_SUFFIXES: dict[str, tuple[str, ...]] = {
 # =============================================================================
 
 
-def _has_keyword_followed_by_letter(
-    query_lower: str, keyword: str, exclude_safe_words: bool = True
-) -> bool:
+def _has_keyword_followed_by_letter(query_lower: str, keyword: str) -> bool:
     """Check if keyword is directly followed by a letter (potential malformation)."""
-    safe_suffixes = (
-        _SAFE_KEYWORD_SUFFIXES.get(keyword, ()) if exclude_safe_words else ()
-    )
+    safe_suffixes = _SAFE_KEYWORD_SUFFIXES.get(keyword, ())
 
     idx = query_lower.find(keyword)
     while idx != -1:
