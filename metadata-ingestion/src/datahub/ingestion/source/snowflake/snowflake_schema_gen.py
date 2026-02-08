@@ -857,10 +857,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
                 self.report.report_entity_scanned(view_name, "view")
 
-                if not self.filters.filter_config.view_pattern.allowed(view_name):
-                    self.report.report_dropped(view_name)
-                else:
+                if getattr(self.config, "push_down_metadata_patterns", False):
+                    # SQL already filtered, no Python check needed
                     views.append(view)
+                else:
+                    # Original behavior: Python filtering
+                    if not self.filters.filter_config.view_pattern.allowed(view_name):
+                        self.report.report_dropped(view_name)
+                    else:
+                        views.append(view)
             snowflake_schema.views = [view.name for view in views]
             return views
         except Exception as e:
@@ -942,12 +947,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     table.name, schema_name, db_name
                 )
                 self.report.report_entity_scanned(table_identifier)
-                if not self.filters.filter_config.table_pattern.allowed(
-                    table_identifier
-                ):
-                    self.report.report_dropped(table_identifier)
-                else:
+
+                if getattr(self.config, "push_down_metadata_patterns", False):
+                    # SQL already filtered, no Python check needed
                     tables.append(table)
+                else:
+                    # Original behavior: Python filtering
+                    if not self.filters.filter_config.table_pattern.allowed(
+                        table_identifier
+                    ):
+                        self.report.report_dropped(table_identifier)
+                    else:
+                        tables.append(table)
             snowflake_schema.tables = [table.name for table in tables]
             return tables
         except Exception as e:
@@ -2491,7 +2502,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def get_tables_for_schema(
         self, schema_name: str, db_name: str
     ) -> List[SnowflakeTable]:
-        tables = self.data_dictionary.get_tables_for_database(db_name)
+        # Build table filter for SQL pushdown if enabled
+        table_filter = ""
+        if getattr(self.config, "push_down_metadata_patterns", False):
+            table_filter = SnowflakeQuery.build_table_filter(
+                self.filters.filter_config.table_pattern
+            )
+
+        tables = self.data_dictionary.get_tables_for_database(db_name, table_filter)
 
         # get all tables for database failed,
         # falling back to get tables for schema
@@ -2500,6 +2518,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return self.data_dictionary.get_tables_for_schema(
                 db_name=db_name,
                 schema_name=schema_name,
+                table_filter=table_filter,
             )
 
         # Some schema may not have any table
@@ -2508,7 +2527,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def get_views_for_schema(
         self, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
-        views = self.data_dictionary.get_views_for_database(db_name)
+        # Build view filter for SQL pushdown if enabled
+        view_filter = ""
+        if getattr(self.config, "push_down_metadata_patterns", False):
+            view_filter = SnowflakeQuery.build_view_filter(
+                self.filters.filter_config.view_pattern
+            )
+
+        views = self.data_dictionary.get_views_for_database(db_name, view_filter)
 
         if views is not None:
             # Some schemas may not have any views
@@ -2520,6 +2546,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         return self.data_dictionary.get_views_for_schema_using_information_schema(
             db_name=db_name,
             schema_name=schema_name,
+            view_filter=view_filter,
         )
 
     def get_semantic_views_for_schema(

@@ -125,6 +125,25 @@ class SnowflakeQuery:
 
         return SnowflakeQuery._build_pattern_filter(schema_pattern, column_expr)
 
+    @staticmethod
+    def build_table_filter(table_pattern: Optional[AllowDenyPattern]) -> str:
+        """Build SQL WHERE clause for table_pattern filtering.
+
+        Table patterns always match against full qualified name: DATABASE.SCHEMA.TABLE
+        """
+        column_expr = "CONCAT(table_catalog, '.', table_schema, '.', table_name)"
+        return SnowflakeQuery._build_pattern_filter(table_pattern, column_expr)
+
+    @staticmethod
+    def build_view_filter(view_pattern: Optional[AllowDenyPattern]) -> str:
+        """Build SQL WHERE clause for view_pattern filtering.
+
+        View patterns always match against full qualified name: DATABASE.SCHEMA.VIEW
+        Views use same column names (table_catalog, table_schema, table_name) in information_schema.
+        """
+        column_expr = "CONCAT(table_catalog, '.', table_schema, '.', table_name)"
+        return SnowflakeQuery._build_pattern_filter(view_pattern, column_expr)
+
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS = {
         SnowflakeObjectDomain.TABLE.capitalize(),
         SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize(),
@@ -222,15 +241,25 @@ class SnowflakeQuery:
         ORDER BY schema_name"""
 
     @staticmethod
-    def tables_for_database(db_name: str) -> str:
+    def tables_for_database(db_name: str, table_filter: str = "") -> str:
         db_clause = f'"{db_name}".'
+
+        where_conditions = [
+            "table_schema != 'INFORMATION_SCHEMA'",
+            "table_type in ('BASE TABLE', 'EXTERNAL TABLE')",
+        ]
+        if table_filter:
+            where_conditions.append(table_filter)
+
+        where_clause = " AND ".join(where_conditions)
+
         return f"""
         SELECT table_catalog AS "TABLE_CATALOG",
         table_schema AS "TABLE_SCHEMA",
         table_name AS "TABLE_NAME",
         table_type AS "TABLE_TYPE",
         created AS "CREATED",
-        last_altered AS "LAST_ALTERED" ,
+        last_altered AS "LAST_ALTERED",
         comment AS "COMMENT",
         row_count AS "ROW_COUNT",
         bytes AS "BYTES",
@@ -240,20 +269,31 @@ class SnowflakeQuery:
         is_iceberg AS "IS_ICEBERG",
         is_hybrid AS "IS_HYBRID"
         FROM {db_clause}information_schema.tables t
-        WHERE table_schema != 'INFORMATION_SCHEMA'
-        and table_type in ( 'BASE TABLE', 'EXTERNAL TABLE')
-        order by table_schema, table_name"""
+        WHERE {where_clause}
+        ORDER BY table_schema, table_name"""
 
     @staticmethod
-    def tables_for_schema(schema_name: str, db_name: str) -> str:
+    def tables_for_schema(
+        schema_name: str, db_name: str, table_filter: str = ""
+    ) -> str:
         db_clause = f'"{db_name}".'
+
+        where_conditions = [
+            f"table_schema='{schema_name}'",
+            "table_type in ('BASE TABLE', 'EXTERNAL TABLE')",
+        ]
+        if table_filter:
+            where_conditions.append(table_filter)
+
+        where_clause = " AND ".join(where_conditions)
+
         return f"""
         SELECT table_catalog AS "TABLE_CATALOG",
         table_schema AS "TABLE_SCHEMA",
         table_name AS "TABLE_NAME",
         table_type AS "TABLE_TYPE",
         created AS "CREATED",
-        last_altered AS "LAST_ALTERED" ,
+        last_altered AS "LAST_ALTERED",
         comment AS "COMMENT",
         row_count AS "ROW_COUNT",
         bytes AS "BYTES",
@@ -263,9 +303,8 @@ class SnowflakeQuery:
         is_iceberg AS "IS_ICEBERG",
         is_hybrid AS "IS_HYBRID"
         FROM {db_clause}information_schema.tables t
-        where table_schema='{schema_name}'
-        and table_type in ('BASE TABLE', 'EXTERNAL TABLE')
-        order by table_schema, table_name"""
+        WHERE {where_clause}
+        ORDER BY table_schema, table_name"""
 
     @staticmethod
     def procedures_for_database(db_name: str) -> str:
@@ -378,10 +417,19 @@ LIMIT {limit} {from_clause};
 """
 
     @staticmethod
-    def get_views_for_database(db_name: str) -> str:
+    def get_views_for_database(db_name: str, view_filter: str = "") -> str:
         # We've seen some issues with the `SHOW VIEWS` query,
         # particularly when it requires pagination.
         # This is an experimental alternative query that might be more reliable.
+        where_conditions = [
+            f"TABLE_CATALOG = '{db_name}'",
+            "TABLE_SCHEMA != 'INFORMATION_SCHEMA'",
+        ]
+        if view_filter:
+            where_conditions.append(view_filter)
+
+        where_clause = "\n  AND ".join(where_conditions)
+
         return f"""\
 SELECT
   TABLE_CATALOG as "VIEW_CATALOG",
@@ -393,15 +441,35 @@ SELECT
   LAST_ALTERED,
   IS_SECURE
 FROM "{db_name}".information_schema.views
-WHERE TABLE_CATALOG = '{db_name}'
-  AND TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+WHERE {where_clause}
 """
 
     @staticmethod
-    def get_views_for_schema(db_name: str, schema_name: str) -> str:
+    def get_views_for_schema(
+        db_name: str, schema_name: str, view_filter: str = ""
+    ) -> str:
+        where_conditions = [
+            f"TABLE_CATALOG = '{db_name}'",
+            "TABLE_SCHEMA != 'INFORMATION_SCHEMA'",
+            f"TABLE_SCHEMA = '{schema_name}'",
+        ]
+        if view_filter:
+            where_conditions.append(view_filter)
+
+        where_clause = "\n  AND ".join(where_conditions)
+
         return f"""\
-{SnowflakeQuery.get_views_for_database(db_name).rstrip()}
-  AND TABLE_SCHEMA = '{schema_name}'
+SELECT
+  TABLE_CATALOG as "VIEW_CATALOG",
+  TABLE_SCHEMA as "VIEW_SCHEMA",
+  TABLE_NAME as "VIEW_NAME",
+  COMMENT,
+  VIEW_DEFINITION,
+  CREATED,
+  LAST_ALTERED,
+  IS_SECURE
+FROM "{db_name}".information_schema.views
+WHERE {where_clause}
 """
 
     @staticmethod

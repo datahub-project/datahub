@@ -1322,3 +1322,166 @@ class TestSchemasForDatabaseQueryWithFilter:
         assert "CONCAT" in query
         assert "RLIKE 'TEST_DB.PUBLIC'" in query
         assert "RLIKE 'TEST_DB.ANALYTICS'" in query
+
+
+class TestBuildTableFilter:
+    """Tests for the build_table_filter method."""
+
+    @pytest.mark.parametrize(
+        "pattern,expected",
+        [
+            pytest.param(
+                None,
+                "",
+                id="none_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(),
+                "",
+                id="default_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB.PUBLIC.CUSTOMERS"]),
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.CUSTOMERS'",
+                id="single_table_fqn",
+            ),
+            pytest.param(
+                AllowDenyPattern(
+                    allow=["PROD_DB.PUBLIC.CUSTOMERS", "PROD_DB.PUBLIC.ORDERS"]
+                ),
+                "(UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.CUSTOMERS' OR UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.ORDERS')",
+                id="multiple_tables_fqn",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB\\.PUBLIC\\.CUSTOMER_.*"]),
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB\\.PUBLIC\\.CUSTOMER_.*'",
+                id="regex_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(
+                    allow=["PROD_DB\\.PUBLIC\\..*"], deny=[".*_TEMP$", ".*_BACKUP$"]
+                ),
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB\\.PUBLIC\\..*' AND (UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_TEMP$' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_BACKUP$')",
+                id="allow_with_deny",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["Prod_DB.Public.Table"], ignoreCase=False),
+                "CONCAT(table_catalog, '.', table_schema, '.', table_name) RLIKE 'Prod_DB.Public.Table'",
+                id="case_sensitive",
+            ),
+        ],
+    )
+    def test_build_table_filter(self, pattern, expected):
+        """Test the build_table_filter method."""
+        result = SnowflakeQuery.build_table_filter(pattern)
+        assert result == expected
+
+
+class TestBuildViewFilter:
+    """Tests for the build_view_filter method."""
+
+    @pytest.mark.parametrize(
+        "pattern,expected",
+        [
+            pytest.param(
+                None,
+                "",
+                id="none_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(),
+                "",
+                id="default_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB.REPORTING.V_CUSTOMERS"]),
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING.V_CUSTOMERS'",
+                id="single_view_fqn",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["PROD_DB.REPORTING.V_.*"]),
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING.V_.*'",
+                id="view_regex_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(
+                    allow=["PROD_DB.REPORTING..*"], deny=[".*_DEPRECATED$"]
+                ),
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING..*' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_DEPRECATED$'",
+                id="view_allow_with_deny",
+            ),
+        ],
+    )
+    def test_build_view_filter(self, pattern, expected):
+        """Test the build_view_filter method."""
+        result = SnowflakeQuery.build_view_filter(pattern)
+        assert result == expected
+
+
+class TestTablesForDatabaseQueryWithFilter:
+    """Tests for the tables_for_database query with filter parameter."""
+
+    def test_tables_for_database_no_filter(self):
+        """Test tables_for_database generates valid SQL without filter."""
+        query = SnowflakeQuery.tables_for_database("TEST_DB")
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should have base WHERE clause
+        assert "WHERE" in query.upper()
+        assert "INFORMATION_SCHEMA" in query
+        # Should not have RLIKE
+        assert "RLIKE" not in query.upper()
+
+    def test_tables_for_database_with_filter(self):
+        """Test tables_for_database generates valid SQL with filter."""
+        table_filter = SnowflakeQuery.build_table_filter(
+            AllowDenyPattern(allow=["TEST_DB.PUBLIC.USERS"])
+        )
+        query = SnowflakeQuery.tables_for_database("TEST_DB", table_filter)
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should have WHERE clause with base conditions AND the filter
+        assert "WHERE" in query.upper()
+        assert "INFORMATION_SCHEMA" in query
+        assert "RLIKE" in query.upper()
+        assert "CONCAT" in query
+
+
+class TestViewsForDatabaseQueryWithFilter:
+    """Tests for the get_views_for_database query with filter parameter."""
+
+    def test_views_for_database_no_filter(self):
+        """Test get_views_for_database generates valid SQL without filter."""
+        query = SnowflakeQuery.get_views_for_database("TEST_DB")
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should have base WHERE clause
+        assert "WHERE" in query.upper()
+        assert "INFORMATION_SCHEMA" in query
+        # Should not have RLIKE
+        assert "RLIKE" not in query.upper()
+
+    def test_views_for_database_with_filter(self):
+        """Test get_views_for_database generates valid SQL with filter."""
+        view_filter = SnowflakeQuery.build_view_filter(
+            AllowDenyPattern(allow=["TEST_DB.PUBLIC.V_USERS"])
+        )
+        query = SnowflakeQuery.get_views_for_database("TEST_DB", view_filter)
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Should have WHERE clause with the filter
+        assert "WHERE" in query.upper()
+        assert "RLIKE" in query.upper()
+        assert "CONCAT" in query
