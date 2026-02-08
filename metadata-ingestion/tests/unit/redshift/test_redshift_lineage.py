@@ -19,6 +19,10 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
+from datahub.sql_parsing.redshift_preprocessing import (
+    preprocess_dms_password_redaction,
+    preprocess_query_for_sigma,
+)
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnTransformation,
@@ -130,6 +134,162 @@ def test_parse_alter_table_rename():
         "storage_v2_stg",
         "storage_v2",
     )
+
+
+class TestSigmaSqlPreprocessing:
+    """Tests for Sigma Computing SQL preprocessing patterns."""
+
+    def test_case_when_alias_dot(self) -> None:
+        """Test case when<alias>. pattern (e.g., case whenq11.col)."""
+        # case whenq11.col -> case when q11.col
+        result = preprocess_query_for_sigma("SELECT case whenq11.value THEN 1 END")
+        assert "case when q11.value" in result
+
+        # case whenq123.col -> case when q123.col
+        result = preprocess_query_for_sigma("SELECT case whenq123.id > 0 THEN 1 END")
+        assert "case when q123.id" in result
+
+    def test_case_when_identifier_operator(self) -> None:
+        """Test case when<identifier><operator> pattern (e.g., case whenarr_down>)."""
+        # case whenarr_down> -> case when arr_down >
+        result = preprocess_query_for_sigma("SELECT case whenarr_down>0 THEN 1 END")
+        assert "case when arr_down >" in result
+
+        # case whenvalue= -> case when value =
+        result = preprocess_query_for_sigma("SELECT case whenvalue=1 THEN 'a' END")
+        assert "case when value =" in result
+
+    def test_case_when_identifier_keyword(self) -> None:
+        """Test case when<identifier> <keyword> pattern (e.g., case whenarr_down then)."""
+        # case whenarr_down then -> case when arr_down then
+        result = preprocess_query_for_sigma(
+            "SELECT case whenarr_down then 1 else 0 end"
+        )
+        assert "case when arr_down then" in result
+
+        # case whenmy_col is null -> case when my_col is null
+        result = preprocess_query_for_sigma("SELECT case whenmy_col is null THEN 0 END")
+        assert "case when my_col is" in result
+
+    def test_when_identifier_operator_no_space(self) -> None:
+        """Test when<identifier><operator> pattern without space."""
+        # whenarr_down> -> when arr_down >
+        result = preprocess_query_for_sigma("CASE whenarr_down>0 THEN 1 END")
+        assert "when arr_down >" in result
+
+    def test_combined_sigma_patterns(self) -> None:
+        """Test multiple Sigma patterns in a single query."""
+        query = """
+        SELECT case whenq11.status='active' then 1
+               whenarr_down>0 then 2
+               else 0 end as result
+        FROM mytable
+        """
+        result = preprocess_query_for_sigma(query)
+        assert "when q11.status" in result
+        assert "when arr_down >" in result
+
+    def test_normal_sql_unchanged(self) -> None:
+        """Normal Redshift SQL should pass through preprocessing unchanged."""
+        # Standard SELECT
+        query = "SELECT id, name, created_at FROM users WHERE status = 'active'"
+        assert preprocess_query_for_sigma(query) == query
+
+        # SELECT with CASE WHEN (properly spaced)
+        query = "SELECT CASE WHEN x > 0 THEN 1 ELSE 0 END FROM my_table"
+        assert preprocess_query_for_sigma(query) == query
+
+        # JOIN with ON clause
+        query = "SELECT a.id, b.name FROM table_a a JOIN table_b b ON a.id = b.a_id"
+        assert preprocess_query_for_sigma(query) == query
+
+        # GROUP BY and ORDER BY (properly spaced)
+        query = "SELECT status, COUNT(*) FROM orders GROUP BY status ORDER BY status"
+        assert preprocess_query_for_sigma(query) == query
+
+        # Complex query with subquery
+        query = """
+        SELECT u.id, u.name, o.total
+        FROM users u
+        JOIN (SELECT user_id, SUM(amount) as total FROM orders GROUP BY user_id) o
+        ON u.id = o.user_id
+        WHERE u.status = 'active'
+        """
+        assert preprocess_query_for_sigma(query) == query
+
+    def test_common_words_not_corrupted(self) -> None:
+        """Words starting with SQL keywords should NOT be corrupted."""
+        # Words starting with "and" - android, anderson, etc.
+        query = "WHERE android_version > 10"
+        assert preprocess_query_for_sigma(query) == query
+        query = "SELECT anderson_count FROM users"
+        assert preprocess_query_for_sigma(query) == query
+
+        # Words starting with "when" - whenever, whence
+        query = "CASE WHEN whenever_flag > 0 THEN 1 END"
+        assert preprocess_query_for_sigma(query) == query
+
+        # Words starting with "select" - selection, selector, selectivity
+        query = "SELECT selection_id, selector, selectivity FROM t"
+        assert preprocess_query_for_sigma(query) == query
+
+        # Words starting with "else" - elsewhere
+        query = "SELECT elsewhere.col FROM t"
+        assert preprocess_query_for_sigma(query) == query
+
+        # Words starting with "then" - thence
+        query = "CASE WHEN x THEN thence.value ELSE 0 END"
+        assert preprocess_query_for_sigma(query) == query
+
+    def test_whitelist_alias_patterns(self) -> None:
+        """Sigma alias patterns (q1, t1, etc.) are whitelisted for safe fixing.
+
+        We use a WHITELIST approach for alias-based patterns:
+        - Only matches q + digits (q1, q11, q123) and t + digits (t1, t12)
+        - Safe from false positives like once., only., onto.
+        """
+        # Sigma alias patterns should be FIXED
+        assert "when q11." in preprocess_query_for_sigma("CASE whenq11.col = 1")
+        assert "then q3." in preprocess_query_for_sigma("thenq3.value")
+        assert "else q1." in preprocess_query_for_sigma("elseq1.result")
+        assert "on q3." in preprocess_query_for_sigma("JOIN x onq3.id = y.id")
+        assert "on t12." in preprocess_query_for_sigma("JOIN x ont12.id = y.id")
+
+        # English words with dots should NOT be touched (not Sigma aliases)
+        query = "SELECT * FROM once.table_name"
+        assert preprocess_query_for_sigma(query) == query
+        query = "SELECT * FROM only.schema_table"
+        assert preprocess_query_for_sigma(query) == query
+        query = "SELECT * FROM onto.target"
+        assert preprocess_query_for_sigma(query) == query
+
+
+class TestDmsPasswordRedaction:
+    """Tests for DMS password redaction preprocessing."""
+
+    def test_password_redaction_splits_columns(self):
+        """DMS '***' password redaction that merges columns should be fixed."""
+        query = """INSERT INTO t ("password '***'next_col") SELECT col1 FROM s"""
+        result = preprocess_dms_password_redaction(query)
+        # The space + '***' is replaced with ", " - no trailing space
+        assert '''"password", "next_col"''' in result
+
+    def test_password_redaction_full_query(self):
+        """Full INSERT query with merged columns should have correct column count."""
+        query = """INSERT INTO "target" ("id","password '***'role","status") SELECT col1,col2,col3 FROM t"""
+        result = preprocess_dms_password_redaction(query)
+        # Should split into 4 columns to match SELECT - no trailing space
+        assert '''"password", "role"''' in result
+
+    def test_no_password_redaction_unchanged(self):
+        """Queries without password redaction should be unchanged."""
+        query = "INSERT INTO t (a, b, c) SELECT 1, 2, 3"
+        assert preprocess_dms_password_redaction(query) == query
+
+    def test_normal_asterisk_unchanged(self):
+        """Normal asterisks (not '***') should be unchanged."""
+        query = "SELECT * FROM t WHERE col = '**'"
+        assert preprocess_dms_password_redaction(query) == query
 
 
 def get_lineage_extractor() -> RedshiftSqlLineage:
@@ -425,3 +585,99 @@ def test_build():
 
     # Test build method doesn't raise exception
     lineage_extractor.build(connection, all_tables, db_schemas)
+
+
+class TestSigmaTempTableDetection:
+    """Tests for Sigma Computing temp table detection."""
+
+    def test_sigma_materialization_table(self):
+        """Sigma materialization tables (sigma.t_mat_*) should be detected."""
+        lineage_extractor = get_lineage_extractor()
+        assert lineage_extractor._is_sigma_temp_table("sigma.t_mat_12345") is True
+        assert lineage_extractor._is_sigma_temp_table("sigma.t_mat_abc") is True
+        assert lineage_extractor._is_sigma_temp_table("SIGMA.T_MAT_XYZ") is True
+
+    def test_sigma_timestamp_temp_table(self):
+        """Sigma timestamp-based temp tables (sigma.t_*_<10+ digit timestamp>) should be detected."""
+        lineage_extractor = get_lineage_extractor()
+        # Valid timestamp patterns (10+ digits)
+        assert (
+            lineage_extractor._is_sigma_temp_table("sigma.t_something_1234567890")
+            is True
+        )
+        assert (
+            lineage_extractor._is_sigma_temp_table("sigma.t_query_1709123456789")
+            is True
+        )
+        assert lineage_extractor._is_sigma_temp_table("SIGMA.T_ABC_9999999999") is True
+
+    def test_sigma_non_temp_tables(self):
+        """Regular Sigma tables should not be detected as temp tables."""
+        lineage_extractor = get_lineage_extractor()
+        # Not in sigma schema
+        assert lineage_extractor._is_sigma_temp_table("public.t_mat_12345") is False
+        assert (
+            lineage_extractor._is_sigma_temp_table("other.t_something_1234567890")
+            is False
+        )
+        # In sigma schema but doesn't match patterns
+        assert lineage_extractor._is_sigma_temp_table("sigma.regular_table") is False
+        assert (
+            lineage_extractor._is_sigma_temp_table("sigma.t_short_123") is False
+        )  # timestamp too short
+        assert lineage_extractor._is_sigma_temp_table("sigma.users") is False
+
+    def test_is_temp_table_with_sigma_patterns(self):
+        """_is_temp_table should detect Sigma temp tables."""
+        lineage_extractor = get_lineage_extractor()
+        # Sigma temp tables should be filtered regardless of known_urns
+        lineage_extractor.known_urns = set()
+        assert lineage_extractor._is_temp_table("sigma.t_mat_12345") is True
+        assert lineage_extractor._is_temp_table("sigma.t_query_1709123456789") is True
+
+    def test_sigma_temp_table_fully_qualified(self):
+        """Fully qualified names (db.sigma.t_mat_*) should be detected."""
+        lineage_extractor = get_lineage_extractor()
+        # Fully qualified with database prefix
+        assert lineage_extractor._is_sigma_temp_table("mydb.sigma.t_mat_12345") is True
+        assert (
+            lineage_extractor._is_sigma_temp_table("prod.sigma.t_query_1709123456789")
+            is True
+        )
+        # Non-sigma schema with db prefix should not match
+        assert (
+            lineage_extractor._is_sigma_temp_table("mydb.public.t_mat_12345") is False
+        )
+
+    def test_sigma_temp_table_quoted(self):
+        """Quoted names ("sigma"."t_mat_*") should be detected."""
+        lineage_extractor = get_lineage_extractor()
+        # Quoted schema.table
+        assert lineage_extractor._is_sigma_temp_table('"sigma"."t_mat_12345"') is True
+        assert (
+            lineage_extractor._is_sigma_temp_table('"sigma"."t_query_1709123456789"')
+            is True
+        )
+        # Quoted with database prefix
+        assert (
+            lineage_extractor._is_sigma_temp_table('"mydb"."sigma"."t_mat_12345"')
+            is True
+        )
+        # Quoted non-sigma schema should not match
+        assert lineage_extractor._is_sigma_temp_table('"public"."t_mat_12345"') is False
+
+    def test_normalize_table_name_for_sigma_check(self):
+        """Test the normalization helper directly."""
+        from datahub.ingestion.source.redshift.lineage import RedshiftSqlLineage
+
+        normalize = RedshiftSqlLineage._normalize_table_name_for_sigma_check
+        # Simple schema.table
+        assert normalize("sigma.t_mat_123") == "sigma.t_mat_123"
+        # Fully qualified db.schema.table -> schema.table
+        assert normalize("mydb.sigma.t_mat_123") == "sigma.t_mat_123"
+        # Quoted
+        assert normalize('"sigma"."t_mat_123"') == "sigma.t_mat_123"
+        # Quoted with db
+        assert normalize('"mydb"."sigma"."t_mat_123"') == "sigma.t_mat_123"
+        # Single part (edge case)
+        assert normalize("tablename") == "tablename"

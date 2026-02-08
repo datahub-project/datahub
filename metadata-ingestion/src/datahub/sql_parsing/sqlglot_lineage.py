@@ -49,6 +49,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
 from datahub.sql_parsing.query_types import get_query_type_of_sql, is_create_table_ddl
+from datahub.sql_parsing.redshift_preprocessing import (
+    preprocess_query_for_sigma,
+)
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
@@ -1626,14 +1629,15 @@ def _try_extract_select(
             statement.expression
         )  # Get the SELECT expression from the INSERT
 
-        # MSSQL-specific: Map INSERT column names to SELECT column names
+        # Map INSERT column names to SELECT column names for MSSQL and Redshift
         # This fixes column lineage when INSERT columns != SELECT columns
         # Example: INSERT INTO t (col_a) SELECT col_b FROM src
         #   Should create: downstream=col_a, upstream=col_b
         #   Without fix:   downstream=col_b, upstream=col_b (WRONG!)
+        # For Redshift: AWS DMS uses generic col1, col2, etc. in staging tables
         if (
             dialect
-            and is_dialect_instance(dialect, "tsql")
+            and is_dialect_instance(dialect, ["tsql", "redshift"])
             and statement.this
             and hasattr(statement.this, "expressions")
             and statement.this.expressions
@@ -2214,9 +2218,15 @@ def create_lineage_sql_parsed_result(
     if graph and schema_aware:
         needs_close = False
 
+    # Apply Sigma Computing SQL fix for Redshift platform
+    # Sigma generates malformed SQL with missing spaces in type casts
+    processed_query = query
+    if platform == "redshift":
+        processed_query = preprocess_query_for_sigma(query)
+
     try:
         return sqlglot_lineage(
-            query,
+            processed_query,
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,

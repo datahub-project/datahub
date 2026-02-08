@@ -255,6 +255,24 @@ FROM source_db.dbo.source_table
     )
 
 
+def test_redshift_dms_insert_column_name_mapping() -> None:
+    # Redshift: AWS DMS INSERT queries use generic col1, col2 in staging tables
+    # Tests that column mapping works correctly (INSERT cols != SELECT cols)
+    # Example: INSERT INTO public.target (id, name) SELECT col1, col2 FROM awsdms_staging
+    assert_sql_result(
+        """
+INSERT INTO "public"."application_encryption_keys" ("id", "subscription_id", "encrypted_key")
+SELECT CAST("public"."awsdms_changes"."col1" AS VARCHAR(65535)),
+       CAST("public"."awsdms_changes"."col2" AS VARCHAR(65535)),
+       CAST("public"."awsdms_changes"."col3" AS VARCHAR(65535))
+FROM "public"."awsdms_changes"
+""",
+        dialect="redshift",
+        expected_file=RESOURCE_DIR
+        / "test_redshift_dms_insert_column_name_mapping.json",
+    )
+
+
 def test_select_with_full_col_name() -> None:
     # In this case, `widget` is a struct column.
     # This also tests the `default_db` functionality.
@@ -1731,3 +1749,111 @@ GROUP BY date
         dialect="clickhouse",
         expected_file=RESOURCE_DIR / "test_clickhouse_materialized_view_to.json",
     )
+
+
+def test_redshift_sigma_preprocessing_hook():
+    """Test that create_lineage_sql_parsed_result applies Sigma preprocessing for Redshift."""
+    from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+
+    # Query with Sigma malformation that would fail without preprocessing
+    # "casewhen" should be fixed to "case when"
+    malformed_query = "SELECT casewhen x > 0 THEN 1 ELSE 0 END FROM my_table"
+
+    # This should NOT raise an error because the hook applies preprocessing
+    result = create_lineage_sql_parsed_result(
+        query=malformed_query,
+        platform="redshift",
+        platform_instance=None,
+        env="PROD",
+        default_db="testdb",
+        schema_aware=False,
+    )
+
+    # Verify parsing succeeded (no error)
+    assert result.debug_info.error is None
+    # Verify the table was detected
+    assert len(result.in_tables) == 1
+    assert "my_table" in str(result.in_tables[0])
+
+
+def test_dms_preprocessing_unquoted_identifiers():
+    """Test that DMS preprocessing handles unquoted identifiers."""
+    from datahub.sql_parsing.redshift_preprocessing import preprocess_dms_update_query
+
+    # Unquoted DMS staging table reference
+    query = """UPDATE public.target_table
+    SET col1 = public.awsdms_staging.col1,
+        col2 = public.awsdms_staging.col2
+    WHERE id = public.awsdms_staging.id"""
+
+    result = preprocess_dms_update_query(query)
+
+    # Should have injected FROM clause before WHERE
+    assert 'FROM "public"."awsdms_staging"' in result
+    # Original query structure preserved
+    assert "UPDATE public.target_table" in result
+    assert "WHERE id = public.awsdms_staging.id" in result
+
+
+def test_dms_preprocessing_quoted_identifiers():
+    """Test that DMS preprocessing handles quoted identifiers."""
+    from datahub.sql_parsing.redshift_preprocessing import preprocess_dms_update_query
+
+    # Quoted DMS staging table reference (original pattern)
+    query = '''UPDATE "public"."target_table"
+    SET "col1" = "public"."awsdms_changes_123"."col1"
+    WHERE "id" = "public"."awsdms_changes_123"."id"'''
+
+    result = preprocess_dms_update_query(query)
+
+    # Should have injected FROM clause
+    assert 'FROM "public"."awsdms_changes_123"' in result
+
+
+def test_dms_preprocessing_skip_with_existing_from():
+    """DMS preprocessing should NOT modify queries that already have FROM clause."""
+    from datahub.sql_parsing.redshift_preprocessing import preprocess_dms_update_query
+
+    # Query already has FROM clause
+    query = """UPDATE public.target_table
+    SET col1 = s.col1
+    FROM public.awsdms_staging s
+    WHERE target_table.id = s.id"""
+
+    result = preprocess_dms_update_query(query)
+
+    # Should be unchanged
+    assert result == query
+
+
+def test_dms_preprocessing_skip_non_update():
+    """DMS preprocessing should NOT modify non-UPDATE queries."""
+    from datahub.sql_parsing.redshift_preprocessing import preprocess_dms_update_query
+
+    # SELECT query mentioning awsdms table
+    query = "SELECT * FROM public.awsdms_staging WHERE id = 1"
+    assert preprocess_dms_update_query(query) == query
+
+    # INSERT query
+    query = "INSERT INTO target SELECT * FROM public.awsdms_staging"
+    assert preprocess_dms_update_query(query) == query
+
+    # DELETE query
+    query = "DELETE FROM public.target WHERE id IN (SELECT id FROM awsdms_staging)"
+    assert preprocess_dms_update_query(query) == query
+
+
+def test_dms_preprocessing_skip_no_dms_tables():
+    """DMS preprocessing should NOT modify UPDATE queries without DMS tables."""
+    from datahub.sql_parsing.redshift_preprocessing import preprocess_dms_update_query
+
+    # Normal UPDATE without DMS staging table
+    query = """UPDATE public.target_table
+    SET col1 = 'value'
+    WHERE id = 1"""
+
+    result = preprocess_dms_update_query(query)
+
+    # Should be unchanged (no FROM injected)
+    assert result == query
+    assert "FROM" not in result
