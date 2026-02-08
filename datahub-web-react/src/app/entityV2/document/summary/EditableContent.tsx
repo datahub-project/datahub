@@ -6,6 +6,7 @@ import { useContextLayout } from '@app/context/ContextLayoutContext';
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useExtractMentions } from '@app/document/hooks/useExtractMentions';
 import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
+import { extractUrnsFromMarkdown, isAllowedRelatedAssetUrn } from '@app/document/utils/documentUtils';
 import { useRefetch } from '@app/entity/shared/EntityContext';
 import { RelatedSection } from '@app/entityV2/document/summary/RelatedSection';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
@@ -146,24 +147,24 @@ export const EditableContent: React.FC<EditableContentProps> = ({
 
             setIsSaving(true);
             try {
-                // Extract mentions from the content to save
-                // Pattern matches markdown link syntax: [text](urn:li:entityType:id)
-                // Handle URNs with nested parentheses by matching everything between the markdown link's parens
-                // The pattern matches: [text](urn:li:entityType:...) where ... can include nested parens
-                // We match the URN prefix, then allow nested paren groups or non-paren characters
-                const urnPattern = /\[([^\]]+)\]\((urn:li:[a-zA-Z]+:(?:[^)(]+|\([^)]*\))+)\)/g;
-                const matches = Array.from(contentToSave.matchAll(urnPattern));
+                // Extract URNs from markdown links using balanced-parenthesis parser
+                // This correctly handles nested URNs like dataJob:(dataFlow:(...),task)
+                const extractedUrns = extractUrnsFromMarkdown(contentToSave);
                 const documentUrnsToSave: string[] = [];
                 const assetUrnsToSave: string[] = [];
 
-                matches.forEach((match) => {
-                    const urn = match[2]; // URN is in the second capture group
+                extractedUrns.forEach((urn) => {
+                    // Check if it's a document URN
                     if (urn.includes(':document:')) {
                         if (!documentUrnsToSave.includes(urn)) {
                             documentUrnsToSave.push(urn);
                         }
-                    } else if (!assetUrnsToSave.includes(urn)) {
-                        assetUrnsToSave.push(urn);
+                    } else if (isAllowedRelatedAssetUrn(urn)) {
+                        // Only add to related assets if it passes validation
+                        // (balanced parens, not a disallowed entity type like corpUser/corpGroup)
+                        if (!assetUrnsToSave.includes(urn)) {
+                            assetUrnsToSave.push(urn);
+                        }
                     }
                 });
 
