@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, Optional, Set
 
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -53,13 +53,14 @@ class RedshiftReport(
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
     num_unresolved_temp_columns: int = 0
+    num_cll_parse_failures: int = 0
 
     # lineage/usage v2
     sql_aggregator: Optional[SqlAggregatorReport] = None
     lineage_phases_timer: Dict[str, PerfTimer] = field(default_factory=dict)
 
-    # Permission denied tables during lineage extraction (capped at 20)
-    lineage_permission_denied: List[str] = field(default_factory=list)
+    # Permission denied tables during lineage extraction (capped)
+    lineage_permission_denied: Set[str] = field(default_factory=set)
 
     is_shared_database: bool = False
     outbound_shares_count: Optional[int] = None

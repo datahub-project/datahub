@@ -55,6 +55,9 @@ from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
+# Maximum number of permission-denied tables to track (avoids unbounded memory)
+_MAX_PERMISSION_DENIED_TABLES = 20
+
 
 class LineageDatasetPlatform(Enum):
     S3 = "s3"
@@ -679,9 +682,12 @@ class RedshiftSqlLineage(Closeable):
                         # Track permission errors (capped); log others and continue
                         error_str = str(e).lower()
                         if "permission" in error_str or "access denied" in error_str:
-                            if len(self.report.lineage_permission_denied) < 20:
+                            if (
+                                len(self.report.lineage_permission_denied)
+                                < _MAX_PERMISSION_DENIED_TABLES
+                            ):
                                 table_name = f"{lineage_row.target_schema}.{lineage_row.target_table}"
-                                self.report.lineage_permission_denied.append(table_name)
+                                self.report.lineage_permission_denied.add(table_name)
                             continue
                         ddl_snippet = (
                             lineage_row.ddl[:200] + "..."
@@ -804,6 +810,7 @@ class RedshiftSqlLineage(Closeable):
                     f"{len(column_lineage)} column mappings found"
                 )
         except Exception as e:
+            self.report.num_cll_parse_failures += 1
             logger.debug(
                 f"Failed to parse column lineage for stl_scan query: {e}",
                 exc_info=True,
