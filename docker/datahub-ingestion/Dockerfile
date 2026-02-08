@@ -137,6 +137,23 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
 
+FROM ingestion-base-full AS wheel-builder
+
+WORKDIR /wheelhouse
+
+# 1. Install 'pip' (mandatory!) and the legacy build tools
+# uv creates bare venvs, so we must explicitly ask for pip.
+RUN --mount=type=cache,target=/home/datahub/.cache/uv,uid=1000,gid=1000,sharing=private \
+    uv pip install pip "setuptools<58" wheel
+
+# 2. Use the pip we just installed to build the wheel
+# We use python3 -m pip to ensure we use the one in the venv
+RUN --mount=type=cache,target=/home/datahub/.cache/uv,uid=1000,gid=1000,sharing=private \
+    python3 -m pip wheel \
+        --no-build-isolation \
+        --wheel-dir /wheelhouse \
+        flatdict==4.0.1
+
 USER datahub
 
 # Locked variant uses the same base as slim (no JRE/Oracle needed)
@@ -184,8 +201,12 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private 
 
 FROM add-code-full AS final-full
 
+# Copy the pre-built binary from the builder stage
+COPY --from=wheel-builder --chown=datahub:datahub /wheelhouse /tmp/wheelhouse
+
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
     UV_LINK_MODE=copy uv pip install \
+        --find-links /tmp/wheelhouse \
         -e "/metadata-ingestion/[all]" \
     && datahub --version
 
