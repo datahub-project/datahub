@@ -1023,6 +1023,7 @@ ORDER BY event_time ASC
                  WHERE engine IN ('MaterializedView')
                    AND NOT (source_schema = target_schema AND source_table = target_table)
                    AND source <> extract_to
+                   AND source <> concat(database, '.', name)
                    AND extract_to <> '')
          ORDER BY target_schema, target_table, source_schema, source_table"""
         )
