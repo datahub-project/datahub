@@ -50,21 +50,18 @@ def _has_keyword_followed_by_letter(
     safe_suffixes = (
         _SAFE_KEYWORD_SUFFIXES.get(keyword, ()) if exclude_safe_words else ()
     )
-    idx = 0
-    keyword_len = len(keyword)
-    while True:
-        idx = query_lower.find(keyword, idx)
-        if idx == -1:
-            return False
-        end = idx + keyword_len
+
+    idx = query_lower.find(keyword)
+    while idx != -1:
+        end = idx + len(keyword)
         if end < len(query_lower) and query_lower[end].isalpha():
-            if safe_suffixes:
-                remaining = query_lower[end:]
-                if not any(remaining.startswith(suffix) for suffix in safe_suffixes):
-                    return True
-            else:
+            remaining = query_lower[end:]
+            is_safe = safe_suffixes and any(
+                remaining.startswith(s) for s in safe_suffixes
+            )
+            if not is_safe:
                 return True
-        idx = end
+        idx = query_lower.find(keyword, end)
     return False
 
 
