@@ -647,6 +647,14 @@ class RedshiftSqlLineage(Closeable):
         if not self.config.skip_external_tables:
             self._process_external_tables(all_tables=all_tables, db_schemas=db_schemas)
 
+        # Report permission denied tables if any
+        if self.report.lineage_permission_denied:
+            self.report.warning(
+                title="Permission denied for some lineage tables",
+                message=f"Skipped {len(self.report.lineage_permission_denied)} table(s) due to permission errors",
+                context=", ".join(self.report.lineage_permission_denied),
+            )
+
     def _populate_lineage_agg(
         self,
         query: str,
@@ -668,9 +676,12 @@ class RedshiftSqlLineage(Closeable):
                     try:
                         processor(lineage_row)
                     except Exception as e:
-                        # Skip permission errors; log others and continue
+                        # Track permission errors (capped); log others and continue
                         error_str = str(e).lower()
                         if "permission" in error_str or "access denied" in error_str:
+                            if len(self.report.lineage_permission_denied) < 20:
+                                table_name = f"{lineage_row.target_schema}.{lineage_row.target_table}"
+                                self.report.lineage_permission_denied.append(table_name)
                             continue
                         ddl_snippet = (
                             lineage_row.ddl[:200] + "..."
@@ -692,16 +703,23 @@ class RedshiftSqlLineage(Closeable):
             )
             self.report_status(f"extract-{lineage_type.name}", False)
 
-    def _preprocess_query(self, query: str) -> str:
+    def _preprocess_query(self, query: str, apply_dms_update: bool = True) -> str:
         """Preprocess SQL query to fix Sigma Computing and DMS malformations.
 
         This applies Redshift-specific preprocessing before SQL parsing:
         - Sigma Computing generates SQL with missing spaces between keywords
         - AWS DMS UPDATE queries reference staging tables without FROM clauses
         - AWS DMS password redaction merges column names in INSERT statements
+
+        Args:
+            query: The SQL query to preprocess
+            apply_dms_update: Whether to apply DMS UPDATE FROM clause injection.
+                Set to False when source/target tables are already known from
+                metadata (e.g., STL scan) and only CLL extraction is needed.
         """
         query = preprocess_query_for_sigma(query)
-        query = preprocess_dms_update_query(query)
+        if apply_dms_update:
+            query = preprocess_dms_update_query(query)
         query = preprocess_dms_password_redaction(query)
         return query
 
@@ -755,9 +773,12 @@ class RedshiftSqlLineage(Closeable):
             )
             return
 
-        # Preprocess the query to fix Sigma and DMS malformations
-        preprocessed_query = preprocess_query_for_sigma(lineage_row.ddl)
-        preprocessed_query = preprocess_dms_password_redaction(preprocessed_query)
+        # Preprocess query for CLL extraction. Skip DMS UPDATE preprocessing because
+        # STL scan already provides source/target tables from metadata - we only need
+        # the query for column-level lineage, not table-level lineage discovery.
+        preprocessed_query = self._preprocess_query(
+            lineage_row.ddl, apply_dms_update=False
+        )
 
         # Extract column-level lineage using aggregator's schema resolver
         column_lineage: Optional[List[sqlglot_l.ColumnLineageInfo]] = None

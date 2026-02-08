@@ -390,7 +390,7 @@ _QUICK_MALFORMATION_INDICATORS = (
 # =============================================================================
 
 
-def _may_need_preprocessing(query_lower: str) -> bool:
+def _is_preprocessing_required(query_lower: str) -> bool:
     """Quick check if query may contain Sigma malformations."""
     # Check obvious compound keywords
     for indicator in _QUICK_MALFORMATION_INDICATORS:
@@ -450,7 +450,7 @@ def preprocess_query_for_sigma(query: str) -> str:
     query_lower = query.lower()
 
     # Early exit if no malformation indicators
-    if not _may_need_preprocessing(query_lower):
+    if not _is_preprocessing_required(query_lower):
         return query
 
     # Apply only patterns whose triggers match
