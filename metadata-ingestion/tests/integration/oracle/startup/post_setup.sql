@@ -100,6 +100,43 @@ GROUP BY order_date;
 ALTER SESSION SET CURRENT_SCHEMA = ANALYTICS_SCHEMA;
 SELECT dept_name, total_sales FROM analytics_schema.dept_sales_summary WHERE total_sales > 50000;
 
+-- Pin test DML queries in V$SQL to ensure they're available for query usage testing
+-- This prevents Oracle from aging them out of the shared pool
+DECLARE
+    v_count NUMBER := 0;
+BEGIN
+    -- Pin the employee_backup INSERT query
+    FOR rec IN (
+        SELECT sql_id, address, hash_value
+        FROM V$SQL 
+        WHERE parsing_schema_name = 'HR_SCHEMA'
+        AND UPPER(sql_text) LIKE '%INSERT INTO%EMPLOYEE_BACKUP%'
+        AND UPPER(sql_text) NOT LIKE '%V$SQL%'
+        AND ROWNUM = 1
+    ) LOOP
+        DBMS_SHARED_POOL.KEEP(rec.address || ',' || rec.hash_value, 'C');
+        v_count := v_count + 1;
+        DBMS_OUTPUT.PUT_LINE('Pinned employee_backup INSERT query: ' || rec.sql_id);
+    END LOOP;
+    
+    -- Pin the daily_revenue INSERT query
+    FOR rec IN (
+        SELECT sql_id, address, hash_value
+        FROM V$SQL 
+        WHERE parsing_schema_name = 'SALES_SCHEMA'
+        AND UPPER(sql_text) LIKE '%INSERT INTO%DAILY_REVENUE%'
+        AND UPPER(sql_text) NOT LIKE '%V$SQL%'
+        AND ROWNUM = 1
+    ) LOOP
+        DBMS_SHARED_POOL.KEEP(rec.address || ',' || rec.hash_value, 'C');
+        v_count := v_count + 1;
+        DBMS_OUTPUT.PUT_LINE('Pinned daily_revenue INSERT query: ' || rec.sql_id);
+    END LOOP;
+    
+    DBMS_OUTPUT.PUT_LINE('Total queries pinned in V$SQL: ' || v_count);
+END;
+/
+
 -- Display final status
 SELECT 'Oracle integration test environment verification completed successfully!' AS status FROM dual;
 
