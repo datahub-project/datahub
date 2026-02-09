@@ -7,6 +7,7 @@ export const setThemeV2AndIngestionRedesignFlags = (isOn) => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
       req.reply((res) => {
+        res.body.data.appConfig.featureFlags.showIngestionPageRedesign = isOn;
         res.body.data.appConfig.featureFlags.ingestionOnboardingRedesignV1 =
           isOn;
         res.body.data.appConfig.featureFlags.themeV2Enabled = isOn;
