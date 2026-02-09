@@ -9,7 +9,10 @@ from freezegun import freeze_time
 from sqlalchemy import exc
 
 from datahub.ingestion.api.source import StructuredLogLevel
-from datahub.ingestion.source.sql.oracle import OracleInspectorObjectWrapper
+from datahub.ingestion.source.sql.oracle import (
+    OracleInspectorObjectWrapper,
+    OracleSource,
+)
 from datahub.testing import mce_helpers
 from tests.integration.oracle.common import (  # type: ignore[import-untyped]
     OracleSourceMockDataBase,
@@ -66,8 +69,6 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
 @pytest.mark.integration
 def test_oracle_test_connection(oracle_runner):
     """Test Oracle connection using the test_connection method."""
-    from datahub.ingestion.source.sql.oracle import OracleSource
-
     config_dict = {
         "username": "system",
         "password": "example",

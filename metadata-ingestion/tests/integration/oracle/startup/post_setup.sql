@@ -50,6 +50,56 @@ EXCEPTION
 END;
 /
 
+-- Execute sample queries to populate V$SQL for query usage testing
+-- These queries will be captured by include_query_usage feature
+ALTER SESSION SET CURRENT_SCHEMA = HR_SCHEMA;
+
+-- Simple SELECT queries
+SELECT employee_id, first_name, last_name, salary FROM hr_schema.employees WHERE department_id = 10;
+SELECT department_name, location_id FROM hr_schema.departments WHERE department_id < 100;
+SELECT e.employee_id, e.last_name, d.department_name FROM hr_schema.employees e JOIN hr_schema.departments d ON e.department_id = d.department_id;
+
+-- DML operations to test table-to-table lineage
+-- Create staging table with INSERT...SELECT to show lineage
+CREATE TABLE hr_schema.employee_backup AS SELECT * FROM hr_schema.employees WHERE 1=0;
+
+INSERT INTO hr_schema.employee_backup (employee_id, first_name, last_name, email, phone_number, hire_date, job_id, salary, commission_pct, manager_id, department_id)
+SELECT employee_id, first_name, last_name, email, phone_number, hire_date, job_id, salary, commission_pct, manager_id, department_id
+FROM hr_schema.employees
+WHERE department_id = 10;
+
+-- Create reporting table with CTAS to show lineage
+CREATE TABLE hr_schema.high_earners AS
+SELECT e.employee_id, e.first_name, e.last_name, e.salary, d.department_name
+FROM hr_schema.employees e
+JOIN hr_schema.departments d ON e.department_id = d.department_id
+WHERE e.salary > 15000;
+
+ALTER SESSION SET CURRENT_SCHEMA = SALES_SCHEMA;
+
+-- Sales schema queries
+SELECT order_id, customer_name, order_date FROM sales_schema.orders WHERE order_date > SYSDATE - 30;
+SELECT product_name, unit_price FROM sales_schema.products WHERE unit_price > 100;
+
+-- Create order analytics table with cross-schema lineage
+CREATE TABLE sales_schema.order_analytics AS
+SELECT o.order_id, o.customer_name, o.order_date, o.order_total, 
+       e.first_name || ' ' || e.last_name as sales_rep_name
+FROM sales_schema.orders o
+JOIN hr_schema.employees e ON o.sales_rep_id = e.employee_id;
+
+-- Insert aggregated data showing table-to-table lineage
+CREATE TABLE sales_schema.daily_revenue AS SELECT order_date, SUM(order_total) as total_revenue FROM sales_schema.orders GROUP BY order_date;
+
+INSERT INTO sales_schema.daily_revenue (order_date, total_revenue)
+SELECT order_date, SUM(order_total)
+FROM sales_schema.orders
+WHERE order_date = TRUNC(SYSDATE)
+GROUP BY order_date;
+
+ALTER SESSION SET CURRENT_SCHEMA = ANALYTICS_SCHEMA;
+SELECT dept_name, total_sales FROM analytics_schema.dept_sales_summary WHERE total_sales > 50000;
+
 -- Display final status
 SELECT 'Oracle integration test environment verification completed successfully!' AS status FROM dual;
 
