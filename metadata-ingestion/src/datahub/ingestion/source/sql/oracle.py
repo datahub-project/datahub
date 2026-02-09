@@ -1011,8 +1011,24 @@ class OracleSource(SQLAlchemySource):
         # call default implementation first
         db_name = super().get_db_name(inspector)
 
-        if db_name == "" and isinstance(inspector, OracleInspectorObjectWrapper):
-            db_name = inspector.get_db_name()
+        if db_name == "":
+            # Query Oracle for database name when using service_name
+            if isinstance(inspector, OracleInspectorObjectWrapper):
+                # Use the wrapper's method when using DBA mode
+                db_name = inspector.get_db_name()
+            else:
+                # For ALL mode (regular inspector), query directly
+                try:
+                    db_name_result = inspector.bind.execute(
+                        sql.text("select sys_context('USERENV','DB_NAME') from dual")
+                    ).scalar()
+                    if db_name_result:
+                        db_name = str(db_name_result)
+                except sqlalchemy.exc.DatabaseError as e:
+                    logger.warning(
+                        f"Error fetching database name using sys_context: {e}",
+                        exc_info=True,
+                    )
 
         return db_name
 

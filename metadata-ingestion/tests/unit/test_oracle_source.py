@@ -111,6 +111,47 @@ def test_oracle_config_data_dictionary_mode():
         OracleConfig.parse_obj({**base_config, "data_dictionary_mode": "INVALID"})
 
 
+def test_oracle_get_db_name_with_service_name():
+    """Test getting database name when using service_name instead of database."""
+
+    base_config = {
+        "username": "user",
+        "password": "password",
+        "host_port": "host:1521",
+        "service_name": "svc01",
+        "data_dictionary_mode": "ALL",
+    }
+
+    config = OracleConfig.parse_obj(base_config)
+    ctx = PipelineContext(run_id="test-oracle-service-name")
+
+    with patch("datahub.ingestion.source.sql.oracle.oracledb"):
+        source = OracleSource(config, ctx)
+
+        # Mock inspector with empty database in URL (simulating service_name usage)
+        mock_inspector = Mock()
+        mock_engine = Mock()
+        mock_url = Mock()
+        mock_url.database = None  # This is the case when using service_name
+        mock_engine.url = mock_url
+        mock_inspector.engine = mock_engine
+
+        # Mock bind and the database query result
+        mock_bind = Mock()
+        mock_result = Mock()
+        mock_result.scalar.return_value = "TESTDB"
+        mock_bind.execute.return_value = mock_result
+        mock_inspector.bind = mock_bind
+
+        # Test that get_db_name queries Oracle for the database name
+        db_name = source.get_db_name(mock_inspector)
+
+        assert db_name == "TESTDB"
+        mock_bind.execute.assert_called_once()
+        call_args = mock_bind.execute.call_args
+        assert "sys_context" in str(call_args[0][0]).lower()
+
+
 class TestOracleInspectorObjectWrapper:
     """Test cases for OracleInspectorObjectWrapper."""
 
