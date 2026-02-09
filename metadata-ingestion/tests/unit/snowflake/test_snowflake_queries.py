@@ -992,6 +992,12 @@ class TestBuildPatternFilter:
                 id="allow_all_no_filter",
             ),
             pytest.param(
+                AllowDenyPattern(allow=[]),
+                "col",
+                "FALSE",
+                id="empty_allow_denies_all",
+            ),
+            pytest.param(
                 AllowDenyPattern(allow=["PROD_DB"]),
                 "col",
                 "UPPER(col) RLIKE 'PROD_DB'",

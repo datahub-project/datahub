@@ -194,6 +194,16 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
 
+    push_down_metadata_patterns: bool = Field(
+        default=False,
+        description="If enabled, pushes down database_pattern, schema_pattern, table_pattern, and view_pattern "
+        "filtering to Snowflake metadata queries using the RLIKE operator for improved performance. "
+        "IMPORTANT: Snowflake RLIKE requires FULL STRING match, unlike Python re.match() which matches prefixes. "
+        "For prefix matching use 'PATTERN.*', for suffix use '.*PATTERN$', for contains use '.*PATTERN.*'. "
+        "See the [Metadata Pattern Pushdown](#metadata-pattern-pushdown) section for detailed usage and examples, "
+        "and the [Snowflake RLIKE documentation](https://docs.snowflake.com/en/sql-reference/functions/rlike) for regex syntax details.",
+    )
+
     @model_validator(mode="after")
     def validate_legacy_schema_pattern(self) -> "SnowflakeFilterConfig":
         schema_pattern: Optional[AllowDenyPattern] = self.schema_pattern
@@ -475,16 +485,6 @@ class SnowflakeV2Config(
         default=False,
         description="If enabled, pushes down database pattern filtering to the access_history table for improved performance. "
         "This filters on the accessed objects in access_history.",
-    )
-
-    push_down_metadata_patterns: bool = Field(
-        default=False,
-        description="If enabled, pushes down database_pattern, schema_pattern, table_pattern, and view_pattern "
-        "filtering to Snowflake metadata queries using the RLIKE operator for improved performance. "
-        "IMPORTANT: Snowflake RLIKE requires FULL STRING match, unlike Python re.match() which matches prefixes. "
-        "For prefix matching use 'PATTERN.*', for suffix use '.*PATTERN$', for contains use '.*PATTERN.*'. "
-        "See the [Metadata Pattern Pushdown](#metadata-pattern-pushdown) section for detailed usage and examples, "
-        "and the [Snowflake RLIKE documentation](https://docs.snowflake.com/en/sql-reference/functions/rlike) for regex syntax details.",
     )
 
     additional_database_names_allowlist: List[str] = Field(
