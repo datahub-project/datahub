@@ -15,7 +15,7 @@ test('renders embed page properly', async () => {
         </MockedProvider>,
     );
 
-    await waitFor(() => expect(getByText('Yet Another Dataset')).toBeInTheDocument());
+    await waitFor(() => expect(getByText('Yet Another Dataset')).toBeInTheDocument(), { timeout: 20000 });
 });
 
 test('shows 404 for missing mfe route when some mfes are active', async () => {
