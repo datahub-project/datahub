@@ -857,10 +857,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
                 self.report.report_entity_scanned(view_name, "view")
 
-                if self.config.push_down_metadata_patterns:
+                sql_pushdown_applied = (
+                    self.config.push_down_metadata_patterns
+                    and self.config.fetch_views_from_information_schema
+                )
+                if sql_pushdown_applied:
                     views.append(view)
                 else:
-                    # Filter in Python when pushdown is disabled
                     if not self.filters.filter_config.view_pattern.allowed(view_name):
                         self.report.report_dropped(view_name)
                     else:
