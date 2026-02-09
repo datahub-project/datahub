@@ -30,6 +30,7 @@ describe("add remove domain", () => {
   };
 
   it("create domain", () => {
+    setDomainsFeatureFlag(true);
     cy.login();
     cy.goToDomainList();
     waitForThemeV2();
