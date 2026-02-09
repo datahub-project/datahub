@@ -39,3 +39,6 @@ extend-ignore = [
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
+
+[tool.uv.extra-build-dependencies]
+flatdict = ["setuptools"]

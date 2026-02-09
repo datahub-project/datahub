@@ -397,27 +397,30 @@ When using traditional username/password authentication, both `CREATE_USER_USERN
 
 #### Build Indices Configuration
 
-| Environment Variable                                       | Default                          | Description                                                 | Components    |
-| ---------------------------------------------------------- | -------------------------------- | ----------------------------------------------------------- | ------------- |
-| `ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH`     | `false`                          | Allow document count mismatch when clone indices is enabled | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES`                | `true`                           | Clone indices                                               | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`               | `DAYS`                           | Retention unit for indices                                  | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`              | `60`                             | Retention value for indices                                 | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED` | `true`                           | Enable reindex optimization                                 | System Update |
-| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                       | `${elasticsearch.dataNodeCount}` | Number of shards per index, defaults to dataNodeCount       | System Update |
-| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`                     | `1`                              | Number of replicas per index                                | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES`                  | `3`                              | Index builder number of retries                             | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS`     | `3`                              | Index builder refresh interval                              | System Update |
-| `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`                         | `1000`                           | Maximum array length in search documents                    | System Update |
-| `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`                          | `1000`                           | Maximum object keys in search documents                     | System Update |
-| `SEARCH_DOCUMENT_MAX_VALUE_LENGTH`                         | `4096`                           | Maximum value length in search documents                    | System Update |
-| `ELASTICSEARCH_MAIN_TOKENIZER`                             | `null`                           | Main tokenizer                                              | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`             | `false`                          | Enable mappings reindex                                     | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX`             | `false`                          | Enable settings reindex                                     | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`            | `0`                              | Maximum reindex hours (0 = no timeout)                      | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`           | `null`                           | Index builder settings overrides                            | System Update |
-| `ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH`                   | `3`                              | Minimum search filter length                                | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`    | `null`                           | Entity settings overrides                                   | System Update |
+| Environment Variable                                            | Default                          | Description                                                          | Components    |
+| --------------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------- | ------------- |
+| `ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH`          | `false`                          | Allow document count mismatch when clone indices is enabled          | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES`                     | `true`                           | Clone indices                                                        | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`                    | `DAYS`                           | Retention unit for indices                                           | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`                   | `60`                             | Retention value for indices                                          | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED`      | `true`                           | Enable reindex optimization                                          | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE`                | `5000`                           | Documents per scroll batch during reindex                            | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES`                | `256`                            | Maximum parallel reindex slices (capped from target shards)          | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES` | `5`                              | Minutes without document-count progress before re-triggering reindex | System Update |
+| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                            | `${elasticsearch.dataNodeCount}` | Number of shards per index, defaults to dataNodeCount                | System Update |
+| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`                          | `1`                              | Number of replicas per index                                         | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES`                       | `3`                              | Index builder number of retries                                      | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS`          | `3`                              | Index builder refresh interval                                       | System Update |
+| `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`                              | `1000`                           | Maximum array length in search documents                             | System Update |
+| `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`                               | `1000`                           | Maximum object keys in search documents                              | System Update |
+| `SEARCH_DOCUMENT_MAX_VALUE_LENGTH`                              | `4096`                           | Maximum value length in search documents                             | System Update |
+| `ELASTICSEARCH_MAIN_TOKENIZER`                                  | `null`                           | Main tokenizer                                                       | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`                  | `false`                          | Enable mappings reindex                                              | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX`                  | `false`                          | Enable settings reindex                                              | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`                 | `0`                              | Maximum reindex hours (0 = no timeout)                               | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`                | `null`                           | Index builder settings overrides                                     | System Update |
+| `ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH`                        | `3`                              | Minimum search filter length                                         | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`         | `null`                           | Entity settings overrides                                            | System Update |
 
 #### Search Configuration
 
