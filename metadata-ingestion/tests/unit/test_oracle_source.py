@@ -139,17 +139,23 @@ def test_oracle_get_db_name_with_service_name():
         # Mock bind and the database query result
         mock_bind = Mock()
         mock_result = Mock()
-        mock_result.scalar.return_value = "TESTDB"
+        mock_result.scalar.return_value = "TESTDB"  # Oracle returns uppercase
         mock_bind.execute.return_value = mock_result
         mock_inspector.bind = mock_bind
 
-        # Test that get_db_name queries Oracle for the database name
+        # Mock dialect for normalization (Oracle normalizes to lowercase)
+        mock_dialect = Mock()
+        mock_dialect.normalize_name.return_value = "testdb"  # normalized to lowercase
+        mock_inspector.dialect = mock_dialect
+
+        # Test that get_db_name queries Oracle and normalizes the database name
         db_name = source.get_db_name(mock_inspector)
 
-        assert db_name == "TESTDB"
+        assert db_name == "testdb"  # Should be normalized to lowercase
         mock_bind.execute.assert_called_once()
         call_args = mock_bind.execute.call_args
         assert "sys_context" in str(call_args[0][0]).lower()
+        mock_dialect.normalize_name.assert_called_once_with("TESTDB")
 
 
 def test_oracle_get_db_name_with_service_name_dba_mode():
@@ -177,14 +183,20 @@ def test_oracle_get_db_name_with_service_name_dba_mode():
         mock_engine.url = mock_url
         mock_inspector.engine = mock_engine
 
-        # Mock the wrapper's get_db_name method
+        # Mock the wrapper's get_db_name method (returns uppercase from Oracle)
         mock_inspector.get_db_name.return_value = "TESTDB_DBA"
 
-        # Test that get_db_name uses the wrapper's method
+        # Mock dialect for normalization
+        mock_dialect = Mock()
+        mock_dialect.normalize_name.return_value = "testdb_dba"  # normalized
+        mock_inspector.dialect = mock_dialect
+
+        # Test that get_db_name uses the wrapper's method and normalizes
         db_name = source.get_db_name(mock_inspector)
 
-        assert db_name == "TESTDB_DBA"
+        assert db_name == "testdb_dba"  # Should be normalized
         mock_inspector.get_db_name.assert_called_once()
+        mock_dialect.normalize_name.assert_called_once_with("TESTDB_DBA")
 
 
 class TestOracleInspectorObjectWrapper:

@@ -1030,6 +1030,14 @@ class OracleSource(SQLAlchemySource):
                         exc_info=True,
                     )
 
+            # Normalize database name to match Oracle dialect behavior
+            # Oracle returns names in uppercase, but SQLAlchemy's normalize_name
+            # converts them to lowercase for consistency with schema/table names
+            if db_name and hasattr(inspector, "dialect"):
+                normalized = inspector.dialect.normalize_name(db_name)
+                if normalized:
+                    db_name = normalized
+
         return db_name
 
     def get_inspectors(self) -> Iterable[Inspector]:
