@@ -79,8 +79,8 @@ class SnowflakeQuery:
             allow_conditions: List[str] = []
 
             for p in pattern.allow:
-                # SQL injection protection: escape single quotes by doubling them
-                escaped = transform(p).replace("'", "''")
+                # Escape backslashes and single quotes for SQL string literal
+                escaped = transform(p).replace("\\", "\\\\").replace("'", "''")
                 allow_conditions.append(f"{col_expr} RLIKE '{escaped}'")
 
             if allow_conditions:
@@ -92,8 +92,8 @@ class SnowflakeQuery:
         if pattern.deny:
             deny_conditions: List[str] = []
             for p in pattern.deny:
-                # SQL injection protection: escape single quotes by doubling them
-                escaped = transform(p).replace("'", "''")
+                # Escape backslashes and single quotes for SQL string literal
+                escaped = transform(p).replace("\\", "\\\\").replace("'", "''")
                 deny_conditions.append(f"{col_expr} NOT RLIKE '{escaped}'")
 
             if len(deny_conditions) == 1:

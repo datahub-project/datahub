@@ -1239,7 +1239,7 @@ class TestBuildSchemaFilter:
                 AllowDenyPattern(allow=["PROD_DB\\..*_STAGING"]),
                 "PROD_DB",
                 True,
-                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB\\..*_STAGING'",
+                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB\\\\..*_STAGING'",
                 id="fqn_true_regex_pattern",
             ),
             pytest.param(
@@ -1360,14 +1360,14 @@ class TestBuildTableFilter:
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB\\.PUBLIC\\.CUSTOMER_.*"]),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB\\.PUBLIC\\.CUSTOMER_.*'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB\\\\.PUBLIC\\\\.CUSTOMER_.*'",
                 id="regex_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(
                     allow=["PROD_DB\\.PUBLIC\\..*"], deny=[".*_TEMP$", ".*_BACKUP$"]
                 ),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB\\.PUBLIC\\..*' AND (UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_TEMP$' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_BACKUP$')",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB\\\\.PUBLIC\\\\..*' AND (UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_TEMP$' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_BACKUP$')",
                 id="allow_with_deny",
             ),
             pytest.param(

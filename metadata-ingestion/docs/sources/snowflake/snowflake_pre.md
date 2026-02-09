@@ -232,14 +232,13 @@ When `push_down_metadata_patterns: true`, patterns are executed in Snowflake usi
 
 #### Pattern Conversion Examples
 
-| Intent                       | Without Pushdown (Python) | With Pushdown (Snowflake RLIKE)       |
-| ---------------------------- | ------------------------- | ------------------------------------- |
-| Starts with `PROD`           | `PROD`                    | `PROD.*`                              |
-| Ends with `_BACKUP`          | `.*_BACKUP`               | `.*_BACKUP$`                          |
-| Contains `TEMP`              | `.*TEMP.*`                | `.*TEMP.*` (same)                     |
-| Exact match                  | `PROD_DB`                 | `PROD_DB` (same)                      |
-| Match `PROD` or `DEV` prefix | `PROD\|DEV`               | `(PROD\|DEV).*`                       |
-| FQN pattern                  | `DB.SCHEMA.TABLE`         | `DB\\.SCHEMA\\.TABLE.*` (escape dots) |
+| Intent                       | Without Pushdown (Python) | With Pushdown (Snowflake RLIKE) |
+| ---------------------------- | ------------------------- | ------------------------------- |
+| Starts with `PROD`           | `PROD`                    | `PROD.*`                        |
+| Ends with `_BACKUP`          | `.*_BACKUP`               | `.*_BACKUP$`                    |
+| Contains `TEMP`              | `.*TEMP.*`                | `.*TEMP.*` (same)               |
+| Exact match                  | `PROD_DB`                 | `PROD_DB` (same)                |
+| Match `PROD` or `DEV` prefix | `PROD\|DEV`               | `(PROD\|DEV).*`                 |
 
 #### Testing Your Patterns
 
