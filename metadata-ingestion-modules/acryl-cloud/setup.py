@@ -57,6 +57,8 @@ plugins = {
 dev_requirements = {
     # acryl-datahub[dev] pulls in more things than are strictly necessary, but it's fine.
     "acryl-datahub[dev]",
+    # flatdict 4.0.1 has a broken setup.py that doesn't declare pkg_resources as a build dependency
+    "flatdict!=4.0.1",
     # Type stubs for external libraries
     "pyarrow-stubs",
     "scipy-stubs",

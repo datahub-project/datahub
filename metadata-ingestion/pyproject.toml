@@ -64,3 +64,6 @@ ban-relative-imports = "all"
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "src/datahub/configuration/pydantic_migration_helpers.py" = ["TID251"]  # Intentional V1 imports for backward compatibility
+
+[tool.uv.extra-build-dependencies]
+flatdict = ["setuptools"]
