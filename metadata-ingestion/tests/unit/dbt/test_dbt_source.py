@@ -2087,3 +2087,58 @@ def test_create_exposure_mcps_with_owner_name_only():
     assert isinstance(ownership_mcp.aspect, OwnershipClass)
     # Owner URN should be derived from owner_name: "john_doe"
     assert "john_doe" in ownership_mcp.aspect.owners[0].owner
+
+
+def test_create_exposure_mcps_with_owner_extraction_disabled():
+    """Test that enable_owner_extraction=False disables ownership for exposures."""
+    ctx = PipelineContext(run_id="test-run-id")
+    config_dict = create_base_dbt_config()
+    config_dict["enable_owner_extraction"] = False
+    config = DBTCoreConfig.model_validate(config_dict)
+    source = DBTCoreSource(config, ctx)
+
+    exposure = DBTExposure(
+        name="dashboard_no_owner",
+        unique_id="exposure.my_project.dashboard_no_owner",
+        type="dashboard",
+        owner_email="analytics@company.com",
+    )
+
+    mcps = list(source.create_exposure_mcps([exposure], {}))
+
+    # Should generate 4 MCPs: platform instance, dashboard info, status, subtypes (no ownership)
+    assert len(mcps) == 4
+
+    # Verify no ownership aspect
+    ownership_mcp = next(
+        (mcp for mcp in mcps if type(mcp.aspect).__name__ == "OwnershipClass"), None
+    )
+    assert ownership_mcp is None
+
+
+def test_create_exposure_mcps_with_strip_user_ids_from_email():
+    """Test that strip_user_ids_from_email applies to exposure owners."""
+    ctx = PipelineContext(run_id="test-run-id")
+    config_dict = create_base_dbt_config()
+    config_dict["strip_user_ids_from_email"] = True
+    config = DBTCoreConfig.model_validate(config_dict)
+    source = DBTCoreSource(config, ctx)
+
+    exposure = DBTExposure(
+        name="dashboard_stripped_owner",
+        unique_id="exposure.my_project.dashboard_stripped_owner",
+        type="dashboard",
+        owner_email="analytics@company.com",
+    )
+
+    mcps = list(source.create_exposure_mcps([exposure], {}))
+
+    # Find ownership aspect
+    ownership_mcp = next(
+        (mcp for mcp in mcps if type(mcp.aspect).__name__ == "OwnershipClass"), None
+    )
+    assert ownership_mcp is not None
+    assert ownership_mcp.aspect is not None
+    assert isinstance(ownership_mcp.aspect, OwnershipClass)
+    # Owner URN should be stripped: "analytics" (not "analytics@company.com")
+    assert ownership_mcp.aspect.owners[0].owner == "urn:li:corpuser:analytics"

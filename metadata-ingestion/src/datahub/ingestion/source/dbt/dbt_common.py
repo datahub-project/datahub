@@ -10,6 +10,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Literal,
     Optional,
     Set,
     Tuple,
@@ -307,6 +308,10 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     num_queries_failed: int = 0
     queries_failed_list: LossyList[str] = field(default_factory=LossyList)
     query_timestamps_fallback_used: bool = False
+
+    # Exposure entity emission statistics
+    num_exposures_emitted: int = 0
+    num_exposures_by_type: Dict[str, int] = field(default_factory=dict)
 
 
 class EmitDirective(ConfigEnum):
@@ -1002,6 +1007,17 @@ class DBTNode:
         ]
 
 
+DBT_EXPOSURE_TYPES: Tuple[str, ...] = (
+    "dashboard",
+    "notebook",
+    "ml",
+    "application",
+    "analysis",
+)
+
+DBT_EXPOSURE_MATURITY: Tuple[str, ...] = ("high", "medium", "low")
+
+
 @dataclass
 class DBTExposure:
     """
@@ -1012,12 +1028,12 @@ class DBTExposure:
 
     name: str
     unique_id: str  # e.g., "exposure.my_project.my_dashboard"
-    type: str  # dashboard, notebook, ml, application, analysis
+    type: Literal["dashboard", "notebook", "ml", "application", "analysis"]
     owner_name: Optional[str] = None
     owner_email: Optional[str] = None
     description: Optional[str] = None
     url: Optional[str] = None
-    maturity: Optional[str] = None  # high, medium, low
+    maturity: Optional[Literal["high", "medium", "low"]] = None
     depends_on: List[str] = field(
         default_factory=list
     )  # list of upstream dbt node unique_ids
@@ -1032,10 +1048,16 @@ class DBTExposure:
         env: str,
     ) -> str:
         """Generate a Dashboard URN for this exposure."""
-        # DashboardUrn.create_from_ids handles platform_instance prefix automatically
+        # DashboardUrn has no env field; encode env in the id when not default so
+        # the same exposure in different environments gets a distinct URN.
+        name_for_urn = (
+            f"{env}.{self.unique_id}"
+            if env and env != mce_builder.DEFAULT_ENV
+            else self.unique_id
+        )
         return DashboardUrn.create_from_ids(
             platform=DBT_PLATFORM,
-            name=self.unique_id,
+            name=name_for_urn,
             platform_instance=platform_instance,
         ).urn()
 
@@ -1249,6 +1271,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         # Cached timestamp for Query entities (ensures reproducible output)
         self._query_timestamp_cache: Optional[int] = None
+        # Exposures loaded by subclass (manifest or dbt Cloud API)
+        self._exposures: List[DBTExposure] = []
 
     def _get_query_timestamp(self) -> int:
         """Get timestamp for Query entities, cached for reproducibility."""
@@ -1432,8 +1456,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         raise NotImplementedError()
 
     def load_exposures(self) -> List[DBTExposure]:
-        """Load dbt exposures. Override in subclasses to implement exposure loading."""
-        return []
+        """Return dbt exposures. Subclasses populate self._exposures during load."""
+        return self._exposures
 
     def create_exposure_mcps(
         self,
@@ -1527,25 +1551,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 aspect=SubTypesClass(typeNames=[subtype]),
             )
 
-            # Ownership aspect
-            # Use full email for better uniqueness and consistency
-            if exposure.owner_email or exposure.owner_name:
-                owner_urn = None
-                if exposure.owner_email:
-                    # Use full email to avoid collisions (e.g., analytics@a.com vs analytics@b.com)
-                    owner_urn = mce_builder.make_user_urn(exposure.owner_email)
-                elif exposure.owner_name:
-                    # Fallback to name-based URN when email not available
-                    # Note: This may not match existing users in DataHub
-                    owner_urn = mce_builder.make_user_urn(
-                        exposure.owner_name.replace(" ", "_").lower()
-                    )
-                    logger.debug(
-                        f"Exposure {exposure.unique_id} uses owner_name '{exposure.owner_name}' "
-                        f"without email - URN may not match existing users"
-                    )
+            # Ownership aspect - respects enable_owner_extraction config like other dbt assets
+            if self.config.enable_owner_extraction and (
+                exposure.owner_email or exposure.owner_name
+            ):
+                owner_value = exposure.owner_email or exposure.owner_name
+                if owner_value:
+                    # Apply strip_user_ids_from_email consistently with other dbt assets
+                    if self.config.strip_user_ids_from_email and "@" in owner_value:
+                        owner_value = owner_value.split("@")[0]
+                        logger.debug(f"Owner (after stripping email): {owner_value}")
+                    elif not exposure.owner_email:
+                        # Fallback to name-based URN when email not available
+                        owner_value = owner_value.replace(" ", "_").lower()
+                        logger.debug(
+                            f"Exposure {exposure.unique_id} uses owner_name '{exposure.owner_name}' "
+                            f"without email - URN may not match existing users"
+                        )
 
-                if owner_urn:
+                    owner_urn = mce_builder.make_user_urn(owner_value)
                     yield MetadataChangeProposalWrapper(
                         entityUrn=exposure_urn,
                         aspect=OwnershipClass(
@@ -1644,6 +1668,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if self.config.entities_enabled.can_emit_exposures:
             exposures = self.load_exposures()
             if exposures:
+                self.report.num_exposures_emitted = len(exposures)
+                for e in exposures:
+                    self.report.num_exposures_by_type[e.type] = (
+                        self.report.num_exposures_by_type.get(e.type, 0) + 1
+                    )
                 logger.info(
                     f"Creating dbt exposure metadata for {len(exposures)} exposures"
                 )

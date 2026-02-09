@@ -28,6 +28,8 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.dbt.dbt_common import (
+    DBT_EXPOSURE_MATURITY,
+    DBT_EXPOSURE_TYPES,
     DBTColumn,
     DBTCommonConfig,
     DBTExposure,
@@ -358,10 +360,6 @@ def extract_dbt_entities(
     return dbt_entities
 
 
-def parse_dbt_timestamp(timestamp: str) -> datetime:
-    return dateutil.parser.parse(timestamp)
-
-
 def extract_dbt_exposures(
     manifest_exposures: Dict[str, Dict[str, Any]],
     tag_prefix: str,
@@ -379,16 +377,21 @@ def extract_dbt_exposures(
         tags = exposure_node.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
 
+        raw_type = exposure_node.get("type", "dashboard")
+        exposure_type = raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard"
+        raw_maturity = exposure_node.get("maturity")
+        maturity = raw_maturity if raw_maturity in DBT_EXPOSURE_MATURITY else None
+
         exposures.append(
             DBTExposure(
                 name=exposure_node["name"],
                 unique_id=key,
-                type=exposure_node.get("type", "dashboard"),
+                type=exposure_type,
                 owner_name=owner.get("name") if isinstance(owner, dict) else None,
                 owner_email=owner.get("email") if isinstance(owner, dict) else None,
                 description=exposure_node.get("description"),
                 url=exposure_node.get("url"),
-                maturity=exposure_node.get("maturity"),
+                maturity=maturity,
                 depends_on=depends_on_nodes,
                 tags=tags,
                 meta=exposure_node.get("meta", {}),
@@ -534,12 +537,10 @@ def load_run_results(
 class DBTCoreSource(DBTSourceBase, TestableSource):
     config: DBTCoreConfig
     report: DBTCoreReport
-    _exposures: List[DBTExposure]
 
     def __init__(self, config: DBTCommonConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.report = DBTCoreReport()
-        self._exposures = []
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -733,10 +734,6 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             )
 
         return all_nodes, additional_custom_props
-
-    def load_exposures(self) -> List[DBTExposure]:
-        """Return the exposures that were loaded from the manifest."""
-        return self._exposures
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
         nodes = super()._filter_nodes(all_nodes)

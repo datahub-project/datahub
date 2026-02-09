@@ -29,6 +29,8 @@ from datahub.ingestion.source.dbt.dbt_cloud_models import (
     DBTCloudJob,
 )
 from datahub.ingestion.source.dbt.dbt_common import (
+    DBT_EXPOSURE_MATURITY,
+    DBT_EXPOSURE_TYPES,
     DBTColumn,
     DBTCommonConfig,
     DBTExposure,
@@ -340,11 +342,9 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 class DBTCloudSource(DBTSourceBase, TestableSource):
     config: DBTCloudConfig
     report: DBTSourceReport  # nothing cloud-specific in the report
-    _exposures: List[DBTExposure]
 
     def __init__(self, config: DBTCloudConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
-        self._exposures = []
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -924,25 +924,25 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         # dependsOn in GraphQL response is a list of unique IDs
         depends_on_nodes = depends_on if isinstance(depends_on, list) else []
 
+        raw_type = exposure.get("exposureType", "dashboard")
+        exposure_type = raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard"
+        raw_maturity = exposure.get("maturity")
+        maturity = raw_maturity if raw_maturity in DBT_EXPOSURE_MATURITY else None
+
         return DBTExposure(
             name=exposure["name"],
             unique_id=exposure["uniqueId"],
-            # dbt Cloud API uses 'exposureType' instead of 'type'
-            type=exposure.get("exposureType", "dashboard"),
+            type=exposure_type,
             owner_name=exposure.get("ownerName"),
             owner_email=exposure.get("ownerEmail"),
             description=exposure.get("description"),
             url=exposure.get("url"),
-            maturity=exposure.get("maturity"),
+            maturity=maturity,
             depends_on=depends_on_nodes,
             tags=tags,
             meta=exposure.get("meta", {}) if exposure.get("meta") else {},
             dbt_package_name=exposure.get("packageName"),
         )
-
-    def load_exposures(self) -> List[DBTExposure]:
-        """Return the exposures that were loaded from dbt Cloud."""
-        return self._exposures
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:
         if self.config.external_url_mode == "explore":

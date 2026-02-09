@@ -501,13 +501,17 @@ This creates lineage: `orders` → `weekly_metrics_dashboard` and `customers` �
 
 #### Owner Resolution
 
-Exposure owners are mapped to DataHub users:
+Owner resolution for exposures is **the same** as for other dbt assets (models, sources, etc.). The `enable_owner_extraction` config applies to all of them: when `true` (default), ownership is extracted; when `false`, no ownership aspect is emitted for any dbt asset, including exposures.
 
-- **`owner.email`** (recommended): Uses the full email address for the user URN (e.g., `analytics@company.com` → `urn:li:corpuser:analytics@company.com`)
-- **`owner.name`** (fallback): Converts name to lowercase with underscores (e.g., `"John Doe"` → `urn:li:corpuser:john_doe`)
+For exposures, the owner is read from the exposure definition:
+
+- **`owner.email`** (recommended): used as the user URN (e.g., `analytics@company.com` → `urn:li:corpuser:analytics@company.com`)
+- **`owner.name`** (fallback): converted to lowercase with underscores (e.g., `"John Doe"` → `urn:li:corpuser:john_doe`)
+
+The same configs apply as elsewhere: `strip_user_ids_from_email` strips the domain from email-based owners when set.
 
 :::note
-When only `owner.name` is provided (without email), the generated URN may not match existing users in DataHub. We recommend always providing `owner.email` for accurate user matching.
+When only `owner.name` is provided (without email), the generated URN may not match existing users in DataHub. We recommend providing `owner.email` for accurate user matching.
 :::
 
 #### Example Output
@@ -531,7 +535,7 @@ Will create a Dashboard entity in DataHub with:
 
 - **Title**: `weekly_metrics_dashboard`
 - **Description**: `Weekly business metrics for leadership`
-- **SubType**: `Dashboard`
+- **SubType**: `Dashboard`, `Notebook`, `ML Model`, `Application`, `Analysis`
 - **Owner**: `urn:li:corpuser:analytics@company.com`
 - **External URL**: `https://bi.company.com/dashboards/123`
 - **Upstream Lineage**: Link to the `orders` dbt model
