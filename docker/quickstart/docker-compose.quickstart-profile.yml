@@ -35,11 +35,13 @@ services:
       source: ${HOME}/.aws
       target: /home/datahub/.aws
       read_only: true
-      bind: {}
+      bind:
+        create_host_path: true
     - type: bind
       source: ${HOME}/.aws/sso/cache
       target: /home/datahub/.aws/sso/cache
-      bind: {}
+      bind:
+        create_host_path: true
   datahub-gms-quickstart:
     profiles:
     - quickstart
@@ -119,11 +121,13 @@ services:
     - type: bind
       source: ${HOME}/.datahub/plugins
       target: /etc/datahub/plugins
-      bind: {}
+      bind:
+        create_host_path: true
     - type: bind
       source: ${HOME}/.datahub/search
       target: /etc/datahub/search
-      bind: {}
+      bind:
+        create_host_path: true
   frontend-quickstart:
     profiles:
     - quickstart
@@ -161,7 +165,8 @@ services:
     - type: bind
       source: ${HOME}/.datahub/plugins
       target: /etc/datahub/plugins
-      bind: {}
+      bind:
+        create_host_path: true
   kafka-broker:
     command:
     - /bin/bash
@@ -458,7 +463,8 @@ services:
     - type: bind
       source: ${HOME}/.datahub/plugins
       target: /etc/datahub/plugins
-      bind: {}
+      bind:
+        create_host_path: true
 networks:
   default:
     name: datahub_network
