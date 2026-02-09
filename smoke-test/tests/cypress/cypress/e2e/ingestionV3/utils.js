@@ -22,6 +22,15 @@ export const goToIngestionPage = () => {
   cy.visit("/ingestion");
 };
 
+const clickIfTestIdPresent = (dataTestId) => {
+  cy.document().then((doc) => {
+    const el = doc.querySelector(`[data-testid="${dataTestId}"]`);
+    if (el) {
+      cy.wrap(el).click();
+    }
+  });
+};
+
 export const verifySourceDetails = (source) => {
   cy.get("#account_id").type(source.accound_id);
   cy.get("#warehouse").type(source.warehouse_id);
@@ -72,6 +81,7 @@ export const verifyScheduleIsAppliedOnTable = (sourceName, scheduleText) => {
 
 export const createIngestionSource = (sourceName, options = undefined) => {
   cy.clickOptionWithTestId("create-ingestion-source-button");
+  clickIfTestIdPresent("modal-confirm-button");
   cy.clickOptionWithTextToScrollintoView("Snowflake");
   cy.waitTextVisible("Snowflake Connection Details");
 
@@ -133,6 +143,7 @@ export const deleteIngestionSource = (sourceName) => {
 export const createAndRunIngestionSource = (sourceName) => {
   const cli_version = "0.15.0.5";
   cy.clickOptionWithTestId("create-ingestion-source-button");
+  clickIfTestIdPresent("modal-confirm-button");
 
   cy.get('[data-testid="search-bar-input"]').type("other");
   cy.clickOptionWithTextToScrollintoView("Other");
