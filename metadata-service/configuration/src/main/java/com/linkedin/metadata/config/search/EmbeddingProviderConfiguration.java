@@ -21,10 +21,10 @@ import lombok.NoArgsConstructor;
 public class EmbeddingProviderConfiguration {
 
   /**
-   * Type of embedding provider. Supported values: "aws-bedrock", "openai", "cohere". Defaults to
-   * "aws-bedrock".
+   * Type of embedding provider. Supported values: "openai", "aws-bedrock", "cohere". Defaults to
+   * "openai".
    */
-  private String type = "aws-bedrock";
+  private String type = "openai";
 
   /**
    * AWS region where Bedrock is available (e.g., "us-west-2", "us-east-1"). Required for
@@ -66,14 +66,14 @@ public class EmbeddingProviderConfiguration {
      * OpenAI embedding model. Supported models:
      *
      * <ul>
-     *   <li><b>text-embedding-3-small</b> (default): 1536 dimensions, optimized for speed and cost
-     *   <li><b>text-embedding-3-large</b>: 3072 dimensions, highest quality
+     *   <li><b>text-embedding-3-large</b> (default): 3072 dimensions, highest quality
+     *   <li><b>text-embedding-3-small</b>: 1536 dimensions, optimized for speed and cost
      *   <li><b>text-embedding-ada-002</b>: 1536 dimensions, legacy model
      * </ul>
      *
-     * Defaults to "text-embedding-3-small".
+     * Defaults to "text-embedding-3-large".
      */
-    private String model = "text-embedding-3-small";
+    private String model = "text-embedding-3-large";
 
     /**
      * OpenAI API endpoint. Defaults to "https://api.openai.com/v1/embeddings". For Azure OpenAI,
