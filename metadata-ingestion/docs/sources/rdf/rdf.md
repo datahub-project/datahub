@@ -27,12 +27,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | Term Relationships      |   ✅   | Supports `skos:broader` and `skos:narrower`                   |
 | Detect Deleted Entities |   ✅   | Requires `stateful_ingestion.enabled: true`                   |
 | Platform Instance       |   ✅   | Supported via `platform_instance` config                      |
-| Data Domain             |   ❌   | Not applicable (domains used internally for hierarchy)        |
-| Dataset Profiling       |   ❌   | Not applicable                                                |
 | Extract Descriptions    |   ✅   | Enabled by default (from `skos:definition` or `rdfs:comment`) |
-| Extract Lineage         |   ❌   | Not in MVP                                                    |
-| Extract Ownership       |   ❌   | Not supported                                                 |
-| Extract Tags            |   ❌   | Not supported                                                 |
 
 ## Metadata Ingestion Quickstart
 
@@ -99,15 +94,16 @@ sink:
   | Field | Required | Default | Description |
   | --- | :-: | :-: | --- |
   | `source` | ✅ | | RDF source: file path, folder path, URL, or comma-separated files |
-  | `environment` | ❌ | `PROD` | DataHub environment (PROD, DEV, TEST, etc.) |
-  | `format` | ❌ | auto-detect | RDF format: `turtle`, `xml`, `n3`, `nt`, `json-ld` |
-  | `dialect` | ❌ | auto-detect | RDF dialect: `default`, `fibo`, `generic` |
-  | `export_only` | ❌ | all | Export only specified entity types (e.g., `["glossary"]`) |
-  | `skip_export` | ❌ | none | Skip specified entity types |
-  | `recursive` | ❌ | `true` | Enable recursive folder processing |
-  | `extensions` | ❌ | `[".ttl", ".rdf", ".owl", ".n3", ".nt"]` | File extensions to process when source is a folder |
-  | `platform_instance` | ❌ | | Platform instance identifier |
-  | `stateful_ingestion` | ❌ | `null` | Stateful ingestion configuration (see [Stateful Ingestion](#stateful-ingestion)) |
+  | `environment` |  | `PROD` | DataHub environment (PROD, DEV, TEST, etc.) |
+  | `format` |  | auto-detect | RDF format: `turtle`, `xml`, `n3`, `nt`, `json-ld` |
+  | `dialect` |  | auto-detect | RDF dialect: `default`, `fibo`, `generic` |
+  | `export_only` |  | all | Export only specified entity types (e.g., `["glossary"]`) |
+  | `skip_export` |  | none | Skip specified entity types |
+  | `sparql_filter` |  | `null` | SPARQL CONSTRUCT query to filter the RDF graph before ingestion (see [SPARQL Filtering](#sparql-filtering)) |
+  | `recursive` |  | `true` | Enable recursive folder processing |
+  | `extensions` |  | `[".ttl", ".rdf", ".owl", ".n3", ".nt"]` | File extensions to process when source is a folder |
+  | `platform_instance` |  | | Platform instance identifier |
+  | `stateful_ingestion` |  | `null` | Stateful ingestion configuration (see [Stateful Ingestion](#stateful-ingestion)) |
 </details>
 
 ## RDF Format Support
@@ -206,6 +202,78 @@ Available entity types:
 
 - `glossary` or `glossary_terms` - Glossary terms
 - `relationship` or `relationships` - Term relationships
+
+## SPARQL Filtering
+
+You can use SPARQL CONSTRUCT queries to filter the RDF graph before ingestion. This is particularly useful for:
+
+- **Filtering by namespace/module**: Extract only specific modules from large ontologies (e.g., specific FIBO modules)
+- **Custom filtering**: Apply complex filtering logic based on RDF patterns
+- **Performance optimization**: Reduce the size of large RDF graphs before processing
+
+### Basic SPARQL Filter
+
+```yaml
+source:
+  type: rdf
+  config:
+    source: large_ontology.ttl
+    sparql_filter: |
+      CONSTRUCT { ?s ?p ?o }
+      WHERE {
+        ?s ?p ?o .
+        FILTER(STRSTARTS(STR(?s), "https://example.org/module1/"))
+      }
+    environment: PROD
+```
+
+### Filter Multiple Namespaces
+
+```yaml
+source:
+  type: rdf
+  config:
+    source: fibo_all.ttl
+    sparql_filter: |
+      CONSTRUCT { ?s ?p ?o }
+      WHERE {
+        ?s ?p ?o .
+        FILTER(
+          STRSTARTS(STR(?s), "https://spec.edmcouncil.org/fibo/ontology/FBC/") ||
+          STRSTARTS(STR(?s), "https://spec.edmcouncil.org/fibo/ontology/FND/")
+        )
+      }
+    environment: PROD
+```
+
+### Filter by Property Value
+
+```yaml
+source:
+  type: rdf
+  config:
+    source: ontology.ttl
+    sparql_filter: |
+      CONSTRUCT { ?s ?p ?o }
+      WHERE {
+        ?s ?p ?o .
+        ?s <http://example.org/status> <http://example.org/Approved> .
+      }
+    environment: PROD
+```
+
+### Important Notes
+
+- **Query Type**: Only `CONSTRUCT` queries are supported. `SELECT` queries are not supported for filtering.
+- **Filter Timing**: The SPARQL filter is applied **before** entity extraction, so it affects all entity types (glossary terms, relationships, etc.).
+- **Performance**: Filtering large graphs can improve performance by reducing the amount of data processed.
+- **Logging**: The ingestion process logs the number of triples before and after filtering, including the percentage retained.
+
+### Configuration Options
+
+| Field           | Required | Default | Description                                                     |
+| --------------- | :------: | :-----: | --------------------------------------------------------------- |
+| `sparql_filter` |    ❌    | `null`  | SPARQL CONSTRUCT query to filter the RDF graph before ingestion |
 
 ## Stateful Ingestion
 
@@ -420,6 +488,28 @@ source:
   config:
     source: fibo_ontology.ttl
     dialect: fibo
+    environment: PROD
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+    token: "${DATAHUB_TOKEN}"
+```
+
+### With SPARQL Filter
+
+```yaml
+source:
+  type: rdf
+  config:
+    source: https://spec.edmcouncil.org/fibo/ontology/master/latest/fibo-all.ttl
+    sparql_filter: |
+      CONSTRUCT { ?s ?p ?o }
+      WHERE {
+        ?s ?p ?o .
+        FILTER(STRSTARTS(STR(?s), "https://spec.edmcouncil.org/fibo/ontology/FBC/"))
+      }
     environment: PROD
 
 sink:

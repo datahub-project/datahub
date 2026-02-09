@@ -108,7 +108,7 @@ datahub ingest -c examples/recipe_basic.yml --dry-run
 
 1. Add field to `RDFSourceConfig` class
 2. Add validator if needed (using pydantic's `@field_validator`)
-3. Use parameter in `get_workunits()` or `_convert_rdf_to_datahub_ast()`
+3. Use parameter in `get_workunits()` or `ast_converter.convert()`
 4. Update example recipes
 5. Update documentation
 
@@ -135,7 +135,7 @@ logger.error("Error message")
 
 ### MCP Generation
 
-MCPs are generated directly by entity MCP builders in `RDFSource._generate_workunits_from_ast()`, ensuring:
+MCPs are generated directly by entity MCP builders in `WorkUnitGenerator.generate()`, ensuring:
 
 1. Single source of truth for MCP generation
 2. Easier maintenance (fix once, works everywhere)

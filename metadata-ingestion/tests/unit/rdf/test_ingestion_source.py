@@ -278,7 +278,7 @@ def test_load_rdf_graph_with_custom_extensions(tmp_path):
 
 
 def test_convert_rdf_to_datahub_ast_with_environment(tmp_path):
-    """Test _convert_rdf_to_datahub_ast() sets environment correctly."""
+    """Test ast_converter.convert() sets environment correctly."""
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
     from datahub.ingestion.source.rdf.ingestion.rdf_source import (
@@ -295,14 +295,14 @@ def test_convert_rdf_to_datahub_ast_with_environment(tmp_path):
     source = RDFSource(config, ctx)
 
     graph = load_rdf_graph(source=str(test_file))
-    datahub_ast = source._convert_rdf_to_datahub_ast(
+    datahub_ast = source.ast_converter.convert(
         graph, environment="DEV", export_only=None, skip_export=None
     )
     assert datahub_ast is not None
 
 
 def test_convert_rdf_to_datahub_ast_with_export_only(tmp_path):
-    """Test _convert_rdf_to_datahub_ast() respects export_only filter."""
+    """Test ast_converter.convert() respects export_only filter."""
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
     from datahub.ingestion.source.rdf.ingestion.rdf_source import (
@@ -319,14 +319,14 @@ def test_convert_rdf_to_datahub_ast_with_export_only(tmp_path):
     source = RDFSource(config, ctx)
 
     graph = load_rdf_graph(source=str(test_file))
-    datahub_ast = source._convert_rdf_to_datahub_ast(
+    datahub_ast = source.ast_converter.convert(
         graph, environment="PROD", export_only=["glossary"], skip_export=None
     )
     assert datahub_ast is not None
 
 
 def test_convert_rdf_to_datahub_ast_with_skip_export(tmp_path):
-    """Test _convert_rdf_to_datahub_ast() respects skip_export filter."""
+    """Test ast_converter.convert() respects skip_export filter."""
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
     from datahub.ingestion.source.rdf.ingestion.rdf_source import (
@@ -343,7 +343,7 @@ def test_convert_rdf_to_datahub_ast_with_skip_export(tmp_path):
     source = RDFSource(config, ctx)
 
     graph = load_rdf_graph(source=str(test_file))
-    datahub_ast = source._convert_rdf_to_datahub_ast(
+    datahub_ast = source.ast_converter.convert(
         graph, environment="PROD", export_only=None, skip_export=["glossary"]
     )
     assert datahub_ast is not None

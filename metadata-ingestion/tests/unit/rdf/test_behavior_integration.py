@@ -41,7 +41,7 @@ class TestGlossaryTermBehavior(unittest.TestCase):
 
     def _get_datahub_graph(self, graph: Graph) -> "DataHubGraph":
         """Helper to get DataHubGraph from RDF graph."""
-        return self.source._convert_rdf_to_datahub_ast(
+        return self.source.ast_converter.convert(
             graph,
             environment="PROD",
             export_only=None,
@@ -162,7 +162,7 @@ class TestDomainHierarchyBehavior(unittest.TestCase):
 
     def _get_datahub_graph(self, graph: Graph) -> "DataHubGraph":
         """Helper to get DataHubGraph from RDF graph."""
-        return self.source._convert_rdf_to_datahub_ast(
+        return self.source.ast_converter.convert(
             graph,
             environment="PROD",
             export_only=None,
@@ -420,7 +420,7 @@ class TestRelationshipBehavior(unittest.TestCase):
 
     def _get_datahub_graph(self, graph: Graph) -> "DataHubGraph":
         """Helper to get DataHubGraph from RDF graph."""
-        return self.source._convert_rdf_to_datahub_ast(
+        return self.source.ast_converter.convert(
             graph,
             environment="PROD",
             export_only=None,
@@ -558,7 +558,7 @@ class TestMCPGenerationBehavior(unittest.TestCase):
 
     def _get_mcps(self, graph):
         """Helper to get MCPs from RDF graph."""
-        datahub_graph = self.source._convert_rdf_to_datahub_ast(
+        datahub_graph = self.source.ast_converter.convert(
             graph,
             environment="PROD",
             export_only=None,
@@ -566,7 +566,7 @@ class TestMCPGenerationBehavior(unittest.TestCase):
         )
         # Generate work units directly using the inlined method
         # Convert generator to list for backward compatibility with tests
-        workunits = list(self.source._generate_workunits_from_ast(datahub_graph))
+        workunits = list(self.source.workunit_generator.generate(datahub_graph))
         return workunits
 
     def test_glossary_term_mcp_generation(self):
@@ -691,7 +691,7 @@ class TestEndToEndBehavior(unittest.TestCase):
 
     def _get_datahub_graph(self, graph: Graph) -> "DataHubGraph":
         """Helper to get DataHubGraph from RDF graph."""
-        return self.source._convert_rdf_to_datahub_ast(
+        return self.source.ast_converter.convert(
             graph,
             environment="PROD",
             export_only=None,
@@ -809,7 +809,7 @@ class TestBCBS239FullParity(unittest.TestCase):
         if not self.has_data:
             self.skipTest("bcbs239 data not available")
 
-        datahub_graph = self.source._convert_rdf_to_datahub_ast(
+        datahub_graph = self.source.ast_converter.convert(
             self.graph, environment="PROD", export_only=None, skip_export=None
         )
 
@@ -828,7 +828,7 @@ class TestBCBS239FullParity(unittest.TestCase):
         if not self.has_data:
             self.skipTest("bcbs239 data not available")
 
-        datahub_graph = self.source._convert_rdf_to_datahub_ast(
+        datahub_graph = self.source.ast_converter.convert(
             self.graph, environment="PROD", export_only=None, skip_export=None
         )
 
@@ -844,7 +844,7 @@ class TestBCBS239FullParity(unittest.TestCase):
         if not self.has_data:
             self.skipTest("bcbs239 data not available")
 
-        datahub_graph = self.source._convert_rdf_to_datahub_ast(
+        datahub_graph = self.source.ast_converter.convert(
             self.graph, environment="PROD", export_only=None, skip_export=None
         )
 

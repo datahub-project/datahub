@@ -38,7 +38,6 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.rdf.core.ast import DataHubGraph
 from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
 from datahub.ingestion.source.rdf.ingestion.ast_converter import RDFToASTConverter
 from datahub.ingestion.source.rdf.ingestion.workunit_generator import WorkUnitGenerator
@@ -201,6 +200,117 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         return cls(config, ctx)
 
     @staticmethod
+    def _test_source_accessibility(config: RDFSourceConfig) -> CapabilityReport:
+        """
+        Test if the source is accessible.
+
+        Args:
+            config: RDF source configuration
+
+        Returns:
+            CapabilityReport indicating if source is accessible
+        """
+        from pathlib import Path
+
+        try:
+            source_path = config.source
+
+            # Check if it's a URL
+            if source_path.startswith(("http://", "https://")):
+                # URL accessibility will be tested in parsing step
+                return CapabilityReport(capable=True, failure_reason=None)
+
+            # Check if file/directory exists
+            path = Path(source_path)
+            if not path.exists():
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason=f"Source not found: {source_path}",
+                )
+
+            if path.is_dir():
+                # Check if directory has RDF files
+                rdf_files = list(
+                    path.rglob("*") if config.recursive else path.glob("*")
+                )
+                rdf_files = [
+                    f
+                    for f in rdf_files
+                    if f.is_file()
+                    and f.suffix.lower() in [ext.lower() for ext in config.extensions]
+                ]
+                if not rdf_files:
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason=(
+                            f"No RDF files found in directory {source_path}. "
+                            f"Supported extensions: {', '.join(config.extensions)}"
+                        ),
+                    )
+                return CapabilityReport(capable=True, failure_reason=None)
+            else:
+                # Single file - check extension
+                if path.suffix.lower() not in [
+                    ext.lower() for ext in config.extensions
+                ]:
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason=(
+                            f"File extension '{path.suffix}' not in supported extensions: "
+                            f"{', '.join(config.extensions)}"
+                        ),
+                    )
+                return CapabilityReport(capable=True, failure_reason=None)
+        except (OSError, ValueError) as e:
+            return CapabilityReport(
+                capable=False,
+                failure_reason=f"Error checking source accessibility: {e}",
+            )
+
+    @staticmethod
+    def _test_rdf_parsing(config: RDFSourceConfig) -> CapabilityReport:
+        """
+        Test if the source can be parsed as RDF.
+
+        Args:
+            config: RDF source configuration
+
+        Returns:
+            CapabilityReport indicating if RDF parsing succeeded
+        """
+        try:
+            from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
+
+            test_graph = load_rdf_graph(
+                source=config.source,
+                format=config.format,
+                recursive=False,  # Don't recurse during test
+                file_extensions=config.extensions,
+            )
+            triple_count = len(test_graph)
+
+            return CapabilityReport(
+                capable=True,
+                failure_reason=None,
+                metadata={"triples_loaded": triple_count},
+            )
+        except FileNotFoundError as e:
+            return CapabilityReport(
+                capable=False,
+                failure_reason=f"File not found: {e}",
+            )
+        except ValueError as e:
+            return CapabilityReport(
+                capable=False,
+                failure_reason=f"Invalid RDF format or source: {e}",
+            )
+        except (OSError, RuntimeError) as e:
+            return CapabilityReport(
+                capable=False,
+                failure_reason=f"Failed to parse RDF: {e}",
+            )
+
+    @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         """
         Test connection to RDF source.
@@ -213,118 +323,16 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             TestConnectionReport with connection test results
         """
-        from pathlib import Path
-
         config = RDFSourceConfig.model_validate(config_dict)
         report = TestConnectionReport()
 
         # Test 1: Source accessibility
-        try:
-            source_path = config.source
-
-            # Check if it's a URL
-            if source_path.startswith(("http://", "https://")):
-                # URL accessibility will be tested in parsing step
-                basic_connectivity = CapabilityReport(
-                    capable=True,
-                    failure_reason=None,
-                )
-            else:
-                # Check if file/directory exists
-                path = Path(source_path)
-                if not path.exists():
-                    basic_connectivity = CapabilityReport(
-                        capable=False,
-                        failure_reason=f"Source not found: {source_path}",
-                    )
-                elif path.is_dir():
-                    # Check if directory has RDF files
-                    rdf_files = list(
-                        path.rglob("*") if config.recursive else path.glob("*")
-                    )
-                    rdf_files = [
-                        f
-                        for f in rdf_files
-                        if f.is_file()
-                        and f.suffix.lower()
-                        in [ext.lower() for ext in config.extensions]
-                    ]
-                    if not rdf_files:
-                        basic_connectivity = CapabilityReport(
-                            capable=False,
-                            failure_reason=(
-                                f"No RDF files found in directory {source_path}. "
-                                f"Supported extensions: {', '.join(config.extensions)}"
-                            ),
-                        )
-                    else:
-                        basic_connectivity = CapabilityReport(
-                            capable=True,
-                            failure_reason=None,
-                        )
-                else:
-                    # Single file - check extension
-                    if path.suffix.lower() not in [
-                        ext.lower() for ext in config.extensions
-                    ]:
-                        basic_connectivity = CapabilityReport(
-                            capable=False,
-                            failure_reason=(
-                                f"File extension '{path.suffix}' not in supported extensions: "
-                                f"{', '.join(config.extensions)}"
-                            ),
-                        )
-                    else:
-                        basic_connectivity = CapabilityReport(
-                            capable=True,
-                            failure_reason=None,
-                        )
-        except (OSError, ValueError) as e:
-            basic_connectivity = CapabilityReport(
-                capable=False,
-                failure_reason=f"Error checking source accessibility: {e}",
-            )
-
+        basic_connectivity = RDFSource._test_source_accessibility(config)
         report.basic_connectivity = basic_connectivity
 
         # Test 2: RDF parsing (only if source is accessible)
         if basic_connectivity.capable:
-            try:
-                # Try to parse a small sample
-                from datahub.ingestion.source.rdf.core.rdf_loader import (
-                    load_rdf_graph,
-                )
-
-                # For URLs, we'll do a limited test
-                # For files, parse a small portion
-                test_graph = load_rdf_graph(
-                    source=config.source,
-                    format=config.format,
-                    recursive=False,  # Don't recurse during test
-                    file_extensions=config.extensions,
-                )
-                triple_count = len(test_graph)
-
-                rdf_parsing = CapabilityReport(
-                    capable=True,
-                    failure_reason=None,
-                    metadata={"triples_loaded": triple_count},
-                )
-            except FileNotFoundError as e:
-                rdf_parsing = CapabilityReport(
-                    capable=False,
-                    failure_reason=f"File not found: {e}",
-                )
-            except ValueError as e:
-                rdf_parsing = CapabilityReport(
-                    capable=False,
-                    failure_reason=f"Invalid RDF format or source: {e}",
-                )
-            except (OSError, RuntimeError) as e:
-                rdf_parsing = CapabilityReport(
-                    capable=False,
-                    failure_reason=f"Failed to parse RDF: {e}",
-                )
+            rdf_parsing = RDFSource._test_rdf_parsing(config)
         else:
             rdf_parsing = CapabilityReport(
                 capable=False,
@@ -378,6 +386,54 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
 
         yield from self.workunit_generator.yield_with_error_handling(workunits)
 
+    def _handle_load_error(
+        self, error: Exception, error_type: str, error_context: str
+    ) -> None:
+        """
+        Handle errors during RDF graph loading.
+
+        Args:
+            error: The exception that occurred
+            error_type: Type of error for reporting
+            error_context: Contextual error message
+        """
+        self.report.report_failure(error_type, context=error_context, exc=error)
+        logger.error(
+            f"{error_type}: {self.config.source}. {error_context}",
+            exc_info=True,
+        )
+
+    def _apply_sparql_filter_with_logging(
+        self, rdf_graph: Graph, triple_count: int
+    ) -> Optional[Graph]:
+        """
+        Apply SPARQL filter and log the results.
+
+        Args:
+            rdf_graph: Original RDF graph
+            triple_count: Original triple count before filtering
+
+        Returns:
+            Filtered RDF graph, or None if filtering failed
+        """
+        filtered_graph = self._apply_sparql_filter(rdf_graph)
+        if filtered_graph is None:
+            return None
+
+        filtered_count = len(filtered_graph)
+        if triple_count > 0:
+            percentage = filtered_count / triple_count * 100
+            logger.info(
+                f"SPARQL filter applied: {triple_count} → {filtered_count} triples "
+                f"({percentage:.1f}% retained)"
+            )
+        else:
+            logger.info(
+                f"SPARQL filter applied: {triple_count} → {filtered_count} triples"
+            )
+        self.report.report_triples_processed(filtered_count)
+        return filtered_graph
+
     def _load_rdf_graph(self) -> Optional[Graph]:
         """
         Load RDF graph from configured source.
@@ -398,23 +454,13 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
 
             # Apply SPARQL filter if provided
             if self.config.sparql_filter:
-                filtered_graph = self._apply_sparql_filter(rdf_graph)
+                filtered_graph = self._apply_sparql_filter_with_logging(
+                    rdf_graph, triple_count
+                )
                 if filtered_graph is None:
                     return None
+                # Type narrowing: filtered_graph is guaranteed to be Graph after None check
                 rdf_graph = filtered_graph
-                filtered_count = len(rdf_graph)
-                if triple_count > 0:
-                    percentage = filtered_count / triple_count * 100
-                    logger.info(
-                        f"SPARQL filter applied: {triple_count} → {filtered_count} triples "
-                        f"({percentage:.1f}% retained)"
-                    )
-                else:
-                    logger.info(
-                        f"SPARQL filter applied: {triple_count} → {filtered_count} triples"
-                    )
-                # Report filtered triple count (what will actually be processed)
-                self.report.report_triples_processed(filtered_count)
             else:
                 # Report original triple count when no filter
                 self.report.report_triples_processed(triple_count)
@@ -433,15 +479,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
                 f"If using a URL, ensure it's reachable. "
                 f"Supported file extensions: {', '.join(self.config.extensions)}"
             )
-            self.report.report_failure(
-                "RDF source file not found",
-                context=error_context,
-                exc=e,
-            )
-            logger.error(
-                f"RDF source file not found: {self.config.source}. {error_context}",
-                exc_info=True,
-            )
+            self._handle_load_error(e, "RDF source file not found", error_context)
             return None
         except ValueError as e:
             error_context = (
@@ -450,15 +488,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
                 f"(turtle, xml, json-ld, n3, nt). "
                 f"If format is not auto-detected, specify it explicitly using the 'format' config option."
             )
-            self.report.report_failure(
-                "Invalid RDF source",
-                context=error_context,
-                exc=e,
-            )
-            logger.error(
-                f"Invalid RDF source: {self.config.source}. {error_context}",
-                exc_info=True,
-            )
+            self._handle_load_error(e, "Invalid RDF source", error_context)
             return None
         except (OSError, RuntimeError) as e:
             error_context = (
@@ -467,16 +497,56 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
                 f"Please verify the file is accessible, properly formatted, and in a supported RDF format. "
                 f"Check the logs for more details."
             )
-            self.report.report_failure(
-                "Failed to load RDF graph",
-                context=error_context,
-                exc=e,
-            )
-            logger.error(
-                f"Failed to load RDF graph from {self.config.source}. {error_context}",
-                exc_info=True,
-            )
+            self._handle_load_error(e, "Failed to load RDF graph", error_context)
             return None
+
+    def _validate_query_type(self, query_algebra_name: str) -> None:
+        """
+        Validate that the SPARQL query type is supported.
+
+        Args:
+            query_algebra_name: Name of the query algebra
+
+        Raises:
+            ValueError: If query type is not supported
+        """
+        if query_algebra_name == "SelectQuery":
+            raise ValueError(
+                "SELECT queries are not supported for SPARQL filtering. "
+                "Please use a CONSTRUCT query instead. "
+                "Example: 'CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o . FILTER(...) }'"
+            )
+        if query_algebra_name not in ("ConstructQuery",):
+            raise ValueError(
+                f"Unsupported SPARQL query type: {query_algebra_name}. "
+                "Only CONSTRUCT queries are supported for filtering."
+            )
+
+    def _build_graph_from_query_result(self, query_result: Any) -> Graph:
+        """
+        Build a Graph from SPARQL query result.
+
+        Handles both Graph objects and iterables of triples.
+
+        Args:
+            query_result: Result from SPARQL query execution
+
+        Returns:
+            Graph containing the query results
+        """
+        if isinstance(query_result, Graph):
+            return query_result
+
+        # Fallback: if it's not a Graph, try to iterate and build one
+        filtered_graph = Graph()
+        for item in query_result:
+            # Type check: ensure we have a valid triple (tuple of 3 Nodes)
+            if isinstance(item, tuple) and len(item) == 3:
+                filtered_graph.add(item)  # type: ignore[arg-type]
+            else:
+                # Skip invalid items (shouldn't happen for CONSTRUCT queries)
+                logger.warning(f"Skipping invalid query result item: {type(item)}")
+        return filtered_graph
 
     def _apply_sparql_filter(self, graph: Graph) -> Optional[Graph]:
         """
@@ -493,54 +563,30 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         if sparql_filter_str is None:
             return None
 
+        # Type narrowing: after None check, sparql_filter_str is guaranteed to be str
+        # Assign to explicitly typed variable for mypy
+        filter_query: str = sparql_filter_str
+
         try:
             from rdflib.plugins.sparql import prepareQuery
 
             logger.info("Applying SPARQL filter to RDF graph")
-            query = prepareQuery(sparql_filter_str)
+            query = prepareQuery(filter_query)
 
             # Execute query - for CONSTRUCT queries, RDFLib returns a Graph
             # For SELECT queries, it returns a Result object (which we don't support)
             query_result = graph.query(query)
 
-            # Check query type and handle accordingly
-            filtered_graph: Graph
-            if query.algebra.name == "ConstructQuery":
-                # CONSTRUCT query returns a Graph directly
-                if isinstance(query_result, Graph):
-                    filtered_graph = query_result
-                else:
-                    # Fallback: if it's not a Graph, try to iterate and build one
-                    filtered_graph = Graph()
-                    for item in query_result:
-                        # Type check: ensure we have a valid triple (tuple of 3 Nodes)
-                        if isinstance(item, tuple) and len(item) == 3:
-                            filtered_graph.add(item)  # type: ignore[arg-type]
-                        else:
-                            # Skip invalid items (shouldn't happen for CONSTRUCT queries)
-                            logger.warning(
-                                f"Skipping invalid query result item: {type(item)}"
-                            )
-            elif query.algebra.name == "SelectQuery":
-                # SELECT queries return Result objects, which we can't use for filtering
-                raise ValueError(
-                    "SELECT queries are not supported for SPARQL filtering. "
-                    "Please use a CONSTRUCT query instead. "
-                    "Example: 'CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o . FILTER(...) }'"
-                )
-            else:
-                raise ValueError(
-                    f"Unsupported SPARQL query type: {query.algebra.name}. "
-                    "Only CONSTRUCT queries are supported for filtering."
-                )
+            # Validate query type
+            self._validate_query_type(query.algebra.name)
 
+            # Build filtered graph from query result
+            filtered_graph = self._build_graph_from_query_result(query_result)
             return filtered_graph
 
         except Exception as e:
             query_preview = (
-                sparql_filter_str[:100]
-                if len(sparql_filter_str) > 100
-                else sparql_filter_str
+                filter_query[:100] if len(filter_query) > 100 else filter_query
             )
             error_context = (
                 f"SPARQL query: {query_preview}... "
@@ -571,46 +617,3 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         """Clean up resources."""
         logger.info("Closing RDF source")
         super().close()
-
-    # Backward compatibility methods for tests
-    # These delegate to the refactored modules
-    def _convert_rdf_to_datahub_ast(
-        self,
-        graph: Graph,
-        environment: str,
-        export_only: Optional[List[str]] = None,
-        skip_export: Optional[List[str]] = None,
-    ) -> DataHubGraph:
-        """
-        Convert RDF graph to DataHub AST.
-
-        This method is kept for backward compatibility with tests.
-        It delegates to the AST converter.
-
-        Args:
-            graph: RDF graph to convert
-            environment: DataHub environment
-            export_only: Optional list of entity types to export
-            skip_export: Optional list of entity types to skip
-
-        Returns:
-            DataHub AST graph
-        """
-        return self.ast_converter.convert(graph, environment, export_only, skip_export)
-
-    def _generate_workunits_from_ast(
-        self, datahub_graph: DataHubGraph
-    ) -> Iterable[MetadataWorkUnit]:
-        """
-        Generate work units from DataHub AST.
-
-        This method is kept for backward compatibility with tests.
-        It delegates to the work unit generator.
-
-        Args:
-            datahub_graph: DataHubGraph AST containing entities to emit
-
-        Yields:
-            MetadataWorkUnit objects as they're generated
-        """
-        yield from self.workunit_generator.generate(datahub_graph)

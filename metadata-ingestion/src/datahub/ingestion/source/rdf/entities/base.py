@@ -264,7 +264,7 @@ class EntityMetadata:
     )  # List of entity types this entity depends on (for MCP emission ordering)
     processing_order: int = field(
         default=DEFAULT_PROCESSING_ORDER
-    )  # DEPRECATED: Use dependencies instead. Kept for backward compatibility.
+    )  # Use dependencies instead for ordering.
 
 
 __all__ = [

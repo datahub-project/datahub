@@ -311,7 +311,6 @@ This document provides detailed user stories with precise acceptance criteria fo
 - [x] System supports `links` target (relationships, associations)
 - [x] System supports `lineage` target (lineage activities and relationships)
 - [x] System supports `all` target (comprehensive export)
-- [x] System maintains backward compatibility with legacy targets
 
 ---
 

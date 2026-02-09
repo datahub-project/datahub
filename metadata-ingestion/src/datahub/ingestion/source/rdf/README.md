@@ -48,6 +48,30 @@ datahub ingest -c rdf_glossary.yml
 datahub ingest -c rdf_glossary.yml --dry-run
 ```
 
+### With SPARQL Filter
+
+Filter large ontologies by namespace/module:
+
+```yaml
+source:
+  type: rdf
+  config:
+    source: https://spec.edmcouncil.org/fibo/ontology/master/latest/fibo-all.ttl
+    sparql_filter: |
+      CONSTRUCT { ?s ?p ?o }
+      WHERE {
+        ?s ?p ?o .
+        FILTER(STRSTARTS(STR(?s), "https://spec.edmcouncil.org/fibo/ontology/FBC/"))
+      }
+    environment: PROD
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    token: "${DATAHUB_TOKEN}"
+```
+
 ## RDF-to-DataHub Mapping
 
 ### Glossary Terms
@@ -91,16 +115,17 @@ fibo:FinancialInstrument
 
 ### Source Configuration
 
-| Parameter     | Description                          | Default                              |
-| ------------- | ------------------------------------ | ------------------------------------ |
-| `source`      | RDF source (file, folder, URL)       | **required**                         |
-| `environment` | DataHub environment                  | `PROD`                               |
-| `format`      | RDF format (turtle, xml, n3, etc.)   | auto-detect                          |
-| `dialect`     | RDF dialect (default, fibo, generic) | auto-detect                          |
-| `export_only` | Export only specified types          | all                                  |
-| `skip_export` | Skip specified types                 | none                                 |
-| `recursive`   | Recursive folder processing          | `true`                               |
-| `extensions`  | File extensions to process           | `.ttl`, `.rdf`, `.owl`, `.n3`, `.nt` |
+| Parameter       | Description                            | Default                              |
+| --------------- | -------------------------------------- | ------------------------------------ |
+| `source`        | RDF source (file, folder, URL)         | **required**                         |
+| `environment`   | DataHub environment                    | `PROD`                               |
+| `format`        | RDF format (turtle, xml, n3, etc.)     | auto-detect                          |
+| `dialect`       | RDF dialect (default, fibo, generic)   | auto-detect                          |
+| `export_only`   | Export only specified types            | all                                  |
+| `skip_export`   | Skip specified types                   | none                                 |
+| `sparql_filter` | SPARQL CONSTRUCT query to filter graph | `null`                               |
+| `recursive`     | Recursive folder processing            | `true`                               |
+| `extensions`    | File extensions to process             | `.ttl`, `.rdf`, `.owl`, `.n3`, `.nt` |
 
 ### Export Types (CLI Options)
 
@@ -145,11 +170,12 @@ RDF uses a modular, pluggable entity architecture:
 ### Processing Flow
 
 1. Load RDF files into RDF graph
-2. Extract entities (glossary terms, relationships)
-3. Build domain hierarchy from IRI paths
-4. Convert to DataHub AST
-5. Generate MCPs for glossary nodes and terms
-6. Emit to DataHub
+2. Apply SPARQL filter (if configured) to reduce graph size
+3. Extract entities (glossary terms, relationships)
+4. Build domain hierarchy from IRI paths
+5. Convert to DataHub AST
+6. Generate MCPs for glossary nodes and terms
+7. Emit to DataHub
 
 ## Documentation
 
@@ -162,6 +188,7 @@ RDF uses a modular, pluggable entity architecture:
 - ✅ **Glossary Terms**: Full SKOS concept support
 - ✅ **Term Groups**: Automatic hierarchy from IRI paths
 - ✅ **Relationships**: `skos:broader`/`narrower` support
+- ✅ **SPARQL Filtering**: Filter RDF graphs by namespace/module before ingestion
 - ✅ **Multiple Formats**: TTL, RDF/XML, JSON-LD, N3, N-Triples
 - ✅ **Multiple Sources**: Files, folders, URLs
 - ✅ **Standards-Based**: SKOS, OWL, RDFS support
@@ -182,8 +209,6 @@ RDF uses a modular, pluggable entity architecture:
 - Structured properties
 - Lineage processing
 - Schema fields
-
-These features are available in the `rdf-full-features` branch.
 
 ## Requirements
 
