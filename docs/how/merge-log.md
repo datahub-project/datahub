@@ -3808,3 +3808,28 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **1258ce37ab** - fix(metadata-ingestion) Update python-job-logger constraint to <5.0.0 (#16140)
   *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-02-09*
+
+## Upstream Merge Session - 2026-02-09 19:30:33
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 4
+- **Strategy**: stacked
+- **Started**: 2026-02-09 19:30:33
+
+### Commits Included in This Merge
+
+- **c654dc22e6** - docs(datahub-cloud): Update docs for recommended cli version (#16141)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-02-09*
+
+- **118322ca71** - chore(test): Update test weights from CI runs (2026-02-08) (#16136)
+  *by github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com> on 2026-02-09*
+
+- **7c2a3a0101** - build: standardize Java bytecode to Java 17 (#16134)
+  *by Dutt23 <29917752+Dutt23@users.noreply.github.com> on 2026-02-09*
+
+- **8653848a0b** - chore: add username for labeller (#16144)
+  *by Dutt23 <29917752+Dutt23@users.noreply.github.com> on 2026-02-09*
