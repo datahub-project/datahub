@@ -1167,6 +1167,24 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         # into a dataset identifier string and then parsed back out.
         return self.get_db_schema(dataset_identifier)
 
+    def _add_view_to_aggregator(
+        self,
+        view_urn: str,
+        view_definition: str,
+        default_db: Optional[str],
+        default_schema: Optional[str],
+    ) -> None:
+        """Add a view definition to the aggregator for lineage processing.
+
+        Override this method in subclasses to customize how view lineage is registered.
+        """
+        self.aggregator.add_view_definition(
+            view_urn=view_urn,
+            view_definition=view_definition,
+            default_db=default_db,
+            default_schema=default_schema,
+        )
+
     def _process_view(
         self,
         dataset_name: str,
@@ -1223,7 +1241,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     exc=e,
                 )
 
-            self.aggregator.add_view_definition(
+            self._add_view_to_aggregator(
                 view_urn=dataset_urn,
                 view_definition=view_definition,
                 default_db=default_db,
