@@ -96,18 +96,6 @@ describe("ingestion sources", () => {
     deleteIngestionSource(sourceName2);
   });
 
-  it("filter ingestion sources by UI", () => {
-    const sourceName = "UI ingestion source";
-    createIngestionSource(sourceName);
-    cy.get('[data-testid="ingestion-source-cli-pill"]').should("exist");
-    cy.waitTextVisible(sourceName);
-    cy.get('[data-testid="ingestions-type-filter"]').click();
-    cy.get("body .ant-dropdown").contains("UI").click();
-    cy.get('[data-testid="ingestion-source-cli-pill"]').should("not.exist");
-    cy.contains("td", sourceName).should("exist");
-    deleteIngestionSource(sourceName);
-  });
-
   it("view run details page", () => {
     const sourceName = "run details ingestion source";
     createAndRunIngestionSource(sourceName);

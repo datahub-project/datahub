@@ -24,10 +24,8 @@ export const goToIngestionPage = () => {
 
 const clickIfTestIdPresent = (dataTestId) => {
   cy.get("body").then(($body) => {
-    const el = $body.find(`[data-testid="${dataTestId}"]`);
-
-    if (el.length) {
-      cy.wrap(el).click();
+    if ($body.find(`[data-testid="${dataTestId}"]`).length) {
+      cy.get(`[data-testid="${dataTestId}"]`).click();
     }
   });
 };
