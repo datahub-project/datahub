@@ -2,7 +2,7 @@ import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } 
 import { Button, Tooltip } from '@components';
 import { Collapse, Form, Typography, message } from 'antd';
 import { get } from 'lodash';
-import React, { Fragment } from 'react';
+import React, { Fragment, useMemo } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
@@ -10,7 +10,7 @@ import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySu
 import FormField from '@app/ingestV2/source/builder/RecipeForm/FormField';
 import TestConnectionButton from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import TestConnectionModal from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionModal';
-import { FilterRecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
+import { FilterRecipeField, RecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { RECIPE_FIELDS, RecipeSections } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
 import { jsonToYaml } from '@app/ingestV2/source/utils';
@@ -96,6 +96,28 @@ function shouldRenderFilterSectionHeader(field: FilterRecipeField, index: number
     return false;
 }
 
+/**
+ * Resolve dynamic field options (hidden, required, label, disabled) based on current form values.
+ * This matches the behavior of the new multi-step builder's resolveDynamicOptions utility.
+ */
+function resolveDynamicField<T extends RecipeField>(field: T, values: Record<string, any>): T {
+    let resolvedField = field;
+
+    if (field.dynamicRequired) {
+        resolvedField = { ...resolvedField, required: field.dynamicRequired(values) };
+    }
+
+    if (field.dynamicLabel) {
+        resolvedField = { ...resolvedField, label: field.dynamicLabel(values) };
+    }
+
+    if (field.dynamicDisabled) {
+        resolvedField = { ...resolvedField, disabled: field.dynamicDisabled(values) };
+    }
+
+    return resolvedField;
+}
+
 interface Props {
     state: SourceBuilderState;
     isEditing: boolean;
@@ -135,6 +157,27 @@ function RecipeForm({
     const [form] = Form.useForm();
     const { getConnectorsWithTestConnection: getConnectorsWithTestConnectionFromHook } = useCapabilitySummary();
 
+    // Watch all form values to support dynamic field behavior
+    const watchedFormValues = Form.useWatch([], form);
+    const formValues = useMemo(() => watchedFormValues || {}, [watchedFormValues]);
+
+    // Resolve dynamic fields: filter out hidden fields and apply dynamic required/label/disabled
+    const visibleFields = useMemo(
+        () =>
+            fields
+                .map((field) => resolveDynamicField(field, formValues))
+                .filter((field) => !field.dynamicHidden || !field.dynamicHidden(formValues)),
+        [fields, formValues],
+    );
+
+    const visibleAdvancedFields = useMemo(
+        () =>
+            advancedFields
+                .map((field) => resolveDynamicField(field, formValues))
+                .filter((field) => !field.dynamicHidden || !field.dynamicHidden(formValues)),
+        [advancedFields, formValues],
+    );
+
     function updateFormValues(changedValues: any, allValues: any) {
         let updatedValues = YAML.parse(displayRecipe);
 
@@ -166,13 +209,13 @@ function RecipeForm({
         >
             <StyledCollapse defaultActiveKey="0">
                 <Collapse.Panel forceRender header={<SectionHeader icon={<ApiOutlined />} text="Connection" />} key="0">
-                    {fields.map((field, i) => (
+                    {visibleFields.map((field, i) => (
                         <FormField
                             key={field.name}
                             field={field}
                             secrets={secrets}
                             refetchSecrets={refetchSecrets}
-                            removeMargin={i === fields.length - 1}
+                            removeMargin={i === visibleFields.length - 1}
                             updateFormValue={updateFormValue}
                         />
                     ))}
@@ -221,7 +264,7 @@ function RecipeForm({
                     </Collapse.Panel>
                 </StyledCollapse>
             )}
-            {advancedFields.length > 0 && (
+            {visibleAdvancedFields.length > 0 && (
                 <StyledCollapse defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Advanced) ? '2' : ''}>
                     <Collapse.Panel
                         forceRender
@@ -234,13 +277,13 @@ function RecipeForm({
                         }
                         key="2"
                     >
-                        {advancedFields.map((field, i) => (
+                        {visibleAdvancedFields.map((field, i) => (
                             <FormField
                                 key={field.name}
                                 field={field}
                                 secrets={secrets}
                                 refetchSecrets={refetchSecrets}
-                                removeMargin={i === advancedFields.length - 1}
+                                removeMargin={i === visibleAdvancedFields.length - 1}
                                 updateFormValue={updateFormValue}
                             />
                         ))}

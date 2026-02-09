@@ -139,6 +139,10 @@ jobs:
           ./gradlew :datahub-frontend:build :datahub-web-react:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Gradle compile (jdk8) for legacy Spark
+        if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
+        run: |
+          ./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:spark-lineage:compileJava
       - name: Gather coverage files
         run: |
           {

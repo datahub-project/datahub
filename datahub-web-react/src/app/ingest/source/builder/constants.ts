@@ -6,6 +6,7 @@ import bigqueryLogo from '@images/bigquerylogo.png';
 import cassandraLogo from '@images/cassandralogo.png';
 import clickhouseLogo from '@images/clickhouselogo.png';
 import cockroachdbLogo from '@images/cockroachdblogo.png';
+import confluenceLogo from '@images/confluencelogo.svg';
 import csvLogo from '@images/csv-logo.png';
 import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
@@ -31,6 +32,7 @@ import mongodbLogo from '@images/mongodblogo.png';
 import mssqlLogo from '@images/mssqllogo.png';
 import mysqlLogo from '@images/mysqllogo-2.png';
 import neo4j from '@images/neo4j.svg';
+import notionLogo from '@images/notionlogo.png';
 import oktaLogo from '@images/oktalogo.png';
 import oracleLogo from '@images/oraclelogo.png';
 import postgresLogo from '@images/postgreslogo.png';
@@ -66,6 +68,8 @@ export const CLICKHOUSE_USAGE = 'clickhouse-usage';
 export const CLICKHOUSE_URN = `urn:li:dataPlatform:${CLICKHOUSE}`;
 export const COCKROACHDB = 'cockroachdb';
 export const COCKROACHDB_URN = `urn:li:dataPlatform:${COCKROACHDB}`;
+export const CONFLUENCE = 'confluence';
+export const CONFLUENCE_URN = `urn:li:dataPlatform:${CONFLUENCE}`;
 export const DBT = 'dbt';
 export const DBT_URN = `urn:li:dataPlatform:${DBT}`;
 export const DREMIO = 'dremio';
@@ -104,6 +108,8 @@ export const MSSQL = 'mssql';
 export const MSSQL_URN = `urn:li:dataPlatform:${MSSQL}`;
 export const MYSQL = 'mysql';
 export const MYSQL_URN = `urn:li:dataPlatform:${MYSQL}`;
+export const NOTION = 'notion';
+export const NOTION_URN = `urn:li:dataPlatform:${NOTION}`;
 export const OKTA = 'okta';
 export const OKTA_URN = `urn:li:dataPlatform:${OKTA}`;
 export const ORACLE = 'oracle';
@@ -176,6 +182,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [BIGQUERY_URN]: bigqueryLogo,
     [CLICKHOUSE_URN]: clickhouseLogo,
     [COCKROACHDB_URN]: cockroachdbLogo,
+    [CONFLUENCE_URN]: confluenceLogo,
     [DBT_URN]: dbtLogo,
     [DREMIO_URN]: dremioLogo,
     [DRUID_URN]: druidLogo,
@@ -194,6 +201,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [MONGO_DB_URN]: mongodbLogo,
     [MSSQL_URN]: mssqlLogo,
     [MYSQL_URN]: mysqlLogo,
+    [NOTION_URN]: notionLogo,
     [OKTA_URN]: oktaLogo,
     [ORACLE_URN]: oracleLogo,
     [POSTGRES_URN]: postgresLogo,

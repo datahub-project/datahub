@@ -261,8 +261,14 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         # Initialize embedding model name for litellm
         if self.config.embedding.provider == "bedrock":
             self.embedding_model = f"bedrock/{self.config.embedding.model}"
-        else:  # cohere
+        elif self.config.embedding.provider == "cohere":
             self.embedding_model = f"cohere/{self.config.embedding.model}"
+        elif self.config.embedding.provider == "openai":
+            self.embedding_model = f"openai/{self.config.embedding.model}"
+        else:
+            raise ValueError(
+                f"Unsupported embedding provider: {self.config.embedding.provider}"
+            )
 
         # Initialize state tracking for incremental mode
         self.document_state: dict[str, dict[str, Any]] = {}
