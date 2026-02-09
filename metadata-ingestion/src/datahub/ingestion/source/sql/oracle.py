@@ -284,22 +284,24 @@ PROFILE_CANDIDATES_QUERY = """
 VSQL_PREREQUISITES_QUERY = "SELECT COUNT(*) FROM V$SQL WHERE ROWNUM = 1"
 
 VSQL_USAGE_QUERY = """
-    SELECT 
-        sql_id,
-        sql_text,
-        parsing_schema_name,
-        executions,
-        elapsed_time/1000000 as elapsed_seconds,
-        first_load_time
-    FROM V$SQL
-    WHERE parsing_schema_name IS NOT NULL
-        AND parsing_schema_name NOT IN ({system_schemas})
-        AND command_type IN (2, 3, 6, 7, 189)
-        AND sql_text NOT LIKE '%V$SQL%'
-        AND elapsed_time IS NOT NULL
-        AND executions IS NOT NULL
-        AND ROWNUM <= :max_queries
-    ORDER BY elapsed_time DESC, executions DESC
+    SELECT * FROM (
+        SELECT 
+            sql_id,
+            sql_text,
+            parsing_schema_name,
+            executions,
+            elapsed_time/1000000 as elapsed_seconds,
+            first_load_time
+        FROM V$SQL
+        WHERE parsing_schema_name IS NOT NULL
+            AND parsing_schema_name NOT IN ({system_schemas})
+            AND command_type IN (2, 3, 6, 7, 189)
+            AND sql_text NOT LIKE '%V$SQL%'
+            AND elapsed_time IS NOT NULL
+            AND executions IS NOT NULL
+        ORDER BY first_load_time DESC, sql_id ASC
+    )
+    WHERE ROWNUM <= :max_queries
 """
 
 
@@ -420,7 +422,7 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     max_queries_to_extract: int = Field(
         default=1000,
         description="Maximum number of queries to extract from V$SQL for usage statistics. "
-        "Queries are ordered by elapsed time and execution count.",
+        "Queries are ordered by recency (most recent first).",
     )
 
     query_exclude_patterns: Optional[List[str]] = Field(
@@ -428,6 +430,38 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         description="Regex patterns for SQL statements to exclude from usage statistics. "
         "e.g., ['^SELECT.*FROM SYS\\..*', '^BEGIN.*END;'] to exclude system queries and PL/SQL blocks.",
     )
+
+    @field_validator("max_queries_to_extract")
+    @classmethod
+    def validate_max_queries_to_extract(cls, value: int) -> int:
+        """Validate max_queries_to_extract is within reasonable range."""
+        if value <= 0:
+            raise ValueError(
+                "max_queries_to_extract must be positive. "
+                "Please set it to a value >= 1 (e.g., 1000)."
+            )
+        if value > 10000:
+            raise ValueError(
+                "max_queries_to_extract must be <= 10000 to avoid memory issues. "
+                "Please reduce the value to 10000 or less."
+            )
+        return value
+
+    @field_validator("query_exclude_patterns")
+    @classmethod
+    def validate_query_exclude_patterns(
+        cls, value: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        """Validate query_exclude_patterns has reasonable limits."""
+        if value is None:
+            return value
+
+        if len(value) > 100:
+            raise ValueError(
+                "query_exclude_patterns must have <= 100 patterns to avoid performance issues. "
+                f"Please reduce from {len(value)} to 100 or fewer patterns."
+            )
+        return value
 
     @field_validator("service_name", mode="after")
     @classmethod
