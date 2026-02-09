@@ -11,29 +11,36 @@ const setAssertionMonitorsFlag = (isOn) => {
       if (hasOperationName(req, "appConfig")) {
         // Modify the response body directly
         res.body.data.appConfig.featureFlags.assertionMonitorsEnabled = isOn;
+        res.body.data.appConfig.featureFlags.themeV2Enabled = false;
+        res.body.data.appConfig.featureFlags.themeV2Default = false;
+        res.body.data.appConfig.featureFlags.showNavBarRedesign = false;
       }
     });
   });
 };
 
-const verifyAssertionCount = (operation) => {
-  let beforeCount;
-  let afterCount;
+const withCurrentAssertionCount = (callback) => {
   cy.contains("Assertions (")
     .invoke("text")
     .then((text) => {
-      beforeCount = parseInt(text.match(/\d+/)[0]);
-      cy.reload();
-      cy.waitTextVisible("daily_temperature");
-      cy.wait(3000);
-      cy.contains("Assertions (")
-        .invoke("text")
-        .then((text) => {
-          afterCount = parseInt(text.match(/\d+/)[0]);
-          const expectedCount =
-            operation === "add" ? beforeCount + 1 : beforeCount - 1;
-          expect(afterCount).equals(expectedCount);
-        });
+      const beforeCount = parseInt(text.match(/\d+/)[0]);
+      callback(beforeCount);
+    });
+};
+
+const verifyAssertionCount = (operation, beforeCount) => {
+  cy.reload();
+  cy.waitTextVisible("daily_temperature");
+  cy.wait(3000);
+  cy.contains("Assertions (")
+    .invoke("text")
+    .then((text) => {
+      const afterCount = parseInt(text.match(/\d+/)[0]);
+      const expectedCount = Math.max(
+        0,
+        operation === "add" ? beforeCount + 1 : beforeCount - 1,
+      );
+      expect(afterCount).equals(expectedCount);
     });
 };
 
@@ -81,18 +88,21 @@ describe("create and manage freshness assertion", () => {
     // Clean up any existing assertions from previous failed test runs
     cleanupExistingAssertions();
     cy.waitTextVisible("No assertions have run");
-    clickElement("#create-assertion-btn-main");
-    cy.waitTextVisible("New Assertion Monitor");
-    cy.contains("h4", "Freshness").should("be.visible").click();
-    cy.waitTextVisible("Schedule checks at");
-    cy.waitTextVisible("If this assertion fails...");
-    cy.waitTextVisible("If this assertion passes...");
-    cy.get("button").contains("Next").click();
-    cy.waitTextVisible(
-      "If not specified, a name will be generated from the assertion settings.",
-    );
-    cy.get("button").contains("Save").click();
-    verifyAssertionCount("add");
+    withCurrentAssertionCount((currentAssertionCount) => {
+      clickElement("#create-assertion-btn-main");
+      cy.waitTextVisible("New Assertion Monitor");
+      cy.contains("h4", "Freshness").should("be.visible").click();
+      cy.waitTextVisible("Schedule checks at");
+      cy.waitTextVisible("If this assertion fails...");
+      cy.waitTextVisible("If this assertion passes...");
+      cy.get("button").contains("Next").click();
+      cy.waitTextVisible(
+        "If not specified, a name will be generated from the assertion settings.",
+      );
+      cy.get("button").contains("Save").click();
+      verifyAssertionCount("add", currentAssertionCount);
+    });
+    cy.reload();
     cy.waitTextVisible("12:00 am");
     cy.get(".ant-table-row-level-0").last().click();
     cy.waitTextVisible("Schedule details");
@@ -130,10 +140,12 @@ describe("create and manage freshness assertion", () => {
     cy.ensureTextNotPresent("Updated!");
     closeDrawer();
     cy.waitTextVisible("12:00 am");
-    cy.get(".ant-table-cell").find("button").last().click();
-    cy.waitTextVisible("Confirm Assertion Removal");
-    cy.get("button").contains("Yes").click();
-    cy.waitTextVisible("Removed assertion.");
-    verifyAssertionCount("remove");
+    withCurrentAssertionCount((currentAssertionCount) => {
+      cy.get(".ant-table-cell").find("button").last().click();
+      cy.waitTextVisible("Confirm Assertion Removal");
+      cy.get("button").contains("Yes").click();
+      cy.waitTextVisible("Removed assertion.");
+      verifyAssertionCount("remove", currentAssertionCount);
+    });
   });
 });
