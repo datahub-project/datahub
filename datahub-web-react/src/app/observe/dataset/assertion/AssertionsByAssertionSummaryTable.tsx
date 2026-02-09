@@ -28,7 +28,7 @@ const Container = styled.div`
     overflow: hidden;
 `;
 
-const DatasetWrapper = styled(Link)`
+const DatasetWrapper = styled.div`
     display: flex;
     flex-direction: row;
     gap: 8px;
@@ -46,7 +46,7 @@ const EmptyState = styled.div`
     height: 90%;
 `;
 
-const ResultsWrapper = styled(Link)`
+const ResultsWrapper = styled.div`
     display: flex;
     flex-direction: row;
     gap: 4px;
@@ -75,6 +75,13 @@ const LastRunText = styled(Text)`
     text-overflow: ellipsis;
     white-space: nowrap;
 `;
+
+const MissingDatasetWrapper = styled.div`
+    display: inline-flex;
+    align-items: center;
+`;
+
+const MISSING_DATASET_TOOLTIP = 'Only Assertions associated with a Dataset are viewable';
 
 const getMonitorSchedule = (assertion: Assertion) => {
     return assertion.monitor?.info?.assertionMonitor?.assertions?.find((assrn) => assrn.assertion.urn === assertion.urn)
@@ -119,15 +126,26 @@ export const AssertionsByAssertionSummaryTable = ({
         );
     const getAssertionLink = (assertionUrn: string, datasetUrn: string) =>
         getAssertionUrl(assertionUrn, getAllAssertionsLink(datasetUrn));
+    const getDatasetUrn = (record: Assertion) => record.dataset?.urn || record.monitor?.entity?.urn;
     const columns: Column<Assertion>[] = [
         {
             key: 'name',
             title: 'Name',
             render: (record) => {
                 const monitorSchedule = getMonitorSchedule(record);
+                const datasetUrn = getDatasetUrn(record);
+                if (!datasetUrn) {
+                    return (
+                        <Tooltip title={MISSING_DATASET_TOOLTIP}>
+                            <MissingDatasetWrapper>
+                                <AssertionName record={record} monitorSchedule={monitorSchedule} />
+                            </MissingDatasetWrapper>
+                        </Tooltip>
+                    );
+                }
                 return (
                     <Link
-                        to={getAssertionLink(record.urn, record.dataset?.urn || record.monitor?.entity?.urn || '')}
+                        to={getAssertionLink(record.urn, datasetUrn)}
                         onClick={() => {
                             analytics.event({
                                 type: EventType.DatasetHealthClickEvent,
@@ -163,8 +181,32 @@ export const AssertionsByAssertionSummaryTable = ({
             title: 'Dataset',
             maxWidth: '200px',
             render: (record) => {
+                const datasetUrn = getDatasetUrn(record);
+                if (!datasetUrn) {
+                    return (
+                        <DatasetWrapper>
+                            <PlatformIcon platform={record.dataset?.platform || record.platform} />
+                            <Text
+                                color="gray"
+                                size="md"
+                                weight="medium"
+                                style={{
+                                    maxWidth: '150px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {record.dataset
+                                    ? entityRegistry.getDisplayName(EntityType.Dataset, record.dataset)
+                                    : 'Unknown'}
+                            </Text>
+                        </DatasetWrapper>
+                    );
+                }
                 return (
                     <DatasetWrapper
+                        as={Link}
                         to={getAllAssertionsLink(record.dataset?.urn || record.monitor?.entity?.urn || '')}
                         onClick={() => {
                             analytics.event({
@@ -200,6 +242,7 @@ export const AssertionsByAssertionSummaryTable = ({
             key: 'results',
             title: 'Results',
             render: (record) => {
+                const datasetUrn = getDatasetUrn(record);
                 const failures = record.runEvents?.failed || 0;
                 const errors = record.runEvents?.errored || 0;
                 const passes = record.runEvents?.succeeded || 0;
@@ -211,19 +254,8 @@ export const AssertionsByAssertionSummaryTable = ({
                 const errorsToDisplay = hasMore ? `${roundToNearest(errors)}+` : errors.toString();
                 const passesToDisplay = hasMore ? `${roundToNearest(passes)}+` : passes.toString();
                 const initializingToDisplay = hasMore ? `${roundToNearest(initializing)}+` : initializing.toString();
-                return (
-                    <ResultsWrapper
-                        to={getAssertionLink(record.urn, record.dataset?.urn || record.monitor?.entity?.urn || '')}
-                        onClick={() => {
-                            analytics.event({
-                                type: EventType.DatasetHealthClickEvent,
-                                tabType: 'AssertionsByAssertion',
-                                target: 'assertion',
-                                subTarget: 'results',
-                                targetUrn: record.urn,
-                            });
-                        }}
-                    >
+                const resultsContent = (
+                    <>
                         {/* ---- Failures ---- */}
                         {failures > 0 ? (
                             <Tooltip
@@ -303,6 +335,26 @@ export const AssertionsByAssertionSummaryTable = ({
                                 </div>
                             </Tooltip>
                         ) : null}
+                    </>
+                );
+                if (!datasetUrn) {
+                    return <ResultsWrapper>{resultsContent}</ResultsWrapper>;
+                }
+                return (
+                    <ResultsWrapper
+                        as={Link}
+                        to={getAssertionLink(record.urn, record.dataset?.urn || record.monitor?.entity?.urn || '')}
+                        onClick={() => {
+                            analytics.event({
+                                type: EventType.DatasetHealthClickEvent,
+                                tabType: 'AssertionsByAssertion',
+                                target: 'assertion',
+                                subTarget: 'results',
+                                targetUrn: record.urn,
+                            });
+                        }}
+                    >
+                        {resultsContent}
                     </ResultsWrapper>
                 );
             },
