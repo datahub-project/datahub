@@ -282,18 +282,22 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 ):
                     yield from self._process_database(snowflake_db)
 
-            with self.report.new_stage(f"*: {EXTERNAL_TABLE_DDL_LINEAGE}"):
-                discovered_tables: List[str] = [
-                    self.identifiers.get_dataset_identifier(
-                        table_name, schema.name, db.name
-                    )
-                    for db in self.databases
-                    for schema in db.schemas
-                    for table_name in schema.tables
-                ]
-                if self.aggregator:
-                    for entry in self._external_tables_ddl_lineage(discovered_tables):
-                        self.aggregator.add(entry)
+            # Skip external table DDL lineage extraction if external tables are excluded
+            if not self.config.exclude_external_tables:
+                with self.report.new_stage(f"*: {EXTERNAL_TABLE_DDL_LINEAGE}"):
+                    discovered_tables: List[str] = [
+                        self.identifiers.get_dataset_identifier(
+                            table_name, schema.name, db.name
+                        )
+                        for db in self.databases
+                        for schema in db.schemas
+                        for table_name in schema.tables
+                    ]
+                    if self.aggregator:
+                        for entry in self._external_tables_ddl_lineage(
+                            discovered_tables
+                        ):
+                            self.aggregator.add(entry)
 
         except SnowflakePermissionError as e:
             self.structured_reporter.failure(
@@ -2509,7 +2513,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 self.filters.filter_config.table_pattern
             )
 
-        tables = self.data_dictionary.get_tables_for_database(db_name, table_filter)
+        tables = self.data_dictionary.get_tables_for_database(
+            db_name,
+            table_filter,
+            exclude_external_tables=self.config.exclude_external_tables,
+            exclude_dynamic_tables=self.config.exclude_dynamic_tables,
+        )
 
         # get all tables for database failed,
         # falling back to get tables for schema
@@ -2519,6 +2528,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 db_name=db_name,
                 schema_name=schema_name,
                 table_filter=table_filter,
+                exclude_external_tables=self.config.exclude_external_tables,
+                exclude_dynamic_tables=self.config.exclude_dynamic_tables,
             )
 
         # Some schema may not have any table

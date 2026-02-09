@@ -560,12 +560,21 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
     @serialized_lru_cache(maxsize=1)
     def get_tables_for_database(
-        self, db_name: str, table_filter: str = ""
+        self,
+        db_name: str,
+        table_filter: str = "",
+        exclude_external_tables: bool = False,
+        exclude_dynamic_tables: bool = False,
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
         tables: Dict[str, List[SnowflakeTable]] = {}
         try:
             cur = self.connection.query(
-                SnowflakeQuery.tables_for_database(db_name, table_filter),
+                SnowflakeQuery.tables_for_database(
+                    db_name,
+                    table_filter,
+                    exclude_external_tables=exclude_external_tables,
+                    exclude_dynamic_tables=exclude_dynamic_tables,
+                ),
             )
         except Exception as e:
             logger.debug(
@@ -597,18 +606,30 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
             )
 
-        # Populate dynamic table definitions
-        self.populate_dynamic_table_definitions(tables, db_name)
+        # Populate dynamic table definitions only if dynamic tables are not excluded
+        if not exclude_dynamic_tables:
+            self.populate_dynamic_table_definitions(tables, db_name)
 
         return tables
 
     def get_tables_for_schema(
-        self, schema_name: str, db_name: str, table_filter: str = ""
+        self,
+        schema_name: str,
+        db_name: str,
+        table_filter: str = "",
+        exclude_external_tables: bool = False,
+        exclude_dynamic_tables: bool = False,
     ) -> List[SnowflakeTable]:
         tables: List[SnowflakeTable] = []
 
         cur = self.connection.query(
-            SnowflakeQuery.tables_for_schema(schema_name, db_name, table_filter),
+            SnowflakeQuery.tables_for_schema(
+                schema_name,
+                db_name,
+                table_filter,
+                exclude_external_tables=exclude_external_tables,
+                exclude_dynamic_tables=exclude_dynamic_tables,
+            ),
         )
 
         for table in cur:
@@ -631,9 +652,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
             )
 
-        # Populate dynamic table definitions for just this schema
-        schema_tables = {schema_name: tables}
-        self.populate_dynamic_table_definitions(schema_tables, db_name)
+        # Populate dynamic table definitions for just this schema (only if dynamic tables are not excluded)
+        if not exclude_dynamic_tables:
+            schema_tables = {schema_name: tables}
+            self.populate_dynamic_table_definitions(schema_tables, db_name)
 
         return tables
 

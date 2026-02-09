@@ -384,6 +384,18 @@ class SnowflakeV2Config(
         description="If enabled, streams will be ingested as separate entities from tables/views.",
     )
 
+    exclude_external_tables: bool = Field(
+        default=False,
+        description="If enabled, external tables will be excluded from ingestion. "
+        "Use this to speed up ingestion if you don't need external tables in DataHub.",
+    )
+
+    exclude_dynamic_tables: bool = Field(
+        default=False,
+        description="If enabled, dynamic tables will be excluded from ingestion. "
+        "Use this to speed up ingestion if you don't need dynamic tables in DataHub.",
+    )
+
     include_procedures: bool = Field(
         default=True,
         description="If enabled, procedures will be ingested as pipelines/tasks.",

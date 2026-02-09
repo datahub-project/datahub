@@ -241,13 +241,49 @@ class SnowflakeQuery:
         ORDER BY schema_name"""
 
     @staticmethod
-    def tables_for_database(db_name: str, table_filter: str = "") -> str:
+    def _build_table_type_conditions(
+        exclude_external_tables: bool = False,
+        exclude_dynamic_tables: bool = False,
+    ) -> list:
+        """Build WHERE conditions for table type filtering.
+
+        Args:
+            exclude_external_tables: If True, excludes external tables from results
+            exclude_dynamic_tables: If True, excludes dynamic tables from results
+
+        Returns:
+            List of SQL WHERE conditions for table type filtering
+        """
+        conditions = []
+
+        # Build table_type filter
+        table_types = ["'BASE TABLE'"]
+        if not exclude_external_tables:
+            table_types.append("'EXTERNAL TABLE'")
+        conditions.append(f"table_type in ({', '.join(table_types)})")
+
+        # Filter out dynamic tables if excluded
+        if exclude_dynamic_tables:
+            conditions.append("COALESCE(is_dynamic, 'NO') = 'NO'")
+
+        return conditions
+
+    @staticmethod
+    def tables_for_database(
+        db_name: str,
+        table_filter: str = "",
+        exclude_external_tables: bool = False,
+        exclude_dynamic_tables: bool = False,
+    ) -> str:
         db_clause = f'"{db_name}".'
 
         where_conditions = [
             "table_schema != 'INFORMATION_SCHEMA'",
-            "table_type in ('BASE TABLE', 'EXTERNAL TABLE')",
+            *SnowflakeQuery._build_table_type_conditions(
+                exclude_external_tables, exclude_dynamic_tables
+            ),
         ]
+
         if table_filter:
             where_conditions.append(table_filter)
 
@@ -274,14 +310,21 @@ class SnowflakeQuery:
 
     @staticmethod
     def tables_for_schema(
-        schema_name: str, db_name: str, table_filter: str = ""
+        schema_name: str,
+        db_name: str,
+        table_filter: str = "",
+        exclude_external_tables: bool = False,
+        exclude_dynamic_tables: bool = False,
     ) -> str:
         db_clause = f'"{db_name}".'
 
         where_conditions = [
             f"table_schema='{schema_name}'",
-            "table_type in ('BASE TABLE', 'EXTERNAL TABLE')",
+            *SnowflakeQuery._build_table_type_conditions(
+                exclude_external_tables, exclude_dynamic_tables
+            ),
         ]
+
         if table_filter:
             where_conditions.append(table_filter)
 

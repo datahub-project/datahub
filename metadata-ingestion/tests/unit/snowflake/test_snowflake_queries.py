@@ -1452,6 +1452,32 @@ class TestTablesForDatabaseQueryWithFilter:
         assert "RLIKE" in query.upper()
         assert "CONCAT" in query
 
+    def test_tables_for_database_with_exclude_flags(self):
+        """Test tables_for_database correctly applies exclude flags."""
+        # Default includes both external and dynamic tables
+        query_default = SnowflakeQuery.tables_for_database("TEST_DB")
+        assert "'EXTERNAL TABLE'" in query_default
+        assert "is_dynamic = 'NO'" not in query_default
+
+        # Exclude external tables
+        query_no_external = SnowflakeQuery.tables_for_database(
+            "TEST_DB", exclude_external_tables=True
+        )
+        assert "'EXTERNAL TABLE'" not in query_no_external
+
+        # Exclude dynamic tables (uses COALESCE to handle NULL values)
+        query_no_dynamic = SnowflakeQuery.tables_for_database(
+            "TEST_DB", exclude_dynamic_tables=True
+        )
+        assert "COALESCE(is_dynamic, 'NO') = 'NO'" in query_no_dynamic
+
+        # Exclude both external and dynamic tables
+        query_no_both = SnowflakeQuery.tables_for_database(
+            "TEST_DB", exclude_external_tables=True, exclude_dynamic_tables=True
+        )
+        assert "'EXTERNAL TABLE'" not in query_no_both
+        assert "COALESCE(is_dynamic, 'NO') = 'NO'" in query_no_both
+
 
 class TestViewsForDatabaseQueryWithFilter:
     """Tests for the get_views_for_database query with filter parameter."""
