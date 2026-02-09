@@ -1,8 +1,10 @@
 import json
+import logging
 import pathlib
 from unittest.mock import patch
 
 import pytest
+import time_machine
 from freezegun import freeze_time
 from requests.models import HTTPError
 
@@ -10,11 +12,19 @@ from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.metabase import MetabaseSource
 from datahub.testing import mce_helpers
+from tests.integration.metabase.setup.metabase_setup_utils import (
+    setup_metabase_test_data,
+    verify_metabase_api_ready,
+)
+from tests.test_helpers.click_helpers import run_datahub_cmd
+from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )
+
+logger = logging.getLogger(__name__)
 
 FROZEN_TIME = "2021-11-11 07:00:00"
 
@@ -465,3 +475,101 @@ def test_metabase_ingest_with_models_and_collections(
             or "SchemaMetadataClass" in content
             or "schemaMetadata" in content
         ), "Models should have schema metadata"
+
+
+# ============================================================================
+# Docker-based Integration Tests
+# ============================================================================
+
+DOCKER_FROZEN_TIME = "2024-01-20 12:00:00"
+METABASE_BASE_URL = "http://localhost:3001"
+
+
+@pytest.fixture(scope="module")
+def metabase_credentials():
+    """Credentials for Metabase admin user."""
+    return {
+        "email": "admin@test.com",
+        "password": "Admin123!",
+        "first_name": "Test",
+        "last_name": "Admin",
+    }
+
+
+@pytest.fixture(scope="module")
+def loaded_metabase(docker_compose_runner, metabase_credentials):
+    """Start Metabase and PostgreSQL via Docker Compose."""
+    with docker_compose_runner(
+        test_resources_dir / "docker-compose.yml", "metabase"
+    ) as docker_services:
+        # Wait for PostgreSQL to be ready
+        wait_for_port(docker_services, "postgres", 5432, timeout=60)
+        logger.info("PostgreSQL is ready")
+
+        # Wait for Metabase to be ready
+        wait_for_port(docker_services, "metabase", 3000, timeout=180)
+        logger.info("Metabase port is open")
+
+        # Additional verification that Metabase API is accessible
+        verify_metabase_api_ready(METABASE_BASE_URL, timeout=120)
+        logger.info("Metabase API is ready")
+
+        # Setup Metabase with initial user and test data
+        setup_metabase_test_data(METABASE_BASE_URL, metabase_credentials)
+        logger.info("Metabase test data setup complete")
+
+        yield docker_services
+
+    cleanup_image("metabase/metabase")
+
+
+@time_machine.travel(DOCKER_FROZEN_TIME)
+def test_metabase_docker_ingest(
+    loaded_metabase, pytestconfig, tmp_path, metabase_credentials
+):
+    """Test Metabase ingestion from actual Docker container."""
+
+    config_file = (test_resources_dir / "metabase_docker_to_file.yml").resolve()
+    output_path = tmp_path / "metabase_docker_mcps.json"
+
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "metabase_docker_mcps_golden.json",
+        ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['inputEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['chartEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['datasetEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
+        ],
+    )
+
+
+@time_machine.travel(DOCKER_FROZEN_TIME)
+def test_metabase_docker_models_extraction(
+    loaded_metabase, pytestconfig, tmp_path, metabase_credentials
+):
+    """Test that Metabase models are extracted correctly with lineage."""
+
+    config_file = (test_resources_dir / "metabase_docker_models_to_file.yml").resolve()
+    output_path = tmp_path / "metabase_docker_models_mcps.json"
+
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "metabase_docker_models_mcps_golden.json",
+        ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['inputEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['chartEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['datasetEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
+        ],
+    )

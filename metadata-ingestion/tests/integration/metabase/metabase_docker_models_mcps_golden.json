@@ -1,0 +1,3831 @@
+[
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,37)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Quantity",
+                "Filters": "['and', ['between', ['field', 13, {'base-type': 'type/DateTime'}], '2021-01-01', '2024-01-23'], ['=', ['field', 14, {'base-type': 'type/Integer'}], 165]]",
+                "Dimensions": "Created At: Month"
+            },
+            "title": "Aerodynamic Copper Knife trend",
+            "description": "Compares the total number of orders placed for this product this month with the previous period",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001209,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/37",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752001209,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "TEXT"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001306,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,37)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001307,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,25)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "['time-interval', ['field', 31, {'base-type': 'type/DateTime'}], -12, 'month']",
+                "Dimensions": "ID, First Name, Last Name, Plan, Source, Created At, Trial Ends At, Canceled At, Trial Converted, Active Subscription"
+            },
+            "title": "All subscriptions in table view",
+            "description": "More complete look at all recent subscriptions",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001295,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/25",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ACCOUNTS,PROD)",
+                    "lastModified": {
+                        "time": 1705752001295,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "TABLE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001341,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,25)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001342,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,22)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Average of Rating",
+                "Filters": "",
+                "Dimensions": ""
+            },
+            "title": "Average product rating",
+            "description": "Indicates the average customer review of our products",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001333,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/22",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.PRODUCTS,PROD)",
+                    "lastModified": {
+                        "time": 1705752001333,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001406,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,22)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001408,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,21)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "['>=', ['field', 'count', {'base-type': 'type/Integer'}], 110]",
+                "Dimensions": "Product \u2192 Title, Product \u2192 Category, Count"
+            },
+            "title": "Best selling products",
+            "description": "An ordered list of our most successful products",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001406,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/21",
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001442,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,21)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001444,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,6)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "['not-empty', ['field', 'BUTTON_LABEL', {'base-type': 'type/Text'}]]",
+                "Dimensions": "Button Label, Count"
+            },
+            "title": "Checkout funnel",
+            "description": "Flow from viewing our website (empty) to checkout and subscribe",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001441,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/6",
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001475,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,6)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001477,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,31)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "['not-empty', ['field', 'BUTTON_LABEL', {'base-type': 'type/Text'}]]",
+                "Dimensions": "Button Label, Count"
+            },
+            "title": "Checkout funnel - Modified",
+            "description": "Flow from viewing our website (empty) to checkout and subscribe",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001474,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/31",
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001522,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,31)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001524,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,3)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Count",
+                "Filters": "['!=', ['field', 17, {'base-type': 'type/Text', 'source-field': 14}], 'Incredible Aluminum Knife']",
+                "Dimensions": "Product \u2192 Rating, Product \u2192 Category"
+            },
+            "title": "Customer satisfaction per category",
+            "description": "Shows the distribution of the product categories along the scale of customer ratings",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001521,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/3",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752001521,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001581,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,3)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001583,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,5)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "['time-interval', ['field', 27, {'base-type': 'type/DateTime'}], -12, 'month']",
+                "Dimensions": "ID, Account ID, Email, Date Received, Rating, Rating Mapped, Body"
+            },
+            "title": "Customer survey responses",
+            "description": "Feedback on our products via weekly survey",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001567,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/5",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.FEEDBACK,PROD)",
+                    "lastModified": {
+                        "time": 1705752001567,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "TABLE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001663,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,5)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001664,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,34)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Discount",
+                "Filters": "['time-interval', ['field', 13, {'base-type': 'type/DateTime'}], -2, 'quarter', {'include-current': False}]",
+                "Dimensions": "Created At: Quarter"
+            },
+            "title": "Discounts given per quarter",
+            "description": "Total amount of discounts last quarter compared to the previous",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001662,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/34",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752001662,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "TEXT"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001698,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,34)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001700,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,29)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Quantity",
+                "Filters": "['and', ['between', ['field', 13, {'base-type': 'type/DateTime'}], '2021-01-01', '2024-01-23'], ['=', ['field', 14, {'base-type': 'type/Integer'}], 17]]",
+                "Dimensions": "Created At: Month"
+            },
+            "title": "Enormous Wool Car trend",
+            "description": "Compares the total number of orders placed for this product this month with the previous period",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001697,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/29",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752001697,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "TEXT"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001731,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,29)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001733,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,26)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Quantity",
+                "Filters": "['and', ['between', ['field', 13, {'base-type': 'type/DateTime'}], '2021-01-01', '2024-01-23'], ['=', ['field', 14, {'base-type': 'type/Integer'}], 86]]",
+                "Dimensions": "Created At: Month"
+            },
+            "title": "Heavy-Duty Silk Chair trend",
+            "description": "Compares the total number of orders placed for this product this month with the previous period",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001730,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/26",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752001730,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "TEXT"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001763,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,26)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001764,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,23)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "['time-interval', ['field', 31, {'base-type': 'type/DateTime'}], -12, 'month']",
+                "Dimensions": "ID, First Name, Last Name, Plan, Source, Created At, Trial Ends At, Canceled At, Trial Converted, Active Subscription"
+            },
+            "title": "Most recent subscription",
+            "description": "The most recent subscription in our database",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001762,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/23",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ACCOUNTS,PROD)",
+                    "lastModified": {
+                        "time": 1705752001762,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001792,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,23)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001794,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,19)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Count",
+                "Filters": "['time-interval', ['field', 13, {'base-type': 'type/DateTime'}], -3, 'year', {'include-current': True}]",
+                "Dimensions": "Created At: Month"
+            },
+            "title": "Number of Orders",
+            "description": "Canonical metric for number of orders placed",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001792,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/19",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752001792,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "LINE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001823,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,19)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001826,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,16)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "['=', ['field', 'BUTTON_LABEL', {'base-type': 'type/Text'}], 'Subscribe']",
+                "Dimensions": "Button Label, Timestamp: Month, Count"
+            },
+            "title": "Number of subscriptions",
+            "description": "Customers that signed up for our monthly subscription",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001823,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/16",
+            "type": "AREA"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001928,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,16)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001928,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,39)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "",
+                "Dimensions": "category, order_count, total_quantity"
+            },
+            "title": "Order Summary",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1770631700970,
+                    "actor": "urn:li:corpuser:admin@test.com"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/39",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD)",
+                    "lastModified": {
+                        "time": 1770631700970,
+                        "actor": "urn:li:corpuser:admin@test.com"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.products,PROD)",
+                    "lastModified": {
+                        "time": 1770631700970,
+                        "actor": "urn:li:corpuser:admin@test.com"
+                    }
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001991,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,39)",
+    "changeType": "UPSERT",
+    "aspectName": "chartQuery",
+    "aspect": {
+        "json": {
+            "rawQuery": "SELECT p.category, COUNT(o.id) as order_count, SUM(o.quantity) as total_quantity FROM products p JOIN orders o ON p.id = o.product_id GROUP BY p.category",
+            "type": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001992,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,39)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:admin@test.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001992,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Total",
+                "Filters": "['time-interval', ['field', 13, {'base-type': 'type/DateTime'}], -2, 'year', {'include-current': True}]",
+                "Dimensions": "pivot-grouping"
+            },
+            "title": "Orders according to sources per quarter",
+            "description": "Orders placed per quarter broken down by source and formatted to highlight best and worst quarters",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752001990,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/10",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752001990,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "TABLE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002040,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002041,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,24)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Count",
+                "Filters": "['time-interval', ['field', 13, {'base-type': 'type/DateTime'}], -2, 'year', {'include-current': True}]",
+                "Dimensions": "Product \u2192 Category, Created At: Quarter"
+            },
+            "title": "Orders by product category",
+            "description": "Compares the orders of each category quarter over quarter",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002040,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/24",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002040,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "LINE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002135,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,24)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002136,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,36)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Count",
+                "Filters": "['between', ['field', 'Age', {'base-type': 'type/BigInteger'}], 20, 70]",
+                "Dimensions": "Age, User \u2192 Source"
+            },
+            "title": "Orders by source per age group",
+            "description": "Shows a distribution of orders broken down by source across our customers' age groups",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002077,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/36",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002077,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002202,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,36)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002203,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,35)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Count",
+                "Filters": "",
+                "Dimensions": "Age, User \u2192 Source"
+            },
+            "title": "Orders by source per individual age",
+            "description": "Shows a distribution of orders broken down by source across our customers' individual age values",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002159,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/35",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002159,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002238,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,35)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002239,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,32)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "",
+                "Dimensions": "ID, Address, Email, Name, City, Longitude, State, Source, Birth Date, Zip, Latitude, Created At, Age"
+            },
+            "title": "People with age",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002230,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/32",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.PEOPLE,PROD)",
+                    "lastModified": {
+                        "time": 1705752002230,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "TABLE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002269,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,32)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002270,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,7)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "['>=', ['field', 'count', {'base-type': 'type/Integer'}], 105]",
+                "Dimensions": "Product \u2192 Title, Product \u2192 Category, Count"
+            },
+            "title": "Product breakdown",
+            "description": "Orders for each product, grouped by product category",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002269,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/7",
+            "type": "PIE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002332,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,7)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002333,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,18)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Count",
+                "Filters": "",
+                "Dimensions": "Age, Products \u2192 Category"
+            },
+            "title": "Product category orders per age",
+            "description": "Shows a distribution of orders broken down by product category across our customers' individual age values",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002292,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/18",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002292,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002400,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,18)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002401,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,4)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Count",
+                "Filters": "['between', ['field', 'Age', {'base-type': 'type/BigInteger'}], 20, 70]",
+                "Dimensions": "Age, Products \u2192 Category"
+            },
+            "title": "Product category orders per age group",
+            "description": "Shows a distribution of orders broken down by product categories across our customers' age groups",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002357,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/4",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002357,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002433,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,4)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002434,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,40)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "",
+                "Dimensions": "id, name, category, price, total_sold"
+            },
+            "title": "Product Sales Model",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1770631701005,
+                    "actor": "urn:li:corpuser:admin@test.com"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/40",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD)",
+                    "lastModified": {
+                        "time": 1770631701005,
+                        "actor": "urn:li:corpuser:admin@test.com"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.products,PROD)",
+                    "lastModified": {
+                        "time": 1770631701005,
+                        "actor": "urn:li:corpuser:admin@test.com"
+                    }
+                }
+            ],
+            "type": "TABLE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002460,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,40)",
+    "changeType": "UPSERT",
+    "aspectName": "chartQuery",
+    "aspect": {
+        "json": {
+            "rawQuery": "SELECT p.id, p.name, p.category, p.price, SUM(o.quantity) as total_sold FROM products p LEFT JOIN orders o ON p.id = o.product_id GROUP BY p.id, p.name, p.category, p.price",
+            "type": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002461,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,40)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:admin@test.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002461,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,27)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Quantity",
+                "Filters": "['time-interval', ['field', 13, {'base-type': 'type/DateTime'}], -2, 'quarter', {'include-current': False}]",
+                "Dimensions": "Created At: Quarter"
+            },
+            "title": "Quantity sold per quarter",
+            "description": "Total sum of products sold last quarter compared to the previous",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002460,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/27",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002460,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "TEXT"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002484,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,27)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002485,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,9)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Total",
+                "Filters": "['time-interval', ['field', 13, {'base-type': 'type/DateTime'}], -12, 'quarter', {'include-current': True}]",
+                "Dimensions": "Created At: Quarter"
+            },
+            "title": "Revenue",
+            "description": "Canonical metric for revenue across all product lines",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002484,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/9",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002484,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "LINE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002531,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,9)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002532,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,12)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Total, Sum of Quantity, Sum of Discount, Count",
+                "Filters": "['time-interval', ['field', 13, {'base-type': 'type/DateTime'}], -2, 'year', {'include-current': True}]",
+                "Dimensions": "Created At: Quarter, Product \u2192 Category"
+            },
+            "title": "Revenue and orders over time",
+            "description": "Cumulative revenue overlaid with number of orders placed each month",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002531,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/12",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002531,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002567,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,12)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002568,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,13)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Total, Average of Total, Max of Total, Sum of Discount",
+                "Filters": "['time-interval', ['field', 13, {'base-type': 'type/DateTime'}], -4, 'month']",
+                "Dimensions": "Created At: Month, Product \u2192 Category"
+            },
+            "title": "Revenue by product category",
+            "description": "Monthly revenue broken down by products",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002567,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/13",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002567,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002617,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,13)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002618,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Total",
+                "Filters": "",
+                "Dimensions": "State"
+            },
+            "title": "Revenue by state",
+            "description": "Revenue in the US broken down by state",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002584,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/2",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002584,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002647,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002649,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,17)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Total",
+                "Filters": "['time-interval', ['field', 13, {'base-type': 'type/DateTime'}], 'current', 'quarter']",
+                "Dimensions": ""
+            },
+            "title": "Revenue goal for this quarter",
+            "description": "Compares total revenue this quarter to our goal",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002647,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/17",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002647,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002696,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,17)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002698,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,28)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Total",
+                "Filters": "['between', ['field', 'Age', {'base-type': 'type/BigInteger'}], 20, 70]",
+                "Dimensions": "Age"
+            },
+            "title": "Revenue per age group",
+            "description": "Shows the revenue distributed by age group",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002664,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/28",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002664,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002757,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,28)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002759,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,33)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Total",
+                "Filters": "",
+                "Dimensions": "Age"
+            },
+            "title": "Revenue per individual age",
+            "description": "Shows a distribution of revenue per individual age values",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002718,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/33",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002718,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002789,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,33)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002791,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,15)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Total",
+                "Filters": "",
+                "Dimensions": "Created At: Quarter"
+            },
+            "title": "Revenue per quarter",
+            "description": "Total revenue last quarter compared to the previous",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002788,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/15",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002788,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "TEXT"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002813,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,15)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002815,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,14)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "['time-interval', ['field', 'CREATED_AT', {'base-type': 'type/DateTime', 'inherited-temporal-unit': 'year'}], -3, 'year', {'include-current': True}]",
+                "Dimensions": "Created At: Year, Sum of Seats"
+            },
+            "title": "Subscription seats over time",
+            "description": "Number of seats in an average subscription, showing increase and decrease",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002812,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/14",
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002845,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,14)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002846,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,8)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Sum of Total, Sum of Discount, Count",
+                "Filters": "",
+                "Dimensions": "Created At: Quarter, Quantity, Product \u2192 Category"
+            },
+            "title": "Total order amount vs. discount given",
+            "description": "Analysis of discounts given vs. the size of the order",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002844,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/8",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002844,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "SCATTER"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002879,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,8)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002881,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,20)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Count",
+                "Filters": "",
+                "Dimensions": "Product \u2192 Category"
+            },
+            "title": "Total orders by product category",
+            "description": "Breaks down the overall performance of each of the product categories",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002878,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/20",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002878,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "PIE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002946,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,20)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002949,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,30)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Distinct values of Customer Email",
+                "Filters": "['time-interval', ['field', 'CREATED_AT', {'base-type': 'type/DateTime'}], -2, 'quarter']",
+                "Dimensions": "Created At: Quarter"
+            },
+            "title": "Unique customers per month",
+            "description": "Unique customer email addresses last quarter compared to the previous",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002895,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/30",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752002895,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "type": "TEXT"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002979,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,30)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002982,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,11)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "['!=', ['expression', 'Step', {'base-type': 'type/Text'}], 'Bounced']",
+                "Dimensions": "Button Label, Event, Count, Step"
+            },
+            "title": "User flow diagram",
+            "description": "Sankey flow from visiting our website to taking an action",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752002979,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/11"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003783,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,11)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003786,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,1)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "title": "E-commerce Insights",
+            "description": "Overview of sample data and hypothetical sales",
+            "charts": [],
+            "chartEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,21)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,24)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,22)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,2)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,18)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,12)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,15)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,17)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,13)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,10)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,20)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,7)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,8)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,3)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,5)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,6)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,16)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,23)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,11)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,14)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "datasets": [],
+            "datasetEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.FEEDBACK,PROD)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ACCOUNTS,PROD)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.PRODUCTS,PROD)",
+                    "lastModified": {
+                        "time": 1705752003184,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            ],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1705752003184,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705752003184,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "dashboardUrl": "http://localhost:3001/dashboard/1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003822,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,1)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003827,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "title": "Sales Dashboard",
+            "description": "Test dashboard: Sales Dashboard",
+            "charts": [],
+            "chartEdges": [],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1770631701047,
+                    "actor": "urn:li:corpuser:admin@test.com"
+                },
+                "lastModified": {
+                    "time": 1770631701047,
+                    "actor": "urn:li:corpuser:admin@test.com"
+                }
+            },
+            "dashboardUrl": "http://localhost:3001/dashboard/2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003950,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:admin@test.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003953,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "model_id": "1",
+                "display_type": "table",
+                "metabase_url": "http://localhost:3001/model/1"
+            },
+            "name": "Orders + People",
+            "description": "Sample orders joined with products",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003959,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Orders + People",
+            "platform": "urn:li:dataPlatform:metabase",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "ID",
+                    "nullable": true,
+                    "description": "ID",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "type/BigInteger",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "USER_ID",
+                    "nullable": true,
+                    "description": "User ID",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "type/Integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "PRODUCT_ID",
+                    "nullable": true,
+                    "description": "Product ID",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "type/Integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "SUBTOTAL",
+                    "nullable": true,
+                    "description": "Subtotal",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "type/Float",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "TAX",
+                    "nullable": true,
+                    "description": "Tax",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "type/Float",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "TOTAL",
+                    "nullable": true,
+                    "description": "Total",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "type/Float",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DISCOUNT",
+                    "nullable": true,
+                    "description": "Discount",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "type/Float",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "CREATED_AT",
+                    "nullable": true,
+                    "description": "Created At",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "type/DateTime",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "QUANTITY",
+                    "nullable": true,
+                    "description": "Quantity",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "type/Integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Age",
+                    "nullable": true,
+                    "description": "Age",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "type/BigInteger",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "EMAIL",
+                    "nullable": true,
+                    "description": "Customer Email",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "type/Text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "STATE",
+                    "nullable": true,
+                    "description": "State",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "type/Text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003962,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Model",
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003964,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:h2,file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest.PUBLIC.ORDERS,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003965,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003966,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003966,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,11)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003967,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,12)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003968,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,13)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003968,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,14)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003969,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,15)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003969,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,16)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003970,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,17)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003970,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,18)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003971,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,19)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003972,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003972,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,20)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003973,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,21)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003973,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,22)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003974,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,23)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003974,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,24)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003974,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,25)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003975,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,26)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003975,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,27)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003976,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,28)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003976,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,29)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003977,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,3)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003977,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,30)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003977,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,31)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003978,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,32)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003978,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,33)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003979,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,34)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003979,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,35)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003979,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,36)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003980,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,37)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003980,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,39)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003981,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,4)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003981,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,40)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003982,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,5)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003982,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,6)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003983,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,7)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003983,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,8)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003983,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,9)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003984,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003984,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003984,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003985,
+        "runId": "metabase-docker-models-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
