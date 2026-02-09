@@ -60,11 +60,12 @@ class SnowflakeQuery:
         if not pattern:
             return ""
 
-        # === EARLY EXIT: Default allow-all with no deny = no filtering ===
+        if pattern.allow == []:
+            return "FALSE"
+
         if pattern.allow == [".*"] and not pattern.deny:
             return ""
 
-        # Case sensitivity handling
         def transform(v: str) -> str:
             return v.upper() if pattern.ignoreCase else v
 
@@ -72,16 +73,13 @@ class SnowflakeQuery:
 
         conditions: List[str] = []
 
-        # === ALLOW PATTERNS (all use RLIKE) ===
-        # CRITICAL: If ".*" is anywhere in allow list, it matches everything
-        # so we skip building allow conditions (but still process deny!)
         has_allow_all = ".*" in pattern.allow
 
         if not has_allow_all and pattern.allow:
             allow_conditions: List[str] = []
 
-            # ALL patterns use RLIKE (Python treats all as regex)
             for p in pattern.allow:
+                # SQL injection protection: escape single quotes by doubling them
                 escaped = transform(p).replace("'", "''")
                 allow_conditions.append(f"{col_expr} RLIKE '{escaped}'")
 
@@ -91,10 +89,10 @@ class SnowflakeQuery:
                 else:
                     conditions.append(f"({' OR '.join(allow_conditions)})")
 
-        # === DENY PATTERNS (always RLIKE - literals work as regex) ===
         if pattern.deny:
             deny_conditions: List[str] = []
             for p in pattern.deny:
+                # SQL injection protection: escape single quotes by doubling them
                 escaped = transform(p).replace("'", "''")
                 deny_conditions.append(f"{col_expr} NOT RLIKE '{escaped}'")
 
