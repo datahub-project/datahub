@@ -26,7 +26,7 @@ describe("add remove domain", () => {
   };
 
   const waitForThemeV2 = () => {
-    cy.getWithTestId("v2-search-bar-wrapper").should("be.visible");
+    cy.get("#v2-search-bar").should("be.visible");
   };
 
   it("create domain", () => {
