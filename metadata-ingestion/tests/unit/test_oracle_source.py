@@ -112,7 +112,7 @@ def test_oracle_config_data_dictionary_mode():
 
 
 def test_oracle_get_db_name_with_service_name():
-    """Test getting database name when using service_name instead of database."""
+    """Test getting database name when using service_name with ALL mode."""
 
     base_config = {
         "username": "user",
@@ -150,6 +150,41 @@ def test_oracle_get_db_name_with_service_name():
         mock_bind.execute.assert_called_once()
         call_args = mock_bind.execute.call_args
         assert "sys_context" in str(call_args[0][0]).lower()
+
+
+def test_oracle_get_db_name_with_service_name_dba_mode():
+    """Test getting database name when using service_name with DBA mode."""
+
+    base_config = {
+        "username": "user",
+        "password": "password",
+        "host_port": "host:1521",
+        "service_name": "svc01",
+        "data_dictionary_mode": "DBA",
+    }
+
+    config = OracleConfig.parse_obj(base_config)
+    ctx = PipelineContext(run_id="test-oracle-service-name-dba")
+
+    with patch("datahub.ingestion.source.sql.oracle.oracledb"):
+        source = OracleSource(config, ctx)
+
+        # Mock OracleInspectorObjectWrapper with empty database in URL
+        mock_inspector = Mock(spec=OracleInspectorObjectWrapper)
+        mock_engine = Mock()
+        mock_url = Mock()
+        mock_url.database = None  # This is the case when using service_name
+        mock_engine.url = mock_url
+        mock_inspector.engine = mock_engine
+
+        # Mock the wrapper's get_db_name method
+        mock_inspector.get_db_name.return_value = "TESTDB_DBA"
+
+        # Test that get_db_name uses the wrapper's method
+        db_name = source.get_db_name(mock_inspector)
+
+        assert db_name == "TESTDB_DBA"
+        mock_inspector.get_db_name.assert_called_once()
 
 
 class TestOracleInspectorObjectWrapper:
