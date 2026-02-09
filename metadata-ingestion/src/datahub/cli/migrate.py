@@ -156,7 +156,7 @@ def dataplatform2instance_func(
 
     # we first calculate all the urns we will be migrating
     for src_entity_urn in graph.get_urns_by_filter(
-        platform=platform, env=env, entities_types=["dataset"]
+        platform=platform, env=env, entity_types=["dataset"]
     ):
         key = dataset_urn_to_key(src_entity_urn)
         assert key
