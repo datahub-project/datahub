@@ -3777,3 +3777,34 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **574e5ad07c** - feat(): Updating datahub upgrade guide for v1.4.0  (#16093)
   *by John Joyce <john@acryl.io> on 2026-02-06*
+
+## Upstream Merge Session - 2026-02-09 07:21:56
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 6
+- **Strategy**: stacked
+- **Started**: 2026-02-09 07:21:56
+
+### Commits Included in This Merge
+
+- **90b0b7490d** - chore(): Bump default packaged CLI release (#16127)
+  *by John Joyce <john@acryl.io> on 2026-02-06*
+
+- **cc4baaeab2** - feat(update): add reindex configuration options (#16128)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-06*
+
+- **d351dbb7f2** - chore(deps): update python-json-logger version constraint to <5.0.0 (#16132)
+  *by Craig Rueda <craig@craigrueda.com> on 2026-02-06*
+
+- **9896ae310e** - fix(ingest): Constrain setuptools as it deprecated pkg_resources (#16137)
+  *by kyungsoo-datahub <kyungsoo.lee@datahub.com> on 2026-02-08*
+
+- **3738ca596d** - chore(docs) Updated recommended CLI Version for v0.3.16 (#16139)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-02-09*
+
+- **1258ce37ab** - fix(metadata-ingestion) Update python-job-logger constraint to <5.0.0 (#16140)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-02-09*
