@@ -434,9 +434,6 @@ databricks = {
 }
 
 mysql = {"pymysql>=1.0.2,<2.0.0"}
-
-# MySQL-like databases (MySQL, MariaDB, Doris) share the same dependencies
-# since they all use the MySQL protocol and pymysql driver
 mysql_common = sql_common | mysql | aws_common
 
 sac = {

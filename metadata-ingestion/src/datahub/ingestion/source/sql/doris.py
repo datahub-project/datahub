@@ -265,6 +265,6 @@ class DorisSource(MySQLSource):
         self.report.report_warning(
             title="Stored procedures not supported",
             message="Doris information_schema.ROUTINES is always empty. Stored procedure extraction is not available.",
-            context=f"{db_name}.{schema}",
+            context=db_name + "." + schema,
         )
         return []
