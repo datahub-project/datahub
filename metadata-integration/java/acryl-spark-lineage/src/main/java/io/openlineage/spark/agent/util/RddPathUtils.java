@@ -105,14 +105,19 @@ public class RddPathUtils {
           .map(
               f -> {
                 if ("3.4".compareTo(package$.MODULE$.SPARK_VERSION()) <= 0) {
-                  // filePath returns SparkPath for Spark 3.4
+                  // Spark 3.4+: filePath returns SparkPath, need to call toPath()
                   return ReflectionUtils.tryExecuteMethod(f, "filePath")
                       .map(o -> ReflectionUtils.tryExecuteMethod(o, "toPath"))
                       .map(o -> (Path) o.get())
                       .get()
                       .getParent();
                 } else {
-                  return parentOf(f.filePath());
+                  // Spark < 3.4: filePath returns String
+                  // Use reflection to support runtime Spark 3.4+ while compiling against Spark
+                  // 3.3.4
+                  return ReflectionUtils.tryExecuteMethod(f, "filePath")
+                      .map(o -> parentOf(o.toString()))
+                      .orElse(null);
                 }
               });
     }
