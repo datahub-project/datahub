@@ -27,6 +27,7 @@ class NotificationTrackingInfo:
     notification_id: str
     external_platform: str | None
     has_external_url: bool
+    notification_subtype: str | None = None
 
 
 def track_notification_delivery_success(
@@ -46,6 +47,7 @@ def track_notification_delivery_success(
                 recipientCount=recipient_count,
                 externalPlatform=tracking_info.external_platform,
                 hasExternalUrl=tracking_info.has_external_url,
+                notificationSubtype=tracking_info.notification_subtype,
             )
         )
     except Exception as exc:
@@ -115,11 +117,14 @@ def get_notification_tracking_info(
             assertion_run_timestamp_millis=ts_millis,
             assertion_run_id=run_id,
         )
+        # Track assertion source type as subtype for analytics filtering/grouping
+        notification_subtype = params.get("sourceType")
         return NotificationTrackingInfo(
             notification_type=NotificationType.ASSERTION,
             notification_id=notification_id,
             external_platform=params.get("externalPlatform"),
             has_external_url=bool(params.get("externalUrl")),
+            notification_subtype=notification_subtype,
         )
 
     if template in (

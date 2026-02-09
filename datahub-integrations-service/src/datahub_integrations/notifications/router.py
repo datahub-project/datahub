@@ -99,5 +99,6 @@ def _maybe_emit_notification_sent_event(
                 recipientCount=count,
                 externalPlatform=tracking_info.external_platform,
                 hasExternalUrl=tracking_info.has_external_url,
+                notificationSubtype=tracking_info.notification_subtype,
             )
         )

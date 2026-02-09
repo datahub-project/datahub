@@ -345,3 +345,40 @@ def test_notifications_send_emits_notification_sent_event_teams_external_destina
         assert event.recipientCount == 1
         assert event.externalPlatform == "dbt"
         assert event.hasExternalUrl is True
+
+
+def test_notifications_send_emits_subtype_for_inferred_source_type() -> None:
+    """Assertion source type is tracked via notificationSubtype field."""
+    client = TestClient(app)
+
+    payload = {
+        "message": {
+            "template": NotificationTemplateTypeClass.BROADCAST_ASSERTION_STATUS_CHANGE,
+            "parameters": {
+                "assertionUrn": "urn:li:assertion:test",
+                "assertionRunId": "run-1",
+                "assertionRunTimestampMillis": "1700000000000",
+                "entityName": "Sample",
+                "entityPath": "/datasets/test",
+                "result": "FAILURE",
+                "resultReason": "bad",
+                "description": "my assertion",
+                "sourceType": "INFERRED",
+            },
+        },
+        "recipients": [{"type": NotificationRecipientTypeClass.SLACK_DM, "id": "U123"}],
+    }
+
+    with patch(
+        "datahub_integrations.notifications.router.track_saas_event"
+    ) as mock_track:
+        resp = client.post("/private/notifications/send", json=payload)
+        assert resp.status_code == 200
+        assert mock_track.call_count == 1
+        event = mock_track.call_args[0][0]
+
+        assert event.type == "NotificationSentEvent"
+        assert event.notificationType == "assertion"
+        assert event.notificationSubtype == "INFERRED"
+        assert event.notificationChannel == NotificationChannel.SLACK
+        assert event.notificationId == "urn:li:assertion:test|1700000000000|run-1"

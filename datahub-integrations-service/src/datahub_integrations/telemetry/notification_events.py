@@ -24,6 +24,7 @@ class NotificationSentEvent(BaseEvent):
     recipientCount: int | None = None
     externalPlatform: str | None = None
     hasExternalUrl: bool | None = None
+    notificationSubtype: str | None = None
 
 
 class NotificationDeliveredEvent(BaseEvent):
@@ -36,6 +37,7 @@ class NotificationDeliveredEvent(BaseEvent):
     recipientCount: int | None = None
     externalPlatform: str | None = None
     hasExternalUrl: bool | None = None
+    notificationSubtype: str | None = None
 
 
 class NotificationSlackActionEvent(BaseEvent):
