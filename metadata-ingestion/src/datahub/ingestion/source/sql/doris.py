@@ -19,6 +19,7 @@ from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -216,7 +217,7 @@ class DorisSource(MySQLSource):
     config: DorisConfig
 
     @classmethod
-    def create(cls, config_dict: Dict[str, Any], ctx: Any) -> "DorisSource":
+    def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "DorisSource":
         """Override MySQLSource.create() to use DorisConfig instead of MySQLConfig."""
         config = DorisConfig.model_validate(config_dict)
         return cls(config, ctx)
