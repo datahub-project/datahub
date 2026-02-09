@@ -537,6 +537,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Elasticsearch configuration
           "elasticsearch.buildIndices.allowDocCountMismatch",
           "elasticsearch.buildIndices.cloneIndices",
+          "elasticsearch.buildIndices.reindexBatchSize",
+          "elasticsearch.buildIndices.reindexMaxSlices",
+          "elasticsearch.buildIndices.reindexNoProgressRetryMinutes",
           "elasticsearch.buildIndices.reindexOptimizationEnabled",
           "elasticsearch.buildIndices.retentionUnit",
           "elasticsearch.buildIndices.retentionValue",
@@ -665,6 +668,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.query.complexityLimit",
           "graphQL.query.depthLimit",
           "graphQL.query.introspectionEnabled",
+          "graphQL.query.maxParentDepth",
+          "graphQL.query.maxVisitedUrns",
           "graphService.limit.results.apiDefault",
           "graphService.limit.results.max",
           "graphService.limit.results.strict",
