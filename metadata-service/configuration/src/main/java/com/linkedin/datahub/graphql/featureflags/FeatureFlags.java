@@ -41,13 +41,14 @@ public class FeatureFlags {
   private boolean showManageTags = false;
   private boolean showIntroducePage = false;
   private boolean showIngestionPageRedesign = false;
+  private boolean ingestionOnboardingRedesignV1 = false;
   private boolean showLineageExpandMore = true;
   private boolean showStatsTabRedesign = false;
   private boolean showHomePageRedesign = false;
   private boolean lineageGraphV3 = true;
   private boolean showProductUpdates = false;
   private String productUpdatesJsonUrl;
-  private String productUpdatesJsonFallbackResourceUrl;
+  private String productUpdatesJsonFallbackResource;
   private boolean logicalModelsEnabled = false;
   private boolean showHomepageUserRole = false;
   private boolean assetSummaryPageV1 = false;

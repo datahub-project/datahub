@@ -54,6 +54,7 @@ import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.NumberType;
@@ -132,14 +133,27 @@ public class UpdateIndicesHookTest {
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
     systemUpdateConfiguration.setWaitForSystemUpdate(false);
     when(mockConfigurationProvider.getElasticSearch()).thenReturn(TEST_OS_SEARCH_CONFIG);
+
+    // Create V2 strategy for the test
+    UpdateIndicesV2Strategy v2Strategy =
+        new UpdateIndicesV2Strategy(
+            EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
+            mockEntitySearchService,
+            searchDocumentTransformer,
+            mockTimeseriesAspectService,
+            "MD5",
+            null,
+            mock(IndexConvention.class));
+
     updateIndicesService =
         new UpdateIndicesService(
             UpdateGraphIndicesService.withService(mockGraphService),
             mockEntitySearchService,
-            mockTimeseriesAspectService,
             mockSystemMetadataService,
-            searchDocumentTransformer,
-            "MD5");
+            java.util.Collections.singletonList(v2Strategy),
+            true, // searchDiffMode
+            true, // structuredPropertiesHookEnabled
+            true); // structuredPropertiesWriteEnabled
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
     updateIndicesHook = new UpdateIndicesHook(updateIndicesService, true, false);
@@ -236,14 +250,27 @@ public class UpdateIndicesHookTest {
     String downstreamFieldPath = "users.count";
     MetadataChangeLog event = createInputFieldsMCL(upstreamUrn, downstreamFieldPath);
     EntityRegistry mockEntityRegistry = createMockEntityRegistry();
+
+    // Create V2 strategy for the test
+    UpdateIndicesV2Strategy testV2Strategy =
+        new UpdateIndicesV2Strategy(
+            EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
+            mockEntitySearchService,
+            searchDocumentTransformer,
+            mockTimeseriesAspectService,
+            "MD5",
+            null,
+            mock(IndexConvention.class));
+
     updateIndicesService =
         new UpdateIndicesService(
             new UpdateGraphIndicesService(mockGraphService, false, true, Collections.emptyList()),
             mockEntitySearchService,
-            mockTimeseriesAspectService,
             mockSystemMetadataService,
-            searchDocumentTransformer,
-            "MD5");
+            java.util.Collections.singletonList(testV2Strategy),
+            true,
+            true,
+            true);
 
     updateIndicesHook = new UpdateIndicesHook(updateIndicesService, true, false);
     updateIndicesHook.init(
@@ -863,7 +890,9 @@ public class UpdateIndicesHookTest {
               mockEntitySearchService,
               searchDocumentTransformer,
               mockTimeseriesAspectService,
-              "MD5");
+              "MD5",
+              null, // No semantic search config for this test
+              mock(IndexConvention.class));
       strategies.add(v2Strategy);
     }
 

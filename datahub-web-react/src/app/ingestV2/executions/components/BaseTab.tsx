@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 export const SectionBase = styled.div`
-    padding: 16px 30px 0;
+    padding: 16px 20px 16px 0;
 `;
 
 export const SectionHeader = styled(Typography.Title)`

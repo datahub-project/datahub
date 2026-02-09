@@ -461,6 +461,9 @@ class S3Source(StatefulIngestionSourceBase):
         # remove protocol and any leading or trailing slashes
         browse_path = re.sub(URI_SCHEME_REGEX, "", table_data.table_path).strip("/")
 
+        if self.source_config.convert_urns_to_lowercase:
+            browse_path = browse_path.lower()
+
         data_platform_urn = make_data_platform_urn(self.source_config.platform)
         logger.info(f"Creating dataset urn with name: {browse_path}")
         dataset_urn = make_dataset_urn_with_platform_instance(

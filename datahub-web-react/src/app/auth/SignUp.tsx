@@ -243,6 +243,7 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                                         htmlType="submit"
                                         className={styles.login_button}
                                         disabled={!formIsComplete}
+                                        data-testid="sign-up"
                                     >
                                         Sign Up!
                                     </Button>

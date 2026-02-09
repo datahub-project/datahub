@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 import os
 import subprocess
 import threading
@@ -21,6 +22,8 @@ from tests.utils import (
     get_admin_username,
     ingest_file_via_rest,
 )
+
+logger = logging.getLogger(__name__)
 
 CYPRESS_TEST_DATA_DIR = "tests/cypress"
 
@@ -135,23 +138,23 @@ def update_fixture_timestamps(cypress_test_data_dir: str) -> None:
 
 
 def print_now():
-    print(f"current time is {datetime.datetime.now(datetime.timezone.utc)}")
+    logger.info(f"current time is {datetime.datetime.now(datetime.timezone.utc)}")
 
 
 def ingest_data(auth_session, graph_client):
     print_now()
-    print("creating onboarding data file")
+    logger.info("creating onboarding data file")
     create_datahub_step_state_aspects(
         get_admin_username(),
         ONBOARDING_IDS,
         f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}",
     )
 
-    print("updating timestamps in fixture files")
+    logger.info("updating timestamps in fixture files")
     update_fixture_timestamps(CYPRESS_TEST_DATA_DIR)
 
     print_now()
-    print("ingesting test data")
+    logger.info("ingesting test data")
     ingest_file_via_rest(auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
     ingest_file_via_rest(
         auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}"
@@ -167,7 +170,7 @@ def ingest_data(auth_session, graph_client):
     )
     ingest_time_lineage(graph_client)
     print_now()
-    print("completed ingesting test data")
+    logger.info("completed ingesting test data")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -175,7 +178,7 @@ def ingest_cleanup_data(auth_session, graph_client):
     ingest_data(auth_session, graph_client)
     yield
     print_now()
-    print("removing test data")
+    logger.info("removing test data")
     delete_urns_from_file(graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
     delete_urns_from_file(
         graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}"
@@ -192,11 +195,11 @@ def ingest_cleanup_data(auth_session, graph_client):
     )
 
     print_now()
-    print("deleting onboarding data file")
+    logger.info("deleting onboarding data file")
     if os.path.exists(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"):
         os.remove(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
     print_now()
-    print("deleted onboarding data")
+    logger.info("deleted onboarding data")
 
 
 def _get_js_files(base_path: str):
@@ -239,6 +242,33 @@ def _get_cypress_tests_batch():
     return test_batches[env_vars.get_batch_number()]
 
 
+def _get_filtered_or_batched_tests():
+    """
+    Read tests from a file if FILTERED_TESTS env var is set, pointing to a file.
+    Otherwise, fall back to normal batching logic.
+
+    This allows running a specific subset of tests for any purpose (flaky tests,
+    smoke tests, regression tests, etc.) by setting FILTERED_TESTS=/path/to/file.
+
+    Returns list of test file paths relative to cypress/e2e/
+    """
+    filtered_tests_file = env_vars.get_filtered_tests_file()
+    if filtered_tests_file:
+        logger.info(f"Reading filtered tests from {filtered_tests_file}")
+        with open(filtered_tests_file) as f:
+            # Read non-empty lines, strip whitespace, ignore comments
+            tests = [
+                line.strip()
+                for line in f
+                if line.strip() and not line.strip().startswith("#")
+            ]
+        logger.info(f"Found {len(tests)} filtered tests to run")
+        return tests
+    else:
+        logger.info("No FILTERED_TESTS set, using batching logic")
+        return _get_cypress_tests_batch()
+
+
 def test_run_cypress(auth_session):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
     record_key = env_vars.get_cypress_record_key()
@@ -256,16 +286,16 @@ def test_run_cypress(auth_session):
     else:
         record_arg = " "
 
-    print(f"test strategy is {test_strategy}")
+    logger.info(f"test strategy is {test_strategy}")
     test_spec_arg = ""
-    specs_str = ",".join([f"**/{f}" for f in _get_cypress_tests_batch()])
+    specs_str = ",".join([f"**/{f}" for f in _get_filtered_or_batched_tests()])
     test_spec_arg = f" --spec '{specs_str}' "
 
-    print("Running Cypress tests with command")
+    logger.info("Running Cypress tests with command")
     node_options = "--max-old-space-size=500"
     electron_args = 'ELECTRON_EXTRA_LAUNCH_ARGS="--js-flags=\'--max-old-space-size=4096 --disable-dev-shm-usage --disable-gpu --no-sandbox"'
     command = f'{electron_args} NO_COLOR=1 NODE_OPTIONS="{node_options}" npx cypress run {record_arg} {test_spec_arg} {tag_arg}'
-    print(command)
+    logger.info(command)
     # Add --headed --spec '**/mutations/mutations.js' (change spec name)
     # in case you want to see the browser for debugging
     print_now()
@@ -284,7 +314,7 @@ def test_run_cypress(auth_session):
     # Function to read and print output from a pipe
     def read_and_print(pipe, prefix=""):
         for line in pipe:
-            print(f"{prefix}{line}", end="")
+            logger.info(f"{prefix}{line.rstrip()}")
 
     # Read and print output in real-time
 
@@ -308,6 +338,6 @@ def test_run_cypress(auth_session):
     stdout_thread.join()
     stderr_thread.join()
 
-    print("return code", return_code)
+    logger.info(f"return code: {return_code}")
     print_now()
     assert return_code == 0

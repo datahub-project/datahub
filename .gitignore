@@ -48,6 +48,11 @@ out/
 # Mac OS
 **/.DS_Store
 
+# Mise
+**/mise.local.toml
+**/.mise.local.toml
+.mise/**
+
 #spark-lineage
 **/spark-lineage/metastore_db/
 **/spark-lineage/**/derby.log
@@ -74,8 +79,6 @@ metadata-ingestion/generated/**
 
 # docs
 docs/generated/
-docs-website/versioned_docs/
-docs-website/versioned_sidebars/
 tmp*
 temp/**
 
@@ -90,7 +93,12 @@ smoke-test/rollback-reports
 coverage*.xml
 .vercel
 .envrc
+
+# Local dev environment overrides (user-specific GMS/Kafka settings)
+docker/profiles/my-settings.env
+
 **/.claude/settings.local.json
+**/.claude/*.md
 
 # A long series of binary directories we should ignore
 datahub-frontend/bin/main/
@@ -136,3 +144,4 @@ datahub-executor/
 datahub-integrations-service/
 metadata-ingestion-modules/acryl-cloud
 
+.claude/

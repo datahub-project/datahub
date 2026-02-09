@@ -10,6 +10,7 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Mappi
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.opensearch.core.rest.RestStatus.TOO_MANY_REQUESTS;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
@@ -17,6 +18,7 @@ import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
@@ -53,6 +55,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.CreatePitRequest;
 import org.opensearch.action.search.CreatePitResponse;
 import org.opensearch.action.search.DeletePitRequest;
@@ -60,6 +63,11 @@ import org.opensearch.action.search.DeletePitResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -78,6 +86,7 @@ import org.opensearch.search.suggest.term.TermSuggestionBuilder;
 /** TODO: Add more robust unit tests for this critical class. */
 @Slf4j
 public class ESUtils {
+
   private static final String DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD = "urn";
   public static final String KEYWORD_ANALYZER = "keyword";
   public static final String KEYWORD_SUFFIX = ".keyword";
@@ -328,6 +337,55 @@ public class ESUtils {
         return Set.of(SearchableAnnotation.FieldType.OBJECT);
     }
     return Collections.emptySet();
+  }
+
+  /**
+   * Builds a filter query as a Map suitable for low-level REST clients.
+   *
+   * <p>This method takes a Filter object and transforms it into an optimized OpenSearch query,
+   * including rewrites and optimizations, while returning a Map for use with the Low-Level client.
+   *
+   * <p>Output shape is ensured to have a top-level {@code bool} object. If the optimized query is
+   * not a bool, it will be wrapped as {"bool": {"filter": [ <query> ]}}.
+   *
+   * <p><b>Important:</b> Field types must be properly specified in searchableFieldTypes for numeric
+   * fields to ensure correct value serialization. Without field type specification, numeric values
+   * in range queries will remain as strings, leading to incorrect comparisons (e.g., "9" > "15").
+   *
+   * <p>Note: minimumShouldMatch is always serialized as a string by OpenSearch/Elasticsearch (e.g.,
+   * "1" instead of 1) because it supports both absolute numbers and percentages.
+   */
+  @Nonnull
+  public static Map<String, Object> buildFilterMap(
+      @Nullable Filter filter,
+      boolean isTimeseries,
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+    QueryBuilder qb =
+        ESUtils.buildFilterQuery(
+            filter, isTimeseries, searchableFieldTypes, opContext, queryFilterRewriteChain);
+
+    // Optimize and preserve filtering semantics (considerScore=false for filters)
+    qb = ESUtils.queryOptimize(qb, false);
+
+    boolean wrapAsBool = !(qb instanceof BoolQueryBuilder);
+
+    try {
+      // If not a bool, wrap under a bool.filter using a QueryBuilder to avoid manual JSON mistakes
+      QueryBuilder topQuery = wrapAsBool ? QueryBuilders.boolQuery().filter(qb) : qb;
+
+      XContentBuilder builder = XContentFactory.jsonBuilder();
+      topQuery.toXContent(builder, ToXContent.EMPTY_PARAMS);
+
+      Map<String, Object> top =
+          XContentHelper.convertToMap(JsonXContent.jsonXContent, builder.toString(), true);
+
+      // If the serialized content already has top-level bool, return as-is, else wrap
+      return top.containsKey("bool") ? top : Map.of("bool", top);
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to serialize filter query to Map", e);
+    }
   }
 
   /**
@@ -890,7 +948,6 @@ public class ESUtils {
       @Nullable String queryName,
       final boolean isTimeseries,
       @Nonnull AspectRetriever aspectRetriever) {
-
     return buildWildcardQueryWithMultipleValues(
         fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s*");
   }
@@ -901,7 +958,6 @@ public class ESUtils {
       @Nullable String queryName,
       final boolean isTimeseries,
       @Nonnull AspectRetriever aspectRetriever) {
-
     return buildWildcardQueryWithMultipleValues(
         fieldName, criterion, isTimeseries, queryName, aspectRetriever, "%s*");
   }
@@ -912,7 +968,6 @@ public class ESUtils {
       @Nullable String queryName,
       final boolean isTimeseries,
       @Nonnull AspectRetriever aspectRetriever) {
-
     return buildWildcardQueryWithMultipleValues(
         fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s");
   }
@@ -993,7 +1048,6 @@ public class ESUtils {
       String fieldName,
       @Nonnull final Criterion criterion,
       @Nullable AspectRetriever aspectRetriever) {
-
     final Set<String> finalFieldTypes;
     if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
       // use criterion field here for structured props since fieldName has dots replaced with
@@ -1305,7 +1359,6 @@ public class ESUtils {
             && nestedBool.should().isEmpty()
             && nestedBool.mustNot().isEmpty()
             && !nestedBool.filter().isEmpty()) {
-
           // Mark for removal
           filtersToRemove.add(filter);
 
@@ -1447,6 +1500,20 @@ public class ESUtils {
           new CreatePitRequest(TimeValue.parseTimeValue(keepAlive, "keepAlive"), false, indexArray);
       CreatePitResponse response = client.createPit(request, RequestOptions.DEFAULT);
       return response.getId();
+    } catch (OpenSearchStatusException ose) {
+      if (TOO_MANY_REQUESTS.equals(ose.status())) {
+        APIThrottleException throttleException =
+            new APIThrottleException(
+                TimeValue.parseTimeValue(keepAlive, "keepAlive").millis(),
+                "Too many point in times created, retry after keep alive has expired.");
+        try {
+          throttleException.initCause(ose);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+          // Do nothing, can't fill in cause
+        }
+        throw throttleException;
+      }
+      throw ose;
     } catch (IOException e) {
       log.warn("Failed to generate PointInTime Identifier:", e);
       throw new IllegalStateException("Failed to generate PointInTime Identifier.", e);

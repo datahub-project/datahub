@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Dict, List, Optional
 
-from datahub.ingestion.source.kafka_connect.common import (
+from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
     parse_comma_separated_list,
 )
@@ -117,6 +117,11 @@ class RegexRouterPlugin(TransformPlugin):
             )
             return topics
 
+        logger.info(
+            f"Applying RegexRouter transform '{config.name}': "
+            f"regex='{regex_pattern}', replacement='{replacement}', topics={topics}"
+        )
+
         transformed_topics = []
         for topic in topics:
             try:
@@ -124,9 +129,14 @@ class RegexRouterPlugin(TransformPlugin):
                 matcher = pattern.matcher(topic)
                 transformed_topic = str(matcher.replaceFirst(replacement))
 
-                logger.debug(
-                    f"RegexRouter {config.name}: {topic} -> {transformed_topic}"
-                )
+                if transformed_topic != topic:
+                    logger.info(
+                        f"RegexRouter {config.name} transformed: '{topic}' -> '{transformed_topic}'"
+                    )
+                else:
+                    logger.info(
+                        f"RegexRouter {config.name} no change: '{topic}' (pattern did not match or replacement resulted in same value)"
+                    )
                 transformed_topics.append(transformed_topic)
             except Exception as e:
                 logger.warning(
@@ -189,6 +199,37 @@ class ComplexTransformPlugin(TransformPlugin):
         return False  # Complex transforms require explicit user configuration
 
 
+class ReplaceFieldPlugin(TransformPlugin):
+    """
+    Plugin for ReplaceField transforms.
+
+    ReplaceField transforms only affect message field names (include/exclude/rename),
+    not topic names, so they're a no-op for topic transformation but need to be
+    registered as known transforms to avoid warnings.
+    """
+
+    SUPPORTED_TYPES = {
+        "org.apache.kafka.connect.transforms.ReplaceField$Value",
+        "org.apache.kafka.connect.transforms.ReplaceField$Key",
+    }
+
+    @classmethod
+    def supports_transform_type(cls, transform_type: str) -> bool:
+        return transform_type in cls.SUPPORTED_TYPES
+
+    def apply_forward(self, topics: List[str], config: TransformConfig) -> List[str]:
+        """ReplaceField doesn't affect topic names, only field names within messages."""
+        return topics
+
+    def apply_reverse(self, topics: List[str], config: TransformConfig) -> List[str]:
+        """ReplaceField doesn't affect topic names, only field names within messages."""
+        return topics
+
+    @classmethod
+    def should_apply_automatically(cls) -> bool:
+        return True  # Safe to apply automatically - it's a no-op for topic names
+
+
 class TransformPluginRegistry:
     """Registry for transform plugins."""
 
@@ -200,6 +241,7 @@ class TransformPluginRegistry:
         """Register default transform plugins."""
         self.register(RegexRouterPlugin())
         self.register(ComplexTransformPlugin())
+        self.register(ReplaceFieldPlugin())
 
     def register(self, plugin: TransformPlugin) -> None:
         """Register a transform plugin."""

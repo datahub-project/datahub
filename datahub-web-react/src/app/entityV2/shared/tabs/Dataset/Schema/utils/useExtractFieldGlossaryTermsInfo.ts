@@ -17,6 +17,11 @@ export default function useExtractFieldGlossaryTermsInfo(
         const schemaFieldTerms = record?.schemaFieldEntity?.glossaryTerms?.terms || [];
         const schemaFieldTermUrns = new Set(schemaFieldTerms.map((t) => t.term.urn));
 
+        // Extract business attribute glossary terms
+        const businessAttributeTerms =
+            record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties
+                ?.glossaryTerms?.terms || [];
+
         // Editable terms: from EditableSchemaMetadata and not on schema field entity itself
         const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidate) =>
             pathMatchesExact(candidate.fieldPath, record.fieldPath),
@@ -39,8 +44,8 @@ export default function useExtractFieldGlossaryTermsInfo(
                 .flatMap((info) => info.glossaryTerms?.terms || [])
                 .filter((t) => !baseUneditableTermUrns.has(t.term.urn)) || [];
 
-        // Combine all uneditable terms and remove duplicates
-        const allUneditableTerms = [...baseUneditableTerms, ...extraUneditableTerms];
+        // Combine all uneditable terms including business attribute terms and remove duplicates
+        const allUneditableTerms = [...baseUneditableTerms, ...extraUneditableTerms, ...businessAttributeTerms];
 
         // Final deduped uneditable terms excluding any in editableTerms
         const uneditableTerms = allUneditableTerms.filter(

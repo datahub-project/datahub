@@ -13,6 +13,10 @@ import lombok.experimental.Accessors;
 @Builder(toBuilder = true)
 @Accessors(chain = true)
 public class SearchServiceConfiguration {
+
   private QueryFilterRewriterConfiguration queryFilterRewriter;
   private LimitConfig limit;
+
+  /** Environment-level gate to enable/disable semantic search. */
+  private boolean semanticSearchEnabled;
 }

@@ -83,6 +83,11 @@ class GrafanaSourceConfig(
     ingest_owners: bool = Field(
         default=True, description="Whether to ingest dashboard ownership information"
     )
+    remove_email_suffix: bool = Field(
+        True,
+        description="Remove Grafana user email suffix for example, @acryl.io, "
+        "when assigning ownership.",
+    )
     skip_text_panels: bool = Field(
         default=False,
         description="Whether to skip text panels during ingestion. "

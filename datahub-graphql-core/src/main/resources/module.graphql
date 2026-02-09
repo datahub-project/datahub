@@ -252,6 +252,10 @@ enum DataHubPageModuleType {
   """
   PLATFORMS
   """
+  Module displaying the lineage of an asset
+  """
+  LINEAGE
+  """
   Module displaying the columns of a dataset
   """
   COLUMNS

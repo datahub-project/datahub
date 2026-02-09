@@ -336,6 +336,7 @@ entities:
     keyAspect: documentKey
     aspects:
       - documentInfo
+      - documentSettings
       - status
       - ownership
       - domains
@@ -345,6 +346,9 @@ entities:
       - browsePathsV2
       - globalTags
       - glossaryTerms
+      - semanticContent
+      - institutionalMemory
+      - documentation
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -746,6 +750,7 @@ entities:
     keyAspect: dataHubFileKey
     aspects:
       - dataHubFileInfo
+      - status
   - name: dataHubConnection
     category: internal
     keyAspect: dataHubConnectionKey

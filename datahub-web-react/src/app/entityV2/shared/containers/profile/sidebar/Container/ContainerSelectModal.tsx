@@ -1,5 +1,5 @@
-import { Tooltip } from '@components';
-import { Button, Form, Modal, Select, Tag } from 'antd';
+import { Modal, Tooltip } from '@components';
+import { Form, Select, Tag } from 'antd';
 import React, { ReactNode, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -143,18 +143,22 @@ export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride
     return (
         <Modal
             title={titleOverride || 'Select Container'}
-            visible
+            open
             onCancel={onModalClose}
-            footer={
-                <>
-                    <Button onClick={onModalClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button id="setContainerButton" disabled={selectedContainers?.length === 0} onClick={onOk}>
-                        Add
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onModalClose,
+                },
+                {
+                    text: 'Add',
+                    variant: 'filled',
+                    onClick: onOk,
+                    id: 'setContainerButton',
+                    disabled: selectedContainers?.length === 0,
+                },
+            ]}
         >
             <Form component={false}>
                 <Form.Item>

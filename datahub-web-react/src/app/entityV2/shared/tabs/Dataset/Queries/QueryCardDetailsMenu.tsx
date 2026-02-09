@@ -1,7 +1,9 @@
 import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, Modal, message } from 'antd';
-import React from 'react';
+import { Dropdown, Menu, message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { useDeleteQueryMutation } from '@graphql/query.generated';
 
@@ -17,6 +19,7 @@ export type Props = {
 
 export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
     const [deleteQueryMutation] = useDeleteQueryMutation();
+    const [showConfirmationModal, setShowConfirmationModa] = useState(false);
 
     const deleteQuery = () => {
         deleteQueryMutation({ variables: { urn } })
@@ -35,32 +38,31 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
             });
     };
 
-    const confirmDeleteQuery = () => {
-        Modal.confirm({
-            title: `Delete Query`,
-            content: `Are you sure you want to delete this query?`,
-            onOk() {
-                deleteQuery();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
     return (
-        <Dropdown
-            overlay={
-                <Menu>
-                    <Menu.Item key="0" onClick={confirmDeleteQuery} data-testid={`query-delete-button-${index}`}>
-                        <DeleteOutlined /> &nbsp; Delete
-                    </Menu.Item>
-                </Menu>
-            }
-            trigger={['click']}
-        >
-            <StyledMoreOutlined data-testid={`query-more-button-${index}`} />
-        </Dropdown>
+        <>
+            <Dropdown
+                overlay={
+                    <Menu>
+                        <Menu.Item
+                            key="0"
+                            onClick={() => setShowConfirmationModa(true)}
+                            data-testid={`query-delete-button-${index}`}
+                        >
+                            <DeleteOutlined /> &nbsp; Delete
+                        </Menu.Item>
+                    </Menu>
+                }
+                trigger={['click']}
+            >
+                <StyledMoreOutlined data-testid={`query-more-button-${index}`} />
+            </Dropdown>
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModa(false)}
+                handleConfirm={deleteQuery}
+                modalTitle="Delete Query"
+                modalText="Are you sure you want to delete this query?"
+            />
+        </>
     );
 }

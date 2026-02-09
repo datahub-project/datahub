@@ -542,25 +542,51 @@ public class UsageEventIndexUtils {
       String dataStreamName)
       throws IOException {
     try {
-      GetIndexRequest getRequest = new GetIndexRequest(dataStreamName);
+      // Check if the data stream already exists first (matches pattern in
+      // createOpenSearchUsageEventIndex)
+      String endpoint = "/_data_stream/" + dataStreamName;
 
-      boolean exists =
-          esComponents.getSearchClient().indexExists(getRequest, RequestOptions.DEFAULT);
+      try {
+        RawResponse getResponse = IndexUtils.performGetRequest(esComponents, endpoint);
+        int statusCode = getResponse.getStatusLine().getStatusCode();
+        if (statusCode == 200) {
+          log.info("Data stream {} already exists", dataStreamName);
+          return;
+        }
+      } catch (IOException e) {
+        // Handle ResponseException from both ES8 and OpenSearch clients
+        // Check if this is a 404 "not found" exception by examining the message
+        String message = e.getMessage();
+        if (message != null && message.contains("404")) {
+          // Data stream doesn't exist, proceed with creation
+          log.debug("Data stream {} does not exist, will create", dataStreamName);
+        } else {
+          // Unexpected error checking existence
+          throw e;
+        }
+      }
 
-      if (!exists) {
-        // Create data stream by creating an index with the data stream name
-        CreateIndexRequest createRequest = new CreateIndexRequest(dataStreamName);
+      // Use the low-level REST client to create the data stream using the proper API
+      // Elasticsearch requires using PUT /_data_stream/{name} for data stream creation
+      // when the template has "data_stream": {} configured
+      try {
+        RawResponse response = IndexUtils.performPutRequest(esComponents, endpoint, "");
 
-        CreateIndexResponse response =
-            esComponents.getSearchClient().createIndex(createRequest, RequestOptions.DEFAULT);
-
-        if (response.isAcknowledged()) {
+        int statusCode = response.getStatusLine().getStatusCode();
+        if (statusCode == 200 || statusCode == 201) {
           log.info("Successfully created data stream: {}", dataStreamName);
         } else {
-          log.warn("Data stream creation not acknowledged: {}", dataStreamName);
+          log.warn(
+              "Data stream creation returned unexpected status {}: {}", statusCode, dataStreamName);
         }
-      } else {
-        log.info("Data stream {} already exists", dataStreamName);
+      } catch (IOException e) {
+        // Handle ResponseException from both ES8 and OpenSearch clients
+        String message = e.getMessage();
+        if (message != null && message.contains("resource_already_exists_exception")) {
+          log.info("Data stream {} already exists", dataStreamName);
+        } else {
+          throw e;
+        }
       }
     } catch (OpenSearchStatusException e) {
       if (e.getMessage().contains("resource_already_exists_exception")

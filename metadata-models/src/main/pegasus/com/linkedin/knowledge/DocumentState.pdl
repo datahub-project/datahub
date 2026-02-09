@@ -5,12 +5,12 @@ namespace com.linkedin.knowledge
  */
 enum DocumentState {
   /**
-   * Document is published and visible to users
+   * Document is published and visible to others.
    */
   PUBLISHED
 
   /**
-   * Document is not published publically. 
+   * Document is not published to be consumed by others.
    */
   UNPUBLISHED
 }

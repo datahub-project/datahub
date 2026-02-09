@@ -15,7 +15,9 @@ record RelatedDocument {
         "entityTypes": ["document"]
     }
     @Searchable = {
+        "fieldType": "URN",
         "fieldName": "relatedDocuments"
+        "queryByDefault": false
     }
     document: Urn
 }

@@ -1,0 +1,26 @@
+source:
+  type: oracle
+  config:
+    username: system
+    password: example
+    host_port: localhost:51521
+    service_name: XEPDB1
+    include_stored_procedures: true
+    include_materialized_views: true
+    data_dictionary_mode: "ALL"  # Test ALL_* system tables
+    schema_pattern:
+      allow:
+        - "^HR_SCHEMA$"
+        - "^SALES_SCHEMA$"
+        - "^ANALYTICS_SCHEMA$"
+        - "^SYSTEM$"
+    procedure_pattern:
+      allow:
+        - ".*"
+    profiling:
+      enabled: false
+
+sink:
+  type: file
+  config:
+    filename: "oracle_mces.json"

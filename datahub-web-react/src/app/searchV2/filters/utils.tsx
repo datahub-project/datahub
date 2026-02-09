@@ -343,12 +343,12 @@ export function getFilterOptions(
     return filterOptions;
 }
 
+const normalize = (str) => str.replace(/[_␞\s]/g, '').toLowerCase();
+
 export function filterOptionsWithSearch(searchQuery: string, name: string, nestedOptions: FilterOptionType[] = []) {
     if (searchQuery) {
-        return (
-            name.toLocaleLowerCase().includes(searchQuery.toLocaleLowerCase()) ||
-            !!nestedOptions.find((option) => option.value.toLocaleLowerCase().includes(searchQuery.toLocaleLowerCase()))
-        );
+        const query = normalize(searchQuery);
+        return normalize(name).includes(query) || nestedOptions.some((o) => normalize(o.value).includes(query));
     }
     return true;
 }

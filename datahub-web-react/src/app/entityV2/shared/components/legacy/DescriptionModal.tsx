@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { EditorProps } from '@components/components/Editor/types';
+import { ModalButton } from '@components/components/Modal/Modal';
 
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;
@@ -50,6 +51,21 @@ export default function UpdateDescriptionModal({
 }: Props) {
     const [updatedDesc, setDesc] = useState(description || original || '');
 
+    const buttons: ModalButton[] = [
+        {
+            text: 'Cancel',
+            variant: 'text',
+            onClick: onClose,
+        },
+        {
+            text: 'Publish',
+            onClick: () => onSubmit(updatedDesc),
+            variant: 'filled',
+            disabled: updatedDesc === description,
+            buttonDataTestId: 'description-modal-update-button',
+        },
+    ];
+
     return (
         <Modal
             title={title}
@@ -57,16 +73,7 @@ export default function UpdateDescriptionModal({
             width={900}
             onCancel={onClose}
             okText={isAddDesc ? 'Submit' : 'Update'}
-            buttons={[
-                { text: 'Cancel', variant: 'outline', onClick: onClose },
-                {
-                    text: 'Publish',
-                    variant: 'filled',
-                    onClick: () => onSubmit(updatedDesc),
-                    disabled: updatedDesc === description,
-                    buttonDataTestId: 'description-modal-update-button',
-                },
-            ]}
+            buttons={buttons}
         >
             <Form layout="vertical">
                 {!isAddDesc && description && original && (

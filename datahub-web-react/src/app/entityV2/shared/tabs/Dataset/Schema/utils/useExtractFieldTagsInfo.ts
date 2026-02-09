@@ -17,6 +17,11 @@ export default function useExtractFieldTagsInfo(
         const schemaFieldTags = record?.schemaFieldEntity?.tags?.tags || [];
         const schemaFieldTagUrns = new Set(schemaFieldTags.map((t) => t.tag.urn));
 
+        // Extract business attribute tags
+        const businessAttributeTags =
+            record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.tags
+                ?.tags || [];
+
         // Editable tags: from EditableSchemaMetadata and not on schema field entity itself
         const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidate) =>
             pathMatchesExact(candidate.fieldPath, record.fieldPath),
@@ -39,8 +44,8 @@ export default function useExtractFieldTagsInfo(
                 .flatMap((info) => info.globalTags?.tags || [])
                 .filter((tag) => !baseUneditableTagUrns.has(tag.tag.urn)) || [];
 
-        // Combine all uneditable tags and remove duplicates
-        const allUneditableTags = [...baseUneditableTags, ...extraUneditableTags];
+        // Combine all uneditable tags including business attribute tags and remove duplicates
+        const allUneditableTags = [...baseUneditableTags, ...extraUneditableTags, ...businessAttributeTags];
 
         // Final deduped uneditable tags excluding any in editableTags
         const uneditableTags = allUneditableTags.filter(

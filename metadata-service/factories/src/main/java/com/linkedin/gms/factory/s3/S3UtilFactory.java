@@ -34,7 +34,17 @@ public class S3UtilFactory {
         return new S3Util(stsClient, roleArn);
       } else {
         log.info("Using default S3Util with default credentials");
-        S3Client s3Client = S3Client.create();
+        var clientBuilder = S3Client.builder();
+
+        // Configure endpoint URL if provided (for LocalStack or custom S3 endpoints)
+        String endpointUrl = System.getenv("AWS_ENDPOINT_URL");
+        if (endpointUrl != null && !endpointUrl.isEmpty()) {
+          log.info("Configuring S3Client with custom endpoint: {}", endpointUrl);
+          clientBuilder.endpointOverride(java.net.URI.create(endpointUrl));
+          clientBuilder.forcePathStyle(true);
+        }
+
+        S3Client s3Client = clientBuilder.build();
         return new S3Util(s3Client);
       }
     } catch (Exception e) {

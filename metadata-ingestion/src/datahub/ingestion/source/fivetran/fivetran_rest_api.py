@@ -7,9 +7,12 @@ from urllib3.util import Retry
 from datahub.ingestion.source.fivetran.config import (
     FivetranAPIConfig,
 )
-from datahub.ingestion.source.fivetran.response_models import FivetranConnectionDetails
+from datahub.ingestion.source.fivetran.response_models import (
+    FivetranConnectionDetails,
+)
 
 logger = logging.getLogger(__name__)
+
 
 # Retry configuration constants
 RETRY_MAX_TIMES = 3
@@ -57,9 +60,44 @@ class FivetranAPIClient:
     def get_connection_details_by_id(
         self, connection_id: str
     ) -> FivetranConnectionDetails:
-        """Get details for a specific connection."""
-        connection_details = self._session.get(
+        """
+        Get details for a specific connection from the Fivetran API.
+
+        Args:
+            connection_id: The Fivetran connection ID to fetch details for.
+
+        Returns:
+            FivetranConnectionDetails: The parsed connection details.
+
+        Raises:
+            requests.HTTPError: If the API returns an HTTP error.
+            ValueError: If the response is missing required fields or has non-success code.
+            pydantic.ValidationError: If the response data doesn't match the expected schema.
+        """
+        response = self._session.get(
             f"{self.config.base_url}/v1/connections/{connection_id}",
             timeout=self.config.request_timeout_sec,
         )
-        return FivetranConnectionDetails(**connection_details.json().get("data", {}))
+
+        # Check for HTTP errors and raise HTTPError if needed
+        response.raise_for_status()
+
+        response_json = response.json()
+
+        # Check response code at top level (e.g., "code": "Success")
+        response_code = response_json.get("code")
+        if response_code and response_code.lower() != "success":
+            raise ValueError(
+                f"Response code is not 'success' for connection_id {connection_id}. "
+                f"Code: {response_code}, Response: {response_json}"
+            )
+
+        data = response_json.get("data", {})
+        if not data:
+            raise ValueError(
+                f"Response missing 'data' field for connection_id {connection_id}"
+            )
+
+        # Use Pydantic's built-in parsing with extra="ignore" configured in the model
+        # ValidationError will propagate if required fields are missing
+        return FivetranConnectionDetails(**data)

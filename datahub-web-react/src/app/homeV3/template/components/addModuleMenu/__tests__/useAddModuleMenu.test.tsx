@@ -478,8 +478,9 @@ describe('useAddModuleMenu', () => {
             const defaultChildren = getChildren(result.current.items?.[1]);
 
             // Dataset should have: columns
-            expect(defaultChildren).toHaveLength(1);
+            expect(defaultChildren).toHaveLength(2);
             expect(defaultChildren[0]).toHaveProperty('key', 'columns');
+            expect(defaultChildren[1]).toHaveProperty('key', 'lineage');
         });
     });
 

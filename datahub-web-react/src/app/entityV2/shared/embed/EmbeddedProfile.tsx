@@ -7,7 +7,7 @@ import { EntityContext } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
 import useGetDataForProfile from '@app/entityV2/shared/containers/profile/useGetDataForProfile';
-import { getFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/utils';
+import { useFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/utils';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
 import { TabContextType } from '@app/entityV2/shared/types';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
@@ -52,15 +52,17 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
     const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, refetch } =
         useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
 
+    // Only compute sidebar tabs when entityData.type is available to avoid unnecessary work during loading.
+    const sidebarTabs = entityData?.type ? entityRegistry.getSidebarTabs(entityData.type) : [];
+    const sidebarSections = entityData?.type ? entityRegistry.getSidebarSections(entityData.type) : [];
+
+    const finalTabs = useFinalSidebarTabs(sidebarTabs, sidebarSections, TabContextType.CHROME_SIDEBAR);
+
     if (entityData?.exists === false) {
         return <NonExistentEntityPage />;
     }
 
     if (!entityData?.type) return null;
-
-    const sidebarTabs = entityRegistry.getSidebarTabs(entityData.type);
-    const sidebarSections = entityRegistry.getSidebarSections(entityData.type);
-    const finalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections);
 
     return (
         <EntityContext.Provider

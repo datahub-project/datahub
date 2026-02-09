@@ -1421,7 +1421,9 @@ class GlueSource(StatefulIngestionSourceBase):
                     # Not common, but capturing counts here for reporting
                     self.report.num_dataset_to_dataset_edges_in_job += 1
 
-            for dataset_id, dataset_mce in zip(new_dataset_ids, new_dataset_mces):
+            for dataset_id, dataset_mce in zip(
+                new_dataset_ids, new_dataset_mces, strict=False
+            ):
                 yield MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
 
     def _extract_record(

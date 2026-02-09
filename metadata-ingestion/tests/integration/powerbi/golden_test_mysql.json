@@ -8,12 +8,14 @@
         "json": {
             "customProperties": {
                 "platform": "powerbi",
+                "env": "PROD",
                 "workspace": "Employees",
                 "workspace_id": "64ed5cad-7c10-4684-8180-826122881108",
                 "workspace_name": "Employees",
                 "workspace_type": "Workspace"
             },
-            "name": "Employees"
+            "name": "Employees",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -269,6 +271,22 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,EmployeeReport.employees_employees,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,pages.5e420b19-ee14-4bba-ab4b-1e1063847f37.ReportSection)",
     "changeType": "UPSERT",
@@ -486,6 +504,22 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,pages.5e420b19-ee14-4bba-ab4b-1e1063847f37.ReportSection)",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,pages.5e420b19-ee14-4bba-ab4b-1e1063847f37.ReportSection)",
+    "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
         "json": {
@@ -655,6 +689,22 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.5e420b19-ee14-4bba-ab4b-1e1063847f37)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
         }
     },
     "systemMetadata": {

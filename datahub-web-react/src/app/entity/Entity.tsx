@@ -104,6 +104,10 @@ export enum EntityCapabilityType {
      * Assigning an application to a entity
      */
     APPLICATIONS,
+    /**
+     * Related context documents for this entity
+     */
+    RELATED_DOCUMENTS,
 }
 
 /**

@@ -3,6 +3,7 @@ import React, { memo, useMemo } from 'react';
 import AssetsModule from '@app/entityV2/summary/modules/assets/AssetsModule';
 import ChildHierarchyModule from '@app/entityV2/summary/modules/childHierarchy/ChildHierarchyModule';
 import DataProductsModule from '@app/entityV2/summary/modules/dataProducts/DataProductsModule';
+import LineageModule from '@app/entityV2/summary/modules/lineage/LineageModule';
 import RelatedTermsModule from '@app/entityV2/summary/modules/relatedTerms/RelatedTermsModule';
 import ColumnsModule from '@app/entityV2/summary/modules/schemaTable/ColumnsModule';
 import ModuleErrorBoundary from '@app/homeV3/module/components/ModuleErrorBoundary';
@@ -35,6 +36,7 @@ function Module(props: ModuleProps) {
         if (module.properties.type === DataHubPageModuleType.DataProducts) return DataProductsModule;
         if (module.properties.type === DataHubPageModuleType.RelatedTerms) return RelatedTermsModule;
         if (module.properties.type === DataHubPageModuleType.Platforms) return PlatformsModule;
+        if (module.properties.type === DataHubPageModuleType.Lineage) return LineageModule;
         if (module.properties.type === DataHubPageModuleType.Columns) return ColumnsModule;
 
         // TODO: remove the sample large module once we have other modules to fill this out

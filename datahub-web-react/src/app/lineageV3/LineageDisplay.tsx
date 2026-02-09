@@ -30,7 +30,7 @@ export default function LineageDisplay({
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
     const [displayedMenuNode, setDisplayedMenuNode] = useState<string | null>(null);
 
-    const { fineGrainedLineage, flowNodes, flowEdges, resetPositions } = useComputeGraph();
+    const { fineGrainedLineage, flowNodes, flowEdges, resetPositions, levelsInfo, levelsMap } = useComputeGraph();
     const shownUrns = useMemo(
         () => flowNodes.filter((node) => node.type !== LINEAGE_FILTER_NODE_NAME).map((node) => node.id),
         [flowNodes],
@@ -105,7 +105,12 @@ export default function LineageDisplay({
                 refetchUrn,
             }}
         >
-            <LineageVisualization initialNodes={flowNodes} initialEdges={flowEdges} />
+            <LineageVisualization
+                initialNodes={flowNodes}
+                initialEdges={flowEdges}
+                levelsInfo={levelsInfo}
+                levelsMap={levelsMap ?? new Map()}
+            />
             <LineageSidebar />
         </LineageDisplayContext.Provider>
     );

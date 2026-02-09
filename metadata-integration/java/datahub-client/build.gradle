@@ -52,6 +52,8 @@ dependencies {
   testImplementation externalDependency.mockServerClient
   testImplementation externalDependency.testContainers
   testRuntimeOnly externalDependency.logbackClassic
+  // ASM for bytecode inspection in tests
+  testImplementation 'org.ow2.asm:asm:9.5'
 }
 
 task copyAvroSchemas {
@@ -93,6 +95,26 @@ test {
   dependsOn validatePythonEnv
   dependsOn tasks.getByPath(":metadata-ingestion:installDev")
   systemProperty 'python.venv.path', System.getProperty('python.venv.path', '../../../metadata-ingestion/venv')
+
+  // Disable parallel test execution for integration tests
+  maxParallelForks = 1
+
+  // Pass DataHub integration test environment variables
+  if (System.getenv('DATAHUB_SERVER')) {
+    environment 'DATAHUB_SERVER', System.getenv('DATAHUB_SERVER')
+  }
+  if (System.getenv('DATAHUB_TOKEN')) {
+    environment 'DATAHUB_TOKEN', System.getenv('DATAHUB_TOKEN')
+  }
+  if (System.getenv('ADMIN_USERNAME')) {
+    environment 'ADMIN_USERNAME', System.getenv('ADMIN_USERNAME')
+  }
+  if (System.getenv('ADMIN_PASSWORD')) {
+    environment 'ADMIN_PASSWORD', System.getenv('ADMIN_PASSWORD')
+  }
+
+  // Integration tests are skipped by BaseIntegrationTest.assumeTrue() when DATAHUB_SERVER is not set.
+  // This ensures regular builds are fast, while smoke tests (which set DATAHUB_SERVER) run all tests.
   finalizedBy jacocoTestReport
 }
 
