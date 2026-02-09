@@ -378,7 +378,9 @@ def extract_dbt_exposures(
         tags = [tag_prefix + tag for tag in tags]
 
         raw_type = exposure_node.get("type", "dashboard")
-        exposure_type: Literal["dashboard", "notebook", "ml", "application", "analysis"] = cast(
+        exposure_type: Literal[
+            "dashboard", "notebook", "ml", "application", "analysis"
+        ] = cast(
             Literal["dashboard", "notebook", "ml", "application", "analysis"],
             raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard",
         )

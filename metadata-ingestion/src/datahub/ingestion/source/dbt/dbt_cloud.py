@@ -925,7 +925,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         depends_on_nodes = depends_on if isinstance(depends_on, list) else []
 
         raw_type = exposure.get("exposureType", "dashboard")
-        exposure_type: Literal["dashboard", "notebook", "ml", "application", "analysis"] = cast(
+        exposure_type: Literal[
+            "dashboard", "notebook", "ml", "application", "analysis"
+        ] = cast(
             Literal["dashboard", "notebook", "ml", "application", "analysis"],
             raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard",
         )
