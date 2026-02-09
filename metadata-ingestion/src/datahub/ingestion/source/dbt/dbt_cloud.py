@@ -2,7 +2,7 @@ import logging
 from copy import deepcopy
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
 import requests
@@ -925,7 +925,10 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         depends_on_nodes = depends_on if isinstance(depends_on, list) else []
 
         raw_type = exposure.get("exposureType", "dashboard")
-        exposure_type = raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard"
+        exposure_type: Literal["dashboard", "notebook", "ml", "application", "analysis"] = cast(
+            Literal["dashboard", "notebook", "ml", "application", "analysis"],
+            raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard",
+        )
         raw_maturity = exposure.get("maturity")
         maturity = raw_maturity if raw_maturity in DBT_EXPOSURE_MATURITY else None
 

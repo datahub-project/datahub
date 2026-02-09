@@ -2,7 +2,7 @@ import dataclasses
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
 import requests
@@ -378,7 +378,10 @@ def extract_dbt_exposures(
         tags = [tag_prefix + tag for tag in tags]
 
         raw_type = exposure_node.get("type", "dashboard")
-        exposure_type = raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard"
+        exposure_type: Literal["dashboard", "notebook", "ml", "application", "analysis"] = cast(
+            Literal["dashboard", "notebook", "ml", "application", "analysis"],
+            raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard",
+        )
         raw_maturity = exposure_node.get("maturity")
         maturity = raw_maturity if raw_maturity in DBT_EXPOSURE_MATURITY else None
 
