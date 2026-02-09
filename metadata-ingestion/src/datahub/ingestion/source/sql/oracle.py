@@ -201,6 +201,10 @@ PROFILE_CANDIDATES_QUERY = """
     AND COALESCE(t.NUM_ROWS * t.AVG_ROW_LEN, 0) / (1024 * 1024 * 1024) < :table_size_limit
 """
 
+DB_NAME_QUERY = """
+    SELECT sys_context('USERENV','DB_NAME') FROM dual
+"""
+
 
 def _setup_oracle_compatibility() -> None:
     """
@@ -369,7 +373,7 @@ class OracleInspectorObjectWrapper:
         db_name = None
         try:
             db_name = self._inspector_instance.bind.execute(
-                sql.text("select sys_context('USERENV','DB_NAME') from dual")
+                sql.text(DB_NAME_QUERY)
             ).scalar()
             return str(db_name)
         except sqlalchemy.exc.DatabaseError as e:
@@ -1020,7 +1024,7 @@ class OracleSource(SQLAlchemySource):
                 # For ALL mode (regular inspector), query directly
                 try:
                     db_name_result = inspector.bind.execute(
-                        sql.text("select sys_context('USERENV','DB_NAME') from dual")
+                        sql.text(DB_NAME_QUERY)
                     ).scalar()
                     if db_name_result:
                         db_name = str(db_name_result)

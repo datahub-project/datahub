@@ -3,6 +3,7 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 
 import pytest
+import sqlalchemy.exc
 from pydantic import ValidationError
 from sqlalchemy.engine import Inspector
 
@@ -154,7 +155,10 @@ def test_oracle_get_db_name_with_service_name():
         assert db_name == "testdb"  # Should be normalized to lowercase
         mock_bind.execute.assert_called_once()
         call_args = mock_bind.execute.call_args
-        assert "sys_context" in str(call_args[0][0]).lower()
+        # Verify the exact SQL query is used
+        query_text = str(call_args[0][0]).upper()
+        assert "SYS_CONTEXT('USERENV','DB_NAME')" in query_text
+        assert "FROM DUAL" in query_text
         mock_dialect.normalize_name.assert_called_once_with("TESTDB")
 
 
@@ -197,6 +201,51 @@ def test_oracle_get_db_name_with_service_name_dba_mode():
         assert db_name == "testdb_dba"  # Should be normalized
         mock_inspector.get_db_name.assert_called_once()
         mock_dialect.normalize_name.assert_called_once_with("TESTDB_DBA")
+
+
+def test_oracle_get_db_name_database_error():
+    """Test error handling when Oracle database query fails."""
+    base_config = {
+        "username": "user",
+        "password": "password",
+        "host_port": "host:1521",
+        "service_name": "svc01",
+        "data_dictionary_mode": "ALL",
+    }
+
+    config = OracleConfig.parse_obj(base_config)
+    ctx = PipelineContext(run_id="test-oracle-db-error")
+
+    with patch("datahub.ingestion.source.sql.oracle.oracledb"):
+        source = OracleSource(config, ctx)
+
+        # Mock inspector with empty database in URL
+        mock_inspector = Mock()
+        mock_engine = Mock()
+        mock_url = Mock()
+        mock_url.database = None
+        mock_engine.url = mock_url
+        mock_inspector.engine = mock_engine
+
+        # Mock bind to raise DatabaseError
+        mock_bind = Mock()
+        mock_bind.execute.side_effect = sqlalchemy.exc.DatabaseError(
+            "Connection failed", None, None
+        )
+        mock_inspector.bind = mock_bind
+
+        # Mock dialect (even though we won't reach normalization)
+        mock_dialect = Mock()
+        mock_inspector.dialect = mock_dialect
+
+        # Test that get_db_name handles the error gracefully
+        db_name = source.get_db_name(mock_inspector)
+
+        # Should return empty string when query fails
+        assert db_name == ""
+        mock_bind.execute.assert_called_once()
+        # Normalization should not be called since query failed
+        mock_dialect.normalize_name.assert_not_called()
 
 
 class TestOracleInspectorObjectWrapper:
