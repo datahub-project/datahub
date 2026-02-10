@@ -178,27 +178,28 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 
 FROM add-code-slim AS final-slim
 
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
-    UV_LINK_MODE=copy uv pip install \
-        --build-constraint /metadata-ingestion/build-constraints.txt \
-        -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
+    UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
 
 FROM add-code-full AS final-full
 
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
     UV_LINK_MODE=copy uv pip install \
-        --build-constraint /metadata-ingestion/build-constraints.txt \
         -e "/metadata-ingestion/[all]" \
     && datahub --version
 
 FROM add-code-locked AS final-locked
 
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
 # Locked variant: minimal install with s3-slim, network will be blocked
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
-    UV_LINK_MODE=copy uv pip install \
-        --build-constraint /metadata-ingestion/build-constraints.txt \
-        -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
+    UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
     datahub --version
 
 # Block network access to PyPI in locked variant
@@ -281,6 +282,8 @@ RUN uv venv --python "$PYTHON_VERSION"
 # (e.g., spacy/blis which don't have pre-built musl wheels)
 FROM alpine-build AS install-slim-alpine
 
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
 COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
 
 ARG RELEASE_VERSION
@@ -289,15 +292,15 @@ RUN test -d /metadata-ingestion/src/datahub/metadata
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
     python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-RUN uv pip install \
-        --build-constraint /metadata-ingestion/build-constraints.txt \
-        -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
+RUN uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
     datahub --version
 
 
 # Build venv for locked Alpine variant
 FROM alpine-build AS install-locked-alpine
 
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
 COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
 
 ARG RELEASE_VERSION
@@ -306,9 +309,7 @@ RUN test -d /metadata-ingestion/src/datahub/metadata
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
     python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-RUN uv pip install \
-        --build-constraint /metadata-ingestion/build-constraints.txt \
-        -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
+RUN uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
     datahub --version
 
 

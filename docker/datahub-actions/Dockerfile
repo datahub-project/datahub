@@ -307,6 +307,8 @@ COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/action
 
 USER datahub
 
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION" # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
@@ -315,9 +317,7 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 
 # Install metadata-ingestion with base extras (network enabled, can install more at runtime)
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
-  uv pip install \
-    --build-constraint /metadata-ingestion/build-constraints.txt \
-    -e '/metadata-ingestion/[base,s3,gcs,abs]'
+  uv pip install -e '/metadata-ingestion/[base,s3,gcs,abs]'
 
 # Install datahub-actions with all extras
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
@@ -363,6 +363,8 @@ COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/action
 
 USER datahub
 
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
@@ -371,9 +373,7 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 
 # Install metadata-ingestion with SLIM extras (no PySpark, network enabled for flexibility)
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
-  uv pip install \
-    --build-constraint /metadata-ingestion/build-constraints.txt \
-    -e '/metadata-ingestion/[base,s3-slim,gcs-slim,abs-slim]'
+  uv pip install -e '/metadata-ingestion/[base,s3-slim,gcs-slim,abs-slim]'
 
 # Install datahub-actions with all extras
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
@@ -555,15 +555,15 @@ COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 
 USER datahub
 
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
     python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 && \
     python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-RUN uv pip install \
-        --build-constraint /metadata-ingestion/build-constraints.txt \
-        -e '/metadata-ingestion/[base,s3-slim,gcs-slim,abs-slim]' && \
+RUN uv pip install -e '/metadata-ingestion/[base,s3-slim,gcs-slim,abs-slim]' && \
     uv pip install -e '/datahub-actions/[kafka,executor,slack,teams,tag_propagation,term_propagation,doc_propagation]'
 
 
