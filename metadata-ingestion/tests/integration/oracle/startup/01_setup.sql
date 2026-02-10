@@ -8,6 +8,9 @@
 -- Connect to the PDB first
 ALTER SESSION SET CONTAINER = XEPDB1;
 
+-- Grant DBMS_SHARED_POOL access to SYSTEM for query pinning in V$SQL tests
+GRANT EXECUTE ON SYS.DBMS_SHARED_POOL TO SYSTEM;
+
 -- Create test schemas (local users in PDB)
 CREATE USER hr_schema IDENTIFIED BY hr123;
 CREATE USER sales_schema IDENTIFIED BY sales123;

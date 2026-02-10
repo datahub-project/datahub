@@ -77,31 +77,34 @@ WHERE e.salary > 15000;
 
 ALTER SESSION SET CURRENT_SCHEMA = SALES_SCHEMA;
 
--- Sales schema queries
-SELECT order_id, customer_name, order_date FROM sales_schema.orders WHERE order_date > SYSDATE - 30;
-SELECT product_name, unit_price FROM sales_schema.products WHERE unit_price > 100;
+-- Sales schema queries (fixed to match actual schema)
+SELECT order_id, customer_id, order_date FROM sales_schema.orders WHERE order_date > SYSDATE - 30;
+SELECT order_id, line_item_id, unit_price FROM sales_schema.order_items WHERE unit_price > 100;
 
--- Create order analytics table with cross-schema lineage
+-- Create order analytics table with cross-schema lineage (fixed column names)
 CREATE TABLE sales_schema.order_analytics AS
-SELECT o.order_id, o.customer_name, o.order_date, o.order_total, 
+SELECT o.order_id, o.customer_id, o.order_date, o.order_total, 
        e.first_name || ' ' || e.last_name as sales_rep_name
 FROM sales_schema.orders o
 JOIN hr_schema.employees e ON o.sales_rep_id = e.employee_id;
 
--- Insert aggregated data showing table-to-table lineage
-CREATE TABLE sales_schema.daily_revenue AS SELECT order_date, SUM(order_total) as total_revenue FROM sales_schema.orders GROUP BY order_date;
+-- Create empty table for aggregated data showing table-to-table lineage
+CREATE TABLE sales_schema.daily_revenue (
+    order_date DATE NOT NULL,
+    total_revenue NUMBER(10,2)
+);
 
+-- Insert aggregated data (this INSERT will be captured in V$SQL for lineage)
 INSERT INTO sales_schema.daily_revenue (order_date, total_revenue)
 SELECT order_date, SUM(order_total)
 FROM sales_schema.orders
-WHERE order_date = TRUNC(SYSDATE)
 GROUP BY order_date;
 
 -- COMMIT to ensure queries are flushed to V$SQL
 COMMIT;
 
 ALTER SESSION SET CURRENT_SCHEMA = ANALYTICS_SCHEMA;
-SELECT dept_name, total_sales FROM analytics_schema.dept_sales_summary WHERE total_sales > 50000;
+SELECT refresh_date, description FROM analytics_schema.simple_analytics WHERE record_count > 0;
 
 -- Pin test DML queries in V$SQL to ensure they're available for query usage testing
 SET SERVEROUTPUT ON;

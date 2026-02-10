@@ -2517,6 +2517,174 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_analytics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:85df9745bc7f810e0552bf34641e36b7"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-query-usage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_analytics,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "order_analytics",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "sales_schema.order_analytics",
+                        "platform": "urn:li:dataPlatform:oracle",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "order_id",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMBER(12, 0)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "customer_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMBER(6, 0)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "order_date",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "DATE",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "order_total",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMBER(8, 2)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "sales_rep_name",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(46 CHAR)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-query-usage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_analytics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-query-usage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_analytics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0",
+                    "urn": "urn:li:container:3a4688ecc84119d5c1b3004e4a9a63b0"
+                },
+                {
+                    "id": "urn:li:container:85df9745bc7f810e0552bf34641e36b7",
+                    "urn": "urn:li:container:85df9745bc7f810e0552bf34641e36b7"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-query-usage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.daily_revenue,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -2588,7 +2756,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "NUMBER",
+                                "nativeDataType": "NUMBER(10, 2)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -3753,7 +3921,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1770660161000,
+                        "time": 1770715934000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD)",
@@ -3928,11 +4096,11 @@
             },
             "source": "SYSTEM",
             "created": {
-                "time": 1770660161000,
+                "time": 1770715934000,
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1770660161000,
+                "time": 1770715934000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -4235,12 +4403,12 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1770660161000,
+                        "time": 1770715934000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:c6d7587e99489c31bba8fa50569c6f401a51f6e99e5028126c2d98426cabb2a6"
+                    "query": "urn:li:query:f822c94d494458a4a68fae9d4741d1bd451b1e0be68f54a7dc1bfffb103bb046"
                 }
             ],
             "fineGrainedLineages": [
@@ -4255,7 +4423,7 @@
                     ],
                     "transformOperation": "COPY: \"ORDERS\".\"ORDER_DATE\" AS \"ORDER_DATE\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:c6d7587e99489c31bba8fa50569c6f401a51f6e99e5028126c2d98426cabb2a6"
+                    "query": "urn:li:query:f822c94d494458a4a68fae9d4741d1bd451b1e0be68f54a7dc1bfffb103bb046"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -4268,7 +4436,7 @@
                     ],
                     "transformOperation": "SQL: SUM(\"ORDERS\".\"ORDER_TOTAL\") AS \"_col_1\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:c6d7587e99489c31bba8fa50569c6f401a51f6e99e5028126c2d98426cabb2a6"
+                    "query": "urn:li:query:f822c94d494458a4a68fae9d4741d1bd451b1e0be68f54a7dc1bfffb103bb046"
                 }
             ]
         }
@@ -4281,23 +4449,23 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:c6d7587e99489c31bba8fa50569c6f401a51f6e99e5028126c2d98426cabb2a6",
+    "entityUrn": "urn:li:query:f822c94d494458a4a68fae9d4741d1bd451b1e0be68f54a7dc1bfffb103bb046",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
             "customProperties": {},
             "statement": {
-                "value": "INSERT INTO sales_schema.daily_revenue (\n  order_date,\n  total_revenue\n)\nSELECT\n  order_date,\n  SUM(order_total)\nFROM sales_schema.orders\nWHERE\n  order_date = TRUNC(SYSDATE, 'DD')\nGROUP BY\n  order_date",
+                "value": "INSERT INTO sales_schema.daily_revenue (\n  order_date,\n  total_revenue\n)\nSELECT\n  order_date,\n  SUM(order_total)\nFROM sales_schema.orders\nGROUP BY\n  order_date",
                 "language": "SQL"
             },
             "source": "SYSTEM",
             "created": {
-                "time": 1770660161000,
+                "time": 1770715934000,
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1770660161000,
+                "time": 1770715934000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -4310,7 +4478,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:c6d7587e99489c31bba8fa50569c6f401a51f6e99e5028126c2d98426cabb2a6",
+    "entityUrn": "urn:li:query:f822c94d494458a4a68fae9d4741d1bd451b1e0be68f54a7dc1bfffb103bb046",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -4345,7 +4513,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:c6d7587e99489c31bba8fa50569c6f401a51f6e99e5028126c2d98426cabb2a6",
+    "entityUrn": "urn:li:query:f822c94d494458a4a68fae9d4741d1bd451b1e0be68f54a7dc1bfffb103bb046",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -4678,7 +4846,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:c6d7587e99489c31bba8fa50569c6f401a51f6e99e5028126c2d98426cabb2a6",
+    "entityUrn": "urn:li:query:f822c94d494458a4a68fae9d4741d1bd451b1e0be68f54a7dc1bfffb103bb046",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
