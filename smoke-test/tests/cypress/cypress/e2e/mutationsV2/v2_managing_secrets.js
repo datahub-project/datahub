@@ -1,3 +1,5 @@
+import { hasOperationName } from "../utils";
+
 function setFeatureFlags() {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
@@ -6,6 +8,7 @@ function setFeatureFlags() {
         res.body.data.appConfig.featureFlags.themeV2Enabled = true;
         res.body.data.appConfig.featureFlags.themeV2Default = true;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = true;
+        res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
       });
     } else if (hasOperationName(req, "getMe")) {
       req.alias = "gqlgetMeQuery";

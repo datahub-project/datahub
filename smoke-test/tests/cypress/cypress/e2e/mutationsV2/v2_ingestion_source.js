@@ -1,3 +1,5 @@
+import { hasOperationName } from "../utils";
+
 const number = Math.floor(Math.random() * 100000);
 const accound_id = `account${number}`;
 const warehouse_id = `warehouse${number}`;
@@ -14,6 +16,7 @@ function setFeatureFlags() {
         res.body.data.appConfig.featureFlags.themeV2Enabled = true;
         res.body.data.appConfig.featureFlags.themeV2Default = true;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = true;
+        res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
       });
     } else if (hasOperationName(req, "getMe")) {
       req.alias = "gqlgetMeQuery";
@@ -30,7 +33,7 @@ describe("ingestion source creation flow", () => {
   });
   it("create a ingestion source using ui, verify ingestion source details saved correctly, remove ingestion source", () => {
     // Go to ingestion page, create a snowflake source
-    cy.loginWithCredentials();
+    cy.login();
     cy.skipIntroducePage();
     cy.goToIngestionPage();
     cy.get('[data-node-key="Sources"]').click();
