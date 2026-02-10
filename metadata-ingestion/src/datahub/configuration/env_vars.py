@@ -145,6 +145,53 @@ def get_sentry_environment() -> str:
 
 
 # ============================================================================
+# Report Configuration
+# ============================================================================
+
+
+def get_report_log_failures() -> Optional[bool]:
+    """Control failure logging behavior.
+
+    Returns:
+        None: Use caller's default (existing behavior - some log, some don't)
+        True: Force log ALL failures to console
+        False: Suppress ALL failure logging
+    """
+    val = os.getenv("DATAHUB_REPORT_LOG_FAILURES", "").lower()
+    if val == "true":
+        return True
+    elif val == "false":
+        return False
+    return None
+
+
+def get_report_log_warnings() -> Optional[bool]:
+    """Control warning logging behavior.
+
+    Returns:
+        None: Use caller's default (existing behavior - some log, some don't)
+        True: Force log ALL warnings to console
+        False: Suppress ALL warning logging
+    """
+    val = os.getenv("DATAHUB_REPORT_LOG_WARNINGS", "").lower()
+    if val == "true":
+        return True
+    elif val == "false":
+        return False
+    return None
+
+
+def get_report_failure_sample_size() -> int:
+    """Maximum number of failure entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_FAILURE_SAMPLE_SIZE", "10"))
+
+
+def get_report_warning_sample_size() -> int:
+    """Maximum number of warning entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_WARNING_SAMPLE_SIZE", "10"))
+
+
+# ============================================================================
 # Logging & Debug Configuration
 # ============================================================================
 

@@ -9,11 +9,23 @@ from typing import Dict, List, Optional
 from pydantic import Field, model_validator
 
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig, HiddenFromDocs
+from datahub.configuration.env_vars import (
+    get_report_failure_sample_size,
+    get_report_log_failures,
+    get_report_log_warnings,
+    get_report_warning_sample_size,
+)
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.recording.config import RecordingConfig
 from datahub.ingestion.sink.file import FileSinkConfig
 
 logger = logging.getLogger(__name__)
+
+# Report config defaults from environment variables
+_DEFAULT_REPORT_FAILURE_SAMPLE_SIZE = get_report_failure_sample_size()
+_DEFAULT_REPORT_WARNING_SAMPLE_SIZE = get_report_warning_sample_size()
+_DEFAULT_REPORT_LOG_FAILURES = get_report_log_failures()
+_DEFAULT_REPORT_LOG_WARNINGS = get_report_log_warnings()
 
 # Sentinel value used to check if the run ID is the default value.
 DEFAULT_RUN_ID = "__DEFAULT_RUN_ID"
@@ -37,6 +49,44 @@ class FailureLoggingConfig(ConfigModel):
         description="When enabled, records that fail to be sent to DataHub are logged to disk",
     )
     log_config: Optional[FileSinkConfig] = None
+
+
+class ReportConfig(ConfigModel):
+    """Configuration for ingestion report behavior.
+
+    All settings can be overridden via environment variables:
+    - DATAHUB_REPORT_FAILURE_SAMPLE_SIZE
+    - DATAHUB_REPORT_WARNING_SAMPLE_SIZE
+    - DATAHUB_REPORT_LOG_FAILURES
+    - DATAHUB_REPORT_LOG_WARNINGS
+    """
+
+    failure_sample_size: int = Field(
+        default=_DEFAULT_REPORT_FAILURE_SAMPLE_SIZE,
+        description="Maximum number of failure entries to include in the report. "
+        "Uses reservoir sampling to fairly represent failures when there are more than this limit. "
+        "Can also be set via DATAHUB_REPORT_FAILURE_SAMPLE_SIZE env var.",
+        ge=1,
+    )
+    warning_sample_size: int = Field(
+        default=_DEFAULT_REPORT_WARNING_SAMPLE_SIZE,
+        description="Maximum number of warning entries to include in the report. "
+        "Uses reservoir sampling to fairly represent warnings when there are more than this limit. "
+        "Can also be set via DATAHUB_REPORT_WARNING_SAMPLE_SIZE env var.",
+        ge=1,
+    )
+    log_failures: Optional[bool] = Field(
+        default=_DEFAULT_REPORT_LOG_FAILURES,
+        description="Control failure logging: None (default) uses caller's choice, "
+        "True forces all failures to log, False suppresses all logging. "
+        "Can also be set via DATAHUB_REPORT_LOG_FAILURES env var (true/false/unset).",
+    )
+    log_warnings: Optional[bool] = Field(
+        default=_DEFAULT_REPORT_LOG_WARNINGS,
+        description="Control warning logging: None (default) uses caller's choice, "
+        "True forces all warnings to log, False suppresses all logging. "
+        "Can also be set via DATAHUB_REPORT_LOG_WARNINGS env var (true/false/unset).",
+    )
 
 
 class FlagsConfig(ConfigModel):
@@ -94,6 +144,7 @@ class PipelineConfig(ConfigModel):
     datahub_api: Optional[DatahubClientConfig] = None
     pipeline_name: Optional[str] = None
     failure_log: FailureLoggingConfig = FailureLoggingConfig()
+    report: ReportConfig = ReportConfig()
     recording: Optional[RecordingConfig] = Field(
         default=None,
         description="Recording configuration for debugging ingestion runs.",

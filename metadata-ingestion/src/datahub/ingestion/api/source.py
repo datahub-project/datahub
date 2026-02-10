@@ -112,14 +112,24 @@ class StructuredLogEntry(Report):
 
 @dataclass
 class StructuredLogs(Report):
+    # Configuration for sample sizes and verbose logging.
+    failure_sample_size: int = 10
+    warning_sample_size: int = 10
+    # None = use caller's log param, True = force log, False = suppress log
+    log_failures: Optional[bool] = None
+    log_warnings: Optional[bool] = None
+
     # Underlying Lossy Dicts to Capture Errors, Warnings, and Infos.
     _entries: Dict[StructuredLogLevel, LossyDict[str, StructuredLogEntry]] = field(
-        default_factory=lambda: {
-            StructuredLogLevel.ERROR: LossyDict(10),
-            StructuredLogLevel.WARN: LossyDict(10),
+        init=False
+    )
+
+    def __post_init__(self) -> None:
+        self._entries = {
+            StructuredLogLevel.ERROR: LossyDict(self.failure_sample_size),
+            StructuredLogLevel.WARN: LossyDict(self.warning_sample_size),
             StructuredLogLevel.INFO: LossyDict(10),
         }
-    )
 
     def report_log(
         self,
@@ -155,13 +165,24 @@ class StructuredLogs(Report):
         if context and len(context) > _MAX_CONTEXT_STRING_LENGTH:
             context = f"{context[:_MAX_CONTEXT_STRING_LENGTH]} ..."
 
+        # Determine if we should log based on config and caller's log param.
+        # Config values: None = use caller's log param, True = force, False = suppress
+        config_value = (
+            self.log_failures
+            if level == StructuredLogLevel.ERROR
+            else self.log_warnings
+            if level == StructuredLogLevel.WARN
+            else None
+        )
+        should_log = log if config_value is None else config_value
+
         log_content = f"{message} => {context}" if context else message
         if title:
             log_content = f"{title}: {log_content}"
         if exc:
             log_content += f"{log_content}: {exc}"
 
-            if log:
+            if should_log:
                 logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
                 logger.log(
                     level=logging.DEBUG,
@@ -175,7 +196,7 @@ class StructuredLogs(Report):
                 context = f"{context} {type(exc)}: {exc}"
             else:
                 context = f"{type(exc)}: {exc}"
-        elif log:
+        elif should_log:
             logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
 
         if log_key not in entries:
@@ -194,7 +215,14 @@ class StructuredLogs(Report):
 
     def _get_of_type(self, level: StructuredLogLevel) -> LossyList[StructuredLogEntry]:
         entries = self._entries[level]
-        result: LossyList[StructuredLogEntry] = LossyList()
+        # Use the appropriate sample size for the output LossyList
+        if level == StructuredLogLevel.ERROR:
+            max_elements = self.failure_sample_size
+        elif level == StructuredLogLevel.WARN:
+            max_elements = self.warning_sample_size
+        else:
+            max_elements = 10  # INFO uses default
+        result: LossyList[StructuredLogEntry] = LossyList(max_elements=max_elements)
         for log in entries.values():
             result.append(log)
         result.set_total(entries.total_key_count())
@@ -220,7 +248,14 @@ class SourceReport(ExamplesReport, IngestionStageReport):
     events_produced_per_sec: int = 0
     num_input_fields_filtered: int = 0
 
-    _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
+    # Configuration for report behavior - these get passed to StructuredLogs.
+    failure_sample_size: int = 10
+    warning_sample_size: int = 10
+    # None = use caller's log param, True = force log, False = suppress log
+    log_failures: Optional[bool] = None
+    log_warnings: Optional[bool] = None
+
+    _structured_logs: StructuredLogs = field(init=False)
 
     @property
     def warnings(self) -> LossyList[StructuredLogEntry]:
@@ -378,6 +413,37 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         super().__post_init__()
         self.start_time = datetime.datetime.now()
         self.running_time: datetime.timedelta = datetime.timedelta(seconds=0)
+        self._init_structured_logs()
+
+    def _init_structured_logs(self) -> None:
+        """Initialize or reinitialize StructuredLogs with current config."""
+        self._structured_logs = StructuredLogs(
+            failure_sample_size=self.failure_sample_size,
+            warning_sample_size=self.warning_sample_size,
+            log_failures=self.log_failures,
+            log_warnings=self.log_warnings,
+        )
+
+    def configure_report(
+        self,
+        failure_sample_size: int = 10,
+        warning_sample_size: int = 10,
+        log_failures: Optional[bool] = None,
+        log_warnings: Optional[bool] = None,
+    ) -> None:
+        """Configure report settings.
+
+        Updates the logging settings in place without losing existing entries.
+        """
+        self.failure_sample_size = failure_sample_size
+        self.warning_sample_size = warning_sample_size
+        self.log_failures = log_failures
+        self.log_warnings = log_warnings
+        # Update existing structured logs in place to preserve any entries
+        self._structured_logs.failure_sample_size = failure_sample_size
+        self._structured_logs.warning_sample_size = warning_sample_size
+        self._structured_logs.log_failures = log_failures
+        self._structured_logs.log_warnings = log_warnings
 
     def as_obj(self) -> dict:
         return {

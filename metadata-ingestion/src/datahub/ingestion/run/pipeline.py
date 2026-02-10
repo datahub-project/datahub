@@ -224,6 +224,14 @@ class Pipeline:
                     )
             logger.info(f"Sink configured successfully. {self.sink.configured()}")
 
+            # Configure sink report with pipeline's report settings.
+            self.sink.get_report().configure_report(
+                failure_sample_size=self.config.report.failure_sample_size,
+                warning_sample_size=self.config.report.warning_sample_size,
+                log_failures=self.config.report.log_failures,
+                log_warnings=self.config.report.log_warnings,
+            )
+
             if self.graph is None and isinstance(self.sink, DatahubRestSink):
                 with _add_init_error_context("setup default datahub client"):
                     self.graph = self.sink.emitter.to_graph()
@@ -252,6 +260,14 @@ class Pipeline:
                         f"Source type {self.source_type} ({source_class}) configured"
                     )
                     logger.info("Source configured successfully.")
+
+                # Configure source report with pipeline's report settings.
+                self.source.get_report().configure_report(
+                    failure_sample_size=self.config.report.failure_sample_size,
+                    warning_sample_size=self.config.report.warning_sample_size,
+                    log_failures=self.config.report.log_failures,
+                    log_warnings=self.config.report.log_warnings,
+                )
 
                 extractor_type = self.config.source.extractor
                 with _add_init_error_context(

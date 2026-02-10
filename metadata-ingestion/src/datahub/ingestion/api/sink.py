@@ -20,19 +20,73 @@ logger = logging.getLogger(__name__)
 class SinkReport(Report):
     total_records_written: int = 0
     records_written_per_second: int = 0
-    warnings: LossyList[Any] = field(default_factory=LossyList)
-    failures: LossyList[Any] = field(default_factory=LossyList)
     start_time: datetime.datetime = field(default_factory=datetime.datetime.now)
     current_time: Optional[datetime.datetime] = None
     total_duration_in_seconds: Optional[float] = None
 
+    # Configuration for report behavior.
+    failure_sample_size: int = 10
+    warning_sample_size: int = 10
+    # None = use caller's log param, True = force log, False = suppress log
+    log_failures: Optional[bool] = None
+    log_warnings: Optional[bool] = None
+
+    warnings: LossyList[Any] = field(init=False)
+    failures: LossyList[Any] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self._init_lossy_lists()
+
+    def _init_lossy_lists(self) -> None:
+        """Initialize or reinitialize the LossyList fields based on current config."""
+        self.warnings = LossyList(max_elements=self.warning_sample_size)
+        self.failures = LossyList(max_elements=self.failure_sample_size)
+
+    def configure_report(
+        self,
+        failure_sample_size: int = 10,
+        warning_sample_size: int = 10,
+        log_failures: Optional[bool] = None,
+        log_warnings: Optional[bool] = None,
+    ) -> None:
+        """Configure report settings.
+
+        Updates settings in place. Only reinitializes LossyLists if they're empty,
+        to avoid losing any entries that were already recorded.
+        """
+        self.failure_sample_size = failure_sample_size
+        self.warning_sample_size = warning_sample_size
+        self.log_failures = log_failures
+        self.log_warnings = log_warnings
+        # Only reinitialize if no entries yet, to preserve existing data
+        if not self.failures and not self.warnings:
+            self._init_lossy_lists()
+
+    def _should_log(self, log_param: bool, config_value: Optional[bool]) -> bool:
+        """Determine if we should log based on caller's param and config.
+
+        Args:
+            log_param: The caller's log parameter
+            config_value: The configured log setting (None/True/False)
+
+        Returns:
+            True if should log, False otherwise
+        """
+        if config_value is None:
+            return log_param  # Use caller's choice
+        return config_value  # Config overrides (True=force, False=suppress)
+
     def report_record_written(self, record_envelope: RecordEnvelope) -> None:
         self.total_records_written += 1
 
-    def report_warning(self, info: Any) -> None:
+    def report_warning(self, info: Any, log: bool = False) -> None:
+        if self._should_log(log, self.log_warnings):
+            logger.warning(f"Sink warning: {info}")
         self.warnings.append(info)
 
-    def report_failure(self, info: Any) -> None:
+    def report_failure(self, info: Any, log: bool = False) -> None:
+        if self._should_log(log, self.log_failures):
+            logger.error(f"Sink failure: {info}")
         self.failures.append(info)
 
     def compute_stats(self) -> None:
