@@ -5,7 +5,8 @@
 By default, the connector samples 100 items from each table to infer the schema. You can adjust this using the `schema_sampling_size` configuration option if you need more comprehensive schema coverage:
 
 ```yml
-schema_sampling_size: 500  # Sample 500 items instead of default 100
+# Sample 500 items instead of default 100
+schema_sampling_size: 500
 ```
 
 ### Using `include_table_item` config
