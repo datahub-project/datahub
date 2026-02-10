@@ -16,7 +16,7 @@ POSTGRES_PORT = 5433
 
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig):
-    return pytestconfig.rootpath / "tests/integration/sql_profiler/postgres"
+    return pytestconfig.rootpath / "tests/integration/sqlalchemy_profiler/postgres"
 
 
 @pytest.fixture(scope="module")

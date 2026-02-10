@@ -7,7 +7,9 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine
 
-from datahub.ingestion.source.sql_profiler.stats_calculator import StatsCalculator
+from datahub.ingestion.source.sqlalchemy_profiler.stats_calculator import (
+    StatsCalculator,
+)
 
 
 @pytest.fixture
@@ -140,7 +142,7 @@ class TestStatsCalculator:
             assert unique_count == 4
 
     @patch(
-        "datahub.ingestion.source.sql_profiler.database_handlers.DatabaseHandlers.get_approx_unique_count_expr"
+        "datahub.ingestion.source.sqlalchemy_profiler.database_handlers.DatabaseHandlers.get_approx_unique_count_expr"
     )
     def test_get_column_unique_count_approx(
         self, mock_approx, sqlite_engine, test_table

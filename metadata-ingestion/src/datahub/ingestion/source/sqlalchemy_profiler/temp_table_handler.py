@@ -5,7 +5,7 @@ import uuid
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
     )
 

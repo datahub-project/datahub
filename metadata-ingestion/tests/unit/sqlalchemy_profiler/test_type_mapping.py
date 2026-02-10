@@ -2,7 +2,7 @@
 
 import sqlalchemy.types as sa_types
 
-from datahub.ingestion.source.sql_profiler.type_mapping import (
+from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import (
     ProfilerDataType,
     _get_column_types_to_ignore,
     get_column_profiler_type,

@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 from typing_extensions import Concatenate
 
-from datahub.ingestion.source.sql_profiler.database_handlers import (
+from datahub.ingestion.source.sqlalchemy_profiler.database_handlers import (
     DatabaseHandlers,
 )
 

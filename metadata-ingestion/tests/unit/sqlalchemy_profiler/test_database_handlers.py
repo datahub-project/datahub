@@ -6,7 +6,9 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, create_engine
 
-from datahub.ingestion.source.sql_profiler.database_handlers import DatabaseHandlers
+from datahub.ingestion.source.sqlalchemy_profiler.database_handlers import (
+    DatabaseHandlers,
+)
 
 
 @pytest.fixture

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union, cast
 from sqlalchemy import create_engine, inspect
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
     )
 from sqlalchemy.engine.reflection import Inspector
@@ -209,7 +209,7 @@ class GenericProfiler:
     def get_profiler_instance(
         self, db_name: Optional[str] = None
     ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
-        from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
             SQLAlchemyProfiler,
         )
 

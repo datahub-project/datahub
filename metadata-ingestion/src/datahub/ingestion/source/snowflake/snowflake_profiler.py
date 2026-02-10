@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Unio
 from snowflake.sqlalchemy import snowdialect
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
     )
 from sqlalchemy import create_engine, inspect
@@ -138,7 +138,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
     def get_profiler_instance(
         self, db_name: Optional[str] = None
     ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
-        from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
             SQLAlchemyProfiler,
         )
 

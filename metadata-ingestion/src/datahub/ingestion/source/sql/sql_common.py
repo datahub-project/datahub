@@ -130,7 +130,7 @@ if TYPE_CHECKING:
         DatahubGEProfiler,
         GEProfilerRequest,
     )
-    from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
     )
 
@@ -1312,7 +1312,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self, inspector: Inspector
     ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
         # Import custom profiler first (no GE dependency)
-        from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
             SQLAlchemyProfiler,
         )
 

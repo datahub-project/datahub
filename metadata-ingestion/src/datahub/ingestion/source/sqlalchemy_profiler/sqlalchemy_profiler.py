@@ -29,15 +29,15 @@ from datahub.ingestion.source.profiling.common import (
     convert_to_cardinality,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.ingestion.source.sql_profiler.stats_calculator import (
+from datahub.ingestion.source.sqlalchemy_profiler.stats_calculator import (
     StatsCalculator,
 )
-from datahub.ingestion.source.sql_profiler.temp_table_handler import (
+from datahub.ingestion.source.sqlalchemy_profiler.temp_table_handler import (
     create_athena_temp_table,
     create_bigquery_temp_table,
     drop_temp_table,
 )
-from datahub.ingestion.source.sql_profiler.type_mapping import (
+from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import (
     NORMALIZE_TYPE_PATTERN,
     ProfilerDataType,
     _get_column_types_to_ignore,
@@ -762,7 +762,7 @@ class SQLAlchemyProfiler:
                     )
 
                     # Check for tags to ignore sampling
-                    from datahub.ingestion.source.sql_profiler.utils import (
+                    from datahub.ingestion.source.sqlalchemy_profiler.utils import (
                         _get_columns_to_ignore_sampling,
                     )
 

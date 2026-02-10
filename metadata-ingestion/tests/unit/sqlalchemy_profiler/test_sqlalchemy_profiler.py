@@ -9,7 +9,7 @@ from sqlalchemy import Column, Float, Integer, String, create_engine
 from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
 
@@ -116,7 +116,9 @@ class TestSQLAlchemyProfiler:
         assert not profiler._should_ignore_column(sa.String(), "name")
         assert not profiler._should_ignore_column(sa.Float(), "value")
 
-    @patch("datahub.ingestion.source.sql_profiler.sqlalchemy_profiler.StatsCalculator")
+    @patch(
+        "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.StatsCalculator"
+    )
     def test_generate_single_profile(
         self, mock_stats_calc, profiler, sqlite_engine, test_table
     ):
