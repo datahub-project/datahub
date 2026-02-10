@@ -10,6 +10,8 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertNotNull;
 
 import com.datahub.authentication.group.GroupService;
+import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
+import com.linkedin.datahub.graphql.types.dataplatforminstance.DataPlatformInstanceType;
 import com.linkedin.datahub.graphql.types.knowledge.DocumentType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
@@ -25,6 +27,8 @@ public class DocumentResolversTest {
 
   private DocumentService mockService;
   private DocumentType mockType;
+  private DataPlatformType mockDataPlatformType;
+  private DataPlatformInstanceType mockDataPlatformInstanceType;
   private EntityClient mockEntityClient;
   private EntityService mockEntityService;
   private GraphClient mockGraphClient;
@@ -37,6 +41,8 @@ public class DocumentResolversTest {
   public void setUp() {
     mockService = mock(DocumentService.class);
     mockType = mock(DocumentType.class);
+    mockDataPlatformType = mock(DataPlatformType.class);
+    mockDataPlatformInstanceType = mock(DataPlatformInstanceType.class);
     mockEntityClient = mock(EntityClient.class);
     mockEntityService = mock(EntityService.class);
     mockGraphClient = mock(GraphClient.class);
@@ -49,6 +55,8 @@ public class DocumentResolversTest {
             mockService,
             (List) java.util.Collections.emptyList(),
             mockType,
+            mockDataPlatformType,
+            mockDataPlatformInstanceType,
             mockEntityClient,
             mockEntityService,
             mockGraphClient,

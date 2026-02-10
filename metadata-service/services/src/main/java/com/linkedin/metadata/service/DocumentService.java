@@ -66,13 +66,11 @@ public class DocumentService {
    * @param subTypes optional list of document sub-types
    * @param title optional title
    * @param source optional source information for externally ingested documents
-   * @param state optional initial state (UNPUBLISHED or PUBLISHED). If draftOfUrn is provided, this
-   *     will be forced to UNPUBLISHED.
+   * @param state optional initial state (UNPUBLISHED or PUBLISHED)
    * @param text the document text text
    * @param parentDocumentUrn optional parent document URN
    * @param relatedAssetUrns optional list of related asset URNs
    * @param relatedDocumentUrns optional list of related document URNs
-   * @param draftOfUrn optional URN of the published document this is a draft of
    * @param settings optional document settings (defaults to showInGlobalContext=true if not
    *     provided)
    * @param actorUrn the URN of the user creating the document
@@ -91,7 +89,6 @@ public class DocumentService {
       @Nullable Urn parentDocumentUrn,
       @Nullable List<Urn> relatedAssetUrns,
       @Nullable List<Urn> relatedDocumentUrns,
-      @Nullable Urn draftOfUrn,
       @Nullable com.linkedin.knowledge.DocumentSettings settings,
       @Nonnull Urn actorUrn)
       throws Exception {
@@ -108,12 +105,7 @@ public class DocumentService {
           String.format("Document with ID %s already exists", documentId));
     }
 
-    // Validate: if draftOfUrn is provided, state must be UNPUBLISHED (or null, which will default
-    // to UNPUBLISHED)
-    if (draftOfUrn != null && state == com.linkedin.knowledge.DocumentState.PUBLISHED) {
-      throw new IllegalArgumentException(
-          "Cannot create a draft document with PUBLISHED state. Draft documents must be UNPUBLISHED.");
-    }
+    // Draft feature is not yet implemented in the UI
 
     // Create document key
     final DocumentKey documentKey = new DocumentKey();
@@ -147,23 +139,13 @@ public class DocumentService {
     lastModified.setActor(actorUrn);
     documentInfo.setLastModified(lastModified);
 
-    // Set status (default to UNPUBLISHED if not provided, force UNPUBLISHED if draftOfUrn is set)
+    // Set status (default to UNPUBLISHED if not provided)
     final com.linkedin.knowledge.DocumentStatus status =
         new com.linkedin.knowledge.DocumentStatus();
     com.linkedin.knowledge.DocumentState finalState =
         state != null ? state : com.linkedin.knowledge.DocumentState.UNPUBLISHED;
-    if (draftOfUrn != null) {
-      finalState = com.linkedin.knowledge.DocumentState.UNPUBLISHED;
-    }
     status.setState(finalState);
     documentInfo.setStatus(status, SetMode.IGNORE_NULL);
-
-    // Set draftOf if provided
-    if (draftOfUrn != null) {
-      final com.linkedin.knowledge.DraftOf draftOf = new com.linkedin.knowledge.DraftOf();
-      draftOf.setDocument(draftOfUrn);
-      documentInfo.setDraftOf(draftOf, SetMode.IGNORE_NULL);
-    }
 
     // Embed relationships inside DocumentInfo before serializing
     if (parentDocumentUrn != null) {
@@ -867,138 +849,5 @@ public class DocumentService {
 
     // No parent found, no cycle
     return false;
-  }
-
-  /**
-   * Merge a draft document into its parent (the document it is a draft of). This copies the draft's
-   * content to the published document and optionally deletes the draft.
-   *
-   * @param opContext the operation context
-   * @param draftUrn the URN of the draft document to merge
-   * @param deleteDraft whether to delete the draft after merging (default: true)
-   * @param actorUrn the URN of the user performing the merge
-   * @throws Exception if merge fails
-   */
-  public void mergeDraftIntoParent(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn draftUrn,
-      boolean deleteDraft,
-      @Nonnull Urn actorUrn)
-      throws Exception {
-
-    // Get draft document info
-    DocumentInfo draftInfo = getDocumentInfo(opContext, draftUrn);
-    if (draftInfo == null) {
-      throw new IllegalArgumentException(
-          String.format("Draft document %s does not exist", draftUrn));
-    }
-
-    // Verify this is a draft
-    if (!draftInfo.hasDraftOf()) {
-      throw new IllegalArgumentException(
-          String.format("Document %s is not a draft (draftOf field not set)", draftUrn));
-    }
-
-    // Get the published document URN
-    Urn publishedUrn = draftInfo.getDraftOf().getDocument();
-
-    // Get published document info
-    DocumentInfo publishedInfo = getDocumentInfo(opContext, publishedUrn);
-    if (publishedInfo == null) {
-      throw new IllegalArgumentException(
-          String.format("Published document %s does not exist", publishedUrn));
-    }
-
-    // Copy draft content to published document (preserving published document's draftOf=null)
-    publishedInfo.setContents(draftInfo.getContents());
-    if (draftInfo.hasTitle()) {
-      publishedInfo.setTitle(draftInfo.getTitle());
-    }
-    if (draftInfo.hasRelatedAssets()) {
-      publishedInfo.setRelatedAssets(draftInfo.getRelatedAssets(), SetMode.IGNORE_NULL);
-    }
-    if (draftInfo.hasRelatedDocuments()) {
-      publishedInfo.setRelatedDocuments(draftInfo.getRelatedDocuments(), SetMode.IGNORE_NULL);
-    }
-    if (draftInfo.hasParentDocument()) {
-      publishedInfo.setParentDocument(draftInfo.getParentDocument(), SetMode.IGNORE_NULL);
-    }
-
-    // Update lastModified
-    final AuditStamp now = new AuditStamp();
-    now.setTime(System.currentTimeMillis());
-    now.setActor(actorUrn);
-    publishedInfo.setLastModified(now);
-
-    // Ensure draftOf is NOT set on published document
-    publishedInfo.setDraftOf(null, SetMode.REMOVE_IF_NULL);
-
-    // Ingest updated published document
-    final MetadataChangeProposal infoProposal = new MetadataChangeProposal();
-    infoProposal.setEntityUrn(publishedUrn);
-    infoProposal.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    infoProposal.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-    infoProposal.setChangeType(ChangeType.UPSERT);
-    infoProposal.setAspect(GenericRecordUtils.serializeAspect(publishedInfo));
-    entityClient.ingestProposal(opContext, infoProposal, false);
-
-    log.debug("Merged draft {} into published document {}", draftUrn, publishedUrn);
-
-    // Delete draft if requested
-    if (deleteDraft) {
-      deleteDocument(opContext, draftUrn);
-      log.debug("Deleted draft document {} after merge", draftUrn);
-    }
-  }
-
-  /**
-   * Get all draft documents for a published document.
-   *
-   * @param opContext the operation context
-   * @param publishedDocumentUrn the URN of the published document
-   * @param start starting offset
-   * @param count number of results to return
-   * @return SearchResult containing draft documents
-   * @throws Exception if search fails
-   */
-  @Nonnull
-  public SearchResult getDraftDocuments(
-      @Nonnull OperationContext opContext, @Nonnull Urn publishedDocumentUrn, int start, int count)
-      throws Exception {
-
-    // Build filter for draftOf = publishedDocumentUrn
-    final Filter filter = buildDraftOfFilter(publishedDocumentUrn);
-
-    // Search for draft documents
-    return entityClient.search(
-        opContext.withSearchFlags(flags -> flags.setFulltext(false)),
-        Constants.DOCUMENT_ENTITY_NAME,
-        "*",
-        filter,
-        null, // sort criterion
-        start,
-        count);
-  }
-
-  /** Build a filter to find documents that are drafts of a specific document. */
-  public static Filter buildDraftOfFilter(@Nonnull Urn draftOfUrn) {
-    final Criterion criterion = new Criterion();
-    criterion.setField("draftOf");
-    criterion.setValue(draftOfUrn.toString());
-    criterion.setCondition(Condition.EQUAL);
-
-    final CriterionArray criterionArray = new CriterionArray();
-    criterionArray.add(criterion);
-
-    final ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
-    conjunctiveCriterion.setAnd(criterionArray);
-
-    final ConjunctiveCriterionArray conjunctiveCriterionArray = new ConjunctiveCriterionArray();
-    conjunctiveCriterionArray.add(conjunctiveCriterion);
-
-    final Filter filter = new Filter();
-    filter.setOr(conjunctiveCriterionArray);
-
-    return filter;
   }
 }

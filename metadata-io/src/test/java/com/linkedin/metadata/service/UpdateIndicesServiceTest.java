@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -25,6 +26,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -59,7 +61,9 @@ public class UpdateIndicesServiceTest {
             entitySearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5");
+            "MD5",
+            null, // No semantic search config for this test
+            mock(IndexConvention.class));
 
     UpdateIndicesV3Strategy v3Strategy =
         new UpdateIndicesV3Strategy(

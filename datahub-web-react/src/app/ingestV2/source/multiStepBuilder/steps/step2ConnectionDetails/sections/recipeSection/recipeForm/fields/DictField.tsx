@@ -3,12 +3,12 @@ import { Form } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { FieldLabel } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FieldLabel';
 import { RecipeFormItem } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/RecipeFormItem';
 import { AddItemButton } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/AddItemButton';
 import { HelperText } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/HelperText';
 import { RemoveIcon } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/RemoveIcon';
 import { CommonFieldProps } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/types';
+import { FieldLabel } from '@app/sharedV2/forms/FieldLabel';
 
 const ListWrapper = styled.div`
     display: flex;
@@ -39,6 +39,7 @@ const ErrorWrapper = styled.div`
 `;
 
 export function DictField({ field }: CommonFieldProps) {
+    const helper = field.helper ?? field.tooltip;
     return (
         <Form.List name={field.name} rules={field.rules || undefined}>
             {(fields, { add, remove }, { errors }) => (
@@ -77,7 +78,7 @@ export function DictField({ field }: CommonFieldProps) {
                     <AddItemButton onClick={() => add()} text={field.buttonLabel} />
 
                     {errors.length > 0 && <ErrorWrapper>{errors}</ErrorWrapper>}
-                    {field.helper && <HelperText text={field.helper} />}
+                    {helper && <HelperText text={helper} />}
                 </ListWrapper>
             )}
         </Form.List>

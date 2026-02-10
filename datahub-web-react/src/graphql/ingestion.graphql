@@ -20,6 +20,12 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
     }
 }
 
+query getNoOfIngestionSources($input: ListIngestionSourcesInput!) {
+    listIngestionSources(input: $input) {
+        total
+    }
+}
+
 query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
     ingestionSource(urn: $urn) {
         ...ingestionSourceFields

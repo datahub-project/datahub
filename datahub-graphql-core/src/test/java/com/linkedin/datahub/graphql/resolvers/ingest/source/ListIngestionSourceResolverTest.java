@@ -119,9 +119,7 @@ public class ListIngestionSourceResolverTest {
 
     List<SortCriterion> result = resolver.buildSortCriteria(null);
 
-    assertEquals(1, result.size());
-    assertEquals("type", result.get(0).getField());
-    assertEquals(SortOrder.ASCENDING, result.get(0).getOrder());
+    assertEquals(0, result.size());
   }
 
   @Test

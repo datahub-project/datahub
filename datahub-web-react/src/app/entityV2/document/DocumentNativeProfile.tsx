@@ -1,14 +1,19 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { BookOpen, ListBullets } from '@phosphor-icons/react';
+import { ListBullets } from '@phosphor-icons/react';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 
 import EntityContext from '@app/entity/shared/EntityContext';
 import { DocumentSummaryTab } from '@app/entityV2/document/summary/DocumentSummaryTab';
+import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
-import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarSectionsTab';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import { useFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/utils';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { TabContextType } from '@app/entityV2/shared/types';
 import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
 import CompactContext from '@app/shared/CompactContext';
 import { EntityHead } from '@app/shared/EntityHead';
@@ -82,6 +87,30 @@ const sidebarSections = [
     {
         component: SidebarOwnerSection,
     },
+    {
+        component: SidebarTagsSection,
+        display: {
+            visible: () => true,
+        },
+    },
+    {
+        component: SidebarGlossaryTermsSection,
+        display: {
+            visible: () => true,
+        },
+    },
+    {
+        component: SidebarDomainSection,
+        display: {
+            visible: () => true,
+        },
+    },
+    {
+        component: DataProductSection,
+        display: {
+            visible: () => true,
+        },
+    },
 ];
 
 /**
@@ -92,23 +121,7 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
     const [sidebarClosed, setSidebarClosed] = useState(true); // Start closed by default
     const isCompact = useContext(CompactContext);
 
-    if (!document) {
-        return null;
-    }
-
     const sidebarTabs = [
-        {
-            name: 'Summary',
-            component: EntitySidebarSectionsTab,
-            icon: BookOpen,
-            properties: {
-                sections: sidebarSections,
-            },
-            display: {
-                visible: () => true,
-                enabled: () => true,
-            },
-        },
         {
             name: 'Properties',
             component: PropertiesTab,
@@ -119,6 +132,16 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
             },
         },
     ];
+
+    const finalSidebarTabs = useFinalSidebarTabs(
+        sidebarTabs,
+        sidebarSections,
+        isCompact ? TabContextType.SEARCH_SIDEBAR : TabContextType.PROFILE_SIDEBAR,
+    );
+
+    if (!document) {
+        return null;
+    }
 
     // Wrap refetch for EntityContext
     const wrappedRefetch = async () => {
@@ -141,7 +164,7 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                     lineage: undefined,
                 }}
             >
-                <EntityProfileSidebar tabs={sidebarTabs} type="card" focused width={400} />
+                <EntityProfileSidebar tabs={finalSidebarTabs} type="card" focused width={400} />
             </EntityContext.Provider>
         );
     }
@@ -186,7 +209,7 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                                 </ContentCard>
                             </ContentWrapper>
                         </ContentArea>
-                        <EntityProfileSidebar tabs={sidebarTabs} type="card" width={400} />
+                        <EntityProfileSidebar tabs={finalSidebarTabs} type="card" width={400} />
                     </Container>
                 </EntitySidebarContext.Provider>
             </PageTemplateProvider>

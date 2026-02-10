@@ -266,3 +266,181 @@ def test_construct_chart_cll_aggregate_mode(requests_mock):
     assert field_types["sum_usd"] == "SUM"
     assert field_types["amount_usd"] == "NUMERIC"
     assert field_types["creation_time"] == "TIMESTAMP"
+
+
+class TestDatabaseAlias:
+    """Tests for database_alias configuration that transforms database names in URNs."""
+
+    def test_apply_database_alias_transforms_urn(self, requests_mock):
+        """Test that _apply_database_alias_to_urn transforms database names correctly."""
+        login_url = "http://localhost:8088/api/v1/security/login"
+        requests_mock.post(
+            login_url, json={"access_token": "dummy_token"}, status_code=200
+        )
+        requests_mock.get(
+            "http://localhost:8088/api/v1/dashboard/", json={}, status_code=200
+        )
+        for entity in ["dataset", "dashboard", "chart"]:
+            requests_mock.get(
+                f"http://localhost:8088/api/v1/{entity}/related/owners",
+                json={},
+                status_code=200,
+            )
+
+        config = SupersetConfig.model_validate(
+            {"database_alias": {"ClickHouse Cloud": "fingerprint"}}
+        )
+        source = SupersetSource(
+            ctx=PipelineContext(run_id="test-database-alias"), config=config
+        )
+
+        # Test exact case match
+        urn = "urn:li:dataset:(urn:li:dataPlatform:clickhouse,ClickHouse Cloud.schema.table,PROD)"
+        transformed = source._apply_database_alias_to_urn(urn)
+        assert (
+            transformed
+            == "urn:li:dataset:(urn:li:dataPlatform:clickhouse,fingerprint.schema.table,PROD)"
+        )
+
+        # Test lowercase match (SQL parser may lowercase names)
+        urn_lower = "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhouse cloud.schema.table,PROD)"
+        transformed_lower = source._apply_database_alias_to_urn(urn_lower)
+        assert (
+            transformed_lower
+            == "urn:li:dataset:(urn:li:dataPlatform:clickhouse,fingerprint.schema.table,PROD)"
+        )
+
+    def test_apply_database_alias_no_match_returns_unchanged(self, requests_mock):
+        """Test that URNs without matching database names are returned unchanged."""
+        login_url = "http://localhost:8088/api/v1/security/login"
+        requests_mock.post(
+            login_url, json={"access_token": "dummy_token"}, status_code=200
+        )
+        requests_mock.get(
+            "http://localhost:8088/api/v1/dashboard/", json={}, status_code=200
+        )
+        for entity in ["dataset", "dashboard", "chart"]:
+            requests_mock.get(
+                f"http://localhost:8088/api/v1/{entity}/related/owners",
+                json={},
+                status_code=200,
+            )
+
+        config = SupersetConfig.model_validate(
+            {"database_alias": {"ClickHouse Cloud": "fingerprint"}}
+        )
+        source = SupersetSource(
+            ctx=PipelineContext(run_id="test-database-alias"), config=config
+        )
+
+        urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,other_db.schema.table,PROD)"
+        transformed = source._apply_database_alias_to_urn(urn)
+        assert transformed == urn
+
+    def test_apply_database_alias_empty_config(self, requests_mock):
+        """Test that empty database_alias config returns URN unchanged."""
+        login_url = "http://localhost:8088/api/v1/security/login"
+        requests_mock.post(
+            login_url, json={"access_token": "dummy_token"}, status_code=200
+        )
+        requests_mock.get(
+            "http://localhost:8088/api/v1/dashboard/", json={}, status_code=200
+        )
+        for entity in ["dataset", "dashboard", "chart"]:
+            requests_mock.get(
+                f"http://localhost:8088/api/v1/{entity}/related/owners",
+                json={},
+                status_code=200,
+            )
+
+        source = SupersetSource(
+            ctx=PipelineContext(run_id="test-database-alias"),
+            config=SupersetConfig(),
+        )
+
+        urn = "urn:li:dataset:(urn:li:dataPlatform:clickhouse,ClickHouse Cloud.schema.table,PROD)"
+        transformed = source._apply_database_alias_to_urn(urn)
+        assert transformed == urn
+
+    def test_database_alias_in_virtual_dataset_lineage(self, requests_mock):
+        """Test that database_alias is applied to SQL-parsed upstream URNs."""
+        login_url = "http://localhost:8088/api/v1/security/login"
+        requests_mock.post(
+            login_url, json={"access_token": "dummy_token"}, status_code=200
+        )
+        requests_mock.get(
+            "http://localhost:8088/api/v1/dashboard/", json={}, status_code=200
+        )
+        for entity in ["dataset", "dashboard", "chart"]:
+            requests_mock.get(
+                f"http://localhost:8088/api/v1/{entity}/related/owners",
+                json={},
+                status_code=200,
+            )
+
+        config = SupersetConfig.model_validate(
+            {"database_alias": {"ClickHouse Cloud": "fingerprint"}}
+        )
+        source = SupersetSource(
+            ctx=PipelineContext(run_id="test-database-alias"), config=config
+        )
+
+        sql = "SELECT id, name FROM source_table"
+        parsed_query_object = create_lineage_sql_parsed_result(
+            query=sql,
+            default_db="ClickHouse Cloud",
+            platform="clickhouse",
+            platform_instance=None,
+            env="PROD",
+        )
+
+        datasource_urn = "urn:li:dataset:(urn:li:dataPlatform:preset,fingerprint.schema.my_dataset,PROD)"
+        lineage = source.generate_virtual_dataset_lineage(
+            parsed_query_object=parsed_query_object,
+            datasource_urn=datasource_urn,
+        )
+
+        # Verify upstream URNs have been transformed
+        upstream_urns = [u.dataset for u in lineage.upstreams]
+        assert len(upstream_urns) == 1
+        # The URN should have "fingerprint" not "ClickHouse Cloud" or "clickhouse cloud"
+        assert "fingerprint" in upstream_urns[0]
+        assert "ClickHouse Cloud" not in upstream_urns[0]
+        assert "clickhouse cloud" not in upstream_urns[0]
+
+    def test_get_datasource_urn_applies_database_alias(self, requests_mock):
+        """Test that get_datasource_urn_from_id applies database_alias."""
+        login_url = "http://localhost:8088/api/v1/security/login"
+        requests_mock.post(
+            login_url, json={"access_token": "dummy_token"}, status_code=200
+        )
+        requests_mock.get(
+            "http://localhost:8088/api/v1/dashboard/", json={}, status_code=200
+        )
+        for entity in ["dataset", "dashboard", "chart"]:
+            requests_mock.get(
+                f"http://localhost:8088/api/v1/{entity}/related/owners",
+                json={},
+                status_code=200,
+            )
+
+        config = SupersetConfig.model_validate(
+            {"database_alias": {"ClickHouse Cloud": "fingerprint"}}
+        )
+        source = SupersetSource(
+            ctx=PipelineContext(run_id="test-database-alias"), config=config
+        )
+
+        dataset_response = {
+            "result": {
+                "schema": "analytics",
+                "table_name": "metrics",
+                "database": {"id": 1, "database_name": "ClickHouse Cloud"},
+            }
+        }
+
+        urn = source.get_datasource_urn_from_id(dataset_response, "clickhouse")
+        # URN should contain "fingerprint" not "ClickHouse Cloud"
+        assert "fingerprint" in urn
+        assert "ClickHouse Cloud" not in urn
+        assert "analytics.metrics" in urn

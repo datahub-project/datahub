@@ -1,5 +1,10 @@
+import re
 from datetime import datetime
 from unittest.mock import MagicMock
+
+from datahub.ingestion.source.redshift.redshift_schema import (
+    REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE,
+)
 
 
 def mock_temp_table_cursor(cursor: MagicMock) -> None:
@@ -93,4 +98,27 @@ query_vs_cursor_mocker = {
 
 
 def mock_cursor(cursor: MagicMock, query: str) -> None:
-    query_vs_cursor_mocker[query](cursor=cursor)
+    # Strip query tag if present (format: "-- partner: DataHub -v <version>\n")
+    # This allows the mock to work with both tagged and untagged queries.
+    # Use the shared template as the canonical source of the prefix, then strip
+    # the entire first line (including the version + newline).
+    tag_prefix = REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE.split("{version}", 1)[0]
+    query_without_tag = re.sub(
+        r"^" + re.escape(tag_prefix) + r"[^\n]+\n",
+        "",
+        query,
+        count=1,
+    )
+
+    # Prefer matching the untagged query (our fixtures are stored untagged),
+    # but fall back to the original string for compatibility.
+    query_key = (
+        query_without_tag if query_without_tag in query_vs_cursor_mocker else query
+    )
+    if query_key not in query_vs_cursor_mocker:
+        raise KeyError(
+            "Query not found in mock dictionary. "
+            f"Query (first 200 chars): {query[:200]}..."
+        )
+
+    query_vs_cursor_mocker[query_key](cursor=cursor)

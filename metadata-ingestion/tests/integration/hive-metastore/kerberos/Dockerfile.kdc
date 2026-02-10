@@ -1,0 +1,11 @@
+# Custom KDC image that initializes keytabs on startup
+FROM gcavalcante8808/krb5-server:latest
+
+# Copy scripts
+COPY init-keytabs.sh /init-keytabs.sh
+COPY start-kdc.sh /start-kdc.sh
+
+RUN chmod +x /init-keytabs.sh /start-kdc.sh
+
+# Override the entrypoint to use our custom startup
+ENTRYPOINT ["/start-kdc.sh"]

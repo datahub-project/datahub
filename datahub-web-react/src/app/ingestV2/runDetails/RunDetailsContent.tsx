@@ -55,9 +55,10 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
                 executionUrn: urn,
                 executionStatus: status || 'UNKNOWN',
                 viewedSection: tab,
+                sourceType: data?.executionRequest?.source?.type,
             });
         },
-        [result, urn, status],
+        [result, urn, status, data?.executionRequest?.source?.type],
     );
 
     const selectTab = (tab: TabType) => {

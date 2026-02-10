@@ -282,6 +282,7 @@ def default_query_results(  # noqa: C901
                 "IS_ICEBERG": "YES" if tbl_idx == 1 else "NO",
                 "IS_DYNAMIC": "YES" if tbl_idx == 2 else "NO",
                 "IS_HYBRID": "YES" if tbl_idx == 3 else "NO",
+                "RETENTION_TIME": 1,
             }
             for tbl_idx in range(1, num_tables + 1)
         ]

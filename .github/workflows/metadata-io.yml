@@ -86,6 +86,34 @@ jobs:
             **/build/test-results/test/**
             **/junit.*.xml
             !**/binary/**
+      - name: Send failed test metrics to PostHog
+        if: failure()
+        continue-on-error: true
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+        run: |
+          if [ -z "$POSTHOG_API_KEY" ]; then
+            echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
+            exit 0
+          fi
+
+          TEMP_DIR=$(mktemp -d)
+          mkdir -p "$TEMP_DIR/test-results"
+          find . -name "*.xml" -path "*/build/test-results/*" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+          find . -name "junit.*.xml" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+
+          python3 .github/scripts/send_failed_tests_to_posthog.py \
+            --input-dir "$TEMP_DIR/test-results" \
+            --posthog-api-key "$POSTHOG_API_KEY" \
+            --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
+            --repository "${{ github.repository }}" \
+            --workflow-name "${{ github.workflow }}" \
+            --branch "${{ github.head_ref || github.ref_name }}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}"
+
+          rm -rf "$TEMP_DIR"
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
       - name: Upload coverage to Codecov

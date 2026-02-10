@@ -12,7 +12,8 @@ record DocumentSource {
    * The type of the source (e.g., "Confluence", "Notion", "Google Docs", "SharePoint", "Slack")
    */
   @Searchable = {
-    "queryByDefault": false
+    "fieldType": "KEYWORD",
+    "queryByDefault": false,
   }
   sourceType: enum DocumentSourceType {
     /**
@@ -30,6 +31,7 @@ record DocumentSource {
    * URL to the external source where this document originated
    */
   @Searchable = {
+    "fieldType": "KEYWORD",
     "queryByDefault": false
   }
   externalUrl: optional string
@@ -38,6 +40,7 @@ record DocumentSource {
    * Unique identifier in the external system. Searchable in case we need to find ingested docs via filtering.
    */
   @Searchable = {
+    "fieldType": "KEYWORD",
     "queryByDefault": false
   }
   externalId: optional string

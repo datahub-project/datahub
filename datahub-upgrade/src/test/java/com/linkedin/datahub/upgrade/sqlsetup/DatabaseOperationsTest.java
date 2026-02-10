@@ -85,7 +85,8 @@ public class DatabaseOperationsTest {
   public void testPostgresCreateCdcUserSql() {
     String result = postgresOps.createCdcUserSql("cdcuser", "cdcpass");
     assertTrue(result.contains("CREATE USER \"cdcuser\""));
-    assertTrue(result.contains("ALTER USER \"cdcuser\" WITH REPLICATION"));
+    // ALTER USER WITH REPLICATION moved to grantCdcPrivilegesSql()
+    assertTrue(!result.contains("ALTER USER"));
     // Verify the IF NOT EXISTS comparison is against the username (not password)
     assertTrue(result.contains("rolname = 'cdcuser'"));
   }
@@ -117,6 +118,8 @@ public class DatabaseOperationsTest {
     assertNotNull(statements);
     assertTrue(statements.size() > 0);
     String allStatements = String.join(" ", statements);
+    // Verify ALTER USER WITH REPLICATION is now in grants (moved from createCdcUserSql)
+    assertTrue(allStatements.contains("ALTER USER \"cdcuser\" WITH REPLICATION"));
     assertTrue(allStatements.contains("GRANT CONNECT ON DATABASE \"testdb\" TO \"cdcuser\""));
     assertTrue(allStatements.contains("CREATE PUBLICATION dbz_publication"));
   }
