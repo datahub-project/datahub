@@ -277,6 +277,25 @@ source:
 
 For additional configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file in the Helm chart repository.
 
+### Update Kubernetes Deployment
+
+To update your Kubernetes deployment (e.g., to deploy a new image version or modify configuration), you'll need to upgrade your existing Helm release. This process involves upgrading the Helm release with any new parameters while preserving your existing parameters.
+
+1. **Upgrade Helm release**
+
+```bash
+# Update Helm repository
+helm repo update acryl
+
+# Upgrade your existing Helm release
+helm upgrade \
+  --reuse-values \
+  --set <key>="<value>" \ # if any new options need to be set
+  acryl-executor-worker acryl/datahub-executor-worker
+```
+
+For configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file in the Helm chart repository.
+
 ## Checking Remote Executor status
 
 Once you have successfully deployed the Executor in your environment, DataHub will automatically begin reporting Executor Status in the UI:
