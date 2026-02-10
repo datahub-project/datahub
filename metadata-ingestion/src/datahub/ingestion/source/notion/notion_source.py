@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Type, Union
@@ -359,6 +360,36 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.stateful_ingestion and self.config.stateful_ingestion.enabled:
             self._initialize_state_tracking()
 
+        # Validate embedding configuration
+        if self.config.embedding.provider is not None:
+            self._validate_embedding_config()
+
+    def _validate_embedding_config(self) -> None:
+        """Validate embedding config with clear warnings (non-blocking).
+
+        Design: Embedding failures don't block ingestion, but users should
+        know upfront if credentials are missing.
+        """
+        if self.config.embedding.provider == "bedrock":
+            has_creds = bool(os.environ.get("AWS_ACCESS_KEY_ID"))
+            has_profile = bool(os.environ.get("AWS_PROFILE"))
+            has_config = Path.home().joinpath(".aws", "credentials").exists()
+
+            if not (has_creds or has_profile or has_config):
+                logger.warning(
+                    "\n" + "=" * 80 + "\n"
+                    "WARNING: AWS Bedrock embeddings configured but credentials not detected.\n"
+                    "\n"
+                    "Embedding generation will likely fail for all documents.\n"
+                    "Documents will still be ingested, but semantic search won't work.\n"
+                    "\n"
+                    "Configure AWS credentials via:\n"
+                    "  - Environment: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY\n"
+                    "  - Credentials file: ~/.aws/credentials\n"
+                    "  - AWS_PROFILE environment variable\n"
+                    "  - IAM instance profile (if on EC2)\n" + "=" * 80
+                )
+
     def _patch_notion_client_for_is_locked(self) -> None:
         """Monkeypatch unstructured-ingest's Page class to support is_locked field.
 
@@ -683,6 +714,122 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 f"Failed to apply DatabasesEndpoint query monkeypatch: {e}. "
                 "May encounter 'super' object has no attribute 'query' errors."
             )
+
+    def _monkeypatch_syncblock_from_dict(self) -> None:
+        """Monkeypatch unstructured-ingest to handle synced blocks correctly.
+
+        ROOT CAUSE: unstructured-ingest v0.7.2 has TWO bugs with synced blocks:
+
+        1. SyncBlock.from_dict() dispatcher logic is backwards:
+           - Checks `if "synced_from" in data:` which is ALWAYS True
+           - Should check if synced_from VALUE is not null
+
+        2. Notion API structure mismatch:
+           - Original blocks (synced_from=null): May not have children in initial fetch
+           - Reference blocks (synced_from={block_id}): Point to original, no children
+
+        Notion API format:
+        - Original synced block: {"synced_from": null, "children": [...]}
+        - Reference synced block: {"synced_from": {"block_id": "..."}}
+
+        WORKAROUND: Patch SyncBlock.from_dict() dispatcher to:
+        1. Check if synced_from VALUE is not null (reference block)
+        2. Handle missing children gracefully for original blocks
+
+        LIMITATION: If children are not fetched for original blocks, content will
+        be missing. Full support requires fetching children separately via Notion API.
+        """
+        try:
+            from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
+                DuplicateSyncedBlock,
+                OriginalSyncedBlock,
+                SyncBlock,
+            )
+
+            # Capture report in closure for use in monkeypatch
+            report = self.report
+
+            # Track if synced blocks are encountered for reporting
+            synced_blocks_encountered = False
+
+            def patched_sync_block_from_dict(cls: Type[Any], data: dict) -> Any:
+                nonlocal synced_blocks_encountered
+
+                # Check if synced_from VALUE is not null (reference block)
+                synced_from_value = data.get("synced_from")
+
+                if synced_from_value is not None:
+                    # Reference block pointing to original synced block
+                    # Pass the synced_from object (contains block_id)
+                    return DuplicateSyncedBlock.from_dict(synced_from_value)
+
+                # synced_from is null - this is an original synced block
+                # Children may not be present in initial listing (fetched separately)
+                children = data.get("children", [])
+
+                if not children and not synced_blocks_encountered:
+                    logger.warning(
+                        "Encountered synced blocks during ingestion. "
+                        "Synced block content will be skipped due to unstructured-ingest v0.7.2 limitation. "
+                        "Pages will be ingested but synced block content will be missing."
+                    )
+                    report.report_warning(
+                        title="Synced Blocks Limitation",
+                        message="Pages with synced blocks were encountered during ingestion. "
+                        "The pages were ingested successfully, but synced block content is missing. "
+                        "This is a known limitation of the current connector version due to unstructured-ingest v0.7.2 compatibility.",
+                    )
+                    synced_blocks_encountered = True
+
+                return OriginalSyncedBlock(synced_from=None, children=children)
+
+            SyncBlock.from_dict = classmethod(patched_sync_block_from_dict)
+            logger.info(
+                "Applied monkeypatch to SyncBlock for synced blocks compatibility (original + reference)"
+            )
+
+        except ImportError as e:
+            logger.warning(f"SyncBlock class not found - skipping monkeypatch: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to apply SyncBlock monkeypatch: {e}")
+
+    @staticmethod
+    def _monkeypatch_numbered_list_item_new_fields():
+        """Monkeypatch NumberedListItem to support new Notion API fields.
+
+        TEMPORARY FIX: Notion API now returns:
+        - list_start_index: Starting number (e.g., start at 2)
+        - list_format: Format style ('numbers', 'letters', 'roman')
+
+        These fields aren't supported in unstructured-ingest 0.7.2.
+        """
+        try:
+            from unstructured_ingest.processes.connectors.notion.types.blocks import (
+                NumberedListItem,
+            )
+
+            original_from_dict = NumberedListItem.from_dict.__func__
+
+            def patched_from_dict(cls: Type[Any], data: dict) -> Any:
+                data_copy = data.copy()
+                # Filter new fields that may appear in the numbered_list_item dict contents.
+                # Note: Block.from_dict extracts data["numbered_list_item"] and passes it here,
+                # so 'data' is the contents of numbered_list_item, not the full block structure.
+                data_copy.pop("list_start_index", None)
+                data_copy.pop("list_format", None)
+                return original_from_dict(cls, data_copy)
+
+            NumberedListItem.from_dict = classmethod(patched_from_dict)
+            logger.info(
+                "Applied monkeypatch to NumberedListItem for new Notion API fields"
+            )
+
+        except ImportError as e:
+            logger.warning(
+                f"NumberedListItem class not found - skipping monkeypatch: {e}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to apply NumberedListItem monkeypatch: {e}")
 
     def _initialize_state_tracking(self) -> None:
         """Initialize state tracking for content-based change detection.
@@ -1217,6 +1364,8 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         self._monkeypatch_database_property_description()
         self._monkeypatch_database_title_extraction()
         self._monkeypatch_databases_endpoint_query()
+        self._monkeypatch_syncblock_from_dict()
+        self._monkeypatch_numbered_list_item_new_fields()
 
         # Auto-discover pages if none provided
         page_ids = self.config.page_ids
@@ -1814,11 +1963,27 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 document_urn=document_urn, elements=elements
             )
         except Exception as e:
-            logger.warning(
-                f"Failed to generate embeddings for {document_urn}: {e}. "
-                f"Document will be ingested without embeddings.",
-                exc_info=True,
+            short_error = str(e).split("\n")[0][:150]
+            is_credential_error = any(
+                keyword in str(e).lower()
+                for keyword in [
+                    "authfailure",
+                    "credentials",
+                    "unauthorized",
+                    "invalid_api_key",
+                    "accessdenied",
+                ]
             )
+
+            if is_credential_error:
+                logger.error(
+                    f"EMBEDDING CREDENTIAL ERROR for {page_id}: {short_error}\n"
+                    f"Document ingested without embeddings. Fix AWS/Cohere credentials."
+                )
+            else:
+                logger.warning(
+                    f"Failed to generate embeddings for {page_id}: {short_error}"
+                )
 
         # Update report
         file_type = metadata.get("filetype", "unknown")
@@ -1844,6 +2009,23 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             # Extend LossyList with items from the regular list
             for failure in chunking_report.embedding_failures:
                 self.report.embedding_failures.append(failure)
+
+        # Log prominent warning if all embeddings failed
+        if (
+            self.config.embedding.provider is not None
+            and self.report.num_embedding_failures > 0
+            and self.report.num_documents_with_embeddings == 0
+        ):
+            logger.error(
+                "\n" + "=" * 80 + "\n"
+                f"EMBEDDING GENERATION FAILED FOR ALL {self.report.num_embedding_failures} DOCUMENTS\n"
+                "\n"
+                "Documents ingested successfully, but semantic search will NOT work.\n"
+                "This usually indicates missing/invalid credentials.\n"
+                "\n"
+                f"Provider: {self.config.embedding.provider}\n"
+                f"Model: {self.config.embedding.model}\n" + "=" * 80
+            )
 
         return self.report
 

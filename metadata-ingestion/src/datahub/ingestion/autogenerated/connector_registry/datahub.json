@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-01-27T23:33:49.965494+00:00",
-  "generated_by": "metadata-ingestion/scripts/capability_summary.py",
+  "generated_by": "metadata-ingestion/scripts/connector_registry.py",
+  "package": "datahub",
   "plugin_details": {
     "abs": {
       "capabilities": [
@@ -313,15 +313,19 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
-          "subtype_modifier": [
-            "View"
-          ],
+          "description": "Enabled by default via `include_view_column_lineage`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_usage_statistics`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -476,6 +480,32 @@
       "platform_id": "cockroachdb",
       "platform_name": "CockroachDB",
       "support_status": "TESTING"
+    },
+    "confluence": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.confluence.confluence_source.ConfluenceSource",
+      "platform_id": "confluence",
+      "platform_name": "Confluence",
+      "support_status": "INCUBATING"
     },
     "csv-enricher": {
       "capabilities": [
@@ -972,6 +1002,12 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Optionally enabled via `extract_table_tags` to extract dynamoDB table tags as DataHub tags",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2516,7 +2552,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.postgres.PostgresSource",
+      "classname": "datahub.ingestion.source.sql.postgres.source.PostgresSource",
       "platform_id": "postgres",
       "platform_name": "Postgres",
       "support_status": "CERTIFIED"

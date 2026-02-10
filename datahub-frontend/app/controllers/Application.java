@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -52,6 +53,7 @@ public class Application extends Controller {
 
   private final String basePath;
   private final String gaTrackingId;
+  private final List<String> streamingPathPrefixes;
 
   @Inject
   public Application(HttpClient httpClient, Environment environment, @Nonnull Config config) {
@@ -63,6 +65,17 @@ public class Application extends Controller {
         config.hasPath("analytics.google.tracking.id")
             ? config.getString("analytics.google.tracking.id")
             : null;
+    this.streamingPathPrefixes = resolveStreamingPathPrefixes(config);
+  }
+
+  static List<String> resolveStreamingPathPrefixes(Config config) {
+    if (config.hasPath("proxy.streamingPathPrefixes")) {
+      String value = config.getString("proxy.streamingPathPrefixes");
+      if (value != null && !value.isBlank()) {
+        return Arrays.stream(value.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+      }
+    }
+    return List.of();
   }
 
   /**
@@ -219,46 +232,73 @@ public class Application extends Controller {
         .contentType()
         .ifPresent(ct -> httpRequestBuilder.header(Http.HeaderNames.CONTENT_TYPE, ct));
     Instant start = Instant.now();
+    boolean useStreaming =
+        streamingPathPrefixes.stream().anyMatch(prefix -> resolvedUri.startsWith(prefix));
+
+    HttpResponse.BodyHandler<?> bodyHandler =
+        useStreaming
+            ? HttpResponse.BodyHandlers.ofInputStream()
+            : HttpResponse.BodyHandlers.ofByteArray();
+
     return httpClient
-        .sendAsync(httpRequestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray())
+        .sendAsync(httpRequestBuilder.build(), bodyHandler)
         .thenApply(
-            apiResponse -> {
-              boolean verboseGraphQLLogging = config.getBoolean("graphql.verbose.logging");
-              int verboseGraphQLLongQueryMillis = config.getInt("graphql.verbose.slowQueryMillis");
-              Instant finish = Instant.now();
-              long timeElapsed = Duration.between(start, finish).toMillis();
-              if (verboseGraphQLLogging && timeElapsed >= verboseGraphQLLongQueryMillis) {
-                logSlowQuery(request, resolvedUri, timeElapsed);
-              }
-              final ResponseHeader header =
-                  new ResponseHeader(
-                      apiResponse.statusCode(),
-                      apiResponse.headers().map().entrySet().stream()
-                          .filter(
-                              entry ->
-                                  !Http.HeaderNames.CONTENT_LENGTH.equalsIgnoreCase(entry.getKey()))
-                          .filter(
-                              entry ->
-                                  !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey()))
-                          .map(entry -> Pair.of(entry.getKey(), String.join(";", entry.getValue())))
-                          .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
-              final HttpEntity body =
-                  new HttpEntity.Strict(
-                      ByteString.fromArray(apiResponse.body()),
-                      apiResponse.headers().firstValue(Http.HeaderNames.CONTENT_TYPE));
-              return new Result(header, body);
-            })
-        .exceptionally(
-            ex -> {
-              Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-              if (cause instanceof java.net.http.HttpTimeoutException) {
-                return status(GATEWAY_TIMEOUT, "Proxy request timed out.");
-              } else if (cause instanceof java.net.ConnectException) {
-                return status(BAD_GATEWAY, "Proxy connection failed: " + cause.getMessage());
-              } else {
-                return internalServerError("Proxy error: " + cause.getMessage());
-              }
-            });
+            apiResponse -> buildProxyResult(request, resolvedUri, start, apiResponse, useStreaming))
+        .exceptionally(this::handleProxyException);
+  }
+
+  private Result buildProxyResult(
+      Http.Request request,
+      String resolvedUri,
+      Instant start,
+      HttpResponse<?> apiResponse,
+      boolean useStreaming) {
+    boolean verboseGraphQLLogging = config.getBoolean("graphql.verbose.logging");
+    int verboseGraphQLLongQueryMillis = config.getInt("graphql.verbose.slowQueryMillis");
+    long timeElapsed = Duration.between(start, Instant.now()).toMillis();
+    if (verboseGraphQLLogging && timeElapsed >= verboseGraphQLLongQueryMillis) {
+      logSlowQuery(request, resolvedUri, (float) timeElapsed);
+    }
+    ResponseHeader header = buildProxyResponseHeader(apiResponse, useStreaming);
+    Optional<String> contentType = apiResponse.headers().firstValue(Http.HeaderNames.CONTENT_TYPE);
+    HttpEntity body =
+        useStreaming
+            ? new HttpEntity.Streamed(
+                akka.stream.javadsl.StreamConverters.fromInputStream(
+                    () -> (InputStream) apiResponse.body()),
+                Optional.empty(),
+                contentType)
+            : new HttpEntity.Strict(ByteString.fromArray((byte[]) apiResponse.body()), contentType);
+    return new Result(header, body);
+  }
+
+  private ResponseHeader buildProxyResponseHeader(
+      HttpResponse<?> apiResponse, boolean useStreaming) {
+    Map<String, String> headers =
+        apiResponse.headers().map().entrySet().stream()
+            .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equalsIgnoreCase(entry.getKey()))
+            .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey()))
+            .filter(
+                entry ->
+                    !Http.HeaderNames.CONTENT_ENCODING.equalsIgnoreCase(entry.getKey())
+                        && !Http.HeaderNames.TRANSFER_ENCODING.equalsIgnoreCase(entry.getKey()))
+            .map(entry -> Pair.of(entry.getKey(), String.join(";", entry.getValue())))
+            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+    if (useStreaming) {
+      headers.put(Http.HeaderNames.CONTENT_ENCODING, "identity");
+    }
+    return new ResponseHeader(apiResponse.statusCode(), headers);
+  }
+
+  private Result handleProxyException(Throwable ex) {
+    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+    if (cause instanceof java.net.http.HttpTimeoutException) {
+      return status(GATEWAY_TIMEOUT, "Proxy request timed out.");
+    } else if (cause instanceof java.net.ConnectException) {
+      return status(BAD_GATEWAY, "Proxy connection failed: " + cause.getMessage());
+    } else {
+      return internalServerError("Proxy error: " + cause.getMessage());
+    }
   }
 
   private HttpRequest.BodyPublisher buildBodyPublisher(Http.Request request) {
@@ -416,13 +456,19 @@ public class Application extends Controller {
     return actor == null ? "" : actor;
   }
 
+  /**
+   * Maps the request path to the backend path: strips datahub.basePath (when present) and applies
+   * path rewrites (e.g. /api/v2/graphql → /api/graphql, /api/gms → /). All conditionals (GraphQL,
+   * GMS, streaming) use this stripped path. When using a base path, set datahub.basePath to the
+   * same value as play.http.context so that stripping works (Play may already strip context from
+   * request.uri(); stripBasePath returns the path unchanged if the prefix is not present).
+   */
   private String mapPath(@Nonnull final String path) {
 
     final String strippedPath;
 
     // Cannot strip base path from swagger urls
     if (SWAGGER_PATHS.stream().noneMatch(path::contains)) {
-      // First, strip the base path if present
       strippedPath = BasePathUtils.stripBasePath(path, this.basePath);
     } else {
       strippedPath = path;

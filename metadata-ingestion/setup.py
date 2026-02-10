@@ -28,6 +28,10 @@ base_requirements = {
     # This constraint is NOT included here to maintain Airflow compatibility.
     # Security is enforced for Docker image builds via docker/snippets/ingestion/constraints.txt.
     "sentry-sdk>=1.33.1,<3.0.0",
+    # For JSON logging support via DATAHUB_LOG_CONFIG_FILE
+    "python-json-logger>=2.0.0,<5.0.0",
+    # setuptools 82.0.0 deprecated pkg_resource
+    "setuptools<82.0.0",
 }
 
 framework_common = {
@@ -284,6 +288,7 @@ snowflake_common = {
     "pandas<3.0.0",
     "cryptography<47.0.0",
     "msal<2.0.0",
+    "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
     *classification_lib,
 }
@@ -302,7 +307,9 @@ pyhive_common = {
     # - 0.6.15 adds support for thrift > 0.14 (cherry-picked from https://github.com/apache/thrift/pull/2491)
     # - 0.6.16 fixes a regression in 0.6.15 (https://github.com/acryldata/PyHive/pull/9)
     # - 0.6.17 fixes the 'HTTPMessage' object has no attribute 'pop' error
-    "acryl-pyhive[hive-pure-sasl]==0.6.17",
+    # - 0.6.18 fixes SASL encode/decode swap and 4-byte framing for QOP auth-int/auth-conf modes
+    #   (https://github.com/acryldata/PyHive/pull/11)
+    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     # As per https://github.com/datahub-project/datahub/issues/8405
     # and https://github.com/dropbox/PyHive/issues/417, version 0.14.0
     # of thrift broke PyHive's hive+http transport.
@@ -462,6 +469,12 @@ notion_common = {
     "unstructured-ingest[notion]==0.7.2",
 } | unstructured_lib
 
+confluence_common = {
+    # Confluence-specific connector adds atlassian-python-api and related dependencies
+    "unstructured-ingest[confluence]==0.7.2",
+    "atlassian-python-api>=3.41.0,<5.0.0",  # Supports 3.x and 4.x API versions
+} | unstructured_lib
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -601,7 +614,13 @@ plugins: Dict[str, Set[str]] = {
     # kerberos is required for GSSAPI auth (pure-sasl delegates to it)
     "hive-metastore": sql_common
     | pyhive_common
-    | {"psycopg2-binary<3.0.0", "pymysql>=1.0.2,<2.0.0", "pymetastore>=0.4.2,<1.0.0", "tenacity>=8.0.1,<9.0.0", "kerberos>=1.3.0,<2.0.0"},
+    | {
+        "psycopg2-binary<3.0.0",
+        "pymysql>=1.0.2,<2.0.0",
+        "pymetastore>=0.4.2,<1.0.0",
+        "tenacity>=8.0.1,<9.0.0",
+        "kerberos>=1.3.0,<2.0.0",
+    },
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
     "json-schema": {"requests<3.0.0"},
@@ -622,7 +641,8 @@ plugins: Dict[str, Set[str]] = {
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-documents": unstructured_lib,
-    "mode": {"requests<3.0.0", "python-liquid<2", "tenacity>=8.0.1,<9.0.0"} | sqlglot_lib,
+    "mode": {"requests<3.0.0", "python-liquid<2", "tenacity>=8.0.1,<9.0.0"}
+    | sqlglot_lib,
     "mongodb": {"pymongo>=4.8.0,<5.0.0", "packaging<26.0.0"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc<6.0.0"},
@@ -660,7 +680,10 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
-    "sql-queries": usage_common | sqlglot_lib | aws_common | {"smart-open[s3]>=5.2.1,<8.0.0"},
+    "sql-queries": usage_common
+    | sqlglot_lib
+    | aws_common
+    | {"smart-open[s3]>=5.2.1,<8.0.0"},
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
@@ -689,6 +712,7 @@ plugins: Dict[str, Set[str]] = {
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks_common | databricks | sql_common,
     "notion": notion_common,
+    "confluence": confluence_common,
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
@@ -818,8 +842,10 @@ base_dev_requirements = {
             "clickhouse",
             "clickhouse-usage",
             "cockroachdb",
+            "confluence",
             # Note: datahub-documents removed from dev deps due to Python 3.10+ requirement
             # It's available as a separate extra and in the docs extra for doc generation
+            # TODO: Re-add datahub-documents here now that Python 3.9 support was dropped
             "dataplex",
             "delta-lake",
             "dremio",
@@ -860,6 +886,7 @@ base_dev_requirements = {
             "salesforce",
             "unity-catalog",
             "nifi",
+            "notion",
             "vertica",
             "mode",
             "fivetran",
@@ -879,8 +906,6 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
-    # Include unstructured for testing datahub-documents source
-    *unstructured_lib,
 }
 
 # Documentation generation requirements
@@ -943,6 +968,7 @@ entry_points = {
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
+        "confluence = datahub.ingestion.source.confluence.confluence_source:ConfluenceSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
         "db2 = datahub.ingestion.source.sql.db2:Db2Source",
@@ -1044,6 +1070,7 @@ entry_points = {
         "add_dataset_properties = datahub.ingestion.transformer.add_dataset_properties:AddDatasetProperties",
         "simple_add_dataset_properties = datahub.ingestion.transformer.add_dataset_properties:SimpleAddDatasetProperties",
         "pattern_add_dataset_schema_terms = datahub.ingestion.transformer.add_dataset_schema_terms:PatternAddDatasetSchemaTerms",
+        "set_attribution = datahub.ingestion.transformer.set_attribution:SetAttributionTransformer",
         "pattern_add_dataset_schema_tags = datahub.ingestion.transformer.add_dataset_schema_tags:PatternAddDatasetSchemaTags",
         "extract_ownership_from_tags = datahub.ingestion.transformer.extract_ownership_from_tags:ExtractOwnersFromTagsTransformer",
         "add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:AddDatasetDataProduct",
@@ -1147,11 +1174,12 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         ),
         "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
-        "docs": list(docs_requirements),  # For documentation generation (requires Python 3.10+)
+        "docs": list(
+            docs_requirements
+        ),  # For documentation generation (requires Python 3.10+)
         "lint": list(lint_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
         "debug": list(debug_requirements),
     },
 )
-

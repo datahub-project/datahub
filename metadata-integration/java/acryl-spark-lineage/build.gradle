@@ -23,10 +23,10 @@ configurations {
 
 dependencies {
   constraints {
-    provided(externalDependency.hadoopMapreduceClient) {
+    provided(externalDependency.hadoopClient) {
       because 'Needed for tie breaking of guava version need for spark and wiremock'
     }
-    provided(externalDependency.hadoopCommon) {
+    provided(externalDependency.hadoopCommon3) {
       because 'required for org.apache.hadoop.util.StopWatch'
     }
     provided(externalDependency.commonsIo) {
@@ -52,14 +52,14 @@ dependencies {
   // Default to Scala 2.12 for main compilation
   implementation "io.openlineage:openlineage-spark_2.12:$openLineageVersion"
   compileOnly "org.apache.iceberg:iceberg-spark3-runtime:0.12.1"
-  compileOnly("org.apache.spark:spark-sql_2.12:3.1.3") {
+  compileOnly("org.apache.spark:spark-sql_2.12:3.3.4") {
     exclude group: 'org.eclipse.jetty', module: 'jetty-servlet'
     exclude group: 'org.eclipse.jetty', module: 'jetty-server'
     exclude group: 'org.eclipse.jetty', module: 'jetty-util'
     exclude group: 'org.eclipse.jetty', module: 'jetty-webapp'
     exclude group: 'org.eclipse.jetty', module: 'jetty-security'
   }
-  compileOnly "io.github.spark-redshift-community:spark-redshift_2.12:6.2.0-spark_3.5"
+  compileOnly "io.github.spark-redshift-community:spark-redshift_2.12:6.2.0-spark_3.3"
 
   testCompileOnly externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok
