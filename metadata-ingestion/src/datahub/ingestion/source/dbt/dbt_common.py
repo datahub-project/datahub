@@ -1,6 +1,7 @@
 import logging
 import re
 from abc import abstractmethod
+from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -311,7 +312,9 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
 
     # Exposure entity emission statistics
     num_exposures_emitted: int = 0
-    num_exposures_by_type: Dict[str, int] = field(default_factory=dict)
+    num_exposures_by_type: Dict[str, int] = field(
+        default_factory=lambda: defaultdict(int)
+    )
 
 
 class EmitDirective(ConfigEnum):
@@ -1670,9 +1673,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if exposures:
                 self.report.num_exposures_emitted = len(exposures)
                 for e in exposures:
-                    self.report.num_exposures_by_type[e.type] = (
-                        self.report.num_exposures_by_type.get(e.type, 0) + 1
-                    )
+                    self.report.num_exposures_by_type[e.type] += 1
                 logger.info(
                     f"Creating dbt exposure metadata for {len(exposures)} exposures"
                 )
