@@ -63,7 +63,7 @@ def test_from_server_cohere():
     assert config.provider == "cohere"
     assert config.model == "embed-multilingual-v3.0"
     assert config.aws_region is None
-    assert config.api_key == "test-key"
+    assert config.api_key.get_secret_value() == "test-key"
     assert config._server_config == server_config
 
 
