@@ -39,6 +39,9 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
+# Standard DataHub system actor URN used for automated metadata operations
+DATAHUB_ACTOR_URN = "urn:li:corpuser:datahub"
+
 
 class PartitioningStrategy(str, Enum):
     DATE = "date"
@@ -309,7 +312,7 @@ class DataHubBasedS3Dataset:
         # for the dataset -> generate row count, number of columns
         # for each column -> generate data type
         audit_stamp = AuditStampClass(
-            time=int(time.time()) * 1000, actor="urn:li:corpuser:datahub"
+            time=int(time.time()) * 1000, actor=DATAHUB_ACTOR_URN
         )
         schema_metadata = SchemaMetadataClass(
             created=audit_stamp,
@@ -427,9 +430,20 @@ class DataHubBasedS3Dataset:
         self,
         dataset_urn: str,
         physical_uri: str,
-        local_file: str,
+        local_file: Optional[str] = None,
         custom_properties: Optional[Dict[str, str]] = None,
+        schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Register a dataset with metadata.
+
+        Args:
+            dataset_urn: The URN of the dataset to register.
+            physical_uri: The physical URI (e.g., S3 path) of the dataset.
+            local_file: Optional local file path for profile/schema generation.
+            custom_properties: Optional custom properties to add to the dataset.
+            schema_metadata: Optional pre-built schema metadata. If provided, uses this
+                instead of generating from local_file. Useful for static schema definitions.
+        """
         aspects: List = []
         mcps: List[MetadataChangeProposalWrapper] = self._update_presigned_url(
             dataset_urn, physical_uri, custom_properties=custom_properties
@@ -448,13 +462,17 @@ class DataHubBasedS3Dataset:
             ]
         )
 
-        if self.config.dataset_registration_spec.profile:
+        # Use provided schema_metadata if available, otherwise generate from local_file
+        if schema_metadata is not None:
+            aspects.append(schema_metadata)
+        elif self.config.dataset_registration_spec.profile and local_file:
             (
                 dataset_profiles,
-                schema_metadata,
-            ) = self._generate_dataset_profile_and_schema(local_file or physical_uri)
+                generated_schema,
+            ) = self._generate_dataset_profile_and_schema(local_file)
             aspects.append(dataset_profiles)
-            aspects.append(schema_metadata)
+            aspects.append(generated_schema)
+
         mcps.extend(
             MetadataChangeProposalWrapper.construct_many(
                 entityUrn=dataset_urn,
@@ -485,8 +503,12 @@ class DataHubBasedS3Dataset:
         logger.info(
             f"Registering dataset {dataset_urn} with physical URI {physical_uri}"
         )
+        current_time_millis = int(time.time()) * 1000
         if dataset_properties is not None:
             dataset_properties.externalUrl = external_url
+            dataset_properties.lastModified = TimeStampClass(
+                time=current_time_millis, actor=DATAHUB_ACTOR_URN
+            )
             if custom_properties:
                 existing = dataset_properties.customProperties or {}
                 dataset_properties.customProperties = {**existing, **custom_properties}
@@ -495,14 +517,13 @@ class DataHubBasedS3Dataset:
             if custom_properties:
                 merged_properties.update(custom_properties)
 
-            current_time_millis = int(time.time()) * 1000
             dataset_properties = DatasetPropertiesClass(
                 name=self.dataset_metadata.displayName or self.config.dataset_name,
                 description=self.dataset_metadata.description or "",
                 externalUrl=external_url,
                 uri=None,  # Unfortunately, there is a bug in URI validation that requires this to be None
                 lastModified=TimeStampClass(
-                    time=current_time_millis, actor="urn:li:corpuser:datahub"
+                    time=current_time_millis, actor=DATAHUB_ACTOR_URN
                 ),
                 customProperties=merged_properties,
             )
