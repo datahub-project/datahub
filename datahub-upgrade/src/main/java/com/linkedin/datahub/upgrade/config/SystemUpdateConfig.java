@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade.config;
 
+import static com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory.createProducerWithRetry;
+
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
@@ -45,7 +47,6 @@ import javax.annotation.Nonnull;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -164,9 +165,10 @@ public class SystemUpdateConfig {
       MetricUtils metricUtils) {
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Producer<String, IndexedRecord> producer =
-        new KafkaProducer<>(
+        createProducerWithRetry(
             DataHubKafkaProducerFactory.buildProducerProperties(
-                duheSchemaRegistryConfig, kafkaConfiguration, properties));
+                duheSchemaRegistryConfig, kafkaConfiguration, properties),
+            kafkaConfiguration.getProducer());
     return new KafkaEventProducer(producer, topicConvention, kafkaHealthChecker, metricUtils);
   }
 
