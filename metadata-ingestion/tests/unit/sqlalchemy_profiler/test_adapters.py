@@ -15,6 +15,9 @@ from datahub.ingestion.source.sqlalchemy_profiler.adapters.bigquery import (
     BigQueryAdapter,
     _quote_bigquery_identifier,
 )
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+    DatabricksAdapter,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
     GenericAdapter,
 )
@@ -25,6 +28,10 @@ from datahub.ingestion.source.sqlalchemy_profiler.adapters.postgres import (
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.redshift import (
     RedshiftAdapter,
 )
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
+    SnowflakeAdapter,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.trino import TrinoAdapter
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
@@ -130,6 +137,21 @@ class TestAdapterFactory:
         """Test factory returns Redshift adapter."""
         adapter = get_adapter("redshift", config, report, sqlite_engine)
         assert isinstance(adapter, RedshiftAdapter)
+
+    def test_get_adapter_snowflake(self, config, report, sqlite_engine):
+        """Test factory returns Snowflake adapter."""
+        adapter = get_adapter("snowflake", config, report, sqlite_engine)
+        assert isinstance(adapter, SnowflakeAdapter)
+
+    def test_get_adapter_databricks(self, config, report, sqlite_engine):
+        """Test factory returns Databricks adapter."""
+        adapter = get_adapter("databricks", config, report, sqlite_engine)
+        assert isinstance(adapter, DatabricksAdapter)
+
+    def test_get_adapter_trino(self, config, report, sqlite_engine):
+        """Test factory returns Trino adapter."""
+        adapter = get_adapter("trino", config, report, sqlite_engine)
+        assert isinstance(adapter, TrinoAdapter)
 
     def test_get_adapter_case_insensitive(self, config, report, sqlite_engine):
         """Test factory handles case-insensitive platform names."""
@@ -967,4 +989,158 @@ class TestBigQueryAdapter:
             temp_table="temp_table_123",
         )
         # Should not raise any errors
+        adapter.cleanup(context)
+
+
+class TestSnowflakeAdapter:
+    """Test cases for SnowflakeAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, sqlite_engine):
+        """Create Snowflake adapter for testing."""
+        return SnowflakeAdapter(config, report, sqlite_engine)
+
+    def test_get_approx_unique_count_expr(self, adapter):
+        """Test Snowflake uses APPROX_COUNT_DISTINCT."""
+        expr = adapter.get_approx_unique_count_expr("test_column")
+        assert expr is not None
+        # Should be a SQLAlchemy function call for APPROX_COUNT_DISTINCT
+        compiled = expr.compile(compile_kwargs={"literal_binds": True})
+        expr_str = str(compiled)
+        assert "APPROX_COUNT_DISTINCT" in expr_str
+
+    def test_get_median_expr(self, adapter):
+        """Test Snowflake uses native MEDIAN function."""
+        expr = adapter.get_median_expr("test_column")
+        assert expr is not None
+        # Should be a SQLAlchemy function call for MEDIAN
+        compiled = expr.compile(compile_kwargs={"literal_binds": True})
+        expr_str = str(compiled)
+        assert "median" in expr_str.lower()
+        assert "test_column" in expr_str
+
+    def test_setup_profiling_creates_sql_table(
+        self, adapter, sqlite_engine, test_table
+    ):
+        """Test setup creates SQLAlchemy table object."""
+        context = ProfilingContext(
+            schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
+        )
+
+        with sqlite_engine.connect() as conn:
+            result_context = adapter.setup_profiling(context, conn)
+
+        assert result_context.sql_table is not None
+        assert result_context.sql_table.name == "test_table"
+
+    def test_cleanup_does_nothing(self, adapter):
+        """Test cleanup is a no-op for Snowflake adapter."""
+        context = ProfilingContext(
+            schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
+        )
+        # Should not raise any errors
+        adapter.cleanup(context)
+
+
+class TestDatabricksAdapter:
+    """Test cases for DatabricksAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, sqlite_engine):
+        """Create Databricks adapter for testing."""
+        return DatabricksAdapter(config, report, sqlite_engine)
+
+    def test_get_approx_unique_count_expr(self, adapter):
+        """Test Databricks uses approx_count_distinct (lowercase)."""
+        expr = adapter.get_approx_unique_count_expr("test_column")
+        assert expr is not None
+        # Should be a SQLAlchemy function call for approx_count_distinct
+        compiled = expr.compile(compile_kwargs={"literal_binds": True})
+        expr_str = str(compiled)
+        assert "approx_count_distinct" in expr_str.lower()
+
+    def test_get_median_expr(self, adapter):
+        """Test Databricks uses approx_percentile for median."""
+        expr = adapter.get_median_expr("test_column")
+        assert expr is not None
+        # Should be a SQLAlchemy function call for approx_percentile
+        compiled = expr.compile(compile_kwargs={"literal_binds": True})
+        expr_str = str(compiled)
+        assert "approx_percentile" in expr_str.lower()
+        assert "0.5" in expr_str
+
+    def test_setup_profiling_creates_sql_table(
+        self, adapter, sqlite_engine, test_table
+    ):
+        """Test setup creates SQLAlchemy table object."""
+        context = ProfilingContext(
+            schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
+        )
+
+        with sqlite_engine.connect() as conn:
+            result_context = adapter.setup_profiling(context, conn)
+
+        assert result_context.sql_table is not None
+        assert result_context.sql_table.name == "test_table"
+
+    def test_cleanup_does_nothing(self, adapter):
+        """Test cleanup is a no-op for Databricks adapter."""
+        context = ProfilingContext(
+            schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
+        )
+        # Should not raise any errors
+        adapter.cleanup(context)
+
+
+class TestTrinoAdapter:
+    """Test cases for TrinoAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, sqlite_engine):
+        """Create Trino adapter for testing."""
+        return TrinoAdapter(config, report, sqlite_engine)
+
+    def test_get_approx_unique_count_expr(self, adapter):
+        """Test Trino uses approx_distinct (same as Athena)."""
+        expr = adapter.get_approx_unique_count_expr("test_column")
+        assert expr is not None
+        # Should be a SQLAlchemy function call for approx_distinct
+        compiled = expr.compile(compile_kwargs={"literal_binds": True})
+        expr_str = str(compiled)
+        assert "approx_distinct" in expr_str.lower()
+
+    def test_get_median_expr(self, adapter):
+        """Test Trino uses approx_percentile for median (same as Athena)."""
+        expr = adapter.get_median_expr("test_column")
+        assert expr is not None
+        # Should be a SQLAlchemy function call for approx_percentile
+        compiled = expr.compile(compile_kwargs={"literal_binds": True})
+        expr_str = str(compiled)
+        assert "approx_percentile" in expr_str.lower()
+        assert "0.5" in expr_str
+
+    def test_setup_profiling_creates_sql_table(
+        self, adapter, sqlite_engine, test_table
+    ):
+        """Test setup creates SQLAlchemy table object."""
+        context = ProfilingContext(
+            schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
+        )
+
+        with sqlite_engine.connect() as conn:
+            result_context = adapter.setup_profiling(context, conn)
+
+        assert result_context.sql_table is not None
+        assert result_context.sql_table.name == "test_table"
+
+    def test_cleanup_always_drops_temp_view(self, adapter):
+        """Test Trino always drops temp views (different from Athena)."""
+        context = ProfilingContext(
+            schema=None,
+            table="test_table",
+            custom_sql=None,
+            pretty_name="test_table",
+            temp_view="ge_test123",
+        )
+        # Should not raise any errors - cleanup always runs for Trino
         adapter.cleanup(context)

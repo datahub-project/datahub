@@ -39,6 +39,9 @@ def get_adapter(
     from datahub.ingestion.source.sqlalchemy_profiler.adapters.bigquery import (
         BigQueryAdapter,
     )
+    from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+        DatabricksAdapter,
+    )
     from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
         GenericAdapter,
     )
@@ -49,6 +52,10 @@ def get_adapter(
     from datahub.ingestion.source.sqlalchemy_profiler.adapters.redshift import (
         RedshiftAdapter,
     )
+    from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
+        SnowflakeAdapter,
+    )
+    from datahub.ingestion.source.sqlalchemy_profiler.adapters.trino import TrinoAdapter
 
     # Map platform names to adapter classes
     adapters: Dict[str, Type[PlatformAdapter]] = {
@@ -58,9 +65,9 @@ def get_adapter(
         "postgres": PostgresAdapter,
         "mysql": MySQLAdapter,
         "redshift": RedshiftAdapter,
-        # Add more platforms as needed:
-        # "snowflake": SnowflakeAdapter,
-        # "databricks": DatabricksAdapter,
+        "snowflake": SnowflakeAdapter,
+        "databricks": DatabricksAdapter,
+        "trino": TrinoAdapter,
     }
 
     platform_lower = platform.lower()
