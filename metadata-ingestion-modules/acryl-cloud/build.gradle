@@ -7,6 +7,8 @@ apply from: "../../gradle/coverage/python-coverage.gradle"
 ext {
   python_executable = 'python3'
   venv_name = 'venv'
+  // Constrain setuptools<82 in build isolation environments (e.g. when building flatdict from source)
+  uv_build_constraints = '--build-constraint build-constraints.txt'
 }
 
 task checkPythonVersion(type: Exec) {
@@ -43,7 +45,7 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, codegen]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "${venv_name}/bin/uv pip install -e . && " +
+    "${venv_name}/bin/uv pip install ${uv_build_constraints} -e . && " +
     "touch ${sentinel_file}"
 }
 
@@ -57,7 +59,7 @@ task installPackageDev(type: Exec, dependsOn: [install]) {
 
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x &&" +
-    "${venv_name}/bin/uv pip install -e .[dev] && " +
+    "${venv_name}/bin/uv pip install ${uv_build_constraints} -e .[dev] && " +
     "touch ${sentinel_file}"
 }
 
@@ -93,7 +95,7 @@ task cleanPythonCache(type: Exec) {
 task buildWheel(type: Exec, dependsOn: [install, cleanPythonCache]) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    'uv pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
+    "uv pip install ${uv_build_constraints} build && " + 'RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
 build.dependsOn install
