@@ -46,7 +46,10 @@ jar -tvf $jarFile |\
       grep -v "org/apache" |\
       grep -v "org/publicsuffix" |\
       grep -v "com/eclipsesource/" |\
-      grep -v "freebsd/"
+      grep -v "freebsd/" |\
+      grep -v "Log4j.*\.dtd" |\
+      grep -v "Log4j.*\.xsd" |\
+      grep -v "Log4j.*\.properties"
 
 if [ $? -ne 0 ]; then
   echo "✅ No unexpected class paths found in ${jarFile}"
