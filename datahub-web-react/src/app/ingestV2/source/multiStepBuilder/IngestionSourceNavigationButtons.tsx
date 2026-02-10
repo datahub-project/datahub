@@ -16,9 +16,10 @@ const ButtonsContainer = styled.div`
 `;
 interface Props {
     disabledNextTooltip?: string;
+    isEditing?: boolean;
 }
 
-export default function IngestionSourceNavigationButtons({ disabledNextTooltip }: Props) {
+export default function IngestionSourceNavigationButtons({ disabledNextTooltip, isEditing }: Props) {
     const { goToNext, canGoToNext, submit, cancel, isFinalStep, isCurrentStepCompleted, currentStepIndex } =
         useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep, SubmitOptions>();
 
@@ -53,7 +54,7 @@ export default function IngestionSourceNavigationButtons({ disabledNextTooltip }
             </Button>,
         );
 
-        if (canGoToNext() && currentStepIndex !== 0) {
+        if (canGoToNext() && (isEditing || currentStepIndex !== 0)) {
             const isDisabled = !isCurrentStepCompleted();
             const nextButton = (
                 <Button key="next" size="sm" disabled={isDisabled} onClick={goToNext} data-testid="next-button">
@@ -97,6 +98,7 @@ export default function IngestionSourceNavigationButtons({ disabledNextTooltip }
     }, [
         cancel,
         canGoToNext,
+        isEditing,
         currentStepIndex,
         isFinalStep,
         isCurrentStepCompleted,
