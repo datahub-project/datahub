@@ -19,7 +19,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class SemanticEntitySearchServiceFactory {
 
-  private static final String DEFAULT_MODEL_EMBEDDING_KEY = "cohere_embed_v3";
+  private static final String DEFAULT_MODEL_EMBEDDING_KEY = "text_embedding_3_large";
 
   @Autowired
   @Qualifier("searchClientShim")
