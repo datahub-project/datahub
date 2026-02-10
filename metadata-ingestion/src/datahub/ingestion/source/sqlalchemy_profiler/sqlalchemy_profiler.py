@@ -70,6 +70,32 @@ def _is_single_row_query_method(query: Any) -> bool:
     This is used by SQLAlchemyQueryCombiner to optimize query batching.
     For the custom profiler, we assume all our stat methods return single rows
     except for histogram and value frequencies which return multiple rows.
+
+    NOTE: Code duplication with ge_data_profiler.py
+    This function is duplicated from the GE profiler implementation. We maintain
+    separate implementations because:
+    1. The GE profiler has additional complexity (filename checks, GE-specific methods)
+       that doesn't apply to our direct SQLAlchemy implementation
+    2. The GE profiler will eventually be removed entirely, at which point this
+       duplication will be resolved naturally
+
+    FUTURE: Query tagging approach (not implemented yet)
+    A cleaner approach would be to use SQLAlchemy 1.4's execution_options() to
+    tag queries directly:
+        query.execution_options(datahub_single_row=True)
+
+    We're not implementing this yet because:
+    1. SQLAlchemyQueryCombiner currently requires a callable (is_single_row_query_method)
+       that inspects the call stack
+    2. Migrating to query tagging would require modifying ~20 query generation sites
+       in stats_calculator.py
+    3. We'd need to update query_combiner.py to check execution_options first, then
+       fall back to the callable for GE profiler compatibility
+    4. Once GE profiler is removed, we can migrate both the query combiner and this
+       profiler to use query tagging exclusively
+
+    For now, traceback inspection is battle-tested (used by GE profiler in production)
+    and the performance overhead (~1-5 microseconds) is negligible in the profiling context.
     """
     import traceback
 
@@ -126,6 +152,10 @@ def _format_datetime_value(value: Any) -> str:
     - timestamp with timezone -> "2000-01-01T10:30:00+00:00"
 
     Uses Python's datetime parsing instead of regex for better format handling.
+
+    NOTE: Much of the complexity here is arbitrary decisions to maintain exact
+    compatibility with GE profiler output formats. Once GE profiler is removed,
+    these formatting functions could be significantly simplified.
     """
     if value is None:
         return ""
@@ -186,6 +216,10 @@ def _format_mean_value(value: Any) -> str:
     - Decimal('100000.5') -> "100000.5"
     - 100000.0 -> "100000.0"
     - 100000 -> "100000.0"
+
+    NOTE: Much of the complexity here is arbitrary decisions to maintain exact
+    compatibility with GE profiler output formats. Once GE profiler is removed,
+    these formatting functions could be significantly simplified.
     """
     if value is None:
         return ""
@@ -226,6 +260,10 @@ def _format_median_value(value: Any, platform: str, col_type: ProfilerDataType) 
     - Redshift MEDIAN returns 1 -> "1" (preserves int format)
     - Redshift MEDIAN returns 39.0 -> "39.0" (preserves float format)
     - PostgreSQL MEDIAN returns 1 -> "1"
+
+    NOTE: Much of the complexity here is arbitrary decisions to maintain exact
+    compatibility with GE profiler output formats. Once GE profiler is removed,
+    these formatting functions could be significantly simplified.
     """
     if value is None:
         return ""
@@ -249,6 +287,10 @@ def _format_numeric_value(value: Any, col_type: ProfilerDataType) -> str:
     - FLOAT column with value 0.0 -> "0.0" (preserve float format)
     - FLOAT column with value 3.14 -> "3.14"
     - FLOAT column with Decimal(0) -> "0.0" (format as float)
+
+    NOTE: Much of the complexity here is arbitrary decisions to maintain exact
+    compatibility with GE profiler output formats. Once GE profiler is removed,
+    these formatting functions could be significantly simplified.
     """
     if value is None:
         return ""
