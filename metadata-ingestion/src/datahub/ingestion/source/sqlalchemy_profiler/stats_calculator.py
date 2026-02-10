@@ -90,17 +90,18 @@ class StatsCalculator:
         if self.platform == "postgresql":
             # Use pg_class.reltuples
             schema = table.schema or "public"
+            table_ref = f"{schema}.{table.name}"
             query = sa.text(
-                f"SELECT reltuples::bigint FROM pg_class "
-                f"WHERE oid = '{schema}.{table.name}'::regclass"
-            )
+                "SELECT reltuples::bigint FROM pg_class "
+                "WHERE oid = :table_ref::regclass"
+            ).bindparams(table_ref=table_ref)
         elif self.platform == "mysql":
             # Use information_schema.tables.table_rows
             schema = table.schema or "information_schema"
             query = sa.text(
-                f"SELECT table_rows FROM information_schema.tables "
-                f"WHERE table_schema = '{schema}' AND table_name = '{table.name}'"
-            )
+                "SELECT table_rows FROM information_schema.tables "
+                "WHERE table_schema = :schema AND table_name = :table_name"
+            ).bindparams(schema=schema, table_name=table.name)
         else:
             raise ValueError(f"Row count estimation not supported for {self.platform}")
         result = self.conn.execute(query).scalar()

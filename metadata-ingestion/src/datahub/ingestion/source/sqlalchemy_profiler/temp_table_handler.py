@@ -39,9 +39,11 @@ def create_athena_temp_table(
         if not instance.config.catch_exceptions:
             raise e
         logger.exception(f"Encountered exception while profiling {table_pretty_name}")
-        instance.report.report_warning(
-            table_pretty_name,
-            f"Profiling exception {e} when running custom sql {sql}",
+        instance.report.warning(
+            title="Failed to create Athena temporary view",
+            message=f"Profiling exception when running custom sql: {sql}",
+            context=f"Asset: {table_pretty_name}",
+            exc=e,
         )
         return None
 
@@ -86,9 +88,11 @@ def create_bigquery_temp_table(
             logger.exception(
                 f"Encountered exception while profiling {table_pretty_name}"
             )
-            instance.report.report_warning(
-                table_pretty_name,
-                f"Profiling exception {e} when running custom sql {bq_sql}",
+            instance.report.warning(
+                title="Failed to create BigQuery temporary table",
+                message=f"Profiling exception when running custom sql: {bq_sql}",
+                context=f"Asset: {table_pretty_name}",
+                exc=e,
             )
             return None
 

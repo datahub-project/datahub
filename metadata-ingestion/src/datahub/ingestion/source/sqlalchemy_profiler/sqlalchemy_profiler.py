@@ -541,6 +541,19 @@ class SQLAlchemyProfiler:
                             raw_conn = getattr(conn, "dbapi_connection", None)
                         if raw_conn is None:
                             raw_conn = conn  # Fallback to connection itself
+
+                        # Validate that we have a usable connection
+                        if not hasattr(raw_conn, "cursor"):
+                            logger.warning(
+                                f"Unable to obtain valid DBAPI connection for Athena temp table creation for {pretty_name}"
+                            )
+                            self.report.warning(
+                                title="Failed to get database connection",
+                                message="Unable to obtain valid DBAPI connection for creating temporary table",
+                                context=f"Asset: {pretty_name}",
+                            )
+                            return None
+
                         temp_view = create_athena_temp_table(
                             self, custom_sql, pretty_name, raw_conn
                         )
@@ -972,6 +985,12 @@ class SQLAlchemyProfiler:
                                         logger.debug(
                                             f"Caught exception while attempting to get column min for column {col_name}. {e}"
                                         )
+                                        self.report.warning(
+                                            title="Profiling: Unable to Calculate Min",
+                                            message="The min for the column will not be accessible",
+                                            context=f"{pretty_name}.{col_name}",
+                                            exc=e,
+                                        )
                                 if self.config.include_field_max_value:
                                     try:
                                         max_val = stats_calc._get_column_max_impl(
@@ -986,6 +1005,12 @@ class SQLAlchemyProfiler:
                                     except Exception as e:
                                         logger.debug(
                                             f"Caught exception while attempting to get column max for column {col_name}. {e}"
+                                        )
+                                        self.report.warning(
+                                            title="Profiling: Unable to Calculate Max",
+                                            message="The max for the column will not be accessible",
+                                            context=f"{pretty_name}.{col_name}",
+                                            exc=e,
                                         )
                                 if self.config.include_field_mean_value:
                                     mean_val = stats_calc._get_column_mean_impl(
@@ -1142,6 +1167,12 @@ class SQLAlchemyProfiler:
                                         logger.debug(
                                             f"Caught exception while attempting to get column min for column {col_name}. {e}"
                                         )
+                                        self.report.warning(
+                                            title="Profiling: Unable to Calculate Min",
+                                            message="The min for the column will not be accessible",
+                                            context=f"{pretty_name}.{col_name}",
+                                            exc=e,
+                                        )
                                 if self.config.include_field_max_value:
                                     try:
                                         max_val = stats_calc._get_column_max_impl(
@@ -1155,6 +1186,18 @@ class SQLAlchemyProfiler:
                                     except Exception as e:
                                         logger.debug(
                                             f"Caught exception while attempting to get column max for column {col_name}. {e}"
+                                        )
+                                        self.report.warning(
+                                            title="Profiling: Unable to Calculate Max",
+                                            message="The max for the column will not be accessible",
+                                            context=f"{pretty_name}.{col_name}",
+                                            exc=e,
+                                        )
+                                        self.report.warning(
+                                            title="Profiling: Unable to Calculate Max",
+                                            message="The max for the column will not be accessible",
+                                            context=f"{pretty_name}.{col_name}",
+                                            exc=e,
                                         )
                                 # Add distinct value frequencies for low cardinality datetime columns
                                 if (
@@ -1210,12 +1253,19 @@ class SQLAlchemyProfiler:
                     self.times_taken.append(time_taken)
                     return profile
 
-            except Exception as e:
+            except (
+                sa.exc.SQLAlchemyError,
+                ConnectionError,
+                PermissionError,
+            ) as e:
+                # Handle expected database and connection errors
                 if not self.config.catch_exceptions:
-                    raise e
+                    raise
 
                 error_message = str(e).lower()
-                if "permission denied" in error_message:
+                if "permission denied" in error_message or isinstance(
+                    e, PermissionError
+                ):
                     self.report.warning(
                         title="Unauthorized to extract data profile statistics",
                         message="We were denied access while attempting to generate profiling statistics for some assets. Please ensure the provided user has permission to query these tables and views.",
@@ -1225,10 +1275,22 @@ class SQLAlchemyProfiler:
                 else:
                     self.report.warning(
                         title="Failed to extract statistics for some assets",
-                        message="Caught unexpected exception while attempting to extract profiling statistics for some assets.",
+                        message="Caught exception while attempting to extract profiling statistics for some assets.",
                         context=f"Asset: {pretty_name}",
                         exc=e,
                     )
+                return None
+            except Exception as e:
+                # Unexpected errors - only catch if catch_exceptions is True
+                if not self.config.catch_exceptions:
+                    raise
+
+                self.report.warning(
+                    title="Unexpected error during profiling",
+                    message="Caught unexpected exception while attempting to extract profiling statistics for some assets.",
+                    context=f"Asset: {pretty_name}",
+                    exc=e,
+                )
                 return None
             finally:
                 # Cleanup temp tables

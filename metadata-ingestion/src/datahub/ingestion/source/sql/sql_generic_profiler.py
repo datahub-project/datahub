@@ -2,7 +2,7 @@ import logging
 from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union
 
 from sqlalchemy import create_engine, inspect
 
@@ -63,11 +63,12 @@ class GenericProfiler:
         profiler_args: Optional[Dict] = None,
     ) -> Iterable[MetadataWorkUnit]:
         # We don't run ge profiling queries if table profiling is enabled or if the row count is 0.
-        ge_profile_requests: List[GEProfilerRequest] = [
-            cast(GEProfilerRequest, request)
-            for request in requests
-            if not request.profile_table_level_only or request.table.rows_count == 0
-        ]
+        ge_profile_requests: List[GEProfilerRequest] = []
+        for request in requests:
+            if not request.profile_table_level_only or request.table.rows_count == 0:
+                # Runtime validation instead of cast
+                assert isinstance(request, GEProfilerRequest)
+                ge_profile_requests.append(request)
         table_level_profile_requests: List[TableProfilerRequest] = [
             request for request in requests if request.profile_table_level_only
         ]
@@ -104,7 +105,11 @@ class GenericProfiler:
             if profile is None:
                 continue
 
-            request = cast(TableProfilerRequest, ge_profiler_request)
+            # Runtime validation instead of cast
+            assert isinstance(ge_profiler_request, TableProfilerRequest), (
+                f"Expected TableProfilerRequest, got {type(ge_profiler_request)}"
+            )
+            request = ge_profiler_request
             profile.sizeInBytes = request.table.size_in_bytes
 
             # If table is partitioned we profile only one partition (if nothing set then the last one)
