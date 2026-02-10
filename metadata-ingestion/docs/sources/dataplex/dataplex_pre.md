@@ -96,6 +96,10 @@ The Dataplex connector extracts metadata from Google Dataplex using the **Univer
 - **Dataform**: repositories and workflows
 - **Dataproc Metastore**: services and databases
 
+:::note
+Only **BigQuery** and **Cloud Storage (GCS)** have been thoroughly tested with this connector. Other services may work but have not been validated.
+:::
+
 #### Platform Alignment
 
 Datasets discovered by Dataplex use the same URNs as native connectors (e.g., `bigquery`, `gcs`). This means:
@@ -161,6 +165,10 @@ When `include_lineage` is enabled and proper permissions are granted, the connec
 - **Dataflow**: Streaming and batch jobs
 - **Dataproc**: Apache Spark and Apache Hive jobs (including Dataproc Serverless)
 - **Vertex AI**: Models, datasets, feature store views, and feature groups
+
+:::note
+Only **BigQuery** lineage has been thoroughly tested with this connector. Lineage from other systems may work but has not been validated.
+:::
 
 **Not Supported:**
 
