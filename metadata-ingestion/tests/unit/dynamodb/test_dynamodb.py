@@ -245,7 +245,7 @@ class TestDynamoDBSchemaSampling:
         # Mock include_table_item_to_schema to do nothing
         with patch.object(source, "include_table_item_to_schema"):
             with patch.object(source, "construct_schema_from_items"):
-                source._get_sample_values_for_table(
+                source.construct_schema_from_dynamodb(
                     mock_dynamodb_client, "us-west-2", "test_table"
                 )
 
