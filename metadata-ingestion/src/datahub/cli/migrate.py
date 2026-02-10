@@ -146,6 +146,10 @@ def dataplatform2instance_func(
     click.echo(
         f"Starting migration: platform:{platform}, instance={instance}, force={force}, dry-run={dry_run}"
     )
+    click.echo(
+        "This command will migrate DATASETS and CONTAINERS only. "
+        "Other entity types (charts, dashboards, datajobs) are not supported."
+    )
     run_id: str = f"migrate-{uuid.uuid4()}"
     migration_report = MigrationReport(run_id, dry_run, keep)
     system_metadata = SystemMetadataClass(runId=run_id)
