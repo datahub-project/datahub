@@ -8,6 +8,9 @@ SELECT_KEYWORD = "SELECT"
 CASE_KEYWORD = "CASE"
 END_KEYWORD = "END"
 
+_WORD_BOUNDARY_PATTERN = re.compile(r"\w\W|\W\w")
+_FOR_CLAUSE_PATTERN = re.compile(r"\bFOR\s*$")
+
 CONTROL_FLOW_KEYWORDS = [
     # MSSQL/T-SQL control flow
     "GO",
@@ -103,10 +106,7 @@ class _StatementSplitter:
             return False, ""
 
         # If we're not at a word boundary, we can't generate a keyword.
-        if pos > 0 and not (
-            bool(re.match(r"\w\W", sql[pos - 1 : pos + 1]))
-            or bool(re.match(r"\W\w", sql[pos - 1 : pos + 1]))
-        ):
+        if pos > 0 and not _WORD_BOUNDARY_PATTERN.match(sql[pos - 1 : pos + 1]):
             return False, ""
 
         pattern = rf"^{keyword}\b"
@@ -317,7 +317,7 @@ class _StatementSplitter:
         # Look backwards in current statement for FOR keyword
         current_text = "".join(self.current_statement).strip().upper()
         # Check if the current statement ends with "FOR" (possibly with whitespace)
-        return bool(re.search(r"\bFOR\s*$", current_text))
+        return bool(_FOR_CLAUSE_PATTERN.search(current_text))
 
 
 def split_statements(sql: str) -> Iterator[str]:
