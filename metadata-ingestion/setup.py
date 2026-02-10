@@ -956,7 +956,7 @@ full_test_dev_requirements = {
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "sqlalchemy.dialects": [
-        "doris.pymysql = datahub.ingestion.source.sql.doris:DorisDialect",
+        "doris.pymysql = datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect",
     ],
     "datahub.ingestion.source.plugins": [
         "abs = datahub.ingestion.source.abs.source:ABSSource",
@@ -1011,7 +1011,7 @@ entry_points = {
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
         "mariadb = datahub.ingestion.source.sql.mariadb:MariaDBSource",
-        "doris = datahub.ingestion.source.sql.doris:DorisSource",
+        "doris = datahub.ingestion.source.sql.doris.doris_source:DorisSource",
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",

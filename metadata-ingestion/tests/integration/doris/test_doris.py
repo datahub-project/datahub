@@ -5,7 +5,7 @@ import time
 import pytest
 import time_machine
 
-from datahub.ingestion.source.sql.doris import DorisSource
+from datahub.ingestion.source.sql.doris.doris_source import DorisSource
 from datahub.testing import mce_helpers
 from tests.test_helpers import test_connection_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -51,10 +51,9 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
                 checker=lambda: is_doris_up("testdoris"),
             )
             print("Doris FE is ready!")
-        except Exception:
-            print("ERROR: Doris FE failed to start. Container logs:")
+        except Exception as e:
             subprocess.run("docker logs testdoris-fe 2>&1 | tail -50", shell=True)
-            raise
+            pytest.fail(f"Doris FE failed to start: {e}")
 
         max_wait = 120 if os.getenv("CI") == "true" else 60
         print("Waiting for BE to register with FE...")

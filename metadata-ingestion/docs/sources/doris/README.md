@@ -44,6 +44,29 @@ table_pattern:
   deny: [".*_backup$", "tmp_.*"]
 ```
 
+### View Definitions and Lineage
+
+Doris prepends the `internal` catalog to table references in view definitions from `SHOW CREATE VIEW`. The connector strips this prefix for cleaner SQL and correct lineage matching.
+
+**Example transformation:**
+
+```sql
+-- Doris output
+CREATE VIEW v AS SELECT * FROM `internal`.`db`.`table`
+
+-- DataHub displays
+CREATE VIEW v AS SELECT * FROM `db`.`table`
+```
+
+**Rationale:**
+
+- Table URNs don't include the catalog (`urn:li:dataset:(...,db.table,PROD)`)
+- Users write `db.table`, not `internal.db.table` when creating views
+- The `internal` catalog is Doris's default and carries no semantic meaning
+- Cleaned SQL remains valid and executable in Doris
+
+**Note**: Databases named "internal" are preserved correctly (`` `internal`.`internal`.`table` `` → `` `internal`.`table` ``).
+
 ### Observability
 
 The connector provides detailed logging:
