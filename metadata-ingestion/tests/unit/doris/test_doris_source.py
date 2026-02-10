@@ -63,24 +63,23 @@ def test_get_procedures_for_schema_warns_when_explicitly_enabled():
 
 
 def test_doris_uses_native_dialect():
-    """Verifies DorisSource uses doris+pymysql scheme and dialect is registered."""
+    """Verify DorisDialect is registered with SQLAlchemy and used by DorisSource."""
     config = DorisConfig(host_port="localhost:9030", database="test")
     assert config.scheme == "doris+pymysql"
 
     source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
     assert source.config.scheme == "doris+pymysql"
 
-    # Verify the dialect is actually registered with SQLAlchemy
     url_str = config.get_sql_alchemy_url()
     assert url_str.startswith("doris+pymysql://")
 
-    # Verify we can create an engine with the dialect (won't connect, just verify registration)
+    # Verify SQLAlchemy can load DorisDialect via entry point
     try:
         engine = create_engine(url_str)
         assert engine.dialect.name == "doris"
         assert isinstance(engine.dialect, DorisDialect)
     except Exception:
-        # Connection will fail without a real Doris instance, but dialect should be registered
+        # Connection will fail without real Doris, but dialect should be registered
         pass
 
 
