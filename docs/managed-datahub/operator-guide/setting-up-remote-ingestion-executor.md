@@ -224,7 +224,6 @@ Required parameters:
 
 - `global.datahub.executor.pool_id`: Your Executor Pool ID
 - `global.datahub.gms.url`: Your DataHub Cloud URL (must include `/gms`)
-- `image.tag`: DataHub Cloud Remote Executor version
 
 4. **Configure Secret Mounting (Optional)**
 
