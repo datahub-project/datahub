@@ -7,8 +7,8 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import EmptySources from '@app/ingestV2/EmptySources';
-import { CLI_EXECUTOR_ID, DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import { useIngestionContext } from '@app/ingestV2/IngestionContext';
+import { CLI_EXECUTOR_ID, DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
 import CancelExecutionConfirmation from '@app/ingestV2/executions/components/columns/CancelExecutionConfirmation';
 import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecution';
