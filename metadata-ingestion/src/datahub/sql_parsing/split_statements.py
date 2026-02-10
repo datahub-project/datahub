@@ -9,6 +9,7 @@ CASE_KEYWORD = "CASE"
 END_KEYWORD = "END"
 
 CONTROL_FLOW_KEYWORDS = [
+    # MSSQL/T-SQL control flow
     "GO",
     r"BEGIN\s+TRY",
     r"BEGIN\s+CATCH",
@@ -22,7 +23,7 @@ CONTROL_FLOW_KEYWORDS = [
     # We have special handling for this.
     END_KEYWORD,
     # "ELSE",  # else is also valid in CASE, so we we can't use it here.
-    # Oracle PL/SQL control flow keywords
+    # Oracle PL/SQL control flow
     "WHILE",
     "LOOP",
     r"END\s+LOOP",
@@ -321,7 +322,11 @@ class _StatementSplitter:
 
 def split_statements(sql: str) -> Iterator[str]:
     """
-    Split T-SQL code into individual statements, handling various SQL constructs.
+    Split SQL code into individual statements, handling various SQL constructs.
+
+    Used for stored procedure lineage extraction across multiple platforms (MSSQL, Oracle,
+    Postgres, MySQL, DB2). Handles MSSQL/T-SQL (which doesn't require semicolons) and
+    Oracle PL/SQL control flow keywords.
     """
 
     splitter = _StatementSplitter(sql)
