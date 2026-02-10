@@ -29,13 +29,12 @@ from datahub.ingestion.source.profiling.common import (
     convert_to_cardinality,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.ingestion.source.sqlalchemy_profiler.stats_calculator import (
-    StatsCalculator,
+from datahub.ingestion.source.sqlalchemy_profiler.adapters import get_adapter
+from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    ProfilingContext,
 )
-from datahub.ingestion.source.sqlalchemy_profiler.temp_table_handler import (
-    create_athena_temp_table,
-    create_bigquery_temp_table,
-    drop_temp_table,
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner_runner import (
+    QueryCombinerRunner,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import (
     NORMALIZE_TYPE_PATTERN,
@@ -596,134 +595,50 @@ class SQLAlchemyProfiler:
             f"Received single profile request for {pretty_name} for {schema}, {table}, {custom_sql}"
         )
         platform = platform or self.platform
-        bigquery_temp_table: Optional[str] = None
-        temp_view: Optional[str] = None
+
+        # Create profiling context to track state
+        context = ProfilingContext(
+            schema=schema,
+            table=table,
+            custom_sql=custom_sql,
+            pretty_name=pretty_name,
+            partition=partition,
+        )
+
+        # Get platform-specific adapter
+        adapter = get_adapter(platform, self.config, self.report, self.base_engine)
 
         with PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
                 with self.base_engine.connect() as conn:
-                    # Handle custom SQL and temp tables
-                    if platform.upper() == ATHENA and custom_sql:
-                        # Get raw DBAPI connection
-                        raw_conn = getattr(conn, "connection", None)
-                        if raw_conn is None:
-                            raw_conn = getattr(conn, "dbapi_connection", None)
-                        if raw_conn is None:
-                            raw_conn = conn  # Fallback to connection itself
-
-                        # Validate that we have a usable connection
-                        if not hasattr(raw_conn, "cursor"):
-                            logger.warning(
-                                f"Unable to obtain valid DBAPI connection for Athena temp table creation for {pretty_name}"
-                            )
-                            self.report.warning(
-                                title="Failed to get database connection",
-                                message="Unable to obtain valid DBAPI connection for creating temporary table",
-                                context=f"Asset: {pretty_name}",
-                            )
-                            return None
-
-                        temp_view = create_athena_temp_table(
-                            self, custom_sql, pretty_name, raw_conn
-                        )
-                        if temp_view:
-                            table = temp_view
-                            schema = None
-                            custom_sql = None
-
-                    if platform == BIGQUERY and (
-                        custom_sql or self.config.limit or self.config.offset
-                    ):
-                        if custom_sql:
-                            bq_sql = custom_sql
-                        else:
-                            # Table must be present if we're not using custom_sql
-                            if not table:
-                                raise ValueError(
-                                    f"Cannot profile {pretty_name}: table name is required"
-                                )
-                            # Safely quote table identifier to prevent SQL injection
-                            table_identifier = f"{schema}.{table}" if schema else table
-                            quoted_table = _quote_bigquery_identifier(table_identifier)
-                            bq_sql = f"SELECT * FROM {quoted_table}"
-
-                            # Validate and add LIMIT/OFFSET as integers to prevent SQL injection
-                            if self.config.limit:
-                                # Pydantic validates this is an int, but ensure it's positive
-                                limit_val = int(self.config.limit)
-                                if limit_val <= 0:
-                                    raise ValueError(
-                                        f"Invalid LIMIT value: {limit_val}. Must be positive."
-                                    )
-                                bq_sql += f" LIMIT {limit_val}"
-
-                            if self.config.offset:
-                                # Pydantic validates this is an int, but ensure it's non-negative
-                                offset_val = int(self.config.offset)
-                                if offset_val < 0:
-                                    raise ValueError(
-                                        f"Invalid OFFSET value: {offset_val}. Must be non-negative."
-                                    )
-                                bq_sql += f" OFFSET {offset_val}"
-                        # For BigQuery, use base_engine.raw_connection() like GE profiler does
-                        # This is required because BigQuery's DBAPI connection needs to be
-                        # obtained from the engine, not from the SQLAlchemy Connection object
-                        bigquery_temp_table = create_bigquery_temp_table(
-                            self, bq_sql, pretty_name, self.base_engine.raw_connection()
-                        )
-                        if bigquery_temp_table:
-                            table = bigquery_temp_table
-                            schema = None
-                            custom_sql = (
-                                None  # Clear custom_sql after temp table creation
-                            )
-                        else:
-                            # Temp table creation failed - cannot profile with custom_sql
-                            logger.warning(
-                                f"Failed to create BigQuery temp table for {pretty_name}. "
-                                "Cannot profile partitioned table without temp table."
-                            )
-                            return None
-
-                    # Create SQLAlchemy table object
-                    # Note: custom_sql should already be handled via temp tables for Athena/BigQuery
-                    # For other platforms with custom_sql, we'd need to create a view or use a subquery
-                    if custom_sql and platform.upper() not in (ATHENA, BIGQUERY):
-                        # For platforms other than Athena/BigQuery, custom SQL needs special handling
-                        # This is a limitation - we'd need to create a view or use a subquery
-                        logger.warning(
-                            f"Custom SQL profiling for {platform} not fully supported for {pretty_name}. "
-                            "Consider using Athena or BigQuery for custom SQL profiling."
-                        )
-                        return None
-
-                    if not table:
-                        logger.warning(
-                            f"No table name provided for profiling {pretty_name}"
-                        )
-                        return None
-
-                    # Get table metadata
-                    metadata = sa.MetaData()
+                    # Setup profiling using platform adapter
+                    # This handles temp tables, sampling, and creates sql_table
                     try:
-                        sql_table = sa.Table(
-                            table,
-                            metadata,
-                            schema=schema,
-                            autoload_with=self.base_engine,
-                        )
+                        context = adapter.setup_profiling(context, conn)
                     except Exception as e:
                         logger.warning(
-                            f"Failed to load table metadata for {pretty_name}: {e}"
+                            f"Failed to setup profiling for {pretty_name}: {e}"
                         )
                         if not self.config.catch_exceptions:
                             raise
                         return None
 
-                    # Initialize stats calculator with query combiner
-                    stats_calc = StatsCalculator(
-                        conn=conn, platform=platform, query_combiner=query_combiner
+                    # Validate that we have a sql_table to profile
+                    if context.sql_table is None:
+                        logger.warning(
+                            f"No table available for profiling {pretty_name}"
+                        )
+                        return None
+
+                    sql_table = context.sql_table
+
+                    # Initialize query combiner runner with adapter
+                    runner = QueryCombinerRunner(
+                        conn=conn,
+                        platform=platform,
+                        adapter=adapter,
+                        query_combiner=query_combiner,
                     )
 
                     # Create profile
@@ -761,11 +676,10 @@ class SQLAlchemyProfiler:
                     # Queue the row count query by calling the method
                     # The query will be executed when we flush
                     def _get_row_count_wrapper() -> None:
-                        # Call the internal implementation directly to avoid double-wrapping
-                        if use_estimation:
-                            result = stats_calc._get_row_count_estimate(sql_table)
-                        else:
-                            result = stats_calc._get_row_count_impl(sql_table)
+                        # Call the adapter directly to avoid double-wrapping with query combiner
+                        result = adapter.get_row_count(
+                            sql_table, conn, use_estimation=use_estimation
+                        )
                         profile.rowCount = result
                         logger.debug(
                             f"_get_row_count_wrapper set profile.rowCount: {result}"
@@ -786,94 +700,27 @@ class SQLAlchemyProfiler:
                     )
                     self.total_row_count += row_count if row_count is not None else 0
 
-                    # Handle BigQuery sampling if enabled
-                    bigquery_sample_table: Optional[str] = None
-                    if (
-                        platform == BIGQUERY
-                        and self.config.use_sampling
-                        and not self.config.limit
-                        and row_count
-                        and row_count > self.config.sample_size
-                    ):
-                        """
-                        According to BigQuery Sampling Docs, BigQuery does not cache the results
-                        of a query that includes a TABLESAMPLE clause. However, for a simple
-                        SELECT * query with TABLESAMPLE, results are cached and stored in a
-                        temporary table. This can be (ab)used and all column level profiling
-                        calculations can be performed against it.
-                        """
-                        # Calculate sample percentage (validated as float from config)
-                        sample_pc = 100 * self.config.sample_size / row_count
-                        # Ensure sample_pc is within valid range [0, 100]
-                        sample_pc = max(0.0, min(100.0, sample_pc))
+                    # Update partition spec if sampling was applied by adapter
+                    if context.is_sampled:
+                        if (
+                            profile.partitionSpec
+                            and profile.partitionSpec.type
+                            == PartitionTypeClass.FULL_TABLE
+                        ):
+                            profile.partitionSpec = PartitionSpecClass(
+                                type=PartitionTypeClass.QUERY, partition="SAMPLE"
+                            )
+                        elif (
+                            profile.partitionSpec
+                            and profile.partitionSpec.type
+                            == PartitionTypeClass.PARTITION
+                        ):
+                            profile.partitionSpec.partition += " SAMPLE"
 
-                        # Table must be present for sampling
-                        if not table:
-                            raise ValueError(
-                                f"Cannot sample {pretty_name}: table name is required"
+                        if profile.partitionSpec and row_count is not None:
+                            profile.partitionSpec.partition += (
+                                f" (sample rows {row_count})"
                             )
-                        # Safely quote table identifier to prevent SQL injection
-                        table_identifier = f"{schema}.{table}" if schema else table
-                        quoted_table = _quote_bigquery_identifier(table_identifier)
-
-                        # Build query with properly escaped identifiers and validated percentage
-                        sql = (
-                            f"SELECT * FROM {quoted_table} "
-                            f"TABLESAMPLE SYSTEM ({sample_pc:.8f} percent)"
-                        )
-                        # Get raw DBAPI connection
-                        # For BigQuery, use base_engine.raw_connection() like GE profiler does
-                        bigquery_sample_table = create_bigquery_temp_table(
-                            self, sql, pretty_name, self.base_engine.raw_connection()
-                        )
-                        if bigquery_sample_table:
-                            # Update table reference to use sampled table
-                            table = bigquery_sample_table
-                            schema = None
-                            # Recreate SQLAlchemy table object with sampled table
-                            metadata = sa.MetaData()
-                            sql_table = sa.Table(
-                                table,
-                                metadata,
-                                schema=schema,
-                                autoload_with=self.base_engine,
-                            )
-                            # Update partition spec to indicate sampling
-                            if (
-                                profile.partitionSpec
-                                and profile.partitionSpec.type
-                                == PartitionTypeClass.FULL_TABLE
-                            ):
-                                profile.partitionSpec = PartitionSpecClass(
-                                    type=PartitionTypeClass.QUERY, partition="SAMPLE"
-                                )
-                            elif (
-                                profile.partitionSpec
-                                and profile.partitionSpec.type
-                                == PartitionTypeClass.PARTITION
-                            ):
-                                profile.partitionSpec.partition += " SAMPLE"
-                            # Recalculate row count for sampled table
-                            # Note: We can't just use the original row_count because the actual
-                            # sample size may differ from the configured sample_size
-                            # IMPORTANT: BigQuery TABLESAMPLE may return the entire table for small tables
-                            # or tables written as a single data block (see comment in test file)
-                            # Use internal implementation directly to avoid query combiner issues
-                            sampled_row_count = stats_calc._get_row_count_impl(
-                                sql_table
-                            )
-                            # Ensure we have a valid row count (should never be None from _get_row_count_impl)
-                            if sampled_row_count is None:
-                                logger.warning(
-                                    f"Sampled row count returned None for {pretty_name}, using original row_count {row_count}"
-                                )
-                                sampled_row_count = row_count
-                            row_count = sampled_row_count
-                            profile.rowCount = sampled_row_count
-                            if profile.partitionSpec:
-                                profile.partitionSpec.partition += (
-                                    f" (sample rows {sampled_row_count})"
-                                )
 
                     # Get columns to profile
                     columns_to_profile = self._get_columns_to_profile(
@@ -946,10 +793,8 @@ class SQLAlchemyProfiler:
                             name: str = col_name,
                         ) -> None:
                             # Call the internal implementation directly to avoid double-wrapping
-                            container["value"] = (
-                                stats_calc._get_column_non_null_count_impl(
-                                    sql_table, name
-                                )
+                            container["value"] = adapter.get_column_non_null_count(
+                                sql_table, name, conn
                             )
 
                         if query_combiner:
@@ -999,10 +844,8 @@ class SQLAlchemyProfiler:
                                 name: str = col_name,
                             ) -> None:
                                 # Call the internal implementation directly to avoid double-wrapping
-                                container["value"] = (
-                                    stats_calc._get_column_unique_count_impl(
-                                        sql_table, name
-                                    )
+                                container["value"] = adapter.get_column_unique_count(
+                                    sql_table, name, conn
                                 )
 
                             if query_combiner:
@@ -1044,7 +887,7 @@ class SQLAlchemyProfiler:
                             # GE profiler uses expect_column_values_to_be_in_set with empty set
                             # which returns actual sample rows (with duplicates), not distinct values
                             if self.config.include_field_sample_values:
-                                sample_values = stats_calc.get_column_sample_values(
+                                sample_values = runner.get_column_sample_values(
                                     sql_table,
                                     col_name,
                                     limit=self.config.field_sample_values_limit,
@@ -1076,8 +919,8 @@ class SQLAlchemyProfiler:
                                 # We need to set them even when non_null_count == 0 to match GE behavior
                                 if self.config.include_field_min_value:
                                     try:
-                                        min_val = stats_calc._get_column_min_impl(
-                                            sql_table, col_name
+                                        min_val = adapter.get_column_min(
+                                            sql_table, col_name, conn
                                         )
                                         # GE does: str(self.dataset.get_column_min(column))
                                         # For null-only columns, this returns None, which becomes "None" string
@@ -1099,8 +942,8 @@ class SQLAlchemyProfiler:
                                         )
                                 if self.config.include_field_max_value:
                                     try:
-                                        max_val = stats_calc._get_column_max_impl(
-                                            sql_table, col_name
+                                        max_val = adapter.get_column_max(
+                                            sql_table, col_name, conn
                                         )
                                         # GE does: str(self.dataset.get_column_max(column))
                                         column_profile.max = (
@@ -1119,8 +962,8 @@ class SQLAlchemyProfiler:
                                             exc=e,
                                         )
                                 if self.config.include_field_mean_value:
-                                    mean_val = stats_calc._get_column_mean_impl(
-                                        sql_table, col_name
+                                    mean_val = adapter.get_column_mean(
+                                        sql_table, col_name, conn
                                     )
                                     # Match GE behavior: always set mean (None for null-only columns)
                                     # GE does: str(self.dataset.get_column_mean(column))
@@ -1133,8 +976,8 @@ class SQLAlchemyProfiler:
                                     )
 
                                 if self.config.include_field_stddev_value:
-                                    stdev_val = stats_calc._get_column_stdev_impl(
-                                        sql_table, col_name
+                                    stdev_val = adapter.get_column_stdev(
+                                        sql_table, col_name, conn
                                     )
                                     # Match GE behavior: always set stdev
                                     # GE does: str(self.dataset.get_column_stdev(column))
@@ -1147,8 +990,8 @@ class SQLAlchemyProfiler:
                                     )
 
                                 if self.config.include_field_median_value:
-                                    median_val = stats_calc._get_column_median_impl(
-                                        sql_table, col_name
+                                    median_val = adapter.get_column_median(
+                                        sql_table, col_name, conn
                                     )
                                     # Match GE behavior: always set median (None for null-only columns)
                                     # GE does: str(self.dataset.get_column_median(column))
@@ -1164,7 +1007,7 @@ class SQLAlchemyProfiler:
                                     )
 
                                 if self.config.include_field_quantiles:
-                                    quantiles = stats_calc.get_column_quantiles(
+                                    quantiles = runner.get_column_quantiles(
                                         sql_table,
                                         col_name,
                                         [0.05, 0.25, 0.5, 0.75, 0.95],
@@ -1190,7 +1033,7 @@ class SQLAlchemyProfiler:
                                             Cardinality.VERY_MANY,
                                         }
                                     ):
-                                        histogram = stats_calc.get_column_histogram(
+                                        histogram = runner.get_column_histogram(
                                             sql_table, col_name
                                         )
                                         if histogram:
@@ -1222,7 +1065,7 @@ class SQLAlchemyProfiler:
                                             Cardinality.VERY_FEW,
                                         }
                                     ):
-                                        frequencies = stats_calc.get_column_distinct_value_frequencies(
+                                        frequencies = runner.get_column_distinct_value_frequencies(
                                             sql_table, col_name
                                         )
                                         column_profile.distinctValueFrequencies = [
@@ -1245,8 +1088,10 @@ class SQLAlchemyProfiler:
                                         Cardinality.FEW,
                                     }
                                 ):
-                                    frequencies = stats_calc.get_column_distinct_value_frequencies(
-                                        sql_table, col_name
+                                    frequencies = (
+                                        runner.get_column_distinct_value_frequencies(
+                                            sql_table, col_name
+                                        )
                                     )
                                     column_profile.distinctValueFrequencies = [
                                         ValueFrequencyClass(
@@ -1261,8 +1106,8 @@ class SQLAlchemyProfiler:
                                 # Use _get_column_min_impl directly to avoid query combiner issues
                                 if self.config.include_field_min_value:
                                     try:
-                                        min_val = stats_calc._get_column_min_impl(
-                                            sql_table, col_name
+                                        min_val = adapter.get_column_min(
+                                            sql_table, col_name, conn
                                         )
                                         if min_val is not None:
                                             # Format datetime values to match GE's ISO format
@@ -1281,8 +1126,8 @@ class SQLAlchemyProfiler:
                                         )
                                 if self.config.include_field_max_value:
                                     try:
-                                        max_val = stats_calc._get_column_max_impl(
-                                            sql_table, col_name
+                                        max_val = adapter.get_column_max(
+                                            sql_table, col_name, conn
                                         )
                                         if max_val is not None:
                                             # Format datetime values to match GE's ISO format
@@ -1317,8 +1162,10 @@ class SQLAlchemyProfiler:
                                         Cardinality.FEW,
                                     }
                                 ):
-                                    frequencies = stats_calc.get_column_distinct_value_frequencies(
-                                        sql_table, col_name
+                                    frequencies = (
+                                        runner.get_column_distinct_value_frequencies(
+                                            sql_table, col_name
+                                        )
                                     )
                                     column_profile.distinctValueFrequencies = [
                                         ValueFrequencyClass(
@@ -1340,8 +1187,10 @@ class SQLAlchemyProfiler:
                                         Cardinality.FEW,
                                     }
                                 ):
-                                    frequencies = stats_calc.get_column_distinct_value_frequencies(
-                                        sql_table, col_name
+                                    frequencies = (
+                                        runner.get_column_distinct_value_frequencies(
+                                            sql_table, col_name
+                                        )
                                     )
                                     column_profile.distinctValueFrequencies = [
                                         ValueFrequencyClass(
@@ -1399,8 +1248,5 @@ class SQLAlchemyProfiler:
                 )
                 return None
             finally:
-                # Cleanup temp tables
-                if temp_view and platform.upper() in (ATHENA, TRINO):
-                    drop_temp_table(self, temp_view)
-                # Note: BigQuery temp tables (cached results) are automatically cleaned up
-                # by BigQuery after 24 hours, so we don't need to explicitly drop them
+                # Cleanup temp resources using adapter
+                adapter.cleanup(context)

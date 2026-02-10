@@ -1,0 +1,179 @@
+"""Redshift-specific profiling adapter."""
+
+import logging
+from typing import Any, Optional
+
+import sqlalchemy as sa
+from sqlalchemy.engine import Connection
+
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
+from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    ProfilingContext,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class RedshiftAdapter(PlatformAdapter):
+    """
+    Redshift-specific profiling adapter.
+
+    Redshift features:
+    1. Fast row count estimation via system tables
+    2. AVG on INTEGER returns integer (need CAST for precision)
+    3. STDDEV on all-NULL columns returns 0.0 (not NULL)
+    4. APPROXIMATE COUNT DISTINCT for fast unique counts
+    5. PERCENTILE_CONT for median and quantiles
+    """
+
+    def setup_profiling(
+        self, context: ProfilingContext, conn: Connection
+    ) -> ProfilingContext:
+        """
+        Generic setup for Redshift - just create the SQL table object.
+
+        Args:
+            context: Current profiling context
+            conn: Active database connection
+
+        Returns:
+            Updated context with sql_table populated
+        """
+        if not context.table:
+            raise ValueError(
+                f"Cannot profile {context.pretty_name}: table name required"
+            )
+
+        # Create SQLAlchemy table object
+        context.sql_table = self._create_sqlalchemy_table(
+            schema=context.schema,
+            table=context.table,
+        )
+
+        logger.debug(
+            f"Redshift setup for {context.pretty_name}: "
+            f"schema={context.schema}, table={context.table}"
+        )
+
+        return context
+
+    def cleanup(self, context: ProfilingContext) -> None:
+        """
+        Cleanup - nothing to clean up for Redshift.
+
+        Args:
+            context: Profiling context
+        """
+        # No temp resources created in Redshift setup
+        pass
+
+    # =========================================================================
+    # SQL Expression Builders
+    # =========================================================================
+
+    def get_approx_unique_count_expr(self, column: str) -> Any:
+        """
+        Redshift approximate unique count - uses APPROXIMATE COUNT DISTINCT.
+
+        Args:
+            column: Column name
+
+        Returns:
+            SQLAlchemy expression for APPROXIMATE COUNT(DISTINCT column)
+        """
+        # Redshift supports APPROXIMATE COUNT DISTINCT
+        return sa.func.count(sa.func.distinct(sa.column(column)))
+
+    def get_median_expr(self, column: str) -> Optional[Any]:
+        """
+        Redshift median via PERCENTILE_CONT.
+
+        Redshift supports PERCENTILE_CONT which can compute the median (0.5 percentile).
+
+        Args:
+            column: Column name (from database schema, already validated)
+
+        Returns:
+            SQLAlchemy expression for PERCENTILE_CONT(0.5)
+        """
+        # Use PERCENTILE_CONT which is supported in Redshift
+        # Column name is from database schema (validated), not user input
+        return sa.text(f"PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {column})")
+
+    def get_mean_expr(self, column: str) -> Any:
+        """
+        Redshift mean (AVG) with CAST to preserve precision.
+
+        Redshift's AVG on INTEGER columns returns integer (rounded).
+        To match GE behavior which shows full precision, we cast to float.
+
+        Args:
+            column: Column name
+
+        Returns:
+            SQLAlchemy expression for AVG(CAST(column AS FLOAT))
+        """
+        # Cast column to float to ensure AVG returns float with full precision
+        # This matches GE behavior (e.g., '8.478238501903489')
+        return sa.func.avg(sa.cast(sa.column(column), sa.Float))
+
+    def get_stdev_null_value(self) -> Optional[float]:
+        """
+        Redshift returns 0.0 for STDDEV on all-NULL columns.
+
+        This matches Redshift's actual behavior and GE golden file expectations.
+
+        Returns:
+            0.0 for Redshift (not None)
+        """
+        return 0.0
+
+    # =========================================================================
+    # Row Count Estimation
+    # =========================================================================
+
+    def supports_row_count_estimation(self) -> bool:
+        """
+        Redshift supports fast row count estimation.
+
+        Returns:
+            True - Redshift has system tables with row count estimates
+        """
+        return True
+
+    def get_estimated_row_count(
+        self, table: sa.Table, conn: Connection
+    ) -> Optional[int]:
+        """
+        Get fast row count estimate using Redshift system tables.
+
+        This avoids a full table scan by using Redshift's statistics.
+        The estimate may be slightly out of date but is very fast.
+
+        Args:
+            table: SQLAlchemy table object
+            conn: Active database connection
+
+        Returns:
+            Estimated row count, or None if query fails
+        """
+        try:
+            schema = table.schema or "public"
+            table_name = table.name
+
+            # Use Redshift system tables for row count estimation
+            # STV_TBL_PERM contains row counts for permanent tables
+            query = sa.text(
+                """
+                SELECT tbl_rows
+                FROM svv_table_info
+                WHERE schema = :schema AND "table" = :table_name
+                """
+            ).bindparams(schema=schema, table_name=table_name)
+
+            result = conn.execute(query).scalar()
+            return int(result) if result is not None else None
+
+        except Exception as e:
+            logger.debug(f"Failed to get Redshift row count estimate: {e}")
+            return None

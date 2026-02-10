@@ -117,22 +117,22 @@ class TestSQLAlchemyProfiler:
         assert not profiler._should_ignore_column(sa.Float(), "value")
 
     @patch(
-        "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.StatsCalculator"
+        "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.QueryCombinerRunner"
     )
     def test_generate_single_profile(
-        self, mock_stats_calc, profiler, sqlite_engine, test_table
+        self, mock_runner, profiler, sqlite_engine, test_table
     ):
         """Test single profile generation."""
-        # Mock the stats calculator
-        mock_calc_instance = MagicMock()
-        mock_calc_instance.get_row_count.return_value = 3
-        mock_calc_instance.get_column_non_null_count.return_value = 3
-        mock_calc_instance.get_column_min.return_value = 10.5
-        mock_calc_instance.get_column_max.return_value = 30.5
-        mock_calc_instance.get_column_mean.return_value = 20.5
-        mock_calc_instance.get_column_stdev.return_value = 10.0
-        mock_calc_instance.get_column_unique_count.return_value = 3
-        mock_stats_calc.return_value = mock_calc_instance
+        # Mock the query combiner runner
+        mock_runner_instance = MagicMock()
+        mock_runner_instance.get_row_count.return_value = 3
+        mock_runner_instance.get_column_non_null_count.return_value = 3
+        mock_runner_instance.get_column_min.return_value = 10.5
+        mock_runner_instance.get_column_max.return_value = 30.5
+        mock_runner_instance.get_column_mean.return_value = 20.5
+        mock_runner_instance.get_column_stdev.return_value = 10.0
+        mock_runner_instance.get_column_unique_count.return_value = 3
+        mock_runner.return_value = mock_runner_instance
 
         request = ProfilerRequest(
             pretty_name="test_table",
