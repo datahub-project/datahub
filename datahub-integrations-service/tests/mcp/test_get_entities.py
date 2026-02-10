@@ -49,7 +49,10 @@ class TestGetEntitiesSingleURN:
             with patch(
                 "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
-                mock_gql.return_value = {"entity": sample_entity_response}
+                mock_gql.side_effect = [
+                    {"entity": sample_entity_response},
+                    {"entity": {}},
+                ]
 
                 from datahub_integrations.mcp.mcp_server import get_entities
 
@@ -59,7 +62,7 @@ class TestGetEntitiesSingleURN:
                 assert result["urn"] == urn
                 assert result["name"] == "table"
                 mock_client._graph.exists.assert_called_once_with(urn)
-                mock_gql.assert_called_once()
+                assert mock_gql.call_count == 2
 
     async def test_single_urn_not_found_raises_error(self, mock_client):
         """Test that single URN not found raises ItemNotFoundError."""
@@ -128,6 +131,7 @@ class TestGetEntitiesMultipleURNs:
                             "name": "table1",
                         }
                     },
+                    {"entity": {}},
                     {
                         "entity": {
                             **sample_entity_response,
@@ -135,6 +139,7 @@ class TestGetEntitiesMultipleURNs:
                             "name": "table2",
                         }
                     },
+                    {"entity": {}},
                 ]
 
                 from datahub_integrations.mcp.mcp_server import get_entities
@@ -148,7 +153,7 @@ class TestGetEntitiesMultipleURNs:
                 assert result[1]["urn"] == urns[1]
                 assert result[1]["name"] == "table2"
                 assert mock_client._graph.exists.call_count == 2
-                assert mock_gql.call_count == 2
+                assert mock_gql.call_count == 4
 
     async def test_empty_list_returns_empty_list(self, mock_client):
         """Test passing empty list returns empty list."""
@@ -188,6 +193,7 @@ class TestGetEntitiesMultipleURNs:
                             "name": "table1",
                         }
                     },
+                    {"entity": {}},
                     {
                         "entity": {
                             **sample_entity_response,
@@ -195,6 +201,7 @@ class TestGetEntitiesMultipleURNs:
                             "name": "table3",
                         }
                     },
+                    {"entity": {}},
                 ]
 
                 from datahub_integrations.mcp.mcp_server import get_entities
@@ -239,6 +246,7 @@ class TestGetEntitiesMultipleURNs:
                             "name": "table1",
                         }
                     },
+                    {"entity": {}},
                     Exception("GraphQL timeout"),
                 ]
 
@@ -372,3 +380,245 @@ class TestGetEntitiesIntegration:
                 assert "tags" not in result
                 assert result["urn"] == entity_with_typename["urn"]
                 assert result["name"] == entity_with_typename["name"]
+
+
+class TestGetEntitiesRelatedDocuments:
+    """Tests for get_entities with related documents functionality."""
+
+    async def test_related_documents_fetched_for_supported_entity(
+        self, mock_client, sample_entity_response
+    ):
+        """Test that related documents are fetched for supported entity types."""
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+        related_docs = {
+            "start": 0,
+            "count": 2,
+            "total": 2,
+            "documents": [
+                {
+                    "urn": "urn:li:document:doc1",
+                    "type": "DOCUMENT",
+                    "info": {"title": "Dataset Documentation"},
+                },
+                {
+                    "urn": "urn:li:document:doc2",
+                    "type": "DOCUMENT",
+                    "info": {"title": "Usage Guide"},
+                },
+            ],
+        }
+
+        with patch(
+            "datahub_integrations.mcp.mcp_server.get_datahub_client",
+            return_value=mock_client,
+        ):
+            mock_client._graph.exists.return_value = True
+
+            with patch(
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
+            ) as mock_gql:
+                mock_gql.side_effect = [
+                    {"entity": sample_entity_response},
+                    {"entity": {"relatedDocuments": related_docs}},
+                ]
+
+                from datahub_integrations.mcp.mcp_server import get_entities
+
+                result = await async_background(get_entities)(urn)
+
+                assert isinstance(result, dict)
+                assert "relatedDocuments" in result
+                assert result["relatedDocuments"]["total"] == 2
+                assert len(result["relatedDocuments"]["documents"]) == 2
+                assert (
+                    result["relatedDocuments"]["documents"][0]["info"]["title"]
+                    == "Dataset Documentation"
+                )
+                assert mock_gql.call_count == 2
+
+    async def test_related_documents_not_supported_entity_type(
+        self, mock_client, sample_entity_response
+    ):
+        """Test that entities without related documents support don't break."""
+        urn = "urn:li:corpUser:user1"
+
+        with patch(
+            "datahub_integrations.mcp.mcp_server.get_datahub_client",
+            return_value=mock_client,
+        ):
+            mock_client._graph.exists.return_value = True
+
+            with patch(
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
+            ) as mock_gql:
+                mock_gql.side_effect = [
+                    {
+                        "entity": {
+                            **sample_entity_response,
+                            "urn": urn,
+                            "type": "CORP_USER",
+                        }
+                    },
+                    {"entity": {}},
+                ]
+
+                from datahub_integrations.mcp.mcp_server import get_entities
+
+                result = await async_background(get_entities)(urn)
+
+                assert isinstance(result, dict)
+                assert "relatedDocuments" not in result
+                assert mock_gql.call_count == 2
+
+    async def test_related_documents_graphql_error_doesnt_break_entity_fetch(
+        self, mock_client, sample_entity_response
+    ):
+        """Test that GraphQL error for related documents doesn't break entity fetch."""
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+
+        with patch(
+            "datahub_integrations.mcp.mcp_server.get_datahub_client",
+            return_value=mock_client,
+        ):
+            mock_client._graph.exists.return_value = True
+
+            with patch(
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
+            ) as mock_gql:
+                mock_gql.side_effect = [
+                    {"entity": sample_entity_response},
+                    Exception("Related docs GraphQL error"),
+                ]
+
+                from datahub_integrations.mcp.mcp_server import get_entities
+
+                result = await async_background(get_entities)(urn)
+
+                assert isinstance(result, dict)
+                assert result["urn"] == urn
+                assert result["name"] == "table"
+                assert "relatedDocuments" not in result
+                assert mock_gql.call_count == 2
+
+    async def test_related_documents_empty_result(
+        self, mock_client, sample_entity_response
+    ):
+        """Test that entities with no related documents return empty result."""
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+
+        with patch(
+            "datahub_integrations.mcp.mcp_server.get_datahub_client",
+            return_value=mock_client,
+        ):
+            mock_client._graph.exists.return_value = True
+
+            with patch(
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
+            ) as mock_gql:
+                mock_gql.side_effect = [
+                    {"entity": sample_entity_response},
+                    {
+                        "entity": {
+                            "relatedDocuments": {
+                                "start": 0,
+                                "count": 0,
+                                "total": 0,
+                                "documents": [],
+                            }
+                        }
+                    },
+                ]
+
+                from datahub_integrations.mcp.mcp_server import get_entities
+
+                result = await async_background(get_entities)(urn)
+
+                assert isinstance(result, dict)
+                assert "relatedDocuments" in result
+                assert result["relatedDocuments"]["total"] == 0
+                assert result["relatedDocuments"].get("documents", []) == []
+
+    async def test_related_documents_multiple_entities(
+        self, mock_client, sample_entity_response
+    ):
+        """Test that related documents are fetched for multiple entities."""
+        urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table2,PROD)",
+        ]
+
+        with patch(
+            "datahub_integrations.mcp.mcp_server.get_datahub_client",
+            return_value=mock_client,
+        ):
+            mock_client._graph.exists.return_value = True
+
+            with patch(
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
+            ) as mock_gql:
+                mock_gql.side_effect = [
+                    {
+                        "entity": {
+                            **sample_entity_response,
+                            "urn": urns[0],
+                            "name": "table1",
+                        }
+                    },
+                    {
+                        "entity": {
+                            "relatedDocuments": {
+                                "start": 0,
+                                "count": 1,
+                                "total": 1,
+                                "documents": [
+                                    {
+                                        "urn": "urn:li:document:doc1",
+                                        "type": "DOCUMENT",
+                                        "info": {"title": "Table1 Doc"},
+                                    }
+                                ],
+                            }
+                        }
+                    },
+                    {
+                        "entity": {
+                            **sample_entity_response,
+                            "urn": urns[1],
+                            "name": "table2",
+                        }
+                    },
+                    {
+                        "entity": {
+                            "relatedDocuments": {
+                                "start": 0,
+                                "count": 1,
+                                "total": 1,
+                                "documents": [
+                                    {
+                                        "urn": "urn:li:document:doc2",
+                                        "type": "DOCUMENT",
+                                        "info": {"title": "Table2 Doc"},
+                                    }
+                                ],
+                            }
+                        }
+                    },
+                ]
+
+                from datahub_integrations.mcp.mcp_server import get_entities
+
+                result = await async_background(get_entities)(urns)
+
+                assert isinstance(result, list)
+                assert len(result) == 2
+                assert "relatedDocuments" in result[0]
+                assert "relatedDocuments" in result[1]
+                assert (
+                    result[0]["relatedDocuments"]["documents"][0]["info"]["title"]
+                    == "Table1 Doc"
+                )
+                assert (
+                    result[1]["relatedDocuments"]["documents"][0]["info"]["title"]
+                    == "Table2 Doc"
+                )
+                assert mock_gql.call_count == 4

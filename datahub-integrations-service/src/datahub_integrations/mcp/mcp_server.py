@@ -582,6 +582,9 @@ entity_details_fragment_gql = (
 
 queries_gql = (pathlib.Path(__file__).parent / "gql/queries.gql").read_text()
 query_entity_gql = (pathlib.Path(__file__).parent / "gql/query_entity.gql").read_text()
+related_documents_gql = (
+    pathlib.Path(__file__).parent / "gql/related_documents.gql"
+).read_text()
 
 
 def _is_semantic_search_enabled() -> bool:
@@ -1035,6 +1038,22 @@ def clean_get_entities_response(
     return response
 
 
+def clean_related_documents_response(raw_response: dict) -> dict:
+    """
+    Clean and optimize related documents response for LLM consumption.
+
+    Applies basic GraphQL cleaning to remove __typename, null values, empty objects/arrays.
+    This is a simpler version of clean_get_entities_response focused on related documents.
+
+    Args:
+        raw_response: Raw related documents dict from GraphQL query (RelatedDocumentsResult)
+
+    Returns:
+        Cleaned related documents dict optimized for LLM consumption
+    """
+    return clean_gql_response(raw_response)
+
+
 def get_entities(urns: List[str] | str) -> List[dict] | dict:
     """Get detailed information about one or more entities by their DataHub URNs.
 
@@ -1112,6 +1131,28 @@ def get_entities(urns: List[str] | str) -> List[dict] | dict:
                 raise ItemNotFoundError(
                     f"Entity {urn} exists but no data could be retrieved. "
                     f"This can happen if the entity has no aspects ingested yet, or if there's a permissions issue."
+                )
+
+            # Fetch related documents for supported entity types
+            try:
+                related_docs_input = {"start": 0, "count": 10}
+                related_docs_result = execute_graphql(
+                    client._graph,
+                    query=related_documents_gql,
+                    variables={"urn": urn, "input": related_docs_input},
+                    operation_name="getRelatedDocuments",
+                )
+                if (
+                    related_docs_result
+                    and related_docs_result.get("entity")
+                    and related_docs_result["entity"].get("relatedDocuments")
+                ):
+                    result["relatedDocuments"] = clean_related_documents_response(
+                        related_docs_result["entity"]["relatedDocuments"]
+                    )
+            except Exception as e:
+                logger.debug(
+                    f"Could not fetch related documents for {urn}: {e}. This entity type may not support related documents."
                 )
 
             inject_urls_for_urns(client._graph, result, [""])

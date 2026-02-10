@@ -62,14 +62,14 @@ def test_get_entities_with_query_urn(mock_client):
 
     with patch(
         "datahub_integrations.mcp.mcp_server.execute_graphql",
-        return_value=mock_response,
+        side_effect=[mock_response, {"entity": {}}],
     ) as mock_gql:
         with with_datahub_client(mock_client):
             result = get_entities(query_urn)
 
-    # Verify it used GetQueryEntity operation
-    mock_gql.assert_called_once()
-    call_kwargs = mock_gql.call_args[1]
+    # Verify it used GetQueryEntity operation (first call)
+    assert mock_gql.call_count == 2
+    call_kwargs = mock_gql.call_args_list[0][1]
     assert call_kwargs["operation_name"] == "GetQueryEntity"
 
     # Verify response structure
@@ -105,14 +105,14 @@ def test_get_entities_with_dataset_urn(mock_client):
 
     with patch(
         "datahub_integrations.mcp.mcp_server.execute_graphql",
-        return_value=mock_response,
+        side_effect=[mock_response, {"entity": {}}],
     ) as mock_gql:
         with with_datahub_client(mock_client):
             result = get_entities(dataset_urn)
 
-    # Verify it used GetEntity operation (not GetQueryEntity)
-    mock_gql.assert_called_once()
-    call_kwargs = mock_gql.call_args[1]
+    # Verify it used GetEntity operation (not GetQueryEntity) (first call)
+    assert mock_gql.call_count == 2
+    call_kwargs = mock_gql.call_args_list[0][1]
     assert call_kwargs["operation_name"] == "GetEntity"
 
     # Verify response
@@ -154,21 +154,26 @@ def test_get_entities_mixed_urns(mock_client):
 
     with patch(
         "datahub_integrations.mcp.mcp_server.execute_graphql",
-        side_effect=[query_response, dataset_response],
+        side_effect=[
+            query_response,
+            {"entity": {}},
+            dataset_response,
+            {"entity": {}},
+        ],
     ) as mock_gql:
         with with_datahub_client(mock_client):
             results = get_entities([query_urn, dataset_urn])
 
-    # Verify two different operations were called
-    assert mock_gql.call_count == 2
+    # Verify four operations were called (2 entities + 2 related docs queries)
+    assert mock_gql.call_count == 4
 
     # First call should be GetQueryEntity
     first_call_kwargs = mock_gql.call_args_list[0][1]
     assert first_call_kwargs["operation_name"] == "GetQueryEntity"
 
-    # Second call should be GetEntity
-    second_call_kwargs = mock_gql.call_args_list[1][1]
-    assert second_call_kwargs["operation_name"] == "GetEntity"
+    # Third call should be GetEntity
+    third_call_kwargs = mock_gql.call_args_list[2][1]
+    assert third_call_kwargs["operation_name"] == "GetEntity"
 
     # Verify results
     assert len(results) == 2
@@ -208,12 +213,13 @@ def test_get_entities_query_urn_edge_cases(mock_client):
 
         with patch(
             "datahub_integrations.mcp.mcp_server.execute_graphql",
-            return_value=mock_response,
+            side_effect=[mock_response, {"entity": {}}],
         ) as mock_gql:
             with with_datahub_client(mock_client):
                 result = get_entities(test_urn)
 
-        # Verify GetQueryEntity was used
-        call_kwargs = mock_gql.call_args[1]
+        # Verify GetQueryEntity was used (first call)
+        assert mock_gql.call_count == 2
+        call_kwargs = mock_gql.call_args_list[0][1]
         assert call_kwargs["operation_name"] == "GetQueryEntity"
         assert result["urn"] == test_urn
