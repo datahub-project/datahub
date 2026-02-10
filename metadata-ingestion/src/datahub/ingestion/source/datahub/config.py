@@ -15,20 +15,18 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 DEFAULT_DATABASE_TABLE_NAME = "metadata_aspect_v2"
 DEFAULT_KAFKA_TOPIC_NAME = "MetadataChangeLog_Timeseries_v1"
 DEFAULT_DATABASE_BATCH_SIZE = 10_000
+
+DEFAULT_URN_DENY_PATTERNS = [
+    "urn:li:dataHubIngestionSource:.*",
+    "urn:li:dataHubSecret:.*",
+    "urn:li:globalSettings:.*",
+    "urn:li:dataHubExecutionRequest:.*",
+]
+
 DEFAULT_EXCLUDE_ASPECTS = {
-    "dataHubIngestionSourceKey",
-    "dataHubIngestionSourceInfo",
     "datahubIngestionRunSummary",
     "datahubIngestionCheckpoint",
-    "dataHubSecretKey",
-    "dataHubSecretValue",
-    "globalSettingsKey",
-    "globalSettingsInfo",
     "testResults",
-    "dataHubExecutionRequestKey",
-    "dataHubExecutionRequestInput",
-    "dataHubExecutionRequestSignal",
-    "dataHubExecutionRequestResult",
 }
 
 
@@ -108,7 +106,14 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         description="Number of worker threads to use for datahub api ingestion.",
     )
 
-    urn_pattern: AllowDenyPattern = Field(default=AllowDenyPattern())
+    urn_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern(deny=DEFAULT_URN_DENY_PATTERNS),
+        description=(
+            "URN patterns to filter entities. Defaults exclude environment-specific entities "
+            "(ingestion sources, secrets, settings) to prevent copying encrypted credentials and creating "
+            "broken entities. Recommended to keep these defaults when customizing."
+        ),
+    )
 
     drop_duplicate_schema_fields: bool = Field(
         default=False,
