@@ -1048,19 +1048,11 @@ class DBTExposure:
     def get_urn(
         self,
         platform_instance: Optional[str],
-        env: str,
     ) -> str:
         """Generate a Dashboard URN for this exposure."""
-        # DashboardUrn has no env field; encode env in the id when not default so
-        # the same exposure in different environments gets a distinct URN.
-        name_for_urn = (
-            f"{env}.{self.unique_id}"
-            if env and env != mce_builder.DEFAULT_ENV
-            else self.unique_id
-        )
         return DashboardUrn.create_from_ids(
             platform=DBT_PLATFORM,
-            name=name_for_urn,
+            name=self.unique_id,
             platform_instance=platform_instance,
         ).urn()
 
@@ -1471,7 +1463,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         for exposure in sorted(exposures, key=lambda e: e.unique_id):
             exposure_urn = exposure.get_urn(
                 platform_instance=self.config.platform_instance,
-                env=self.config.env,
             )
 
             # Platform instance aspect

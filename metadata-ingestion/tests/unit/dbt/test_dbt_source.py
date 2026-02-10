@@ -1889,7 +1889,7 @@ def test_dbt_exposure_get_urn():
         type="dashboard",
     )
 
-    urn = exposure.get_urn(platform_instance=None, env="PROD")
+    urn = exposure.get_urn(platform_instance=None)
     assert urn == "urn:li:dashboard:(dbt,exposure.my_project.weekly_dashboard)"
 
 
@@ -1900,7 +1900,7 @@ def test_dbt_exposure_get_urn_with_platform_instance():
         type="dashboard",
     )
 
-    urn = exposure.get_urn(platform_instance="my_instance", env="PROD")
+    urn = exposure.get_urn(platform_instance="my_instance")
     assert (
         urn == "urn:li:dashboard:(dbt,my_instance.exposure.my_project.weekly_dashboard)"
     )
