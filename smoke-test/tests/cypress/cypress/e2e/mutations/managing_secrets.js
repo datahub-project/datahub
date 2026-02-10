@@ -1,7 +1,7 @@
 describe("managing secrets for ingestion creation", () => {
   beforeEach(() => {
     cy.setFeatureFlags(false, (res) => {
-      res.body.data.appConfig.featureFlags.showNavBarRedesign = false;
+      res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
     });
   });
   it("create a secret, create ingestion source using a secret, remove a secret", () => {
