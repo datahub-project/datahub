@@ -291,3 +291,17 @@ class GEProfilingConfig(GEProfilingBaseConfig):
             for flag in config_dict
             if flag in _PROFILING_FLAGS_TO_REPORT or flag.startswith("include_field_")
         }
+
+
+# Alias for clearer naming in new code
+# GEProfilingConfig is misleadingly named - it's actually a generic profiling config
+# used by both GE and SQLAlchemy profilers. This alias allows new code to use a
+# more appropriate name without breaking existing code.
+#
+# Migration strategy:
+# 1. New code should use ProfilingConfig instead of GEProfilingConfig
+# 2. Once GE profiler is removed, deprecate GEProfilingConfig with a warning
+# 3. Eventually rename the class itself to ProfilingConfig
+# 4. Consider moving to datahub.ingestion.source.profiling.common since it's
+#    generic profiling infrastructure, not source-specific
+ProfilingConfig = GEProfilingConfig

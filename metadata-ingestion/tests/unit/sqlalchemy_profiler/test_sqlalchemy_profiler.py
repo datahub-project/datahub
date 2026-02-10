@@ -6,8 +6,8 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine
 
-from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.ge_data_profiler import ProfilerRequest
+from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
@@ -49,7 +49,7 @@ def test_table(sqlite_engine):
 @pytest.fixture
 def profiler_config():
     """Create a test profiling config."""
-    return GEProfilingConfig(
+    return ProfilingConfig(
         enabled=True,
         include_field_null_count=True,
         include_field_distinct_count=True,
@@ -134,7 +134,7 @@ class TestSQLAlchemyProfiler:
         mock_calc_instance.get_column_unique_count.return_value = 3
         mock_stats_calc.return_value = mock_calc_instance
 
-        request = GEProfilerRequest(
+        request = ProfilerRequest(
             pretty_name="test_table",
             batch_kwargs={"table": "test_table", "schema": None},
         )
@@ -172,7 +172,7 @@ class TestSQLAlchemyProfiler:
             mock_future
         )
 
-        request = GEProfilerRequest(
+        request = ProfilerRequest(
             pretty_name="test_table",
             batch_kwargs={"table": "test_table", "schema": None},
         )

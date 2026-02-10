@@ -23,7 +23,7 @@ import sqlalchemy.types as sa_types
 from sqlalchemy.engine import Connection, Engine
 
 from datahub.emitter.mce_builder import get_sys_time
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
     convert_to_cardinality,
@@ -132,7 +132,7 @@ def _is_single_row_query_method(query: Any) -> bool:
 
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+    from datahub.ingestion.source.ge_data_profiler import ProfilerRequest
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -336,7 +336,7 @@ class SQLAlchemyProfiler:
     """Custom SQLAlchemy-based profiler replacing Great Expectations."""
 
     report: SQLSourceReport
-    config: GEProfilingConfig
+    config: ProfilingConfig
     times_taken: List[float]
     total_row_count: int
 
@@ -348,7 +348,7 @@ class SQLAlchemyProfiler:
         self,
         conn: Union[Engine, Connection],
         report: SQLSourceReport,
-        config: GEProfilingConfig,
+        config: ProfilingConfig,
         platform: str,
         env: str = "PROD",
     ):
@@ -456,11 +456,11 @@ class SQLAlchemyProfiler:
 
     def generate_profiles(
         self,
-        requests: List["GEProfilerRequest"],
+        requests: List["ProfilerRequest"],
         max_workers: int,
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
-    ) -> Iterable[Tuple["GEProfilerRequest", Optional[DatasetProfileClass]]]:
+    ) -> Iterable[Tuple["ProfilerRequest", Optional[DatasetProfileClass]]]:
         """
         Generate dataset profiles for a list of requests.
 
@@ -539,10 +539,10 @@ class SQLAlchemyProfiler:
     def _generate_profile_from_request(
         self,
         query_combiner: SQLAlchemyQueryCombiner,
-        request: "GEProfilerRequest",
+        request: "ProfilerRequest",
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
-    ) -> Tuple["GEProfilerRequest", Optional[DatasetProfileClass]]:
+    ) -> Tuple["ProfilerRequest", Optional[DatasetProfileClass]]:
         return request, self._generate_single_profile(
             query_combiner=query_combiner,
             pretty_name=request.pretty_name,
