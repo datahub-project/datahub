@@ -1041,7 +1041,9 @@ class SQLAlchemyProfiler:
                                     column_profile.quantiles = [
                                         QuantileClass(quantile=str(q), value=str(v))
                                         for q, v in zip(
-                                            [0.05, 0.25, 0.5, 0.75, 0.95], quantiles
+                                            [0.05, 0.25, 0.5, 0.75, 0.95],
+                                            quantiles,
+                                            strict=False,
                                         )
                                         if v is not None
                                     ]

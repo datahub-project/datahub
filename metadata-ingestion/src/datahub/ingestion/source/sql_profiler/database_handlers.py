@@ -91,7 +91,7 @@ class DatabaseHandlers:
                 sa.literal_column(
                     f"approx_quantiles({column}, 100)[OFFSET({idx})]"
                 ).label(f"q_{int(q * 100)}")
-                for q, idx in zip(quantiles, indices)
+                for q, idx in zip(quantiles, indices, strict=False)
             ]
             query = sa.select(selects).select_from(table)
             result = conn.execute(query).fetchone()

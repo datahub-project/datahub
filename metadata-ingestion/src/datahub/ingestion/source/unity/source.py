@@ -414,7 +414,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     )
                     # Use GenericProfiler which will use SQLAlchemyProfiler internally
                     yield from UnityCatalogGEProfiler(
-                        sql_common_config=self.config,
+                        config=self.config,
                         profiling_config=self.config.profiling,
                         report=self.report,
                     ).get_workunits(list(self.tables.values()))

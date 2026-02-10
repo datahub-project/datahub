@@ -16,8 +16,8 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 )
 from datahub.ingestion.source.unity.config import (
     UnityCatalogGEProfilerConfig,
-    UnityCatalogSQLAlchemyProfilerConfig,
     UnityCatalogSourceConfig,
+    UnityCatalogSQLAlchemyProfilerConfig,
 )
 from datahub.ingestion.source.unity.connection import (
     create_workspace_client,
@@ -51,7 +51,6 @@ class UnityCatalogSQLGenericTable(BaseTable):
 
 
 class UnityCatalogGEProfiler(GenericProfiler):
-    sql_common_config: SQLCommonConfig
     profiling_config: Union[
         UnityCatalogGEProfilerConfig, UnityCatalogSQLAlchemyProfilerConfig
     ]
@@ -59,7 +58,6 @@ class UnityCatalogGEProfiler(GenericProfiler):
 
     def __init__(
         self,
-        sql_common_config: SQLCommonConfig,
         config: UnityCatalogSourceConfig,
         profiling_config: Union[
             UnityCatalogGEProfilerConfig, UnityCatalogSQLAlchemyProfilerConfig
