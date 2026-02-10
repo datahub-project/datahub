@@ -145,7 +145,7 @@ export const createAndRunIngestionSource = (sourceName) => {
   clickIfTestIdPresent("modal-confirm-button");
 
   cy.get('[data-testid="search-bar-input"]').type("other");
-  cy.clickOptionWithTextToScrollintoView("Other");
+  cy.clickOptionWithTextToScrollintoView("Custom");
 
   cy.waitTextVisible("source-type");
   readyToTypeEditor().type("{ctrl}a").clear();
