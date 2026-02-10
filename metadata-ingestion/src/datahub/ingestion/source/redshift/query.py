@@ -613,12 +613,9 @@ with query_txt as (
     select
         query,
         pid,
-        LISTAGG(case
-            when LEN(RTRIM(text)) = 0 then text
-            else RTRIM(text)
-        end) within group (
-            order by sequence
-        ) as ddl
+        -- RTRIM the final result only, not each segment, to preserve meaningful
+        -- trailing spaces at segment boundaries (character(200) splits at 200 chars)
+        RTRIM(LISTAGG(text) within group (order by sequence)) as ddl
     from (
         select
             query,
@@ -714,13 +711,9 @@ from (
                 xid,
                 type,
                 userid,
-                LISTAGG(case
-                    when LEN(RTRIM(text)) = 0 then text
-                    else RTRIM(text)
-                end,
-                '') within group (
-                    order by sequence
-                ) as query_text
+                -- RTRIM the final result only, not each segment, to preserve meaningful
+                -- trailing spaces at segment boundaries (character(200) splits at 200 chars)
+                RTRIM(LISTAGG(text, '') within group (order by sequence)) as query_text
             from
                 SVL_STATEMENTTEXT
             where
@@ -949,7 +942,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     table_id as source_table_id,
                     queries.query_id as query_id,
                     username,
-                    LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence) AS query_text
+                    -- RTRIM the final result to remove padding from the last segment
+                    RTRIM(LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence)) AS query_text
                 FROM
                     "queries" LEFT JOIN
                     unique_query_text qt ON qt.query_id = queries.query_id
@@ -1037,7 +1031,9 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                 target_table,
                 username,
                 query_id,
-                LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) AS ddl,
+                -- RTRIM the final result only, not each segment, to preserve meaningful
+                -- trailing spaces at segment boundaries (character(4000) splits at 4000 chars)
+                RTRIM(LISTAGG(querytxt) WITHIN GROUP (ORDER BY sequence)) AS ddl,
                 ANY_VALUE(session_id) AS session_id,
                 starttime AS timestamp
             FROM
@@ -1118,7 +1114,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                                             qh.transaction_id AS transaction_id,
                                             qh.start_time AS start_time,
                                             qh.user_id AS userid,
-                                            LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence) AS query_text
+                                            -- RTRIM the final result to remove padding from the last segment
+                                            RTRIM(LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence)) AS query_text
                                     FROM
                                             SYS_QUERY_HISTORY qh
                                             LEFT JOIN SYS_QUERY_TEXT qt on qt.query_id = qh.query_id

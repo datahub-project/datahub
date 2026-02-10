@@ -49,9 +49,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
 from datahub.sql_parsing.query_types import get_query_type_of_sql, is_create_table_ddl
-from datahub.sql_parsing.redshift_preprocessing import (
-    preprocess_query_for_sigma,
-)
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
@@ -2218,15 +2215,9 @@ def create_lineage_sql_parsed_result(
     if graph and schema_aware:
         needs_close = False
 
-    # Apply Sigma Computing SQL fix for Redshift platform
-    # Sigma generates malformed SQL with missing spaces in type casts
-    processed_query = query
-    if platform == "redshift":
-        processed_query = preprocess_query_for_sigma(query)
-
     try:
         return sqlglot_lineage(
-            processed_query,
+            query,
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
