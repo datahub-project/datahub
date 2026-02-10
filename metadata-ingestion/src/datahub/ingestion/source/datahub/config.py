@@ -59,7 +59,10 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
 
     exclude_aspects: Set[str] = Field(
         default=DEFAULT_EXCLUDE_ASPECTS,
-        description="Set of aspect names to exclude from ingestion",
+        description=(
+            "Aspect names to exclude. Warning: Excluding key aspects of entities while keeping others"
+            "creates invalid entities. Use 'urn_pattern' to exclude entire entity types safely."
+        ),
     )
 
     database_query_batch_size: int = Field(
