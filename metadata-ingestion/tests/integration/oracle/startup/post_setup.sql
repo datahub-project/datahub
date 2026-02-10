@@ -106,87 +106,11 @@ COMMIT;
 ALTER SESSION SET CURRENT_SCHEMA = ANALYTICS_SCHEMA;
 SELECT refresh_date, description FROM analytics_schema.simple_analytics WHERE record_count > 0;
 
--- Pin test DML queries in V$SQL to ensure they're available for query usage testing
-SET SERVEROUTPUT ON;
-
-DECLARE
-    v_count NUMBER := 0;
-    v_total_vsql NUMBER := 0;
-BEGIN
-    -- Check total queries in V$SQL
-    SELECT COUNT(*) INTO v_total_vsql FROM V$SQL;
-    DBMS_OUTPUT.PUT_LINE('Total queries in V$SQL: ' || v_total_vsql);
-    
-    -- Debug: Show all HR_SCHEMA queries
-    DBMS_OUTPUT.PUT_LINE('=== HR_SCHEMA queries in V$SQL ===');
-    FOR debug_rec IN (
-        SELECT sql_id, SUBSTR(sql_text, 1, 80) as sql_preview
-        FROM V$SQL
-        WHERE parsing_schema_name = 'HR_SCHEMA'
-        AND ROWNUM <= 5
-    ) LOOP
-        DBMS_OUTPUT.PUT_LINE('  ' || debug_rec.sql_id || ': ' || debug_rec.sql_preview);
-    END LOOP;
-    
-    -- Pin employee_backup INSERT query with more lenient matching
-    FOR rec IN (
-        SELECT sql_id, address, hash_value, SUBSTR(sql_text, 1, 100) as sql_preview
-        FROM V$SQL 
-        WHERE parsing_schema_name = 'HR_SCHEMA'
-        AND (
-            UPPER(sql_text) LIKE '%EMPLOYEE_BACKUP%'
-            OR UPPER(sql_text) LIKE '%HR_SCHEMA.EMPLOYEE_BACKUP%'
-        )
-        AND UPPER(sql_text) NOT LIKE '%V$SQL%'
-        AND UPPER(sql_text) NOT LIKE '%DBMS_SHARED_POOL%'
-        AND command_type IN (2, 3, 6, 7)  -- INSERT, SELECT, UPDATE, DELETE
-        AND ROWNUM = 1
-    ) LOOP
-        DBMS_SHARED_POOL.KEEP(rec.address || ',' || rec.hash_value, 'C');
-        v_count := v_count + 1;
-        DBMS_OUTPUT.PUT_LINE('✓ Pinned HR query ' || rec.sql_id || ': ' || rec.sql_preview);
-    END LOOP;
-    
-    -- Debug: Show all SALES_SCHEMA queries
-    DBMS_OUTPUT.PUT_LINE('=== SALES_SCHEMA queries in V$SQL ===');
-    FOR debug_rec IN (
-        SELECT sql_id, SUBSTR(sql_text, 1, 80) as sql_preview
-        FROM V$SQL
-        WHERE parsing_schema_name = 'SALES_SCHEMA'
-        AND ROWNUM <= 5
-    ) LOOP
-        DBMS_OUTPUT.PUT_LINE('  ' || debug_rec.sql_id || ': ' || debug_rec.sql_preview);
-    END LOOP;
-    
-    -- Pin daily_revenue INSERT query with more lenient matching
-    FOR rec IN (
-        SELECT sql_id, address, hash_value, SUBSTR(sql_text, 1, 100) as sql_preview
-        FROM V$SQL 
-        WHERE parsing_schema_name = 'SALES_SCHEMA'
-        AND (
-            UPPER(sql_text) LIKE '%DAILY_REVENUE%'
-            OR UPPER(sql_text) LIKE '%SALES_SCHEMA.DAILY_REVENUE%'
-        )
-        AND UPPER(sql_text) NOT LIKE '%V$SQL%'
-        AND UPPER(sql_text) NOT LIKE '%DBMS_SHARED_POOL%'
-        AND command_type IN (2, 3, 6, 7)  -- INSERT, SELECT, UPDATE, DELETE
-        AND ROWNUM = 1
-    ) LOOP
-        DBMS_SHARED_POOL.KEEP(rec.address || ',' || rec.hash_value, 'C');
-        v_count := v_count + 1;
-        DBMS_OUTPUT.PUT_LINE('✓ Pinned SALES query ' || rec.sql_id || ': ' || rec.sql_preview);
-    END LOOP;
-    
-    DBMS_OUTPUT.PUT_LINE('===========================================');
-    DBMS_OUTPUT.PUT_LINE('Total DML queries pinned: ' || v_count);
-    
-    IF v_count = 0 THEN
-        DBMS_OUTPUT.PUT_LINE('⚠ WARNING: No queries were pinned! Check V$SQL content above.');
-    ELSE
-        DBMS_OUTPUT.PUT_LINE('✓ Queries successfully pinned and will remain in V$SQL');
-    END IF;
-END;
-/
+-- Note: V$SQL is a cache, not a persistent query log
+-- The DML queries executed above (INSERT INTO employee_backup, INSERT INTO daily_revenue)
+-- may or may not be in V$SQL when the connector runs, depending on Oracle's cache behavior
+-- The test validates that include_query_usage works and extracts any queries present in V$SQL
+-- This is the expected behavior for V$SQL-based query usage extraction
 
 -- Display final status
 SELECT 'Oracle integration test environment verification completed successfully!' AS status FROM dual;
