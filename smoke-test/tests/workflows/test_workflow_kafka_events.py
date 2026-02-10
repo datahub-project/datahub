@@ -175,7 +175,7 @@ def consume_kafka_events(consumer, timeout=15):
                 time.sleep(0.1)
                 continue
             if msg.error():
-                if msg.error().code() == KafkaError._PARTITION_EOF:
+                if msg.error().code() == KafkaError._PARTITION_EOF:  # type: ignore[union-attr, attr-defined]
                     continue
                 else:
                     print(f"Consumer error: {msg.error()}")

@@ -24,7 +24,7 @@ requests<=2.31.0
 deepdiff!=8.0.0
 opensearch-py==2.6.0
 
-python-dotenv==1.0.1
+python-dotenv==1.1.1
 acryl-executor==0.3.4
 
 # Required for inference_utils integration tests
@@ -35,8 +35,13 @@ confluent-kafka[schemaregistry,avro]>=1.9.0,!=2.8.1
 python-snappy>=0.6.1
 
 # SaaS Only:
-# required to propagation tests
--e ../datahub-integrations-service
+# The integrations service is NOT installed here to avoid a protobuf version
+# conflict between datahub-executor[observe] (needs protobuf<5 via
+# google-cloud-datacatalog-lineage==0.2.2) and datahub-integrations-service
+# (needs protobuf>=5 via fastmcp -> opentelemetry).
+# Propagation tests communicate with the integrations service over HTTP and
+# don't need the package installed locally. The only test that imports from
+# datahub_integrations (test_telemetry_api.py) is skipped when absent.
 # required for bigquery docs propagation tests
 -e ../metadata-ingestion[bigquery-slim]
 -e ../datahub-actions

@@ -45,6 +45,8 @@ asgiref==3.8.1
     #   reactpy
 asn1crypto==1.5.1
     # via snowflake-connector-python
+async-timeout==5.0.1 ; python_full_version < '3.11.3'
+    # via redis
 asyncer==0.0.8
     # via acryl-datahub-integrations
 attrs==23.2.0
@@ -53,7 +55,7 @@ attrs==23.2.0
     #   cyclopts
     #   jsonschema
     #   referencing
-authlib==1.6.0
+authlib==1.6.7
     # via fastmcp
 avro==1.11.3
     # via
@@ -76,6 +78,12 @@ azure-identity==1.21.0
     # via
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
+backports-tarfile==1.2.0 ; python_full_version < '3.12'
+    # via jaraco-context
+beartype==0.22.9
+    # via
+    #   py-key-value-aio
+    #   py-key-value-shared
 beautifulsoup4==4.14.2
     # via acryl-datahub-integrations
 blinker==1.9.0
@@ -128,6 +136,7 @@ cachetools==5.3.3
     #   google-auth
     #   mlflow-skinny
     #   mlflow-tracing
+    #   py-key-value-aio
 catalogue==2.0.10
     # via
     #   spacy
@@ -171,7 +180,9 @@ click-spinner==0.1.10
 cloudpathlib==0.23.0
     # via weasel
 cloudpickle==3.1.1
-    # via mlflow-skinny
+    # via
+    #   mlflow-skinny
+    #   pydocket
 colorama==0.4.6 ; os_name == 'nt' or sys_platform == 'win32'
     # via
     #   build
@@ -194,7 +205,9 @@ confluent-kafka==2.3.0
 contourpy==1.3.3
     # via matplotlib
 croniter==6.0.0
-    # via acryl-datahub-cloud
+    # via
+    #   acryl-datahub-cloud
+    #   pydocket
 cryptography==45.0.7
     # via
     #   acryl-datahub
@@ -205,10 +218,11 @@ cryptography==45.0.7
     #   msal
     #   pyjwt
     #   pyopenssl
+    #   secretstorage
     #   snowflake-connector-python
 cycler==0.12.1
     # via matplotlib
-cyclopts==3.22.2
+cyclopts==4.5.1
     # via fastmcp
 cymem==2.0.13
     # via
@@ -227,6 +241,8 @@ deprecated==1.2.14
     # via
     #   acryl-datahub
     #   pygithub
+diskcache==5.6.3
+    # via py-key-value-aio
 distro==1.9.0
     # via openai
 dnspython==2.7.0
@@ -253,6 +269,8 @@ exceptiongroup==1.3.0
     # via fastmcp
 expandvars==0.12.0
     # via acryl-datahub
+fakeredis==2.33.0
+    # via pydocket
 fastapi==0.116.0
     # via
     #   acryl-datahub-integrations
@@ -263,7 +281,7 @@ fastavro==1.9.4
     #   confluent-kafka
 fastjsonschema==2.19.1
     # via reactpy
-fastmcp==2.10.4
+fastmcp==2.14.5
     # via acryl-datahub-integrations
 filelock==3.14.0
     # via
@@ -433,6 +451,7 @@ ijson==3.2.3
     # via acryl-datahub
 importlib-metadata==7.1.0
     # via
+    #   keyring
     #   litellm
     #   mlflow-skinny
     #   opentelemetry-api
@@ -448,6 +467,16 @@ isodate==0.7.2
     # via msrest
 itsdangerous==2.2.0
     # via flask
+jaraco-classes==3.4.0
+    # via keyring
+jaraco-context==6.1.0
+    # via keyring
+jaraco-functools==4.4.0
+    # via keyring
+jeepney==0.9.0 ; sys_platform == 'linux'
+    # via
+    #   keyring
+    #   secretstorage
 jinja2==3.1.3
     # via
     #   acryl-datahub-integrations
@@ -473,14 +502,20 @@ jsonpickle==1.4.2
 jsonpointer==2.4
     # via jsonpatch
 jsonref==1.1.0
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   fastmcp
 jsonschema==4.25.1
     # via
     #   acryl-datahub
     #   litellm
     #   mcp
+jsonschema-path==0.3.4
+    # via fastmcp
 jsonschema-specifications==2023.12.1
     # via jsonschema
+keyring==25.7.0
+    # via py-key-value-aio
 kiwisolver==1.4.9
     # via matplotlib
 langchain==1.0.5
@@ -518,6 +553,8 @@ loguru==0.7.3
     # via
     #   acryl-datahub-integrations
     #   sentry-sdk
+lupa==2.6
+    # via fakeredis
 lxml==5.2.1
     # via reactpy
 lz4==4.4.4
@@ -536,7 +573,7 @@ markupsafe==2.1.5
     #   werkzeug
 matplotlib==3.10.6
     # via mlflow
-mcp==1.10.1
+mcp==1.26.0
     # via fastmcp
 mdurl==0.1.2
     # via markdown-it-py
@@ -554,6 +591,8 @@ more-itertools==10.2.0
     # via
     #   acryl-datahub
     #   inflect
+    #   jaraco-classes
+    #   jaraco-functools
 msal==1.32.3
     # via
     #   acryl-datahub
@@ -624,6 +663,7 @@ opentelemetry-api==1.39.1
     #   opentelemetry-instrumentation-system-metrics
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
+    #   pydocket
 opentelemetry-exporter-otlp-proto-common==1.39.1
     # via opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-exporter-otlp-proto-grpc==1.39.1
@@ -680,6 +720,7 @@ packaging==24.2
     #   acryl-datahub
     #   build
     #   docker
+    #   fastmcp
     #   google-cloud-aiplatform
     #   google-cloud-appengine-logging
     #   google-cloud-bigquery
@@ -707,6 +748,10 @@ parse==1.20.2
     # via acryl-datahub
 patchy==2.8.0
     # via acryl-datahub
+pathable==0.4.4
+    # via jsonschema-path
+pathvalidate==3.3.1
+    # via py-key-value-aio
 phonenumbers==8.13.0
     # via acryl-datahub-classify
 pillow==11.3.0
@@ -714,7 +759,9 @@ pillow==11.3.0
 pip==25.3
     # via acryl-datahub
 platformdirs==4.2.1
-    # via snowflake-connector-python
+    # via
+    #   fastmcp
+    #   snowflake-connector-python
 preshed==3.0.12
     # via
     #   spacy
@@ -723,11 +770,12 @@ progressbar2==4.4.2
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
-prometheus-client==0.20.0
+prometheus-client==0.24.1
     # via
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
     #   opentelemetry-exporter-prometheus
+    #   pydocket
 propcache==0.3.2
     # via
     #   aiohttp
@@ -758,6 +806,12 @@ psutil==7.0.0
     # via
     #   acryl-datahub
     #   opentelemetry-instrumentation-system-metrics
+py-key-value-aio==0.3.0
+    # via
+    #   fastmcp
+    #   pydocket
+py-key-value-shared==0.3.0
+    # via py-key-value-aio
 py-spy==0.4.1
     # via acryl-datahub-integrations
 pyarrow==21.0.0
@@ -807,15 +861,18 @@ pydantic-core==2.33.2
     #   pydantic
 pydantic-settings==2.9.1
     # via mcp
+pydocket==0.17.5
+    # via fastmcp
 pygithub==2.3.0
     # via acryl-datahub-integrations
 pygitops==0.16.1
     # via acryl-datahub-integrations
 pygments==2.19.2
     # via rich
-pyjwt==2.8.0
+pyjwt==2.11.0
     # via
     #   botframework-connector
+    #   mcp
     #   msal
     #   pygithub
     #   snowflake-connector-python
@@ -852,6 +909,8 @@ python-dotenv==1.1.1
     #   uvicorn
 python-http-client==3.3.7
     # via sendgrid
+python-json-logger==4.0.0
+    # via pydocket
 python-multipart==0.0.20
     # via mcp
 python-stdnum==2.1
@@ -865,12 +924,17 @@ pytz==2024.1
     #   pandas
     #   snowflake-connector-python
 pywin32==311 ; sys_platform == 'win32'
-    # via docker
+    # via
+    #   docker
+    #   mcp
+pywin32-ctypes==0.2.3 ; sys_platform == 'win32'
+    # via keyring
 pyyaml==6.0.1
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
     #   huggingface-hub
+    #   jsonschema-path
     #   langchain-core
     #   mlflow-skinny
     #   uvicorn
@@ -882,9 +946,15 @@ reactpy==1.0.2
     #   reactpy-router
 reactpy-router==0.1.1
     # via acryl-datahub-integrations
+redis==7.1.1
+    # via
+    #   fakeredis
+    #   py-key-value-aio
+    #   pydocket
 referencing==0.35.0
     # via
     #   jsonschema
+    #   jsonschema-path
     #   jsonschema-specifications
 regex==2025.7.34
     # via tiktoken
@@ -900,6 +970,7 @@ requests==2.31.0
     #   google-cloud-storage
     #   google-genai
     #   huggingface-hub
+    #   jsonschema-path
     #   langsmith
     #   mixpanel
     #   mlflow-skinny
@@ -927,6 +998,7 @@ rich==14.0.0
     # via
     #   cyclopts
     #   fastmcp
+    #   pydocket
     #   rich-rst
     #   typer
 rich-rst==1.3.1
@@ -955,6 +1027,8 @@ scipy==1.16.2
     # via
     #   mlflow
     #   scikit-learn
+secretstorage==3.5.0 ; sys_platform == 'linux'
+    # via keyring
 sendgrid==6.11.0
     # via acryl-datahub-integrations
 sentry-sdk==2.33.0
@@ -995,7 +1069,9 @@ snowflake-connector-python==3.18.0
 snowflake-sqlalchemy==1.5.3
     # via acryl-datahub
 sortedcontainers==2.4.0
-    # via snowflake-connector-python
+    # via
+    #   fakeredis
+    #   snowflake-connector-python
 soupsieve==2.8
     # via beautifulsoup4
 spacy==3.7.5
@@ -1069,7 +1145,9 @@ tqdm==4.67.1
 typeguard==4.2.1
     # via inflect
 typer==0.20.0
-    # via spacy
+    # via
+    #   pydocket
+    #   spacy
 typer-slim==0.20.0
     # via weasel
 types-croniter==6.0.0.20250809
@@ -1092,14 +1170,17 @@ typing-extensions==4.15.0
     #   huggingface-hub
     #   inflect
     #   langchain-core
+    #   mcp
     #   mlflow-skinny
     #   openai
     #   opentelemetry-api
     #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
+    #   py-key-value-shared
     #   pydantic
     #   pydantic-core
+    #   pydocket
     #   pygithub
     #   pyopenssl
     #   python-utils
@@ -1115,8 +1196,9 @@ typing-inspect==0.9.0
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
-typing-inspection==0.4.0
+typing-inspection==0.4.2
     # via
+    #   mcp
     #   pydantic
     #   pydantic-settings
 tzdata==2024.1
@@ -1140,6 +1222,7 @@ uuid-utils==0.12.0
 uvicorn==0.35.0
     # via
     #   acryl-datahub-integrations
+    #   fastmcp
     #   mcp
     #   mlflow-skinny
 uvloop==0.19.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
@@ -1163,6 +1246,7 @@ weasel==0.4.3
     # via spacy
 websockets==15.0.1
     # via
+    #   fastmcp
     #   google-genai
     #   uvicorn
 werkzeug==3.1.3

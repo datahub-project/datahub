@@ -27,19 +27,23 @@ async def test_telemetry_middleware_tool_failure() -> None:
             assert result.is_error
             assert "tool call failed" in str(result.content)
 
-    assert mock_track.call_count == 2
-    list_tools_event = mock_track.call_args_list[0][0][0]
-    assert isinstance(list_tools_event, MCPServerRequestEvent)
+    # The MCP protocol sends multiple requests during a session (e.g. initialize,
+    # tools/list, tools/call). Filter to the events we care about.
+    all_events = [call[0][0] for call in mock_track.call_args_list]
+    assert all(isinstance(e, MCPServerRequestEvent) for e in all_events)
+
+    list_tools_events = [e for e in all_events if e.method == "tools/list"]
+    assert len(list_tools_events) == 1
+    list_tools_event = list_tools_events[0]
     assert list_tools_event.source == "client"
     assert list_tools_event.request_type == "request"
-    assert list_tools_event.method == "tools/list"
     assert list_tools_event.tool_name is None
 
-    tool_call_event = mock_track.call_args_list[1][0][0]
-    assert isinstance(tool_call_event, MCPServerRequestEvent)
+    tool_call_events = [e for e in all_events if e.method == "tools/call"]
+    assert len(tool_call_events) == 1
+    tool_call_event = tool_call_events[0]
     assert tool_call_event.source == "client"
     assert tool_call_event.request_type == "request"
-    assert tool_call_event.method == "tools/call"
     assert tool_call_event.tool_name == "sleep_and_fail"
     assert tool_call_event.tool_result_is_error
     assert (

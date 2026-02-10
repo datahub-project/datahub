@@ -30,7 +30,7 @@ dependencies = [
 	"botbuilder-schema",
 	"botframework-connector",
 	# MCP
-	"fastmcp",
+	"fastmcp>=2.14.5,<3",
 	"markdown_to_mrkdwn",
 	# Actions.
 	"httpx",
