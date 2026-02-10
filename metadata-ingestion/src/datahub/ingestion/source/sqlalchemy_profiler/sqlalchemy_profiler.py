@@ -63,6 +63,34 @@ from datahub.utilities.sqlalchemy_query_combiner import (
 )
 
 
+def _quote_bigquery_identifier(identifier: str) -> str:
+    """
+    Safely quote a BigQuery identifier to prevent SQL injection.
+
+    BigQuery uses backticks for identifiers. To escape a backtick within
+    an identifier, double it (`` -> ````).
+
+    Args:
+        identifier: The identifier to quote (table name, column name, etc.)
+
+    Returns:
+        Properly quoted identifier safe for use in SQL queries
+
+    Examples:
+        >>> _quote_bigquery_identifier("my_table")
+        '`my_table`'
+        >>> _quote_bigquery_identifier("table`with`backticks")
+        '`table``with``backticks`'
+        >>> _quote_bigquery_identifier("schema.table")
+        '`schema`.`table`'
+    """
+    # Split on dots to handle schema.table notation
+    parts = identifier.split(".")
+    # Escape backticks in each part by doubling them, then wrap in backticks
+    quoted_parts = [f"`{part.replace('`', '``')}`" for part in parts]
+    return ".".join(quoted_parts)
+
+
 def _is_single_row_query_method(query: Any) -> bool:
     """
     Determine if a query method returns a single row.
@@ -610,11 +638,34 @@ class SQLAlchemyProfiler:
                         if custom_sql:
                             bq_sql = custom_sql
                         else:
-                            bq_sql = f"SELECT * FROM `{table}`"
+                            # Table must be present if we're not using custom_sql
+                            if not table:
+                                raise ValueError(
+                                    f"Cannot profile {pretty_name}: table name is required"
+                                )
+                            # Safely quote table identifier to prevent SQL injection
+                            table_identifier = f"{schema}.{table}" if schema else table
+                            quoted_table = _quote_bigquery_identifier(table_identifier)
+                            bq_sql = f"SELECT * FROM {quoted_table}"
+
+                            # Validate and add LIMIT/OFFSET as integers to prevent SQL injection
                             if self.config.limit:
-                                bq_sql += f" LIMIT {self.config.limit}"
+                                # Pydantic validates this is an int, but ensure it's positive
+                                limit_val = int(self.config.limit)
+                                if limit_val <= 0:
+                                    raise ValueError(
+                                        f"Invalid LIMIT value: {limit_val}. Must be positive."
+                                    )
+                                bq_sql += f" LIMIT {limit_val}"
+
                             if self.config.offset:
-                                bq_sql += f" OFFSET {self.config.offset}"
+                                # Pydantic validates this is an int, but ensure it's non-negative
+                                offset_val = int(self.config.offset)
+                                if offset_val < 0:
+                                    raise ValueError(
+                                        f"Invalid OFFSET value: {offset_val}. Must be non-negative."
+                                    )
+                                bq_sql += f" OFFSET {offset_val}"
                         # For BigQuery, use base_engine.raw_connection() like GE profiler does
                         # This is required because BigQuery's DBAPI connection needs to be
                         # obtained from the engine, not from the SQLAlchemy Connection object
@@ -751,10 +802,23 @@ class SQLAlchemyProfiler:
                         temporary table. This can be (ab)used and all column level profiling
                         calculations can be performed against it.
                         """
+                        # Calculate sample percentage (validated as float from config)
                         sample_pc = 100 * self.config.sample_size / row_count
-                        table_ref = f"{schema}.{table}" if schema else table
+                        # Ensure sample_pc is within valid range [0, 100]
+                        sample_pc = max(0.0, min(100.0, sample_pc))
+
+                        # Table must be present for sampling
+                        if not table:
+                            raise ValueError(
+                                f"Cannot sample {pretty_name}: table name is required"
+                            )
+                        # Safely quote table identifier to prevent SQL injection
+                        table_identifier = f"{schema}.{table}" if schema else table
+                        quoted_table = _quote_bigquery_identifier(table_identifier)
+
+                        # Build query with properly escaped identifiers and validated percentage
                         sql = (
-                            f"SELECT * FROM `{table_ref}` "
+                            f"SELECT * FROM {quoted_table} "
                             f"TABLESAMPLE SYSTEM ({sample_pc:.8f} percent)"
                         )
                         # Get raw DBAPI connection
