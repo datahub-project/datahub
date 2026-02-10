@@ -1,7 +1,8 @@
-import { CheckCircle, Stop, XCircle } from '@phosphor-icons/react';
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { CheckCircle, Stop, XCircle } from '@components/components/Icon/phosphor-icons';
 
 import { colors } from '@src/alchemy-components/theme';
 

@@ -1,10 +1,11 @@
 import { ApiOutlined } from '@ant-design/icons';
 import { HelpCenterOutlined, OndemandVideoOutlined } from '@mui/icons-material';
 import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
-import { BookmarkSimple } from '@phosphor-icons/react';
 import { Col, Row, Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
+
+import { BookmarkSimple } from '@components/components/Icon/phosphor-icons';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useUserPersona } from '@app/homeV2/persona/useUserPersona';

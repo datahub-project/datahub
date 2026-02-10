@@ -1,6 +1,7 @@
 import { AppstoreOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { BookmarksSimple } from '@phosphor-icons/react';
 import React from 'react';
+
+import { BookmarksSimple } from '@components/components/Icon/phosphor-icons';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import ChildrenTabWrapper from '@app/entityV2/glossaryNode/ChildrenTabWrapper';

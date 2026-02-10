@@ -1,5 +1,6 @@
-import { BookmarkSimple } from '@phosphor-icons/react';
 import React from 'react';
+
+import { BookmarkSimple } from '@components/components/Icon/phosphor-icons';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';

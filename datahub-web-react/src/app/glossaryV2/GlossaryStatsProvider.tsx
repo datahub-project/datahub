@@ -1,8 +1,9 @@
 import Icon from '@ant-design/icons';
-import { BookmarksSimple } from '@phosphor-icons/react';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+
+import { BookmarksSimple } from '@components/components/Icon/phosphor-icons';
 
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 

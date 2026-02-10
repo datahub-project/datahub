@@ -1,9 +1,10 @@
-import { BookOpen } from '@phosphor-icons/react';
 import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { BookOpen } from '@components/components/Icon/phosphor-icons';
 
 import { EntityContext } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';

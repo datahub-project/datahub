@@ -155,6 +155,42 @@ export default defineConfig(async ({ mode }) => {
         // },
         envPrefix: 'REACT_APP_',
         build: {
+            rollupOptions: {
+                output: {
+                    manualChunks(id) {
+                        if (id.includes('node_modules')) {
+                            // Core React (most stable, changes least)
+                            if (
+                                id.includes('/react/') ||
+                                id.includes('/react-dom/') ||
+                                id.includes('/react-router')
+                            ) {
+                                return 'framework';
+                            }
+
+                            // UI frameworks
+                            if (id.includes('@mui')) {
+                                return 'mui-vendor';
+                            }
+                            if (id.includes('antd') || id.includes('@ant-design')) {
+                                return 'antd-vendor';
+                            }
+
+                            // Icons (optimized bundle)
+                            if (id.includes('phosphor-icons')) {
+                                return 'phosphor-vendor';
+                            }
+
+                            // Everything else
+                            return 'vendor';
+                        }
+                        if (id.includes('src/')) {
+                            return 'source';
+                        }
+                        return null;
+                    },
+                },
+            },
             outDir: 'dist',
             target: 'esnext',
             minify: 'esbuild',

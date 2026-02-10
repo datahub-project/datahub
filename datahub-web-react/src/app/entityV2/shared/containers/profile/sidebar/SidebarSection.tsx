@@ -1,8 +1,9 @@
 import { colors } from '@components';
-import { CaretDown, CaretRight } from '@phosphor-icons/react';
 import { Collapse, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { CaretDown, CaretRight } from '@components/components/Icon/phosphor-icons';
 
 import { CountStyle } from '@app/entityV2/shared/SidebarStyledComponents';
 

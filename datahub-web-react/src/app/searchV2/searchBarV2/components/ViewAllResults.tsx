@@ -1,6 +1,7 @@
-import { ArrowElbowDownLeft, MagnifyingGlass } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components/macro';
+
+import { ArrowElbowDownLeft, MagnifyingGlass } from '@components/components/Icon/phosphor-icons';
 
 import KeyIcon from '@app/searchV2/searchBarV2/components/KeyIcon';
 import { Text, colors } from '@src/alchemy-components';

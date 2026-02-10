@@ -1,9 +1,9 @@
-import { LinkSimpleHorizontal } from '@phosphor-icons/react';
 import { useActive } from '@remirror/react';
 import React, { useState } from 'react';
 
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
 import { LinkModal } from '@components/components/Editor/toolbar/LinkModal';
+import { LinkSimpleHorizontal } from '@components/components/Icon/phosphor-icons';
 
 import { colors } from '@src/alchemy-components/theme';
 
