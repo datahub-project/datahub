@@ -3,6 +3,10 @@
 fragment assertionInfo on AssertionInfo {
     type
     description
+    customProperties {
+        key
+        value
+    }
     lastUpdated {
         time
         actor
@@ -164,7 +168,7 @@ fragment assertionInfo on AssertionInfo {
     customAssertion {
         type
         entityUrn
-        field {
+        fields {
             urn
             path
         }
@@ -306,6 +310,10 @@ fragment assertionRunEventDetails on AssertionRunEvent {
     assertionUrn
     status
     runId
+    partitionSpec {
+        type
+        partition
+    }
     runtimeContext {
         key
         value
