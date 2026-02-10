@@ -6,13 +6,13 @@ from typing import Dict, Iterable, List, Optional
 from pydantic import BaseModel, field_validator
 
 from datahub.emitter.mce_builder import (
-    datahub_guid,
     make_assertion_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_schema_field_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import DatahubKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
@@ -38,6 +38,18 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class SnowflakeExternalDmfKey(DatahubKey):
+    """Key for generating deterministic GUIDs for external Snowflake DMFs.
+
+    Uses Snowflake's REFERENCE_ID which uniquely identifies the
+    DMF-table-column association.
+    """
+
+    platform: str = "snowflake"
+    reference_id: str
+    instance: Optional[str] = None
 
 
 class DataQualityMonitoringResult(BaseModel):
@@ -115,19 +127,12 @@ class SnowflakeAssertionsHandler:
         ).as_workunit(is_primary_source=False)
 
     def _generate_external_dmf_guid(self, result: DataQualityMonitoringResult) -> str:
-        """Generate a stable, deterministic GUID for external DMFs.
-
-        Uses Snowflake's REFERENCE_ID which uniquely identifies the
-        DMF-table-column association.
-        """
-        guid_dict: Dict[str, str] = {
-            "platform": "snowflake",
-            "reference_id": result.REFERENCE_ID,
-        }
-        if self.config.platform_instance:
-            guid_dict["instance"] = self.config.platform_instance
-
-        return datahub_guid(guid_dict)
+        """Generate a stable, deterministic GUID for external DMFs."""
+        key = SnowflakeExternalDmfKey(
+            reference_id=result.REFERENCE_ID,
+            instance=self.config.platform_instance,
+        )
+        return key.guid()
 
     def _create_assertion_info_workunit(
         self,
@@ -196,7 +201,17 @@ class SnowflakeAssertionsHandler:
                 return []
 
             dataset_urn = self.identifiers.gen_dataset_urn(assertee)
-            status = bool(result.VALUE)  # 1 if PASS, 0 if FAIL
+
+            if result.VALUE == 1:
+                result_type = AssertionResultType.SUCCESS
+            elif result.VALUE == 0:
+                result_type = AssertionResultType.FAILURE
+            else:
+                result_type = AssertionResultType.ERROR
+                logger.warning(
+                    f"DMF '{result.METRIC_NAME}' returned invalid value {result.VALUE}. "
+                    "Expected 1 (pass) or 0 (fail). Marking as ERROR."
+                )
 
             if not is_datahub_dmf and assertion_urn not in self._urns_processed:
                 assertion_info_wu = self._create_assertion_info_workunit(
@@ -216,13 +231,7 @@ class SnowflakeAssertionsHandler:
                     asserteeUrn=dataset_urn,
                     status=AssertionRunStatus.COMPLETE,
                     assertionUrn=assertion_urn,
-                    result=AssertionResult(
-                        type=(
-                            AssertionResultType.SUCCESS
-                            if status
-                            else AssertionResultType.FAILURE
-                        )
-                    ),
+                    result=AssertionResult(type=result_type),
                 ),
             )
             workunits.append(run_event_mcp.as_workunit(is_primary_source=False))

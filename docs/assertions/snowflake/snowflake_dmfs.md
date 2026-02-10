@@ -255,13 +255,17 @@ DataHub interprets the `VALUE` column from Snowflake's `DATA_QUALITY_MONITORING_
 This is because DataHub cannot interpret arbitrary return values (e.g., "100 null rows" - is that good or bad?). You must build the pass/fail logic into your DMF.
 
 ::: warning What if my DMF returns other values?
-If your DMF returns values other than 0 or 1, DataHub will interpret them as follows:
+If your DMF returns values other than 0 or 1, DataHub will mark the assertion result as **ERROR**:
 
+- `VALUE = 1` → **PASSED**
 - `VALUE = 0` → **FAILED**
-- `VALUE != 0` (any non-zero value like 5, 100, -1) → **PASSED**
+- `VALUE != 0 and VALUE != 1` (e.g., 5, 100, -1) → **ERROR**
 
-This can lead to misleading results. For example, if your DMF returns the count of null rows (e.g., 100), DataHub will mark it as PASSED because 100 != 0. To identify misconfigured DMFs, check the assertion results in the DataHub UI - if you see unexpected pass/fail patterns, verify your DMF is returning 1/0 correctly.
-:::
+The ERROR state indicates that the DMF is not configured correctly for DataHub ingestion. You can identify these cases by:
+
+1. Checking the ingestion logs for warnings like: `DMF 'my_dmf' returned invalid value 100. Expected 1 (pass) or 0 (fail). Marking as ERROR.`
+2. Looking for assertions with ERROR status in the DataHub UI
+   :::
 
 #### Example: Writing External DMFs Correctly
 

@@ -8,6 +8,8 @@ from datahub.ingestion.source.snowflake.snowflake_assertion import (
     SnowflakeAssertionsHandler,
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.metadata.com.linkedin.pegasus2avro.assertion import AssertionResultType
+from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
 from datahub.metadata.schema_classes import (
     AssertionSourceTypeClass,
     AssertionTypeClass,
@@ -287,3 +289,257 @@ class TestMixedDmfProcessing:
         assert len(workunits) == 3
         aspect_names = [wu.metadata.aspectName for wu in workunits]
         assert "assertionInfo" in aspect_names
+
+
+class TestDataPlatformInstance:
+    """Test DataPlatformInstance aspect generation."""
+
+    def test_data_platform_instance_emitted_for_external_dmf(self):
+        """External DMFs should emit DataPlatformInstance aspect."""
+        config = MagicMock()
+        config.platform_instance = "my_instance"
+        config.include_external_dmf_assertions = True
+        report = MagicMock()
+        connection = MagicMock()
+        identifiers = MagicMock()
+        identifiers.platform = "snowflake"
+        identifiers.get_dataset_identifier.return_value = "my_db.public.orders"
+        identifiers.gen_dataset_urn.return_value = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.orders,PROD)"
+        )
+        handler = SnowflakeAssertionsHandler(config, report, connection, identifiers)
+
+        row = {
+            "MEASUREMENT_TIME": datetime.now(),
+            "METRIC_NAME": "my_custom_check",
+            "TABLE_NAME": "orders",
+            "TABLE_SCHEMA": "public",
+            "TABLE_DATABASE": "my_db",
+            "VALUE": 1,
+            "REFERENCE_ID": "ref_abc123",
+            "ARGUMENT_NAMES": '["amount"]',
+        }
+        discovered = ["my_db.public.orders"]
+        workunits = handler._process_result_row(row, discovered)
+
+        # Find DataPlatformInstance workunit
+        platform_instance_wus = [
+            wu for wu in workunits if wu.metadata.aspectName == "dataPlatformInstance"
+        ]
+        assert len(platform_instance_wus) == 1
+
+        aspect = platform_instance_wus[0].get_aspect_of_type(DataPlatformInstance)
+        assert aspect is not None
+        assert aspect.platform == "urn:li:dataPlatform:snowflake"
+        assert (
+            aspect.instance
+            == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,my_instance)"
+        )
+
+    def test_data_platform_instance_emitted_for_datahub_dmf(self):
+        """DataHub DMFs should also emit DataPlatformInstance aspect."""
+        config = MagicMock()
+        config.platform_instance = "prod"
+        config.include_external_dmf_assertions = True
+        report = MagicMock()
+        connection = MagicMock()
+        identifiers = MagicMock()
+        identifiers.platform = "snowflake"
+        identifiers.get_dataset_identifier.return_value = "my_db.public.orders"
+        identifiers.gen_dataset_urn.return_value = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.orders,PROD)"
+        )
+        handler = SnowflakeAssertionsHandler(config, report, connection, identifiers)
+
+        row = {
+            "MEASUREMENT_TIME": datetime.now(),
+            "METRIC_NAME": "datahub__abc123",
+            "TABLE_NAME": "orders",
+            "TABLE_SCHEMA": "public",
+            "TABLE_DATABASE": "my_db",
+            "VALUE": 1,
+            "REFERENCE_ID": "ref_xyz",
+            "ARGUMENT_NAMES": '["col1"]',
+        }
+        discovered = ["my_db.public.orders"]
+        workunits = handler._process_result_row(row, discovered)
+
+        # Find DataPlatformInstance workunit
+        platform_instance_wus = [
+            wu for wu in workunits if wu.metadata.aspectName == "dataPlatformInstance"
+        ]
+        assert len(platform_instance_wus) == 1
+
+        aspect = platform_instance_wus[0].get_aspect_of_type(DataPlatformInstance)
+        assert aspect is not None
+        assert aspect.platform == "urn:li:dataPlatform:snowflake"
+        assert (
+            aspect.instance
+            == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,prod)"
+        )
+
+    def test_data_platform_instance_without_instance_configured(self):
+        """DataPlatformInstance should have None instance when not configured."""
+        config = MagicMock()
+        config.platform_instance = None
+        config.include_external_dmf_assertions = True
+        report = MagicMock()
+        connection = MagicMock()
+        identifiers = MagicMock()
+        identifiers.platform = "snowflake"
+        identifiers.get_dataset_identifier.return_value = "my_db.public.orders"
+        identifiers.gen_dataset_urn.return_value = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.orders,PROD)"
+        )
+        handler = SnowflakeAssertionsHandler(config, report, connection, identifiers)
+
+        row = {
+            "MEASUREMENT_TIME": datetime.now(),
+            "METRIC_NAME": "my_check",
+            "TABLE_NAME": "orders",
+            "TABLE_SCHEMA": "public",
+            "TABLE_DATABASE": "my_db",
+            "VALUE": 1,
+            "REFERENCE_ID": "ref_123",
+            "ARGUMENT_NAMES": "[]",
+        }
+        discovered = ["my_db.public.orders"]
+        workunits = handler._process_result_row(row, discovered)
+
+        # Find DataPlatformInstance workunit
+        platform_instance_wus = [
+            wu for wu in workunits if wu.metadata.aspectName == "dataPlatformInstance"
+        ]
+        assert len(platform_instance_wus) == 1
+
+        aspect = platform_instance_wus[0].get_aspect_of_type(DataPlatformInstance)
+        assert aspect is not None
+        assert aspect.platform == "urn:li:dataPlatform:snowflake"
+        assert aspect.instance is None
+
+    def test_data_platform_instance_emitted_once_per_assertion(self):
+        """DataPlatformInstance should only be emitted once per unique assertion."""
+        config = MagicMock()
+        config.platform_instance = "my_instance"
+        config.include_external_dmf_assertions = True
+        report = MagicMock()
+        connection = MagicMock()
+        identifiers = MagicMock()
+        identifiers.platform = "snowflake"
+        identifiers.get_dataset_identifier.return_value = "my_db.public.orders"
+        identifiers.gen_dataset_urn.return_value = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.orders,PROD)"
+        )
+        handler = SnowflakeAssertionsHandler(config, report, connection, identifiers)
+
+        # Process same DMF twice (simulating multiple results for same assertion)
+        row = {
+            "MEASUREMENT_TIME": datetime.now(),
+            "METRIC_NAME": "my_check",
+            "TABLE_NAME": "orders",
+            "TABLE_SCHEMA": "public",
+            "TABLE_DATABASE": "my_db",
+            "VALUE": 1,
+            "REFERENCE_ID": "ref_123",
+            "ARGUMENT_NAMES": "[]",
+        }
+        discovered = ["my_db.public.orders"]
+
+        # First call
+        workunits1 = handler._process_result_row(row, discovered)
+        platform_instance_wus1 = [
+            wu for wu in workunits1 if wu.metadata.aspectName == "dataPlatformInstance"
+        ]
+        assert len(platform_instance_wus1) == 1
+
+        # Second call with same assertion
+        workunits2 = handler._process_result_row(row, discovered)
+        platform_instance_wus2 = [
+            wu for wu in workunits2 if wu.metadata.aspectName == "dataPlatformInstance"
+        ]
+        # Should not emit DataPlatformInstance again
+        assert len(platform_instance_wus2) == 0
+
+
+class TestAssertionResultTypes:
+    """Test assertion result type mapping based on VALUE."""
+
+    @pytest.fixture
+    def handler(self):
+        """Create a handler with mocked dependencies."""
+        config = MagicMock()
+        config.platform_instance = None
+        config.include_external_dmf_assertions = True
+        report = MagicMock()
+        connection = MagicMock()
+        identifiers = MagicMock()
+        identifiers.platform = "snowflake"
+        identifiers.get_dataset_identifier.return_value = "my_db.public.orders"
+        identifiers.gen_dataset_urn.return_value = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.orders,PROD)"
+        )
+        return SnowflakeAssertionsHandler(config, report, connection, identifiers)
+
+    def test_value_1_is_success(self, handler):
+        """VALUE=1 should result in SUCCESS."""
+        row = {
+            "MEASUREMENT_TIME": datetime.now(),
+            "METRIC_NAME": "my_check",
+            "TABLE_NAME": "orders",
+            "TABLE_SCHEMA": "public",
+            "TABLE_DATABASE": "my_db",
+            "VALUE": 1,
+            "REFERENCE_ID": "ref_123",
+            "ARGUMENT_NAMES": "[]",
+        }
+        discovered = ["my_db.public.orders"]
+        workunits = handler._process_result_row(row, discovered)
+
+        run_event_wu = [
+            wu for wu in workunits if wu.metadata.aspectName == "assertionRunEvent"
+        ][0]
+        assert run_event_wu.metadata.aspect.result.type == AssertionResultType.SUCCESS
+
+    def test_value_0_is_failure(self, handler):
+        """VALUE=0 should result in FAILURE."""
+        row = {
+            "MEASUREMENT_TIME": datetime.now(),
+            "METRIC_NAME": "my_check",
+            "TABLE_NAME": "orders",
+            "TABLE_SCHEMA": "public",
+            "TABLE_DATABASE": "my_db",
+            "VALUE": 0,
+            "REFERENCE_ID": "ref_123",
+            "ARGUMENT_NAMES": "[]",
+        }
+        discovered = ["my_db.public.orders"]
+        workunits = handler._process_result_row(row, discovered)
+
+        run_event_wu = [
+            wu for wu in workunits if wu.metadata.aspectName == "assertionRunEvent"
+        ][0]
+        assert run_event_wu.metadata.aspect.result.type == AssertionResultType.FAILURE
+
+    def test_other_values_are_error(self, handler):
+        """VALUES other than 0 or 1 should result in ERROR."""
+        for invalid_value in [5, 100, -1, 999]:
+            # Reset handler state for each iteration
+            handler._urns_processed = []
+
+            row = {
+                "MEASUREMENT_TIME": datetime.now(),
+                "METRIC_NAME": f"my_check_{invalid_value}",
+                "TABLE_NAME": "orders",
+                "TABLE_SCHEMA": "public",
+                "TABLE_DATABASE": "my_db",
+                "VALUE": invalid_value,
+                "REFERENCE_ID": f"ref_{invalid_value}",
+                "ARGUMENT_NAMES": "[]",
+            }
+            discovered = ["my_db.public.orders"]
+            workunits = handler._process_result_row(row, discovered)
+
+            run_event_wu = [
+                wu for wu in workunits if wu.metadata.aspectName == "assertionRunEvent"
+            ][0]
+            assert run_event_wu.metadata.aspect.result.type == AssertionResultType.ERROR
