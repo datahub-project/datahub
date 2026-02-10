@@ -17,7 +17,7 @@ from typing import List, Optional
 
 import pytest
 
-from datahub.configuration.env_vars import get_ci
+from datahub.configuration.env_vars import is_ci
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
@@ -28,11 +28,11 @@ logger = logging.getLogger(__name__)
 
 # Matrix parameters for performance testing
 # Use smaller values in CI to keep test times reasonable, larger values for local testing
-QUERY_COUNT_OPTIONS = [100, 1000] if get_ci() else [100, 1000, 10000]
+QUERY_COUNT_OPTIONS = [100, 1000] if is_ci() else [100, 1000, 10000]
 
 # Throughput should be >= 90 queries/sec (minimum threshold to detect performance regressions)
 # Lower throughput is expected in CI, of course
-MIN_THROUGHPUT_THRESHOLD = 50.0 if get_ci() else 90.0
+MIN_THROUGHPUT_THRESHOLD = 50.0 if is_ci() else 90.0
 
 
 def generate_queries_at_scale(

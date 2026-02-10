@@ -64,6 +64,7 @@ class ThriftDataFetcher:
             "use_kerberos": config.use_kerberos,
             "kerberos_service_name": config.kerberos_service_name,
             "kerberos_hostname_override": config.kerberos_hostname_override,
+            "kerberos_qop": config.kerberos_qop,
             "timeout_seconds": config.timeout_seconds,
         }
         if max_retries is not None:
