@@ -149,12 +149,17 @@ export default defineConfig(async ({ mode }) => {
                 uploadToken: process.env.CODECOV_TOKEN,
                 gitService: 'github',
             }),
-            visualizer({
-                filename: './dist/stats.html',
-                open: false,
-                gzipSize: true,
-                brotliSize: true,
-            }),
+            // Bundle visualization - only when ANALYZE=true (e.g., ANALYZE=true yarn build)
+            ...(process.env.ANALYZE
+                ? [
+                      visualizer({
+                          filename: './dist/stats.html',
+                          open: false,
+                          gzipSize: true,
+                          brotliSize: true,
+                      }),
+                  ]
+                : []),
             stripDotSlashFromAssets(),
         ],
         // optimizeDeps: {
