@@ -56,7 +56,9 @@ const NODE12_DATASET_URN =
 
 describe("lineage_graph", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
+    cy.setFeatureFlags(true, (res) => {
+      res.body.data.appConfig.featureFlags.lineageGraphV3 = false;
+    });
   });
   it("can see full history", () => {
     cy.login();

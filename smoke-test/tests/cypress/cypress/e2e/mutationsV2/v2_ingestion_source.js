@@ -1,5 +1,3 @@
-import { hasOperationName } from "../utils";
-
 const number = Math.floor(Math.random() * 100000);
 const accound_id = `account${number}`;
 const warehouse_id = `warehouse${number}`;
@@ -8,28 +6,11 @@ const password = `password${number}`;
 const role = `role${number}`;
 const ingestion_source_name = `ingestion source ${number}`;
 
-function setFeatureFlags() {
-  cy.intercept("POST", "/api/v2/graphql", (req) => {
-    if (hasOperationName(req, "appConfig")) {
-      req.on("response", (res) => {
-        res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
-        res.body.data.appConfig.featureFlags.themeV2Enabled = true;
-        res.body.data.appConfig.featureFlags.themeV2Default = true;
-        res.body.data.appConfig.featureFlags.showNavBarRedesign = true;
-        res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
-      });
-    } else if (hasOperationName(req, "getMe")) {
-      req.alias = "gqlgetMeQuery";
-      req.on("response", (res) => {
-        res.body.data.me.corpUser.settings.appearance.showThemeV2 = true;
-      });
-    }
-  });
-}
-
 describe("ingestion source creation flow", () => {
   beforeEach(() => {
-    setFeatureFlags();
+    cy.setFeatureFlags(true, (res) => {
+      res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
+    });
   });
   it("create a ingestion source using ui, verify ingestion source details saved correctly, remove ingestion source", () => {
     // Go to ingestion page, create a snowflake source

@@ -1,23 +1,3 @@
-import { hasOperationName } from "../utils";
-
-function setFeatureFlags() {
-  cy.intercept("POST", "/api/v2/graphql", (req) => {
-    if (hasOperationName(req, "appConfig")) {
-      req.on("response", (res) => {
-        res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
-        res.body.data.appConfig.featureFlags.themeV2Enabled = true;
-        res.body.data.appConfig.featureFlags.themeV2Default = true;
-        res.body.data.appConfig.featureFlags.showNavBarRedesign = true;
-      });
-    } else if (hasOperationName(req, "getMe")) {
-      req.alias = "gqlgetMeQuery";
-      req.on("response", (res) => {
-        res.body.data.me.corpUser.settings.appearance.showThemeV2 = true;
-      });
-    }
-  });
-}
-
 function clearMonacoEditor() {
   const selectAllKey = Cypress.platform === "darwin" ? "{cmd}a" : "{ctrl}a";
   return cy
@@ -40,7 +20,9 @@ function typeInMonacoEditor(text) {
 
 describe("run managed ingestion", () => {
   beforeEach(() => {
-    setFeatureFlags();
+    cy.setFeatureFlags(true, (res) => {
+      res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
+    });
   });
 
   it("create run managed ingestion source", () => {

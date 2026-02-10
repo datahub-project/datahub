@@ -1,28 +1,8 @@
-import { hasOperationName } from "../utils";
-
-function setFeatureFlags() {
-  cy.intercept("POST", "/api/v2/graphql", (req) => {
-    if (hasOperationName(req, "appConfig")) {
-      req.alias = "gqlappConfigQuery";
-
-      req.on("response", (res) => {
-        res.body.data.appConfig.featureFlags.themeV2Enabled = false;
-        res.body.data.appConfig.featureFlags.themeV2Default = false;
-        res.body.data.appConfig.featureFlags.showNavBarRedesign = false;
-        res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
-      });
-    } else if (hasOperationName(req, "getMe")) {
-      req.alias = "gqlgetMeQuery";
-      req.on("response", (res) => {
-        res.body.data.me.corpUser.settings.appearance.showThemeV2 = false;
-      });
-    }
-  });
-}
-
 describe("managing secrets for ingestion creation", () => {
   beforeEach(() => {
-    setFeatureFlags();
+    cy.setFeatureFlags(false, (res) => {
+      res.body.data.appConfig.featureFlags.showNavBarRedesign = false;
+    });
   });
   it("create a secret, create ingestion source using a secret, remove a secret", () => {
     const number = crypto.getRandomValues(new Uint32Array(1))[0];
