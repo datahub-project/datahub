@@ -80,6 +80,14 @@
         "recipe": "source:\n  type: dbt-cloud\n  config:\n    account_id: null\n    project_id: null\n    job_id: null\n    target_platform: null\n    stateful_ingestion:\n      enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:dbt",
+        "name": "dbt",
+        "displayName": "dbt",
+        "description": "Import Sources, Seeds, Models, Snapshots, Tests, and lineage from dbt.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/dbt/",
+        "recipe": "source:\n  type: dbt\n  config:\n    manifest_path: # path to manifest.json\n    catalog_path: # path to catalog.json\n    target_platform: # e.g. snowflake, bigquery\n    stateful_ingestion:\n      enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:mysql",
         "name": "mysql",
         "displayName": "MySQL",
@@ -302,6 +310,22 @@
         "description": "Import Stories, Applications and Models from SAP Analytics Cloud.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sac/",
         "recipe": "source:\n    type: sac\n    config:\n        tenant_url: # Your SAP Analytics Cloud tenant URL, e.g. https://company.eu10.sapanalytics.cloud or https://company.eu10.hcs.cloud.sap\n        token_url: # The Token URL of your SAP Analytics Cloud tenant, e.g. https://company.eu10.hana.ondemand.com/oauth/token.\n\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: \"${SAC_CLIENT_ID}\" # Your SAP Analytics Cloud client id\n        client_secret: \"${SAC_CLIENT_SECRET}\" # Your SAP Analytics Cloud client secret"
+    },
+    {
+        "urn": "urn:li:dataPlatform:notion",
+        "name": "notion",
+        "displayName": "Notion",
+        "description": "Import pages from Notion as Documents.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/notion/",
+        "recipe": "source:\n  type: notion\n  config:\n    api_key: null\n    page_ids: []\n    recursive: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:confluence",
+        "name": "confluence",
+        "displayName": "Confluence",
+        "description": "Import pages and spaces from Confluence as Documents with semantic search support.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/confluence/",
+        "recipe": "source:\n  type: confluence\n  config:\n    url: null\n    username: null\n    api_token: null\n    cloud: true\n    stateful_ingestion:\n      enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:custom",

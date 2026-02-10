@@ -88,7 +88,7 @@ export default function CronField({ scheduleCronInterval, setScheduleCronInterva
                 )}
                 <AdvancedSchedule>
                     <Switch
-                        label="Advanced Settings"
+                        label="View Advanced Settings"
                         checked={advancedCronCheck}
                         onChange={(e) => setAdvancedCronCheck(e.target.checked)}
                         labelPosition="right"

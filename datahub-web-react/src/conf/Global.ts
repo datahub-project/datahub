@@ -41,6 +41,8 @@ export enum PageRoutes {
     MANAGE_TAGS = '/tags',
     MANAGE_APPLICATIONS = '/applications',
     ORGANIZATIONS = '/organizations',
+    CONTEXT = '/context',
+    CONTEXT_DOCUMENTS = '/context/documents',
 }
 
 export enum HelpLinkRoutes {

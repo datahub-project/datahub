@@ -87,6 +87,7 @@ export const createIngestionSource = (sourceName, options = undefined) => {
   }
   cy.clickOptionWithTestId("ingestion-schedule-next-button");
   cy.waitTextVisible("Give this data source a name");
+  cy.get('[data-testid="source-name-input"]').clear();
   cy.get('[data-testid="source-name-input"]').type(sourceName);
   cy.clickOptionWithTestId("ingestion-source-save-button");
   cy.waitTextVisible("Successfully created ingestion source!");
@@ -136,8 +137,8 @@ export const createAndRunIngestionSource = (sourceName) => {
   const cli_version = "0.15.0.5";
   cy.clickOptionWithTestId("create-ingestion-source-button");
 
-  cy.get('[placeholder="Search data sources..."]').type("other");
-  cy.clickOptionWithTextToScrollintoView("Other");
+  cy.get('[placeholder="Search data sources..."]').type("custom");
+  cy.clickOptionWithTextToScrollintoView("Custom");
 
   cy.waitTextVisible("source-type");
   readyToTypeEditor().type("{ctrl}a").clear();

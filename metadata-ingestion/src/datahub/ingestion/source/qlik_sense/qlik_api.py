@@ -281,10 +281,10 @@ class QlikAPI:
             )
         return None
 
-    def get_items(self) -> List[Item]:
+    def get_items(self, space_id: str) -> List[Item]:
         items: List[Item] = []
         try:
-            url = f"{self.rest_api_url}/items"
+            url = f"{self.rest_api_url}/items?spaceId={space_id}"
             while True:
                 response = self.session.get(url)
                 response.raise_for_status()

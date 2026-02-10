@@ -559,3 +559,191 @@ class TestTestConnection:
         assert report.basic_connectivity.capable is False
         assert report.basic_connectivity.failure_reason is not None
         assert "API Error" in report.basic_connectivity.failure_reason
+
+
+class TestParseIntoDBTNodeFreshness:
+    """Tests for freshness extraction in _parse_into_dbt_node."""
+
+    def _create_source(self) -> DBTCloudSource:
+        """Helper to create a DBTCloudSource instance."""
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            job_id=12345678,
+            target_platform="snowflake",
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        return DBTCloudSource(config, ctx)
+
+    def test_source_with_freshness_pass(self) -> None:
+        """Should extract freshness info for source with pass status."""
+        source = self._create_source()
+        node = {
+            "uniqueId": "source.project.schema.table",
+            "name": "table",
+            "resourceType": "source",
+            "database": "db",
+            "schema": "schema",
+            "meta": {},
+            "tags": [],
+            "description": "",
+            "runId": 123,
+            "jobId": 456,
+            "accountId": 789,
+            "projectId": 111,
+            "environmentId": 222,
+            "dbtVersion": "1.5.0",
+            "maxLoadedAt": "2026-01-14T10:00:00+00:00",
+            "snapshottedAt": "2026-01-14T12:00:00+00:00",
+            "maxLoadedAtTimeAgoInS": 7200.0,
+            "state": "pass",
+            "freshnessChecked": True,
+            "criteria": {
+                "warnAfter": {"count": 12, "period": "hour"},
+                "errorAfter": {"count": 24, "period": "hour"},
+            },
+        }
+
+        dbt_node = source._parse_into_dbt_node(node)
+
+        assert dbt_node.freshness_info is not None
+        assert dbt_node.freshness_info.status == "pass"
+        assert dbt_node.freshness_info.max_loaded_at_time_ago_in_s == 7200.0
+        assert dbt_node.freshness_info.warn_after is not None
+        assert dbt_node.freshness_info.warn_after.count == 12
+        assert dbt_node.freshness_info.warn_after.period == "hour"
+        assert dbt_node.freshness_info.error_after is not None
+        assert dbt_node.freshness_info.error_after.count == 24
+
+    def test_source_with_freshness_warn(self) -> None:
+        """Should extract freshness info for source with warn status."""
+        source = self._create_source()
+        node = {
+            "uniqueId": "source.project.schema.table",
+            "name": "table",
+            "resourceType": "source",
+            "database": "db",
+            "schema": "schema",
+            "meta": {},
+            "tags": [],
+            "description": "",
+            "runId": 123,
+            "jobId": 456,
+            "accountId": 789,
+            "projectId": 111,
+            "environmentId": 222,
+            "dbtVersion": "1.5.0",
+            "maxLoadedAt": "2026-01-13T10:00:00+00:00",
+            "snapshottedAt": "2026-01-14T12:00:00+00:00",
+            "maxLoadedAtTimeAgoInS": 93600.0,
+            "state": "warn",
+            "freshnessChecked": True,
+            "criteria": {
+                "warnAfter": {"count": 12, "period": "hour"},
+                "errorAfter": {"count": 48, "period": "hour"},
+            },
+        }
+
+        dbt_node = source._parse_into_dbt_node(node)
+
+        assert dbt_node.freshness_info is not None
+        assert dbt_node.freshness_info.status == "warn"
+
+    def test_source_without_freshness_checked(self) -> None:
+        """Should not extract freshness info when freshnessChecked is False."""
+        source = self._create_source()
+        node = {
+            "uniqueId": "source.project.schema.table",
+            "name": "table",
+            "resourceType": "source",
+            "database": "db",
+            "schema": "schema",
+            "meta": {},
+            "tags": [],
+            "description": "",
+            "runId": 123,
+            "jobId": 456,
+            "accountId": 789,
+            "projectId": 111,
+            "environmentId": 222,
+            "dbtVersion": "1.5.0",
+            "maxLoadedAt": None,
+            "snapshottedAt": None,
+            "state": None,
+            "freshnessChecked": False,
+            "criteria": {},
+        }
+
+        dbt_node = source._parse_into_dbt_node(node)
+
+        assert dbt_node.freshness_info is None
+
+    def test_source_with_only_warn_after_criteria(self) -> None:
+        """Should handle source with only warnAfter criteria."""
+        source = self._create_source()
+        node = {
+            "uniqueId": "source.project.schema.table",
+            "name": "table",
+            "resourceType": "source",
+            "database": "db",
+            "schema": "schema",
+            "meta": {},
+            "tags": [],
+            "description": "",
+            "runId": 123,
+            "jobId": 456,
+            "accountId": 789,
+            "projectId": 111,
+            "environmentId": 222,
+            "dbtVersion": "1.5.0",
+            "maxLoadedAt": "2026-01-14T11:30:00+00:00",
+            "snapshottedAt": "2026-01-14T12:00:00+00:00",
+            "maxLoadedAtTimeAgoInS": 1800.0,
+            "state": "pass",
+            "freshnessChecked": True,
+            "criteria": {
+                "warnAfter": {"count": 30, "period": "minute"},
+                "errorAfter": None,
+            },
+        }
+
+        dbt_node = source._parse_into_dbt_node(node)
+
+        assert dbt_node.freshness_info is not None
+        assert dbt_node.freshness_info.warn_after is not None
+        assert dbt_node.freshness_info.warn_after.count == 30
+        assert dbt_node.freshness_info.warn_after.period == "minute"
+        assert dbt_node.freshness_info.error_after is None
+
+    def test_model_node_has_no_freshness(self) -> None:
+        """Should not extract freshness info for non-source nodes."""
+        source = self._create_source()
+        node = {
+            "uniqueId": "model.project.test_model",
+            "name": "test_model",
+            "resourceType": "model",
+            "database": "db",
+            "schema": "schema",
+            "meta": {},
+            "tags": [],
+            "description": "",
+            "runId": 123,
+            "jobId": 456,
+            "accountId": 789,
+            "projectId": 111,
+            "environmentId": 222,
+            "dbtVersion": "1.5.0",
+            "materializedType": "table",
+            "dependsOn": [],
+            "rawCode": "SELECT 1",
+            "compiledCode": "SELECT 1",
+            "status": "success",
+            "error": None,
+            "skip": False,
+        }
+
+        dbt_node = source._parse_into_dbt_node(node)
+
+        assert dbt_node.freshness_info is None

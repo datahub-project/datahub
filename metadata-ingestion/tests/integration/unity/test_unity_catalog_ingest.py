@@ -556,7 +556,9 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
     output_file_name = "unity_catalog_mcps.json"
 
     with (
-        patch("datahub.ingestion.source.unity.proxy.WorkspaceClient") as mock_client,
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
         patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
         patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
     ):
@@ -625,7 +627,9 @@ def test_ml_model_with_signature_and_run_details(pytestconfig, tmp_path, request
     output_file_name = "unity_catalog_ml_model_mcps.json"
 
     with (
-        patch("datahub.ingestion.source.unity.proxy.WorkspaceClient") as mock_client,
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
         patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
         patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
     ):

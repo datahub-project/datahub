@@ -91,6 +91,11 @@ query getDataFlow($urn: String!) {
             ...formsFields
         }
         ...notes
+        runs(start: 0, count: 20) {
+            count
+            start
+            total
+        }
     }
 }
 

@@ -123,7 +123,7 @@ public class EbeanEntityServiceTest
         EbeanTestUtils.createTestServer(
             EbeanEntityServiceTest.class.getSimpleName() + "_" + (cdcMode ? "CDC" : "NonCDC"));
 
-    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
+    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null, List.of(), null);
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
