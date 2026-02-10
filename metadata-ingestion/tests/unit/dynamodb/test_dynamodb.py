@@ -4,9 +4,9 @@ import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dynamodb.dynamodb import (
+    PAGE_SIZE,
     DynamoDBConfig,
     DynamoDBSource,
-    PAGE_SIZE,
 )
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
@@ -243,11 +243,13 @@ class TestDynamoDBSchemaSampling:
         mock_paginator.paginate.return_value = [mock_page]
 
         # Mock include_table_item_to_schema to do nothing
-        with patch.object(source, "include_table_item_to_schema"):
-            with patch.object(source, "construct_schema_from_items"):
-                source.construct_schema_from_dynamodb(
-                    mock_dynamodb_client, "us-west-2", "test_table"
-                )
+        with (
+            patch.object(source, "include_table_item_to_schema"),
+            patch.object(source, "construct_schema_from_items"),
+        ):
+            source.construct_schema_from_dynamodb(
+                mock_dynamodb_client, "us-west-2", "test_table"
+            )
 
         # Verify paginate was called with the correct MaxItems
         mock_paginator.paginate.assert_called_once()
