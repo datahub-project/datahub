@@ -80,6 +80,7 @@ export function ExpandLineageButton({
                 onClick={(e) => onClickPreventSelect(e) && handleExpandOneLevel(e)}
                 onMouseEnter={(e) => e.stopPropagation()}
                 onMouseLeave={(e) => e.stopPropagation()}
+                data-testid={`expand-one-${urn}-button`}
             >
                 <CountWrapper direction={direction}>{count}</CountWrapper>
                 <Icon icon="CaretRight" source="phosphor" size="lg" />
@@ -89,6 +90,7 @@ export function ExpandLineageButton({
                     onClick={(e) => onClickPreventSelect(e) && handleExpandAll(e)}
                     onMouseEnter={(e) => e.stopPropagation()}
                     onMouseLeave={(e) => e.stopPropagation()}
+                    data-testid={`expand-all-${urn}-button`}
                 >
                     <Icon icon="CaretDoubleRight" source="phosphor" size="lg" />
                 </Button>
