@@ -272,12 +272,14 @@ Origin type for DataHub AI conversations
 """
 enum DataHubAiConversationOriginType {
   """
-  Chat session originated in DataHub UI
+  Chat session originated from main Ask DataHub page or entity profile pages in the UI.
+  These chats appear in your Ask DataHub conversations list.
   """
   DATAHUB_UI
 
   """
-  Chat session originated in Ingestion UI
+  Chat session originated in Ingestion UI.
+  These chats do NOT appear in your Ask DataHub conversations list.
   """
   INGESTION_UI
 }
