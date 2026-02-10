@@ -400,12 +400,13 @@
     {
         "urn": "urn:li:dataPlatform:custom",
         "name": "custom",
-        "displayName": "Other",
+        "displayName": "Custom",
         "description": "Configure a custom recipe using YAML.",
         "docsUrl": "https://docs.datahub.com/docs/metadata-ingestion/",
         "recipe": "source:\n  type: <source-type>\n  config:\n    # Source-type specifics config\n    <source-configs>",
         "category": "Miscellaneous",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 1
     },
     {
         "urn": "urn:li:dataPlatform:dremio",
