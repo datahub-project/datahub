@@ -134,8 +134,8 @@ export const createAndRunIngestionSource = (sourceName) => {
   const cli_version = "0.15.0.5";
   cy.clickOptionWithTestId("create-ingestion-source-button");
 
-  cy.get('[placeholder="Search data sources..."]').type("other");
-  cy.clickOptionWithTextToScrollintoView("Other");
+  cy.get('[placeholder="Search data sources..."]').type("custom");
+  cy.clickOptionWithTextToScrollintoView("Custom");
 
   cy.waitTextVisible("source-type");
   readyToTypeEditor().type("{ctrl}a").clear();
