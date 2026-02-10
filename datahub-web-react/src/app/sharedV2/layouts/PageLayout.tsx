@@ -53,8 +53,10 @@ const HorizontalContainer = styled.div`
     gap: 16px;
 `;
 
-const BreadcrumbContainer = styled.div`
+const TopContainer = styled.div`
     padding: 16px 20px 0 20px;
+    display: flex;
+    justify-content: space-between;
 `;
 
 interface Props {
@@ -65,6 +67,7 @@ interface Props {
     rightPanelContent?: React.ReactNode;
     bottomPanelContent?: React.ReactNode;
     topBreadcrumb?: React.ReactNode;
+    topRightContent?: React.ReactNode;
 }
 
 export function PageLayout({
@@ -76,6 +79,7 @@ export function PageLayout({
     rightPanelContent,
     bottomPanelContent,
     topBreadcrumb,
+    topRightContent,
 }: React.PropsWithChildren<Props>) {
     return (
         <VerticalContainer>
@@ -83,7 +87,13 @@ export function PageLayout({
                 {leftPanelContent && <SidePannel>{leftPanelContent}</SidePannel>}
 
                 <PageWrapper $hasBottomPanel={!!bottomPanelContent}>
-                    {topBreadcrumb && <BreadcrumbContainer>{topBreadcrumb}</BreadcrumbContainer>}
+                    {(topBreadcrumb || topRightContent) && (
+                        <TopContainer>
+                            {topBreadcrumb && <>{topBreadcrumb}</>}
+                            {topRightContent && <>{topRightContent}</>}
+                        </TopContainer>
+                    )}
+
                     {title && (
                         <PageTitleWrapper>
                             <PageTitle title={title} subTitle={subTitle} titlePill={titlePill} />
