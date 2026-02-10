@@ -322,9 +322,9 @@ class TestDataPlatformInstance:
         discovered = ["my_db.public.orders"]
         workunits = handler._process_result_row(row, discovered)
 
-        # Find DataPlatformInstance workunit
+        # Find DataPlatformInstance workunit using type-safe filtering
         platform_instance_wus = [
-            wu for wu in workunits if wu.metadata.aspectName == "dataPlatformInstance"
+            wu for wu in workunits if wu.get_aspect_of_type(DataPlatformInstance)
         ]
         assert len(platform_instance_wus) == 1
 
@@ -364,9 +364,9 @@ class TestDataPlatformInstance:
         discovered = ["my_db.public.orders"]
         workunits = handler._process_result_row(row, discovered)
 
-        # Find DataPlatformInstance workunit
+        # Find DataPlatformInstance workunit using type-safe filtering
         platform_instance_wus = [
-            wu for wu in workunits if wu.metadata.aspectName == "dataPlatformInstance"
+            wu for wu in workunits if wu.get_aspect_of_type(DataPlatformInstance)
         ]
         assert len(platform_instance_wus) == 1
 
@@ -406,9 +406,9 @@ class TestDataPlatformInstance:
         discovered = ["my_db.public.orders"]
         workunits = handler._process_result_row(row, discovered)
 
-        # Find DataPlatformInstance workunit
+        # Find DataPlatformInstance workunit using type-safe filtering
         platform_instance_wus = [
-            wu for wu in workunits if wu.metadata.aspectName == "dataPlatformInstance"
+            wu for wu in workunits if wu.get_aspect_of_type(DataPlatformInstance)
         ]
         assert len(platform_instance_wus) == 1
 
@@ -448,14 +448,14 @@ class TestDataPlatformInstance:
         # First call
         workunits1 = handler._process_result_row(row, discovered)
         platform_instance_wus1 = [
-            wu for wu in workunits1 if wu.metadata.aspectName == "dataPlatformInstance"
+            wu for wu in workunits1 if wu.get_aspect_of_type(DataPlatformInstance)
         ]
         assert len(platform_instance_wus1) == 1
 
         # Second call with same assertion
         workunits2 = handler._process_result_row(row, discovered)
         platform_instance_wus2 = [
-            wu for wu in workunits2 if wu.metadata.aspectName == "dataPlatformInstance"
+            wu for wu in workunits2 if wu.get_aspect_of_type(DataPlatformInstance)
         ]
         # Should not emit DataPlatformInstance again
         assert len(platform_instance_wus2) == 0
