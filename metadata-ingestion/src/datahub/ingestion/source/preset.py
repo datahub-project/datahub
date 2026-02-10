@@ -2,9 +2,10 @@ import logging
 from typing import Dict, Optional
 
 import requests
-from pydantic import SecretStr, field_validator, model_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
+from datahub.configuration.common import TransparentSecretStr
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -37,8 +38,10 @@ class PresetConfig(SupersetConfig):
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
     )
-    api_key: Optional[SecretStr] = Field(default=None, description="Preset.io API key.")
-    api_secret: Optional[SecretStr] = Field(
+    api_key: Optional[TransparentSecretStr] = Field(
+        default=None, description="Preset.io API key."
+    )
+    api_secret: Optional[TransparentSecretStr] = Field(
         default=None, description="Preset.io API secret."
     )
 

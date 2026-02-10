@@ -9,13 +9,13 @@ from mlflow.entities import Dataset as MlflowDataset, Experiment, Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities import PagedList
-from pydantic import SecretStr
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
 )
+from datahub.configuration.common import TransparentSecretStr
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ExperimentKey
@@ -121,7 +121,7 @@ class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     username: Optional[str] = Field(
         default=None, description="Username for MLflow authentication"
     )
-    password: Optional[SecretStr] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None, description="Password for MLflow authentication"
     )
 

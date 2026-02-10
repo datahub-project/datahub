@@ -9,7 +9,7 @@ import requests
 from pydantic import SecretStr, model_validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, TransparentSecretStr
 from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -98,7 +98,7 @@ class OpenApiConfig(ConfigModel):
     username: str = Field(
         default="", description="Username used for basic HTTP authentication."
     )
-    password: SecretStr = Field(
+    password: TransparentSecretStr = Field(
         default="", description="Password used for basic HTTP authentication."
     )
     proxies: Optional[dict] = Field(
@@ -112,10 +112,10 @@ class OpenApiConfig(ConfigModel):
         default={},
         description="If no example is provided for a route, it is possible to create one using forced_example.",
     )
-    token: Optional[SecretStr] = Field(
+    token: Optional[TransparentSecretStr] = Field(
         default=None, description="Token for endpoint authentication."
     )
-    bearer_token: Optional[SecretStr] = Field(
+    bearer_token: Optional[TransparentSecretStr] = Field(
         default=None, description="Bearer token for endpoint authentication."
     )
     get_token: dict = Field(

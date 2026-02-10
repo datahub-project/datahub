@@ -11,13 +11,13 @@ from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
 from botocore.exceptions import ClientError, NoCredentialsError
 from botocore.utils import fix_s3_host
-from pydantic import SecretStr
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     PermissiveConfigModel,
+    TransparentSecretStr,
 )
 from datahub.configuration.env_vars import (
     get_aws_app_runner_service_id,
@@ -276,11 +276,11 @@ class AwsConnectionConfig(ConfigModel):
         default=None,
         description=f"AWS access key ID. {AUTODETECT_CREDENTIALS_DOC_LINK}",
     )
-    aws_secret_access_key: Optional[SecretStr] = Field(
+    aws_secret_access_key: Optional[TransparentSecretStr] = Field(
         default=None,
         description=f"AWS secret access key. {AUTODETECT_CREDENTIALS_DOC_LINK}",
     )
-    aws_session_token: Optional[SecretStr] = Field(
+    aws_session_token: Optional[TransparentSecretStr] = Field(
         default=None,
         description=f"AWS session token. {AUTODETECT_CREDENTIALS_DOC_LINK}",
     )

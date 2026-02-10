@@ -6,11 +6,11 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesVie
 import bson.timestamp
 import pymongo.collection
 from packaging import version
-from pydantic import PositiveInt, SecretStr, field_validator
+from pydantic import PositiveInt, field_validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -97,7 +97,9 @@ class MongoDBConfig(
         default="mongodb://localhost", description="MongoDB connection URI."
     )
     username: Optional[str] = Field(default=None, description="MongoDB username.")
-    password: Optional[SecretStr] = Field(default=None, description="MongoDB password.")
+    password: Optional[TransparentSecretStr] = Field(
+        default=None, description="MongoDB password."
+    )
     authMechanism: Optional[str] = Field(
         default=None, description="MongoDB authentication mechanism."
     )

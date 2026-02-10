@@ -2,9 +2,10 @@ import json
 import tempfile
 from typing import Dict, Optional
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, model_validator
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.common import TransparentSecretStr
 from datahub.configuration.validate_multiline_string import pydantic_multiline_string
 
 
@@ -13,7 +14,7 @@ class GCPCredential(ConfigModel):
         None, description="Project id to set the credentials"
     )
     private_key_id: str = Field(description="Private key id")
-    private_key: SecretStr = Field(
+    private_key: TransparentSecretStr = Field(
         description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'"
     )
     client_email: str = Field(description="Client email")

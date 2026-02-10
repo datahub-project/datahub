@@ -11,9 +11,10 @@ import nest_asyncio
 from okta.client import Client as OktaClient
 from okta.exceptions import OktaAPIException
 from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
-from pydantic import SecretStr, model_validator
+from pydantic import model_validator
 from pydantic.fields import Field
 
+from datahub.configuration.common import TransparentSecretStr
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -60,7 +61,7 @@ class OktaConfig(StatefulIngestionConfigBase):
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
     )
     # Required: An API token generated from Okta.
-    okta_api_token: SecretStr = Field(
+    okta_api_token: TransparentSecretStr = Field(
         description="An API token generated for the DataHub application inside your Okta Developer Console. e.g. 00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00",
     )
 

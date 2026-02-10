@@ -6,14 +6,13 @@ from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
 from packaging import version
-from pydantic import SecretStr
 from pydantic.fields import Field
 from redash_toolbelt import Redash
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
@@ -258,7 +257,7 @@ class RedashConfig(
     connect_uri: str = Field(
         default="http://localhost:5000", description="Redash base URL."
     )
-    api_key: SecretStr = Field(
+    api_key: TransparentSecretStr = Field(
         default="REDASH_API_KEY", description="Redash user API key."
     )
 

@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Any, Dict, Iterable, List, Literal, Optional, TypedDict
 
 import requests
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, field_validator
 from simple_salesforce import Salesforce
 from simple_salesforce.exceptions import SalesforceAuthenticationFailed
 
@@ -16,6 +16,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     ConfigurationError,
+    TransparentSecretStr,
 )
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
@@ -111,16 +112,16 @@ class SalesforceConfig(
 
     # Username, Password Auth
     username: Optional[str] = Field(None, description="Salesforce username")
-    password: Optional[SecretStr] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         None, description="Password for Salesforce user"
     )
-    consumer_key: Optional[SecretStr] = Field(
+    consumer_key: Optional[TransparentSecretStr] = Field(
         None, description="Consumer key for Salesforce JSON web token access"
     )
-    private_key: Optional[SecretStr] = Field(
+    private_key: Optional[TransparentSecretStr] = Field(
         None, description="Private key as a string for Salesforce JSON web token access"
     )
-    security_token: Optional[SecretStr] = Field(
+    security_token: Optional[TransparentSecretStr] = Field(
         None, description="Security token for Salesforce username"
     )
     # client_id, client_secret not required
@@ -134,7 +135,7 @@ class SalesforceConfig(
     is_sandbox: bool = Field(
         default=False, description="Connect to Sandbox instance of your Salesforce"
     )
-    access_token: Optional[SecretStr] = Field(
+    access_token: Optional[TransparentSecretStr] = Field(
         None, description="Access token for instance url"
     )
 

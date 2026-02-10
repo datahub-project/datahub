@@ -25,6 +25,7 @@ import pydantic_core
 from cached_property import cached_property
 from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError, model_validator
 from pydantic.fields import Field
+from pydantic.functional_serializers import PlainSerializer
 from typing_extensions import Protocol, Self
 
 from datahub.configuration._config_enum import ConfigEnum as ConfigEnum
@@ -98,6 +99,18 @@ else:
     HiddenFromDocs = pydantic.json_schema.SkipJsonSchema
 
 LaxStr = Annotated[str, pydantic.BeforeValidator(lambda v: str(v))]
+
+# A SecretStr variant that serializes as plain str in model_dump()/model_dump_json().
+# Use for credential fields that must survive serialization boundaries (Kafka, SQS, JSON)
+# while still being masked in repr/str and registered with SecretRegistry.
+TransparentSecretStr = Annotated[
+    SecretStr,
+    PlainSerializer(
+        lambda v: v.get_secret_value() if isinstance(v, SecretStr) else str(v),
+        return_type=str,
+        when_used="always",
+    ),
+]
 
 # Context variable to track if we're inside a nested ConfigModel construction
 _inside_nested_config: contextvars.ContextVar[bool] = contextvars.ContextVar(
@@ -228,6 +241,38 @@ class ConfigModel(BaseModel):
                 for key, item in field_value.items():
                     if isinstance(item, ConfigModel):
                         item._collect_secrets(secrets, prefix=f"{full_name}[{key}].")
+
+    def model_dump_redacted(self, **kwargs: Any) -> dict:
+        """model_dump() with all SecretStr/TransparentSecretStr fields masked."""
+        d = self.model_dump(**kwargs)
+        self._redact_secret_fields_in_dict(d)
+        return d
+
+    def _redact_secret_fields_in_dict(self, d: dict) -> None:
+        for field_name in list(d.keys()):
+            field_value = getattr(self, field_name, None)
+            if isinstance(field_value, SecretStr):
+                d[field_name] = "********"
+            elif isinstance(field_value, ConfigModel) and isinstance(
+                d.get(field_name), dict
+            ):
+                field_value._redact_secret_fields_in_dict(d[field_name])
+            elif isinstance(field_value, list) and isinstance(d.get(field_name), list):
+                for i, item in enumerate(field_value):
+                    if (
+                        isinstance(item, ConfigModel)
+                        and i < len(d[field_name])
+                        and isinstance(d[field_name][i], dict)
+                    ):
+                        item._redact_secret_fields_in_dict(d[field_name][i])
+            elif isinstance(field_value, dict) and isinstance(d.get(field_name), dict):
+                for key, item in field_value.items():
+                    if (
+                        isinstance(item, ConfigModel)
+                        and key in d[field_name]
+                        and isinstance(d[field_name][key], dict)
+                    ):
+                        item._redact_secret_fields_in_dict(d[field_name][key])
 
     @classmethod
     def parse_obj_allow_extras(cls, obj: Any) -> Self:

@@ -7,10 +7,9 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
 from ldap.controls import SimplePagedResultsControl
-from pydantic import SecretStr
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigurationError, TransparentSecretStr
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
@@ -109,7 +108,7 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     # Server configuration.
     ldap_server: str = Field(description="LDAP server URL.")
     ldap_user: str = Field(description="LDAP user.")
-    ldap_password: SecretStr = Field(description="LDAP password.")
+    ldap_password: TransparentSecretStr = Field(description="LDAP password.")
 
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None

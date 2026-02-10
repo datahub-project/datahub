@@ -9,13 +9,13 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import dateutil.parser as dp
 import requests
 import sqlglot
-from pydantic import BaseModel, ConfigDict, SecretStr, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -213,7 +213,7 @@ class SupersetConfig(
         description="Regex patterns for databases to filter in ingestion.",
     )
     username: Optional[str] = Field(default=None, description="Superset username.")
-    password: Optional[SecretStr] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None, description="Superset password."
     )
     # Configuration for stateful ingestion

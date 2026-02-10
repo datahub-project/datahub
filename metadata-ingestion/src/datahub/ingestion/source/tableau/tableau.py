@@ -25,7 +25,7 @@ from urllib.parse import quote, urlparse
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
-from pydantic import SecretStr, field_validator, model_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 from tableauserverclient import (
@@ -48,6 +48,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     ConfigurationError,
+    TransparentSecretStr,
 )
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
@@ -219,7 +220,7 @@ class TableauConnectionConfig(ConfigModel):
         default=None,
         description="Tableau username, must be set if authenticating using username/password.",
     )
-    password: Optional[SecretStr] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None,
         description="Tableau password, must be set if authenticating using username/password.",
     )
@@ -227,7 +228,7 @@ class TableauConnectionConfig(ConfigModel):
         default=None,
         description="Tableau token name, must be set if authenticating using a personal access token.",
     )
-    token_value: Optional[SecretStr] = Field(
+    token_value: Optional[TransparentSecretStr] = Field(
         default=None,
         description="Tableau token value, must be set if authenticating using a personal access token.",
     )

@@ -13,7 +13,7 @@ import requests
 from cached_property import cached_property
 from dateutil import parser
 from packaging import version
-from pydantic import SecretStr, field_validator, model_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from requests import Response
 from requests.adapters import HTTPAdapter
@@ -21,7 +21,7 @@ from requests.models import HTTPBasicAuth
 from requests_gssapi import HTTPSPNEGOAuth
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
 )
@@ -128,7 +128,7 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     username: Optional[str] = Field(
         default=None, description='Nifi username, must be set for auth = "SINGLE_USER"'
     )
-    password: Optional[SecretStr] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None, description='Nifi password, must be set for auth = "SINGLE_USER"'
     )
 
@@ -140,7 +140,7 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     client_key_file: Optional[str] = Field(
         default=None, description="Path to PEM file containing the client’s secret key"
     )
-    client_key_password: Optional[SecretStr] = Field(
+    client_key_password: Optional[TransparentSecretStr] = Field(
         default=None, description="The password to decrypt the client_key_file"
     )
 

@@ -6,9 +6,13 @@ from typing import Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
 import requests
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    TransparentSecretStr,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -78,7 +82,7 @@ class DBTCloudConfig(DBTCommonConfig):
         description="The dbt Cloud metadata API endpoint. If not provided, we will try to infer it from the access_url.",
     )
 
-    token: SecretStr = Field(
+    token: TransparentSecretStr = Field(
         description="The API token to use to authenticate with DBT Cloud.",
     )
 

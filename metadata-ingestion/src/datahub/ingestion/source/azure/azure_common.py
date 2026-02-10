@@ -3,10 +3,10 @@ from typing import Optional, Union
 from azure.identity import ClientSecretCredential
 from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, model_validator
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigurationError, TransparentSecretStr
 
 
 class AzureConnectionConfig(ConfigModel):
@@ -26,15 +26,15 @@ class AzureConnectionConfig(ConfigModel):
     account_name: str = Field(
         description="Name of the Azure storage account.  See [Microsoft official documentation on how to create a storage account.](https://docs.microsoft.com/en-us/azure/storage/blobs/create-data-lake-storage-account)",
     )
-    account_key: Optional[SecretStr] = Field(
+    account_key: Optional[TransparentSecretStr] = Field(
         description="Azure storage account access key that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
         default=None,
     )
-    sas_token: Optional[SecretStr] = Field(
+    sas_token: Optional[TransparentSecretStr] = Field(
         description="Azure storage account Shared Access Signature (SAS) token that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
         default=None,
     )
-    client_secret: Optional[SecretStr] = Field(
+    client_secret: Optional[TransparentSecretStr] = Field(
         description="Azure client secret that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
         default=None,
     )

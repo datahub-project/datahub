@@ -8,11 +8,10 @@ from typing import Any, Dict, Generator, Iterable, List, Optional
 
 import click
 import requests
-from pydantic import SecretStr
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter, Retry
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
@@ -68,7 +67,7 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     tenant_id: str = Field(
         description="Directory ID. Found in your app registration on Azure AD Portal"
     )
-    client_secret: SecretStr = Field(
+    client_secret: TransparentSecretStr = Field(
         description="Client secret. Found in your app registration on Azure AD Portal"
     )
     authority: str = Field(

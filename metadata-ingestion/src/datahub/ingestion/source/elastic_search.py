@@ -8,10 +8,14 @@ from hashlib import md5
 from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type, Union
 
 from elasticsearch import Elasticsearch
-from pydantic import SecretStr, field_validator
+from pydantic import field_validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -259,7 +263,7 @@ class ElasticsearchSourceConfig(
     username: Optional[str] = Field(
         default=None, description="The username credential."
     )
-    password: Optional[SecretStr] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None, description="The password credential."
     )
     api_key: Optional[Union[Any, str]] = Field(

@@ -23,11 +23,11 @@ from looker_sdk.sdk.api40.models import (
     User,
     WriteQuery,
 )
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field
 from requests.adapters import HTTPAdapter
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigurationError, TransparentSecretStr
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class TransportOptionsConfig(ConfigModel):
 
 class LookerAPIConfig(ConfigModel):
     client_id: str = Field(description="Looker API client id.")
-    client_secret: SecretStr = Field(description="Looker API client secret.")
+    client_secret: TransparentSecretStr = Field(description="Looker API client secret.")
     base_url: str = Field(
         description="Url to your Looker instance: `https://company.looker.com:19999` or `https://looker.company.com`, or similar. Used for making API calls to Looker and constructing clickable dashboard and chart urls."
     )

@@ -4,8 +4,9 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 from neo4j import GraphDatabase
-from pydantic import Field, SecretStr
+from pydantic import Field
 
+from datahub.configuration.common import TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -47,7 +48,7 @@ class Neo4jConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
 ):
     username: str = Field(description="Neo4j Username")
-    password: SecretStr = Field(description="Neo4j Password")
+    password: TransparentSecretStr = Field(description="Neo4j Password")
     uri: str = Field(description="The URI for the Neo4j server")
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None

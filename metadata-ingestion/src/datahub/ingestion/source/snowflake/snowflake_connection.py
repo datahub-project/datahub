@@ -28,6 +28,7 @@ from datahub.configuration.common import (
     ConfigurationError,
     HiddenFromDocs,
     MetaError,
+    TransparentSecretStr,
 )
 from datahub.configuration.connection_resolver import auto_connection_resolver
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -80,10 +81,10 @@ class SnowflakeConnectionConfig(ConfigModel):
     username: Optional[str] = pydantic.Field(
         default=None, description="Snowflake username."
     )
-    password: Optional[pydantic.SecretStr] = pydantic.Field(
+    password: Optional[TransparentSecretStr] = pydantic.Field(
         default=None, exclude=True, description="Snowflake password."
     )
-    private_key: Optional[pydantic.SecretStr] = pydantic.Field(
+    private_key: Optional[TransparentSecretStr] = pydantic.Field(
         default=None,
         description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n' if using key pair authentication. Encrypted version of private key will be in a form of '-----BEGIN ENCRYPTED PRIVATE KEY-----\\nencrypted-private-key\\n-----END ENCRYPTED PRIVATE KEY-----\\n' See: https://docs.snowflake.com/en/user-guide/key-pair-auth.html",
     )
@@ -92,7 +93,7 @@ class SnowflakeConnectionConfig(ConfigModel):
         default=None,
         description="The path to the private key if using key pair authentication. Ignored if `private_key` is set. See: https://docs.snowflake.com/en/user-guide/key-pair-auth.html",
     )
-    private_key_password: Optional[pydantic.SecretStr] = pydantic.Field(
+    private_key_password: Optional[TransparentSecretStr] = pydantic.Field(
         default=None,
         exclude=True,
         description="Password for your private key. Required if using key pair authentication with encrypted private key.",
@@ -118,7 +119,7 @@ class SnowflakeConnectionConfig(ConfigModel):
         description="Connect args to pass to Snowflake SqlAlchemy driver",
         exclude=True,
     )
-    token: Optional[pydantic.SecretStr] = pydantic.Field(
+    token: Optional[TransparentSecretStr] = pydantic.Field(
         default=None,
         description="OAuth token from external identity provider. Not recommended for most use cases because it will not be able to refresh once expired.",
     )
