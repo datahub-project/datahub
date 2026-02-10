@@ -66,7 +66,10 @@ def _parse_doris_type(type_str: str) -> TypeEngine:
     type_str = type_str.strip().lower()
     match = re.match(r"^(?P<type>\w+)", type_str)
     if not match:
-        logger.debug(f"Unable to parse Doris type string: {type_str!r}")
+        logger.debug(
+            f"Failed to parse type string {type_str!r} (expected alphanumeric type name). "
+            f"Using MySQL type reflection."
+        )
         return sqltypes.NULLTYPE
 
     type_name = match.group("type")
@@ -74,7 +77,8 @@ def _parse_doris_type(type_str: str) -> TypeEngine:
         return _doris_type_map[type_name]()
 
     logger.debug(
-        f"Doris type {type_name!r} not in custom type map, will use MySQL fallback"
+        f"Type {type_name!r} not in Doris custom type map "
+        f"(known: {', '.join(_doris_type_map.keys())}). Using MySQL type reflection."
     )
     return sqltypes.NULLTYPE
 
@@ -120,8 +124,9 @@ class DorisDialect(MySQLDialect_pymysql):
                         col["type"] = parsed_type
 
         except SQLAlchemyError as e:
-            logger.warning(
-                f"SQLAlchemy error during DESCRIBE for {current_schema}.{table_name}: {e}. "
+            logger.debug(
+                f"DESCRIBE query failed for {current_schema}.{table_name}: {e}. "
+                f"This is expected for Doris <1.0, insufficient permissions, or connectivity issues. "
                 f"Falling back to MySQL type reflection."
             )
         except Exception as e:
