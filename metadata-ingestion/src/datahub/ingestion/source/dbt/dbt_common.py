@@ -109,6 +109,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
     PartitionSpecClass,
+    PartitionTypeClass,
     QueryLanguageClass,
     QueryPropertiesClass,
     QuerySourceClass,
@@ -2072,7 +2073,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         sizeInBytes=node.size_in_bytes,
                         # Set partitionSpec to match UI's GraphQL filter for latestFullTableProfile
                         partitionSpec=PartitionSpecClass(
-                            partition="FULL_TABLE_SNAPSHOT"
+                            partition="FULL_TABLE_SNAPSHOT",
+                            type=PartitionTypeClass.FULL_TABLE,
                         ),
                     )
                     yield MetadataChangeProposalWrapper(
