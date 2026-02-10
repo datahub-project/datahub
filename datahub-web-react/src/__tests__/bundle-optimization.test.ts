@@ -49,10 +49,9 @@ describe('Phase 1: Bundle Optimization', () => {
             });
 
             if (problemFiles.length > 0) {
+                const fileList = problemFiles.map((f) => `  - ${f}`).join('\n');
                 throw new Error(
-                    `Found ${problemFiles.length} files with direct @phosphor-icons/react imports:\n` +
-                        problemFiles.map((f) => `  - ${f}`).join('\n') +
-                        '\n\nExpected: import from "@components/components/Icon/phosphor-icons"',
+                    `Found ${problemFiles.length} files with direct @phosphor-icons/react imports:\n${fileList}\n\nExpected: import from "@components/components/Icon/phosphor-icons"`,
                 );
             }
 
@@ -64,10 +63,12 @@ describe('Phase 1: Bundle Optimization', () => {
 
             // Extract exported icons
             const exportedIcons = new Set<string>();
-            const exportMatches = phosphorIconsContent.matchAll(/export\s+\{\s*(\w+)\s*\}/g);
-            for (const match of exportMatches) {
+            const exportMatches = Array.from(
+                phosphorIconsContent.matchAll(/export\s+\{\s*(\w+)\s*\}/g),
+            );
+            exportMatches.forEach((match) => {
                 exportedIcons.add(match[1]);
-            }
+            });
 
             // Extract all imported icons from source files
             const files = glob.sync('src/**/*.{ts,tsx}', {
@@ -84,9 +85,9 @@ describe('Phase 1: Bundle Optimization', () => {
                 // Match imports like: import { Icon1, Icon2 } from '@components/components/Icon/phosphor-icons'
                 const importRegex =
                     /import\s+\{([^}]+)\}\s+from\s+['"]@components\/components\/Icon\/phosphor-icons['"]/g;
-                const matches = content.matchAll(importRegex);
+                const matches = Array.from(content.matchAll(importRegex));
 
-                for (const match of matches) {
+                matches.forEach((match) => {
                     const importList = match[1];
                     const icons = importList
                         .split(',')
@@ -95,7 +96,12 @@ describe('Phase 1: Bundle Optimization', () => {
                         .filter((i) => {
                             if (!i) return false;
                             // Exclude these specific non-icon exports
-                            const excludeList = ['Icon', 'PhosphorIcons', 'IconNames', 'PhosphorIconType'];
+                            const excludeList = [
+                                'Icon',
+                                'PhosphorIcons',
+                                'IconNames',
+                                'PhosphorIconType',
+                            ];
                             return !excludeList.includes(i);
                         });
 
@@ -104,7 +110,7 @@ describe('Phase 1: Bundle Optimization', () => {
                             missingIcons.add(icon);
                         }
                     });
-                }
+                });
             });
 
             if (missingIcons.size > 0) {
@@ -130,10 +136,12 @@ describe('Phase 1: Bundle Optimization', () => {
 
             // Extract exported icons
             const exportedIcons = new Set<string>();
-            const exportMatches = phosphorIconsContent.matchAll(/export\s+\{\s*(\w+)\s*\}/g);
-            for (const match of exportMatches) {
+            const exportMatches = Array.from(
+                phosphorIconsContent.matchAll(/export\s+\{\s*(\w+)\s*\}/g),
+            );
+            exportMatches.forEach((match) => {
                 exportedIcons.add(match[1]);
-            }
+            });
 
             const files = glob.sync('src/**/*.{ts,tsx}', {
                 cwd: projectRoot,
@@ -147,12 +155,14 @@ describe('Phase 1: Bundle Optimization', () => {
                 const content = fs.readFileSync(file, 'utf8');
 
                 // Pattern: <Icon icon="IconName" source="phosphor" />
-                const iconPropMatches = content.matchAll(/icon=["']([A-Z][a-zA-Z]+)["']/g);
-                for (const match of iconPropMatches) {
+                const iconPropMatches = Array.from(
+                    content.matchAll(/icon=["']([A-Z][a-zA-Z]+)["']/g),
+                );
+                iconPropMatches.forEach((match) => {
                     const iconName = match[1];
                     // Check if this line also has source="phosphor"
-                    const lineStart = Math.max(0, match.index - 100);
-                    const lineEnd = Math.min(content.length, match.index + 100);
+                    const lineStart = Math.max(0, match.index! - 100);
+                    const lineEnd = Math.min(content.length, match.index! + 100);
                     const line = content.substring(lineStart, lineEnd);
 
                     if (
@@ -163,7 +173,7 @@ describe('Phase 1: Bundle Optimization', () => {
                             dynamicMissingIcons.add(iconName);
                         }
                     }
-                }
+                });
             });
 
             if (dynamicMissingIcons.size > 0) {
@@ -226,8 +236,6 @@ describe('Phase 1: Bundle Optimization', () => {
                 jsFiles.forEach((file) => {
                     totalSize += fs.statSync(path.join(distPath, file)).size;
                 });
-
-                const totalMB = (totalSize / 1024 / 1024).toFixed(2);
 
                 // After Phase 1: ~13 MB (down from 18 MB)
                 expect(totalSize).toBeLessThan(15 * 1024 * 1024);

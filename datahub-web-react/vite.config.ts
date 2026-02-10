@@ -6,6 +6,7 @@ import * as path from 'path';
 import { PluginOption, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 const injectMeticulous = () => {
     if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
@@ -147,6 +148,12 @@ export default defineConfig(async ({ mode }) => {
                 bundleName: 'datahub-react-web',
                 uploadToken: process.env.CODECOV_TOKEN,
                 gitService: 'github',
+            }),
+            visualizer({
+                filename: './dist/stats.html',
+                open: false,
+                gzipSize: true,
+                brotliSize: true,
             }),
             stripDotSlashFromAssets(),
         ],
