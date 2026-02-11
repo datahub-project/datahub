@@ -432,28 +432,29 @@ class VertexAISource(Source):
                 message=f"Failed: {', '.join(failed_projects)}",
             )
 
+    def _fetch_resource_by_type(self, resource_type: str) -> Iterable[MetadataWorkUnit]:
+        """Fetch resources of a specific type for the current project."""
+        if resource_type == "models":
+            yield from auto_workunit(self._get_ml_models_mcps())
+        elif resource_type == "training_jobs":
+            yield from auto_workunit(self._get_training_jobs_mcps())
+        elif resource_type == "experiments":
+            yield from self._get_experiments_workunits()
+        elif resource_type == "experiment_runs":
+            yield from auto_workunit(self._get_experiment_runs_mcps())
+        elif resource_type == "pipelines":
+            yield from auto_workunit(self._get_pipelines_mcps())
+
     def _process_project_with_parallelism(
         self, project: GCPProject
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        Process a single project's resources with parallelism.
-
-        """
+        """Process a single project's resources with parallelism."""
         yield from self._gen_project_workunits()
 
         def _fetch_resource_worker(resource_type: str) -> Iterable[MetadataWorkUnit]:
-            """Fetch resources of a specific type for the current project"""
+            """Wrapper for parallel resource fetching with error handling."""
             try:
-                if resource_type == "models":
-                    yield from auto_workunit(self._get_ml_models_mcps())
-                elif resource_type == "training_jobs":
-                    yield from auto_workunit(self._get_training_jobs_mcps())
-                elif resource_type == "experiments":
-                    yield from self._get_experiments_workunits()
-                elif resource_type == "experiment_runs":
-                    yield from auto_workunit(self._get_experiment_runs_mcps())
-                elif resource_type == "pipelines":
-                    yield from auto_workunit(self._get_pipelines_mcps())
+                yield from self._fetch_resource_by_type(resource_type)
             except GoogleAPICallError as e:
                 logger.warning(
                     f"API error fetching {resource_type} for project {project.id}: {e}"
@@ -485,23 +486,20 @@ class VertexAISource(Source):
             yield wu
 
     def _process_current_project(self) -> Iterable[MetadataWorkUnit]:
-        """Process a single project's resources sequentially"""
+        """Process a single project's resources sequentially."""
         yield from self._gen_project_workunits()
 
-        resource_fetchers = [
-            ("models", lambda: auto_workunit(self._get_ml_models_mcps())),
-            ("training_jobs", lambda: auto_workunit(self._get_training_jobs_mcps())),
-            ("experiments", self._get_experiments_workunits),
-            (
-                "experiment_runs",
-                lambda: auto_workunit(self._get_experiment_runs_mcps()),
-            ),
-            ("pipelines", lambda: auto_workunit(self._get_pipelines_mcps())),
+        resource_types = [
+            "models",
+            "training_jobs",
+            "experiments",
+            "experiment_runs",
+            "pipelines",
         ]
 
-        for resource_type, fetch_func in resource_fetchers:
+        for resource_type in resource_types:
             try:
-                yield from fetch_func()
+                yield from self._fetch_resource_by_type(resource_type)
             except GoogleAPICallError as e:
                 self._handle_resource_error(e, resource_type)
 
