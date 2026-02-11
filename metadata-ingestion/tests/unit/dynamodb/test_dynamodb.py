@@ -13,6 +13,16 @@ from datahub.metadata.schema_classes import (
 )
 
 
+@pytest.fixture
+def mock_context():
+    """Fixture for mock pipeline context."""
+    mock_ctx = MagicMock(spec=PipelineContext)
+    mock_ctx.pipeline_name = "test_pipeline"
+    mock_ctx.run_id = "test_run"
+    mock_ctx.graph = None
+    return mock_ctx
+
+
 class TestDynamoDBTagsIngestion:
     """Test suite for DynamoDB tag extraction"""
 
@@ -31,15 +41,6 @@ class TestDynamoDBTagsIngestion:
             aws_region="us-west-2",
             extract_table_tags=True,
         )
-
-    @pytest.fixture
-    def mock_context(self):
-        """Fixture for mock pipeline context."""
-        mock_ctx = MagicMock(spec=PipelineContext)
-        mock_ctx.pipeline_name = "test_pipeline"
-        mock_ctx.run_id = "test_run"
-        mock_ctx.graph = None
-        return mock_ctx
 
     @pytest.fixture
     def aws_tags(self):
@@ -194,15 +195,6 @@ class TestDynamoDBTagsIngestion:
 
 class TestDynamoDBSchemaSampling:
     """Test suite for DynamoDB schema sampling configuration"""
-
-    @pytest.fixture
-    def mock_context(self):
-        """Fixture for mock pipeline context."""
-        mock_ctx = MagicMock(spec=PipelineContext)
-        mock_ctx.pipeline_name = "test_pipeline"
-        mock_ctx.run_id = "test_run"
-        mock_ctx.graph = None
-        return mock_ctx
 
     def test_schema_sampling_size_used_in_pagination(self, mock_context):
         """Test that schema_sampling_size is used in pagination config."""
