@@ -232,6 +232,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }
