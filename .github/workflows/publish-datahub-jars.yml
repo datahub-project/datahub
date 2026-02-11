@@ -219,8 +219,8 @@ jobs:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
-          ./gradlew :metadata-integration:java:datahub-client:printVersion -PjavaClassVersionDefault=8 -ParchiveAppendix=java8
-          ./gradlew :metadata-integration:java:datahub-client:publish -PjavaClassVersionDefault=8 -ParchiveAppendix=java8
+          ./gradlew :metadata-integration:java:datahub-client:printVersion -PjavaClassVersionDefault=17 -ParchiveAppendix=java8
+          ./gradlew :metadata-integration:java:datahub-client:publish -PjavaClassVersionDefault=17 -ParchiveAppendix=java8
       - name: release datahub-client jar
         if: ${{ github.event_name == 'release' }}
         env:
@@ -230,5 +230,5 @@ jobs:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
-          ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-client:publish -PjavaClassVersionDefault=8 -ParchiveAppendix=java8
-          ./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info -PjavaClassVersionDefault=8 -ParchiveAppendix=java8
+          ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-client:publish -PjavaClassVersionDefault=17 -ParchiveAppendix=java8
+          ./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info -PjavaClassVersionDefault=17 -ParchiveAppendix=java8

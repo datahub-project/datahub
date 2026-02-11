@@ -27,7 +27,7 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testContainers
   testImplementation externalDependency.httpClient
-  testRuntimeOnly externalDependency.logbackClassicJava8
+  testRuntimeOnly externalDependency.logbackClassic
 }
 
 task copyAvroSchemas {
