@@ -267,15 +267,11 @@ def test_get_endpoint_mcps(
             )
         ),
     )
-    mcp_subtype = MetadataChangeProposalWrapper(
-        entityUrn=expected_urn,
-        aspect=SubTypesClass(typeNames=[VertexAISubTypes.ENDPOINT]),
-    )
 
-    assert len(actual_mcps) == 3
+    # mlModelDeployment doesn't support SubTypesClass, so only 2 MCPs expected
+    assert len(actual_mcps) == 2
     assert any(mcp_endpoint == mcp.metadata for mcp in actual_mcps)
     assert any(mcp_container == mcp.metadata for mcp in actual_mcps)
-    assert any(mcp_subtype == mcp.metadata for mcp in actual_mcps)
 
 
 def test_get_training_jobs_mcps(

@@ -260,6 +260,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         include_container: bool = True,
         include_platform: bool = True,
         resource_category: Optional[str] = None,
+        include_subtypes: bool = True,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Helper method to yield common aspects that most entities share.
@@ -271,6 +272,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             include_platform: Whether to include platform instance aspect
             resource_category: Optional resource category (Models, Training Jobs, etc.)
                 If provided, entity is placed in category container; otherwise in project container
+            include_subtypes: Whether to include SubTypesClass aspect (default True)
         """
         if include_container:
             if resource_category:
@@ -285,10 +287,11 @@ class VertexAISource(StatefulIngestionSourceBase):
                 aspect=ContainerClass(container=container_urn),
             ).as_workunit()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=entity_urn,
-            aspect=SubTypesClass(typeNames=[subtype]),
-        ).as_workunit()
+        if include_subtypes:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=entity_urn,
+                aspect=SubTypesClass(typeNames=[subtype]),
+            ).as_workunit()
 
         if include_platform:
             yield MetadataChangeProposalWrapper(
@@ -1594,6 +1597,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                     subtype=VertexAISubTypes.ENDPOINT,
                     resource_category=ResourceCategory.ENDPOINTS,
                     include_platform=False,
+                    include_subtypes=False,  # mlModelDeployment entity doesn't support subTypes aspect
                 )
 
     def _gen_ml_model_mcps(
