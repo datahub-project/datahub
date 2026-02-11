@@ -111,12 +111,12 @@ def test_create_notebook_metadata():
     assert mcp.aspect is not None
 
     # Validate aspect content
-    assert mcp.aspect.title == "Test Notebook"
-    assert mcp.aspect.description == "A test notebook"
-    assert mcp.aspect.externalUrl == "https://example.com/notebook"
-    assert mcp.aspect.customProperties == {"key": "value"}
-    assert mcp.aspect.changeAuditStamps.created.actor == "urn:li:corpuser:test"
-    assert mcp.aspect.changeAuditStamps.created.time == 1234567890000
+    assert mcp.aspect.title == "Test Notebook"  # type: ignore[attr-defined]
+    assert mcp.aspect.description == "A test notebook"  # type: ignore[attr-defined]
+    assert mcp.aspect.externalUrl == "https://example.com/notebook"  # type: ignore[attr-defined]
+    assert mcp.aspect.customProperties == {"key": "value"}  # type: ignore[attr-defined]
+    assert mcp.aspect.changeAuditStamps.created.actor == "urn:li:corpuser:test"  # type: ignore[attr-defined]
+    assert mcp.aspect.changeAuditStamps.created.time == 1234567890000  # type: ignore[attr-defined]
 
 
 def test_create_notebook_main_with_mock_emitter():
@@ -135,7 +135,7 @@ def test_create_notebook_main_with_mock_emitter():
     emitted_mcp = mock_emitter.emit.call_args[0][0]
     assert emitted_mcp.entityUrn == "urn:li:notebook:(querybook,customer_analysis_2024)"
     assert emitted_mcp.aspectName == "notebookInfo"
-    assert emitted_mcp.aspect.title == "Customer Segmentation Analysis 2024"
+    assert emitted_mcp.aspect.title == "Customer Segmentation Analysis 2024"  # type: ignore[attr-defined]
 
 
 def test_query_dataset_deprecation_not_deprecated():

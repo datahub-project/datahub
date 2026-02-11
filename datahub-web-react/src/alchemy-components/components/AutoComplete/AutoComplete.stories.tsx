@@ -99,6 +99,9 @@ const meta = {
             description:
                 'Customize width of the wrapper to handle outside clicks. This wrapper is fit-content by default',
         },
+        shouldPreventOptionSelectingByMouseMove: {
+            description: 'When enabled it prepents selecting option by mouse move event',
+        },
     },
 
     // Define defaults

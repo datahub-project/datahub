@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Tuple, Type
 
 import pydantic
+from pydantic import model_validator
 
 from datahub.emitter.mce_builder import make_assertion_urn, make_container_urn
 from datahub.ingestion.source.state.checkpoint import CheckpointStateBase
@@ -59,7 +60,7 @@ def pydantic_state_migrator(mapping: Dict[str, str]) -> "V1RootValidator":
 
         return values
 
-    return pydantic.root_validator(pre=True, allow_reuse=True)(_validate_field_rename)
+    return model_validator(mode="before")(_validate_field_rename)
 
 
 class GenericCheckpointState(CheckpointStateBase):

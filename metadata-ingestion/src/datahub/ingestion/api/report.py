@@ -65,7 +65,7 @@ class Report(SupportsAsObj):
         if isinstance(some_val, SupportsAsObj):
             return some_val.as_obj()
         elif isinstance(some_val, pydantic.BaseModel):
-            return Report.to_pure_python_obj(some_val.dict())
+            return Report.to_pure_python_obj(some_val.model_dump())
         elif dataclasses.is_dataclass(some_val) and not isinstance(some_val, type):
             # The `is_dataclass` function returns `True` for both instances and classes.
             # We need an extra check to ensure an instance was passed in.
@@ -358,9 +358,25 @@ class ExamplesReport(Report, Closeable):
         aspectName: str,
         mcp: Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper],
     ) -> None:
-        platform_name = guess_platform_name(urn)
-        if platform_name != self.get_platform():
-            return
+        # Platform filtering: Most URNs encode their platform/source within the URN structure
+        # (e.g., urn:li:dataset:(urn:li:dataPlatform:snowflake,...) embeds "snowflake").
+        # However, some entity types like 'document' use a simpler URN format that doesn't
+        # include platform information (e.g., urn:li:document:<id>). These entity types are
+        # designed to be platform-agnostic since a single Document can aggregate content from
+        # multiple sources.
+        #
+        # IMPORTANT: For entity types that don't encode platform in their URN, we MUST skip
+        # the platform filter. Otherwise, guess_platform_name() returns None, the filter rejects
+        # all work units, and critical report statistics (aspects, aspects_by_subtypes_full_count)
+        # remain empty, breaking reporting for sources like Notion that emit Document entities.
+        #
+        # See: https://github.com/datahub-project/datahub/issues/XXXXX
+        platform_agnostic_entity_types = {"document"}
+
+        if entityType not in platform_agnostic_entity_types:
+            platform_name = guess_platform_name(urn)
+            if platform_name != self.get_platform():
+                return
         if is_lineage_aspect(entityType, aspectName):
             self._lineage_aspects_seen.add(aspectName)
         has_fine_grained_lineage = self._has_fine_grained_lineage(mcp)

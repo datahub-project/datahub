@@ -563,7 +563,7 @@ class BusinessGlossaryFileSource(Source):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = BusinessGlossarySourceConfig.parse_obj(config_dict)
+        config = BusinessGlossarySourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     @classmethod
@@ -571,7 +571,7 @@ class BusinessGlossaryFileSource(Source):
         cls, file_name: Union[str, pathlib.Path]
     ) -> BusinessGlossaryConfig:
         config = load_config_file(file_name, resolve_env_vars=True)
-        glossary_cfg = BusinessGlossaryConfig.parse_obj(config)
+        glossary_cfg = BusinessGlossaryConfig.model_validate(config)
         return glossary_cfg
 
     def get_workunits_internal(

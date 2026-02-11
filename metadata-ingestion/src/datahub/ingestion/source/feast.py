@@ -462,7 +462,7 @@ class FeastRepositorySource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = FeastRepositorySourceConfig.parse_obj(config_dict)
+        config = FeastRepositorySourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

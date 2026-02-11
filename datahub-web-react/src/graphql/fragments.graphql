@@ -468,7 +468,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     domain {
         ...entityDomain
     }
-    application {
+    applications {
         ...entityApplication
     }
     container {
@@ -513,7 +513,7 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     domain {
         ...entityDomain
     }
-    application {
+    applications {
         ...entityApplication
     }
     ...entityDataProduct
@@ -542,7 +542,7 @@ fragment nonRecursiveDataJobFields on DataJob {
     domain {
         ...entityDomain
     }
-    application {
+    applications {
         ...entityApplication
     }
     ...entityDataProduct
@@ -593,7 +593,7 @@ fragment dataJobFields on DataJob {
     domain {
         ...entityDomain
     }
-    application {
+    applications {
         ...entityApplication
     }
     ...entityDataProduct
@@ -677,7 +677,7 @@ fragment dashboardFields on Dashboard {
     domain {
         ...entityDomain
     }
-    application {
+    applications {
         ...entityApplication
     }
     ...entityDataProduct
@@ -776,7 +776,7 @@ fragment nonRecursiveMLFeature on MLFeature {
     domain {
         ...entityDomain
     }
-    application {
+    applications {
         ...entityApplication
     }
     ...entityDataProduct
@@ -930,7 +930,7 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     domain {
         ...entityDomain
     }
-    application {
+    applications {
         ...entityApplication
     }
     ...entityDataProduct
@@ -1134,7 +1134,7 @@ fragment nonRecursiveMLModel on MLModel {
     domain {
         ...entityDomain
     }
-    application {
+    applications {
         ...entityApplication
     }
     ...entityDataProduct
@@ -1181,7 +1181,7 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     domain {
         ...entityDomain
     }
-    application {
+    applications {
         ...entityApplication
     }
     ...entityDataProduct
@@ -1303,7 +1303,9 @@ fragment domainEntitiesFields on Domain {
     dataProducts: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", values: "DATA_PRODUCT" }] }) {
         total
     }
-    applications: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", values: "APPLICATION" }] }) {
+    applicationsInDomain: entities(
+        input: { start: 0, count: 0, filters: [{ field: "_entityType", values: "APPLICATION" }] }
+    ) {
         total
     }
     children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {

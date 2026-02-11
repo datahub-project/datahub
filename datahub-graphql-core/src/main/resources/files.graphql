@@ -52,6 +52,11 @@ enum UploadDownloadScenario {
   Upload for asset documentation.
   """
   ASSET_DOCUMENTATION
+
+  """
+  Upload for asset documentation links.
+  """
+  ASSET_DOCUMENTATION_LINKS
 }
 
 type GetPresignedUploadUrlResponse {

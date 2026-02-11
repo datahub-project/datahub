@@ -49,7 +49,7 @@ query getChart($urn: String!) {
         domain {
             ...entityDomain
         }
-        application {
+        applications {
             ...entityApplication
         }
         ...entityDataProduct

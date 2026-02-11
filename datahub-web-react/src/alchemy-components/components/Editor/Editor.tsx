@@ -10,6 +10,7 @@ import {
     CodeExtension,
     DropCursorExtension,
     FontSizeExtension,
+    GapCursorExtension,
     HardBreakExtension,
     HeadingExtension,
     HistoryExtension,
@@ -37,6 +38,7 @@ import { FloatingToolbar } from '@components/components/Editor/toolbar/FloatingT
 import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMenu';
 import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
 import { EditorProps } from '@components/components/Editor/types';
+import { colors } from '@components/theme';
 
 import { notEmpty } from '@app/entityV2/shared/utils';
 
@@ -51,12 +53,12 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         toolbarStyles,
         dataTestId,
         onKeyDown,
+        onPaste,
         hideBorder,
-        uploadFile,
-        onFileUploadAttempt,
-        onFileUploadFailed,
-        onFileUploadSucceeded,
-        onFileDownloadView,
+        uploadFileProps,
+        fixedBottomToolbar,
+        hideToolbar,
+        compact,
     } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
@@ -66,18 +68,18 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new CodeBlockExtension({ syntaxTheme: 'base16_ateliersulphurpool_light' }),
             new CodeExtension(),
             new DataHubMentionsExtension({}),
-            new DropCursorExtension({}),
+            new DropCursorExtension({
+                color: colors.primary[100],
+                width: 2,
+            }),
             new HardBreakExtension(),
             new HeadingExtension({}),
             new HistoryExtension({}),
             new HorizontalRuleExtension({}),
             new FileDragDropExtension({
-                onFileUpload: uploadFile,
-                onFileUploadAttempt,
-                onFileUploadFailed,
-                onFileUploadSucceeded,
-                onFileDownloadView,
+                uploadFileProps,
             }),
+            new GapCursorExtension(), // required to allow cursor placement next to non-editable inline elements
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),
@@ -88,7 +90,6 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new StrikeExtension(),
             new TableExtension({ resizable: false }),
             new FontSizeExtension({}),
-            ...(readOnly ? [] : [new HistoryExtension({})]),
         ],
         content,
         stringHandler: 'markdown',
@@ -113,8 +114,11 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             className={className}
             data-testid={dataTestId}
             $readOnly={readOnly}
-            onKeyDown={onKeyDown}
+            onKeyDownCapture={onKeyDown}
+            onPasteCapture={onPaste}
             $hideBorder={hideBorder}
+            $fixedBottomToolbar={fixedBottomToolbar}
+            $compact={compact}
         >
             <ThemeProvider theme={EditorTheme}>
                 <Remirror
@@ -126,11 +130,15 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                 >
                     {!readOnly && (
                         <>
-                            <Toolbar styles={toolbarStyles} />
-                            <CodeBlockToolbar />
-                            {!hideHighlightToolbar && <FloatingToolbar />}
-                            <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
-                            <MentionsComponent />
+                            {!hideToolbar && (
+                                <>
+                                    <Toolbar styles={toolbarStyles} fixedBottom={fixedBottomToolbar} />
+                                    <CodeBlockToolbar />
+                                    {!hideHighlightToolbar && <FloatingToolbar />}
+                                    <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
+                                </>
+                            )}
+                            <MentionsComponent renderOutsideEditor={compact} />
                             {onChange && <OnChangeMarkdown onChange={onChange} />}
                         </>
                     )}

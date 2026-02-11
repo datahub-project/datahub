@@ -5,6 +5,22 @@ import React from 'react';
 import { NameSourceStep } from '@app/ingestV2/source/builder/NameSourceStep';
 
 describe('NameSourceStep', () => {
+    // Mock IntersectionObserver
+    beforeAll(() => {
+        class MockIntersectionObserver {
+            observe() {}
+
+            unobserve() {}
+
+            disconnect() {}
+        }
+        (window as any).IntersectionObserver = MockIntersectionObserver;
+    });
+
+    afterAll(() => {
+        delete (window as any).IntersectionObserver;
+    });
+
     it('should trim leading and trailing whitespaces from the text field on blur', () => {
         let updatedState;
         const updateStateMock = (newState) => {

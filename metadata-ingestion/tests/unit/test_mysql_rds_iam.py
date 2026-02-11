@@ -14,7 +14,7 @@ class TestMySQLRDSIAMConfig:
             "password": "testpass",
             "database": "testdb",
         }
-        config = MySQLConfig.parse_obj(config_dict)
+        config = MySQLConfig.model_validate(config_dict)
 
         assert config.auth_mode == MySQLAuthMode.PASSWORD
         assert config.aws_config is not None  # aws_config always has default value
@@ -28,7 +28,7 @@ class TestMySQLRDSIAMConfig:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = MySQLConfig.parse_obj(config_dict)
+        config = MySQLConfig.model_validate(config_dict)
 
         assert config.auth_mode == MySQLAuthMode.AWS_IAM
         assert config.aws_config is not None
@@ -42,7 +42,7 @@ class TestMySQLRDSIAMConfig:
             "database": "testdb",
             "auth_mode": "AWS_IAM",
         }
-        config = MySQLConfig.parse_obj(config_dict)
+        config = MySQLConfig.model_validate(config_dict)
 
         assert config.auth_mode == MySQLAuthMode.AWS_IAM
         assert config.aws_config is not None
@@ -58,7 +58,7 @@ class TestMySQLSourceRDSIAM:
             "password": "testpass",
             "database": "testdb",
         }
-        config = MySQLConfig.parse_obj(config_dict)
+        config = MySQLConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         source = MySQLSource(config, ctx)
@@ -75,7 +75,7 @@ class TestMySQLSourceRDSIAM:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = MySQLConfig.parse_obj(config_dict)
+        config = MySQLConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         source = MySQLSource(config, ctx)
@@ -97,7 +97,7 @@ class TestMySQLSourceRDSIAM:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = MySQLConfig.parse_obj(config_dict)
+        config = MySQLConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         MySQLSource(config, ctx)
@@ -117,7 +117,7 @@ class TestMySQLSourceRDSIAM:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = MySQLConfig.parse_obj(config_dict)
+        config = MySQLConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         with pytest.raises(ValueError, match="username is required"):
@@ -132,7 +132,7 @@ class TestMySQLSourceRDSIAM:
             "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
-        config = MySQLConfig.parse_obj(config_dict)
+        config = MySQLConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
 
         MySQLSource(config, ctx)

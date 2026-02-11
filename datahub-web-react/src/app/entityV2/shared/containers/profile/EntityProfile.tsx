@@ -22,8 +22,8 @@ import useGetDataForProfile from '@app/entityV2/shared/containers/profile/useGet
 import {
     defaultTabDisplayConfig,
     getEntityPath,
-    getFinalSidebarTabs,
     getOnboardingStepIdsForEntityType,
+    useFinalSidebarTabs,
     useRoutedTab,
     useUpdateGlossaryEntityDataOnChange,
 } from '@app/entityV2/shared/containers/profile/utils';
@@ -293,11 +293,20 @@ export const EntityProfile = <T, U>({
         }
     }, [routedTab?.supportsFullsize, setTabFullsize]);
 
+    // Different contexts require different sidebar behaviors (e.g., search results need compact views,
+    // lineage views have space constraints, profile sidebars support full feature sets)
+    let contextType = TabContextType.PROFILE_SIDEBAR;
+    if (isInSearch) {
+        contextType = TabContextType.SEARCH_SIDEBAR;
+    } else if (isCompact) {
+        contextType = TabContextType.LINEAGE_SIDEBAR;
+    }
+
+    const finalTabs = useFinalSidebarTabs(sidebarTabs, sidebarSections || [], contextType);
+
     if (entityData?.exists === false) {
         return <NonExistentEntityPage />;
     }
-
-    const finalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections || []);
 
     if (isCompact) {
         return (
@@ -324,7 +333,7 @@ export const EntityProfile = <T, U>({
                             type={isInSearch ? 'card' : undefined}
                             focused={isInSearch}
                             tabs={finalTabs}
-                            contextType={isInSearch ? TabContextType.SEARCH_SIDEBAR : TabContextType.LINEAGE_SIDEBAR}
+                            contextType={contextType}
                             width={width}
                             headerDropdownItems={headerDropdownItems}
                         />

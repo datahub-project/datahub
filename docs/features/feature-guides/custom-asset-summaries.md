@@ -1,14 +1,14 @@
 ---
-title: Custom Asset Summaries
+title: Asset Summaries
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Custom Asset Summaries
+# Asset Summaries
 
 <FeatureAvailability saasOnly />
 
-DataHub's **Custom Asset Summaries** enable organizations to create tailored, curated discovery experiences for their most important logical assets by customizing the Summary tab view that users see when browsing Domains, Data Products, Glossary Terms, and Glossary Term Groups.
+DataHub's **Asset Summaries** enable organizations to create tailored, curated discovery experiences for their most important logical assets by customizing the Summary tab view that users see when browsing Domains, Data Products, Glossary Terms, and Glossary Term Groups.
 
 <p align="center">
   <img
@@ -18,23 +18,23 @@ DataHub's **Custom Asset Summaries** enable organizations to create tailored, cu
 </p>
 
 :::info Supported Asset Types
-Custom Asset Summaries are currently supported for **Domains, Data Products, Glossary Terms, and Glossary Term Groups only**. These logical asset types help organize and group your physical data assets within DataHub.
+Asset Summaries are currently supported for **Domains, Data Products, Glossary Terms, and Glossary Term Groups only**. These logical asset types help organize and group your physical data assets within DataHub.
 :::
 
-## Why Use Custom Asset Summaries?
+## Why Use Asset Summaries?
 
-Custom Asset Summaries transform how your team discovers and navigates key organizational assets by enabling you to:
+Asset Summaries transform how your team discovers and navigates key organizational assets by enabling you to:
 
 - **Improve Asset Discoverability**: Highlight the most relevant information about your domains, data products, and glossary terms right on the Summary tab
 - **Create Owner-Driven Experiences**: Asset owners can curate what information is most important for their users to see
 - **Reduce Navigation Time**: Surface key details, documentation, and related assets without requiring users to click through multiple tabs
 - **Standardize Asset Presentation**: Ensure consistent, professional presentation of your most important organizational constructs
 
-Whether you're a domain owner wanting to highlight key data products, a data product manager showcasing important assets, or a data steward organizing glossary terms, Custom Asset Summaries put the most relevant information front and center.
+Whether you're a domain owner wanting to highlight key data products, a data product manager showcasing important assets, or a data steward organizing glossary terms, Asset Summaries put the most relevant information front and center.
 
 ## What's Included
 
-Custom Asset Summaries consist of three customizable sections that you can tailor to your asset's specific needs:
+Asset Summaries consist of three customizable sections that you can tailor to your asset's specific needs:
 
 ### Summary Page Header
 
@@ -167,11 +167,11 @@ When customizing your Asset Summaries:
 
 ## Next Steps
 
-Now that you understand Custom Asset Summaries:
+Now that you understand Asset Summaries:
 
 1. **Start with high-traffic assets**: Begin by customizing the Summary pages for your most frequently accessed domains and data products
 2. **Gather feedback**: Ask users what information would be most helpful to see on Summary pages
 3. **Iterate based on usage**: Monitor how users interact with your customized summaries and adjust accordingly
 4. **Scale thoughtfully**: Apply learnings from your initial customizations to other assets in your organization
 
-Custom Asset Summaries are designed to evolve with your organization's needs, providing the flexibility to create discovery experiences that truly serve your users while maintaining the structure that makes DataHub powerful.
+Asset Summaries are designed to evolve with your organization's needs, providing the flexibility to create discovery experiences that truly serve your users while maintaining the structure that makes DataHub powerful.

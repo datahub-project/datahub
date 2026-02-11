@@ -123,3 +123,15 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
             value=immutable,
         )
         return self
+
+    def set_version(
+        self, version: Optional[str] = None
+    ) -> "StructuredPropertyPatchBuilder":
+        if version is not None:
+            self._add_patch(
+                StructuredPropertyDefinition.ASPECT_NAME,
+                "add",
+                path=("version",),
+                value=version,
+            )
+        return self

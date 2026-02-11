@@ -3,7 +3,7 @@ from abc import abstractmethod
 from typing import Any, Dict, Optional
 
 import pydantic
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -49,7 +49,8 @@ class SQLFilterConfig(ConfigModel):
         description="Regex patterns for views to filter in ingestion. Note: Defaults to table_pattern if not specified. Specify regex to match the entire view name in database.schema.view format. e.g. to match all views starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
 
-    @pydantic.root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def view_pattern_is_table_pattern_unless_specified(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
@@ -120,11 +121,9 @@ class SQLCommonConfig(
             self.profiling.operation_config
         )
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def ensure_profiling_pattern_is_passed_to_profiling(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        profiling: Optional[GEProfilingConfig] = values.get("profiling")
+    @model_validator(mode="after")
+    def ensure_profiling_pattern_is_passed_to_profiling(self):
+        profiling = self.profiling
         # Note: isinstance() check is required here as unity-catalog source reuses
         # SQLCommonConfig with different profiling config than GEProfilingConfig
         if (
@@ -132,8 +131,8 @@ class SQLCommonConfig(
             and isinstance(profiling, GEProfilingConfig)
             and profiling.enabled
         ):
-            profiling._allow_deny_patterns = values["profile_pattern"]
-        return values
+            profiling._allow_deny_patterns = self.profile_pattern
+        return self
 
     @abstractmethod
     def get_sql_alchemy_url(self):

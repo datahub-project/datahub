@@ -163,7 +163,7 @@ class Checkpoint(Generic[StateType]):
         )
         state_as_dict["version"] = checkpoint_aspect.state.formatVersion
         state_as_dict["serde"] = checkpoint_aspect.state.serde
-        return state_class.parse_obj(state_as_dict)
+        return state_class.model_validate(state_as_dict)
 
     @staticmethod
     def _from_base85_json_bytes(
@@ -179,7 +179,7 @@ class Checkpoint(Generic[StateType]):
         state_as_dict = json.loads(state_uncompressed.decode("utf-8"))
         state_as_dict["version"] = checkpoint_aspect.state.formatVersion
         state_as_dict["serde"] = checkpoint_aspect.state.serde
-        return state_class.parse_obj(state_as_dict)
+        return state_class.model_validate(state_as_dict)
 
     def to_checkpoint_aspect(
         self, max_allowed_state_size: int

@@ -97,13 +97,17 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       }
     }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Detailed description about the chart",
-      "Searchable" : { }
+      "Searchable" : {
+        "searchTier" : 2
+      }
     }, {
       "name" : "lastModified",
       "type" : {
@@ -176,7 +180,8 @@
       "doc" : "URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "KEYWORD"
+        "fieldType" : "KEYWORD",
+        "searchTier" : 4
       }
     }, {
       "name" : "inputs",
@@ -239,7 +244,7 @@
         "/*/destinationUrn" : {
           "createdActor" : "inputEdges/*/created/actor",
           "createdOn" : "inputEdges/*/created/time",
-          "entityTypes" : [ "dataset" ],
+          "entityTypes" : [ "dataset", "chart" ],
           "isLineage" : true,
           "name" : "Consumes",
           "properties" : "inputEdges/*/properties",
@@ -267,7 +272,8 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldType" : "KEYWORD",
-        "filterNameOverride" : "Chart Type"
+        "filterNameOverride" : "Chart Type",
+        "searchTier" : 3
       }
     }, {
       "name" : "access",
@@ -287,7 +293,8 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldType" : "KEYWORD",
-        "filterNameOverride" : "Access Level"
+        "filterNameOverride" : "Access Level",
+        "searchTier" : 4
       }
     }, {
       "name" : "lastRefreshed",
@@ -973,9 +980,10 @@
           "boostScore" : 0.5,
           "fieldName" : "tags",
           "fieldType" : "URN",
-          "filterNameOverride" : "Tag",
+          "filterNameOverride" : "Tagged With",
           "hasValuesFieldName" : "hasTags",
-          "queryByDefault" : true
+          "queryByDefault" : true,
+          "searchTier" : 2
         }
       }
     } ],
@@ -1275,7 +1283,8 @@
         "fieldType" : "URN",
         "filterNameOverride" : "Owned By",
         "hasValuesFieldName" : "hasOwners",
-        "queryByDefault" : false
+        "queryByDefault" : false,
+        "searchTier" : 2
       }
     }, {
       "name" : "type",
@@ -1398,7 +1407,7 @@
       "default" : { },
       "optional" : true,
       "Searchable" : {
-        "/*" : {
+        "/$key" : {
           "fieldType" : "MAP_ARRAY",
           "queryByDefault" : false
         }
@@ -1483,7 +1492,9 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       }
     }, {
       "name" : "description",
@@ -1491,7 +1502,8 @@
       "doc" : "Detailed description about the dashboard",
       "Searchable" : {
         "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription"
+        "hasValuesFieldName" : "hasDescription",
+        "searchTier" : 2
       }
     }, {
       "name" : "charts",
@@ -1588,14 +1600,22 @@
     }, {
       "name" : "lastModified",
       "type" : "com.linkedin.common.ChangeAuditStamps",
-      "doc" : "Captures information about who created/last modified/deleted this dashboard and when"
+      "doc" : "Captures information about who created/last modified/deleted this dashboard and when",
+      "Searchable" : {
+        "/lastModified/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME",
+          "searchLabel" : "lastModifiedAt"
+        }
+      }
     }, {
       "name" : "dashboardUrl",
       "type" : "com.linkedin.common.Url",
       "doc" : "URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "KEYWORD"
+        "fieldType" : "KEYWORD",
+        "searchTier" : 4
       }
     }, {
       "name" : "access",
@@ -1605,7 +1625,8 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldType" : "KEYWORD",
-        "filterNameOverride" : "Access Level"
+        "filterNameOverride" : "Access Level",
+        "searchTier" : 4
       }
     }, {
       "name" : "lastRefreshed",
@@ -1629,7 +1650,8 @@
       "optional" : true,
       "Searchable" : {
         "fieldName" : "editedDescription",
-        "fieldType" : "TEXT"
+        "fieldType" : "TEXT",
+        "searchTier" : 2
       }
     } ],
     "Aspect" : {
@@ -1649,7 +1671,9 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       }
     }, {
       "name" : "description",
@@ -1658,7 +1682,8 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription"
+        "hasValuesFieldName" : "hasDescription",
+        "searchTier" : 2
       }
     }, {
       "name" : "project",
@@ -1667,7 +1692,8 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT_PARTIAL",
-        "queryByDefault" : false
+        "queryByDefault" : false,
+        "searchTier" : 3
       }
     }, {
       "name" : "created",
@@ -1677,7 +1703,8 @@
       "Searchable" : {
         "/time" : {
           "fieldName" : "createdAt",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "searchLabel" : "createdAt"
         }
       }
     }, {
@@ -1688,7 +1715,8 @@
       "Searchable" : {
         "/time" : {
           "fieldName" : "lastModifiedAt",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "searchLabel" : "lastModifiedAt"
         }
       }
     }, {
@@ -1720,7 +1748,9 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       }
     }, {
       "name" : "description",
@@ -1729,7 +1759,8 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription"
+        "hasValuesFieldName" : "hasDescription",
+        "searchTier" : 2
       }
     }, {
       "name" : "type",
@@ -1763,7 +1794,8 @@
       "Searchable" : {
         "/time" : {
           "fieldName" : "createdAt",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "searchLabel" : "createdAt"
         }
       }
     }, {
@@ -1774,7 +1806,8 @@
       "Searchable" : {
         "/time" : {
           "fieldName" : "lastModifiedAt",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "searchLabel" : "lastModifiedAt"
         }
       }
     }, {
@@ -2099,7 +2132,8 @@
       "optional" : true,
       "Searchable" : {
         "fieldName" : "editedDescription",
-        "fieldType" : "TEXT"
+        "fieldType" : "TEXT",
+        "searchTier" : 2
       }
     } ],
     "Aspect" : {
@@ -2118,7 +2152,8 @@
       "optional" : true,
       "Searchable" : {
         "fieldName" : "editedDescription",
-        "fieldType" : "TEXT"
+        "fieldType" : "TEXT",
+        "searchTier" : 2
       }
     } ],
     "Aspect" : {
@@ -2137,7 +2172,9 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : false,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       },
       "validate" : {
         "strlen" : {
@@ -2327,7 +2364,9 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "entityName",
+        "searchTier" : 1
       }
     }, {
       "name" : "qualifiedName",
@@ -2338,7 +2377,9 @@
         "addToFilters" : false,
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "searchLabel" : "qualifiedName",
+        "searchTier" : 1
       }
     }, {
       "name" : "description",
@@ -2347,7 +2388,8 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription"
+        "hasValuesFieldName" : "hasDescription",
+        "searchTier" : 2
       }
     }, {
       "name" : "uri",
@@ -2363,7 +2405,8 @@
       "Searchable" : {
         "/time" : {
           "fieldName" : "createdAt",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "searchLabel" : "createdAt"
         }
       }
     }, {
@@ -2374,7 +2417,8 @@
       "Searchable" : {
         "/time" : {
           "fieldName" : "lastModifiedAt",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "searchLabel" : "lastModifiedAt"
         }
       }
     }, {
@@ -2420,7 +2464,8 @@
       "optional" : true,
       "Searchable" : {
         "fieldName" : "editedDescription",
-        "fieldType" : "TEXT"
+        "fieldType" : "TEXT",
+        "searchTier" : 2
       }
     }, {
       "name" : "name",
@@ -2670,7 +2715,9 @@
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "queryByDefault" : true,
+                      "searchLabel" : "entityName",
+                      "searchTier" : 1
                     }
                   }, {
                     "name" : "email",
@@ -2725,7 +2772,8 @@
                     "doc" : "A description of the group.",
                     "optional" : true,
                     "Searchable" : {
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "TEXT_PARTIAL",
+                      "searchTier" : 2
                     }
                   }, {
                     "name" : "slack",
@@ -2740,7 +2788,8 @@
                     "Searchable" : {
                       "/time" : {
                         "fieldName" : "createdTime",
-                        "fieldType" : "DATETIME"
+                        "fieldType" : "DATETIME",
+                        "searchLabel" : "createdAt"
                       }
                     }
                   } ],
@@ -2819,7 +2868,9 @@
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "WORD_GRAM",
-                      "queryByDefault" : true
+                      "queryByDefault" : true,
+                      "searchLabel" : "entityName",
+                      "searchTier" : 1
                     }
                   }, {
                     "name" : "email",
@@ -2828,7 +2879,8 @@
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "KEYWORD",
-                      "queryByDefault" : true
+                      "queryByDefault" : true,
+                      "searchTier" : 1
                     }
                   }, {
                     "name" : "title",
@@ -2944,7 +2996,7 @@
                     "name" : "pictureLink",
                     "type" : "com.linkedin.common.Url",
                     "doc" : "A URL which points to a picture which user wants to set as a profile photo",
-                    "default" : "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/default_avatar.png"
+                    "default" : "assets/platforms/default_avatar.png"
                   }, {
                     "name" : "displayName",
                     "type" : "string",
@@ -3276,7 +3328,8 @@
                       "addToFilters" : true,
                       "fieldType" : "TEXT_PARTIAL",
                       "filterNameOverride" : "Environment",
-                      "queryByDefault" : false
+                      "queryByDefault" : false,
+                      "searchLabel" : "origin"
                     }
                   } ],
                   "Aspect" : {
@@ -3826,7 +3879,8 @@
                           "Searchable" : {
                             "boostScore" : 0.1,
                             "fieldName" : "editedFieldDescriptions",
-                            "fieldType" : "TEXT"
+                            "fieldType" : "TEXT",
+                            "searchTier" : 2
                           }
                         }, {
                           "name" : "globalTags",
@@ -4046,7 +4100,9 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "WORD_GRAM"
+                      "fieldType" : "WORD_GRAM",
+                      "searchLabel" : "entityName",
+                      "searchTier" : 1
                     }
                   }, {
                     "name" : "origin",
@@ -4113,7 +4169,8 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldType" : "WORD_GRAM",
-                      "queryByDefault" : true
+                      "queryByDefault" : true,
+                      "searchTier" : 1
                     }
                   }, {
                     "name" : "description",
@@ -4122,7 +4179,8 @@
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT",
-                      "hasValuesFieldName" : "hasDescription"
+                      "hasValuesFieldName" : "hasDescription",
+                      "searchTier" : 2
                     }
                   }, {
                     "name" : "date",
@@ -4672,7 +4730,9 @@
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "WORD_GRAM"
+                      "fieldType" : "WORD_GRAM",
+                      "searchLabel" : "entityName",
+                      "searchTier" : 1
                     }
                   } ],
                   "Aspect" : {
@@ -4762,7 +4822,9 @@
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "WORD_GRAM"
+                      "fieldType" : "WORD_GRAM",
+                      "searchLabel" : "entityName",
+                      "searchTier" : 1
                     }
                   } ],
                   "Aspect" : {
@@ -4858,7 +4920,9 @@
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "WORD_GRAM"
+                      "fieldType" : "WORD_GRAM",
+                      "searchLabel" : "entityName",
+                      "searchTier" : 1
                     }
                   } ],
                   "Aspect" : {
@@ -4965,7 +5029,9 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "WORD_GRAM"
+                      "fieldType" : "WORD_GRAM",
+                      "searchLabel" : "entityName",
+                      "searchTier" : 1
                     }
                   }, {
                     "name" : "origin",
@@ -5075,7 +5141,9 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "WORD_GRAM"
+                      "fieldType" : "WORD_GRAM",
+                      "searchLabel" : "entityName",
+                      "searchTier" : 1
                     }
                   }, {
                     "name" : "origin",
@@ -5198,7 +5266,9 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "WORD_GRAM"
+                      "fieldType" : "WORD_GRAM",
+                      "searchLabel" : "entityName",
+                      "searchTier" : 1
                     }
                   }, {
                     "name" : "description",
@@ -5282,7 +5352,9 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "WORD_GRAM"
+                      "fieldType" : "WORD_GRAM",
+                      "searchLabel" : "entityName",
+                      "searchTier" : 1
                     }
                   }, {
                     "name" : "definition",
@@ -5501,7 +5573,9 @@
                       "enableAutocomplete" : true,
                       "fieldName" : "displayName",
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "WORD_GRAM"
+                      "fieldType" : "WORD_GRAM",
+                      "searchLabel" : "entityName",
+                      "searchTier" : 1
                     }
                   }, {
                     "name" : "id",

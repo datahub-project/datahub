@@ -64,6 +64,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.metadata.urns import CorpUserUrn
+from datahub.sql_parsing._models import _TableName
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     ObservedQuery,
@@ -71,6 +73,64 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Dremio uses 'dremio' as the default database name in all SQL contexts
+DREMIO_DATABASE_NAME = "dremio"
+
+
+class DremioSchemaResolver(SchemaResolver):
+    """Custom schema resolver for Dremio multi-part table names.
+
+    Dremio uses 'dremio' as the database in all URNs. For multi-part tables (>3 parts),
+    uses table.parts to preserve the full hierarchy: dremio.part1.part2.part3.table
+
+    Note: Folder names containing dots (e.g., "folder.with.dots") create ambiguous URNs
+    in SQL parsing since dots are path delimiters. However, catalog-based ingestion
+    correctly handles these via the Dremio API's incremental path resolution. See
+    dremio_api.DremioAPIOperations.get_dataset_id() for implementation details.
+    """
+
+    def _get_table_name_parts(self, table: _TableName) -> List[Optional[str]]:
+        if table.parts:
+            return [DREMIO_DATABASE_NAME, *table.parts]
+        elif table.database and table.database.lower() != DREMIO_DATABASE_NAME:
+            return [
+                DREMIO_DATABASE_NAME,
+                table.database,
+                table.db_schema,
+                table.table,
+            ]
+        else:
+            return [
+                table.database or DREMIO_DATABASE_NAME,
+                table.db_schema,
+                table.table,
+            ]
+
+    def _construct_table_name(self, table: _TableName) -> str:
+        parts = self._get_table_name_parts(table)
+        return ".".join(filter(None, parts))
+
+    def get_urn_for_table(
+        self, table: _TableName, lower: bool = False, mixed: bool = False
+    ) -> str:
+        table_name = self._construct_table_name(table)
+        platform_instance = self.platform_instance
+
+        if lower:
+            table_name = table_name.lower()
+            if not mixed:
+                platform_instance = (
+                    platform_instance.lower() if platform_instance else None
+                )
+
+        urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            platform_instance=platform_instance,
+            env=self.env,
+            name=table_name,
+        )
+        return urn
 
 
 @dataclass
@@ -149,7 +209,7 @@ class DremioSource(StatefulIngestionSourceBase):
 
     def __init__(self, config: DremioSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
-        self.default_db = "dremio"
+        self.default_db = DREMIO_DATABASE_NAME
         self.config = config
         self.report = DremioSourceReport()
 
@@ -178,10 +238,19 @@ class DremioSource(StatefulIngestionSourceBase):
         )
         self.max_workers = config.max_workers
 
+        # Create a custom schema resolver for Dremio that handles the "dremio." infix (post platform_instance)
+        self.dremio_schema_resolver = DremioSchemaResolver(
+            platform=self.get_platform(),
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            graph=self.ctx.graph,
+        )
+
         self.sql_parsing_aggregator = SqlParsingAggregator(
             platform=make_data_platform_urn(self.get_platform()),
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+            schema_resolver=self.dremio_schema_resolver,
             graph=self.ctx.graph,
             generate_usage_statistics=True,
             generate_operations=True,
@@ -192,13 +261,16 @@ class DremioSource(StatefulIngestionSourceBase):
         # For profiling
         self.profiler = DremioProfiler(config, self.report, dremio_api)
 
+        # Track catalog dataset names for query lineage validation
+        self.catalog_dataset_names: set[str] = set()
+
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":
-        config = DremioSourceConfig.parse_obj(config_dict)
+        config = DremioSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_platform(self) -> str:
-        return "dremio"
+        return DREMIO_DATABASE_NAME
 
     def _build_source_map(self) -> Dict[str, DremioSourceMapEntry]:
         dremio_sources = list(self.dremio_catalog.get_sources())
@@ -207,7 +279,25 @@ class DremioSource(StatefulIngestionSourceBase):
         source_map = build_dremio_source_map(dremio_sources, source_mappings_config)
         logger.info(f"Full source map: {source_map}")
 
+        self._validate_source_mappings(source_map)
+
         return source_map
+
+    def _validate_source_mappings(
+        self, source_map: Dict[str, DremioSourceMapEntry]
+    ) -> None:
+        for source_name, mapping in source_map.items():
+            if (
+                mapping.platform
+                and mapping.platform.lower() != "dremio"
+                and not mapping.platform_instance
+            ):
+                self.report.warning(
+                    "Cross-platform lineage warning",
+                    f"Source '{source_name}' maps to platform '{mapping.platform}' but has no "
+                    f"platform_instance configured. This may cause URN mismatches with the upstream "
+                    f"connector. Consider adding platform_instance to source_mappings configuration.",
+                )
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -330,16 +420,25 @@ class DremioSource(StatefulIngestionSourceBase):
 
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
 
+        # Filter out Dremio Reflections (internal acceleration structures in _accelerator_ schema)
+        # These are Dremio's internal metadata and should not appear in the DataHub catalog
+        if dataset_info.path and dataset_info.path[0] == "_accelerator_":
+            self.report.report_dropped(f"Skipping Dremio reflection: {dataset_name}")
+            return
+
         self.report.report_entity_scanned(dataset_name, dataset_info.dataset_type.value)
         if not self.config.dataset_pattern.allowed(dataset_name):
             self.report.report_dropped(dataset_name)
             return
 
+        # Track catalog dataset names for query lineage validation
+        self.catalog_dataset_names.add(dataset_name)
+
         dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=self.get_platform(),
-            name=dataset_name,
-            platform_instance=self.config.platform_instance,
+            platform=make_data_platform_urn(self.get_platform()),
+            name=f"{DREMIO_DATABASE_NAME}.{dataset_name}",
             env=self.config.env,
+            platform_instance=self.config.platform_instance,
         )
 
         for dremio_mcp in self.dremio_aspects.populate_dataset_mcp(
@@ -350,6 +449,8 @@ class DremioSource(StatefulIngestionSourceBase):
             if isinstance(
                 dremio_mcp.metadata, MetadataChangeProposalWrapper
             ) and isinstance(dremio_mcp.metadata.aspect, SchemaMetadataClass):
+                # Register the schema with the custom Dremio schema resolver
+                # The resolver will ensure all URNs are constructed with the "dremio." infix
                 self.sql_parsing_aggregator.register_schema(
                     urn=dataset_urn,
                     schema=dremio_mcp.metadata.aspect,
@@ -419,10 +520,10 @@ class DremioSource(StatefulIngestionSourceBase):
         schema_str = ".".join(dataset_info.path)
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
         dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=self.get_platform(),
-            name=dataset_name,
-            platform_instance=self.config.platform_instance,
+            platform=make_data_platform_urn(self.get_platform()),
+            name=f"{DREMIO_DATABASE_NAME}.{dataset_name}",
             env=self.config.env,
+            platform_instance=self.config.platform_instance,
         )
         yield from self.profiler.get_workunits(dataset_info, dataset_urn)
 
@@ -434,10 +535,10 @@ class DremioSource(StatefulIngestionSourceBase):
         """
         upstream_urns = [
             make_dataset_urn_with_platform_instance(
-                platform=self.get_platform(),
-                name=upstream_table.lower(),
-                platform_instance=self.config.platform_instance,
+                platform=make_data_platform_urn(self.get_platform()),
+                name=f"{DREMIO_DATABASE_NAME}.{upstream_table.lower()}",
                 env=self.config.env,
+                platform_instance=self.config.platform_instance,
             )
             for upstream_table in parents
         ]
@@ -488,27 +589,57 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-    def process_query(self, query: DremioQuery) -> None:
-        """
-        Process a single Dremio query for lineage information.
-        """
+    def _validate_query_lineage_format(self, query: DremioQuery) -> None:
+        for queried_ds in query.queried_datasets:
+            queried_ds_lower = queried_ds.lower()
 
+            # Check if this dataset exists in our catalog tracking
+            if queried_ds_lower not in self.catalog_dataset_names:
+                # Check for suspicious format patterns that indicate mismatch
+                suspicious_patterns = [
+                    ("s3://", "S3 path"),
+                    ("hdfs://", "HDFS path"),
+                    ("/", "file path"),
+                    ("@", "versioned reference"),
+                ]
+
+                for pattern, pattern_type in suspicious_patterns:
+                    if pattern in queried_ds_lower:
+                        self.report.warning(
+                            "Query lineage format mismatch",
+                            f"Query {query.job_id} references dataset '{queried_ds}' which appears to be a "
+                            f"{pattern_type} but was not found in the catalog. This may cause lineage breaks. "
+                            f"Verify that source_mappings configuration correctly maps Dremio sources to "
+                            f"upstream platforms, or that query logs use the same naming as catalog metadata.",
+                        )
+                        break
+                else:
+                    # Not suspicious pattern, just not in catalog yet (might be from different space/source)
+                    logger.debug(
+                        f"Query {query.job_id} references dataset '{queried_ds}' not found in catalog. "
+                        f"This may be expected for cross-source references or if the dataset was filtered out."
+                    )
+
+    def process_query(self, query: DremioQuery) -> None:
         if query.query and query.affected_dataset:
+            # Validate query dataset format matches catalog format
+            self._validate_query_lineage_format(query)
+
             upstream_urns = [
                 make_dataset_urn_with_platform_instance(
-                    platform=self.get_platform(),
-                    name=ds.lower(),
-                    platform_instance=self.config.platform_instance,
+                    platform=make_data_platform_urn(self.get_platform()),
+                    name=f"{DREMIO_DATABASE_NAME}.{ds.lower()}",
                     env=self.config.env,
+                    platform_instance=self.config.platform_instance,
                 )
                 for ds in query.queried_datasets
             ]
 
             downstream_urn = make_dataset_urn_with_platform_instance(
-                platform=self.get_platform(),
-                name=query.affected_dataset.lower(),
-                platform_instance=self.config.platform_instance,
+                platform=make_data_platform_urn(self.get_platform()),
+                name=f"{DREMIO_DATABASE_NAME}.{query.affected_dataset.lower()}",
                 env=self.config.env,
+                platform_instance=self.config.platform_instance,
             )
 
             # Add query to SqlParsingAggregator

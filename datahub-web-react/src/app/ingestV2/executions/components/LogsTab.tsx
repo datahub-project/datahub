@@ -2,9 +2,9 @@ import { DownloadOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
 
-import { DetailsContainer, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
+import { DetailsContainer } from '@app/ingestV2/executions/components/BaseTab';
 import { downloadFile } from '@app/search/utils/csvUtils';
-import { Button, Text, Tooltip } from '@src/alchemy-components';
+import { Button, Heading, Text, Tooltip } from '@src/alchemy-components';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 
@@ -19,9 +19,7 @@ const SubHeaderParagraph = styled(Text)`
 `;
 
 const LogsSection = styled.div`
-    padding-top: 16px;
-    padding-left: 30px;
-    padding-right: 30px;
+    padding: 16px 20px 16px 0;
 `;
 
 export const LogsTab = ({ urn, data }: { urn: string; data: GetIngestionExecutionRequestQuery | undefined }) => {
@@ -33,7 +31,9 @@ export const LogsTab = ({ urn, data }: { urn: string; data: GetIngestionExecutio
 
     return (
         <LogsSection>
-            <SectionHeader level={5}>Logs</SectionHeader>
+            <Heading type="h4" size="lg" weight="bold">
+                Logs
+            </Heading>
             <SectionSubHeader>
                 <SubHeaderParagraph color="gray" colorLevel={600}>
                     View logs that were collected during the sync.

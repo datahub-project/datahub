@@ -33,7 +33,7 @@ def test_bigqueryv2_uri_with_credential():
         "type": "service_account",
     }
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
             "stateful_ingestion": {"enabled": False},
@@ -66,7 +66,7 @@ def test_bigqueryv2_uri_with_credential():
 
 @freeze_time(FROZEN_TIME)
 def test_bigqueryv2_filters():
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
             "credential": {

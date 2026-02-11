@@ -9,4 +9,5 @@ import lombok.Value;
 public class LineageResponse {
   int total;
   List<LineageRelationship> lineageRelationships;
+  boolean partial;
 }

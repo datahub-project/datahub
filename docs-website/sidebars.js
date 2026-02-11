@@ -45,6 +45,32 @@ module.exports = {
       items: [
         // "docs/how/ui-tabs-guide",
         {
+          label: "Ask DataHub",
+          type: "doc",
+          id: "docs/features/feature-guides/ask-datahub",
+          className: "saasOnly",
+        },
+        {
+          label: "Agent Context Kit",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/dev-guides/agent-context/agent-context",
+          },
+          items: [
+            {
+              label: "Langchain",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/langchain",
+            },
+            {
+              label: "Snowflake",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/snowflake",
+            },
+          ],
+        },
+        {
           label: "Assertions (Data Quality)",
           type: "category",
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
@@ -100,6 +126,12 @@ module.exports = {
               label: "Adding Notes to Assertions",
               type: "doc",
               id: "docs/managed-datahub/observe/assertion-notes",
+              className: "saasOnly",
+            },
+            {
+              label: "Assertion Query Attribution",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertion-query-attribution",
               className: "saasOnly",
             },
             {
@@ -213,12 +245,17 @@ module.exports = {
           ],
         },
         {
-          label: "Custom Asset Summaries",
+          label: "Context Documents",
+          type: "doc",
+          id: "docs/features/feature-guides/context/context-documents",
+        },
+        {
+          label: "Asset Summaries",
           type: "doc",
           id: "docs/features/feature-guides/custom-asset-summaries",
         },
         {
-          label: "Custom Home Page",
+          label: "Home Page",
           type: "doc",
           id: "docs/features/feature-guides/custom-home-page",
         },
@@ -243,6 +280,11 @@ module.exports = {
           id: "docs/domains",
         },
         {
+          label: "File Upload and Download in Documentation",
+          type: "doc",
+          id: "docs/features/feature-guides/file-upload-download",
+        },
+        {
           label: "Incidents",
           type: "doc",
           id: "docs/incidents/incidents",
@@ -251,6 +293,11 @@ module.exports = {
           label: "Ingestion",
           type: "doc",
           id: "docs/ui-ingestion",
+        },
+        {
+          label: "Ingestion Security",
+          type: "doc",
+          id: "docs/metadata-ingestion-security",
         },
         {
           label: "Lineage",
@@ -274,6 +321,11 @@ module.exports = {
               label: "Managing Lineage via UI",
               type: "doc",
               id: "docs/features/feature-guides/ui-lineage",
+            },
+            {
+              type: "doc",
+              id: "docs/lineage/openlineage",
+              label: "OpenLineage",
             },
           ],
         },
@@ -348,6 +400,17 @@ module.exports = {
           label: "Search",
           type: "doc",
           id: "docs/how/search",
+        },
+        {
+          label: "Search Access Controls",
+          type: "doc",
+          id: "docs/features/feature-guides/search-access-controls",
+          className: "saasOnly",
+        },
+        {
+          label: "Service Accounts",
+          type: "doc",
+          id: "docs/features/feature-guides/service-accounts",
         },
         {
           label: "Sync Status",
@@ -491,6 +554,8 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_16",
+        "docs/managed-datahub/release-notes/v_0_3_15",
         "docs/managed-datahub/release-notes/v_0_3_14",
         "docs/managed-datahub/release-notes/v_0_3_13",
         "docs/managed-datahub/release-notes/v_0_3_12",
@@ -666,7 +731,6 @@ module.exports = {
             "metadata-ingestion/schedule_docs/kubernetes",
           ],
         },
-
         "docs/platform-instances",
         "docs/lineage/sql_parsing",
         "metadata-ingestion/docs/dev_guides/stateful",
@@ -674,6 +738,7 @@ module.exports = {
         "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
         "metadata-ingestion/docs/dev_guides/sql_profiles",
         "metadata-ingestion/docs/dev_guides/profiling_ingestions",
+        "docs/iceberg-catalog",
       ],
     },
     // APIs & SDKs.
@@ -685,6 +750,7 @@ module.exports = {
     {
       type: "category",
       label: "Open Source DataHub Metadata Standard",
+      link: { type: "doc", id: "docs/metadata-standards" },
       collapsed: false,
       items: [
         {
@@ -710,22 +776,6 @@ module.exports = {
       ],
     },
     "docs/what-is-datahub/datahub-concepts",
-    {
-      type: "category",
-      label: "Metadata Standards",
-      link: { type: "doc", id: "docs/metadata-standards" },
-      items: [
-        {
-          type: "doc",
-          id: "docs/iceberg-catalog",
-        },
-        {
-          type: "doc",
-          id: "docs/lineage/openlineage",
-          label: "OpenLineage",
-        },
-      ],
-    },
     {
       type: "doc",
       id: "docs/api/datahub-apis",
@@ -894,15 +944,55 @@ module.exports = {
       ],
     },
     {
-      type: "doc",
+      type: "category",
       label: "Java SDK",
-      id: "metadata-integration/java/as-a-library",
+      items: [
+        {
+          type: "doc",
+          label: "Java SDK V1 (Legacy)",
+          id: "metadata-integration/java/as-a-library",
+        },
+        {
+          type: "category",
+          label: "SDK V2",
+          link: {
+            type: "doc",
+            id: "metadata-integration/java/as-a-library-v2",
+          },
+          items: [
+            "metadata-integration/java/docs/sdk-v2/getting-started",
+            "metadata-integration/java/docs/sdk-v2/client",
+            "metadata-integration/java/docs/sdk-v2/entities-overview",
+            {
+              type: "category",
+              label: "Entity Guides",
+              items: [
+                "metadata-integration/java/docs/sdk-v2/dataset-entity",
+                "metadata-integration/java/docs/sdk-v2/chart-entity",
+                "metadata-integration/java/docs/sdk-v2/dashboard-entity",
+                "metadata-integration/java/docs/sdk-v2/container-entity",
+                "metadata-integration/java/docs/sdk-v2/dataflow-entity",
+                "metadata-integration/java/docs/sdk-v2/datajob-entity",
+                "metadata-integration/java/docs/sdk-v2/mlmodel-entity",
+                "metadata-integration/java/docs/sdk-v2/mlmodelgroup-entity",
+              ],
+            },
+            "metadata-integration/java/docs/sdk-v2/patch-operations",
+            "metadata-integration/java/docs/sdk-v2/migration-from-v1",
+            "metadata-integration/java/docs/sdk-v2/design-principles",
+          ],
+        },
+      ],
     },
     {
       type: "category",
       label: "DataHub CLI",
       link: { type: "doc", id: "docs/cli" },
-      items: ["docs/cli-commands/dataset", "docs/datahub_lite"],
+      items: [
+        "docs/cli-commands/dataset",
+        "docs/cli-commands/graphql",
+        "docs/datahub_lite",
+      ],
     },
     {
       type: "category",
@@ -949,6 +1039,7 @@ module.exports = {
     {
       Guides: [
         "docs/api/tutorials/datasets",
+        "docs/api/tutorials/documents",
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",
         "docs/api/tutorials/custom-properties",
@@ -1026,6 +1117,7 @@ module.exports = {
       "Advanced Guides": [
         "docs/how/delete-metadata",
         "docs/how/configuring-authorization-with-apache-ranger",
+        "docs/how-to/semantic-search-configuration",
         {
           "SCIM Provisioning": [
             "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
@@ -1093,6 +1185,7 @@ module.exports = {
     {
       "Developing on DataHub": [
         "docs/developers",
+        "docs/developers/java-sdk-v2-design",
         "docs/docker/development",
         "metadata-ingestion/developing",
         "docs/api/graphql/graphql-endpoint-development",
@@ -1119,9 +1212,19 @@ module.exports = {
       "Advanced Guides": [
         "docs/advanced/mcp-mcl",
         "docs/advanced/writing-mcps",
+        {
+          "Semantic Search": [
+            "docs/dev-guides/semantic-search/README",
+            "docs/dev-guides/semantic-search/ARCHITECTURE",
+            "docs/dev-guides/semantic-search/CONFIGURATION",
+            "docs/dev-guides/semantic-search/SWITCHING_PROVIDERS",
+          ],
+        },
         "docs/modeling/extending-the-metadata-model",
         "docs/advanced/api-tracing",
+        "docs/advanced/micrometer-best-practices",
         "datahub-web-react/src/app/analytics/README",
+        // "smoke-test/test_resources/analytics_backfill/README",
         "docker/datahub-upgrade/README",
         "metadata-ingestion/adding-source",
         "docs/how/add-custom-ingestion-source",
@@ -1158,6 +1261,12 @@ module.exports = {
         "docs/CONTRIBUTING",
         "docs/links",
         "docs/rfc",
+        {
+          type: "category",
+          label: "RFCs",
+          link: { type: "doc", id: "docs/rfcs/README" },
+          items: [],
+        },
         "SECURITY",
       ],
     },

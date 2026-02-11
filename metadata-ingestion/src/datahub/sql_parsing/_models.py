@@ -1,32 +1,22 @@
 import functools
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 import sqlglot
 from pydantic import BaseModel
-
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
-from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
 
 
 class _ParserBaseModel(
     BaseModel,
     arbitrary_types_allowed=True,
-    json_encoders={
-        SchemaFieldDataTypeClass: lambda v: v.to_obj(),
-    },
 ):
     def json(self, *args: Any, **kwargs: Any) -> str:
-        if PYDANTIC_VERSION_2:
-            return super().model_dump_json(*args, **kwargs)  # type: ignore
-        else:
-            return super().json(*args, **kwargs)
+        return super().model_dump_json(*args, **kwargs)  # type: ignore
 
 
 @functools.total_ordering
 class _FrozenModel(_ParserBaseModel, frozen=True):
     def __lt__(self, other: "_FrozenModel") -> bool:
-        # TODO: The __fields__ attribute is deprecated in Pydantic v2.
-        for field in self.__fields__:
+        for field in self.__class__.model_fields:
             self_v = getattr(self, field)
             other_v = getattr(other, field)
 
@@ -47,6 +37,29 @@ class _TableName(_FrozenModel):
     database: Optional[str] = None
     db_schema: Optional[str] = None
     table: str
+    parts: Optional[Tuple[str, ...]] = None
+
+    @property
+    def identity(
+        self,
+    ) -> Tuple[Optional[str], Optional[str], str, Optional[Tuple[str, ...]]]:
+        """
+        Table identity for hashing and equality.
+
+        Includes parts only when >3 parts to distinguish multi-part tables
+        while maintaining backward compatibility for standard 3-part names.
+        """
+        if self.parts and len(self.parts) > 3:
+            return (self.database, self.db_schema, self.table, self.parts)
+        return (self.database, self.db_schema, self.table, None)
+
+    def __hash__(self) -> int:
+        return hash(self.identity)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, _TableName):
+            return False
+        return self.identity == other.identity
 
     def as_sqlglot_table(self) -> sqlglot.exp.Table:
         return sqlglot.exp.Table(
@@ -70,6 +83,7 @@ class _TableName(_FrozenModel):
             database=database,
             db_schema=db_schema,
             table=self.table,
+            parts=self.parts,
         )
 
     @classmethod
@@ -80,8 +94,7 @@ class _TableName(_FrozenModel):
         default_schema: Optional[str] = None,
     ) -> "_TableName":
         if isinstance(table.this, sqlglot.exp.Dot):
-            # For tables that are more than 3 parts, the extra parts will be in a Dot.
-            # For now, we just merge them into the table name.
+            # Multi-part tables (>3 parts) have extra parts in a Dot expression
             parts = []
             exp = table.this
             while isinstance(exp, sqlglot.exp.Dot):
@@ -91,8 +104,12 @@ class _TableName(_FrozenModel):
             table_name = ".".join(parts)
         else:
             table_name = table.this.name
+
+        parts_tuple = tuple(p.name for p in table.parts) if table.parts else None
+
         return cls(
             database=table.catalog or default_db,
             db_schema=table.db or default_schema,
             table=table_name,
+            parts=parts_tuple,
         )

@@ -27,6 +27,7 @@ import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.UpdateByQueryRequest;
 import org.opensearch.script.Script;
 import org.opensearch.script.ScriptType;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -42,8 +43,27 @@ public class ESBulkProcessorTest {
   private String TEST_TASK_STRING = "nodeid123:1234";
 
   @BeforeMethod
-  public void setup() {
+  public void setup() throws IOException {
     mocks = MockitoAnnotations.openMocks(this);
+    // Stub generateBulkProcessor and generateAsyncBulkProcessor to do nothing
+    // This prevents any real BulkProcessor instances from being created
+    doNothing()
+        .when(mockSearchClient)
+        .generateBulkProcessor(any(), any(), anyInt(), anyLong(), anyLong(), anyInt(), anyInt());
+    doNothing()
+        .when(mockSearchClient)
+        .generateAsyncBulkProcessor(
+            any(), any(), anyInt(), anyLong(), anyLong(), anyInt(), anyInt());
+    // Ensure closeBulkProcessor can be called without issues
+    doNothing().when(mockSearchClient).closeBulkProcessor();
+    doNothing().when(mockSearchClient).flushBulkProcessor();
+  }
+
+  @AfterMethod
+  public void tearDown() throws Exception {
+    if (mocks != null) {
+      mocks.close();
+    }
   }
 
   @Test

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def test_elasticsearch_throws_error_wrong_operation_config():
     with pytest.raises(pydantic.ValidationError):
-        ElasticsearchSourceConfig.parse_obj(
+        ElasticsearchSourceConfig.model_validate(
             {
                 "profiling": {
                     "enabled": True,
@@ -43,7 +43,7 @@ def assret_field_paths_match(
 ) -> None:
     logger.debug('FieldPaths=\n"' + '",\n"'.join(f.fieldPath for f in fields) + '"')
     assert len(fields) == len(expected_field_paths)
-    for f, efp in zip(fields, expected_field_paths):
+    for f, efp in zip(fields, expected_field_paths, strict=False):
         assert f.fieldPath == efp
     assert_field_paths_are_unique(fields)
 
@@ -2478,14 +2478,14 @@ def test_host_port_parsing() -> None:
     bad_examples = ["localhost:abcd", "htttp://localhost:1234", "localhost:9200//"]
     for example in examples:
         config_dict = {"host": example}
-        config = ElasticsearchSourceConfig.parse_obj(config_dict)
+        config = ElasticsearchSourceConfig.model_validate(config_dict)
         assert config.host == example
 
     for bad_example in bad_examples:
         config_dict = {"host": bad_example}
 
         with pytest.raises(pydantic.ValidationError):
-            ElasticsearchSourceConfig.parse_obj(config_dict)
+            ElasticsearchSourceConfig.model_validate(config_dict)
 
 
 def test_collapse_urns() -> None:

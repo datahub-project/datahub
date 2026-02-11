@@ -253,6 +253,7 @@ class DagsterEnvironment:
     is_branch_deployment: bool = False
     branch: Optional[str] = "prod"
     module: Optional[str] = None
+    location_name: Optional[str] = None
 
 
 def job_url_generator(dagster_url: str, dagster_environment: DagsterEnvironment) -> str:
@@ -261,8 +262,8 @@ def job_url_generator(dagster_url: str, dagster_environment: DagsterEnvironment)
     else:
         base_url = dagster_url
 
-    if dagster_environment.module:
-        base_url = f"{base_url}/locations/{dagster_environment.module}"
+    if dagster_environment.location_name:
+        base_url = f"{base_url}/locations/{dagster_environment.location_name}"
 
     return base_url
 

@@ -28,6 +28,7 @@ import { SchemaFieldPropertiesEntity } from '@app/entity/schemaField/SchemaField
 import { StructuredPropertyEntity } from '@app/entity/structuredProperty/StructuredPropertyEntity';
 import { TagEntity } from '@app/entity/tag/Tag';
 import { UserEntity } from '@app/entity/user/User';
+import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
 
 export default function buildEntityRegistry() {
     const registry = new EntityRegistry();
@@ -47,6 +48,7 @@ export default function buildEntityRegistry() {
     registry.register(new MLModelEntity());
     registry.register(new MLModelGroupEntity());
     registry.register(new DomainEntity());
+    registry.register(new DocumentEntity());
     registry.register(new ContainerEntity());
     registry.register(new GlossaryNodeEntity());
     registry.register(new RoleEntity());

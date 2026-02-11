@@ -207,19 +207,19 @@ These privileges are to view & modify any entity within DataHub.
 
 #### Entity Privileges
 
-| Entity Privileges                  | Description                                                                                |
-| ---------------------------------- | ------------------------------------------------------------------------------------------ |
-| View Entity Page                   | Allow actor to view the entity page.                                                       |
-| Edit Entity                        | Allow actor to edit any information about an entity. Super user privileges for the entity. |
-| Delete                             | Allow actor to delete this entity.                                                         |
-| Create Entity                      | Allow actor to create an entity if it doesn't exist.                                       |
-| Entity Exists                      | Allow actor to determine whether the entity exists.                                        |
-| Execute Entity                     | Allow actor to execute entity ingestion.                                                   |
-| Get Timeline API[^3]               | Allow actor to use the GET Timeline API.                                                   |
-| Get Entity + Relationships API[^3] | Allow actor to use the GET Entity and Relationships API.                                   |
-| Get Aspect/Entity Count APIs[^3]   | Allow actor to use the GET Aspect/Entity Count APIs.                                       |
-| View Entity[^1]                    | Allow actor to view the entity in search results.                                          |
-| Share Entity[^1]                   | Allow actor to share an entity with another DataHub Cloud instance.                        |
+| Entity Privileges                  | Description                                                                                                                                          |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| View Entity Page                   | Allow actor to view the entity page.                                                                                                                 |
+| Edit Entity                        | Allow actor to edit any information about an entity. Super user privileges for the entity.                                                           |
+| Delete                             | Allow actor to delete this entity.                                                                                                                   |
+| Create Entity                      | Allow actor to create an entity if it doesn't exist.                                                                                                 |
+| Entity Exists                      | Allow actor to determine whether the entity exists.                                                                                                  |
+| Execute Entity                     | Allow actor to execute entity ingestion.                                                                                                             |
+| Get Timeline API[^3]               | Allow actor to use the GET Timeline API.                                                                                                             |
+| Get Entity + Relationships API[^3] | Allow actor to use the GET Entity and Relationships API.                                                                                             |
+| Get Aspect/Entity Count APIs[^3]   | Allow actor to use the GET Aspect/Entity Count APIs.                                                                                                 |
+| View Entity[^1]                    | Allow actor to view the entity in search results. This privilege can be explicitly granted, but is also implied by the `View Entity Page` privilege. |
+| Share Entity[^1]                   | Allow actor to share an entity with another DataHub Cloud instance.                                                                                  |
 
 #### Aspect Privileges
 

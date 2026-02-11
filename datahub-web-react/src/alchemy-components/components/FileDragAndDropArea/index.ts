@@ -1,0 +1,1 @@
+export { FileDragAndDropArea } from './FileDragAndDropArea';

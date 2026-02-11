@@ -31,9 +31,8 @@ import {
 import { FileUploadFailureType, FileUploadSource } from '@components/components/Editor/types';
 import { notification } from '@components/components/Notification/notification';
 
-interface FileDragDropOptions {
+interface FileUploadProps {
     onFileUpload?: (file: File) => Promise<string>;
-    supportedTypes?: string[];
     onFileUploadAttempt?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
     onFileUploadFailed?: (
         fileType: string,
@@ -44,6 +43,11 @@ interface FileDragDropOptions {
     ) => void;
     onFileUploadSucceeded?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
     onFileDownloadView?: (fileType: string, fileSize: number) => void;
+}
+
+interface FileDragDropOptions {
+    uploadFileProps?: FileUploadProps;
+    supportedTypes?: string[];
 }
 
 /**
@@ -57,7 +61,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
     }
 
     createTags() {
-        return [ExtensionTag.Block, ExtensionTag.Behavior, ExtensionTag.FormattingNode];
+        return [ExtensionTag.InlineNode, ExtensionTag.Behavior];
     }
 
     get defaultPriority() {
@@ -74,7 +78,16 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                 props: {
                     handleDOMEvents: {
                         drop: (view: EditorView, event: DragEvent) => {
-                            return this.handleDrop(view, event);
+                            if (!view.editable) {
+                                return true; // prevents editor from handling the drop
+                            }
+                            const data = event.dataTransfer;
+                            if (data && data.files && data.files.length > 0) {
+                                // External file drop
+                                return this.handleDrop(view, event);
+                            }
+                            // Moving nodes internally
+                            return false;
                         },
                         dragover: (view: EditorView, event: DragEvent) => {
                             if (event.dataTransfer?.types.includes('Files')) {
@@ -97,6 +110,23 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                         dragleave: (_view: EditorView, _event: DragEvent) => {
                             return false;
                         },
+                        dragstart: (view: EditorView, event: DragEvent) => {
+                            const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
+                            if (!pos) return false;
+
+                            const node = view.state.doc.nodeAt(pos.pos);
+                            if (!node || node.type !== this.type) return false;
+
+                            const data = event.dataTransfer;
+                            if (data) {
+                                data.setData(
+                                    'application/x-prosemirror-node',
+                                    JSON.stringify({ id: node.attrs.id, type: node.type.name }),
+                                );
+                                data.effectAllowed = 'move';
+                            }
+                            return false; // Allow default handling in ProseMirror
+                        },
                     },
                 },
             }),
@@ -118,12 +148,12 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
         // Process each file
         const fileArray = Array.from(files);
         const processPromises = fileArray.map(async (file) => {
-            this.options.onFileUploadAttempt?.(file.type, file.size, 'drag-and-drop');
+            this.options.uploadFileProps?.onFileUploadAttempt?.(file.type, file.size, 'drag-and-drop');
 
             const validation = validateFile(file, { allowedTypes: supportedTypes });
             if (!validation.isValid) {
                 console.error(validation.error);
-                this.options.onFileUploadFailed?.(
+                this.options.uploadFileProps?.onFileUploadFailed?.(
                     file.type,
                     file.size,
                     'drag-and-drop',
@@ -158,14 +188,14 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
             view.dispatch(transaction);
 
             // Upload file if handler is provided
-            if (this.options.onFileUpload) {
+            if (this.options.uploadFileProps?.onFileUpload) {
                 try {
-                    const finalUrl = await this.options.onFileUpload(file);
+                    const finalUrl = await this.options.uploadFileProps.onFileUpload(file);
                     this.updateNodeWithUrl(view, placeholderAttrs.id, finalUrl);
-                    this.options.onFileUploadSucceeded?.(file.type, file.size, 'drag-and-drop');
+                    this.options.uploadFileProps.onFileUploadSucceeded?.(file.type, file.size, 'drag-and-drop');
                 } catch (uploadError) {
                     console.error(uploadError);
-                    this.options.onFileUploadFailed?.(
+                    this.options.uploadFileProps.onFileUploadFailed?.(
                         file.type,
                         file.size,
                         'drag-and-drop',
@@ -178,10 +208,21 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                         description: 'Something went wrong',
                     });
                 }
+            } else {
+                this.options.uploadFileProps?.onFileUploadFailed?.(
+                    file.type,
+                    file.size,
+                    'drag-and-drop',
+                    FileUploadFailureType.UPLOADING_NOT_SUPPORTED,
+                );
+                this.removeNode(view, placeholderAttrs.id);
+                notification.error({
+                    message: 'Uploading files in this context is not currently supported',
+                });
             }
         } catch (error) {
             console.error(error);
-            this.options.onFileUploadFailed?.(
+            this.options.uploadFileProps?.onFileUploadFailed?.(
                 file.type,
                 file.size,
                 'drag-and-drop',
@@ -198,7 +239,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
     public updateNodeWithUrl(view: EditorView, nodeId: string, url: string): void {
         const { nodePos, nodeToUpdate } = this.findNodeById(view.state, nodeId);
 
-        if (!nodePos || !nodeToUpdate) return;
+        if (nodePos === null || !nodeToUpdate) return;
 
         const { name, type } = nodeToUpdate.attrs;
 
@@ -211,7 +252,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
 
     public removeNode(view: EditorView, nodeId: string) {
         const { nodePos, nodeToUpdate } = this.findNodeById(view.state, nodeId);
-        if (!nodePos || !nodeToUpdate) return;
+        if (nodePos === null || !nodeToUpdate) return;
 
         const updatedTransaction = view.state.tr.delete(nodePos, nodePos + nodeToUpdate.nodeSize);
         view.dispatch(updatedTransaction);
@@ -269,7 +310,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
 
         const url = node.getAttribute(FILE_ATTRS.url) || '';
         const name = node.getAttribute(FILE_ATTRS.name) || '';
-        const type = node.getAttribute(FILE_ATTRS.type) || '';
+        const type = node.getAttribute(FILE_ATTRS.type) || getFileTypeFromUrl(url) || '';
         const size = parseInt(node.getAttribute(FILE_ATTRS.size) || '0', 10);
         const id = node.getAttribute(FILE_ATTRS.id) || '';
 
@@ -298,12 +339,11 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
 
     createNodeSpec(extra: ApplySchemaAttributes, override: Partial<NodeSpecOverride>): NodeExtensionSpec {
         return {
-            inline: false,
-            group: 'block',
-            marks: '',
-            selectable: true,
-            draggable: true,
+            inline: true,
+            group: 'inline',
             atom: true,
+            selectable: true,
+            draggable: (state) => state.editable,
             ...override,
             attrs: {
                 ...extra.defaults(),
@@ -315,7 +355,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
             },
             parseDOM: [
                 {
-                    tag: `div[${FILE_ATTRS.name}]`,
+                    tag: `span[${FILE_ATTRS.name}]`,
                     getAttrs: (node: string | Node) => this.parseFileNode(node, extra),
                 },
                 {
@@ -335,9 +375,10 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                     [FILE_ATTRS.type]: type,
                     [FILE_ATTRS.size]: size.toString(),
                     [FILE_ATTRS.id]: id,
+                    contenteditable: 'false',
                 };
 
-                return ['div', attrs, name];
+                return ['span', attrs, name];
             },
         };
     }
@@ -348,7 +389,9 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
     ReactComponent: ComponentType<NodeViewComponentProps> = (props) => (
         <FileNodeView
             {...props}
-            onFileDownloadView={(fileType, fileSize) => this.options.onFileDownloadView?.(fileType, fileSize)}
+            onFileDownloadView={(fileType, fileSize) =>
+                this.options.uploadFileProps?.onFileDownloadView?.(fileType, fileSize)
+            }
         />
     );
 
@@ -371,12 +414,14 @@ const decoratedExt = extension<FileDragDropOptions>({
     handlerKeys: [],
     customHandlerKeys: [],
     defaultOptions: {
-        onFileUpload: async (_file: File) => '',
+        uploadFileProps: {
+            onFileUpload: async (_file: File) => '',
+            onFileUploadAttempt: () => {},
+            onFileUploadFailed: () => {},
+            onFileUploadSucceeded: () => {},
+            onFileDownloadView: () => {},
+        },
         supportedTypes: SUPPORTED_FILE_TYPES,
-        onFileUploadAttempt: () => {},
-        onFileUploadFailed: () => {},
-        onFileUploadSucceeded: () => {},
-        onFileDownloadView: () => {},
     },
 })(FileDragDropExtension);
 

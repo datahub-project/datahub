@@ -2,6 +2,7 @@ import { Pagination } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import { DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import EmptyState, { EmptyReasons } from '@app/ingestV2/executions/components/EmptyState';
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
 import ExecutionsTable from '@app/ingestV2/executions/components/ExecutionsTable';
@@ -51,8 +52,6 @@ const PaginationContainer = styled.div`
     justify-content: center;
     flex-shrink: 0;
 `;
-
-const DEFAULT_PAGE_SIZE = 25;
 
 interface Props {
     shouldPreserveParams: React.MutableRefObject<boolean>;

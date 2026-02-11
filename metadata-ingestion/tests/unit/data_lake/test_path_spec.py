@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.data_lake_common.path_spec import (
@@ -594,14 +595,16 @@ def test_table_name_custom_invalid() -> None:
 
 def test_validate_path_spec_missing_fields() -> None:
     """Test path_spec validation with missing required fields."""
-    with patch(
-        "datahub.ingestion.source.data_lake_common.path_spec.logger"
-    ) as mock_logger:
-        # This should not raise an error but log debug messages
-        values = {"file_types": ["csv"]}  # Missing include and default_extension
-        result = PathSpec.validate_path_spec(values)
-        assert result == values
-        mock_logger.debug.assert_called()
+    # This should raises a validation error since include is required
+    # In Pydantic v1 this was just logged as a debug message
+    # In Pydantic v2, keeping same behavior would require making include Optional with a default of None, whihc
+    # would be a breaking change in the model; also, along the code there are many places that assume include is always set.
+    values = {"file_types": ["csv"]}  # Missing include (now required)
+
+    with pytest.raises(ValidationError) as exc_info:
+        PathSpec(**values)
+        # Verify that the validation error mentions the missing include field
+        assert "include" in str(exc_info.value)
 
 
 def test_validate_path_spec_autodetect_partitions() -> None:
@@ -612,8 +615,8 @@ def test_validate_path_spec_autodetect_partitions() -> None:
         "file_types": ["csv"],
         "default_extension": None,
     }
-    result = PathSpec.validate_path_spec(values)
-    assert result["include"] == "s3://bucket/{table}/**"
+    result = PathSpec(**values)
+    assert result.include == "s3://bucket/{table}/**"
 
 
 def test_validate_path_spec_autodetect_partitions_with_slash() -> None:
@@ -624,8 +627,8 @@ def test_validate_path_spec_autodetect_partitions_with_slash() -> None:
         "file_types": ["csv"],
         "default_extension": None,
     }
-    result = PathSpec.validate_path_spec(values)
-    assert result["include"] == "s3://bucket/{table}/**"
+    result = PathSpec(**values)
+    assert result.include == "s3://bucket/{table}/**"
 
 
 def test_validate_path_spec_invalid_extension() -> None:

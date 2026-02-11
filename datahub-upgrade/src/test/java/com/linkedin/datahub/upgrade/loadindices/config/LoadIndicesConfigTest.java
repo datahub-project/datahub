@@ -48,7 +48,7 @@ public class LoadIndicesConfigTest {
   @Test
   public void testLoadIndicesClass() {
     // Test that the LoadIndices class can be instantiated with null dependencies
-    LoadIndices loadIndices = new LoadIndices(null, null, null, null, null, null, null, null, null);
+    LoadIndices loadIndices = new LoadIndices(null, null, null, null, null, null, null, null);
     assertNotNull(loadIndices);
     assertEquals(loadIndices.id(), "LoadIndices");
     assertNotNull(loadIndices.steps());

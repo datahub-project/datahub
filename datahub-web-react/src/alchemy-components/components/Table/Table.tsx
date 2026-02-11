@@ -59,6 +59,7 @@ export const Table = <T,>({
     headerRef,
     rowDataTestId,
     footer,
+    renderScrollObserver,
     ...props
 }: TableProps<T>) => {
     const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -218,7 +219,7 @@ export const Table = <T,>({
                                         }
                                     }}
                                     isRowClickable={isRowClickable}
-                                    data-testId={rowDataTestId?.(row)}
+                                    data-testid={rowDataTestId?.(row)}
                                     canHover
                                 >
                                     {/* Render each cell in the row */}
@@ -239,13 +240,13 @@ export const Table = <T,>({
                                                             <CaretDown
                                                                 size={16}
                                                                 weight="bold"
-                                                                data-testId="group-header-expanded-icon"
+                                                                data-testid="group-header-expanded-icon"
                                                             /> // Expanded icon
                                                         ) : (
                                                             <CaretUp
                                                                 size={16}
                                                                 weight="bold"
-                                                                data-testId="group-header-collapsed-icon"
+                                                                data-testid="group-header-collapsed-icon"
                                                             /> // Collapsed icon
                                                         )}
                                                     </div>
@@ -257,6 +258,10 @@ export const Table = <T,>({
                                             const cellContent = column.cellWrapper
                                                 ? column.cellWrapper(content, row)
                                                 : content;
+
+                                            const clickable = column.isCellClickable
+                                                ? column.isCellClickable(row)
+                                                : !!column.onCellClick;
 
                                             return (
                                                 <TableCell
@@ -270,11 +275,11 @@ export const Table = <T,>({
                                                     isGroupHeader={canExpand}
                                                     isExpanded={isExpanded}
                                                     onClick={() => {
-                                                        if (column.onCellClick) {
+                                                        if (clickable && column.onCellClick) {
                                                             column.onCellClick(row);
                                                         }
                                                     }}
-                                                    style={{ cursor: column.onCellClick ? 'pointer' : 'default' }}
+                                                    style={{ cursor: clickable ? 'pointer' : 'default' }}
                                                     className={column.cellWrapper ? 'hoverable-cell' : undefined}
                                                     data-testid={column.key}
                                                 >
@@ -300,6 +305,7 @@ export const Table = <T,>({
                             </React.Fragment>
                         );
                     })}
+                    {renderScrollObserver?.()}
                     {footer}
                 </tbody>
             </BaseTable>

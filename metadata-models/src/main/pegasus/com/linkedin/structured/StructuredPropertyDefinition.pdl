@@ -21,7 +21,12 @@ record StructuredPropertyDefinition {
     /**
     * The display name of the property. This is the name that will be shown in the UI and can be used to look up the property id.
     */
-    @Searchable = {}
+    @Searchable = {
+      "enableAutocomplete": true,
+      "fieldType": "WORD_GRAM",
+      "searchTier": 1,
+      "searchLabel": "entityName"
+      }
     displayName: optional string
 
     /**

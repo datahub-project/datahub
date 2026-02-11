@@ -25,6 +25,11 @@ record EntityLineageResult {
   filtered: optional int = 0
 
   /**
+   * Indicates whether the results are partial due to reaching the maxRelations limit
+   */
+  partial: optional boolean
+
+  /**
    * Relationships in the result set
    */
   relationships: array[LineageRelationship]

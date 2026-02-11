@@ -211,6 +211,9 @@ public interface AspectDao {
   Integer countAspect(@Nonnull final String aspectName, @Nullable String urnLike);
 
   @Nonnull
+  Integer countAspect(final RestoreIndicesArgs args);
+
+  @Nonnull
   PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args);
 
   @Nonnull
@@ -295,4 +298,10 @@ public interface AspectDao {
                         MetricUtils.DELIMITER, List.of(ASPECT_WRITE_BYTES_METRIC_NAME, aspectName)),
                     bytes));
   }
+
+  @Nonnull
+  List<com.linkedin.metadata.aspect.SystemAspectValidator> getSystemAspectValidators();
+
+  @Nullable
+  com.linkedin.metadata.config.AspectSizeValidationConfiguration getValidationConfig();
 }

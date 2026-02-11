@@ -24,7 +24,7 @@ class MarkDatasetStatus(DatasetStatusTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "MarkDatasetStatus":
-        config = MarkDatasetStatusConfig.parse_obj(config_dict)
+        config = MarkDatasetStatusConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def transform_aspect(

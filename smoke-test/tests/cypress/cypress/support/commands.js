@@ -12,7 +12,7 @@
 // -- This is a parent command --
 
 import dayjs from "dayjs";
-import { hasOperationName } from "../e2e/utils";
+import { hasOperationName, aliasGraphQLOperation } from "../e2e/utils";
 
 function selectorWithtestId(id) {
   return `[data-testid="${id}"]`;
@@ -54,7 +54,7 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
     password || Cypress.env("ADMIN_PASSWORD"),
     { delay: 0 },
   );
-  cy.contains("Sign In").click();
+  cy.get("[data-testid='sign-in']").click();
   cy.get(".ant-avatar-circle").should("be.visible");
   notFirstTimeVisit();
 });
@@ -64,7 +64,7 @@ Cypress.Commands.add("visitWithLogin", (url) => {
   cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
   cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
   notFirstTimeVisit();
-  cy.contains("Sign In").click();
+  cy.get("[data-testid='sign-in']").click();
 });
 
 // Login commands for onboarding tour testing (without setting skipOnboardingTour)
@@ -297,7 +297,13 @@ Cypress.Commands.add("clickOptionInScrollView", (text, selector) => {
 
 Cypress.Commands.add("deleteFromDropdown", () => {
   cy.openThreeDotDropdown();
+  cy.waitTextVisible("Delete");
+  // Wait for button is enabled
+  cy.getWithTestId("entity-menu-delete-button")
+    .closest("li")
+    .should("have.attr", "aria-disabled", "false");
   cy.clickOptionWithText("Delete");
+  cy.waitTextVisible("Yes");
   cy.clickOptionWithText("Yes");
 });
 
@@ -519,9 +525,7 @@ Cypress.Commands.add("createUser", (name, password, email) => {
     cy.enterTextInTestId("name", name);
     cy.enterTextInTestId("password", password);
     cy.enterTextInTestId("confirmPassword", password);
-    cy.mouseover("#title").click();
-    cy.waitTextVisible("Other").click();
-    cy.get("[type=submit]").click();
+    cy.get('[data-testid="sign-up"]').click();
     cy.waitTextVisible("Welcome back");
     cy.hideOnboardingTour();
     cy.waitTextVisible(name);
@@ -578,6 +582,35 @@ Cypress.Commands.add("skipIntroducePage", () => {
   localStorage.setItem(SKIP_INTRODUCE_PAGE_KEY, "true");
 });
 
+Cypress.Commands.add("goToStructuredProperties", () => {
+  cy.visit("/structured-properties");
+  cy.waitTextVisible("Structured Properties");
+});
+
+Cypress.Commands.add("createStructuredProperty", (prop) => {
+  cy.get('[data-testid="structured-props-create-button"').click();
+  cy.get('[data-testid="structured-props-input-name"]').click().type(prop.name);
+  cy.get('[data-testid="structured-props-select-input-type"]').click();
+  cy.get('[data-testid="structured-props-property-type-options-list"]')
+    .contains("Text")
+    .click();
+  cy.get('[data-testid="structured-props-select-input-applies-to"]').click();
+  cy.get('[data-testid="applies-to-options-list"]')
+    .contains(prop.entity)
+    .click();
+  cy.get('[data-testid="structured-props-select-input-applies-to"]').click();
+  cy.get('[data-testid="structured-props-create-update-button"]').click();
+});
+
+Cypress.Commands.add("deleteStructuredProperty", (prop) => {
+  cy.contains("td", prop.name)
+    .siblings("td")
+    .find('[data-testid="structured-props-more-options-icon"]')
+    .click();
+  cy.get("body .ant-dropdown-menu").contains("Delete").click();
+  cy.get('[data-testid="modal-confirm-button"').click();
+});
+
 Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
   // set the theme V2 enabled flag on/off to show the V2 UI or not
   cy.intercept("POST", "/api/v2/graphql", (req) => {
@@ -588,6 +621,12 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
         res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
         res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isEnabled;
+        // TODO: Remove this once tests are updated to accommodate lineage v3, asset summary tabs, & new home page.
+        res.body.data.appConfig.featureFlags.lineageGraphV3 = false;
+        res.body.data.appConfig.featureFlags.assetSummaryPageV1 = false;
+        res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
+        res.body.data.appConfig.featureFlags.themeV2Toggleable = false;
+        res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
       });
     } else if (hasOperationName(req, "getMe")) {
       req.alias = "gqlgetMeQuery";
@@ -597,6 +636,19 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
     }
   });
 });
+
+Cypress.Commands.add("interceptGraphQLOperation", (operationName) => {
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    aliasGraphQLOperation(req, operationName);
+  });
+});
+
+Cypress.Commands.add(
+  "waitForGraphQLOperation",
+  (operationName, options = {}) => {
+    cy.wait(`@gql${operationName}`, options);
+  },
+);
 
 Cypress.on("uncaught:exception", (err) => {
   const resizeObserverLoopLimitErrMessage =

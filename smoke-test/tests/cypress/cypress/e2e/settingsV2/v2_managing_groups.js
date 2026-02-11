@@ -27,9 +27,7 @@ describe("create and manage group", () => {
       cy.enterTextInTestId("name", username);
       cy.enterTextInTestId("password", password);
       cy.enterTextInTestId("confirmPassword", password);
-      cy.mouseover("#title").click();
-      cy.waitTextVisible("Other").click();
-      cy.get("[type=submit]").click();
+      cy.get('[data-testid="sign-up"]').click();
       cy.contains("Accepted invite!").should("not.exist");
       cy.wait(5000);
       cy.waitTextVisible(username);
@@ -189,7 +187,7 @@ describe("create and manage group", () => {
     cy.contains("Add Owners").click();
     cy.get('[id="owner"]').click();
     cy.focused().type(username);
-    cy.get(`[data-testid="owner-${username}"]`, { timeout: 10000 })
+    cy.get(`[data-testid="owner-option-${username}"]`, { timeout: 10000 })
       .should("be.visible")
       .click();
     cy.focused().blur();

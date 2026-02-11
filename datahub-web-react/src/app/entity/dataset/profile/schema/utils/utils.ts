@@ -46,7 +46,8 @@ export function convertEditableSchemaMetadataForUpdate(
     };
 }
 
-export function filterKeyFieldPath(showKeySchema: boolean, field: SchemaField) {
+export function filterKeyFieldPath(showKeySchema: boolean | undefined, field: SchemaField) {
+    if (showKeySchema === undefined) return true;
     return field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1 ? showKeySchema : !showKeySchema;
 }
 
@@ -72,7 +73,7 @@ export function pathMatchesNewPath(fieldPathA?: string | null, fieldPathB?: stri
 // group schema fields by fieldPath and grouping for hierarchy in schema table
 export function groupByFieldPath(
     schemaRows?: Array<SchemaField>,
-    options: { showKeySchema: boolean } = { showKeySchema: false },
+    options: { showKeySchema: boolean | undefined } = { showKeySchema: false },
 ): Array<ExtendedSchemaFields> {
     const rows = [
         ...(schemaRows?.filter(filterKeyFieldPath.bind({}, options.showKeySchema)) || []),
@@ -191,7 +192,7 @@ export function getRawSchema(schema: PlatformSchema | undefined | null, showKeyS
 export function getDiffSummary(
     currentVersionRows?: Array<SchemaField>,
     previousVersionRows?: Array<SchemaField>,
-    options: { showKeySchema: boolean } = { showKeySchema: false },
+    options: { showKeySchema: boolean | undefined } = { showKeySchema: false },
 ): { rows: Array<ExtendedSchemaFields>; diffSummary: SchemaDiffSummary } {
     let rows = [
         ...(currentVersionRows?.filter(filterKeyFieldPath.bind({}, options.showKeySchema)) || []),

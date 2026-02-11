@@ -5,12 +5,12 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
 import io.datahubproject.metadata.services.SecretService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.producer.Producer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -41,8 +41,8 @@ public class TrackingServiceFactory {
   private GitVersion _gitVersion;
 
   @Autowired(required = false)
-  @Qualifier("dataHubUsageProducer")
-  private Producer<String, String> _dataHubUsageProducer;
+  @Qualifier("dataHubUsageEventProducer")
+  private GenericProducer<String> dataHubUsageProducer;
 
   @Autowired private ConfigurationProvider _configurationProvider;
 
@@ -64,7 +64,7 @@ public class TrackingServiceFactory {
 
     log.info(
         "Initializing TrackingService with DataHubUsageProducer: {}",
-        _dataHubUsageProducer != null ? "present" : "null");
+        dataHubUsageProducer != null ? "present" : "null");
 
     // If telemetry is disabled, pass null for Mixpanel components
     MixpanelAPI mixpanelAPI = telemetryEnabled ? _mixpanelAPI : null;
@@ -78,7 +78,7 @@ public class TrackingServiceFactory {
             mixpanelAPI,
             _entityService,
             _gitVersion,
-            _dataHubUsageProducer);
+            dataHubUsageProducer);
 
     log.info("TrackingService initialized successfully");
     return trackingService;

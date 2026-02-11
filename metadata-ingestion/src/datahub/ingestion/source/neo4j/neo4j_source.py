@@ -78,7 +78,7 @@ class Neo4jSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "Neo4jSource":
-        config = Neo4jConfig.parse_obj(config_dict)
+        config = Neo4jConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def create_schema_field_tuple(

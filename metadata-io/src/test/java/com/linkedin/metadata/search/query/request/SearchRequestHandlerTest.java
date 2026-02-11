@@ -30,6 +30,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
+import com.linkedin.metadata.config.search.SearchValidationConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
@@ -119,6 +120,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     partialConfiguration.setFactor(0.4f);
     partialConfiguration.setUrnFactor(0.7f);
 
+    SearchValidationConfiguration searchValidationConfiguration =
+        new SearchValidationConfiguration();
+
     testQueryConfig =
         TEST_OS_SEARCH_CONFIG.toBuilder()
             .search(
@@ -127,6 +131,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                     .exactMatch(exactMatchConfiguration)
                     .wordGram(wordGramConfiguration)
                     .partial(partialConfiguration)
+                    .validation(searchValidationConfiguration)
                     .build())
             .entityIndex(
                 TEST_ES_SEARCH_CONFIG.getEntityIndex()) // Preserve entityIndex configuration
@@ -814,6 +819,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 EntityType.DATA_PROCESS_INSTANCE,
                 Stream.concat(
                         COMMON.stream(), Stream.of("parentInstance", "parentTemplate", "status"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.DOCUMENT,
+                Stream.concat(
+                        COMMON.stream(),
+                        Stream.of("parentDocument", "relatedAssets", "relatedDocuments", "text"))
                     .collect(Collectors.toSet()))
             .build();
 

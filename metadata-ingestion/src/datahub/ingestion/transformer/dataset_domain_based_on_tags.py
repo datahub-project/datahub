@@ -27,7 +27,7 @@ class DatasetTagDomainMapper(DatasetDomainTransformer):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "DatasetTagDomainMapper":
-        config = DatasetTagDomainMapperConfig.parse_obj(config_dict)
+        config = DatasetTagDomainMapperConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def transform_aspect(

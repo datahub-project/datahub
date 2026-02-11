@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 import pydantic
-from pydantic import Field, validator
+from pydantic import Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
@@ -100,27 +100,23 @@ class PulsarSourceConfig(
         default_factory=dict, description="Placeholder for OpenId discovery document"
     )
 
-    @validator("token")
-    def ensure_only_issuer_or_token(
-        cls, token: Optional[str], values: Dict[str, Optional[str]]
-    ) -> Optional[str]:
-        if token is not None and values.get("issuer_url") is not None:
+    @model_validator(mode="after")
+    def ensure_only_issuer_or_token(self) -> "PulsarSourceConfig":
+        if self.token is not None and self.issuer_url is not None:
             raise ValueError(
                 "Expected only one authentication method, either issuer_url or token."
             )
-        return token
+        return self
 
-    @validator("client_secret", always=True)
-    def ensure_client_id_and_secret_for_issuer_url(
-        cls, client_secret: Optional[str], values: Dict[str, Optional[str]]
-    ) -> Optional[str]:
-        if values.get("issuer_url") is not None and (
-            client_secret is None or values.get("client_id") is None
+    @model_validator(mode="after")
+    def ensure_client_id_and_secret_for_issuer_url(self) -> "PulsarSourceConfig":
+        if self.issuer_url is not None and (
+            self.client_secret is None or self.client_id is None
         ):
             raise ValueError(
                 "Missing configuration: client_id and client_secret are mandatory when issuer_url is set."
             )
-        return client_secret
+        return self
 
     @pydantic.field_validator("web_service_url", mode="after")
     @classmethod

@@ -56,5 +56,3 @@ dependencies {
   testFixturesAnnotationProcessor externalDependency.lombok
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')
-
-spotlessJava.dependsOn generateTestDataTemplate

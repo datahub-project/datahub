@@ -6,9 +6,8 @@ import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/sha
 import StructuredPropertyInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyInput';
 import { useEditStructuredProperty } from '@app/entity/shared/components/styled/StructuredProperty/useEditStructuredProperty';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
-import { Button, Modal } from '@src/alchemy-components';
+import { Modal } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 import { useUpsertStructuredPropertiesMutation } from '@graphql/structuredProperties.generated';
 import { EntityType, PropertyValueInput, StdDataType, StructuredPropertyEntity } from '@types';
@@ -112,23 +111,21 @@ export default function EditStructuredPropertyModal({
             title={`${isAddMode ? 'Add property' : 'Edit property'} ${structuredProperty?.definition?.displayName}`}
             onCancel={closeModal}
             open={isOpen}
-            buttons={[]}
+            buttons={[
+                {
+                    text: 'Cancel',
+                    onClick: closeModal,
+                    variant: 'text',
+                },
+                {
+                    text: isAddMode ? 'Add' : 'Update',
+                    onClick: upsertProperties,
+                    disabled: !selectedValues.length,
+                    buttonDataTestId: 'add-update-structured-prop-on-entity-button',
+                },
+            ]}
             // Urn input is a special case that requires a wider modal since it employs a search select component
             width={isUrnInput ? SEARCH_SELECT_MODAL_WIDTH : DEFAULT_MODAL_WIDTH}
-            footer={
-                <ModalButtonContainer>
-                    <Button variant="text" onClick={closeModal} color="gray">
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={upsertProperties}
-                        disabled={!selectedValues.length}
-                        data-testid="add-update-structured-prop-on-entity-button"
-                    >
-                        {isAddMode ? 'Add' : 'Update'}
-                    </Button>
-                </ModalButtonContainer>
-            }
             destroyOnClose
         >
             {structuredProperty?.definition?.description && (

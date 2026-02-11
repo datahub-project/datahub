@@ -213,7 +213,7 @@ class PowerBiReportServerAPI:
 
             if response_dict.get("value"):
                 reports.extend(
-                    report_types_mapping[report_type].parse_obj(report)
+                    report_types_mapping[report_type].model_validate(report)
                     for report in response_dict.get("value")
                 )
 
@@ -517,7 +517,7 @@ class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = PowerBiReportServerDashboardSourceConfig.parse_obj(config_dict)
+        config = PowerBiReportServerDashboardSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

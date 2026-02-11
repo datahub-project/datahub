@@ -24,17 +24,17 @@ import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 @Slf4j
 public class ConfluentSchemaRegistryCleanupPolicyStep implements UpgradeStep {
 
-  private final OperationContext _opContext;
-  private final KafkaConfiguration _kafkaConfiguration;
-  private final KafkaProperties _kafkaProperties;
+  private final OperationContext opContext;
+  private final KafkaConfiguration kafkaConfiguration;
+  private final KafkaProperties kafkaProperties;
 
   public ConfluentSchemaRegistryCleanupPolicyStep(
       OperationContext opContext,
       KafkaConfiguration kafkaConfiguration,
       KafkaProperties kafkaProperties) {
-    this._opContext = opContext;
-    this._kafkaConfiguration = kafkaConfiguration;
-    this._kafkaProperties = kafkaProperties;
+    this.opContext = opContext;
+    this.kafkaConfiguration = kafkaConfiguration;
+    this.kafkaProperties = kafkaProperties;
   }
 
   @Override
@@ -47,9 +47,16 @@ public class ConfluentSchemaRegistryCleanupPolicyStep implements UpgradeStep {
     return (context) -> {
       log.info("Configuring Confluent Schema Registry cleanup policies...");
 
+      // Check if Kafka setup is enabled
+      if (kafkaConfiguration.getSetup() == null
+          || !kafkaConfiguration.getSetup().isPreCreateTopics()) {
+        log.info(
+            "Skipping Confluent Schema Registry cleanup policy configuration - Kafka setup is disabled");
+        return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);
+      }
+
       // Check if Confluent Schema Registry is enabled
-      if (_kafkaConfiguration.getSetup() == null
-          || !_kafkaConfiguration.getSetup().isUseConfluentSchemaRegistry()) {
+      if (!kafkaConfiguration.getSetup().isUseConfluentSchemaRegistry()) {
         log.info(
             "Skipping Confluent Schema Registry cleanup policy configuration - schema registry is disabled");
         return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);
@@ -103,6 +110,6 @@ public class ConfluentSchemaRegistryCleanupPolicyStep implements UpgradeStep {
    */
   protected AdminClient createAdminClient() {
     return buildKafkaAdminClient(
-        _kafkaConfiguration, _kafkaProperties, "datahub-upgrade-kafka-setup");
+        kafkaConfiguration, kafkaProperties, "datahub-upgrade-kafka-setup");
   }
 }

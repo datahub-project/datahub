@@ -61,6 +61,8 @@ public class OpenAPIV3Generator {
   private static final String NAME_PIT_KEEP_ALIVE = "pitKeepAlive";
   private static final String NAME_SLICE_ID = "sliceId";
   private static final String NAME_SLICE_MAX = "sliceMax";
+  private static final String NAME_SKIP_AGGREGATION = "skipAggregation";
+  private static final String NAME_SCROLL_ID_PER_ENTITY = "scrollIdPerEntity";
   private static final String PROPERTY_VALUE = "value";
   private static final String PROPERTY_URN = "urn";
   private static final String PROPERTY_PATCH = "patch";
@@ -120,6 +122,7 @@ public class OpenAPIV3Generator {
         buildEntitySchema(filteredAspectSpec, aspectNames, true));
     components.addSchemas(
         "Scroll" + ENTITIES + ENTITY_RESPONSE_SUFFIX, buildEntitiesScrollSchema());
+    components.addSchemas("FacetMetadata", buildFacetMetadataSchema());
     components.addSchemas(ASPECT_PATCH_PROPERTY, buildAspectPatchPropertySchema());
 
     // --> Aspect components
@@ -663,6 +666,11 @@ public class OpenAPIV3Generator {
                 .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
             new Parameter()
                 .in(NAME_QUERY)
+                .name(NAME_SKIP_AGGREGATION)
+                .description("Skip aggregations when listing entities.")
+                .schema(newSchema().type(TYPE_BOOLEAN)._default(true)),
+            new Parameter()
+                .in(NAME_QUERY)
                 .name(NAME_PIT_KEEP_ALIVE)
                 .description(
                     "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
@@ -687,6 +695,11 @@ public class OpenAPIV3Generator {
                         .items(newSchema().type(TYPE_STRING)._default(PROPERTY_URN))),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_SCROLL_ID_PER_ENTITY)
+                .description("Return a scroll id per entity.")
+                .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
             new Parameter().$ref("#/components/parameters/ScrollQuery" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SliceId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SliceMax" + MODEL_VERSION));
@@ -1277,6 +1290,12 @@ public class OpenAPIV3Generator {
     properties.put(
         PROPERTY_URN,
         newSchema().type(TYPE_STRING).description("Unique id for " + entity.getName()));
+    // Per-element scrollId for pagination (search-after token)
+    properties.put(
+        NAME_SCROLL_ID,
+        newSchema()
+            .types(TYPE_STRING_NULLABLE)
+            .description("Per-entity scroll id for pagination."));
 
     final Map<String, Schema> aspectProperties =
         entity.getAspectSpecMap().entrySet().stream()
@@ -1349,6 +1368,12 @@ public class OpenAPIV3Generator {
                             a.getValue().getPegasusSchema().getName(), withSystemMetadata)));
     properties.put(
         PROPERTY_URN, newSchema().type(TYPE_STRING).description("Unique id for " + ENTITIES));
+    // Per-element scrollId for pagination (search-after token)
+    properties.put(
+        NAME_SCROLL_ID,
+        newSchema()
+            .types(TYPE_STRING_NULLABLE)
+            .description("Per-entity scroll id for pagination."));
 
     return newSchema()
         .type(TYPE_OBJECT)
@@ -1362,7 +1387,7 @@ public class OpenAPIV3Generator {
     Schema sortCriterion =
         newSchema()
             .type(TYPE_OBJECT)
-            .description("Sort criterion: field + direction.")
+            .description("Sort criterion: field + direction + missing value behavior.")
             .addProperties(
                 "field", newSchema().type(TYPE_STRING).description("Field name to sort by."))
             .addProperties(
@@ -1372,6 +1397,13 @@ public class OpenAPIV3Generator {
                     ._enum(Arrays.asList("ASCENDING", "DESCENDING"))
                     ._default("ASCENDING")
                     .description("Sort order (default ASCENDING)."))
+            .addProperties(
+                "missingValue",
+                newSchema()
+                    .type(TYPE_STRING)
+                    ._enum(Arrays.asList("FIRST", "LAST"))
+                    .description(
+                        "Controls where to sort documents with missing values: FIRST or LAST."))
             .addRequiredItem("field");
 
     // Sort (top-level)
@@ -1403,9 +1435,7 @@ public class OpenAPIV3Generator {
                 "condition",
                 newSchema()
                     .type(TYPE_STRING)
-                    ._enum(
-                        Arrays.asList(
-                            "EQUAL", "STARTS_WITH", "ENDS_WITH", "EXISTS", "IN", "CONTAIN"))
+                    ._enum(Arrays.stream(Criterion.Condition.values()).map(Enum::name).toList())
                     ._default("EQUAL")
                     .description("The condition for the criterion."))
             .addProperties(
@@ -1486,7 +1516,11 @@ public class OpenAPIV3Generator {
 
     // SortCriteria example
     SortCriterion sortCriterion =
-        SortCriterion.builder().field("name").order(SortCriterion.SortOrder.ASCENDING).build();
+        SortCriterion.builder()
+            .field("name")
+            .order(SortCriterion.SortOrder.ASCENDING)
+            .missingValue(SortCriterion.MissingValue.LAST)
+            .build();
     List<SortCriterion> sortCriteria = List.of(sortCriterion);
 
     return newSchema()
@@ -1563,10 +1597,29 @@ public class OpenAPIV3Generator {
                             String.format(
                                 "#/components/schemas/%s%s", ENTITIES, ENTITY_RESPONSE_SUFFIX))))
         .addProperty(
+            "facets",
+            newSchema()
+                .type(TYPE_ARRAY)
+                .description("List of facet aggregations for the result set.")
+                .items(newSchema().$ref("#/components/schemas/FacetMetadata")))
+        .addProperty(
             "totalCount",
             newSchema()
                 .type(TYPE_INTEGER)
                 .description("Total number of entities satisfy the criteria."));
+  }
+
+  private static Schema buildFacetMetadataSchema() {
+    return newSchema()
+        .type(TYPE_OBJECT)
+        .description("Facet aggregation metadata.")
+        .addProperty("field", newSchema().type(TYPE_STRING).description("Facet field name."))
+        .addProperty(
+            "aggregations",
+            newSchema()
+                .type(TYPE_OBJECT)
+                .description("Counts per facet value.")
+                .additionalProperties(newSchema().type(TYPE_INTEGER).format("int64")));
   }
 
   private static Schema buildEntityScrollSchema(final EntitySpec entity) {

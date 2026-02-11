@@ -772,6 +772,11 @@ type SearchAcrossLineageResults {
   The path taken when doing search across lineage
   """
   lineageSearchPath: LineageSearchPath
+
+  """
+  Indicates whether the results are partial due to reaching the maxRelations limit or timeout
+  """
+  isPartial: Boolean
 }
 
 """
@@ -802,6 +807,16 @@ type ScrollAcrossLineageResults {
   Candidate facet aggregations used for search filtering
   """
   facets: [FacetMetadata!]
+
+  """
+  Optional freshness characteristics of this query (cached, staleness etc.)
+  """
+  freshness: FreshnessStats
+
+  """
+  Indicates whether the results are partial due to reaching the maxRelations limit or timeout
+  """
+  isPartial: Boolean
 }
 
 """

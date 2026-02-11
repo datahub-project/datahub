@@ -123,6 +123,7 @@ DataHub's BigQuery connector supports two approaches for extracting lineage and 
   - Query popularity statistics and rankings
   - Multi-region support via `region_qualifiers`
   - Table and column-level usage statistics
+  - User filtering pushdown for performance (see [User Email Filtering Pushdown](#user-email-filtering-pushdown-performance-optimization) section below)
 - **Requirements**:
   - `bigquery.jobs.listAll` permission on target projects
   - No additional Cloud Logging permissions needed
@@ -138,6 +139,47 @@ source:
     include_query_usage_statistics: true # Query popularity stats
     region_qualifiers: ["region-us", "region-eu"] # Multi-region support
 ```
+
+##### User Email Filtering Pushdown (Performance Optimization)
+
+The `pushdown_deny_usernames` and `pushdown_allow_usernames` options push user filtering directly to BigQuery's SQL query, reducing data transfer and improving performance for large query volumes.
+
+**When to Use:**
+
+- You have large query volumes (>10k queries in your time window)
+- You want to exclude high-volume service accounts or bots
+- You want to reduce BigQuery data transfer costs
+- You want to reduce overall DataHub ingestion time
+
+**Example Configuration:**
+
+```yaml
+source:
+  type: bigquery
+  config:
+    use_queries_v2: true # Required for pushdown
+    pushdown_deny_usernames:
+      - "bot_%"
+      - "%@%.iam.gserviceaccount.com" # Exclude service accounts
+    pushdown_allow_usernames:
+      - "analyst_%@example.com"
+      - "data_%@example.com"
+```
+
+**Behavior:**
+
+- When patterns are configured: Filtering happens server-side with BigQuery SQL using case-insensitive `LIKE`
+- When empty (default): No server-side filtering; use `usage.user_email_pattern` for client-side filtering
+- Patterns use SQL LIKE syntax (`%` = any characters, `_` = single character)
+- Matching is case-insensitive (e.g., `bot_%` matches `Bot_User@example.com`)
+- If a user matches both allow AND deny patterns, deny takes precedence (user is excluded)
+
+**Prerequisites:**
+
+- `use_queries_v2: true` must be enabled (default)
+- Patterns must be valid SQL LIKE patterns
+
+**Note:** These configs are independent from `usage.user_email_pattern`. The pushdown filters are applied at the SQL query level for performance, while `user_email_pattern` is applied client-side during processing.
 
 #### Legacy Approach: `use_queries_v2: false`
 

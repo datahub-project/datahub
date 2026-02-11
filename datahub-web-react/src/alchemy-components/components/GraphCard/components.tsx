@@ -28,7 +28,7 @@ export const GraphContainer = styled.div<{ $isEmpty?: boolean; $height: string }
         `
         position: relative;
         pointer-events: none;
-        filter: blur(2px);  
+        filter: blur(2px);
     `}
 `;
 

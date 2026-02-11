@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.LineageRegistry;
@@ -202,10 +203,12 @@ public class TestUtils {
 
   /** Helper method to create an empty search response for pagination with correct total hits */
   public static SearchResponse createEmptySearchResponse(long totalHits) {
-    SearchResponse response = mock(SearchResponse.class);
+    // Use stubOnly() to avoid Mockito's expensive location tracking in concurrent contexts
+    // This prevents WeakConcurrentMap accumulation from stack walking
+    SearchResponse response = mock(SearchResponse.class, withSettings().stubOnly());
 
     // Create a real SearchHits mock with proper behavior
-    SearchHits searchHits = mock(SearchHits.class);
+    SearchHits searchHits = mock(SearchHits.class, withSettings().stubOnly());
 
     // Create an actual TotalHits instance from Lucene
     TotalHits totalHitsObj = new TotalHits(totalHits, TotalHits.Relation.EQUAL_TO);
@@ -304,12 +307,15 @@ public class TestUtils {
    */
   public static SearchResponse createFakeSearchResponse(
       SearchHit[] hits, long totalHits, String scrollId) {
-    SearchHits searchHits = mock(SearchHits.class);
+    // Use stubOnly() to avoid Mockito's expensive location tracking in concurrent contexts
+    // This prevents WeakConcurrentMap accumulation from stack walking when getHits() is called
+    // in ForkJoinPool threads
+    SearchHits searchHits = mock(SearchHits.class, withSettings().stubOnly());
     when(searchHits.getHits()).thenReturn(hits);
     when(searchHits.getTotalHits())
         .thenReturn(new TotalHits(totalHits, TotalHits.Relation.EQUAL_TO));
 
-    SearchResponse searchResponse = mock(SearchResponse.class);
+    SearchResponse searchResponse = mock(SearchResponse.class, withSettings().stubOnly());
     when(searchResponse.getHits()).thenReturn(searchHits);
 
     if (scrollId != null) {

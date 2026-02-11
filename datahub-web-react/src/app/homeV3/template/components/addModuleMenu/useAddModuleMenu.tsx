@@ -93,6 +93,27 @@ export const RELATED_TERMS_MODULE: PageModuleFragment = {
     },
 };
 
+export const LINEAGE_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:lineage',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Lineage',
+        type: DataHubPageModuleType.Lineage,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+export const COLUMNS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:columns',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Columns',
+        type: DataHubPageModuleType.Columns,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export default function useAddModuleMenu(position: ModulePositionInput, closeMenu: () => void) {
     const { entityType } = useEntityData();
     const {
@@ -317,6 +338,39 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-related-terms-module',
         };
 
+        const lineage = {
+            name: 'Lineage',
+            key: 'lineage',
+            label: (
+                <MenuItem
+                    description="View the lineage of an asset"
+                    title="Lineage"
+                    icon="TreeStructure"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(LINEAGE_MODULE);
+            },
+            'data-testid': 'add-lineage-module',
+        };
+        const schemaTable = {
+            name: 'Columns',
+            key: 'columns',
+            label: (
+                <MenuItem
+                    description="View the columns of this dataset"
+                    title="Columns"
+                    icon="Table"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(COLUMNS_MODULE);
+            },
+            'data-testid': 'add-columns-module',
+        };
+
         const defaultHomeModules = [yourAssets, domains, platforms];
         // TODO: make this a function to pull out and write unit tests for
         let defaultSummaryModules = [assets];
@@ -326,6 +380,8 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             defaultSummaryModules = [childHierarchy];
         } else if (entityType === EntityType.GlossaryTerm) {
             defaultSummaryModules = [...defaultSummaryModules, relatedTerms];
+        } else if (entityType === EntityType.Dataset) {
+            defaultSummaryModules = [schemaTable, lineage];
         }
 
         const finalDefaultModules =

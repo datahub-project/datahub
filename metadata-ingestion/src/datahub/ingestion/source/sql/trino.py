@@ -413,7 +413,7 @@ class TrinoSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = TrinoConfig.parse_obj(config_dict)
+        config = TrinoConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_schema_fields_for_column(

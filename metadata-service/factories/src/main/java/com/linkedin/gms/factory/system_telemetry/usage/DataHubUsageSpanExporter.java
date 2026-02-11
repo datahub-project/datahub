@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.config.UsageExportConfiguration;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
+import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.sdk.common.CompletableResultCode;
@@ -23,20 +24,19 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 @Slf4j
 public class DataHubUsageSpanExporter implements SpanExporter {
 
-  private final Producer<String, String> producer;
+  private final GenericProducer<String> producer;
   private final String topic;
   private final Set<String> eventTypes;
   private final Set<String> aspectTypes;
   private final Set<String> userFilters;
 
   public DataHubUsageSpanExporter(
-      Producer<String, String> producer, String topic, UsageExportConfiguration config) {
+      GenericProducer<String> producer, String topic, UsageExportConfiguration config) {
     this.producer = producer;
     this.topic = topic;
     if (StringUtils.isNotBlank(config.getUsageEventTypes())) {
@@ -160,7 +160,7 @@ public class DataHubUsageSpanExporter implements SpanExporter {
         String.format("Emitting product analytics event. actor: %s, event: %s", actor, usageEvent));
     final ProducerRecord<String, String> record =
         new ProducerRecord<>(topic, actor, usageEvent.toString());
-    producer.send(record);
+    producer.send(record, null);
   }
 
   @Override

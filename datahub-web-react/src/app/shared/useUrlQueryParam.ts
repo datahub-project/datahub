@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useHistory, useLocation } from 'react-router';
 
-import updateQueryParams from '@app/shared/updateQueryParams';
+import { updateUrlParam } from '@app/shared/updateUrlParam';
 
 export const useUrlQueryParam = (paramKey: string, defaultValue?: string) => {
     const location = useLocation();
@@ -10,16 +10,20 @@ export const useUrlQueryParam = (paramKey: string, defaultValue?: string) => {
     const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
 
     const value = searchParams.get(paramKey) || defaultValue;
+    const locationState = location.state;
 
     useEffect(() => {
         if (!searchParams.get(paramKey) && defaultValue) {
-            updateQueryParams({ [paramKey]: defaultValue }, location, history);
+            updateUrlParam(history, paramKey, defaultValue, locationState);
         }
-    }, [paramKey, defaultValue, location, history, searchParams]);
+    }, [paramKey, defaultValue, history, searchParams, locationState]);
 
-    const setValue = (paramValue: string) => {
-        updateQueryParams({ [paramKey]: paramValue }, location, history);
-    };
+    const setValue = useCallback(
+        (paramValue: string) => {
+            updateUrlParam(history, paramKey, paramValue, locationState);
+        },
+        [paramKey, history, locationState],
+    );
 
     return { value, setValue };
 };

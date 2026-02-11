@@ -18,10 +18,10 @@ import {
     isEntityTypeSelected,
 } from '@app/govern/structuredProperties/utils';
 import { Icon, SimpleSelect, Text, Tooltip } from '@src/alchemy-components';
-import { AllowedValue, PropertyCardinality, SearchResult } from '@src/types.generated';
+import { AllowedValue, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
 interface Props {
-    selectedProperty: SearchResult | undefined;
+    selectedProperty: StructuredPropertyEntity | undefined;
     form: FormInstance;
     formValues: StructuredProp | undefined;
     setFormValues: React.Dispatch<React.SetStateAction<StructuredProp | undefined>>;

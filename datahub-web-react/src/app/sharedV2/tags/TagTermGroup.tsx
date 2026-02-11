@@ -327,7 +327,7 @@ export default function TagTermGroup({
                     {...buttonProps}
                 >
                     <StyledPlusOutlined />
-                    <AddText>Add tags</AddText>
+                    <AddText data-testid="schema-field-add-tags-button">Add tags</AddText>
                 </NoElementButton>
             )}
             {canAddTerm && !readOnly && showAddButton && (
@@ -339,7 +339,7 @@ export default function TagTermGroup({
                     {...buttonProps}
                 >
                     <StyledPlusOutlined />
-                    <AddText>Add terms</AddText>
+                    <AddText data-testid="schema-field-add-terms-button">Add terms</AddText>
                 </NoElementButton>
             )}
             <AddTagTerm

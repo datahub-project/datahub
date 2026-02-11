@@ -318,13 +318,13 @@ def migrate_containers(
         try:
             newKey: Union[SchemaKey, DatabaseKey, ProjectIdKey, BigQueryDatasetKey]
             if subType == "Schema":
-                newKey = SchemaKey.parse_obj(customProperties)
+                newKey = SchemaKey.model_validate(customProperties)
             elif subType == "Database":
-                newKey = DatabaseKey.parse_obj(customProperties)
+                newKey = DatabaseKey.model_validate(customProperties)
             elif subType == "Project":
-                newKey = ProjectIdKey.parse_obj(customProperties)
+                newKey = ProjectIdKey.model_validate(customProperties)
             elif subType == "Dataset":
-                newKey = BigQueryDatasetKey.parse_obj(customProperties)
+                newKey = BigQueryDatasetKey.model_validate(customProperties)
             else:
                 log.warning(f"Invalid subtype {subType}. Skipping")
                 continue
@@ -356,7 +356,7 @@ def migrate_containers(
             if mcp.aspectName == "containerProperties":
                 assert isinstance(mcp.aspect, ContainerPropertiesClass)
                 containerProperties: ContainerPropertiesClass = mcp.aspect
-                containerProperties.customProperties = newKey.dict(
+                containerProperties.customProperties = newKey.model_dump(
                     by_alias=True, exclude_none=True
                 )
                 mcp.aspect = containerProperties

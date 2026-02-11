@@ -492,6 +492,11 @@ describe('filter utils - filterOptionsWithSearch', () => {
     it('should return true if there is no search query', () => {
         expect(filterOptionsWithSearch('', 'hello')).toBe(true);
     });
+
+    it('should ignore underscores and spaces', () => {
+        expect(filterOptionsWithSearch('dataproduct', 'DATA_PRODUCT')).toBe(true);
+        expect(filterOptionsWithSearch('data product', 'DATA_PRODUCT')).toBe(true);
+    });
 });
 
 describe('filter utils - canCreateViewFromFilters', () => {

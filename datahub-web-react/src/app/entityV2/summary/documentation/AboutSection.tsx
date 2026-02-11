@@ -8,9 +8,7 @@ import DescriptionViewer from '@app/entityV2/summary/documentation/DescriptionVi
 import EditDescriptionModal from '@app/entityV2/summary/documentation/EditDescriptionModal';
 import { useDescriptionUtils } from '@app/entityV2/summary/documentation/useDescriptionUtils';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
-import AddLinkModal from '@app/entityV2/summary/links/AddLinkModal';
-import Links from '@app/entityV2/summary/links/Links';
-import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
+import RelatedSection from '@app/entityV2/summary/links/RelatedSection';
 
 const StyledEditor = styled(Editor)<{ $isEditing?: boolean }>`
     border: none;
@@ -48,10 +46,8 @@ export default function AboutSection({ hideLinksButton }: Props) {
     const { search, pathname } = useLocation();
     const isEditingDescription = !!queryString.parse(search, { parseBooleans: true }).editingDescription;
 
-    const [showAddLinkModal, setShowAddLinkModal] = useState(false);
     const [showAddDescriptionModal, setShowDescriptionModal] = useState(isEditingDescription);
 
-    const hasLinkPermissions = useLinkPermission();
     const canEditDescription = useDocumentationPermission();
     const {
         displayedDescription,
@@ -89,19 +85,6 @@ export default function AboutSection({ hideLinksButton }: Props) {
                     About
                 </Text>
                 <ButtonsWrapper>
-                    {hasLinkPermissions && (
-                        <Tooltip title="Add link">
-                            <Button
-                                variant="text"
-                                color="gray"
-                                size="xs"
-                                icon={{ icon: 'LinkSimple', source: 'phosphor', size: 'lg' }}
-                                style={{ padding: '0 2px' }}
-                                onClick={() => setShowAddLinkModal(true)}
-                                data-testid="add-link-button"
-                            />
-                        </Tooltip>
-                    )}
                     {canEditDescription && (
                         <Tooltip title="Edit description">
                             <Button
@@ -127,8 +110,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
                     />
                 </DescriptionViewer>
             </DescriptionContainer>
-            {!hideLinksButton && <Links />}
-            {showAddLinkModal && <AddLinkModal setShowAddLinkModal={setShowAddLinkModal} />}
+            {!hideLinksButton && <RelatedSection hideLinksButton={hideLinksButton} />}
             {showAddDescriptionModal && (
                 <EditDescriptionModal
                     updatedDescription={updatedDescription}

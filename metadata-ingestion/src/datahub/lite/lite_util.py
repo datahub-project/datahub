@@ -92,7 +92,7 @@ class DataHubLiteWrapper(DataHubLiteLocal):
 
 
 def get_datahub_lite(config_dict: dict, read_only: bool = False) -> "DataHubLiteLocal":
-    lite_local_config = LiteLocalConfig.parse_obj(config_dict)
+    lite_local_config = LiteLocalConfig.model_validate(config_dict)
 
     lite_type = lite_local_config.type
     try:
@@ -102,7 +102,7 @@ def get_datahub_lite(config_dict: dict, read_only: bool = False) -> "DataHubLite
             f"Failed to find a registered lite implementation for {lite_type}. Valid values are {[k for k in lite_registry.mapping]}"
         ) from e
 
-    lite_specific_config = lite_class.get_config_class().parse_obj(
+    lite_specific_config = lite_class.get_config_class().model_validate(
         lite_local_config.config
     )
     lite = lite_class(lite_specific_config)

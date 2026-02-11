@@ -240,7 +240,12 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
   private static void mapApplicationAssociation(
       @Nullable final QueryContext context, @Nonnull DataFlow dataFlow, @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    dataFlow.setApplication(
-        ApplicationAssociationMapper.map(context, applications, dataFlow.getUrn()));
+    final java.util.List<com.linkedin.datahub.graphql.generated.ApplicationAssociation>
+        applicationAssociations =
+            ApplicationAssociationMapper.mapList(context, applications, dataFlow.getUrn());
+    dataFlow.setApplications(applicationAssociations);
+    if (applicationAssociations != null && !applicationAssociations.isEmpty()) {
+      dataFlow.setApplication(applicationAssociations.get(0));
+    }
   }
 }

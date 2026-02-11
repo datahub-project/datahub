@@ -2673,6 +2673,47 @@ def test_pattern_add_dataset_domain_no_match(mock_datahub_graph_instance):
     assert acryl_domain not in transformed_aspect.domains
 
 
+def test_pattern_add_dataset_domain_patch_no_match_with_server_domain(
+    mock_datahub_graph_instance,
+):
+    """Test that PATCH semantics preserves manually set server domains when pattern doesn't match.
+
+    This reproduces the bug where manually set domains are removed
+    when the pattern doesn't match and no incoming aspect is provided.
+    """
+    product_domain = builder.make_domain_urn("product")
+    pattern = "urn:li:dataset:\\(urn:li:dataPlatform:athena,datalake_.*agg\\.product_.*"
+
+    pipeline_context = PipelineContext(run_id="test_patch_no_match_server_domain")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    def fake_get_domain(entity_urn: str) -> models.DomainsClass:
+        return models.DomainsClass(domains=[product_domain])
+
+    pipeline_context.graph.get_domain = fake_get_domain  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[]),
+        config={
+            "semantics": TransformerSemantics.PATCH,
+            "domain_pattern": {"rules": {pattern: [product_domain]}},
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    first_record = output[0].record
+    assert first_record is not None
+    assert isinstance(first_record, MetadataChangeProposalWrapper)
+    assert first_record.aspect is not None
+    assert isinstance(first_record.aspect, models.DomainsClass)
+
+    transformed_aspect = cast(models.DomainsClass, first_record.aspect)
+    assert len(transformed_aspect.domains) == 1
+    assert product_domain in transformed_aspect.domains
+
+
 def test_pattern_add_dataset_domain_replace_existing_match(mock_datahub_graph_instance):
     acryl_domain = builder.make_domain_urn("acryl.io")
     datahub_domain = builder.make_domain_urn("datahubproject.io")

@@ -124,21 +124,23 @@ cp-schema-registry:
   enabled: false
 ```
 
-Next, disable the `kafkaSetupJob` service:
+Next, disable the automatic creation of topics by the system update job:
 
 ```
-kafkaSetupJob:
-    enabled: false
+global:
+  kafka:
+    precreateTopics: false
 ```
 
 Then, update the `kafka` configurations to point to your Confluent Cloud broker and schema registry instance, along with the topics you've created in Step 1:
 
 ```
-kafka:
-      bootstrap:
-        server: pkc-g4ml2.eu-west-2.aws.confluent.cloud:9092
-      schemaregistry:
-        url: https://plrm-qwlpp.us-east-2.aws.confluent.cloud
+global:
+  kafka:
+    bootstrap:
+      server: pkc-g4ml2.eu-west-2.aws.confluent.cloud:9092
+    schemaregistry:
+      url: https://plrm-qwlpp.us-east-2.aws.confluent.cloud
 ```
 
 Next, you'll want to create 2 new Kubernetes secrets, one for the JaaS configuration which contains the username and password for Confluent,

@@ -34,10 +34,10 @@ jobs:
 
           artifacts_url=${{ github.event.workflow_run.artifacts_url }}
 
-          gh api "$artifacts_url" -q '.artifacts[] | [.name, .archive_download_url] | @tsv' | while read artifact
+          gh api "$artifacts_url" -q '.artifacts[] | [.name, .archive_download_url] | @tsv' | while read -r artifact
           do
-            IFS=$'\t' read name url <<< "$artifact"
-            gh api $url > "$name.zip"
+            IFS=$'\t' read -r name url <<< "$artifact"
+            gh api "$url" > "$name.zip"
             unzip -d "$name" "$name.zip"
           done
 

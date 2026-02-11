@@ -49,7 +49,7 @@ const moveDomaintoParent = () => {
 
 const getDomainList = (domainName) => {
   cy.contains("span.ant-typography-ellipsis", domainName)
-    .parent('[data-testid="domain-list-item"]')
+    .parent('[data-testid="domain-options-list"]')
     .find(
       `[data-testid="open-domain-action-item-urn:li:domain:${domainName.toLowerCase()}"]`,
     )
@@ -165,6 +165,7 @@ describe("Verify nested domains test functionalities", () => {
     );
     cy.clickOptionWithText("Find a user or group");
     cy.clickOptionWithId("#addOwnerButton");
+    cy.waitTextVisible("Owners Added");
     cy.waitTextVisible(Cypress.env("ADMIN_DISPLAYNAME"));
     cy.goToDomainList();
     cy.waitTextVisible("Test documentation");

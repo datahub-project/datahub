@@ -18,6 +18,30 @@ source:
       client_id: ${LOOKER_CLIENT_ID}
       client_secret: ${LOOKER_CLIENT_SECRET}
 
+    # Enable API-based lineage extraction (REQUIRED for field splitting features)
+    # When enabled, uses Looker API to get SQL representation of views for lineage parsing
+    # This enables field splitting, parallel processing, and individual field fallback for large views
+    # NOTE: Only works for "reachable views" - views that are referenced by explores in model files
+    # Unreachable views will fall back to regex-based parsing
+    use_api_for_view_lineage: true
+
+    # Control whether unreachable views are processed
+    # If true (default), only views referenced by explores are processed
+    # If false, all views are processed, but unreachable ones use regex parsing instead of API
+    # emit_reachable_views_only: true
+
+    # Optional: Enable API caching for better performance
+    # use_api_cache_for_view_lineage: true
+
+    # Large View Handling (for views with 100+ fields)
+    # These options help handle large views with many fields by splitting them into chunks
+    # and processing in parallel for better performance and reliability
+    # NOTE: Requires 'api' configuration and 'use_api_for_view_lineage: true' to work
+    # field_threshold_for_splitting: 100  # Split views with more than this many fields (default: 100)
+    # allow_partial_lineage_results: true  # Return partial lineage if some chunks fail (default: true)
+    # enable_individual_field_fallback: true  # Process fields individually if chunk fails (default: true)
+    # max_workers_for_parallel_processing: 10  # Parallel workers for processing (default: 10, max: 100)
+
     # Alternative to API section above if you want a purely file-based ingestion with no api calls to Looker or if you want to provide platform_instance ids for your connections
     # project_name: PROJECT_NAME # See (https://docs.looker.com/data-modeling/getting-started/how-project-works) to understand what is your project name
     # connection_to_platform_map:

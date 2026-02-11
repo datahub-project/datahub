@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import dateutil.parser as dp
 import requests
 import sqlglot
-from pydantic import BaseModel, root_validator, validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -115,6 +115,9 @@ RETRY_MAX_TIMES = 3
 RETRY_STATUS_CODES = [429, 500, 502, 503, 504]
 RETRY_BACKOFF_FACTOR = 1
 RETRY_ALLOWED_METHODS = ["GET"]
+CONNECTION_POOL_BUFFER = (
+    10  # Extra connections beyond max_threads for concurrent requests
+)
 
 
 chart_type_from_viz_type = {
@@ -242,20 +245,20 @@ class SupersetConfig(
         description="Can be used to change mapping for database names in superset to what you have in datahub",
     )
 
-    class Config:
-        # This is required to allow preset configs to get parsed
-        extra = "allow"
+    model_config = ConfigDict(
+        extra="allow"  # This is required to allow preset configs to get parsed
+    )
 
-    @validator("connect_uri", "display_uri")
-    def remove_trailing_slash(cls, v):
+    @field_validator("connect_uri", "display_uri", mode="after")
+    @classmethod
+    def remove_trailing_slash(cls, v: str) -> str:
         return config_clean.remove_trailing_slashes(v)
 
-    @root_validator(skip_on_failure=True)
-    def default_display_uri_to_connect_uri(cls, values):
-        base = values.get("display_uri")
-        if base is None:
-            values["display_uri"] = values.get("connect_uri")
-        return values
+    @model_validator(mode="after")
+    def default_display_uri_to_connect_uri(self) -> "SupersetConfig":
+        if self.display_uri is None:
+            self.display_uri = self.connect_uri
+        return self
 
 
 def get_metric_name(metric):
@@ -344,7 +347,13 @@ class SupersetSource(StatefulIngestionSourceBase):
             allowed_methods=RETRY_ALLOWED_METHODS,
             raise_on_status=False,
         )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
+        # Set connection pool size to match max_threads to avoid "Connection pool is full" warnings
+        pool_size = self.config.max_threads + CONNECTION_POOL_BUFFER
+        adapter = HTTPAdapter(
+            max_retries=retry_strategy,
+            pool_connections=pool_size,
+            pool_maxsize=pool_size,
+        )
         requests_session.mount("http://", adapter)
         requests_session.mount("https://", adapter)
 
@@ -417,6 +426,17 @@ class SupersetSource(StatefulIngestionSourceBase):
         ]
 
     @lru_cache(maxsize=None)
+    def get_dashboard_info(self, dashboard_id: int) -> dict:
+        dashboard_response = self.session.get(
+            f"{self.config.connect_uri}/api/v1/dashboard/{dashboard_id}",
+            timeout=self.config.timeout,
+        )
+        if dashboard_response.status_code != 200:
+            logger.warning(f"Failed to get dashboard info: {dashboard_response.text}")
+            return {}
+        return dashboard_response.json()
+
+    @lru_cache(maxsize=None)
     def get_dataset_info(self, dataset_id: int) -> dict:
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
@@ -430,12 +450,17 @@ class SupersetSource(StatefulIngestionSourceBase):
     def get_datasource_urn_from_id(
         self, dataset_response: dict, platform_instance: str
     ) -> str:
-        schema_name = dataset_response.get("result", {}).get("schema")
-        table_name = dataset_response.get("result", {}).get("table_name")
-        database_id = dataset_response.get("result", {}).get("database", {}).get("id")
-        database_name = (
-            dataset_response.get("result", {}).get("database", {}).get("database_name")
-        )
+        result = dataset_response.get("result", {})
+        if not result:
+            dataset_id = dataset_response.get("id", "unknown")
+            raise ValueError(
+                f"Could not construct dataset URN: empty result for dataset_id={dataset_id}"
+            )
+
+        schema_name = result.get("schema")
+        table_name = result.get("table_name")
+        database_id = result.get("database", {}).get("id")
+        database_name = result.get("database", {}).get("database_name")
         database_name = self.config.database_alias.get(database_name, database_name)
 
         # Druid do not have a database concept and has a limited schema concept, but they are nonetheless reported
@@ -459,7 +484,10 @@ class SupersetSource(StatefulIngestionSourceBase):
                 env=self.config.env,
             )
 
-        raise ValueError("Could not construct dataset URN")
+        raise ValueError(
+            f"Could not construct dataset URN: table_name={table_name}, database_id={database_id}, "
+            f"dataset_id={result.get('id', 'unknown')}"
+        )
 
     def construct_dashboard_from_api_data(
         self, dashboard_data: dict
@@ -557,13 +585,23 @@ class SupersetSource(StatefulIngestionSourceBase):
     def _process_dashboard(self, dashboard_data: Any) -> Iterable[MetadataWorkUnit]:
         dashboard_title = ""
         try:
-            dashboard_id = str(dashboard_data.get("id"))
+            dashboard_id = dashboard_data.get("id")
             dashboard_title = dashboard_data.get("dashboard_title", "")
             if not self.config.dashboard_pattern.allowed(dashboard_title):
                 self.report.report_dropped(
                     f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by dashboard_pattern"
                 )
                 return
+
+            # Fetch detailed dashboard info to get position_json (contains chart references)
+            # The list API doesn't return position_json, only the detail API does
+            dashboard_detail = self.get_dashboard_info(dashboard_id)
+            if dashboard_detail:
+                # Merge detail data into dashboard_data, prioritizing detail data
+                detail_result = dashboard_detail.get("result", {})
+                for key, value in detail_result.items():
+                    if value is not None:
+                        dashboard_data[key] = value
 
             if self.config.database_pattern != AllowDenyPattern.allow_all():
                 raw_position_data = dashboard_data.get("position_json", "{}")
@@ -1155,6 +1193,26 @@ class SupersetSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
+    def _apply_database_alias_to_urn(self, urn: str) -> str:
+        """Apply database_alias mapping to transform database names in URNs.
+
+        For example, if database_alias = {"ClickHouse Cloud": "fingerprint"},
+        transforms: urn:li:dataset:(...,clickhouse cloud.schema.table,...)
+        to: urn:li:dataset:(...,fingerprint.schema.table,...)
+        """
+        if not self.config.database_alias:
+            return urn
+
+        # Parse URN to extract dataset name
+        # URN format: urn:li:dataset:(urn:li:dataPlatform:platform,name,env)
+        for source_name, alias_name in self.config.database_alias.items():
+            # Try both original case and lowercase versions
+            source_name_lower = source_name.lower()
+            # Replace at start of dataset name (after the comma following platform)
+            urn = urn.replace(f",{source_name}.", f",{alias_name}.")
+            urn = urn.replace(f",{source_name_lower}.", f",{alias_name}.")
+        return urn
+
     def generate_virtual_dataset_lineage(
         self,
         parsed_query_object: SqlParsingResult,
@@ -1175,7 +1233,10 @@ class SupersetSource(StatefulIngestionSourceBase):
                 else []
             )
             upstreams = [
-                make_schema_field_urn(column_ref.table, column_ref.column)
+                make_schema_field_urn(
+                    self._apply_database_alias_to_urn(column_ref.table),
+                    column_ref.column,
+                )
                 for column_ref in cll_info.upstreams
             ]
             fine_grained_lineages.append(
@@ -1187,13 +1248,19 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
             )
 
+        # Apply database_alias to transform database names in URNs
+        transformed_in_tables = [
+            self._apply_database_alias_to_urn(urn)
+            for urn in parsed_query_object.in_tables
+        ]
+
         upstream_lineage = UpstreamLineageClass(
             upstreams=[
                 UpstreamClass(
                     type=DatasetLineageTypeClass.TRANSFORMED,
                     dataset=input_table_urn,
                 )
-                for input_table_urn in parsed_query_object.in_tables
+                for input_table_urn in transformed_in_tables
             ],
             fineGrainedLineages=fine_grained_lineages,
         )
@@ -1278,6 +1345,10 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         upstream_warehouse_db_name = (
             dataset_response.get("result", {}).get("database", {}).get("database_name")
+        )
+        # Apply database_alias mapping to match URNs constructed elsewhere
+        upstream_warehouse_db_name = self.config.database_alias.get(
+            upstream_warehouse_db_name, upstream_warehouse_db_name
         )
 
         # if we have rendered sql, we always use that and defualt back to regular sql

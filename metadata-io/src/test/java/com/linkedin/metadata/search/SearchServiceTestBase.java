@@ -3,9 +3,9 @@ package com.linkedin.metadata.search;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG_WITH_PIT;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
+import static io.datahubproject.test.search.SearchTestUtils.getTestOsSearchConfigWithPit;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -128,9 +128,9 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     IndexConvention mockIndexConvention = mock(IndexConvention.class);
     when(mockIndexConvention.isV2EntityIndex(anyString())).thenReturn(true);
     settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention);
-    elasticSearchService = buildEntitySearchService();
+    elasticSearchService = buildEntitySearchService(getSearchConfiguration());
     elasticSearchService.reindexAll(operationContext, Collections.emptySet());
-    pitElasticSearchService = buildPITEntitySearchService();
+    pitElasticSearchService = buildPITEntitySearchService(getSearchConfiguration());
     pitElasticSearchService.reindexAll(operationContext, Collections.emptySet());
     cacheManager = new ConcurrentMapCacheManager();
     resetSearchService();
@@ -174,8 +174,9 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   }
 
   @Nonnull
-  private ElasticSearchService buildEntitySearchService() {
-    ElasticSearchConfiguration esConfig = TEST_OS_SEARCH_CONFIG.toBuilder().build();
+  private ElasticSearchService buildEntitySearchService(SearchConfiguration searchConfiguration) {
+    ElasticSearchConfiguration esConfig =
+        TEST_OS_SEARCH_CONFIG.toBuilder().search(searchConfiguration).build();
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             getSearchClient(),
@@ -206,8 +207,11 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   }
 
   @Nonnull
-  private ElasticSearchService buildPITEntitySearchService() {
-    ElasticSearchConfiguration esConfig = TEST_OS_SEARCH_CONFIG_WITH_PIT.toBuilder().build();
+  private ElasticSearchService buildPITEntitySearchService(
+      SearchConfiguration searchConfiguration) {
+    ElasticSearchConfiguration esConfig =
+        getTestOsSearchConfigWithPit(searchConfiguration).toBuilder().build();
+
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             getSearchClient(),

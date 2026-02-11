@@ -26,7 +26,7 @@ def test_parse_sql_assertion():
         "operator": {"type": "between", "min": 5, "max": 10},
     }
 
-    assert DataQualityAssertion.parse_obj(d).generate_mcp(
+    assert DataQualityAssertion.model_validate(d).generate_mcp(
         assertion_urn, entity_urn
     ) == [
         MetadataChangeProposalWrapper(

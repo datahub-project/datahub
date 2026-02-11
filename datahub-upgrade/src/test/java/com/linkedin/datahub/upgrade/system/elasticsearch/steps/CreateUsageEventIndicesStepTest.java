@@ -20,6 +20,8 @@ import java.util.function.Function;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
+import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.CreateIndexRequest;
@@ -44,6 +46,7 @@ public class CreateUsageEventIndicesStepTest {
   @Mock private IndexConfiguration index;
   @Mock private RawResponse rawResponse;
   @Mock private CreateIndexResponse createIndexResponse;
+  @Mock private GetAliasesResponse getAliasesResponse;
 
   private CreateUsageEventIndicesStep step;
   private OperationContext opContext = TestOperationContexts.systemContextNoValidate();
@@ -119,6 +122,13 @@ public class CreateUsageEventIndicesStepTest {
                 Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
         .thenReturn(false);
 
+    // Mock alias check - return empty map by default (no alias exists)
+    Mockito.when(
+            searchClient.getIndexAliases(
+                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+    Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
+
     // Mock index creation
     Mockito.when(createIndexResponse.isAcknowledged()).thenReturn(true);
     Mockito.when(
@@ -179,6 +189,59 @@ public class CreateUsageEventIndicesStepTest {
     // Act & Assert
     Assert.assertThrows(RuntimeException.class, () -> step.skip(upgradeContext));
     Mockito.verify(platformAnalytics).isEnabled();
+  }
+
+  @Test
+  public void testSkip_EnvVarNotSet_DefaultsToEnabled() throws Exception {
+    // This test verifies that when SKIP_CREATE_USAGE_EVENT_INDICES_STEP is not set (default),
+    // the step respects the analytics enabled flag.
+    // Arrange
+    System.clearProperty("SKIP_CREATE_USAGE_EVENT_INDICES_STEP");
+    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
+
+    // Act
+    boolean shouldSkip = step.skip(upgradeContext);
+
+    // Assert - Should not skip when analytics is enabled and env var is not set
+    Assert.assertFalse(shouldSkip);
+    Mockito.verify(platformAnalytics).isEnabled();
+  }
+
+  @Test
+  public void testSkip_EnvVarSetToTrue() throws Exception {
+    // Arrange
+    System.setProperty("SKIP_CREATE_USAGE_EVENT_INDICES_STEP", "true");
+    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
+
+    try {
+      // Act
+      boolean shouldSkip = step.skip(upgradeContext);
+
+      // Assert - Should skip when env var is set to true, even if analytics is enabled
+      Assert.assertTrue(shouldSkip);
+      // Should not check analytics when env var skips
+      Mockito.verify(platformAnalytics, Mockito.never()).isEnabled();
+    } finally {
+      System.clearProperty("SKIP_CREATE_USAGE_EVENT_INDICES_STEP");
+    }
+  }
+
+  @Test
+  public void testSkip_EnvVarSetToFalse() throws Exception {
+    // Arrange
+    System.setProperty("SKIP_CREATE_USAGE_EVENT_INDICES_STEP", "false");
+    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
+
+    try {
+      // Act
+      boolean shouldSkip = step.skip(upgradeContext);
+
+      // Assert - Should not skip when env var is set to false, check analytics instead
+      Assert.assertFalse(shouldSkip);
+      Mockito.verify(platformAnalytics).isEnabled();
+    } finally {
+      System.clearProperty("SKIP_CREATE_USAGE_EVENT_INDICES_STEP");
+    }
   }
 
   @Test

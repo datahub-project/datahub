@@ -340,7 +340,74 @@ class Notebook:
 
 
 @dataclass
+class ModelSignature:
+    """
+    Represents the model signature with input and output schemas extracted from MLflow.
+
+    In Unity Catalog, model signatures define the expected input/output formats for ML models.
+    Model signature is stored in the MLmodel YAML file.
+
+    Attributes:
+        inputs: List of input schema specifications, each containing name, type, dtype, shape
+        outputs: List of output schema specifications, each containing name, type, dtype, shape
+        parameters: List of model parameters
+    """
+
+    inputs: Optional[List[Dict[str, str]]]
+    outputs: Optional[List[Dict[str, str]]]
+    parameters: Optional[List[Dict[str, str]]]
+
+
+@dataclass
+class ModelRunDetails:
+    """
+    Represents comprehensive details from an MLflow run associated with a Unity Catalog model version.
+
+    In Unity Catalog, each model version is linked to an MLflow run via run_id. This dataclass
+    contains all the metadata extracted from that MLflow run, including metrics, parameters,
+    and tags.
+
+    Attributes:
+        run_id: MLflow run ID
+        experiment_id: MLflow experiment ID
+        status: Run status (e.g., "FINISHED", "RUNNING")
+        start_time: Run start timestamp (milliseconds since epoch)
+        end_time: Run end timestamp (milliseconds since epoch)
+        user_id: User who initiated the run
+        metrics: Training metrics (e.g., accuracy, loss)
+        parameters: Hyperparameters used for training
+        tags: Run tags/metadata
+    """
+
+    run_id: str
+    experiment_id: str
+    status: Optional[str]
+    start_time: Optional[datetime]
+    end_time: Optional[datetime]
+    user_id: Optional[str]
+    metrics: Optional[Dict[str, str]]
+    parameters: Optional[Dict[str, str]]
+    tags: Optional[Dict[str, str]]
+
+
+@dataclass
 class Model:
+    """
+    Represents a Unity Catalog registered ML model (model group).
+
+    In Unity Catalog, a registered model is a collection of model versions.
+    This dataclass corresponds to a Unity Catalog RegisteredModelInfo.
+
+    Attributes:
+        id: Full qualified name (e.g., "catalog.schema.model_name")
+        name: Model name without catalog/schema prefix
+        schema_name: Schema name containing the model
+        catalog_name: Catalog name containing the model
+        description: Model description/comment
+        created_at: Model creation timestamp
+        updated_at: Last update timestamp
+    """
+
     id: str
     name: str
     schema_name: str
@@ -352,6 +419,28 @@ class Model:
 
 @dataclass
 class ModelVersion:
+    """
+    Represents a specific version of a Unity Catalog registered ML model.
+
+    In Unity Catalog, each model version is linked to an MLflow run (via run_id).
+    This dataclass corresponds to a Unity Catalog ModelVersionInfo.
+
+    Attributes:
+        id: Unique identifier combining model ID and version (e.g., "catalog.schema.model_1")
+        name: Versioned model name
+        model: Reference to the parent Model (model group)
+        version: Version number as string
+        aliases: List of aliases (e.g., ["prod", "latest"])
+        description: Version description/comment
+        created_at: Version creation timestamp
+        updated_at: Last update timestamp
+        created_by: User who created this version
+        run_details: Comprehensive MLflow run details (metrics, parameters, tags)
+                     extracted from the MLflow run linked to this model version.
+        signature: Model signature extracted from the MLmodel file via Files API.
+                   Contains input/output schema specifications and parameters.
+    """
+
     id: str
     name: str
     model: Model
@@ -361,3 +450,5 @@ class ModelVersion:
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
     created_by: Optional[str]
+    run_details: Optional["ModelRunDetails"]
+    signature: Optional["ModelSignature"]

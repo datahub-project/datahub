@@ -8,7 +8,6 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesStep;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -25,7 +24,6 @@ public class LoadIndicesTest {
 
   @Mock private OperationContext mockOperationContext;
   @Mock private Database mockDatabase;
-  @Mock private EntityService<?> mockEntityService;
   @Mock private UpdateIndicesService mockUpdateIndicesService;
   @Mock private LoadIndicesIndexManager mockIndexManager;
   @Mock private SystemMetadataService mockSystemMetadataService;
@@ -42,7 +40,6 @@ public class LoadIndicesTest {
     loadIndices =
         new LoadIndices(
             mockDatabase,
-            mockEntityService,
             mockUpdateIndicesService,
             mockIndexManager,
             mockSystemMetadataService,
@@ -89,7 +86,7 @@ public class LoadIndicesTest {
   public void testLoadIndicesWithNullDependencies() {
     // Test constructor with null dependencies (graceful degradation)
     LoadIndices loadIndicesWithoutDeps =
-        new LoadIndices(null, null, null, null, null, null, null, null, null);
+        new LoadIndices(null, null, null, null, null, null, null, null);
     assertNotNull(loadIndicesWithoutDeps);
     assertEquals("LoadIndices", loadIndicesWithoutDeps.id());
     // When server or indexManager is null, should return empty steps list

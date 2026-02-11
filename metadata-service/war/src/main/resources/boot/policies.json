@@ -18,6 +18,7 @@
         "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
         "MANAGE_ACCESS_TOKENS",
+        "MANAGE_SERVICE_ACCOUNTS",
         "MANAGE_DOMAINS",
         "MANAGE_GLOBAL_ANNOUNCEMENTS",
         "MANAGE_TESTS",
@@ -42,7 +43,8 @@
         "MANAGE_SYSTEM_OPERATIONS",
         "GET_PLATFORM_EVENTS",
         "MANAGE_HOME_PAGE_TEMPLATES",
-        "GET_METADATA_CHANGE_LOG_EVENTS"
+        "GET_METADATA_CHANGE_LOG_EVENTS",
+        "MANAGE_DOCUMENTS"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -177,6 +179,7 @@
         "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
         "MANAGE_ACCESS_TOKENS",
+        "MANAGE_SERVICE_ACCOUNTS",
         "MANAGE_DOMAINS",
         "MANAGE_GLOBAL_ANNOUNCEMENTS",
         "MANAGE_TESTS",
@@ -201,7 +204,8 @@
         "MANAGE_SYSTEM_OPERATIONS",
         "GET_PLATFORM_EVENTS",
         "MANAGE_HOME_PAGE_TEMPLATES",
-        "GET_METADATA_CHANGE_LOG_EVENTS"
+        "GET_METADATA_CHANGE_LOG_EVENTS",
+        "MANAGE_DOCUMENTS"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",
@@ -294,7 +298,8 @@
         "MANAGE_STRUCTURED_PROPERTIES",
         "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
-        "MANAGE_FEATURES"
+        "MANAGE_FEATURES",
+        "MANAGE_DOCUMENTS"
       ],
       "displayName": "Editors - Platform Policy",
       "description": "Editors can manage ingestion and view analytics.",
@@ -390,7 +395,8 @@
                 "glossaryNode",
                 "notebook",
                 "dataProduct",
-                "dataProcessInstance"
+                "dataProcessInstance",
+                "document"
               ],
               "condition": "EQUALS"
             }

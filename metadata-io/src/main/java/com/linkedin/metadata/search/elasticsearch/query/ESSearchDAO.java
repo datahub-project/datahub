@@ -348,6 +348,7 @@ public class ESSearchDAO {
     List<EntitySpec> entitySpecs =
         entityNames.stream()
             .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
+            .distinct()
             .collect(Collectors.toList());
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
@@ -519,6 +520,7 @@ public class ESSearchDAO {
       entitySpecs =
           entityNames.stream()
               .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
+              .distinct()
               .collect(Collectors.toList());
     }
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
@@ -627,6 +629,7 @@ public class ESSearchDAO {
     List<EntitySpec> entitySpecs =
         entities.stream()
             .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
+            .distinct()
             .collect(Collectors.toList());
 
     String[] indexArray =

@@ -456,6 +456,11 @@ public class AspectDaoTest {
     }
 
     @Override
+    public Integer countAspect(RestoreIndicesArgs args) {
+      return null;
+    }
+
+    @Override
     public PartitionedStream<EbeanAspectV2> streamAspectBatches(RestoreIndicesArgs args) {
       return null;
     }
@@ -507,6 +512,18 @@ public class AspectDaoTest {
     public <T> Optional<T> runInTransactionWithRetry(
         Function<TransactionContext, TransactionResult<T>> block, int maxTransactionRetry) {
       return Optional.empty();
+    }
+
+    @Nonnull
+    @Override
+    public List<com.linkedin.metadata.aspect.SystemAspectValidator> getSystemAspectValidators() {
+      return java.util.Collections.emptyList();
+    }
+
+    @Nullable
+    @Override
+    public com.linkedin.metadata.config.AspectSizeValidationConfiguration getValidationConfig() {
+      return null;
     }
   }
 }

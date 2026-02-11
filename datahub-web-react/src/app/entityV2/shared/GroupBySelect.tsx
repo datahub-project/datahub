@@ -36,7 +36,7 @@ export function GroupBySelect({ options, selectedValue, onSelect, width = 50 }: 
             width={width}
             selectLabelProps={{ label: 'Group', variant: 'labeled' }}
             optionListTestId="group-by-option-list"
-            data-testId="group-by-select-input"
+            data-testid="group-by-select-input"
         />
     );
 }

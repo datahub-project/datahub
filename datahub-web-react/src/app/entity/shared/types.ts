@@ -96,7 +96,7 @@ export type GenericEntityProperties = {
     glossaryTerms?: Maybe<GlossaryTerms>;
     ownership?: Maybe<Ownership>;
     domain?: Maybe<DomainAssociation>;
-    application?: Maybe<ApplicationAssociation>;
+    applications?: Maybe<ApplicationAssociation[]>;
     dataProduct?: Maybe<EntityRelationshipsResult>;
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;

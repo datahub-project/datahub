@@ -1,7 +1,10 @@
 import json
+import logging
 import time
 from pathlib import Path
 from typing import Any, List
+
+logger = logging.getLogger(__name__)
 
 
 class TimestampUpdater:
@@ -98,13 +101,13 @@ class TimestampUpdater:
             if any_updated:
                 with open(filepath, "w") as f:
                     json.dump(data, f, indent=2)
-                print(f"Updated timestamps in {filename}")
+                logger.info(f"Updated timestamps in {filename}")
                 return True
 
             return False
 
         except Exception as e:
-            print(f"Error updating timestamps in {filepath}: {e}")
+            logger.info(f"Error updating timestamps in {filepath}: {e}")
             return False
 
     def update_all_configured_files(self, base_dir: str) -> None:
@@ -119,4 +122,6 @@ class TimestampUpdater:
             if filepath.exists():
                 self.update_timestamps_in_file(str(filepath))
             else:
-                print(f"Warning: Configured file {filename} not found in {base_dir}")
+                logger.info(
+                    f"Warning: Configured file {filename} not found in {base_dir}"
+                )

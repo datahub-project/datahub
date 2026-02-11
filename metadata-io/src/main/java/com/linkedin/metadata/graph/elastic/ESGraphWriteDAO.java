@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 import static com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils.buildQuery;
 
@@ -27,6 +28,11 @@ public class ESGraphWriteDAO {
   private final ESBulkProcessor bulkProcessor;
   private final int numRetries;
   private final GraphQueryConfiguration graphQueryConfiguration;
+  private boolean canWrite = true;
+
+  public void setWritable(boolean writable) {
+    canWrite = writable;
+  }
 
   /**
    * Updates or inserts the given search document.
@@ -35,6 +41,10 @@ public class ESGraphWriteDAO {
    * @param docId the ID of the document
    */
   public void upsertDocument(@Nonnull String docId, @Nonnull String document) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     final UpdateRequest updateRequest =
         new UpdateRequest(indexConvention.getIndexName(INDEX_NAME), docId)
             .detectNoop(false)
@@ -50,20 +60,34 @@ public class ESGraphWriteDAO {
    * @param docId the ID of the document
    */
   public void deleteDocument(@Nonnull String docId) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     final DeleteRequest deleteRequest =
         new DeleteRequest(indexConvention.getIndexName(INDEX_NAME)).id(docId);
     bulkProcessor.add(deleteRequest);
   }
 
+  @Nullable
   public BulkByScrollResponse deleteByQuery(
       @Nonnull final OperationContext opContext, @Nonnull final GraphFilters graphFilters) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return null;
+    }
     return deleteByQuery(opContext, graphFilters, null);
   }
 
+  @Nullable
   public BulkByScrollResponse deleteByQuery(
       @Nonnull final OperationContext opContext,
       @Nonnull final GraphFilters graphFilters,
       String lifecycleOwner) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return null;
+    }
     BoolQueryBuilder finalQuery =
         buildQuery(opContext, graphQueryConfiguration, graphFilters, lifecycleOwner);
 
@@ -75,6 +99,10 @@ public class ESGraphWriteDAO {
   @Nullable
   public BulkByScrollResponse updateByQuery(
       @Nonnull Script script, @Nonnull final QueryBuilder query) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return null;
+    }
     return bulkProcessor
         .updateByQuery(script, query, indexConvention.getIndexName(INDEX_NAME))
         .orElse(null);

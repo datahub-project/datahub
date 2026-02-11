@@ -47,7 +47,12 @@ export const EditorTheme: RemirrorThemeType = {
     },
 };
 
-export const EditorContainer = styled.div<{ $readOnly?: boolean; $hideBorder?: boolean }>`
+export const EditorContainer = styled.div<{
+    $readOnly?: boolean;
+    $hideBorder?: boolean;
+    $fixedBottomToolbar?: boolean;
+    $compact?: boolean;
+}>`
     ${extensionBlockquoteStyledCss}
     ${extensionCalloutStyledCss}
     ${extensionCodeBlockStyledCss}
@@ -65,25 +70,30 @@ export const EditorContainer = styled.div<{ $readOnly?: boolean; $hideBorder?: b
     flex: 1 1 auto;
     border: ${(props) => (props.$readOnly || props.$hideBorder ? `none` : `1px solid ${ANTD_GRAY[4.5]}`)};
     border-radius: 12px;
+    padding-bottom: ${(props) => (props.$fixedBottomToolbar ? '100px' : '0')};
 
     .remirror-theme,
     .remirror-editor-wrapper {
         flex: 1 1 100%;
         display: flex;
         flex-direction: column;
+        max-width: 100%;
     }
 
     .remirror-editor.ProseMirror {
         flex: 1 1 100%;
         border: 0;
         font-size: 14px;
-        padding: 16px;
+        padding: ${(props) => (props.$compact ? '12px 16px 0 16px' : '16px')};
         position: relative;
         outline: 0;
-        line-height: 1.5;
+        line-height: ${(props) => (props.$compact ? '20px' : '1.5')};
         white-space: pre-wrap;
         margin: 0;
         color: ${colors.gray[600]};
+        min-height: ${(props) => (props.$compact ? '80px' : 'auto')};
+        max-height: ${(props) => (props.$compact ? '80px' : 'auto')};
+        overflow-y: ${(props) => (props.$compact ? 'auto' : 'visible')};
 
         a {
             font-weight: 500;
@@ -129,9 +139,23 @@ export const EditorContainer = styled.div<{ $readOnly?: boolean; $hideBorder?: b
                 min-width: 120px;
             }
         }
+
+        /* Scrollbar styling (only visible when overflow is auto, i.e. compact mode) */
+        &::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background-color: ${colors.gray[300]};
+            border-radius: 2px;
+        }
     }
 
     .remirror-floating-popover {
         z-index: 100;
+    }
+
+    .remirror-is-empty::before {
+        font-style: normal !important;
     }
 `;

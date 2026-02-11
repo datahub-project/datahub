@@ -115,7 +115,7 @@ class PrestoSource(TrinoSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = PrestoConfig.parse_obj(config_dict)
+        config = PrestoConfig.model_validate(config_dict)
         return cls(config, ctx)
 
 

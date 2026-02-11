@@ -1,11 +1,11 @@
 from typing import List, Optional, Union
 
+from pydantic import Field, RootModel
 from typing_extensions import Literal
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datacontract.assertion import BaseAssertion
 from datahub.api.entities.datacontract.assertion_operator import Operators
-from datahub.configuration.pydantic_migration_helpers import v1_ConfigModel, v1_Field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -24,7 +24,7 @@ from datahub.metadata.schema_classes import (
 
 
 class IdConfigMixin(BaseAssertion):
-    id_raw: Optional[str] = v1_Field(
+    id_raw: Optional[str] = Field(
         default=None,
         alias="id",
         description="The id of the assertion. If not provided, one will be generated using the type.",
@@ -37,7 +37,7 @@ class IdConfigMixin(BaseAssertion):
 class CustomSQLAssertion(IdConfigMixin, BaseAssertion):
     type: Literal["custom_sql"]
     sql: str
-    operator: Operators = v1_Field(discriminator="type")
+    operator: Operators = Field(discriminator="type")
 
     def generate_default_id(self) -> str:
         return f"{self.type}-{self.sql}-{self.operator.id()}"
@@ -88,20 +88,20 @@ class ColumnUniqueAssertion(IdConfigMixin, BaseAssertion):
         )
 
 
-class DataQualityAssertion(v1_ConfigModel):
-    __root__: Union[
+class DataQualityAssertion(RootModel[Union[CustomSQLAssertion, ColumnUniqueAssertion]]):
+    root: Union[
         CustomSQLAssertion,
         ColumnUniqueAssertion,
-    ] = v1_Field(discriminator="type")
+    ] = Field(discriminator="type")
 
     @property
     def id(self) -> str:
-        if self.__root__.id_raw:
-            return self.__root__.id_raw
+        if self.root.id_raw:
+            return self.root.id_raw
         try:
-            return self.__root__.generate_default_id()
+            return self.root.generate_default_id()
         except NotImplementedError:
-            return self.__root__.type
+            return self.root.type
 
     def generate_mcp(
         self, assertion_urn: str, entity_urn: str
@@ -109,6 +109,6 @@ class DataQualityAssertion(v1_ConfigModel):
         return [
             MetadataChangeProposalWrapper(
                 entityUrn=assertion_urn,
-                aspect=self.__root__.generate_assertion_info(entity_urn),
+                aspect=self.root.generate_assertion_info(entity_urn),
             )
         ]

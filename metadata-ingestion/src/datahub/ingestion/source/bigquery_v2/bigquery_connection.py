@@ -15,8 +15,12 @@ logger = logging.getLogger(__name__)
 
 
 def _get_bigquery_client_info() -> ClientInfo:
-    """Get ClientInfo with DataHub user-agent for BigQuery client identification"""
-    return ClientInfo(user_agent=f"datahub/{__version__}")
+    """Get ClientInfo with DataHub user-agent for GCP API identification.
+
+    Follows Google's recommended format:
+    "<prod_name>/ver (GPN:<company name>; <other comments>)"
+    """
+    return ClientInfo(user_agent=f"DataHub/{__version__} (GPN:DataHub)")
 
 
 class BigQueryConnectionConfig(ConfigModel):
@@ -68,9 +72,15 @@ class BigQueryConnectionConfig(ConfigModel):
         client_options = self.extra_client_options.copy()
         client_options["_use_grpc"] = False
         if project_id is not None:
-            return GCPLoggingClient(**client_options, project=project_id)
+            return GCPLoggingClient(
+                **client_options,
+                project=project_id,
+                client_info=_get_bigquery_client_info(),
+            )
         else:
-            return GCPLoggingClient(**client_options)
+            return GCPLoggingClient(
+                **client_options, client_info=_get_bigquery_client_info()
+            )
 
     def get_sql_alchemy_url(self) -> str:
         if self.project_on_behalf:

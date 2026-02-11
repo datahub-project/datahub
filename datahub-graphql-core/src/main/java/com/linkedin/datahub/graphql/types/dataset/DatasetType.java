@@ -92,7 +92,8 @@ public class DatasetType
           SUB_TYPES_ASPECT_NAME,
           APPLICATION_MEMBERSHIP_ASPECT_NAME,
           VERSION_PROPERTIES_ASPECT_NAME,
-          LOGICAL_PARENT_ASPECT_NAME);
+          LOGICAL_PARENT_ASPECT_NAME,
+          ASSET_SETTINGS_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
   private static final String ENTITY_NAME = "dataset";

@@ -51,6 +51,8 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
    * method reuses the slice coordination logic but uses scroll instead of PIT.
    *
    * @param maxRelations The remaining capacity for relationships (decremented from original limit)
+   * @param allowPartialResults If true, return partial results on timeout or maxRelations instead
+   *     of throwing
    */
   @Override
   protected List<LineageRelationship> searchWithSlices(
@@ -66,7 +68,8 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       int defaultPageSize,
       int slices,
       long remainingTime,
-      Set<Urn> entityUrns) {
+      Set<Urn> entityUrns,
+      boolean allowPartialResults) {
 
     // Create slice-based search requests
     List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
@@ -90,13 +93,14 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
                     currentSliceId,
                     slices,
                     remainingTime,
-                    entityUrns);
+                    entityUrns,
+                    allowPartialResults);
               });
       sliceFutures.add(sliceFuture);
     }
 
     // Reuse the existing slice coordination logic
-    return processSliceFutures(sliceFutures, remainingTime);
+    return processSliceFutures(sliceFutures, remainingTime, allowPartialResults);
   }
 
   /**
@@ -104,6 +108,8 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
    * Elasticsearch-compatible alternative to searchSingleSliceWithPit.
    *
    * @param maxRelations The remaining capacity for relationships (decremented from original limit)
+   * @param allowPartialResults If true, return partial results on timeout or maxRelations instead
+   *     of throwing
    */
   private List<LineageRelationship> searchSingleSliceWithScroll(
       @Nonnull OperationContext opContext,
@@ -119,7 +125,8 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       int sliceId,
       int totalSlices,
       long remainingTime,
-      Set<Urn> entityUrns) {
+      Set<Urn> entityUrns,
+      boolean allowPartialResults) {
 
     List<LineageRelationship> sliceRelationships = new ArrayList<>();
     String scrollId = null;
@@ -169,7 +176,8 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
           existingPaths);
 
       // Continue scrolling until we reach the limit or no more results
-      while (sliceRelationships.size() < maxRelations && remainingTime > 0) {
+      // If maxRelations is -1 or 0, treat as unlimited (only bound by time)
+      while ((maxRelations <= 0 || sliceRelationships.size() < maxRelations) && remainingTime > 0) {
         // Check timeout
         if (remainingTime <= 0) {
           log.warn("Slice {} timed out, stopping scroll search", sliceId);
@@ -216,17 +224,27 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
             remainingHops,
             existingPaths);
 
+        // Safety check to prevent exceeding the limit (skip if unlimited, i.e., -1 or 0)
+        if (maxRelations > 0 && sliceRelationships.size() >= maxRelations) {
+          if (allowPartialResults) {
+            log.warn(
+                "Slice {} reached maxRelations limit, stopping scroll search. Results will be marked as partial.",
+                sliceId);
+            break;
+          } else {
+            log.error(
+                "Slice {} exceeded maxRelations limit of {}. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
+                sliceId,
+                maxRelations);
+            throw new IllegalStateException(
+                String.format(
+                    "Slice %d exceeded maxRelations limit of %d. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
+                    sliceId, maxRelations));
+          }
+        }
+
         // Update remaining time
         remainingTime = System.currentTimeMillis() - (System.currentTimeMillis() - remainingTime);
-      }
-
-      // Safety check
-      if (sliceRelationships.size() >= maxRelations) {
-        log.error("Slice {} reached maxRelations limit, stopping scroll search", sliceId);
-        throw new IllegalStateException(
-            String.format(
-                "Slice %d exceeded maxRelations limit of %d. Consider reducing maxHops or increasing the maxRelations limit.",
-                sliceId, maxRelations));
       }
 
     } catch (Exception e) {

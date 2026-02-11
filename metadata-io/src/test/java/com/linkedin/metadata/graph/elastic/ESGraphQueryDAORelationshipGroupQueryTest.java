@@ -44,6 +44,7 @@ import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -108,6 +109,20 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
 
     // Create the DAO with mocks
     graphQueryDAO = new ESGraphQueryDAO(mockClient, graphServiceConfig, testESConfig, null);
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Shutdown the DAO to prevent thread pool leaks
+    if (graphQueryDAO != null) {
+      try {
+        graphQueryDAO.destroy();
+      } catch (Exception e) {
+        // Log but don't fail the test
+        System.err.println("Failed to destroy DAO: " + e.getMessage());
+      }
+      graphQueryDAO = null;
+    }
   }
 
   @Test
@@ -1110,6 +1125,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
                     .maxRelations(1000)
                     .maxHops(10)
                     .keepAlive("5m")
+                    .searchQueryTimeReservation(0.2) // Default 20% reservation
                     .build())
             .build();
 
@@ -1180,6 +1196,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
                     .maxRelations(1000)
                     .maxHops(10)
                     .keepAlive("5m")
+                    .searchQueryTimeReservation(0.2) // Default 20% reservation
                     .build())
             .build();
 

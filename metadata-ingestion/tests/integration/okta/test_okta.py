@@ -77,7 +77,7 @@ def run_ingest(
 
 
 def test_okta_config():
-    config = OktaConfig.parse_obj(
+    config = OktaConfig.model_validate(
         dict(okta_domain="test.okta.com", okta_api_token="test-token")
     )
 

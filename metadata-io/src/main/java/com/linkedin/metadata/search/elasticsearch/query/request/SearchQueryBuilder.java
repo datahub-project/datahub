@@ -12,9 +12,11 @@ import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SearchValidationConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
@@ -34,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -57,6 +60,8 @@ public class SearchQueryBuilder {
   private final ExactMatchConfiguration exactMatchConfiguration;
   private final PartialConfiguration partialConfiguration;
   private final WordGramConfiguration wordGramConfiguration;
+  private final SearchValidationConfiguration searchValidationConfiguration;
+  private final Pattern validationRegex;
 
   private final CustomizedQueryHandler customizedQueryHandler;
 
@@ -66,6 +71,8 @@ public class SearchQueryBuilder {
     this.exactMatchConfiguration = searchConfiguration.getExactMatch();
     this.partialConfiguration = searchConfiguration.getPartial();
     this.wordGramConfiguration = searchConfiguration.getWordGram();
+    this.searchValidationConfiguration = searchConfiguration.getValidation();
+    this.validationRegex = Pattern.compile(searchConfiguration.getValidation().getRegex());
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(searchConfiguration.getCustom(), customSearchConfiguration)
             .build();
@@ -99,6 +106,9 @@ public class SearchQueryBuilder {
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
       boolean fulltext) {
+    if (searchValidationConfiguration.isEnabled()) {
+      validateSearchQuery(query);
+    }
     final String sanitizedQuery = query.replaceFirst("^:+", "");
     final BoolQueryBuilder finalQuery =
         Optional.ofNullable(customQueryConfig)
@@ -142,6 +152,30 @@ public class SearchQueryBuilder {
     }
 
     return finalQuery;
+  }
+
+  /**
+   * Validates search query input to block malicious payloads. Blocks Java deserialization attacks,
+   * JNDI injection, and other exploits.
+   *
+   * @param input The raw search query string
+   * @throws ValidationException if the query contains dangerous patterns
+   */
+  @Nonnull
+  public void validateSearchQuery(@Nonnull String input) throws ValidationException {
+    // Limit query length
+    if (searchValidationConfiguration.isMaxLengthEnabled()
+        && input.length() > searchValidationConfiguration.getMaxQueryLength()) {
+      log.warn("Blocked excessively long search query: {} characters", input.length());
+      throw new ValidationException(
+          "Search query exceeds maximum length of "
+              + searchValidationConfiguration.getMaxQueryLength()
+              + " characters");
+    }
+    if (validationRegex.matcher(input).matches()) {
+      log.warn("Blocked potentially malicious search query.");
+      throw new ValidationException("Query rejected due to potentially malicious structure.");
+    }
   }
 
   /**

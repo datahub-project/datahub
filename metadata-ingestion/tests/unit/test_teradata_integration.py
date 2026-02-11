@@ -37,7 +37,7 @@ class TestEndToEndWorkflow:
 
     def test_complete_metadata_extraction_workflow(self):
         """Test complete metadata extraction from initialization to work units."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -81,7 +81,7 @@ class TestEndToEndWorkflow:
             "start_time": "2024-01-01T00:00:00Z",
             "end_time": "2024-01-02T00:00:00Z",
         }
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -154,7 +154,7 @@ class TestEndToEndWorkflow:
             **_base_config(),
             "max_workers": 3,
         }
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -222,7 +222,7 @@ class TestEndToEndWorkflow:
             **_base_config(),
             "max_workers": 1,  # Use single-threaded processing for this test
         }
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -301,7 +301,7 @@ class TestConfigurationIntegration:
                 "deny": ["allowed_db2"],  # Deny one of the explicitly allowed
             },
         }
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -347,7 +347,7 @@ class TestConfigurationIntegration:
             "include_usage_statistics": True,
             "include_queries": True,
         }
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -376,7 +376,7 @@ class TestConfigurationIntegration:
                 "profile_table_level_only": True,
             },
         }
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -411,7 +411,7 @@ class TestComplexQueryScenarios:
             **_base_config(),
             "use_server_side_cursors": True,
         }
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -483,7 +483,7 @@ class TestComplexQueryScenarios:
 
     def test_query_with_special_characters(self):
         """Test processing queries with special characters and encoding."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -518,7 +518,7 @@ class TestComplexQueryScenarios:
 
     def test_multi_line_query_processing(self):
         """Test processing of multi-line queries."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -562,7 +562,7 @@ class TestResourceManagement:
 
     def test_engine_disposal_on_close(self):
         """Test that engines are properly disposed on close."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -598,7 +598,7 @@ class TestResourceManagement:
 
     def test_aggregator_cleanup_on_close(self):
         """Test that aggregator is properly cleaned up on close."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -625,7 +625,7 @@ class TestResourceManagement:
 
     def test_connection_cleanup_in_error_scenarios(self):
         """Test that connections are cleaned up even when errors occur."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
