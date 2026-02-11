@@ -108,6 +108,7 @@ from datahub.metadata.urns import (
     MlModelUrn,
     VersionSetUrn,
 )
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 from datahub.utilities.time import datetime_to_ts_millis
 
 T = TypeVar("T")
@@ -390,7 +391,7 @@ class VertexAISource(Source):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Fetch MetadataWorkUnits for Vertex AI models, pipelines, training jobs, and experiments.
-        Supports multi-project scanning via project_ids config.
+        Projects are processed sequentially, but resources within each project can be fetched in parallel.
         """
         projects = self._get_projects_to_process()
 
@@ -405,7 +406,11 @@ class VertexAISource(Source):
             logger.info("Processing Vertex AI resources for project: %s", project.id)
             try:
                 self._init_for_project(project)
-                yield from self._process_current_project()
+                # Use parallelism if configured, otherwise fall back to sequential
+                if self.config.max_threads_resource_parallelism > 1:
+                    yield from self._process_project_with_parallelism(project)
+                else:
+                    yield from self._process_current_project()
                 successful_projects += 1
             except GoogleAPICallError as exc:
                 self._handle_project_error(
@@ -427,7 +432,54 @@ class VertexAISource(Source):
                 message=f"Failed: {', '.join(failed_projects)}",
             )
 
+    def _process_project_with_parallelism(
+        self, project: GCPProject
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Process a single project's resources with parallelism.
+        Follows BigQuery's pattern: sequential projects, parallel resources within each project.
+        """
+        yield from self._gen_project_workunits()
+
+        def _fetch_resource_worker(resource_type: str) -> Iterable[MetadataWorkUnit]:
+            """Fetch resources of a specific type for the current project"""
+            try:
+                if resource_type == "models":
+                    yield from auto_workunit(self._get_ml_models_mcps())
+                elif resource_type == "training_jobs":
+                    yield from auto_workunit(self._get_training_jobs_mcps())
+                elif resource_type == "experiments":
+                    yield from self._get_experiments_workunits()
+                elif resource_type == "experiment_runs":
+                    yield from auto_workunit(self._get_experiment_runs_mcps())
+                elif resource_type == "pipelines":
+                    yield from auto_workunit(self._get_pipelines_mcps())
+            except Exception as e:
+                logger.warning(
+                    f"Failed to fetch {resource_type} for project {project.id}: {e}"
+                )
+                self.report.report_warning(
+                    title=f"Failed to fetch {resource_type} for project {project.id}",
+                    message=str(e),
+                )
+
+        resource_types = [
+            ("models",),
+            ("training_jobs",),
+            ("experiments",),
+            ("experiment_runs",),
+            ("pipelines",),
+        ]
+
+        for wu in ThreadedIteratorExecutor.process(
+            worker_func=_fetch_resource_worker,
+            args_list=resource_types,
+            max_workers=self.config.max_threads_resource_parallelism,
+        ):
+            yield wu
+
     def _process_current_project(self) -> Iterable[MetadataWorkUnit]:
+        """Process a single project's resources sequentially"""
         yield from self._gen_project_workunits()
 
         resource_fetchers = [

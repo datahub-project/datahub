@@ -127,6 +127,16 @@ class VertexAIConfig(EnvConfigMixin):
         description="VertexAI Console base URL",
     )
 
+    max_threads_resource_parallelism: int = Field(
+        default=1,
+        description=(
+            "Number of worker threads to parallelize Vertex AI resource fetching within a project. "
+            "Resources like models, training jobs, experiments, and pipelines are fetched in parallel. "
+            "Set to 1 to disable parallelism (default for backward compatibility). "
+            "Recommended value for production: 3-5 threads."
+        ),
+    )
+
     def get_credentials_dict(self) -> Optional[Dict[str, Any]]:
         if self.credential:
             return self.credential.to_dict()

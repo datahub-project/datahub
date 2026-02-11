@@ -196,3 +196,166 @@ class TestVertexAIMultiProject:
 
         with pytest.raises(Exception, match="API Error"):
             source._get_projects_to_process()
+
+
+class TestVertexAIParallelism:
+    """Tests for parallel resource fetching within projects."""
+
+    @patch("google.cloud.aiplatform.init")
+    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
+    def test_parallel_resource_fetching_enabled(
+        self, mock_get_projects, mock_aiplatform_init
+    ):
+        """Resources are fetched in parallel when max_threads > 1."""
+        mock_get_projects.return_value = [GCPProject(id="test-project", name="Test")]
+        config = VertexAIConfig(
+            project_ids=["test-project"],
+            region="us-west2",
+            max_threads_resource_parallelism=3,
+        )
+        source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+        with patch.object(source, "_process_project_with_parallelism") as mock_parallel:
+            mock_parallel.return_value = [MagicMock(id="wu1")]
+            workunits = list(source.get_workunits_internal())
+
+        assert len(workunits) == 1
+        mock_parallel.assert_called_once()
+
+    @patch("google.cloud.aiplatform.init")
+    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
+    def test_parallel_resource_fetching_with_real_workers(
+        self, mock_get_projects, mock_aiplatform_init
+    ):
+        """Verify parallel execution with actual resource fetchers."""
+        mock_get_projects.return_value = [GCPProject(id="test-project", name="Test")]
+        config = VertexAIConfig(
+            project_ids=["test-project"],
+            region="us-west2",
+            max_threads_resource_parallelism=5,
+        )
+        source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+        with patch.object(source, "_gen_project_workunits") as mock_proj_wu:
+            mock_proj_wu.return_value = [MagicMock(id="project-wu")]
+
+            with patch.object(source, "_get_ml_models_mcps") as mock_models:
+                mock_models.return_value = [MagicMock(id="model-mcp")]
+
+                with patch.object(source, "_get_training_jobs_mcps") as mock_jobs:
+                    mock_jobs.return_value = [MagicMock(id="job-mcp")]
+
+                    with patch.object(source, "_get_experiments_workunits") as mock_exp:
+                        mock_exp.return_value = [MagicMock(id="exp-wu")]
+
+                        with patch.object(
+                            source, "_get_experiment_runs_mcps"
+                        ) as mock_runs:
+                            mock_runs.return_value = [MagicMock(id="run-mcp")]
+
+                            with patch.object(
+                                source, "_get_pipelines_mcps"
+                            ) as mock_pipes:
+                                mock_pipes.return_value = [MagicMock(id="pipe-mcp")]
+
+                                workunits = list(source.get_workunits_internal())
+
+        assert len(workunits) == 6
+        wu_ids = {wu.id for wu in workunits}
+        assert "project-wu" in wu_ids
+        assert "model-mcp" in wu_ids
+        assert "job-mcp" in wu_ids
+        assert "exp-wu" in wu_ids
+        assert "run-mcp" in wu_ids
+        assert "pipe-mcp" in wu_ids
+
+        mock_models.assert_called_once()
+        mock_jobs.assert_called_once()
+        mock_exp.assert_called_once()
+        mock_runs.assert_called_once()
+        mock_pipes.assert_called_once()
+
+    @patch("google.cloud.aiplatform.init")
+    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
+    def test_parallel_error_handling(self, mock_get_projects, mock_aiplatform_init):
+        """Errors in one resource type don't stop others from processing."""
+        mock_get_projects.return_value = [GCPProject(id="test-project", name="Test")]
+        config = VertexAIConfig(
+            project_ids=["test-project"],
+            region="us-west2",
+            max_threads_resource_parallelism=3,
+        )
+        source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+        with patch.object(source, "_gen_project_workunits") as mock_proj_wu:
+            mock_proj_wu.return_value = [MagicMock(id="project-wu")]
+
+            with patch.object(source, "_get_ml_models_mcps") as mock_models:
+                mock_models.side_effect = Exception("Models API failure")
+
+                with patch.object(source, "_get_training_jobs_mcps") as mock_jobs:
+                    mock_jobs.return_value = [MagicMock(id="job-mcp")]
+
+                    with patch.object(source, "_get_experiments_workunits") as mock_exp:
+                        mock_exp.return_value = [MagicMock(id="exp-wu")]
+
+                        with patch.object(
+                            source, "_get_experiment_runs_mcps"
+                        ) as mock_runs:
+                            mock_runs.return_value = [MagicMock(id="run-mcp")]
+
+                            with patch.object(
+                                source, "_get_pipelines_mcps"
+                            ) as mock_pipes:
+                                mock_pipes.return_value = [MagicMock(id="pipe-mcp")]
+
+                                workunits = list(source.get_workunits_internal())
+
+        assert len(workunits) == 5
+        wu_ids = {wu.id for wu in workunits}
+        assert "project-wu" in wu_ids
+        assert "job-mcp" in wu_ids
+        assert "exp-wu" in wu_ids
+        assert "run-mcp" in wu_ids
+        assert "pipe-mcp" in wu_ids
+        assert "model-mcp" not in wu_ids
+
+    @patch("google.cloud.aiplatform.init")
+    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
+    def test_sequential_processing_when_parallelism_disabled(
+        self, mock_get_projects, mock_aiplatform_init
+    ):
+        """Resources are processed sequentially when max_threads = 1."""
+        mock_get_projects.return_value = [GCPProject(id="test-project", name="Test")]
+        config = VertexAIConfig(
+            project_ids=["test-project"],
+            region="us-west2",
+            max_threads_resource_parallelism=1,
+        )
+        source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+        with patch.object(source, "_process_current_project") as mock_sequential:
+            mock_sequential.return_value = [MagicMock(id="wu1")]
+            workunits = list(source.get_workunits_internal())
+
+        assert len(workunits) == 1
+        mock_sequential.assert_called_once()
+
+    @patch("google.cloud.aiplatform.init")
+    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
+    def test_default_parallelism_is_sequential(
+        self, mock_get_projects, mock_aiplatform_init
+    ):
+        """Default config uses sequential processing for backward compatibility."""
+        mock_get_projects.return_value = [GCPProject(id="test-project", name="Test")]
+        config = VertexAIConfig(project_ids=["test-project"], region="us-west2")
+        source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+        assert config.max_threads_resource_parallelism == 1
+
+        with patch.object(source, "_process_current_project") as mock_sequential:
+            mock_sequential.return_value = [MagicMock(id="wu1")]
+            workunits = list(source.get_workunits_internal())
+
+        assert len(workunits) == 1
+        mock_sequential.assert_called_once()
