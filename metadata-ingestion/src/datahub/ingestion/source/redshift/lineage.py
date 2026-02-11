@@ -42,7 +42,7 @@ from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.redshift_preprocessing import (
     preprocess_dms_password_redaction,
     preprocess_dms_update_query,
-    preprocess_query_for_sigma,
+    preprocess_redshift_query,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
@@ -710,10 +710,13 @@ class RedshiftSqlLineage(Closeable):
             self.report_status(f"extract-{lineage_type.name}", False)
 
     def _preprocess_query(self, query: str, apply_dms_update: bool = True) -> str:
-        """Preprocess SQL query to fix Sigma and AWS DMS malformations.
+        """Preprocess SQL query to fix Redshift and AWS DMS malformations.
 
         This applies Redshift-specific preprocessing before SQL parsing:
-        - Sigma Computing generates SQL with missing spaces between keywords
+        - Redshift RTRIM bug: When populating stl_query.querytxt, Redshift
+          internally reconstructs queries from 200-char segments using RTRIM,
+          which removes meaningful trailing spaces at segment boundaries
+          (e.g., "CASE WHEN" becomes "CASEWHEN"). Affects any long query.
         - AWS DMS UPDATE queries reference staging tables without FROM clauses
         - AWS DMS password redaction merges column names in INSERT statements
 
@@ -723,7 +726,7 @@ class RedshiftSqlLineage(Closeable):
                 Set to False when source/target tables are already known from
                 metadata (e.g., STL scan) and only CLL extraction is needed.
         """
-        query = preprocess_query_for_sigma(query)
+        query = preprocess_redshift_query(query)
         if apply_dms_update:
             query = preprocess_dms_update_query(query)
         query = preprocess_dms_password_redaction(query)

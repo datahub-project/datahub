@@ -1,7 +1,10 @@
 """Redshift SQL preprocessing for malformed queries.
 
 This module fixes SQL parsing issues caused by:
-1. Sigma Computing - generates SQL with missing spaces between keywords
+1. Redshift internal RTRIM bug - when populating stl_query.querytxt, Redshift
+   internally reconstructs queries from STL_QUERYTEXT segments using RTRIM on
+   each 200-char segment, which removes meaningful trailing spaces at boundaries.
+   Example: "CASE " at segment end -> "CASE" -> concatenated with "WHEN" -> "CASEWHEN"
 2. AWS DMS - password redaction merges column names, UPDATE queries lack FROM clause
 """
 
@@ -12,12 +15,15 @@ from typing import List, Tuple
 logger = logging.getLogger(__name__)
 
 # =============================================================================
-# SIGMA PREPROCESSING (targeted patterns from production logs)
+# REDSHIFT RTRIM BUG PREPROCESSING
 # =============================================================================
 
-# Compound keyword patterns observed in production logs
-# These occur when RTRIM at segment boundaries removes spaces
-_SIGMA_COMPOUND_PATTERNS: List[Tuple[str, re.Pattern[str], str]] = [
+# Compound keyword patterns caused by Redshift's internal RTRIM bug.
+# When queries are stored in STL_QUERYTEXT (200-char segments) and reconstructed
+# for stl_query.querytxt, Redshift applies RTRIM to each segment before
+# concatenation, removing meaningful trailing spaces at segment boundaries.
+# This affects ANY long query, not just from specific tools like Sigma.
+_REDSHIFT_COMPOUND_PATTERNS: List[Tuple[str, re.Pattern[str], str]] = [
     ("notnull", re.compile(r"\bnotnull\b", re.IGNORECASE), "not null"),
     ("casewhen", re.compile(r"\bcasewhen\b", re.IGNORECASE), "case when"),
     ("nulland", re.compile(r"\bnulland\b", re.IGNORECASE), "null and"),
@@ -28,11 +34,18 @@ _SIGMA_COMPOUND_PATTERNS: List[Tuple[str, re.Pattern[str], str]] = [
 ]
 
 
-def preprocess_query_for_sigma(query: str) -> str:
-    """Preprocess query to fix Sigma Computing malformed SQL.
+def preprocess_redshift_query(query: str) -> str:
+    """Preprocess query to fix Redshift's internal RTRIM bug.
 
-    Sigma generates SQL with missing spaces between keywords. This fixes
-    the most common compound keyword patterns observed in production logs.
+    Redshift stores queries in STL_QUERYTEXT as 200-char segments. When
+    reconstructing the full query for stl_query.querytxt, Redshift applies
+    RTRIM to each segment, which removes meaningful trailing spaces at
+    segment boundaries. This causes keywords like "CASE WHEN" to become
+    "CASEWHEN" when the space falls at a 200-char boundary.
+
+    This affects ANY query, regardless of the tool that generated it.
+    Long queries (like those from BI tools) are more likely to be affected
+    simply because they have more segment boundaries.
 
     Args:
         query: The SQL query to preprocess
@@ -44,18 +57,22 @@ def preprocess_query_for_sigma(query: str) -> str:
 
     # Quick check: only process if any pattern indicator is present
     needs_processing = any(
-        indicator in query_lower for indicator, _, _ in _SIGMA_COMPOUND_PATTERNS
+        indicator in query_lower for indicator, _, _ in _REDSHIFT_COMPOUND_PATTERNS
     )
     if not needs_processing:
         return query
 
     # Apply matching patterns
     result = query
-    for indicator, pattern, replacement in _SIGMA_COMPOUND_PATTERNS:
+    for indicator, pattern, replacement in _REDSHIFT_COMPOUND_PATTERNS:
         if indicator in query_lower:
             result = pattern.sub(replacement, result)
 
     return result
+
+
+# Backward compatibility alias
+preprocess_query_for_sigma = preprocess_redshift_query
 
 
 # =============================================================================
