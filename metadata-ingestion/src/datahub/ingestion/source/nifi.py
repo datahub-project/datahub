@@ -1148,7 +1148,9 @@ class NifiSource(StatefulIngestionSourceBase):
                 url=urljoin(self.rest_api_base_url, TOKEN_ENDPOINT),
                 data={
                     "username": self.config.username,
-                    "password": self.config.password.get_secret_value(),
+                    "password": self.config.password.get_secret_value()
+                    if self.config.password
+                    else None,
                 },
             )
         elif self.config.auth is NifiAuthType.KERBEROS:

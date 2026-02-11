@@ -196,7 +196,7 @@ class DremioAPIOperations:
                 if connection_args.authentication_method == "PAT":
                     self.session.headers.update(
                         {
-                            "Authorization": f"Bearer {connection_args.password.get_secret_value()}",
+                            "Authorization": f"Bearer {connection_args.password.get_secret_value() if connection_args.password else ''}",
                         }
                     )
                     logger.debug("Configured Dremio API session to use PAT")

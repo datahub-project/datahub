@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
 from packaging import version
+from pydantic import SecretStr
 from pydantic.fields import Field
 from redash_toolbelt import Redash
 from requests.adapters import HTTPAdapter
@@ -258,7 +259,7 @@ class RedashConfig(
         default="http://localhost:5000", description="Redash base URL."
     )
     api_key: TransparentSecretStr = Field(
-        default="REDASH_API_KEY", description="Redash user API key."
+        default=SecretStr("REDASH_API_KEY"), description="Redash user API key."
     )
 
     # Optionals

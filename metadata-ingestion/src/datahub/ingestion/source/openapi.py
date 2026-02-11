@@ -99,7 +99,8 @@ class OpenApiConfig(ConfigModel):
         default="", description="Username used for basic HTTP authentication."
     )
     password: TransparentSecretStr = Field(
-        default="", description="Password used for basic HTTP authentication."
+        default=SecretStr(""),
+        description="Password used for basic HTTP authentication.",
     )
     proxies: Optional[dict] = Field(
         default=None,

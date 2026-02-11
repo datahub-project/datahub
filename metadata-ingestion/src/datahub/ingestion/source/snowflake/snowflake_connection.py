@@ -329,7 +329,9 @@ class SnowflakeConnectionConfig(ConfigModel):
         if self.oauth_config.use_certificate:
             response = generator.get_token_with_certificate(
                 private_key_content=str(self.oauth_config.encoded_oauth_public_key),
-                public_key_content=self.oauth_config.encoded_oauth_private_key.get_secret_value(),
+                public_key_content=self.oauth_config.encoded_oauth_private_key.get_secret_value()
+                if self.oauth_config.encoded_oauth_private_key
+                else "",
                 scopes=self.oauth_config.scopes,
             )
         else:

@@ -170,6 +170,7 @@ class PulsarSource(StatefulIngestionSourceBase):
         """
         # JWT, get access token (jwt) from config
         if self._is_token_authentication_configured():
+            assert self.config.token is not None
             return self.config.token.get_secret_value()
 
         # OAuth, connect to issuer and return access token
