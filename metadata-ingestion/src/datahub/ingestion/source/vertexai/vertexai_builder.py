@@ -21,6 +21,7 @@ class VertexAIUrnBuilder:
         self.platform = platform
         self.env = env
         self.project_id = project_id
+        self._name_formatter = VertexAINameFormatter(project_id)
 
     def make_ml_model_urn(self, model_version: VersionInfo, model_name: str) -> str:
         return builder.make_ml_model_urn(
@@ -30,41 +31,31 @@ class VertexAIUrnBuilder:
         )
 
     def make_training_job_urn(self, job_name: str) -> str:
-        job_id = self._format_job_name(job_name)
+        job_id = self._name_formatter.format_job_name(job_name)
         return builder.make_data_process_instance_urn(dataProcessInstanceId=job_id)
 
     def make_experiment_run_urn(
         self, experiment: Experiment, run: ExperimentRun
     ) -> str:
         return builder.make_data_process_instance_urn(
-            self._format_experiment_run_name(f"{experiment.name}-{run.name}")
+            self._name_formatter.format_experiment_run_name(
+                f"{experiment.name}-{run.name}"
+            )
         )
 
     def make_ml_model_group_urn(self, model: Model) -> str:
         return builder.make_ml_model_group_urn(
             platform=self.platform,
-            group_name=self._format_model_group_name(model.name),
+            group_name=self._name_formatter.format_model_group_name(model.name),
             env=self.env,
         )
 
     def make_dataset_urn(self, dataset_name: str) -> str:
         return builder.make_dataset_urn(
             platform=self.platform,
-            name=self._format_dataset_name(dataset_name),
+            name=self._name_formatter.format_dataset_name(dataset_name),
             env=self.env,
         )
-
-    def _format_job_name(self, entity_id: Optional[str]) -> str:
-        return f"{self.project_id}.job.{entity_id}"
-
-    def _format_experiment_run_name(self, entity_id: Optional[str]) -> str:
-        return f"{self.project_id}.experiment_run.{entity_id}"
-
-    def _format_model_group_name(self, entity_id: str) -> str:
-        return f"{self.project_id}.model_group.{entity_id}"
-
-    def _format_dataset_name(self, entity_id: str) -> str:
-        return f"{self.project_id}.dataset.{entity_id}"
 
 
 class VertexAINameFormatter:

@@ -57,10 +57,11 @@ def _search_projects_by_labels(
 
     for project in projects_client.search_projects(query=labels_query):
         if getattr(project, "project_id", None):
+            display_name = getattr(project, "display_name", None)
             projects.append(
                 GcpProject(
                     id=project.project_id,
-                    name=getattr(project, "display_name", project.project_id),
+                    name=display_name if display_name else project.project_id,
                 )
             )
 
@@ -75,10 +76,11 @@ def _list_all_projects(
     projects: List[GcpProject] = []
     for project in projects_client.list_projects():
         if getattr(project, "project_id", None):
+            display_name = getattr(project, "display_name", None)
             projects.append(
                 GcpProject(
                     id=project.project_id,
-                    name=getattr(project, "display_name", project.project_id),
+                    name=display_name if display_name else project.project_id,
                 )
             )
     return projects

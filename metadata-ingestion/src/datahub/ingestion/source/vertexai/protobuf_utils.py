@@ -35,7 +35,12 @@ def extract_protobuf_value(value: Any) -> Optional[str]:
 
 def extract_numeric_value(value: Any) -> Optional[str]:
     """
-    Extract a numeric value from a protobuf struct value.
+    Extract a numeric value from a protobuf struct value and return as STRING.
+
+    NOTE: Despite the name suggesting a numeric return type, this function returns
+    a string representation. This is intentional as DataHub's MLMetricClass.value
+    field requires string values. The function validates that the value IS numeric
+    before returning its string representation.
 
     Only returns values that can be parsed as floats. This is useful for
     extracting metrics that must be numeric.
