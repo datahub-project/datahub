@@ -1,13 +1,62 @@
-"""Redshift SQL preprocessing for AWS DMS malformations.
+"""Redshift SQL preprocessing for malformed queries.
 
 This module fixes SQL parsing issues caused by:
-1. AWS DMS - password redaction merges column names, UPDATE queries lack FROM clause
+1. Sigma Computing - generates SQL with missing spaces between keywords
+2. AWS DMS - password redaction merges column names, UPDATE queries lack FROM clause
 """
 
 import logging
 import re
+from typing import List, Tuple
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# SIGMA PREPROCESSING (targeted patterns from production logs)
+# =============================================================================
+
+# Compound keyword patterns observed in production logs
+# These occur when RTRIM at segment boundaries removes spaces
+_SIGMA_COMPOUND_PATTERNS: List[Tuple[str, re.Pattern[str], str]] = [
+    ("notnull", re.compile(r"\bnotnull\b", re.IGNORECASE), "not null"),
+    ("casewhen", re.compile(r"\bcasewhen\b", re.IGNORECASE), "case when"),
+    ("nulland", re.compile(r"\bnulland\b", re.IGNORECASE), "null and"),
+    ("elsenull", re.compile(r"\belsenull\b", re.IGNORECASE), "else null"),
+    ("groupby", re.compile(r"\bgroupby\b", re.IGNORECASE), "group by"),
+    ("thencase", re.compile(r"\bthencase\b", re.IGNORECASE), "then case"),
+    ("orderby", re.compile(r"\borderby\b", re.IGNORECASE), "order by"),
+]
+
+
+def preprocess_query_for_sigma(query: str) -> str:
+    """Preprocess query to fix Sigma Computing malformed SQL.
+
+    Sigma generates SQL with missing spaces between keywords. This fixes
+    the most common compound keyword patterns observed in production logs.
+
+    Args:
+        query: The SQL query to preprocess
+
+    Returns:
+        The preprocessed query with fixed spacing
+    """
+    query_lower = query.lower()
+
+    # Quick check: only process if any pattern indicator is present
+    needs_processing = any(
+        indicator in query_lower for indicator, _, _ in _SIGMA_COMPOUND_PATTERNS
+    )
+    if not needs_processing:
+        return query
+
+    # Apply matching patterns
+    result = query
+    for indicator, pattern, replacement in _SIGMA_COMPOUND_PATTERNS:
+        if indicator in query_lower:
+            result = pattern.sub(replacement, result)
+
+    return result
+
 
 # =============================================================================
 # DMS PREPROCESSING
