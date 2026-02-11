@@ -215,14 +215,9 @@ class TestDynamoDBSchemaSampling:
         mock_page = {"Items": [{"field1": {"S": "value1"}}]}
         mock_paginator.paginate.return_value = [mock_page]
 
-        # Mock include_table_item_to_schema to do nothing
-        with (
-            patch.object(source, "include_table_item_to_schema"),
-            patch.object(source, "construct_schema_from_items"),
-        ):
-            source.construct_schema_from_dynamodb(
-                mock_dynamodb_client, "us-west-2", "test_table"
-            )
+        source.construct_schema_from_dynamodb(
+            mock_dynamodb_client, "us-west-2", "test_table"
+        )
 
         # Verify paginate was called with the correct MaxItems
         mock_paginator.paginate.assert_called_once()
