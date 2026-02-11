@@ -5,6 +5,8 @@ from typing import Dict, List, Union
 
 from datahub.sdk.main_client import DataHubClient
 
+from ..version_requirements import min_version
+
 logger = logging.getLogger(__name__)
 
 
@@ -188,6 +190,7 @@ def _validate_property_value(
     )
 
 
+@min_version(cloud="0.3.16", oss="1.4.0")
 def add_structured_properties(
     property_values: Dict[str, List[Union[str, float, int]]],
     entity_urns: List[str],
@@ -332,6 +335,7 @@ def add_structured_properties(
     }
 
 
+@min_version(cloud="0.3.16", oss="1.4.0")
 def remove_structured_properties(
     property_urns: List[str],
     entity_urns: List[str],

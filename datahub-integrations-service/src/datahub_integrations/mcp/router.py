@@ -14,6 +14,7 @@ from datahub_integrations.mcp.mcp_server import (
     with_datahub_client,
 )
 from datahub_integrations.mcp.mcp_telemetry import MCPTelemetryMiddleware
+from datahub_integrations.mcp.version_requirements import VersionFilterMiddleware
 
 
 async def _parse_token(
@@ -66,6 +67,11 @@ async def _parse_token(
 
 # Telemetry middleware - tracks tool calls and other MCP events
 datahub_fastmcp.add_middleware(MCPTelemetryMiddleware())
+
+# Version filter middleware - hides tools incompatible with the connected GMS version.
+# Registered before DocumentToolsMiddleware so version filtering runs first (innermost),
+# avoiding unnecessary document existence checks for version-incompatible tools.
+datahub_fastmcp.add_middleware(VersionFilterMiddleware())
 
 # Document tools middleware - hides document tools when no documents exist in the catalog
 datahub_fastmcp.add_middleware(DocumentToolsMiddleware())

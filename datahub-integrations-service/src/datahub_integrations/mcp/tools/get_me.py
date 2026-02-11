@@ -3,9 +3,12 @@
 import logging
 from typing import Any
 
+from ..version_requirements import min_version
+
 logger = logging.getLogger(__name__)
 
 
+@min_version(cloud="0.3.16", oss="1.4.0")
 def get_me() -> dict[str, Any]:
     """Get information about the currently authenticated user.
 

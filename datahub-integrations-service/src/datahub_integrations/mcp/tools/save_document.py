@@ -22,6 +22,8 @@ from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.metadata import schema_classes as models
 from datahub.sdk import Document
 
+from ..version_requirements import min_version
+
 logger = logging.getLogger(__name__)
 
 # Fixed root parent document ID - independent of title for future flexibility
@@ -338,6 +340,7 @@ def _ensure_parent_hierarchy(user_info: Optional[Dict]) -> Tuple[str, Optional[s
     return root_urn, None
 
 
+@min_version(cloud="0.3.16", oss="1.4.0")
 def save_document(
     document_type: DocumentType,
     title: str,

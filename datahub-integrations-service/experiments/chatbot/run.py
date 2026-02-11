@@ -105,6 +105,10 @@ async def run_prompt(
                 )()
                 response_time = timer.elapsed_seconds()
 
+            # Get the full conversation history from the agent's internal state,
+            # since the original history object is not mutated by the agent.
+            full_history = agent.history
+
             logger.info(f"Successfully generated response for prompt: {case.id}")
             logger.debug(
                 f"Response length: {len(next_message.text) if next_message.text else 0} chars"
@@ -115,7 +119,7 @@ async def run_prompt(
                 "response": next_message.text,
                 "follow_up_suggestions": next_message.suggestions,
                 "next_message": next_message.model_dump_json(),
-                "history": history.model_dump_json(),
+                "history": full_history.model_dump_json(),
                 "error": None,
                 "response_time": response_time,
             }
@@ -132,7 +136,7 @@ async def run_prompt(
             }
         finally:
             logger.debug(f"Saving history file for {case.id}")
-            history.save_file(output_file)
+            agent.history.save_file(output_file)
             mlflow.log_artifact(str(output_file), artifact_path="history")
             logger.debug(f"Completed experiment for prompt: {case.id}")
 

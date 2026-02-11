@@ -3,9 +3,12 @@
 import logging
 from typing import Literal, Optional
 
+from ..version_requirements import min_version
+
 logger = logging.getLogger(__name__)
 
 
+@min_version(cloud="0.3.16", oss="1.4.0")
 def update_description(
     entity_urn: str,
     operation: Literal["replace", "append", "remove"] = "replace",

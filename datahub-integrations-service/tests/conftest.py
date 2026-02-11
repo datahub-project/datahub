@@ -4,6 +4,7 @@ import os
 import sys
 import unittest.mock
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from datahub.testing.pytest_hooks import (  # noqa: F401
@@ -88,3 +89,21 @@ integration_test = pytest.mark.skipif(
 @pytest.fixture(scope="module")
 def anyio_backend() -> str:
     return "asyncio"
+
+
+@pytest.fixture(autouse=True)
+def _mock_version_filter():
+    """Bypass version filtering in tests that don't set up a real GMS connection.
+
+    filter_tools_by_version requires a live DataHubClient with a real server_config
+    to check the GMS version. Most tests use mock clients without proper server_config
+    attributes, which would cause TypeErrors during version comparison.
+
+    Tests that specifically test version filtering (test_version_requirements.py)
+    override this by mocking _get_server_version_info directly.
+    """
+    with patch(
+        "datahub_integrations.mcp_integration.tool.filter_tools_by_version",
+        side_effect=lambda tools: list(tools),
+    ):
+        yield

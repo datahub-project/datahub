@@ -31,6 +31,7 @@ from datahub_integrations.mcp.mcp_server import (
     TOOL_RESPONSE_TOKEN_LIMIT,
     with_datahub_client,
 )
+from datahub_integrations.mcp.version_requirements import filter_tools_by_version
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -216,9 +217,10 @@ def tools_from_fastmcp(
     """
     Extract Tool objects from a FastMCP server instance.
 
-    Applies two levels of filtering:
+    Applies three levels of filtering:
     1. Optional custom filter (e.g., for Slack/Teams tag filtering)
-    2. Document tools filtering (hides document tools if no documents exist)
+    2. Version-based filtering (hides tools incompatible with GMS version)
+    3. Document tools filtering (hides document tools if no documents exist)
 
     Args:
         mcp: FastMCP server instance with registered tools
@@ -243,9 +245,10 @@ def tools_from_fastmcp(
     if filter_fn:
         all_tools = [tool for tool in all_tools if filter_fn(tool)]
 
-    # Apply document tools filtering
+    # Apply version-based and document tools filtering
     # Use context manager to avoid polluting thread context
     with with_datahub_client(client):
-        filtered_tools = filter_document_tools(all_tools)
+        filtered_tools = filter_tools_by_version(all_tools)
+        filtered_tools = filter_document_tools(filtered_tools)
 
     return [ToolWrapper(tool, name_prefix=mcp.name) for tool in filtered_tools]

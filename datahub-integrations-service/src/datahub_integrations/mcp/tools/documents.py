@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 import re2
 
+from ..version_requirements import min_version
+
 # Load GraphQL queries at module level (no circular dependency here)
 document_search_gql = (
     pathlib.Path(__file__).parent.parent / "gql/document_search.gql"
@@ -17,6 +19,7 @@ document_content_gql = (
 ).read_text()
 
 
+@min_version(cloud="0.3.16", oss="1.4.0")
 def search_documents(
     query: str = "*",
     platforms: Optional[List[str]] = None,
@@ -252,6 +255,7 @@ def _search_documents_impl(
     return clean_gql_response(response)
 
 
+@min_version(cloud="0.3.16", oss="1.4.0")
 def grep_documents(
     urns: List[str],
     pattern: str,

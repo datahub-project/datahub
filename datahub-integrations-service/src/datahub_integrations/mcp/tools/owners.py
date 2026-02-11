@@ -5,6 +5,8 @@ from typing import List, Literal, Optional
 
 from datahub.sdk.main_client import DataHubClient
 
+from ..version_requirements import min_version
+
 logger = logging.getLogger(__name__)
 
 
@@ -186,6 +188,7 @@ def _batch_modify_owners(
         raise RuntimeError(f"Error {failure_verb} owners: {str(e)}") from e
 
 
+@min_version(cloud="0.3.16", oss="1.4.0")
 def add_owners(
     owner_urns: List[str],
     entity_urns: List[str],
@@ -246,6 +249,7 @@ def add_owners(
     return _batch_modify_owners(owner_urns, entity_urns, ownership_type_urn, "add")
 
 
+@min_version(cloud="0.3.16", oss="1.4.0")
 def remove_owners(
     owner_urns: List[str],
     entity_urns: List[str],

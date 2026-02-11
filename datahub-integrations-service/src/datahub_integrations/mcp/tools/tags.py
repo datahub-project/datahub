@@ -5,6 +5,8 @@ from typing import List, Literal, Optional
 
 from datahub.sdk.main_client import DataHubClient
 
+from ..version_requirements import min_version
+
 logger = logging.getLogger(__name__)
 
 
@@ -165,6 +167,7 @@ def _batch_modify_tags(
         raise RuntimeError(f"Error {failure_verb} tags: {str(e)}") from e
 
 
+@min_version(cloud="0.3.16", oss="1.4.0")
 def add_tags(
     tag_urns: List[str],
     entity_urns: List[str],
@@ -225,6 +228,7 @@ def add_tags(
     return _batch_modify_tags(tag_urns, entity_urns, column_paths, "add")
 
 
+@min_version(cloud="0.3.16", oss="1.4.0")
 def remove_tags(
     tag_urns: List[str],
     entity_urns: List[str],

@@ -5,6 +5,8 @@ from typing import List
 
 from datahub.sdk.main_client import DataHubClient
 
+from ..version_requirements import min_version
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,6 +61,7 @@ def _validate_domain_urn(client: DataHubClient, domain_urn: str) -> None:
         raise ValueError(f"Failed to validate domain URN: {str(e)}") from e
 
 
+@min_version(cloud="0.3.16", oss="1.4.0")
 def set_domains(
     domain_urn: str,
     entity_urns: List[str],
@@ -154,6 +157,7 @@ def set_domains(
         raise RuntimeError(f"Error setting domain: {str(e)}") from e
 
 
+@min_version(cloud="0.3.16", oss="1.4.0")
 def remove_domains(
     entity_urns: List[str],
 ) -> dict:

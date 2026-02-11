@@ -50,10 +50,8 @@ from json_repair import repair_json
 from loguru import logger
 from pydantic import BaseModel
 
-# IMPORTANT: Use relative import to maintain compatibility across repositories
-from ._token_estimator import TokenCountEstimator
-
 # IMPORTANT: Use relative imports to maintain compatibility across repositories
+from ._token_estimator import TokenCountEstimator
 from .tools.descriptions import update_description
 from .tools.documents import grep_documents, search_documents
 from .tools.domains import remove_domains, set_domains
@@ -69,6 +67,7 @@ from .tools.terms import (
     add_glossary_terms,
     remove_glossary_terms,
 )
+from .version_requirements import TOOL_VERSION_REQUIREMENTS
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -279,6 +278,40 @@ def async_background(fn: Callable[_P, _R]) -> Callable[_P, Awaitable[_R]]:
             raise
 
     return wrapper
+
+
+def _register_tool(
+    mcp_instance: FastMCP,
+    name: str,
+    fn: Callable,
+    *,
+    description: Optional[str] = None,
+    tags: Optional[set] = None,
+) -> None:
+    """Register a tool on the MCP instance and capture its version requirement.
+
+    This is a convenience wrapper that:
+    1. Wraps the sync function with async_background
+    2. Registers it on the MCP instance
+    3. Reads the _version_requirement attribute (set by @min_version decorator)
+       and populates TOOL_VERSION_REQUIREMENTS
+
+    Args:
+        mcp_instance: The FastMCP instance to register on.
+        name: The tool name (may differ from fn.__name__).
+        fn: The tool function (sync).
+        description: Tool description. Defaults to fn.__doc__.
+        tags: Optional set of tag strings.
+    """
+    mcp_instance.tool(
+        name=name,
+        description=description or fn.__doc__,
+        tags=tags,
+    )(async_background(fn))
+
+    req = getattr(fn, "_version_requirement", None)
+    if req is not None:
+        TOOL_VERSION_REQUIREMENTS[name] = req
 
 
 mcp = FastMCP[None](
@@ -2615,85 +2648,43 @@ def register_mutation_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None
     if not enabled:
         return
 
-    # Register add_tags tool
-    mcp_instance.tool(
-        name="add_tags", description=add_tags.__doc__, tags={ToolType.MUTATION.value}
-    )(async_background(add_tags))
-
-    # Register remove_tags tool
-    mcp_instance.tool(
-        name="remove_tags",
-        description=remove_tags.__doc__,
+    _register_tool(mcp_instance, "add_tags", add_tags, tags={ToolType.MUTATION.value})
+    _register_tool(
+        mcp_instance, "remove_tags", remove_tags, tags={ToolType.MUTATION.value}
+    )
+    _register_tool(
+        mcp_instance, "add_terms", add_glossary_terms, tags={ToolType.MUTATION.value}
+    )
+    _register_tool(
+        mcp_instance,
+        "remove_terms",
+        remove_glossary_terms,
         tags={ToolType.MUTATION.value},
-    )(async_background(remove_tags))
-
-    # Register add_terms tool
-    mcp_instance.tool(
-        name="add_terms",
-        description=add_glossary_terms.__doc__,
-        tags={ToolType.MUTATION.value},
-    )(async_background(add_glossary_terms))
-
-    # Register remove_terms tool
-    mcp_instance.tool(
-        name="remove_terms",
-        description=remove_glossary_terms.__doc__,
-        tags={ToolType.MUTATION.value},
-    )(async_background(remove_glossary_terms))
-
-    # Register add_owners tool
-    mcp_instance.tool(
-        name="add_owners",
-        description=add_owners.__doc__,
-        tags={ToolType.MUTATION.value},
-    )(async_background(add_owners))
-
-    # Register remove_owners tool
-    mcp_instance.tool(
-        name="remove_owners",
-        description=remove_owners.__doc__,
-        tags={ToolType.MUTATION.value},
-    )(async_background(remove_owners))
-
-    # Register set_domains tool
-    mcp_instance.tool(
-        name="set_domains",
-        description=set_domains.__doc__,
-        tags={ToolType.MUTATION.value},
-    )(async_background(set_domains))
-
-    # Register remove_domains tool
-    mcp_instance.tool(
-        name="remove_domains",
-        description=remove_domains.__doc__,
-        tags={ToolType.MUTATION.value},
-    )(async_background(remove_domains))
-
-    # Register update_description tool
-    mcp_instance.tool(
-        name="update_description", description=update_description.__doc__
-    )(async_background(update_description))
-
-    # Register add_structured_properties tool
-    mcp_instance.tool(
-        name="add_structured_properties",
-        description=add_structured_properties.__doc__,
-    )(async_background(add_structured_properties))
-
-    # Register remove_structured_properties tool
-    mcp_instance.tool(
-        name="remove_structured_properties",
-        description=remove_structured_properties.__doc__,
-    )(async_background(remove_structured_properties))
+    )
+    _register_tool(
+        mcp_instance, "add_owners", add_owners, tags={ToolType.MUTATION.value}
+    )
+    _register_tool(
+        mcp_instance, "remove_owners", remove_owners, tags={ToolType.MUTATION.value}
+    )
+    _register_tool(
+        mcp_instance, "set_domains", set_domains, tags={ToolType.MUTATION.value}
+    )
+    _register_tool(
+        mcp_instance, "remove_domains", remove_domains, tags={ToolType.MUTATION.value}
+    )
+    _register_tool(mcp_instance, "update_description", update_description)
+    _register_tool(mcp_instance, "add_structured_properties", add_structured_properties)
+    _register_tool(
+        mcp_instance, "remove_structured_properties", remove_structured_properties
+    )
 
     # Register save_document tool (only if enabled via environment variable)
     if is_save_document_enabled():
         logger.info("Save Document ENABLED - registering save_document tool")
-        mcp_instance.tool(
-            name="save_document",
-            description=save_document.__doc__,
-            tags={ToolType.MUTATION.value},
-        )(async_background(save_document))
+        _register_tool(
+            mcp_instance, "save_document", save_document, tags={ToolType.MUTATION.value}
+        )
     else:
         logger.info("Save Document DISABLED - save_document tool not registered")
 
@@ -2715,10 +2706,7 @@ def register_user_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None:
     if not enabled:
         return
 
-    # Register get_me tool
-    mcp_instance.tool(
-        name="get_me", description=get_me.__doc__, tags={ToolType.USER.value}
-    )(async_background(get_me))
+    _register_tool(mcp_instance, "get_me", get_me, tags={ToolType.USER.value})
 
 
 def register_search_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None:
@@ -2767,63 +2755,45 @@ def register_search_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None:
         # Note: Actual semantic search availability is validated at runtime when used
         # This allows the tool to be registered even if validation would fail,
         # but provides clear error messages when semantic search is actually attempted
-
-        # Register enhanced search tool with semantic capabilities (as "search")
-        mcp_instance.tool(
-            name="search",
-            description=enhanced_search.__doc__,
-            tags={ToolType.SEARCH.value},
-        )(async_background(enhanced_search))
+        _register_tool(
+            mcp_instance, "search", enhanced_search, tags={ToolType.SEARCH.value}
+        )
     else:
         # Register original search tool with deployment-specific description
-        mcp_instance.tool(
-            name="search", description=search_description, tags={ToolType.SEARCH.value}
-        )(async_background(search))
+        _register_tool(
+            mcp_instance,
+            "search",
+            search,
+            description=search_description,
+            tags={ToolType.SEARCH.value},
+        )
 
-    # Register get_lineage tool
-    mcp_instance.tool(
-        name="get_lineage",
-        description=get_lineage.__doc__,
-        tags={ToolType.SEARCH.value},
-    )(async_background(get_lineage))
-
-    # Register get_dataset_queries tool
-    mcp_instance.tool(
-        name="get_dataset_queries",
-        description=get_dataset_queries.__doc__,
-        tags={ToolType.SEARCH.value},
-    )(async_background(get_dataset_queries))
-
-    # Register get_entities tool
-    mcp_instance.tool(
-        name="get_entities",
-        description=get_entities.__doc__,
-        tags={ToolType.SEARCH.value},
-    )(async_background(get_entities))
-
-    # Register list_schema_fields tool
-    mcp_instance.tool(
-        name="list_schema_fields",
-        description=list_schema_fields.__doc__,
-        tags={ToolType.SEARCH.value},
-    )(async_background(list_schema_fields))
-
-    # Register get_lineage_paths_between tool
-    mcp_instance.tool(
-        name="get_lineage_paths_between",
-        description=get_lineage_paths_between.__doc__,
-        tags={ToolType.SEARCH.value},
-    )(async_background(get_lineage_paths_between))
-
-    # Register search_documents tool
-    mcp_instance.tool(name="search_documents", description=search_documents.__doc__)(
-        async_background(search_documents)
+    _register_tool(
+        mcp_instance, "get_lineage", get_lineage, tags={ToolType.SEARCH.value}
     )
-
-    # Register grep_documents tool
-    mcp_instance.tool(name="grep_documents", description=grep_documents.__doc__)(
-        async_background(grep_documents)
+    _register_tool(
+        mcp_instance,
+        "get_dataset_queries",
+        get_dataset_queries,
+        tags={ToolType.SEARCH.value},
     )
+    _register_tool(
+        mcp_instance, "get_entities", get_entities, tags={ToolType.SEARCH.value}
+    )
+    _register_tool(
+        mcp_instance,
+        "list_schema_fields",
+        list_schema_fields,
+        tags={ToolType.SEARCH.value},
+    )
+    _register_tool(
+        mcp_instance,
+        "get_lineage_paths_between",
+        get_lineage_paths_between,
+        tags={ToolType.SEARCH.value},
+    )
+    _register_tool(mcp_instance, "search_documents", search_documents)
+    _register_tool(mcp_instance, "grep_documents", grep_documents)
 
 
 def register_all_tools(is_oss: bool = False) -> None:
