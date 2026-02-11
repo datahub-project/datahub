@@ -214,9 +214,11 @@ class ConnectorRegistry:
         """Get appropriate sink connector implementation."""
         from datahub.ingestion.source.kafka_connect.sink_connectors import (
             BIGQUERY_SINK_CONNECTOR_CLASS,
+            CLICKHOUSE_SINK_CONNECTOR_CLASS,
             S3_SINK_CONNECTOR_CLASS,
             SNOWFLAKE_SINK_CONNECTOR_CLASS,
             BigQuerySinkConnector,
+            ClickHouseSinkConnector,
             ConfluentS3SinkConnector,
             JdbcSinkConnector,
             SnowflakeSinkConnector,
@@ -243,6 +245,9 @@ class ConnectorRegistry:
             return JdbcSinkConnector(manifest, config, report, platform="postgres")
         elif connector_class_value == MYSQL_SINK_CLOUD:
             return JdbcSinkConnector(manifest, config, report, platform="mysql")
+        # ClickHouse sink connector
+        elif connector_class_value == CLICKHOUSE_SINK_CONNECTOR_CLASS:
+            return ClickHouseSinkConnector(manifest, config, report)
 
         return None
 

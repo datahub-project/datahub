@@ -1072,10 +1072,289 @@ class JdbcSinkConnector(BaseConnector):
         return self.platform
 
 
+@dataclass
+class ClickHouseSinkConnector(BaseConnector):
+    """
+    ClickHouse sink connector for Kafka Connect.
+
+    Supports the ClickHouse Kafka Connect Sink Connector that writes Kafka topics
+    to ClickHouse tables.
+    """
+
+    @dataclass
+    class ClickHouseSinkParser:
+        """
+        Data transfer object for ClickHouse sink connector configuration.
+        """
+
+        hostname: str
+        port: str
+        database_name: str
+        topic_to_table_map: Dict[str, str]
+        target_platform: str = "clickhouse"
+
+        @property
+        def db_connection_url(self) -> str:
+            """Build connection URL for display purposes."""
+            return f"clickhouse://{self.hostname}:{self.port}/{self.database_name}"
+
+    def get_parser(self) -> ClickHouseSinkParser:
+        """
+        Parse ClickHouse sink connector configuration.
+
+        Returns:
+            ClickHouseSinkParser with parsed configuration
+
+        Raises:
+            ValueError: If required configuration is missing
+        """
+        config = self.connector_manifest.config
+
+        # Extract ClickHouse connection details
+        hostname = config.get("hostname")
+        if not hostname:
+            raise ValueError(
+                "Missing 'hostname' in ClickHouse sink connector configuration"
+            )
+
+        port = config.get("port", "8123")  # Default HTTP port
+        database = config.get("database")
+        if not database:
+            raise ValueError(
+                "Missing 'database' in ClickHouse sink connector configuration"
+            )
+
+        # Parse user-provided topic to table map (format: "topic1=table1,topic2=table2")
+        topic_to_table_map: Dict[str, str] = {}
+        if config.get("topic2TableMap"):
+            try:
+                mappings = parse_comma_separated_list(config["topic2TableMap"])
+                for mapping in mappings:
+                    if "=" not in mapping:
+                        logger.warning(
+                            f"Invalid topic=table mapping format: '{mapping}'. Expected 'topic=table'."
+                        )
+                        continue
+                    topic, table = mapping.split("=", 1)  # Split only on first equals
+                    topic_to_table_map[topic.strip()] = table.strip()
+            except Exception as e:
+                logger.warning(f"Failed to parse topic2TableMap: {e}")
+
+        return self.ClickHouseSinkParser(
+            hostname=hostname,
+            port=port,
+            database_name=database,
+            topic_to_table_map=topic_to_table_map,
+        )
+
+    def get_table_name_from_topic(
+        self, topic: str, topic_to_table_map: Dict[str, str]
+    ) -> str:
+        """
+        Extract table name from topic using connector configuration.
+
+        Priority:
+        1. Check explicit topic2TableMap mapping
+        2. Default to topic name as table name
+
+        Args:
+            topic: The Kafka topic name
+            topic_to_table_map: Explicit topic-to-table mappings
+
+        Returns:
+            Table name derived from topic
+        """
+        # Priority 1: Check explicit mapping
+        if topic in topic_to_table_map:
+            return topic_to_table_map[topic]
+
+        # Priority 2: Default to topic name
+        return topic
+
+    def get_topics_from_config(self) -> List[str]:
+        """
+        Extract topics from ClickHouse sink connector configuration.
+
+        Supports explicit topic lists:
+        - topics: Comma-separated list of topic names
+        """
+        config = self.connector_manifest.config
+
+        # Get 'topics' field
+        topics = config.get(ConnectorConfigKeys.TOPICS, "")
+        if topics:
+            return parse_comma_separated_list(topics)
+
+        return []
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        """
+        Remove sensitive credentials from property bag.
+
+        Uses the parser to get a sanitized connection URL without credentials.
+        """
+        try:
+            parser = self.get_parser()
+
+            # Remove sensitive fields
+            flow_property_bag: Dict[str, str] = {
+                k: v
+                for k, v in self.connector_manifest.config.items()
+                if k
+                not in [
+                    "password",
+                    "username",
+                    "ssl.keystore.password",
+                    "ssl.truststore.password",
+                ]
+            }
+
+            # Add sanitized connection URL
+            flow_property_bag["connection.url"] = parser.db_connection_url
+
+            return flow_property_bag
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to parse ClickHouse sink connector config for {self.connector_manifest.name}: {e}"
+            )
+            # Fallback to basic filtering without URL
+            return {
+                k: v
+                for k, v in self.connector_manifest.config.items()
+                if k
+                not in [
+                    "password",
+                    "username",
+                    "ssl.keystore.password",
+                    "ssl.truststore.password",
+                    "hostname",  # Remove hostname if we can't build safe URL
+                ]
+            }
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        """
+        Extract lineage from Kafka topics to ClickHouse tables.
+
+        Creates lineage for each topic: Kafka topic → ClickHouse table
+        Uses 2-tier hierarchy: database.table (no schema).
+
+        Returns:
+            List of lineage mappings
+        """
+        lineages: List[KafkaConnectLineage] = []
+
+        try:
+            # Parse configuration
+            parser = self.get_parser()
+
+            logger.debug(
+                f"Extracting lineages for ClickHouse sink: "
+                f"database={parser.database_name}, hostname={parser.hostname}"
+            )
+
+            # Get available topics (all cluster topics for Cloud, connector topics for OSS)
+            available_topics = set(
+                self.all_cluster_topics or self.connector_manifest.topic_names
+            )
+
+            # Get topics the connector subscribes to from its configuration
+            subscribed_topics = set(self.get_topics_from_config())
+
+            # Filter available topics to only those the connector subscribes to
+            if subscribed_topics:
+                topic_list = list(available_topics.intersection(subscribed_topics))
+                logger.debug(
+                    f"Filtered to {len(topic_list)} subscribed topics for {self.connector_manifest.name}: {topic_list}"
+                )
+            else:
+                # If no subscription config, use all available topics (OSS behavior)
+                topic_list = list(available_topics)
+                logger.debug(
+                    f"No subscription filter found, using all {len(topic_list)} available topics"
+                )
+
+            # Apply Kafka Connect transforms
+            transform_result = get_transform_pipeline().apply_forward(
+                topic_list, self.connector_manifest.config
+            )
+            transformed_topics = transform_result.topics
+
+            # Log any warnings from transform processing
+            for warning in transform_result.warnings:
+                self.report.warning(
+                    f"Transform warning for {self.connector_manifest.name}: {warning}"
+                )
+
+            if transform_result.fallback_used:
+                self.report.info(
+                    f"Complex transforms detected in {self.connector_manifest.name}. "
+                    f"Consider using 'generic_connectors' config for explicit mappings."
+                )
+
+            # Create lineage for each topic
+            for original_topic, transformed_topic in zip(
+                topic_list, transformed_topics, strict=False
+            ):
+                # Get table name using explicit mapping or default to topic name
+                table_name = self.get_table_name_from_topic(
+                    transformed_topic, parser.topic_to_table_map
+                )
+
+                # Build fully qualified dataset name: database.table (2-tier, no schema)
+                target_dataset = get_dataset_name(parser.database_name, table_name)
+
+                # Extract column-level lineage if enabled (uses base class method)
+                fine_grained = self._extract_fine_grained_lineage(
+                    source_dataset=original_topic,
+                    source_platform=KAFKA,
+                    target_dataset=target_dataset,
+                    target_platform=parser.target_platform,
+                )
+
+                lineages.append(
+                    KafkaConnectLineage(
+                        source_dataset=original_topic,
+                        source_platform=KAFKA,
+                        target_dataset=target_dataset,
+                        target_platform=parser.target_platform,
+                        fine_grained_lineages=fine_grained,
+                    )
+                )
+
+            logger.debug(
+                f"Extracted {len(lineages)} lineages for ClickHouse sink connector {self.connector_manifest.name}"
+            )
+
+            return lineages
+
+        except ValueError as e:
+            self.report.warning(
+                f"Configuration error in ClickHouse sink connector {self.connector_manifest.name}",
+                self.connector_manifest.name,
+                exc=e,
+            )
+            return []
+        except Exception as e:
+            self.report.warning(
+                f"Failed to extract lineage for ClickHouse sink connector {self.connector_manifest.name}",
+                self.connector_manifest.name,
+                exc=e,
+            )
+            return []
+
+    def get_platform(self) -> str:
+        """Get the platform for ClickHouse Sink connector."""
+        return "clickhouse"
+
+
 BIGQUERY_SINK_CONNECTOR_CLASS: Final[str] = (
     "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector"
 )
 S3_SINK_CONNECTOR_CLASS: Final[str] = "io.confluent.connect.s3.S3SinkConnector"
 SNOWFLAKE_SINK_CONNECTOR_CLASS: Final[str] = (
     "com.snowflake.kafka.connector.SnowflakeSinkConnector"
+)
+CLICKHOUSE_SINK_CONNECTOR_CLASS: Final[str] = (
+    "com.clickhouse.kafka.connect.ClickHouseSinkConnector"
 )

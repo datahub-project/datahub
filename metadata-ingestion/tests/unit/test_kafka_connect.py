@@ -2849,6 +2849,419 @@ class TestJdbcSinkConnector:
         assert "secret123" not in property_bag["connection.url"]
 
 
+class TestClickHouseSinkConnector:
+    """Test the ClickHouse sink connector."""
+
+    def test_clickhouse_sink_parser(self) -> None:
+        """Test parsing ClickHouse sink connector configuration."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            ClickHouseSinkConnector,
+        )
+
+        config = {
+            "name": "clickhouse-sink",
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "clickhouse.example.com",
+            "port": "8123",
+            "database": "analytics",
+            "topics": "events,users",
+        }
+
+        manifest = ConnectorManifest(
+            name="clickhouse-sink",
+            type="sink",
+            config=config,
+            tasks=[],
+        )
+
+        kafka_config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = ClickHouseSinkConnector(manifest, kafka_config, report)
+        parser = connector.get_parser()
+
+        assert parser.hostname == "clickhouse.example.com"
+        assert parser.port == "8123"
+        assert parser.database_name == "analytics"
+        assert parser.target_platform == "clickhouse"
+        assert (
+            parser.db_connection_url
+            == "clickhouse://clickhouse.example.com:8123/analytics"
+        )
+
+    def test_clickhouse_sink_parser_default_port(self) -> None:
+        """Test that default port is used when not specified."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            ClickHouseSinkConnector,
+        )
+
+        config = {
+            "name": "clickhouse-sink",
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "localhost",
+            "database": "mydb",
+            "topics": "test",
+        }
+
+        manifest = ConnectorManifest(
+            name="clickhouse-sink",
+            type="sink",
+            config=config,
+            tasks=[],
+        )
+
+        kafka_config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = ClickHouseSinkConnector(manifest, kafka_config, report)
+        parser = connector.get_parser()
+
+        assert parser.port == "8123"  # Default HTTP port
+
+    def test_clickhouse_sink_parser_missing_required_fields(self) -> None:
+        """Test that parser raises ValueError when required fields are missing."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            ClickHouseSinkConnector,
+        )
+
+        # Missing hostname
+        config = {
+            "name": "clickhouse-sink",
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "database": "mydb",
+            "topics": "test",
+        }
+
+        manifest = ConnectorManifest(
+            name="clickhouse-sink",
+            type="sink",
+            config=config,
+            tasks=[],
+        )
+
+        kafka_config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = ClickHouseSinkConnector(manifest, kafka_config, report)
+
+        with pytest.raises(ValueError, match="Missing 'hostname'"):
+            connector.get_parser()
+
+    def test_clickhouse_sink_lineage_extraction_simple(self) -> None:
+        """Test lineage extraction with simple topic-to-table mapping."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            ClickHouseSinkConnector,
+        )
+
+        config_dict = {
+            "name": "clickhouse-sink",
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "clickhouse.example.com",
+            "port": "8123",
+            "database": "analytics",
+            "topics": "users,orders",
+        }
+
+        manifest = ConnectorManifest(
+            name="clickhouse-sink",
+            type="sink",
+            config=config_dict,
+            tasks=[],
+            topic_names=["users", "orders"],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+
+        # Sort lineages by source dataset for consistent comparison
+        for lineage in lineages:
+            assert lineage.source_dataset is not None
+        sorted_lineages = sorted(lineages, key=lambda x: cast(str, x.source_dataset))
+
+        # Check first lineage (orders)
+        assert sorted_lineages[0].source_dataset == "orders"
+        assert sorted_lineages[0].source_platform == "kafka"
+        assert sorted_lineages[0].target_dataset == "analytics.orders"
+        assert sorted_lineages[0].target_platform == "clickhouse"
+
+        # Check second lineage (users)
+        assert sorted_lineages[1].source_dataset == "users"
+        assert sorted_lineages[1].source_platform == "kafka"
+        assert sorted_lineages[1].target_dataset == "analytics.users"
+        assert sorted_lineages[1].target_platform == "clickhouse"
+
+    def test_clickhouse_sink_lineage_with_transforms(self) -> None:
+        """Test lineage extraction with topic transforms."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            ClickHouseSinkConnector,
+        )
+
+        config_dict = {
+            "name": "clickhouse-sink-transform",
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "localhost",
+            "port": "8123",
+            "database": "events_db",
+            "topics": "prod.events,prod.metrics",
+            "transforms": "stripPrefix",
+            "transforms.stripPrefix.type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "transforms.stripPrefix.regex": "prod\\.(.*)",
+            "transforms.stripPrefix.replacement": "$1",
+        }
+
+        manifest = ConnectorManifest(
+            name="clickhouse-sink-transform",
+            type="sink",
+            config=config_dict,
+            tasks=[],
+            topic_names=["prod.events", "prod.metrics"],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+
+        # Sort lineages by source dataset for consistent comparison
+        for lineage in lineages:
+            assert lineage.source_dataset is not None
+        sorted_lineages = sorted(lineages, key=lambda x: cast(str, x.source_dataset))
+
+        # Original topics should be preserved in source
+        assert sorted_lineages[0].source_dataset == "prod.events"
+        assert sorted_lineages[1].source_dataset == "prod.metrics"
+
+        # Transformed topics should be used for table names (2-tier: database.table)
+        assert sorted_lineages[0].target_dataset == "events_db.events"
+        assert sorted_lineages[1].target_dataset == "events_db.metrics"
+
+    def test_clickhouse_sink_flow_property_bag_sanitization(self) -> None:
+        """Test that sensitive credentials are removed from flow property bag."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            ClickHouseSinkConnector,
+        )
+
+        config_dict = {
+            "name": "clickhouse-sink",
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "clickhouse.example.com",
+            "port": "8123",
+            "database": "mydb",
+            "username": "admin",
+            "password": "secret123",
+            "ssl.keystore.password": "keystorepass",
+            "topics": "test",
+        }
+
+        manifest = ConnectorManifest(
+            name="clickhouse-sink",
+            type="sink",
+            config=config_dict,
+            tasks=[],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+        property_bag = connector.extract_flow_property_bag()
+
+        # Sensitive fields should be removed
+        assert "password" not in property_bag
+        assert "username" not in property_bag
+        assert "ssl.keystore.password" not in property_bag
+
+        # Non-sensitive fields should remain
+        assert property_bag["database"] == "mydb"
+        assert property_bag["port"] == "8123"
+
+        # Connection URL should be present and sanitized
+        assert "connection.url" in property_bag
+        assert "admin" not in property_bag["connection.url"]
+        assert "secret123" not in property_bag["connection.url"]
+        assert (
+            "clickhouse://clickhouse.example.com:8123/mydb"
+            in property_bag["connection.url"]
+        )
+
+    def test_clickhouse_sink_get_platform(self) -> None:
+        """Test that platform is correctly returned as 'clickhouse'."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            ClickHouseSinkConnector,
+        )
+
+        config = {
+            "name": "clickhouse-sink",
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "localhost",
+            "database": "test",
+            "topics": "test",
+        }
+
+        manifest = ConnectorManifest(
+            name="clickhouse-sink",
+            type="sink",
+            config=config,
+            tasks=[],
+        )
+
+        kafka_config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = ClickHouseSinkConnector(manifest, kafka_config, report)
+
+        assert connector.get_platform() == "clickhouse"
+
+    def test_clickhouse_sink_with_topic2table_map(self) -> None:
+        """Test lineage extraction with explicit topic2TableMap configuration."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            ClickHouseSinkConnector,
+        )
+
+        config_dict = {
+            "name": "clickhouse-sink-mapped",
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "clickhouse.prod.com",
+            "port": "8123",
+            "database": "production",
+            "topics": "app.events.deleted,app.events.created,default_topic",
+            "topic2TableMap": "app.events.deleted=events_deleted_stream,app.events.created=events_created_stream",
+        }
+
+        manifest = ConnectorManifest(
+            name="clickhouse-sink-mapped",
+            type="sink",
+            config=config_dict,
+            tasks=[],
+            topic_names=[
+                "app.events.deleted",
+                "app.events.created",
+                "default_topic",
+            ],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 3
+
+        # Sort lineages by source dataset for consistent comparison
+        for lineage in lineages:
+            assert lineage.source_dataset is not None
+        sorted_lineages = sorted(lineages, key=lambda x: cast(str, x.source_dataset))
+
+        # Check first lineage (default_topic) - no explicit mapping, uses topic name
+        assert sorted_lineages[0].source_dataset == "default_topic"
+        assert sorted_lineages[0].source_platform == "kafka"
+        assert sorted_lineages[0].target_dataset == "production.default_topic"
+        assert sorted_lineages[0].target_platform == "clickhouse"
+
+        # Check second lineage (app.events.created) - has explicit mapping
+        assert sorted_lineages[1].source_dataset == "app.events.created"
+        assert sorted_lineages[1].source_platform == "kafka"
+        assert sorted_lineages[1].target_dataset == "production.events_created_stream"
+        assert sorted_lineages[1].target_platform == "clickhouse"
+
+        # Check third lineage (app.events.deleted) - has explicit mapping
+        assert sorted_lineages[2].source_dataset == "app.events.deleted"
+        assert sorted_lineages[2].source_platform == "kafka"
+        assert sorted_lineages[2].target_dataset == "production.events_deleted_stream"
+        assert sorted_lineages[2].target_platform == "clickhouse"
+
+    def test_clickhouse_sink_topic2table_map_parsing(self) -> None:
+        """Test that topic2TableMap is correctly parsed."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            ClickHouseSinkConnector,
+        )
+
+        config = {
+            "name": "clickhouse-sink",
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "localhost",
+            "database": "test",
+            "topics": "topic1,topic2,topic3",
+            "topic2TableMap": "topic1=table_one,topic2=table_two",
+        }
+
+        manifest = ConnectorManifest(
+            name="clickhouse-sink",
+            type="sink",
+            config=config,
+            tasks=[],
+        )
+
+        kafka_config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = ClickHouseSinkConnector(manifest, kafka_config, report)
+        parser = connector.get_parser()
+
+        # Check that topic_to_table_map was parsed correctly
+        assert len(parser.topic_to_table_map) == 2
+        assert parser.topic_to_table_map["topic1"] == "table_one"
+        assert parser.topic_to_table_map["topic2"] == "table_two"
+        assert "topic3" not in parser.topic_to_table_map
+
+    def test_clickhouse_sink_topic2table_map_with_transforms(self) -> None:
+        """Test that topic2TableMap works with transforms - mappings apply to transformed topics."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            ClickHouseSinkConnector,
+        )
+
+        config_dict = {
+            "name": "clickhouse-sink-mapped-transformed",
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "localhost",
+            "port": "8123",
+            "database": "mydb",
+            "topics": "prod.events,prod.logs",
+            "topic2TableMap": "events=events_table,logs=logs_table",
+            "transforms": "stripPrefix",
+            "transforms.stripPrefix.type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "transforms.stripPrefix.regex": "prod\\.(.*)",
+            "transforms.stripPrefix.replacement": "$1",
+        }
+
+        manifest = ConnectorManifest(
+            name="clickhouse-sink-mapped-transformed",
+            type="sink",
+            config=config_dict,
+            tasks=[],
+            topic_names=["prod.events", "prod.logs"],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+
+        # Sort lineages by source dataset
+        for lineage in lineages:
+            assert lineage.source_dataset is not None
+        sorted_lineages = sorted(lineages, key=lambda x: cast(str, x.source_dataset))
+
+        # Original topics preserved in source, but transformed topics used for table mapping
+        assert sorted_lineages[0].source_dataset == "prod.events"
+        assert sorted_lineages[0].target_dataset == "mydb.events_table"
+
+        assert sorted_lineages[1].source_dataset == "prod.logs"
+        assert sorted_lineages[1].target_dataset == "mydb.logs_table"
+
+
 class TestConfluentCloudConnectorManifest:
     """Test Confluent Cloud connector manifest handling."""
 
