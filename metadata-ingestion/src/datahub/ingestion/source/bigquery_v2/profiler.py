@@ -228,7 +228,14 @@ WHERE
         )
 
         # For partitioned tables, if it has a row count but not a valid partition, that means something went wrong with the partition detection.
-        if partition is None and bq_table.partition_info and bq_table.rows_count:
+        # However, if it's a pseudo-partition (column=None), we should allow profiling to proceed
+        if (
+            partition is None
+            and bq_table.partition_info
+            and bq_table.rows_count
+            and bq_table.partition_info.column
+            is not None  # Only skip if it's a real partitioned column, not a pseudo-partition
+        ):
             self.report.report_warning(
                 title="Profile skipped for partitioned table",
                 message="profile skipped as partition id or type was invalid",
