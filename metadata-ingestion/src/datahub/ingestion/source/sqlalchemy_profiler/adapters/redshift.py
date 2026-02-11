@@ -90,15 +90,21 @@ class RedshiftAdapter(PlatformAdapter):
 
         Redshift supports PERCENTILE_CONT which can compute the median (0.5 percentile).
 
+        Note: Using literal_column with label to ensure proper column metadata
+        for query combiner compatibility.
+
         Args:
             column: Column name (from database schema, already validated)
 
         Returns:
             SQLAlchemy expression for PERCENTILE_CONT(0.5)
         """
-        # Use PERCENTILE_CONT which is supported in Redshift
-        # Column name is from database schema (validated), not user input
-        return sa.text(f"PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {column})")
+        # Use literal_column with label() to preserve column metadata
+        # which is needed for the query combiner to work correctly.
+        # sa.text() doesn't provide column metadata, causing empty result rows.
+        return sa.literal_column(
+            f"PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {column})"
+        ).label("median")
 
     def get_mean_expr(self, column: str) -> Any:
         """

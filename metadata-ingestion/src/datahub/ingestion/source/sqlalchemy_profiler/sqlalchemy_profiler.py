@@ -479,12 +479,22 @@ class SQLAlchemyProfiler:
         if str(sqlalchemy_type) == "NULL":
             return True
 
+        # Get type name - prefer class name over string representation
+        # Class name is more reliable (e.g., "GEOGRAPHY" vs "geography")
+        type_name = type(sqlalchemy_type).__name__
+
+        # Normalize the type string from str() representation
         sql_type = str(sqlalchemy_type)
         match = re.match(NORMALIZE_TYPE_PATTERN, sql_type)
         if match:
             sql_type = match.group(1)
 
-        return sql_type in _get_column_types_to_ignore(self.platform)
+        # Check both type class name and string representation (case-insensitive)
+        # Some dialects return lowercase (e.g., BigQuery GEOGRAPHY returns "geography")
+        types_to_ignore = _get_column_types_to_ignore(self.platform)
+        return (
+            type_name.upper() in types_to_ignore or sql_type.upper() in types_to_ignore
+        )
 
     def generate_profiles(
         self,
@@ -623,7 +633,9 @@ class SQLAlchemyProfiler:
                         context = adapter.setup_profiling(context, conn)
                     except Exception as e:
                         logger.warning(
-                            f"Failed to setup profiling for {pretty_name}: {e}"
+                            f"Failed to setup profiling for {pretty_name}: "
+                            f"{type(e).__name__}: {str(e)}",
+                            exc_info=True,
                         )
                         if not self.config.catch_exceptions:
                             raise
@@ -1109,6 +1121,10 @@ class SQLAlchemyProfiler:
                                     col_name,
                                     [0.05, 0.25, 0.5, 0.75, 0.95],
                                 )
+                                logger.debug(
+                                    f"Quantiles for {col_name}: type={type(quantiles)}, "
+                                    f"len={len(quantiles) if quantiles else 0}, value={quantiles}"
+                                )
                                 column_profile.quantiles = [
                                     QuantileClass(quantile=str(q), value=str(v))
                                     for q, v in zip(
@@ -1331,6 +1347,12 @@ class SQLAlchemyProfiler:
                 # Unexpected errors - only catch if catch_exceptions is True
                 if not self.config.catch_exceptions:
                     raise
+
+                # Log full details for debugging
+                logger.error(
+                    f"Profiling error for {pretty_name}: {type(e).__name__}: {str(e)}",
+                    exc_info=True,
+                )
 
                 self.report.warning(
                     title="Unexpected error during profiling",

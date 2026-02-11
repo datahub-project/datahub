@@ -137,11 +137,19 @@ def should_profile_column(
 
 
 def _get_column_types_to_ignore(dialect_name: str) -> list[str]:
-    """Get list of column types to ignore for profiling."""
+    """
+    Get list of column types to ignore for profiling.
+
+    Returns uppercase type names for case-insensitive matching.
+    """
     dialect_lower = dialect_name.lower()
     if dialect_lower == "postgresql":
         return ["JSON"]
     elif dialect_lower == "bigquery":
-        return ["ARRAY", "STRUCT", "GEOGRAPHY", "JSON"]
+        # GEOGRAPHY doesn't support aggregate functions like APPROX_COUNT_DISTINCT
+        return ["ARRAY", "STRUCT", "GEOGRAPHY", "JSON", "INTERVAL"]
+    elif dialect_lower == "snowflake":
+        # GEOGRAPHY was also skipped in GE profiler by registering as NullType
+        return ["GEOGRAPHY"]
 
     return []

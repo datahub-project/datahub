@@ -79,37 +79,84 @@ class SnowflakeAdapter(PlatformAdapter):
         self, schema: Optional[str], table: str, autoload_with: Optional[Any] = None
     ) -> "sa.Table":
         """
-        Create SQLAlchemy Table object for Snowflake with proper identifier quoting.
+        Create SQLAlchemy Table object for Snowflake with proper identifier handling.
 
-        Snowflake has case-sensitive identifiers when quoted. To handle tables created
-        with quotes (e.g., CREATE TABLE "lcase_table" ...), we must preserve the exact
-        case from metadata by quoting all identifiers.
+        Snowflake identifier behavior:
+        - Unquoted identifiers are case-insensitive and stored as UPPERCASE
+        - Quoted identifiers are case-sensitive and stored with exact case
+        - The Snowflake source connector may lowercase identifiers for URN generation
 
-        Without quotes:
-            SELECT * FROM PUBLIC.lcase_table
-            -> Snowflake uppercases: PUBLIC.LCASE_TABLE (may not exist)
-
-        With quotes:
-            SELECT * FROM "PUBLIC"."lcase_table"
-            -> Snowflake uses exact case: PUBLIC.lcase_table (correct)
+        Strategy - try in this order based on table name pattern:
+        1. If table has lowercase chars -> Try WITH quoting first
+           - Lowercase suggests table was created with quotes: "lcase_table"
+           - Quoting preserves exact case needed to find these tables
+        2. If that fails OR table is all uppercase -> Try WITHOUT quoting
+           - Standard Snowflake tables are stored as UPPERCASE
+           - Unquoted reflection lets Snowflake auto-uppercase: errortypes -> ERRORTYPES
 
         Args:
-            schema: Schema name (preserve case from metadata, optional)
-            table: Table name (preserve case from metadata)
+            schema: Schema name from metadata (may be lowercase if convert_urns_to_lowercase=True)
+            table: Table name from metadata (may be lowercase if convert_urns_to_lowercase=True)
             autoload_with: Engine or Connection for metadata reflection (optional)
 
         Returns:
-            SQLAlchemy Table object with quoted identifiers
+            SQLAlchemy Table object
+
+        Raises:
+            NoSuchTableError: If table cannot be found with either approach
         """
         metadata = sa.MetaData()
-        return sa.Table(
-            table,
-            metadata,
-            schema=schema,
-            autoload_with=autoload_with or self.base_engine,
-            quote=True,  # Quote table name to preserve case
-            quote_schema=bool(schema),  # Quote schema name to preserve case
-        )
+        engine = autoload_with or self.base_engine
+
+        # Determine if table name suggests it was created with quotes
+        # Mixed case or lowercase letters indicate quoted creation
+        has_lowercase = any(c.islower() for c in table)
+        has_lowercase_schema = schema and any(c.islower() for c in schema)
+
+        # Try quoted first if name has lowercase (likely created with quotes)
+        if has_lowercase or has_lowercase_schema:
+            try:
+                return sa.Table(
+                    table,
+                    metadata,
+                    schema=schema,
+                    autoload_with=engine,
+                    quote=True,
+                    quote_schema=bool(schema),
+                )
+            except Exception as e:
+                logger.debug(
+                    f"Failed to reflect {schema}.{table} with quoting, "
+                    f"trying without quotes: {e}"
+                )
+
+        # Try unquoted (standard Snowflake - auto-uppercase)
+        try:
+            return sa.Table(
+                table,
+                metadata,
+                schema=schema,
+                autoload_with=engine,
+                quote=False,
+                quote_schema=False,
+            )
+        except Exception as e:
+            # If unquoted failed and we haven't tried quoted yet, try it now
+            if not (has_lowercase or has_lowercase_schema):
+                logger.debug(
+                    f"Failed to reflect {schema}.{table} without quoting, "
+                    f"trying with quotes: {e}"
+                )
+                return sa.Table(
+                    table,
+                    metadata,
+                    schema=schema,
+                    autoload_with=engine,
+                    quote=True,
+                    quote_schema=bool(schema),
+                )
+            # Already tried both, re-raise
+            raise
 
     # =========================================================================
     # SQL Expression Builders
