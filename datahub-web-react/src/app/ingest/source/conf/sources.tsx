@@ -6,6 +6,7 @@ import azureAdConfig from '@app/ingest/source/conf/azure/azure';
 import bigqueryConfig from '@app/ingest/source/conf/bigquery/bigquery';
 import csvConfig from '@app/ingest/source/conf/csv/csv';
 import glueConfig from '@app/ingest/source/conf/glue/glue';
+import hbaseConfig from '@app/ingest/source/conf/hbase/hbase';
 import hiveConfig from '@app/ingest/source/conf/hive/hive';
 import kafkaConfig from '@app/ingest/source/conf/kafka/kafka';
 import lookerConfig from '@app/ingest/source/conf/looker/looker';
@@ -49,6 +50,7 @@ export const SOURCE_TEMPLATE_CONFIGS: Array<SourceConfig> = [
     oktaConfig,
     glueConfig,
     oracleConfig,
+    hbaseConfig,
     hiveConfig,
     csvConfig,
     sacConfig,

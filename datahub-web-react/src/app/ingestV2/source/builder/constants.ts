@@ -20,6 +20,7 @@ import fabricOnelakeLogo from '@images/fabriconelakelogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
 import glueLogo from '@images/gluelogo.png';
+import hbaseLogo from '@images/hbaselogo.png';
 import grafanaLogo from '@images/grafana.png';
 import hexLogo from '@images/hex.png';
 import hiveLogo from '@images/hivelogo.png';
@@ -92,6 +93,8 @@ export const GRAFANA = 'grafana';
 export const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
 export const GLUE = 'glue';
 export const GLUE_URN = `urn:li:dataPlatform:${GLUE}`;
+export const HBASE = 'hbase';
+export const HBASE_URN = `urn:li:dataPlatform:${HBASE}`;
 export const HEX = 'hex';
 export const HEX_URN = `urn:li:dataPlatform:${HEX}`;
 export const HIVE = 'hive';
@@ -208,6 +211,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [FEAST_URN]: feastLogo,
     [GRAFANA_URN]: grafanaLogo,
     [GLUE_URN]: glueLogo,
+    [HBASE_URN]: hbaseLogo,
     [HEX_URN]: hexLogo,
     [HIVE_URN]: hiveLogo,
     [ICEBERG_URN]: icebergLogo,
