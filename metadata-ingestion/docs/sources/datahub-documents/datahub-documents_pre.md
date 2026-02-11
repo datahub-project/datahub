@@ -83,7 +83,7 @@ The source **automatically fetches embedding configuration from your DataHub ser
 
 **You MUST configure semantic search on your DataHub server before using this source.**
 
-See the [Semantic Search Configuration Guide](../../../how-to/semantic-search-configuration.md) for complete setup instructions.
+See the [Semantic Search Configuration Guide](/docs/how-to/semantic-search-configuration) for complete setup instructions.
 
 Required server configuration:
 
@@ -541,7 +541,7 @@ Look for these log messages:
 **Solution:**
 
 1. Configure semantic search on your DataHub server first
-2. See [Semantic Search Configuration Guide](../../../how-to/semantic-search-configuration.md)
+2. See [Semantic Search Configuration Guide](/docs/how-to/semantic-search-configuration)
 3. Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` in server config
 
 ### Issue: "Server does not support semantic search configuration API"
@@ -735,7 +735,7 @@ As of December 2024 in us-west-2:
 
 ## Related Documentation
 
-- [Semantic Search Configuration](../../../how-to/semantic-search-configuration.md) - **Start Here**
+- [Semantic Search Configuration](/docs/how-to/semantic-search-configuration) - **Start Here**
 - [Notion Source](/docs/generated/ingestion/sources/notion) - Example document source with embeddings
 - [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/embeddings.html) - Embedding models
 - [AWS Bedrock Pricing](https://aws.amazon.com/bedrock/pricing/) - Cost estimation
