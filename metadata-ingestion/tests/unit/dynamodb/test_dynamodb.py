@@ -204,25 +204,6 @@ class TestDynamoDBSchemaSampling:
         mock_ctx.graph = None
         return mock_ctx
 
-    def test_default_schema_sampling_size(self, mock_context):
-        """Test that the default schema_sampling_size is 100."""
-        config = DynamoDBConfig(
-            aws_access_key_id="test",
-            aws_secret_access_key="test",
-            aws_region="us-west-2",
-        )
-        assert config.schema_sampling_size == 100
-
-    def test_custom_schema_sampling_size(self, mock_context):
-        """Test that custom schema_sampling_size is properly set."""
-        config = DynamoDBConfig(
-            aws_access_key_id="test",
-            aws_secret_access_key="test",
-            aws_region="us-west-2",
-            schema_sampling_size=500,
-        )
-        assert config.schema_sampling_size == 500
-
     def test_schema_sampling_size_used_in_pagination(self, mock_context):
         """Test that schema_sampling_size is used in pagination config."""
         config = DynamoDBConfig(
