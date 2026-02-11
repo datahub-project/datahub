@@ -154,11 +154,11 @@
                             "primary_key": "col_Int64",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2024-08-20 14:33:09",
+                            "metadata_modification_time": "2026-02-04 07:13:22",
                             "total_rows": "10",
                             "total_bytes": "671",
-                            "data_paths": "['/var/lib/clickhouse/store/8c1/8c16d9dc-9307-47c4-ba53-6f39f6823f25/']",
-                            "metadata_path": "/var/lib/clickhouse/store/377/37707827-6df2-4c53-b8f6-26b7346f8416/mv_target_table.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/2a8/2a87d13f-2e1e-46b5-93e2-5af7c38fd563/']",
+                            "metadata_path": "/var/lib/clickhouse/store/cf2/cf2c11fc-4251-44fa-bd83-43ecf7836480/mv_target_table.sql"
                         },
                         "name": "mv_target_table",
                         "description": "This is target table for materialized view",
@@ -357,11 +357,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2024-08-20 14:33:09",
+                            "metadata_modification_time": "2026-02-04 07:13:22",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/23a/23a3e7b9-bfb5-4f65-bba2-adc249615387/']",
-                            "metadata_path": "/var/lib/clickhouse/store/377/37707827-6df2-4c53-b8f6-26b7346f8416/test_data_types.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/8dd/8ddc775a-3312-40b6-a26f-e05d42710027/']",
+                            "metadata_path": "/var/lib/clickhouse/store/cf2/cf2c11fc-4251-44fa-bd83-43ecf7836480/test_data_types.sql"
                         },
                         "name": "test_data_types",
                         "description": "This table has basic types",
@@ -1014,11 +1014,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2024-08-20 14:33:09",
+                            "metadata_modification_time": "2026-02-04 07:13:22",
                             "total_rows": "None",
                             "total_bytes": "None",
                             "data_paths": "[]",
-                            "metadata_path": "/var/lib/clickhouse/store/377/37707827-6df2-4c53-b8f6-26b7346f8416/test_dict.sql"
+                            "metadata_path": "/var/lib/clickhouse/store/cf2/cf2c11fc-4251-44fa-bd83-43ecf7836480/test_dict.sql"
                         },
                         "name": "test_dict",
                         "description": "",
@@ -1178,11 +1178,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2024-08-20 14:33:09",
+                            "metadata_modification_time": "2026-02-04 07:13:22",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/c7b/c7ba2e57-f123-4e22-ac9d-803ddb00de77/']",
-                            "metadata_path": "/var/lib/clickhouse/store/377/37707827-6df2-4c53-b8f6-26b7346f8416/test_nested_data_types.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/b09/b09cc0f6-ebc2-4aac-bc6a-50eab7c70fa6/']",
+                            "metadata_path": "/var/lib/clickhouse/store/cf2/cf2c11fc-4251-44fa-bd83-43ecf7836480/test_nested_data_types.sql"
                         },
                         "name": "test_nested_data_types",
                         "description": "This table has nested types",
@@ -1471,13 +1471,13 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2024-08-20 14:33:09",
+                            "metadata_modification_time": "2026-02-04 07:13:22",
                             "total_rows": "None",
                             "total_bytes": "None",
-                            "data_paths": "['/var/lib/clickhouse/store/8c1/8c16d9dc-9307-47c4-ba53-6f39f6823f25/']",
-                            "metadata_path": "/var/lib/clickhouse/store/377/37707827-6df2-4c53-b8f6-26b7346f8416/mv_with_target_table.sql",
-                            "view_definition": "",
-                            "is_view": "True"
+                            "data_paths": "['/var/lib/clickhouse/store/2a8/2a87d13f-2e1e-46b5-93e2-5af7c38fd563/']",
+                            "metadata_path": "/var/lib/clickhouse/store/cf2/cf2c11fc-4251-44fa-bd83-43ecf7836480/mv_with_target_table.sql",
+                            "is_view": "True",
+                            "view_definition": "CREATE MATERIALIZED VIEW db1.mv_with_target_table TO db1.mv_target_table (`col_DateTime` DateTime, `col_Int64` Int64, `col_Float64` Float64, `col_Decimal64` Decimal(18, 5), `col_String` String) AS SELECT col_DateTime, col_Int64, col_Float64, col_Decimal64, col_String FROM db1.test_data_types"
                         },
                         "name": "mv_with_target_table",
                         "description": "",
@@ -1624,7 +1624,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "",
+            "viewLogic": "CREATE MATERIALIZED VIEW db1.mv_with_target_table TO db1.mv_target_table (`col_DateTime` DateTime, `col_Int64` Int64, `col_Float64` Float64, `col_Decimal64` Decimal(18, 5), `col_String` String) AS SELECT col_DateTime, col_Int64, col_Float64, col_Decimal64, col_String FROM db1.test_data_types",
             "viewLanguage": "SQL"
         }
     },
@@ -1719,13 +1719,13 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2024-08-20 14:33:09",
+                            "metadata_modification_time": "2026-02-04 07:13:22",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/c17/c17e750d-fa54-4e86-aeec-bfd392b07d71/']",
-                            "metadata_path": "/var/lib/clickhouse/store/377/37707827-6df2-4c53-b8f6-26b7346f8416/mv_without_target_table.sql",
-                            "view_definition": "",
-                            "is_view": "True"
+                            "data_paths": "['/var/lib/clickhouse/store/2c6/2c69bc5f-c490-41bc-8c7c-62a3cc32ac22/']",
+                            "metadata_path": "/var/lib/clickhouse/store/cf2/cf2c11fc-4251-44fa-bd83-43ecf7836480/mv_without_target_table.sql",
+                            "is_view": "True",
+                            "view_definition": "CREATE MATERIALIZED VIEW db1.mv_without_target_table (`col_ArrayArrayInt` Array(Array(Int8)), `col_LowCardinality` LowCardinality(String), `col_Nullable` Nullable(Int8), `col_Array_Nullable_String` Array(Nullable(String)), `col_LowCardinality_Nullable_String` LowCardinality(Nullable(String))) ENGINE = MergeTree PRIMARY KEY tuple() ORDER BY tuple() SETTINGS index_granularity = 8192 AS SELECT col_ArrayArrayInt, col_LowCardinality, col_Nullable, col_Array_Nullable_String, col_LowCardinality_Nullable_String FROM db1.test_nested_data_types"
                         },
                         "name": "mv_without_target_table",
                         "description": "",
@@ -1872,7 +1872,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "",
+            "viewLogic": "CREATE MATERIALIZED VIEW db1.mv_without_target_table (`col_ArrayArrayInt` Array(Array(Int8)), `col_LowCardinality` LowCardinality(String), `col_Nullable` Nullable(Int8), `col_Array_Nullable_String` Array(Nullable(String)), `col_LowCardinality_Nullable_String` LowCardinality(Nullable(String))) ENGINE = MergeTree PRIMARY KEY tuple() ORDER BY tuple() SETTINGS index_granularity = 8192 AS SELECT col_ArrayArrayInt, col_LowCardinality, col_Nullable, col_Array_Nullable_String, col_LowCardinality_Nullable_String FROM db1.test_nested_data_types",
             "viewLanguage": "SQL"
         }
     },
@@ -1967,13 +1967,13 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2024-08-20 14:33:09",
+                            "metadata_modification_time": "2026-02-04 07:13:22",
                             "total_rows": "None",
                             "total_bytes": "None",
                             "data_paths": "[]",
-                            "metadata_path": "/var/lib/clickhouse/store/377/37707827-6df2-4c53-b8f6-26b7346f8416/test_view.sql",
-                            "view_definition": "",
-                            "is_view": "True"
+                            "metadata_path": "/var/lib/clickhouse/store/cf2/cf2c11fc-4251-44fa-bd83-43ecf7836480/test_view.sql",
+                            "is_view": "True",
+                            "view_definition": "CREATE VIEW db1.test_view (`col_String` String) AS SELECT dictGetOrDefault('db1.test_dict', 'col_String', toUInt64(123), 'na') AS col_String"
                         },
                         "name": "test_view",
                         "description": "",
@@ -2068,7 +2068,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "",
+            "viewLogic": "CREATE VIEW db1.test_view (`col_String` String) AS SELECT dictGetOrDefault('db1.test_dict', 'col_String', toUInt64(123), 'na') AS col_String",
             "viewLanguage": "SQL"
         }
     },
@@ -2095,6 +2095,495 @@
                     "urn": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
+                    "type": "VIEW",
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD),col_DateTime)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_DateTime)"
+                    ],
+                    "transformOperation": "COPY: \"test_data_types\".\"col_DateTime\" AS \"col_DateTime\"",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD),col_DateTime)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_DateTime)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD),col_Int64)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_Int64)"
+                    ],
+                    "transformOperation": "COPY: \"test_data_types\".\"col_Int64\" AS \"col_Int64\"",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD),col_Int64)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_Int64)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD),col_Float64)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_Float64)"
+                    ],
+                    "transformOperation": "COPY: \"test_data_types\".\"col_Float64\" AS \"col_Float64\"",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD),col_Float64)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_Float64)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD),col_Decimal64)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_Decimal64)"
+                    ],
+                    "transformOperation": "COPY: \"test_data_types\".\"col_Decimal64\" AS \"col_Decimal64\"",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD),col_Decimal64)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_Decimal64)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD),col_String)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_String)"
+                    ],
+                    "transformOperation": "COPY: \"test_data_types\".\"col_String\" AS \"col_String\"",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD),col_String)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_String)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "CREATE MATERIALIZED VIEW db1.mv_with_target_table\nTO db1.mv_target_table\n(\n  \"col_DateTime\" DateTime,\n  \"col_Int64\" Int64,\n  \"col_Float64\" Float64,\n  \"col_Decimal64\" Decimal(18, 5),\n  \"col_String\" String\n) AS\nSELECT\n  col_DateTime,\n  col_Int64,\n  col_Float64,\n  col_Decimal64,\n  col_String\nFROM db1.test_data_types",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD),col_DateTime)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD),col_Decimal64)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD),col_Float64)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD),col_Int64)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD),col_String)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_DateTime)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_Int64)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_Float64)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_Decimal64)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD),col_String)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:clickhouse"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)",
+                    "type": "VIEW",
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD),col_ArrayArrayInt)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD),col_ArrayArrayInt)"
+                    ],
+                    "transformOperation": "COPY: \"test_nested_data_types\".\"col_ArrayArrayInt\" AS \"col_ArrayArrayInt\"",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD),col_LowCardinality)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD),col_LowCardinality)"
+                    ],
+                    "transformOperation": "COPY: \"test_nested_data_types\".\"col_LowCardinality\" AS \"col_LowCardinality\"",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD),col_Nullable)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD),col_Nullable)"
+                    ],
+                    "transformOperation": "COPY: \"test_nested_data_types\".\"col_Nullable\" AS \"col_Nullable\"",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD),col_Array_Nullable_String)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD),col_Array_Nullable_String)"
+                    ],
+                    "transformOperation": "COPY: \"test_nested_data_types\".\"col_Array_Nullable_String\" AS \"col_Array_Nullable_String\"",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD),col_LowCardinality_Nullable_String)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD),col_LowCardinality_Nullable_String)"
+                    ],
+                    "transformOperation": "COPY: \"test_nested_data_types\".\"col_LowCardinality_Nullable_String\" AS \"col_LowCardinality_Nullable_String\"",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "CREATE MATERIALIZED VIEW db1.mv_without_target_table (\n  \"col_ArrayArrayInt\" Array(Array(Int8)),\n  \"col_LowCardinality\" LowCardinality(String),\n  \"col_Nullable\" Nullable(Int8),\n  \"col_Array_Nullable_String\" Array(Nullable(String)),\n  \"col_LowCardinality_Nullable_String\" LowCardinality(Nullable(String))\n)\nENGINE=MergeTree\nPRIMARY KEY (tuple())\nORDER BY tuple()\nSETTINGS\n  index_granularity = 8192 AS\nSELECT\n  col_ArrayArrayInt,\n  col_LowCardinality,\n  col_Nullable,\n  col_Array_Nullable_String,\n  col_LowCardinality_Nullable_String\nFROM db1.test_nested_data_types",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD),col_ArrayArrayInt)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD),col_Array_Nullable_String)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD),col_LowCardinality)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD),col_LowCardinality_Nullable_String)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD),col_Nullable)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD),col_ArrayArrayInt)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD),col_LowCardinality)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD),col_Nullable)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD),col_Array_Nullable_String)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD),col_LowCardinality_Nullable_String)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:clickhouse"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_target_table%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aclickhouse%2Cclickhousetestserver.db1.mv_without_target_table%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {

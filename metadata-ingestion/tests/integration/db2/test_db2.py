@@ -1,5 +1,6 @@
 import logging
 import os
+import platform
 import subprocess
 
 import pytest
@@ -94,6 +95,10 @@ def db2_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     ],
 )
 @pytest.mark.integration
+@pytest.mark.skipif(
+    not (platform.machine() == "x86_64" or platform.system() == "Darwin"),
+    reason="ibm_db is not available for Linux ARM",
+)
 def test_db2_ingest(
     db2_runner,
     config_filename,

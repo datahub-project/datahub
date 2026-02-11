@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, TypedDict, Union
 from unittest import mock
 
@@ -12,8 +12,11 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt import dbt_cloud
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
+    DBTEntitiesEnabled,
+    DBTExposure,
     DBTNode,
     DBTSourceReport,
+    EmitDirective,
     NullTypeClass,
     get_column_type,
     parse_semantic_view_cll,
@@ -21,10 +24,23 @@ from datahub.ingestion.source.dbt.dbt_common import (
 from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
+    extract_dbt_exposures,
     parse_dbt_timestamp,
 )
+from datahub.ingestion.source.dbt.dbt_tests import (
+    DBTFreshnessCriteria,
+    DBTFreshnessInfo,
+    make_assertion_from_freshness,
+    make_assertion_result_from_freshness,
+)
 from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionResultTypeClass,
+    AssertionRunEventClass,
+    AssertionTypeClass,
+    CustomAssertionInfoClass,
     OwnerClass,
+    OwnershipClass,
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
@@ -1697,3 +1713,432 @@ def test_semantic_view_cll_empty_results() -> None:
 
     # Should return empty set when no patterns match
     assert len(cll_info) == 0
+
+
+def test_make_assertion_from_freshness() -> None:
+    node = DBTNode(
+        database="raw_db",
+        schema="raw",
+        name="users",
+        alias="users",
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="source.test.raw.users",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="source",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    node.freshness_info = DBTFreshnessInfo(
+        invocation_id="test-123",
+        status="pass",
+        max_loaded_at=datetime(2026, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
+        snapshotted_at=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
+        max_loaded_at_time_ago_in_s=7200.0,
+        warn_after=DBTFreshnessCriteria(count=12, period="hour"),
+        error_after=DBTFreshnessCriteria(count=24, period="hour"),
+    )
+
+    mcp = make_assertion_from_freshness(
+        {}, node, "urn:li:assertion:test", "urn:li:dataset:test"
+    )
+
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionInfoClass)
+    assert mcp.aspect.type == AssertionTypeClass.CUSTOM
+    assert mcp.aspect.customAssertion is not None
+    assert isinstance(mcp.aspect.customAssertion, CustomAssertionInfoClass)
+    assert mcp.aspect.customAssertion.type == "Freshness"
+    assert mcp.aspect.customAssertion.entity == "urn:li:dataset:test"
+    assert mcp.aspect.customProperties is not None
+    assert mcp.aspect.customProperties.get("error_after_count") == "24"
+    assert mcp.aspect.customProperties.get("warn_after_count") == "12"
+
+
+@pytest.mark.parametrize(
+    ("status", "warnings_are_errors", "expected_success"),
+    [
+        ("pass", False, True),
+        ("warn", False, True),
+        ("warn", True, False),
+        ("error", False, False),
+    ],
+)
+def test_make_assertion_result_from_freshness(
+    status: str, warnings_are_errors: bool, expected_success: bool
+) -> None:
+    node = DBTNode(
+        database="raw_db",
+        schema="raw",
+        name="users",
+        alias="users",
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="source.test.raw.users",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="source",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    node.freshness_info = DBTFreshnessInfo(
+        invocation_id="test-123",
+        status=status,
+        max_loaded_at=datetime(2026, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
+        snapshotted_at=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
+        max_loaded_at_time_ago_in_s=7200.0,
+        warn_after=DBTFreshnessCriteria(count=12, period="hour"),
+        error_after=DBTFreshnessCriteria(count=24, period="hour"),
+    )
+
+    mcp = make_assertion_result_from_freshness(
+        node, "urn:li:assertion:test", "urn:li:dataset:test", warnings_are_errors
+    )
+
+    expected = (
+        AssertionResultTypeClass.SUCCESS
+        if expected_success
+        else AssertionResultTypeClass.FAILURE
+    )
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionRunEventClass)
+    assert mcp.aspect.result is not None
+    assert mcp.aspect.result.type == expected
+
+
+def test_extract_dbt_exposures_basic():
+    manifest_exposures: Dict[str, Any] = {
+        "exposure.my_project.weekly_dashboard": {
+            "name": "weekly_dashboard",
+            "type": "dashboard",
+            "owner": {"name": "Analytics Team", "email": "analytics@company.com"},
+            "description": "Weekly metrics dashboard",
+            "url": "https://looker.company.com/dashboards/42",
+            "maturity": "high",
+            "depends_on": {
+                "nodes": ["model.my_project.orders", "model.my_project.customers"],
+                "macros": [],
+            },
+            "tags": ["executive", "weekly"],
+            "meta": {"team": "analytics", "priority": "P1"},
+            "package_name": "my_project",
+            "original_file_path": "models/exposures.yml",
+        }
+    }
+
+    exposures = extract_dbt_exposures(manifest_exposures, tag_prefix="dbt:")
+
+    assert len(exposures) == 1
+    exp = exposures[0]
+    assert exp.name == "weekly_dashboard"
+    assert exp.unique_id == "exposure.my_project.weekly_dashboard"
+    assert exp.type == "dashboard"
+    assert exp.owner_name == "Analytics Team"
+    assert exp.owner_email == "analytics@company.com"
+    assert exp.description == "Weekly metrics dashboard"
+    assert exp.url == "https://looker.company.com/dashboards/42"
+    assert exp.maturity == "high"
+    assert exp.depends_on == [
+        "model.my_project.orders",
+        "model.my_project.customers",
+    ]
+    assert exp.tags == ["dbt:executive", "dbt:weekly"]
+    assert exp.meta == {"team": "analytics", "priority": "P1"}
+    assert exp.dbt_package_name == "my_project"
+    assert exp.dbt_file_path == "models/exposures.yml"
+
+
+def test_extract_dbt_exposures_minimal():
+    manifest_exposures: Dict[str, Any] = {
+        "exposure.my_project.simple_exposure": {
+            "name": "simple_exposure",
+            "type": "notebook",
+        }
+    }
+
+    exposures = extract_dbt_exposures(manifest_exposures, tag_prefix="")
+
+    assert len(exposures) == 1
+    exp = exposures[0]
+    assert exp.name == "simple_exposure"
+    assert exp.type == "notebook"
+    assert exp.owner_name is None
+    assert exp.owner_email is None
+    assert exp.description is None
+    assert exp.depends_on == []
+    assert exp.tags == []
+
+
+def test_dbt_exposure_get_urn():
+    exposure = DBTExposure(
+        name="weekly_dashboard",
+        unique_id="exposure.my_project.weekly_dashboard",
+        type="dashboard",
+    )
+
+    urn = exposure.get_urn(platform_instance=None)
+    assert urn == "urn:li:dashboard:(dbt,exposure.my_project.weekly_dashboard)"
+
+
+def test_dbt_exposure_get_urn_with_platform_instance():
+    exposure = DBTExposure(
+        name="weekly_dashboard",
+        unique_id="exposure.my_project.weekly_dashboard",
+        type="dashboard",
+    )
+
+    urn = exposure.get_urn(platform_instance="my_instance")
+    assert (
+        urn == "urn:li:dashboard:(dbt,my_instance.exposure.my_project.weekly_dashboard)"
+    )
+
+
+def test_dbt_entities_enabled_exposures_default():
+    config = DBTEntitiesEnabled()
+    assert config.exposures == EmitDirective.YES
+    assert config.can_emit_exposures is True
+
+
+def test_dbt_cloud_parse_into_dbt_exposure():
+    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
+
+    # Mock exposure data from dbt Cloud GraphQL API
+    raw_exposure = {
+        "name": "weekly_dashboard",
+        "uniqueId": "exposure.my_project.weekly_dashboard",
+        "exposureType": "dashboard",
+        "ownerName": "Analytics Team",
+        "ownerEmail": "analytics@company.com",
+        "description": "Weekly metrics dashboard",
+        "url": "https://looker.company.com/dashboards/42",
+        "maturity": "high",
+        "dependsOn": ["model.my_project.orders", "model.my_project.customers"],
+        "tags": ["executive", "weekly"],
+        "meta": {"team": "analytics"},
+        "packageName": "my_project",
+    }
+
+    # Create a mock source with minimal config (need job_id or auto_discovery)
+    config_dict = {
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_id": "999999",
+        "token": "test_token",
+        "target_platform": "postgres",
+        "tag_prefix": "dbt:",
+    }
+    config = dbt_cloud.DBTCloudConfig.model_validate(config_dict)
+
+    # Test the parsing method directly
+    source = object.__new__(DBTCloudSource)
+    source.config = config
+
+    exposure = source._parse_into_dbt_exposure(raw_exposure)
+
+    assert exposure.name == "weekly_dashboard"
+    assert exposure.unique_id == "exposure.my_project.weekly_dashboard"
+    assert exposure.type == "dashboard"
+    assert exposure.owner_name == "Analytics Team"
+    assert exposure.owner_email == "analytics@company.com"
+    assert exposure.description == "Weekly metrics dashboard"
+    assert exposure.url == "https://looker.company.com/dashboards/42"
+    assert exposure.maturity == "high"
+    assert exposure.depends_on == [
+        "model.my_project.orders",
+        "model.my_project.customers",
+    ]
+    assert exposure.tags == ["dbt:executive", "dbt:weekly"]
+    assert exposure.meta == {"team": "analytics"}
+    assert exposure.dbt_package_name == "my_project"
+
+
+def test_dbt_core_load_exposures():
+    # Test that DBTCoreSource properly loads exposures
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+
+    # Manually set exposures to test load_exposures
+    source._exposures = [
+        DBTExposure(
+            name="test_exposure",
+            unique_id="exposure.test.test_exposure",
+            type="dashboard",
+        )
+    ]
+
+    exposures = source.load_exposures()
+    assert len(exposures) == 1
+    assert exposures[0].name == "test_exposure"
+
+
+def test_dbt_cloud_load_exposures():
+    """Test that DBTCloudSource.load_exposures returns stored exposures."""
+    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
+
+    config_dict = {
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_id": "999999",
+        "token": "test_token",
+        "target_platform": "postgres",
+    }
+    config = dbt_cloud.DBTCloudConfig.model_validate(config_dict)
+
+    source = object.__new__(DBTCloudSource)
+    source.config = config
+    source._exposures = [
+        DBTExposure(
+            name="cloud_exposure",
+            unique_id="exposure.cloud.cloud_exposure",
+            type="dashboard",
+        )
+    ]
+
+    exposures = source.load_exposures()
+    assert len(exposures) == 1
+    assert exposures[0].name == "cloud_exposure"
+
+
+def test_create_exposure_mcps_basic():
+    """Test create_exposure_mcps using real DBTCoreSource to get actual coverage."""
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+
+    exposure = DBTExposure(
+        name="weekly_dashboard",
+        unique_id="exposure.my_project.weekly_dashboard",
+        type="dashboard",
+        description="Weekly metrics",
+    )
+
+    # Call the actual method on real source
+    mcps = list(source.create_exposure_mcps([exposure], {}))
+
+    # Should generate 4 MCPs: platform instance, dashboard info, status, subtypes
+    assert len(mcps) == 4
+
+    # Check aspect types
+    aspect_types = [type(mcp.aspect).__name__ for mcp in mcps]
+    assert "DataPlatformInstanceClass" in aspect_types
+    assert "DashboardInfoClass" in aspect_types
+    assert "StatusClass" in aspect_types
+    assert "SubTypesClass" in aspect_types
+
+
+def test_create_exposure_mcps_with_missing_upstream():
+    """Test create_exposure_mcps handles missing upstream node gracefully."""
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+
+    exposure = DBTExposure(
+        name="dashboard_with_missing_dep",
+        unique_id="exposure.my_project.dashboard_with_missing_dep",
+        type="dashboard",
+        depends_on=["model.my_project.nonexistent_model"],
+    )
+
+    # Call with empty nodes map - triggers warning branch for missing upstream
+    mcps = list(source.create_exposure_mcps([exposure], {}))
+
+    # Should still generate MCPs, but without upstream lineage
+    assert len(mcps) == 4  # No ownership or tags, so just 4 MCPs
+
+
+def test_create_exposure_mcps_with_owner_name_only():
+    """Test create_exposure_mcps when owner_name is set but owner_email is None."""
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+
+    exposure = DBTExposure(
+        name="dashboard_with_owner_name",
+        unique_id="exposure.my_project.dashboard_with_owner_name",
+        type="dashboard",
+        owner_name="John Doe",  # Only owner_name, no owner_email
+    )
+
+    mcps = list(source.create_exposure_mcps([exposure], {}))
+
+    # Should generate 5 MCPs: platform instance, dashboard info, status, subtypes, ownership
+    assert len(mcps) == 5
+
+    # Find ownership aspect
+    ownership_mcp = next(
+        (mcp for mcp in mcps if type(mcp.aspect).__name__ == "OwnershipClass"), None
+    )
+    assert ownership_mcp is not None
+    assert ownership_mcp.aspect is not None
+    assert isinstance(ownership_mcp.aspect, OwnershipClass)
+    # Owner URN should be derived from owner_name: "john_doe"
+    assert "john_doe" in ownership_mcp.aspect.owners[0].owner
+
+
+def test_create_exposure_mcps_with_owner_extraction_disabled():
+    """Test that enable_owner_extraction=False disables ownership for exposures."""
+    ctx = PipelineContext(run_id="test-run-id")
+    config_dict = create_base_dbt_config()
+    config_dict["enable_owner_extraction"] = False
+    config = DBTCoreConfig.model_validate(config_dict)
+    source = DBTCoreSource(config, ctx)
+
+    exposure = DBTExposure(
+        name="dashboard_no_owner",
+        unique_id="exposure.my_project.dashboard_no_owner",
+        type="dashboard",
+        owner_email="analytics@company.com",
+    )
+
+    mcps = list(source.create_exposure_mcps([exposure], {}))
+
+    # Should generate 4 MCPs: platform instance, dashboard info, status, subtypes (no ownership)
+    assert len(mcps) == 4
+
+    # Verify no ownership aspect
+    ownership_mcp = next(
+        (mcp for mcp in mcps if type(mcp.aspect).__name__ == "OwnershipClass"), None
+    )
+    assert ownership_mcp is None
+
+
+def test_create_exposure_mcps_with_strip_user_ids_from_email():
+    """Test that strip_user_ids_from_email applies to exposure owners."""
+    ctx = PipelineContext(run_id="test-run-id")
+    config_dict = create_base_dbt_config()
+    config_dict["strip_user_ids_from_email"] = True
+    config = DBTCoreConfig.model_validate(config_dict)
+    source = DBTCoreSource(config, ctx)
+
+    exposure = DBTExposure(
+        name="dashboard_stripped_owner",
+        unique_id="exposure.my_project.dashboard_stripped_owner",
+        type="dashboard",
+        owner_email="analytics@company.com",
+    )
+
+    mcps = list(source.create_exposure_mcps([exposure], {}))
+
+    # Find ownership aspect
+    ownership_mcp = next(
+        (mcp for mcp in mcps if type(mcp.aspect).__name__ == "OwnershipClass"), None
+    )
+    assert ownership_mcp is not None
+    assert ownership_mcp.aspect is not None
+    assert isinstance(ownership_mcp.aspect, OwnershipClass)
+    # Owner URN should be stripped: "analytics" (not "analytics@company.com")
+    assert ownership_mcp.aspect.owners[0].owner == "urn:li:corpuser:analytics"

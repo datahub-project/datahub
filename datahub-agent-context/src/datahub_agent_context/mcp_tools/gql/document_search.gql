@@ -1,0 +1,114 @@
+# GraphQL query for searching Document entities (keyword search)
+# Returns document metadata WITHOUT content to avoid context bloat
+
+fragment DocumentSearchInfo on Document {
+  urn
+  subType
+  platform {
+    urn
+    name
+  }
+  info {
+    title
+    source {
+      sourceType
+      externalUrl
+    }
+    lastModified {
+      time
+      actor {
+        urn
+      }
+    }
+    created {
+      time
+      actor {
+        urn
+      }
+    }
+  }
+  domain {
+    domain {
+      urn
+      properties {
+        name
+      }
+    }
+  }
+  tags {
+    tags {
+      tag {
+        urn
+        properties {
+          name
+        }
+      }
+    }
+  }
+  glossaryTerms {
+    terms {
+      term {
+        urn
+        properties {
+          name
+        }
+      }
+    }
+  }
+}
+
+fragment DocumentFacetEntityInfo on Entity {
+  ... on GlossaryTerm {
+    properties {
+      name
+    }
+  }
+  ... on Domain {
+    properties {
+      name
+    }
+  }
+}
+
+query documentSearch(
+  $query: String!
+  $orFilters: [AndFilterInput!]
+  $count: Int!
+  $start: Int!
+  $viewUrn: String
+) {
+  searchAcrossEntities(
+    input: {
+      query: $query
+      count: $count
+      start: $start
+      types: [DOCUMENT]
+      orFilters: $orFilters
+      viewUrn: $viewUrn
+      searchFlags: { skipHighlighting: true, maxAggValues: 10 }
+    }
+  ) {
+    start
+    count
+    total
+    searchResults {
+      entity {
+        ... on Document {
+          ...DocumentSearchInfo
+        }
+      }
+    }
+    facets {
+      field
+      displayName
+      aggregations {
+        value
+        count
+        displayName
+        entity {
+          ...DocumentFacetEntityInfo
+        }
+      }
+    }
+  }
+}
