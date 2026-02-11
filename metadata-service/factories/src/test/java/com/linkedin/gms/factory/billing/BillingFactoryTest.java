@@ -153,6 +153,11 @@ public class BillingFactoryTest extends AbstractTestNGSpringContextTests {
       metronomeConfig.setApiKey("test-api-key");
       metronomeConfig.setBaseUrl("https://api.metronome.com");
 
+      // Set up product ID mappings
+      java.util.Map<String, String> products = new java.util.HashMap<>();
+      products.put("askDataHubProductId", "test-product");
+      metronomeConfig.setProducts(products);
+
       // Create free trial configuration
       BillingConfiguration.MetronomeConfiguration.ContractConfiguration freeTrialConfig =
           new BillingConfiguration.MetronomeConfiguration.ContractConfiguration();

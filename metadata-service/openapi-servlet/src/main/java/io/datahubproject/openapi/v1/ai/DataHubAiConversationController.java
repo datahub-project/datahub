@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.billing.BillingHandler;
+import com.linkedin.metadata.billing.BillingProduct;
 import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.integration.StreamingChatClient;
 import com.linkedin.metadata.service.DataHubAiConversationService;
@@ -298,19 +299,9 @@ public class DataHubAiConversationController {
       return;
     }
 
-    // Get product ID for Ask DataHub from free trial contract configuration by product name
-    // TODO: Eventually, we'll get rid of the hardcoded "freeTrial" contract type and use the actual
-    // contract type from the billing configuration.
-    String productId = billingHandler.getProductId("freeTrial", "askDataHub");
-    if (productId == null) {
-      log.warn(
-          "Product ID not found for 'askDataHub' in billing configuration, skipping usage check");
-      return;
-    }
-
     // Check if credits remain for the product
-    if (!billingHandler.hasRemainingCredits(productId)) {
-      log.warn("Usage limit exceeded for Ask DataHub (product: {})", productId);
+    if (!billingHandler.hasRemainingCredits(BillingProduct.ASK_DATAHUB)) {
+      log.warn("Usage limit exceeded for Ask DataHub");
       throw new RateLimitExceededException(
           "Oops! You've exceeded your monthly account limit for Ask DataHub. Reach out to the DataHub team to upgrade your plan.");
     }

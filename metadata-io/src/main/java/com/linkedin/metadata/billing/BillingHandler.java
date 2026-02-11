@@ -1,7 +1,6 @@
 package com.linkedin.metadata.billing;
 
 import com.linkedin.metadata.billing.contract.ContractSpec;
-import com.linkedin.metadata.config.BillingConfiguration;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
@@ -11,10 +10,11 @@ import lombok.extern.slf4j.Slf4j;
  * Main entry point for billing operations in DataHub.
  *
  * <p>This service orchestrates customer provisioning by routing requests to the configured billing
- * provider.
+ * provider. It is provider-agnostic and delegates all provider-specific logic to the {@link
+ * BillingProvider} implementation.
  *
  * @see BillingProvider for provider implementations
- * @see BillingConfiguration for configuration options
+ * @see BillingProduct for product enum to config key mapping
  */
 @Slf4j
 public class BillingHandler {
@@ -22,7 +22,7 @@ public class BillingHandler {
   // Event type constants
   public static final String EVENT_TYPE_AI_MESSAGE = "ai_message";
 
-  private final BillingConfiguration config;
+  private final boolean enabled;
   private final BillingProvider provider;
   private final String customerName;
 
@@ -32,15 +32,13 @@ public class BillingHandler {
   /**
    * Construct a BillingHandler.
    *
-   * @param config Billing configuration (provider, API keys, limits, etc.)
+   * @param enabled Whether billing is enabled
    * @param provider Billing provider implementation
    * @param customerName Customer name/hostname for billing provider
    */
   public BillingHandler(
-      @Nonnull BillingConfiguration config,
-      @Nonnull BillingProvider provider,
-      @Nonnull String customerName) {
-    this.config = Objects.requireNonNull(config, "config must not be null");
+      boolean enabled, @Nonnull BillingProvider provider, @Nonnull String customerName) {
+    this.enabled = enabled;
     this.provider = Objects.requireNonNull(provider, "provider must not be null");
     this.customerName = Objects.requireNonNull(customerName, "customerName must not be null");
   }
@@ -48,54 +46,25 @@ public class BillingHandler {
   /**
    * Check if billing is enabled.
    *
-   * @return true if billing is enabled in configuration
+   * @return true if billing is enabled
    */
   public boolean isEnabled() {
-    return config.isEnabled();
+    return enabled;
   }
 
   /**
-   * Get the product ID for a specific contract type and product name.
+   * Resolve the billing provider product ID for a given {@link BillingProduct}.
    *
-   * <p>Retrieves the product ID from the billing configuration based on the contract type (e.g.,
-   * "freeTrial") and the product name (e.g., "askDataHub").
+   * <p>Delegates to the billing provider, which maps the product to its provider-specific product
+   * ID from configuration.
    *
-   * @param contractType The contract type (e.g., "freeTrial", "standard")
-   * @param productName The product name to search for
-   * @return The product ID, or null if not found
+   * @param product The billing product to resolve
+   * @return The billing provider product ID
+   * @throws BillingException if no product ID is configured for the given product
    */
-  @javax.annotation.Nullable
-  public String getProductId(@Nonnull String contractType, @Nonnull String productName) {
-    Objects.requireNonNull(contractType, "contractType must not be null");
-    Objects.requireNonNull(productName, "productName must not be null");
-
-    if (config.getMetronome() == null || config.getMetronome().getContracts() == null) {
-      return null;
-    }
-
-    BillingConfiguration.MetronomeConfiguration.ContractConfiguration contract =
-        config.getMetronome().getContracts().get(contractType);
-
-    if (contract == null
-        || contract.getRecurringCredits() == null
-        || contract.getRecurringCredits().isEmpty()) {
-      return null;
-    }
-
-    // Search for the product by name
-    for (BillingConfiguration.MetronomeConfiguration.ContractConfiguration.RecurringCredit credit :
-        contract.getRecurringCredits()) {
-      if (productName.equals(credit.getProductName())) {
-        return credit.getProductId();
-      }
-    }
-
-    // Product name not found
-    log.warn(
-        "Product name '{}' not found in contract '{}' recurring credits",
-        productName,
-        contractType);
-    return null;
+  @Nonnull
+  public String resolveProductId(@Nonnull BillingProduct product) throws BillingException {
+    return provider.resolveProductId(product);
   }
 
   /**
@@ -143,9 +112,8 @@ public class BillingHandler {
   /**
    * Get the provider's internal customer ID.
    *
-   * <p>This queries the billing provider API to retrieve the customer ID. For Metronome, it uses
-   * the ingest alias (hostname) to look up the customer. The result is cached in memory to avoid
-   * repeated API calls.
+   * <p>Queries the billing provider to retrieve the customer ID by customer name. The result is
+   * cached in memory to avoid repeated API calls.
    *
    * @return The provider's internal customer ID
    * @throws BillingException if customer ID cannot be retrieved
@@ -161,52 +129,42 @@ public class BillingHandler {
         return cachedProviderCustomerId;
       }
 
-      // For Metronome, query by ingest alias (hostname)
-      if (provider instanceof com.linkedin.metadata.billing.metronome.MetronomeClient) {
-        com.linkedin.metadata.billing.metronome.MetronomeClient metronomeClient =
-            (com.linkedin.metadata.billing.metronome.MetronomeClient) provider;
-        String customerId = metronomeClient.getCustomerByIngestAlias(customerName);
+      String customerId = provider.getCustomerId(customerName);
 
-        if (customerId != null) {
-          this.cachedProviderCustomerId = customerId;
-          log.info("Retrieved customer ID from provider API: {}", customerId);
-          return customerId;
-        }
-
-        // Customer not found, might need to be provisioned
-        log.warn(
-            "Customer not found with ingest alias: {}. May need to be provisioned.", customerName);
-        throw new BillingException("Customer not found. Please provision the customer first.");
+      if (customerId != null) {
+        this.cachedProviderCustomerId = customerId;
+        log.info("Retrieved customer ID from provider: {}", customerId);
+        return customerId;
       }
 
-      // For other providers, we'd need to implement similar logic
-      throw new BillingException(
-          "Unable to get customer ID: Provider does not support customer lookup");
+      log.warn("Customer not found: {}. May need to be provisioned.", customerName);
+      throw new BillingException("Customer not found. Please provision the customer first.");
     }
   }
 
   /**
-   * Check if instance has remaining credits for a specific product.
+   * Check if instance has remaining credits for a specific billing product.
    *
-   * <p>Returns true if the customer has credits remaining for the specified product. This should be
-   * called before processing requests to ensure the customer has not exceeded their limit.
+   * <p>Resolves the product ID via the billing provider and checks if the customer has credits
+   * remaining. This should be called before processing requests to ensure the customer has not
+   * exceeded their limit.
    *
-   * @param productId The product ID to check credits for (e.g., "ask_datahub_product")
+   * @param product The billing product to check credits for
    * @return true if credits remain (or if billing is disabled/fails), false if limit is exhausted
    */
-  public boolean hasRemainingCredits(@Nonnull String productId) {
-    Objects.requireNonNull(productId, "productId must not be null");
+  public boolean hasRemainingCredits(@Nonnull BillingProduct product) {
+    Objects.requireNonNull(product, "product must not be null");
 
     if (!isEnabled()) {
       return true;
     }
 
     try {
+      String productId = resolveProductId(product);
       String providerCustomerId = getProviderCustomerId();
-      boolean hasCredits = provider.hasRemainingCredits(providerCustomerId, productId);
-      return hasCredits;
+      return provider.hasRemainingCredits(providerCustomerId, productId);
     } catch (Exception e) {
-      log.error("Failed to check credits for product: {}, failing open", productId, e);
+      log.error("Failed to check credits for product: {}, failing open", product.name(), e);
       return true;
     }
   }

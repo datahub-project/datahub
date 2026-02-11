@@ -21,6 +21,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.billing.BillingHandler;
+import com.linkedin.metadata.billing.BillingProduct;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.integration.StreamingChatClient;
@@ -442,9 +443,7 @@ public class DataHubAiConversationControllerTest {
     when(mockDataHubConfig.isFreeTrialInstance()).thenReturn(true);
     when(mockConfigProvider.getDatahub()).thenReturn(mockDataHubConfig);
     when(mockBillingHandler.isEnabled()).thenReturn(true);
-    when(mockBillingHandler.getProductId("freeTrial", "askDataHub"))
-        .thenReturn("ask_datahub_product");
-    when(mockBillingHandler.hasRemainingCredits("ask_datahub_product")).thenReturn(false);
+    when(mockBillingHandler.hasRemainingCredits(BillingProduct.ASK_DATAHUB)).thenReturn(false);
 
     // Create controller with billing enabled
     controller =
@@ -472,9 +471,7 @@ public class DataHubAiConversationControllerTest {
     when(mockDataHubConfig.isFreeTrialInstance()).thenReturn(true);
     when(mockConfigProvider.getDatahub()).thenReturn(mockDataHubConfig);
     when(mockBillingHandler.isEnabled()).thenReturn(true);
-    when(mockBillingHandler.getProductId("freeTrial", "askDataHub"))
-        .thenReturn("ask_datahub_product");
-    when(mockBillingHandler.hasRemainingCredits("ask_datahub_product")).thenReturn(true);
+    when(mockBillingHandler.hasRemainingCredits(BillingProduct.ASK_DATAHUB)).thenReturn(true);
 
     when(mockStreamingClient.sendStreamingMessage(
             any(String.class),
@@ -568,6 +565,7 @@ public class DataHubAiConversationControllerTest {
     when(mockDataHubConfig.isFreeTrialInstance()).thenReturn(false);
     when(mockConfigProvider.getDatahub()).thenReturn(mockDataHubConfig);
     when(mockBillingHandler.isEnabled()).thenReturn(true);
+    when(mockBillingHandler.hasRemainingCredits(any(BillingProduct.class))).thenReturn(true);
 
     when(mockStreamingClient.sendStreamingMessage(
             any(String.class),
@@ -721,6 +719,7 @@ public class DataHubAiConversationControllerTest {
   public void testReportUsageNotCalledOnStreamingFailure() throws Exception {
     // Setup: Billing enabled but streaming fails
     when(mockBillingHandler.isEnabled()).thenReturn(true);
+    when(mockBillingHandler.hasRemainingCredits(any(BillingProduct.class))).thenReturn(true);
 
     when(mockStreamingClient.sendStreamingMessage(
             any(String.class),

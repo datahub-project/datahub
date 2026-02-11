@@ -196,6 +196,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataChangeProposal.throttle.rateLimit.*",
 
           // Billing configuration with dynamic indices
+          "datahub.billing.metronome.products.*",
           "datahub.billing.metronome.contracts.freeTrial.rateCardId",
           "datahub.billing.metronome.contracts.freeTrial.recurringCredits[*].productName",
           "datahub.billing.metronome.contracts.freeTrial.recurringCredits[*].productId",

@@ -15,6 +15,32 @@ import javax.annotation.Nonnull;
 public interface BillingProvider {
 
   /**
+   * Resolve the billing provider product ID for a given {@link BillingProduct}.
+   *
+   * <p>Each provider maps {@link BillingProduct} enum values to their provider-specific product
+   * IDs, typically loaded from configuration.
+   *
+   * @param product The billing product to resolve
+   * @return The provider-specific product ID
+   * @throws BillingException if no product ID is configured for the given product
+   */
+  @Nonnull
+  String resolveProductId(@Nonnull BillingProduct product) throws BillingException;
+
+  /**
+   * Look up the provider's internal customer ID by customer name.
+   *
+   * <p>Queries the billing provider to find a customer by their name/alias. This allows the billing
+   * handler to resolve a customer without knowing provider-specific details.
+   *
+   * @param customerName The customer name to look up (e.g., hostname)
+   * @return The provider's internal customer ID, or null if not found
+   * @throws BillingException if the lookup fails
+   */
+  @javax.annotation.Nullable
+  String getCustomerId(@Nonnull String customerName) throws BillingException;
+
+  /**
    * Provision a customer and add contracts.
    *
    * <p>This method is idempotent. If the customer already exists in the billing system, it will

@@ -198,6 +198,10 @@ datahub:
       # Metronome API base URL
       baseUrl: ${METRONOME_BASE_URL:https://api.metronome.com}
 
+      # Product ID mappings (BillingProduct enum configKey -> Metronome product ID)
+      products:
+        askDataHubProductId: ${METRONOME_ASK_DATAHUB_PRODUCT_ID:}
+
       # Named contract templates for different customer types
       contracts:
         # Free trial contract configuration

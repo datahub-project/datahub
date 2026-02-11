@@ -6,8 +6,6 @@ import static org.testng.Assert.*;
 
 import com.linkedin.metadata.billing.contract.ContractSpec;
 import com.linkedin.metadata.billing.contract.RecurringCreditSpec;
-import com.linkedin.metadata.billing.metronome.MetronomeClient;
-import com.linkedin.metadata.config.BillingConfiguration;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Collections;
@@ -18,21 +16,22 @@ import org.testng.annotations.Test;
 /** Unit tests for BillingHandler. */
 public class BillingHandlerTest {
 
-  private BillingConfiguration mockConfig;
   private BillingProvider mockProvider;
-  private MetronomeClient mockMetronomeClient;
   private BillingHandler billingHandler;
   private ContractSpec mockContract;
   private ContractSpec mockContract2;
 
   private static final String TEST_CUSTOMER_NAME = "test.datahub.com";
   private static final String TEST_PROVIDER_CUSTOMER_ID = "test-customer-123";
+  private static final String TEST_ASK_DATAHUB_PRODUCT_ID = "fccd322e-7119-4a2b-a7ee-95f22ecb800e";
 
   @BeforeMethod
-  public void setUp() {
-    mockConfig = mock(BillingConfiguration.class);
+  public void setUp() throws Exception {
     mockProvider = mock(BillingProvider.class);
-    mockMetronomeClient = mock(MetronomeClient.class);
+
+    // Default: provider resolves ASK_DATAHUB to the test product ID
+    when(mockProvider.resolveProductId(BillingProduct.ASK_DATAHUB))
+        .thenReturn(TEST_ASK_DATAHUB_PRODUCT_ID);
 
     // Create mock contracts for testing
     mockContract = mock(ContractSpec.class);
@@ -52,186 +51,161 @@ public class BillingHandlerTest {
 
   @Test
   public void testConstructorWithValidParameters() {
-    // Test that constructor properly initializes with valid parameters
-    when(mockConfig.isEnabled()).thenReturn(true);
-
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
     assertNotNull(billingHandler);
     assertTrue(billingHandler.isEnabled());
   }
 
   @Test(expectedExceptions = NullPointerException.class)
-  public void testConstructorWithNullConfig() {
-    // Should throw NullPointerException when config is null
-    new BillingHandler(null, mockProvider, TEST_CUSTOMER_NAME);
+  public void testConstructorWithNullProvider() {
+    new BillingHandler(true, null, TEST_CUSTOMER_NAME);
   }
 
   @Test
   public void testIsEnabled() {
-    when(mockConfig.isEnabled()).thenReturn(true);
-
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
-
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
     assertTrue(billingHandler.isEnabled());
   }
 
   @Test
-  public void testProvisionCustomerWhenDisabled() throws Exception {
-    // Setup: Billing disabled
-    when(mockConfig.isEnabled()).thenReturn(false);
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
+  public void testIsDisabled() {
+    billingHandler = new BillingHandler(false, mockProvider, TEST_CUSTOMER_NAME);
+    assertFalse(billingHandler.isEnabled());
+  }
 
-    // Execute: Attempt to provision
+  @Test
+  public void testResolveProductIdDelegatesToProvider() throws Exception {
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
+
+    String productId = billingHandler.resolveProductId(BillingProduct.ASK_DATAHUB);
+
+    assertEquals(productId, TEST_ASK_DATAHUB_PRODUCT_ID);
+    verify(mockProvider, times(1)).resolveProductId(BillingProduct.ASK_DATAHUB);
+  }
+
+  @Test(expectedExceptions = BillingException.class)
+  public void testResolveProductIdProviderThrows() throws Exception {
+    when(mockProvider.resolveProductId(BillingProduct.ASK_DATAHUB))
+        .thenThrow(new BillingException("No product ID configured"));
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
+
+    billingHandler.resolveProductId(BillingProduct.ASK_DATAHUB);
+  }
+
+  @Test
+  public void testProvisionCustomerWhenDisabled() throws Exception {
+    billingHandler = new BillingHandler(false, mockProvider, TEST_CUSTOMER_NAME);
+
     billingHandler.provisionCustomer(Collections.singletonList(mockContract));
 
-    // Verify: Provider was never called
     verify(mockProvider, never()).provisionCustomer(anyString(), anyList());
   }
 
   @Test(expectedExceptions = BillingException.class)
   public void testProvisionCustomerProviderFailure() throws Exception {
-    // Setup: Provider throws exception
-    when(mockConfig.isEnabled()).thenReturn(true);
     when(mockProvider.provisionCustomer(anyString(), anyList()))
         .thenThrow(new BillingException("Provider API error"));
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
-    // Execute: Should throw BillingException
     billingHandler.provisionCustomer(Collections.singletonList(mockContract));
   }
 
   @Test
   public void testGetProviderCustomerIdFromCache() throws Exception {
-    // Setup: Provision customer first to populate cache
-    when(mockConfig.isEnabled()).thenReturn(true);
+    // Provision customer first to populate cache
     when(mockProvider.provisionCustomer(anyString(), anyList()))
         .thenReturn(TEST_PROVIDER_CUSTOMER_ID);
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
     billingHandler.provisionCustomer(Collections.singletonList(mockContract));
 
-    // Execute: Get customer ID (should come from cache)
     String customerId = billingHandler.getProviderCustomerId();
 
-    // Verify: Returns cached ID, no call to Metronome API
     assertEquals(customerId, TEST_PROVIDER_CUSTOMER_ID);
-    verify(mockMetronomeClient, never()).getCustomerByIngestAlias(anyString());
+    // getCustomerId should not be called since cache is populated from provisioning
+    verify(mockProvider, never()).getCustomerId(anyString());
   }
 
   @Test
-  public void testGetProviderCustomerIdFromMetronomeApi() throws Exception {
-    // Setup: Customer exists in Metronome - use MetronomeClient as provider
-    when(mockConfig.isEnabled()).thenReturn(true);
-    when(mockMetronomeClient.getCustomerByIngestAlias(TEST_CUSTOMER_NAME))
-        .thenReturn(TEST_PROVIDER_CUSTOMER_ID);
-    billingHandler = new BillingHandler(mockConfig, mockMetronomeClient, TEST_CUSTOMER_NAME);
+  public void testGetProviderCustomerIdFromProviderApi() throws Exception {
+    when(mockProvider.getCustomerId(TEST_CUSTOMER_NAME)).thenReturn(TEST_PROVIDER_CUSTOMER_ID);
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
-    // Execute: Get customer ID (should query Metronome)
     String customerId = billingHandler.getProviderCustomerId();
 
-    // Verify: Returns ID from Metronome API
     assertEquals(customerId, TEST_PROVIDER_CUSTOMER_ID);
-    verify(mockMetronomeClient, times(1)).getCustomerByIngestAlias(TEST_CUSTOMER_NAME);
+    verify(mockProvider, times(1)).getCustomerId(TEST_CUSTOMER_NAME);
   }
 
   @Test
   public void testProvisionCustomerIdempotency() throws Exception {
-    // Setup: Enable billing - idempotency is now handled inside MetronomeClient
-    when(mockConfig.isEnabled()).thenReturn(true);
-
-    // Mock MetronomeClient.provisionCustomer to return customer ID
-    when(mockMetronomeClient.provisionCustomer(anyString(), anyList()))
+    when(mockProvider.provisionCustomer(anyString(), anyList()))
         .thenReturn(TEST_PROVIDER_CUSTOMER_ID);
 
-    billingHandler = new BillingHandler(mockConfig, mockMetronomeClient, TEST_CUSTOMER_NAME);
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
-    // Execute: Provision twice
     billingHandler.provisionCustomer(Collections.singletonList(mockContract));
     billingHandler.provisionCustomer(Collections.singletonList(mockContract));
 
-    // Verify: BillingHandler calls MetronomeClient.provisionCustomer twice
-    // (idempotency is now handled inside MetronomeClient, not in BillingHandler)
-    verify(mockMetronomeClient, times(2)).provisionCustomer(anyString(), anyList());
+    // Idempotency is handled inside the provider, BillingHandler always delegates
+    verify(mockProvider, times(2)).provisionCustomer(anyString(), anyList());
   }
 
   @Test(expectedExceptions = BillingException.class)
-  public void testGetProviderCustomerIdNotFoundInMetronome() throws Exception {
-    // Setup: Customer not found in Metronome - use MetronomeClient as provider
-    when(mockConfig.isEnabled()).thenReturn(true);
-    when(mockMetronomeClient.getCustomerByIngestAlias(TEST_CUSTOMER_NAME)).thenReturn(null);
-    billingHandler = new BillingHandler(mockConfig, mockMetronomeClient, TEST_CUSTOMER_NAME);
+  public void testGetProviderCustomerIdNotFound() throws Exception {
+    when(mockProvider.getCustomerId(TEST_CUSTOMER_NAME)).thenReturn(null);
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
-    // Execute: Should throw BillingException
     billingHandler.getProviderCustomerId();
   }
 
   @Test(expectedExceptions = BillingException.class)
-  public void testGetProviderCustomerIdMetronomeApiFailure() throws Exception {
-    // Setup: Metronome API throws exception - use MetronomeClient as provider
-    when(mockConfig.isEnabled()).thenReturn(true);
-    when(mockMetronomeClient.getCustomerByIngestAlias(TEST_CUSTOMER_NAME))
+  public void testGetProviderCustomerIdApiFailure() throws Exception {
+    when(mockProvider.getCustomerId(TEST_CUSTOMER_NAME))
         .thenThrow(new BillingException("API connection failed"));
-    billingHandler = new BillingHandler(mockConfig, mockMetronomeClient, TEST_CUSTOMER_NAME);
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
-    // Execute: Should propagate BillingException
     billingHandler.getProviderCustomerId();
   }
 
   @Test
   public void testProvisionThenGetCustomerId() throws Exception {
-    // Setup: Test the full flow of provisioning then getting the ID
-    when(mockConfig.isEnabled()).thenReturn(true);
-    when(mockMetronomeClient.provisionCustomer(anyString(), anyList()))
+    when(mockProvider.provisionCustomer(anyString(), anyList()))
         .thenReturn(TEST_PROVIDER_CUSTOMER_ID);
-    billingHandler = new BillingHandler(mockConfig, mockMetronomeClient, TEST_CUSTOMER_NAME);
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
-    // Execute: Provision first, then get ID
     billingHandler.provisionCustomer(Collections.singletonList(mockContract));
     String customerId = billingHandler.getProviderCustomerId();
 
-    // Verify: ID comes from cache set during provisioning
     assertEquals(customerId, TEST_PROVIDER_CUSTOMER_ID);
-    verify(mockMetronomeClient, times(1)).provisionCustomer(eq(TEST_CUSTOMER_NAME), anyList());
-    // Note: getCustomerByIngestAlias is called inside provisionCustomer's implementation,
-    // but we can't verify it here since provisionCustomer is mocked (real implementation doesn't
-    // run)
+    verify(mockProvider, times(1)).provisionCustomer(eq(TEST_CUSTOMER_NAME), anyList());
   }
 
   @Test
   public void testProvisionCustomerWithMultipleContracts() throws Exception {
-    // Setup: Enable billing with multiple contracts
-    when(mockConfig.isEnabled()).thenReturn(true);
     when(mockProvider.provisionCustomer(anyString(), anyList()))
         .thenReturn(TEST_PROVIDER_CUSTOMER_ID);
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
     List<ContractSpec> contracts = Arrays.asList(mockContract, mockContract2);
 
-    // Execute: Provision with multiple contracts
     billingHandler.provisionCustomer(contracts);
 
-    // Verify: Provider called with all contracts
     verify(mockProvider, times(1)).provisionCustomer(eq(TEST_CUSTOMER_NAME), eq(contracts));
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testProvisionCustomerWithEmptyContractList() throws Exception {
-    // Setup: Enable billing
-    when(mockConfig.isEnabled()).thenReturn(true);
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
-    // Execute: Should throw IllegalArgumentException for empty list
     billingHandler.provisionCustomer(Collections.emptyList());
   }
 
   @Test
   public void testReportUsageSuccess() throws Exception {
-    // Setup: Enable billing
-    when(mockConfig.isEnabled()).thenReturn(true);
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
-    // Test data
     String eventType = "ai_message";
     String transactionId = "txn-12345";
     int quantity = 1;
@@ -239,10 +213,8 @@ public class BillingHandlerTest {
     properties.put("conversation_id", "conv-123");
     properties.put("user_id", "user-456");
 
-    // Execute: Report usage
     billingHandler.reportUsage(eventType, transactionId, quantity, properties);
 
-    // Verify: Provider's reportUsage was called with correct parameters
     verify(mockProvider, times(1))
         .reportUsage(
             eq(TEST_CUSTOMER_NAME), eq(eventType), eq(transactionId), eq(quantity), eq(properties));
@@ -250,158 +222,80 @@ public class BillingHandlerTest {
 
   @Test
   public void testReportUsageWhenDisabled() throws Exception {
-    // Setup: Billing disabled
-    when(mockConfig.isEnabled()).thenReturn(false);
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
+    billingHandler = new BillingHandler(false, mockProvider, TEST_CUSTOMER_NAME);
 
-    // Test data
     String eventType = "ai_message";
     String transactionId = "txn-12345";
     int quantity = 1;
     java.util.Map<String, Object> properties = new java.util.HashMap<>();
 
-    // Execute: Report usage
     billingHandler.reportUsage(eventType, transactionId, quantity, properties);
 
-    // Verify: Provider was never called
     verify(mockProvider, never())
         .reportUsage(anyString(), anyString(), anyString(), anyInt(), anyMap());
   }
 
   @Test
   public void testReportUsageProviderFailure() throws Exception {
-    // Setup: Provider throws exception
-    when(mockConfig.isEnabled()).thenReturn(true);
     doThrow(new BillingException("Provider API error"))
         .when(mockProvider)
         .reportUsage(anyString(), anyString(), anyString(), anyInt(), anyMap());
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
-    // Test data
     String eventType = "ai_message";
     String transactionId = "txn-12345";
     int quantity = 1;
     java.util.Map<String, Object> properties = new java.util.HashMap<>();
 
-    // Execute: Should NOT throw - errors are logged but not propagated
+    // Should NOT throw - errors are logged but not propagated
     billingHandler.reportUsage(eventType, transactionId, quantity, properties);
 
-    // Verify: Provider was called despite failure
     verify(mockProvider, times(1))
         .reportUsage(
             eq(TEST_CUSTOMER_NAME), eq(eventType), eq(transactionId), eq(quantity), eq(properties));
   }
 
   @Test
-  public void testHasRemainingCreditsSuccess() throws Exception {
-    // Setup: Enable billing and provision customer
-    when(mockConfig.isEnabled()).thenReturn(true);
+  public void testHasRemainingCreditsWithBillingProduct() throws Exception {
     when(mockProvider.provisionCustomer(anyString(), anyList()))
         .thenReturn(TEST_PROVIDER_CUSTOMER_ID);
-    when(mockProvider.hasRemainingCredits(eq(TEST_PROVIDER_CUSTOMER_ID), eq("product-123")))
+    when(mockProvider.hasRemainingCredits(
+            eq(TEST_PROVIDER_CUSTOMER_ID), eq(TEST_ASK_DATAHUB_PRODUCT_ID)))
         .thenReturn(true);
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
     billingHandler.provisionCustomer(Collections.singletonList(mockContract));
 
-    // Execute: Check if credits remain
-    boolean hasCredits = billingHandler.hasRemainingCredits("product-123");
+    boolean hasCredits = billingHandler.hasRemainingCredits(BillingProduct.ASK_DATAHUB);
 
-    // Verify: Returns true
     assertTrue(hasCredits);
+    verify(mockProvider, times(1)).resolveProductId(BillingProduct.ASK_DATAHUB);
     verify(mockProvider, times(1))
-        .hasRemainingCredits(eq(TEST_PROVIDER_CUSTOMER_ID), eq("product-123"));
+        .hasRemainingCredits(eq(TEST_PROVIDER_CUSTOMER_ID), eq(TEST_ASK_DATAHUB_PRODUCT_ID));
   }
 
   @Test
   public void testHasRemainingCreditsWhenDisabled() throws Exception {
-    // Setup: Billing disabled
-    when(mockConfig.isEnabled()).thenReturn(false);
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
+    billingHandler = new BillingHandler(false, mockProvider, TEST_CUSTOMER_NAME);
 
-    // Execute: Check if credits remain
-    boolean hasCredits = billingHandler.hasRemainingCredits("product-123");
+    boolean hasCredits = billingHandler.hasRemainingCredits(BillingProduct.ASK_DATAHUB);
 
-    // Verify: Returns true (fails open) and provider was never called
     assertTrue(hasCredits);
+    verify(mockProvider, never()).resolveProductId(any());
     verify(mockProvider, never()).hasRemainingCredits(anyString(), anyString());
   }
 
   @Test
   public void testHasRemainingCreditsProviderFailure() throws Exception {
-    // Setup: Provider throws exception
-    when(mockConfig.isEnabled()).thenReturn(true);
     when(mockProvider.provisionCustomer(anyString(), anyList()))
         .thenReturn(TEST_PROVIDER_CUSTOMER_ID);
     when(mockProvider.hasRemainingCredits(anyString(), anyString()))
         .thenThrow(new BillingException("Provider API error"));
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
+    billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
     billingHandler.provisionCustomer(Collections.singletonList(mockContract));
 
-    // Execute: Check if credits remain (should fail open)
-    boolean hasCredits = billingHandler.hasRemainingCredits("product-123");
+    // Should fail open
+    boolean hasCredits = billingHandler.hasRemainingCredits(BillingProduct.ASK_DATAHUB);
 
-    // Verify: Returns true (fails open) despite error
     assertTrue(hasCredits);
-  }
-
-  @Test
-  public void testGetProductIdByName() throws Exception {
-    // Setup: Create config with named product
-    BillingConfiguration.MetronomeConfiguration mockMetronomeConfig =
-        mock(BillingConfiguration.MetronomeConfiguration.class);
-    BillingConfiguration.MetronomeConfiguration.ContractConfiguration mockContractConfig =
-        mock(BillingConfiguration.MetronomeConfiguration.ContractConfiguration.class);
-    BillingConfiguration.MetronomeConfiguration.ContractConfiguration.RecurringCredit
-        mockRecurringCredit =
-            mock(
-                BillingConfiguration.MetronomeConfiguration.ContractConfiguration.RecurringCredit
-                    .class);
-
-    when(mockConfig.isEnabled()).thenReturn(true);
-    when(mockConfig.getMetronome()).thenReturn(mockMetronomeConfig);
-    when(mockMetronomeConfig.getContracts())
-        .thenReturn(Collections.singletonMap("freeTrial", mockContractConfig));
-    when(mockContractConfig.getRecurringCredits())
-        .thenReturn(Collections.singletonList(mockRecurringCredit));
-    when(mockRecurringCredit.getProductName()).thenReturn("askDataHub");
-    when(mockRecurringCredit.getProductId()).thenReturn("ask_datahub_product");
-
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
-
-    // Execute: Get product ID by name
-    String productId = billingHandler.getProductId("freeTrial", "askDataHub");
-
-    // Verify: Returns correct product ID
-    assertEquals(productId, "ask_datahub_product");
-  }
-
-  @Test
-  public void testGetProductIdByNameNotFound() throws Exception {
-    // Setup: Create config with different product name
-    BillingConfiguration.MetronomeConfiguration mockMetronomeConfig =
-        mock(BillingConfiguration.MetronomeConfiguration.class);
-    BillingConfiguration.MetronomeConfiguration.ContractConfiguration mockContractConfig =
-        mock(BillingConfiguration.MetronomeConfiguration.ContractConfiguration.class);
-    BillingConfiguration.MetronomeConfiguration.ContractConfiguration.RecurringCredit
-        mockRecurringCredit =
-            mock(
-                BillingConfiguration.MetronomeConfiguration.ContractConfiguration.RecurringCredit
-                    .class);
-
-    when(mockConfig.isEnabled()).thenReturn(true);
-    when(mockConfig.getMetronome()).thenReturn(mockMetronomeConfig);
-    when(mockMetronomeConfig.getContracts())
-        .thenReturn(Collections.singletonMap("freeTrial", mockContractConfig));
-    when(mockContractConfig.getRecurringCredits())
-        .thenReturn(Collections.singletonList(mockRecurringCredit));
-    when(mockRecurringCredit.getProductName()).thenReturn("someOtherProduct");
-
-    billingHandler = new BillingHandler(mockConfig, mockProvider, TEST_CUSTOMER_NAME);
-
-    // Execute: Get product ID by name that doesn't exist
-    String productId = billingHandler.getProductId("freeTrial", "askDataHub");
-
-    // Verify: Returns null
-    assertNull(productId);
   }
 }

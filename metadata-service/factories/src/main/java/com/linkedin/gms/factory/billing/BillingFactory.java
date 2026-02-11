@@ -48,7 +48,7 @@ public class BillingFactory {
 
     BillingProvider provider = createProvider(billingConfig);
     String customerName = deriveCustomerName(baseUrl);
-    BillingHandler handler = new BillingHandler(billingConfig, provider, customerName);
+    BillingHandler handler = new BillingHandler(billingConfig.isEnabled(), provider, customerName);
 
     log.info(
         "Successfully created BillingHandler for provider: {} with customer: {}",

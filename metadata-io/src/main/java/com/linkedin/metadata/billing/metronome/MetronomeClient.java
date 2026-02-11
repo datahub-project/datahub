@@ -3,6 +3,7 @@ package com.linkedin.metadata.billing.metronome;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.billing.BillingException;
+import com.linkedin.metadata.billing.BillingProduct;
 import com.linkedin.metadata.billing.BillingProvider;
 import com.linkedin.metadata.billing.contract.ContractSpec;
 import com.linkedin.metadata.billing.contract.RecurringCreditSpec;
@@ -76,6 +77,75 @@ public class MetronomeClient implements BillingProvider {
 
   @Override
   @Nonnull
+  public String resolveProductId(@Nonnull BillingProduct product) throws BillingException {
+    Objects.requireNonNull(product, "product must not be null");
+
+    Map<String, String> products = config.getProducts();
+    if (products == null) {
+      throw new BillingException(
+          "No product ID mappings configured for Metronome (metronome.products is missing)");
+    }
+
+    String productId = products.get(product.getConfigKey());
+    if (productId == null || productId.trim().isEmpty()) {
+      throw new BillingException(
+          "No Metronome product ID configured for: "
+              + product.name()
+              + " (config key: "
+              + product.getConfigKey()
+              + ")");
+    }
+    return productId;
+  }
+
+  /**
+   * Get Metronome customer ID by customer name (used as ingest alias).
+   *
+   * <p>Queries the Metronome API to find a customer by their ingest alias. The customer name
+   * (hostname) is used as the ingest alias during customer creation, allowing lookup without
+   * storing the Metronome customer ID.
+   *
+   * @param customerName The customer name (typically the hostname), used as ingest alias
+   * @return Metronome's internal customer ID, or null if not found
+   * @throws BillingException if the API call fails
+   */
+  @Override
+  @javax.annotation.Nullable
+  public String getCustomerId(@Nonnull String customerName) throws BillingException {
+    Objects.requireNonNull(customerName, "customerName must not be null");
+
+    log.debug("Querying Metronome for customer with ingest alias: {}", customerName);
+
+    try {
+      Map<String, String> queryParams = new HashMap<>();
+      queryParams.put("ingest_alias", customerName);
+
+      String responseBody = get(CUSTOMERS_ENDPOINT, queryParams);
+      JsonNode result = objectMapper.readTree(responseBody);
+      JsonNode data = result.get("data");
+
+      if (data != null && data.isArray() && data.size() > 0) {
+        // Get the first customer's ID
+        JsonNode firstCustomer = data.get(0);
+        if (firstCustomer.has("id")) {
+          String customerId = firstCustomer.get("id").asText();
+          log.debug(
+              "Found Metronome customer with ingest alias '{}': {}", customerName, customerId);
+          return customerId;
+        }
+      }
+
+      log.debug("No customer found with ingest alias: {}", customerName);
+      return null;
+    } catch (BillingException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new BillingException("Failed to get customer by ingest alias: " + customerName, e);
+    }
+  }
+
+  @Override
+  @Nonnull
   public String provisionCustomer(
       @Nonnull String customerName, @Nonnull List<ContractSpec> contracts) throws BillingException {
     Objects.requireNonNull(customerName, "customerName must not be null");
@@ -89,7 +159,7 @@ public class MetronomeClient implements BillingProvider {
         "Provisioning Metronome customer '{}' with {} contract(s)", customerName, contracts.size());
 
     // Step 1: Check if customer already exists, create if not
-    String metronomeCustomerId = getCustomerByIngestAlias(customerName);
+    String metronomeCustomerId = getCustomerId(customerName);
 
     if (metronomeCustomerId != null) {
       log.info(
@@ -110,49 +180,6 @@ public class MetronomeClient implements BillingProvider {
     }
 
     return metronomeCustomerId;
-  }
-
-  /**
-   * Get Metronome customer ID by ingest alias.
-   *
-   * <p>Queries the Metronome API to find a customer by their ingest alias. This allows us to
-   * retrieve the customer ID without storing it.
-   *
-   * @param ingestAlias The ingest alias (typically the hostname)
-   * @return Metronome's internal customer ID, or null if not found
-   * @throws BillingException if the API call fails
-   */
-  @javax.annotation.Nullable
-  public String getCustomerByIngestAlias(@Nonnull String ingestAlias) throws BillingException {
-    Objects.requireNonNull(ingestAlias, "ingestAlias must not be null");
-
-    log.debug("Querying Metronome for customer with ingest alias: {}", ingestAlias);
-
-    try {
-      Map<String, String> queryParams = new HashMap<>();
-      queryParams.put("ingest_alias", ingestAlias);
-
-      String responseBody = get(CUSTOMERS_ENDPOINT, queryParams);
-      JsonNode result = objectMapper.readTree(responseBody);
-      JsonNode data = result.get("data");
-
-      if (data != null && data.isArray() && data.size() > 0) {
-        // Get the first customer's ID
-        JsonNode firstCustomer = data.get(0);
-        if (firstCustomer.has("id")) {
-          String customerId = firstCustomer.get("id").asText();
-          log.debug("Found Metronome customer with ingest alias '{}': {}", ingestAlias, customerId);
-          return customerId;
-        }
-      }
-
-      log.debug("No customer found with ingest alias: {}", ingestAlias);
-      return null;
-    } catch (BillingException e) {
-      throw e;
-    } catch (Exception e) {
-      throw new BillingException("Failed to get customer by ingest alias: " + ingestAlias, e);
-    }
   }
 
   /**

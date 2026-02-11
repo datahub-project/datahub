@@ -24,6 +24,20 @@ public class BillingConfiguration {
     private String baseUrl;
 
     /**
+     * Product ID mappings keyed by product config key.
+     *
+     * <p>Example YAML:
+     *
+     * <pre>
+     * billing:
+     *   metronome:
+     *     products:
+     *       askDataHubProductId: "fccd322e-7119-4a2b-a7ee-95f22ecb800e"
+     * </pre>
+     */
+    private java.util.Map<String, String> products;
+
+    /**
      * Named contract templates for different customer types.
      *
      * <p>Allows defining multiple contract types in configuration without code changes. Map keys
