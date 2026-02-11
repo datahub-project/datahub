@@ -126,6 +126,13 @@ class MLMetadataHelper:
             self.client.list_executions(request=request)
         )
 
+        if len(all_executions) >= MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS:
+            logger.warning(
+                f"Retrieved maximum number of executions ({MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS}) "
+                f"while searching for job '{job_display_name}'. Results may be incomplete. "
+                f"Consider using more specific display names or reducing concurrent job volume."
+            )
+
         matching_executions: List[Execution] = []
         for execution in all_executions:
             if self._execution_matches_job(execution, job_name, job_display_name):

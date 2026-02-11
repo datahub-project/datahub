@@ -285,4 +285,4 @@ class AutoMLJobConfig(BaseModel):
 
     class Config:
         populate_by_name = True
-        extra = "allow"  # Allow extra fields from Vertex AI API
+        extra = "ignore"

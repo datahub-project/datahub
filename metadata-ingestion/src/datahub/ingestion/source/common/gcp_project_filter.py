@@ -1,12 +1,18 @@
 import logging
 from typing import FrozenSet, List, Optional
 
-from pydantic import Field
+from google.cloud.resourcemanager_v3 import ProjectsClient
+from pydantic import BaseModel, Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.api.source import SourceReport
 
 logger = logging.getLogger(__name__)
+
+
+class GcpProject(BaseModel):
+    id: str
+    name: str
 
 
 class GcpProjectFilterConfig(ConfigModel):
@@ -41,35 +47,48 @@ class GcpProjectFilter:
         return self.filter_config.project_id_pattern.allowed(project_id)
 
 
-def _search_projects_by_labels(labels: FrozenSet[str]) -> List[str]:
-    from google.cloud import resourcemanager_v3
-
-    projects_client = resourcemanager_v3.ProjectsClient()
+def _search_projects_by_labels(
+    labels: FrozenSet[str], projects_client: Optional[ProjectsClient] = None
+) -> List[GcpProject]:
+    if projects_client is None:
+        projects_client = ProjectsClient()
     labels_query = " OR ".join([f"labels.{label}" for label in labels])
-    project_ids: List[str] = []
+    projects: List[GcpProject] = []
 
     for project in projects_client.search_projects(query=labels_query):
-        # project.project_id is the string id we want
         if getattr(project, "project_id", None):
-            project_ids.append(project.project_id)
+            projects.append(
+                GcpProject(
+                    id=project.project_id,
+                    name=getattr(project, "display_name", project.project_id),
+                )
+            )
 
-    return project_ids
+    return projects
 
 
-def _list_all_projects() -> List[str]:
-    from google.cloud import resourcemanager_v3
-
-    projects_client = resourcemanager_v3.ProjectsClient()
-    project_ids: List[str] = []
+def _list_all_projects(
+    projects_client: Optional[ProjectsClient] = None,
+) -> List[GcpProject]:
+    if projects_client is None:
+        projects_client = ProjectsClient()
+    projects: List[GcpProject] = []
     for project in projects_client.list_projects():
         if getattr(project, "project_id", None):
-            project_ids.append(project.project_id)
-    return project_ids
+            projects.append(
+                GcpProject(
+                    id=project.project_id,
+                    name=getattr(project, "display_name", project.project_id),
+                )
+            )
+    return projects
 
 
 def resolve_gcp_projects(
-    filter_config: GcpProjectFilterConfig, report: Optional[SourceReport] = None
-) -> List[str]:
+    filter_config: GcpProjectFilterConfig,
+    report: Optional[SourceReport] = None,
+    projects_client: Optional[ProjectsClient] = None,
+) -> List[GcpProject]:
     """
     Resolve a list of GCP project ids based on filter configuration.
 
@@ -80,14 +99,14 @@ def resolve_gcp_projects(
     """
     try:
         if filter_config.project_ids:
-            return list(filter_config.project_ids)
+            return [GcpProject(id=pid, name=pid) for pid in filter_config.project_ids]
 
         if filter_config.project_labels:
             labeled = _search_projects_by_labels(
-                frozenset(filter_config.project_labels)
+                frozenset(filter_config.project_labels), projects_client
             )
             allowed = [
-                p for p in labeled if filter_config.project_id_pattern.allowed(p)
+                p for p in labeled if filter_config.project_id_pattern.allowed(p.id)
             ]
             if not allowed and report:
                 report.report_failure(
@@ -96,10 +115,9 @@ def resolve_gcp_projects(
                 )
             return allowed
 
-        # No explicit ids or labels; list all projects and apply pattern
-        all_projects = _list_all_projects()
+        all_projects = _list_all_projects(projects_client)
         allowed = [
-            p for p in all_projects if filter_config.project_id_pattern.allowed(p)
+            p for p in all_projects if filter_config.project_id_pattern.allowed(p.id)
         ]
         if not allowed and report:
             report.failure(

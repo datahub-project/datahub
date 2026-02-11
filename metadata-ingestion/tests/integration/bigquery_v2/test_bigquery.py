@@ -1,6 +1,7 @@
 import random
 import string
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
@@ -277,6 +278,10 @@ def test_bigquery_v2_project_labels_ingest(
 
     get_projects_with_labels.return_value = [
         BigqueryProject(id="dev", name="development")
+    ]
+
+    projects_client.return_value.search_projects.return_value = [
+        SimpleNamespace(project_id="dev", display_name="development")
     ]
 
     table_list_item = TableListItem(

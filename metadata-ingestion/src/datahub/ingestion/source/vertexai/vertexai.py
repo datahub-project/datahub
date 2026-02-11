@@ -183,7 +183,8 @@ class VertexAISource(Source):
                 project_labels=config.project_labels,
                 project_id_pattern=config.project_id_pattern,
             )
-            self._projects = resolve_gcp_projects(filter_cfg, self.report)
+            resolved_projects = resolve_gcp_projects(filter_cfg, self.report)
+            self._projects = [p.id for p in resolved_projects]
             if not self._projects and config.project_id:
                 self._projects = [config.project_id]
         else:
