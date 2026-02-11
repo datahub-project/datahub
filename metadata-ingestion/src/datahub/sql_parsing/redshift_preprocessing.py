@@ -146,6 +146,26 @@ _COMPOUND_KEYWORD_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
     (("uni on all",), re.compile(r"\bUNI\s+on\s+ALL\b", re.IGNORECASE), "UNION ALL"),
     # on ON -> on (double ON from malformed SQL)
     (("on on",), re.compile(r"\bon\s+ON\b", re.IGNORECASE), "on"),
+    # )AND -> ) AND, )OR -> ) OR (missing space after closing paren)
+    ((")and",), re.compile(r"\)(AND)\b", re.IGNORECASE), r") \1"),
+    ((")or",), re.compile(r"\)(OR)\b", re.IGNORECASE), r") \1"),
+    # FALSEAS -> FALSE AS, TRUEAS -> TRUE AS
+    (("falseas",), re.compile(r"\bFALSE(AS)\b", re.IGNORECASE), r"FALSE \1"),
+    (("trueas",), re.compile(r"\bTRUE(AS)\b", re.IGNORECASE), r"TRUE \1"),
+    # NULLAS -> NULL AS
+    (("nullas",), re.compile(r"\bNULL(AS)\b", re.IGNORECASE), r"NULL \1"),
+]
+
+# --- Number + AS Patterns ---
+# Handles cases like 0AS, 1AS, 123AS -> 0 AS, 1 AS, 123 AS
+_NUMBER_AS_PATTERN: List[Tuple[TriggerType, re.Pattern[str], str]] = [
+    # <number>AS -> <number> AS (e.g., CAST(0AS INT8) -> CAST(0 AS INT8))
+    # Trigger on any digit followed by 'as' - the quick indicators cover 0as-9as
+    (
+        ("0as", "1as", "2as", "3as", "4as", "5as", "6as", "7as", "8as", "9as"),
+        re.compile(r"(\d)(AS)\b", re.IGNORECASE),
+        r"\1 \2",
+    ),
 ]
 
 # --- Sigma Alias Patterns ---
@@ -335,6 +355,7 @@ _FUNCTION_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = [
 _REDSHIFT_RTRIM_PATTERNS: List[Tuple[TriggerType, re.Pattern[str], str]] = (
     _TYPE_CAST_PATTERNS
     + _COMPOUND_KEYWORD_PATTERNS
+    + _NUMBER_AS_PATTERN
     + _SIGMA_ALIAS_PATTERNS
     + _IDENTIFIER_PATTERNS
     + _FUNCTION_PATTERNS
@@ -356,6 +377,23 @@ _QUICK_MALFORMATION_INDICATORS = (
     "thencase",
     "uni on all",
     "on on",
+    # Missing space after ) before keyword
+    ")and",
+    ")or",
+    # Missing space before AS
+    "falseas",
+    "trueas",
+    "nullas",
+    "0as",
+    "1as",
+    "2as",
+    "3as",
+    "4as",
+    "5as",
+    "6as",
+    "7as",
+    "8as",
+    "9as",
     # Type cast triggers
     "cast_",
     "tzis",
@@ -445,6 +483,9 @@ def preprocess_redshift_query(query: str) -> str:
     - is nullor -> is null or
     - UNI on ALL -> UNION ALL
     - on ON -> on
+    - )AND -> ) AND, )OR -> ) OR
+    - FALSEAS -> FALSE AS, TRUEAS -> TRUE AS
+    - 0AS, 1AS, <num>AS -> 0 AS, 1 AS, <num> AS
     - whenq11. -> when q11. (Sigma aliases)
     - thenq11. -> then q11.
     - whene_xxx then -> when e_xxx then
@@ -466,11 +507,26 @@ def preprocess_redshift_query(query: str) -> str:
     if not _is_preprocessing_required(query_lower):
         return query
 
+    # Debug logging for UNI on ALL investigation
+    has_uni_on_all = "uni on all" in query_lower
+    if has_uni_on_all:
+        logger.debug("Preprocessing query with 'UNI on ALL' pattern")
+
     # Apply only patterns whose triggers match
     result = query
     for trigger, pattern, replacement in _REDSHIFT_RTRIM_PATTERNS:
         if _should_apply_trigger(trigger, query_lower):
             result = pattern.sub(replacement, result)
+
+    # Verify UNI on ALL was fixed
+    if has_uni_on_all:
+        if "uni on all" in result.lower():
+            logger.warning(
+                "UNI on ALL pattern was NOT fixed. Query snippet: %s",
+                query[:200] if len(query) > 200 else query,
+            )
+        else:
+            logger.debug("UNI on ALL pattern was successfully fixed")
 
     return result
 
