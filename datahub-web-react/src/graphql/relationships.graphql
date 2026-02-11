@@ -30,7 +30,7 @@ fragment relationshipFields on EntityWithRelationships {
         siblings {
             isPrimary
         }
-        siblingsSearch(input: { query: "*", count: 5 }) {
+        siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {

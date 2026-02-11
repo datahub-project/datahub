@@ -1,4 +1,8 @@
-query getTotalDatasets($input: SearchAcrossEntitiesInput!) {
+query getTotalDatasets(
+    $input: SearchAcrossEntitiesInput!
+    $skipSiblingsSearch: Boolean = false
+    $skipLineage: Boolean = false
+) {
     searchAcrossEntities(input: $input) {
         ...searchResults
     }

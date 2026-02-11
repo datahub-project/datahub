@@ -57,7 +57,11 @@ query searchForEntityUrnsByForm($input: SearchAcrossEntitiesInput!) {
     }
 }
 
-query searchForEntitiesByForm($input: SearchAcrossEntitiesInput!) {
+query searchForEntitiesByForm(
+    $input: SearchAcrossEntitiesInput!
+    $skipSiblingsSearch: Boolean = false
+    $skipLineage: Boolean = false
+) {
     searchAcrossEntities(input: $input) {
         ...searchResults
     }

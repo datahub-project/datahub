@@ -153,6 +153,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         documentationFileUploadV1: false,
         freshnessAssertionTuningEnabled: false,
         contextDocumentsEnabled: false,
+        hideLineageInSearchCards: false,
     },
     chromeExtensionConfig: {
         enabled: false,

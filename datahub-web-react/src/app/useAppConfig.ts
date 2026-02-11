@@ -35,6 +35,8 @@ export function useIsEditableDatasetNameEnabled() {
     return appConfig.config.featureFlags.editableDatasetNameEnabled;
 }
 
+export const showSeparateSiblingsRef = { current: { showSeparateSiblings: false } };
+
 export function useIsShowSeparateSiblingsEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.showSeparateSiblings;
@@ -108,4 +110,11 @@ export function useIsFreeTrialInstance() {
 export function useIsContextDocumentsEnabled(): boolean {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.contextDocumentsEnabled;
+}
+
+export const hideLineageInSearchCardsRef = { current: { hideLineageInSearchCards: false } };
+
+export function useHideLineageInSearchCards() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.hideLineageInSearchCards;
 }

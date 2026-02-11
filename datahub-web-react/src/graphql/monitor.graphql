@@ -168,13 +168,13 @@ fragment assertionsQueryWithMonitors on Dataset {
     }
 }
 
-query getDatasetAssertionsWithMonitors($urn: String!) {
+query getDatasetAssertionsWithMonitors($urn: String!, $skipSiblingsSearch: Boolean = false) {
     dataset(urn: $urn) {
         ...assertionsQueryWithMonitors
         siblings {
             isPrimary
         }
-        siblingsSearch(input: { query: "*", count: 5 }) {
+        siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {

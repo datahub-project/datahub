@@ -1,4 +1,4 @@
-query getChart($urn: String!) {
+query getChart($urn: String!, $skipSiblingsSearch: Boolean = false) {
     chart(urn: $urn) {
         urn
         type

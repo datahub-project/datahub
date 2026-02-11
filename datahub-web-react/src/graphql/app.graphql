@@ -182,6 +182,7 @@ query appConfig {
             freshnessAssertionTuningEnabled
             contextDocumentsEnabled
             aiPluginsEnabled
+            hideLineageInSearchCards
         }
         chromeExtensionConfig {
             enabled

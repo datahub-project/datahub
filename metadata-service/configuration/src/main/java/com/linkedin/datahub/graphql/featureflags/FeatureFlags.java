@@ -56,6 +56,7 @@ public class FeatureFlags {
   private boolean datasetSummaryPageV1 = false;
   private boolean showDefaultExternalLinks = true;
   private boolean documentationFileUploadV1 = false;
+  private boolean hideLineageInSearchCards = false;
 
   /* SaaS Only */
   private boolean assertionMonitorsEnabled = false;
