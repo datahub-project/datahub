@@ -87,7 +87,7 @@ public class DataHubJwtTokenAuthenticator implements Authenticator {
       String token = getToken(jwtToken);
 
       Jws<Claims> claims =
-          Jwts.parserBuilder()
+          Jwts.parser()
               .setSigningKeyResolver(
                   new DataHubJwtSigningKeyResolver(
                       this.trustedIssuers, this.publicKey, this.algorithm))
