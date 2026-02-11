@@ -2,13 +2,14 @@ import logging
 from copy import deepcopy
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
 import requests
 from pydantic import Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -28,8 +29,11 @@ from datahub.ingestion.source.dbt.dbt_cloud_models import (
     DBTCloudJob,
 )
 from datahub.ingestion.source.dbt.dbt_common import (
+    DBT_EXPOSURE_MATURITY,
+    DBT_EXPOSURE_TYPES,
     DBTColumn,
     DBTCommonConfig,
+    DBTExposure,
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
@@ -306,9 +310,18 @@ _DBT_FIELDS_BY_TYPE = {
     compiledSql
     compiledCode
 """,
+    "exposures": f"""
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    packageName
+    exposureType
+    url
+    maturity
+    ownerName
+    ownerEmail
+    dependsOn
+""",
     # Currently unsupported dbt node types:
     # - metrics
-    # - exposures
 }
 
 _DBT_GRAPHQL_QUERY = """
@@ -329,6 +342,9 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 class DBTCloudSource(DBTSourceBase, TestableSource):
     config: DBTCloudConfig
     report: DBTSourceReport  # nothing cloud-specific in the report
+
+    def __init__(self, config: DBTCloudConfig, ctx: PipelineContext):
+        super().__init__(config, ctx)
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -644,6 +660,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         # Fetch nodes from all jobs
         raw_nodes = []
+        raw_exposures = []
         for job_id in job_ids_to_ingest:
             self.report.processed_jobs_list.append(job_id)
             self.report.total_jobs_processed += 1
@@ -662,7 +679,10 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                         },
                     )
 
-                    raw_nodes.extend(data["job"][node_type])
+                    if node_type == "exposures":
+                        raw_exposures.extend(data["job"][node_type])
+                    else:
+                        raw_nodes.extend(data["job"][node_type])
                 except Exception as e:
                     logger.warning(
                         f"Failed to fetch {node_type} from job {job_id}: {e}. Continuing with other jobs."
@@ -670,6 +690,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     continue
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
+
+        # Parse exposures
+        self._exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
 
         additional_metadata: Dict[str, Optional[str]] = {
             "account_id": str(self.config.account_id),
@@ -890,6 +913,40 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             data_type=column["type"],
             meta=column["meta"],
             tags=column["tags"],
+        )
+
+    def _parse_into_dbt_exposure(self, exposure: Dict) -> DBTExposure:
+        """Parse a raw exposure from dbt Cloud API into a DBTExposure object."""
+        tags = exposure.get("tags", [])
+        tags = [self.config.tag_prefix + tag for tag in tags] if tags else []
+
+        depends_on = exposure.get("dependsOn", [])
+        # dependsOn in GraphQL response is a list of unique IDs
+        depends_on_nodes = depends_on if isinstance(depends_on, list) else []
+
+        raw_type = exposure.get("exposureType", "dashboard")
+        exposure_type: Literal[
+            "dashboard", "notebook", "ml", "application", "analysis"
+        ] = cast(
+            Literal["dashboard", "notebook", "ml", "application", "analysis"],
+            raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard",
+        )
+        raw_maturity = exposure.get("maturity")
+        maturity = raw_maturity if raw_maturity in DBT_EXPOSURE_MATURITY else None
+
+        return DBTExposure(
+            name=exposure["name"],
+            unique_id=exposure["uniqueId"],
+            type=exposure_type,
+            owner_name=exposure.get("ownerName"),
+            owner_email=exposure.get("ownerEmail"),
+            description=exposure.get("description"),
+            url=exposure.get("url"),
+            maturity=maturity,
+            depends_on=depends_on_nodes,
+            tags=tags,
+            meta=exposure.get("meta", {}) if exposure.get("meta") else {},
+            dbt_package_name=exposure.get("packageName"),
         )
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:
