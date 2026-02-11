@@ -91,6 +91,7 @@ vi.mock('../IntegrationCard', () => ({
 // Mock ApiKeyModal
 vi.mock('@app/settingsV2/personal/aiConnections/ApiKeyModal', () => ({
     default: () => <div data-testid="api-key-modal" />,
+    AdditionalApiKeyField: {},
 }));
 
 // Mock CustomHeadersModal
@@ -103,6 +104,20 @@ vi.mock('@app/settingsV2/platform/ai/plugins/components/PluginLogo', () => ({
     PluginLogo: () => <div data-testid="plugin-logo" />,
 }));
 
+// Mock pluginSources
+vi.mock('@app/settingsV2/platform/ai/plugins/sources/pluginSources', () => ({
+    detectPluginSourceName: vi.fn(() => 'custom'),
+    getPluginSource: vi.fn(() => ({
+        name: 'custom',
+        displayName: 'Custom',
+        description: 'Custom plugin',
+        allowedAuthTypes: [],
+        defaults: {},
+        visibleFields: ['displayName'],
+        advancedFields: [],
+    })),
+}));
+
 const createMockPlugin = (overrides = {}) => ({
     id: 'test-plugin-1',
     enabled: true,
@@ -111,6 +126,8 @@ const createMockPlugin = (overrides = {}) => ({
         properties: {
             displayName: 'Test Plugin',
             description: 'A test plugin',
+        },
+        mcpServerProperties: {
             url: 'https://test.com',
         },
     },

@@ -16,11 +16,12 @@ describe('pluginFormState', () => {
         it('has correct default values', () => {
             expect(DEFAULT_PLUGIN_FORM_STATE.displayName).toBe('');
             expect(DEFAULT_PLUGIN_FORM_STATE.url).toBe('');
-            expect(DEFAULT_PLUGIN_FORM_STATE.transport).toBe(McpTransport.Sse);
+            expect(DEFAULT_PLUGIN_FORM_STATE.transport).toBe(McpTransport.Http);
             expect(DEFAULT_PLUGIN_FORM_STATE.timeout).toBe('30');
             expect(DEFAULT_PLUGIN_FORM_STATE.authType).toBe(AiPluginAuthType.None);
             expect(DEFAULT_PLUGIN_FORM_STATE.enabled).toBe(true);
             expect(DEFAULT_PLUGIN_FORM_STATE.customHeaders).toEqual([]);
+            expect(DEFAULT_PLUGIN_FORM_STATE.structuredHeaderValues).toEqual({});
         });
     });
 
@@ -90,6 +91,56 @@ describe('pluginFormState', () => {
             expect(result.customHeaders[0].value).toBe('value1');
             expect(result.customHeaders[1].key).toBe('x-custom-2');
             expect(result.customHeaders[1].value).toBe('value2');
+        });
+
+        it('hydrates structuredHeaderValues from existing headers', () => {
+            const plugin = {
+                id: 'test-plugin',
+                authType: AiPluginAuthType.SharedApiKey,
+                enabled: true,
+                service: {
+                    mcpServerProperties: {
+                        url: 'https://cloud.getdbt.com/api/ai/v1/mcp/',
+                        customHeaders: [
+                            { key: 'x-dbt-prod-environment-id', value: '123456' },
+                            { key: 'x-dbt-dev-environment-id', value: '789012' },
+                        ],
+                    },
+                },
+            };
+
+            const result = createFormStateFromPlugin(plugin as any);
+
+            expect(result.structuredHeaderValues).toEqual({
+                'x-dbt-prod-environment-id': '123456',
+                'x-dbt-dev-environment-id': '789012',
+            });
+        });
+
+        it('hydrates all structured header values from existing headers with sourceConfig', () => {
+            const plugin = {
+                id: 'test-plugin',
+                authType: AiPluginAuthType.SharedApiKey,
+                enabled: true,
+                service: {
+                    mcpServerProperties: {
+                        url: 'https://cloud.getdbt.com/api/ai/v1/mcp/',
+                        customHeaders: [
+                            { key: 'x-dbt-prod-environment-id', value: '123456' },
+                            { key: 'x-dbt-dev-environment-id', value: '789012' },
+                            { key: 'x-dbt-user-id', value: '456789' },
+                        ],
+                    },
+                },
+            };
+
+            const result = createFormStateFromPlugin(plugin as any);
+
+            expect(result.structuredHeaderValues).toEqual({
+                'x-dbt-prod-environment-id': '123456',
+                'x-dbt-dev-environment-id': '789012',
+                'x-dbt-user-id': '456789',
+            });
         });
     });
 

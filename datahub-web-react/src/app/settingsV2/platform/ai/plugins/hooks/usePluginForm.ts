@@ -2,6 +2,7 @@ import { message } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
+import { PluginSourceConfig } from '@app/settingsV2/platform/ai/plugins/sources/pluginSources.types';
 import {
     DEFAULT_PLUGIN_FORM_STATE,
     PluginFormState,
@@ -32,6 +33,7 @@ export interface UsePluginFormOptions {
     editingPlugin: AiPluginConfig | null;
     existingNames: string[];
     onSuccess: () => void;
+    sourceConfig?: PluginSourceConfig;
 }
 
 export interface UsePluginFormResult {
@@ -64,7 +66,7 @@ export interface UsePluginFormResult {
  * Follows the pattern from useWorkflowFormCompletion.
  */
 export function usePluginForm(options: UsePluginFormOptions): UsePluginFormResult {
-    const { editingPlugin, existingNames, onSuccess } = options;
+    const { editingPlugin, existingNames, onSuccess, sourceConfig } = options;
 
     // Determine editing mode
     const editingUrn = editingPlugin?.service?.urn || null;
@@ -166,6 +168,7 @@ export function usePluginForm(options: UsePluginFormOptions): UsePluginFormResul
             const input = buildUpsertServiceInput(formState, {
                 editingUrn,
                 existingOAuthServerUrn: hasExistingOAuth ? existingOAuthServerUrn : null,
+                sourceConfig,
             });
 
             const result = await upsertService({
@@ -211,8 +214,8 @@ export function usePluginForm(options: UsePluginFormOptions): UsePluginFormResul
         upsertOAuthServer,
         isEditing,
         onSuccess,
+        sourceConfig,
     ]);
-    // Note: existingOAuthServerId is still in deps because it's used in the OAuth server update call
 
     // Modal title
     const getModalTitle = useCallback(() => {

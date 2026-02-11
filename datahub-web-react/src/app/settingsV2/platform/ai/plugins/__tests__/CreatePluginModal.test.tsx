@@ -44,12 +44,22 @@ const mockEditingPlugin = {
     userApiKeyConfig: null,
 };
 
+/** Helper: select the Custom source card to advance to the config step */
+function selectCustomSource() {
+    const customCard = screen.getByTestId('source-card-custom');
+    fireEvent.click(customCard);
+}
+
 describe('CreatePluginModal', () => {
     beforeEach(() => {
         mockOnClose.mockClear();
     });
 
-    it('renders in create mode with correct title', async () => {
+    // ------------------------------------------------------------------
+    // Step 1: Source Selection
+    // ------------------------------------------------------------------
+
+    it('renders source selection step in create mode', () => {
         render(
             <TestWrapper mocks={[]}>
                 <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
@@ -57,78 +67,88 @@ describe('CreatePluginModal', () => {
         );
 
         expect(screen.getByText('Create AI Plugin')).toBeInTheDocument();
-        expect(screen.getByText('Add an MCP server that can be accessed by Ask DataHub')).toBeInTheDocument();
+        // Source cards should be visible
+        expect(screen.getByTestId('source-card-custom')).toBeInTheDocument();
+        expect(screen.getByTestId('source-card-github')).toBeInTheDocument();
+        expect(screen.getByTestId('source-card-dbt')).toBeInTheDocument();
+        expect(screen.getByTestId('source-card-snowflake')).toBeInTheDocument();
+    });
+
+    it('advances to configuration step after selecting Custom source', () => {
+        render(
+            <TestWrapper mocks={[]}>
+                <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
+            </TestWrapper>,
+        );
+
+        selectCustomSource();
+
+        // Now we should see the config step
+        expect(screen.getByTestId('plugin-configuration-step')).toBeInTheDocument();
+        expect(screen.getByText('Authentication Type')).toBeInTheDocument();
         expect(screen.getByText('Create')).toBeInTheDocument();
     });
 
-    it('renders in edit mode with correct title and pre-populated data', async () => {
-        render(
-            <TestWrapper mocks={[]}>
-                <CreatePluginModal editingPlugin={mockEditingPlugin as any} onClose={mockOnClose} />
-            </TestWrapper>,
-        );
+    // ------------------------------------------------------------------
+    // Step 2: Configuration (via Custom source)
+    // ------------------------------------------------------------------
 
-        expect(screen.getByText('Edit AI Plugin')).toBeInTheDocument();
-        expect(screen.getByText('Save')).toBeInTheDocument();
-
-        // Check that form is pre-populated
-        await waitFor(() => {
-            const nameInput = screen.getByDisplayValue('Existing Plugin');
-            expect(nameInput).toBeInTheDocument();
-        });
-    });
-
-    it('shows required field sections', () => {
+    it('shows required field sections after selecting Custom', () => {
         render(
             <TestWrapper mocks={[]}>
                 <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
             </TestWrapper>,
         );
 
-        // Check section titles
-        expect(screen.getByText('Connection')).toBeInTheDocument();
-        expect(screen.getByText('Authentication')).toBeInTheDocument();
-        expect(screen.getByText('LLM Instructions')).toBeInTheDocument();
+        selectCustomSource();
+
+        expect(screen.getByTestId('plugin-url-input')).toBeInTheDocument();
+        expect(screen.getByText('Authentication Type')).toBeInTheDocument();
     });
 
-    it('shows stdio disclaimer in server URL helper text', () => {
+    it('shows stdio disclaimer in server URL helper text after selecting Custom', () => {
         render(
             <TestWrapper mocks={[]}>
                 <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
             </TestWrapper>,
         );
 
-        // Disclaimer message about stdio plugins in Server URL helper text
+        selectCustomSource();
+
         expect(screen.getByText('stdio-based MCP plugins are not currently supported.')).toBeInTheDocument();
     });
 
-    it('shows enable checkbox in footer', () => {
+    it('shows enable checkbox in footer after selecting Custom', () => {
         render(
             <TestWrapper mocks={[]}>
                 <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
             </TestWrapper>,
         );
+
+        selectCustomSource();
 
         expect(screen.getByText('Enable for Ask DataHub')).toBeInTheDocument();
     });
 
-    it('calls onClose when Cancel is clicked', () => {
+    it('calls onClose when close icon is clicked on source selection step', () => {
         render(
             <TestWrapper mocks={[]}>
                 <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
             </TestWrapper>,
         );
 
-        fireEvent.click(screen.getByText('Cancel'));
+        fireEvent.click(screen.getByTestId('modal-close-icon'));
         expect(mockOnClose).toHaveBeenCalled();
     });
 
-    it('shows advanced settings toggle', () => {
+    it('shows advanced settings toggle after selecting Custom', () => {
         render(
             <TestWrapper mocks={[]}>
                 <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
             </TestWrapper>,
         );
+
+        selectCustomSource();
 
         expect(screen.getByText('Advanced Settings')).toBeInTheDocument();
     });
@@ -140,22 +160,41 @@ describe('CreatePluginModal', () => {
             </TestWrapper>,
         );
 
-        // Click to expand
+        selectCustomSource();
+
         fireEvent.click(screen.getByText('Advanced Settings'));
 
-        // Should show custom headers section
         expect(screen.getByText('Custom Headers')).toBeInTheDocument();
         expect(screen.getByText('Add Header')).toBeInTheDocument();
     });
 
+    // ------------------------------------------------------------------
+    // Edit mode (skips source selection)
+    // ------------------------------------------------------------------
+
+    it('renders in edit mode with correct title and pre-populated data', async () => {
+        render(
+            <TestWrapper mocks={[]}>
+                <CreatePluginModal editingPlugin={mockEditingPlugin as any} onClose={mockOnClose} />
+            </TestWrapper>,
+        );
+
+        expect(screen.getByText('Edit AI Plugin')).toBeInTheDocument();
+        expect(screen.getByText('Save')).toBeInTheDocument();
+
+        await waitFor(() => {
+            const nameInput = screen.getByDisplayValue('Existing Plugin');
+            expect(nameInput).toBeInTheDocument();
+        });
+    });
+
     it('renders in duplicate mode with correct title when plugin has no URN', async () => {
-        // Create a plugin without a URN (simulates duplication)
         const duplicatedPlugin = {
             ...mockEditingPlugin,
             id: '',
             service: {
                 ...mockEditingPlugin.service,
-                urn: '', // No URN = duplicate mode
+                urn: '',
                 properties: {
                     ...mockEditingPlugin.service.properties,
                     displayName: 'Existing Plugin (Copy)',
@@ -170,13 +209,64 @@ describe('CreatePluginModal', () => {
         );
 
         expect(screen.getByText('Duplicate AI Plugin')).toBeInTheDocument();
-        expect(screen.getByText('Create')).toBeInTheDocument(); // Button should say Create, not Save
+        expect(screen.getByText('Create')).toBeInTheDocument();
 
-        // Check that form is pre-populated with copied data
         await waitFor(() => {
             const nameInput = screen.getByDisplayValue('Existing Plugin (Copy)');
             expect(nameInput).toBeInTheDocument();
         });
+    });
+
+    // ------------------------------------------------------------------
+    // Source-specific flows
+    // ------------------------------------------------------------------
+
+    it('pre-populates GitHub defaults when GitHub source is selected', () => {
+        render(
+            <TestWrapper mocks={[]}>
+                <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
+            </TestWrapper>,
+        );
+
+        const githubCard = screen.getByTestId('source-card-github');
+        fireEvent.click(githubCard);
+
+        // Should show OAuth credential provider card (GitHub uses UserOauth)
+        expect(screen.getByText('Credential Provider')).toBeInTheDocument();
+    });
+
+    it('pre-populates dbt defaults when dbt source is selected', () => {
+        render(
+            <TestWrapper mocks={[]}>
+                <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
+            </TestWrapper>,
+        );
+
+        const dbtCard = screen.getByTestId('source-card-dbt');
+        fireEvent.click(dbtCard);
+
+        // dbt uses SharedApiKey, should show API key field
+        expect(screen.getByText('Access Token')).toBeInTheDocument();
+        // Should show structured headers (Configuration)
+        expect(screen.getByText('Configuration')).toBeInTheDocument();
+        expect(screen.getByText('Production Environment ID')).toBeInTheDocument();
+        expect(screen.getByText('Development Environment ID')).toBeInTheDocument();
+        // User ID should be visible for SharedApiKey (default auth type for dbt)
+        expect(screen.getByText('User ID')).toBeInTheDocument();
+    });
+
+    it('pre-populates Snowflake defaults when Snowflake source is selected', () => {
+        render(
+            <TestWrapper mocks={[]}>
+                <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
+            </TestWrapper>,
+        );
+
+        const snowflakeCard = screen.getByTestId('source-card-snowflake');
+        fireEvent.click(snowflakeCard);
+
+        // Should show OAuth credential provider card (Snowflake uses UserOauth)
+        expect(screen.getByText('Credential Provider')).toBeInTheDocument();
     });
 
     it('shows error when creating plugin with duplicate name', async () => {
@@ -190,46 +280,152 @@ describe('CreatePluginModal', () => {
             </TestWrapper>,
         );
 
+        selectCustomSource();
+
         // Enter a duplicate name
-        const nameInput = screen.getByPlaceholderText('Glean MCP Server');
+        const nameInput = screen.getByTestId('plugin-name-input').querySelector('input')!;
         fireEvent.change(nameInput, { target: { value: 'Test Plugin' } });
 
         // Enter required URL
-        const urlInput = screen.getByPlaceholderText('https://api.example.com/mcp');
+        const urlInput = screen.getByTestId('plugin-url-input').querySelector('input')!;
         fireEvent.change(urlInput, { target: { value: 'https://example.com' } });
 
-        // Click Create - button should NOT be disabled
+        // Click Create
         const createButton = screen.getByText('Create');
-        expect(createButton.closest('button')).not.toBeDisabled();
         fireEvent.click(createButton);
 
-        // Should show duplicate name error on the field
         await waitFor(() => {
             expect(screen.getByText('A plugin with this name already exists')).toBeInTheDocument();
         });
     });
 
-    it('allows creating plugin with unique name', async () => {
+    it('navigates back to source selection via Back button', () => {
         render(
             <TestWrapper mocks={[]}>
-                <CreatePluginModal
-                    editingPlugin={null}
-                    onClose={mockOnClose}
-                    existingNames={['Test Plugin', 'Another Plugin']}
-                />
+                <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
             </TestWrapper>,
         );
 
-        // Enter a unique name
-        const nameInput = screen.getByPlaceholderText('Glean MCP Server');
-        fireEvent.change(nameInput, { target: { value: 'Unique Plugin Name' } });
+        selectCustomSource();
 
-        // Enter required URL
-        const urlInput = screen.getByPlaceholderText('https://api.example.com/mcp');
-        fireEvent.change(urlInput, { target: { value: 'https://example.com' } });
+        // Should be on config step
+        expect(screen.getByTestId('plugin-configuration-step')).toBeInTheDocument();
 
-        // Create button should always be enabled (validation happens on submit)
-        const createButton = screen.getByText('Create');
-        expect(createButton.closest('button')).not.toBeDisabled();
+        // Click Back
+        fireEvent.click(screen.getByTestId('plugin-back-button'));
+
+        // Should be back on source selection
+        expect(screen.getByTestId('source-card-custom')).toBeInTheDocument();
+    });
+
+    // ------------------------------------------------------------------
+    // Dynamic titles and subtitles
+    // ------------------------------------------------------------------
+
+    it('shows source-specific title after selecting GitHub', () => {
+        render(
+            <TestWrapper mocks={[]}>
+                <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
+            </TestWrapper>,
+        );
+
+        fireEvent.click(screen.getByTestId('source-card-github'));
+
+        expect(screen.getByText('Create GitHub MCP Plugin')).toBeInTheDocument();
+    });
+
+    it('shows source-specific title after selecting dbt', () => {
+        render(
+            <TestWrapper mocks={[]}>
+                <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
+            </TestWrapper>,
+        );
+
+        fireEvent.click(screen.getByTestId('source-card-dbt'));
+
+        expect(screen.getByText('Create dbt Cloud MCP Plugin')).toBeInTheDocument();
+    });
+
+    it('shows source-specific title after selecting Snowflake', () => {
+        render(
+            <TestWrapper mocks={[]}>
+                <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
+            </TestWrapper>,
+        );
+
+        fireEvent.click(screen.getByTestId('source-card-snowflake'));
+
+        expect(screen.getByText('Create Snowflake MCP Plugin')).toBeInTheDocument();
+    });
+
+    it('shows Create Custom MCP Plugin title after selecting Custom', () => {
+        render(
+            <TestWrapper mocks={[]}>
+                <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
+            </TestWrapper>,
+        );
+
+        selectCustomSource();
+
+        expect(screen.getByText('Create Custom MCP Plugin')).toBeInTheDocument();
+    });
+
+    // ------------------------------------------------------------------
+    // AI Instructions section
+    // ------------------------------------------------------------------
+
+    it('shows AI Instructions textarea after selecting a source', () => {
+        render(
+            <TestWrapper mocks={[]}>
+                <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
+            </TestWrapper>,
+        );
+
+        selectCustomSource();
+
+        expect(screen.getByText('Instructions for the AI Assistant')).toBeInTheDocument();
+    });
+
+    // ------------------------------------------------------------------
+    // Learn More link
+    // ------------------------------------------------------------------
+
+    it('shows Learn More link for GitHub source', () => {
+        render(
+            <TestWrapper mocks={[]}>
+                <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
+            </TestWrapper>,
+        );
+
+        fireEvent.click(screen.getByTestId('source-card-github'));
+
+        expect(screen.getByText('Learn More ↗')).toBeInTheDocument();
+    });
+
+    it('does not show Learn More link on source selection step', () => {
+        render(
+            <TestWrapper mocks={[]}>
+                <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
+            </TestWrapper>,
+        );
+
+        expect(screen.queryByText('Learn More ↗')).not.toBeInTheDocument();
+    });
+
+    // ------------------------------------------------------------------
+    // Plugin name placeholder
+    // ------------------------------------------------------------------
+
+    it('shows "Plugin name" placeholder in name input', () => {
+        render(
+            <TestWrapper mocks={[]}>
+                <CreatePluginModal editingPlugin={null} onClose={mockOnClose} />
+            </TestWrapper>,
+        );
+
+        selectCustomSource();
+
+        const nameInput = screen.getByTestId('plugin-name-input').querySelector('input')!;
+        expect(nameInput.getAttribute('placeholder')).toBe('Plugin name');
     });
 });

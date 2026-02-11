@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import { PluginSourceConfig } from '@app/settingsV2/platform/ai/plugins/sources/pluginSources.types';
 import { DEFAULT_PLUGIN_FORM_STATE, PluginFormState } from '@app/settingsV2/platform/ai/plugins/utils/pluginFormState';
 import {
     buildCustomHeadersInput,
     buildNewOAuthServerInput,
+    buildStructuredHeadersInput,
     buildUpsertOAuthServerInput,
     buildUpsertServiceInput,
     extractOAuthServerIdFromUrn,
@@ -69,6 +71,128 @@ describe('pluginMutationBuilder', () => {
                 { key: 'x-header-1', value: 'value1' },
                 { key: 'x-header-2', value: 'value2' },
             ]);
+        });
+    });
+
+    describe('buildStructuredHeadersInput', () => {
+        const mockSourceConfig = {
+            structuredHeaders: {
+                sectionTitle: 'dbt Cloud Configuration',
+                fields: [
+                    { headerKey: 'x-dbt-prod-environment-id', label: 'Production Environment ID', required: true },
+                    { headerKey: 'x-dbt-dev-environment-id', label: 'Dev Env ID' },
+                    {
+                        headerKey: 'x-dbt-user-id',
+                        label: 'User ID',
+                        visibleForAuthTypes: [AiPluginAuthType.SharedApiKey],
+                    },
+                ],
+            },
+        } as unknown as PluginSourceConfig;
+
+        it('returns empty array when no sourceConfig', () => {
+            const state = { ...DEFAULT_PLUGIN_FORM_STATE };
+            expect(buildStructuredHeadersInput(state)).toEqual([]);
+        });
+
+        it('returns empty array when no structuredHeaders in sourceConfig', () => {
+            const state = { ...DEFAULT_PLUGIN_FORM_STATE };
+            expect(buildStructuredHeadersInput(state, {} as PluginSourceConfig)).toEqual([]);
+        });
+
+        it('includes fields with non-empty values', () => {
+            const state: PluginFormState = {
+                ...DEFAULT_PLUGIN_FORM_STATE,
+                authType: AiPluginAuthType.SharedApiKey,
+                structuredHeaderValues: {
+                    'x-dbt-prod-environment-id': '123456',
+                },
+            };
+
+            const result = buildStructuredHeadersInput(state, mockSourceConfig);
+            expect(result).toEqual([{ key: 'x-dbt-prod-environment-id', value: '123456' }]);
+        });
+
+        it('skips fields with empty or whitespace-only values', () => {
+            const state: PluginFormState = {
+                ...DEFAULT_PLUGIN_FORM_STATE,
+                authType: AiPluginAuthType.SharedApiKey,
+                structuredHeaderValues: {
+                    'x-dbt-prod-environment-id': '  ',
+                },
+            };
+
+            const result = buildStructuredHeadersInput(state, mockSourceConfig);
+            expect(result).toEqual([]);
+        });
+
+        it('includes all fields for SharedApiKey auth type', () => {
+            const state: PluginFormState = {
+                ...DEFAULT_PLUGIN_FORM_STATE,
+                authType: AiPluginAuthType.SharedApiKey,
+                structuredHeaderValues: {
+                    'x-dbt-prod-environment-id': '123456',
+                    'x-dbt-dev-environment-id': '789012',
+                    'x-dbt-user-id': '456789',
+                },
+            };
+
+            const result = buildStructuredHeadersInput(state, mockSourceConfig);
+            expect(result).toEqual([
+                { key: 'x-dbt-prod-environment-id', value: '123456' },
+                { key: 'x-dbt-dev-environment-id', value: '789012' },
+                { key: 'x-dbt-user-id', value: '456789' },
+            ]);
+        });
+
+        it('excludes User ID field for UserApiKey auth type (visibleForAuthTypes filtering)', () => {
+            const state: PluginFormState = {
+                ...DEFAULT_PLUGIN_FORM_STATE,
+                authType: AiPluginAuthType.UserApiKey,
+                structuredHeaderValues: {
+                    'x-dbt-prod-environment-id': '123456',
+                    'x-dbt-dev-environment-id': '789012',
+                    'x-dbt-user-id': '456789',
+                },
+            };
+
+            const result = buildStructuredHeadersInput(state, mockSourceConfig);
+            // User ID should be excluded because visibleForAuthTypes only includes SharedApiKey
+            expect(result).toEqual([
+                { key: 'x-dbt-prod-environment-id', value: '123456' },
+                { key: 'x-dbt-dev-environment-id', value: '789012' },
+            ]);
+            expect(result.find((h) => h.key === 'x-dbt-user-id')).toBeUndefined();
+        });
+    });
+
+    describe('buildCustomHeadersInput (with structured headers)', () => {
+        it('merges structured and raw headers without duplicates', () => {
+            const state: PluginFormState = {
+                ...DEFAULT_PLUGIN_FORM_STATE,
+                authType: AiPluginAuthType.SharedApiKey,
+                structuredHeaderValues: {
+                    'x-dbt-prod-environment-id': '123456',
+                },
+                customHeaders: [
+                    { id: '1', key: 'x-dbt-prod-environment-id', value: 'should-be-excluded' },
+                    { id: '2', key: 'x-extra-header', value: 'extra-value' },
+                ],
+            };
+
+            const sourceConfig = {
+                structuredHeaders: {
+                    sectionTitle: 'Test',
+                    fields: [{ headerKey: 'x-dbt-prod-environment-id', label: 'Prod Env' }],
+                },
+            } as unknown as PluginSourceConfig;
+
+            const result = buildCustomHeadersInput(state, sourceConfig);
+
+            // Structured header wins, raw duplicate is excluded
+            expect(result).toHaveLength(2);
+            expect(result).toContainEqual({ key: 'x-dbt-prod-environment-id', value: '123456' });
+            expect(result).toContainEqual({ key: 'x-extra-header', value: 'extra-value' });
         });
     });
 

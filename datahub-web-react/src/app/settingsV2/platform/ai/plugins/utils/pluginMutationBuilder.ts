@@ -1,3 +1,4 @@
+import { PluginSourceConfig } from '@app/settingsV2/platform/ai/plugins/sources/pluginSources.types';
 import { PluginFormState } from '@app/settingsV2/platform/ai/plugins/utils/pluginFormState';
 
 import { AiPluginAuthType, AuthLocation, McpTransport, ServiceSubType, TokenAuthMethod } from '@types';
@@ -68,6 +69,7 @@ export interface UpsertServiceInput {
 export interface MutationBuilderOptions {
     editingUrn?: string | null;
     existingOAuthServerUrn?: string | null; // URN of existing OAuth server (for edits - link via oauthServerUrn)
+    sourceConfig?: PluginSourceConfig; // Source config for structured header merging
 }
 
 /**
@@ -84,16 +86,54 @@ export function parseCommaSeparatedList(value: string): string[] | undefined {
 }
 
 /**
- * Builds custom headers input from form state
+ * Builds structured header entries from form state and source config.
+ * Converts the structuredHeaderValues into CustomHeaderInput entries that the backend understands.
+ * Respects visibleForAuthTypes so fields hidden for the current auth type are excluded.
  */
-export function buildCustomHeadersInput(state: PluginFormState): CustomHeaderInput[] | undefined {
-    const validHeaders = state.customHeaders.filter((h) => h.key.trim());
+export function buildStructuredHeadersInput(
+    state: PluginFormState,
+    sourceConfig?: PluginSourceConfig,
+): CustomHeaderInput[] {
+    if (!sourceConfig?.structuredHeaders) return [];
 
-    if (validHeaders.length === 0) {
+    const headers: CustomHeaderInput[] = [];
+    const { structuredHeaders } = sourceConfig;
+
+    // Fields (filtered by auth type visibility)
+    structuredHeaders.fields.forEach((field) => {
+        if (field.visibleForAuthTypes && !field.visibleForAuthTypes.includes(state.authType)) return;
+        const value = state.structuredHeaderValues[field.headerKey];
+        if (value?.trim()) {
+            headers.push({ key: field.headerKey, value: value.trim() });
+        }
+    });
+
+    return headers;
+}
+
+/**
+ * Builds custom headers input from form state, merging structured headers when available.
+ */
+export function buildCustomHeadersInput(
+    state: PluginFormState,
+    sourceConfig?: PluginSourceConfig,
+): CustomHeaderInput[] | undefined {
+    // Start with structured headers (source-specific)
+    const structuredHeaders = buildStructuredHeadersInput(state, sourceConfig);
+    const structuredKeys = new Set(structuredHeaders.map((h) => h.key));
+
+    // Add raw custom headers, excluding any that overlap with structured header keys
+    const rawHeaders = state.customHeaders
+        .filter((h) => h.key.trim() && !structuredKeys.has(h.key.trim()))
+        .map((h) => ({ key: h.key.trim(), value: h.value.trim() }));
+
+    const allHeaders = [...structuredHeaders, ...rawHeaders];
+
+    if (allHeaders.length === 0) {
         return undefined;
     }
 
-    return validHeaders.map((h) => ({ key: h.key, value: h.value }));
+    return allHeaders;
 }
 
 /**
@@ -109,12 +149,13 @@ export function buildUpsertOAuthServerInput(state: PluginFormState, existingOAut
         id: existingOAuthServerId,
         displayName: state.oauthServerName,
         description: state.oauthServerDescription || undefined,
-        clientId: state.oauthClientId,
+        // Trim credentials and URLs that get sent to external OAuth providers
+        clientId: state.oauthClientId.trim(),
         // Send undefined instead of empty string to preserve existing secret
         // Backend interprets: undefined/null = preserve existing, empty string = clear, value = replace
-        clientSecret: state.oauthClientSecret || undefined,
-        authorizationUrl: state.oauthAuthorizationUrl,
-        tokenUrl: state.oauthTokenUrl,
+        clientSecret: state.oauthClientSecret.trim() || undefined,
+        authorizationUrl: state.oauthAuthorizationUrl.trim(),
+        tokenUrl: state.oauthTokenUrl.trim(),
         scopes: parseCommaSeparatedList(state.oauthScopes),
         // Advanced OAuth settings
         tokenAuthMethod: tokenAuthMethod || undefined,
@@ -141,10 +182,11 @@ export function buildNewOAuthServerInput(state: PluginFormState): OAuthServerInp
     return {
         displayName: state.oauthServerName,
         description: state.oauthServerDescription || undefined,
-        clientId: state.oauthClientId,
-        clientSecret: state.oauthClientSecret,
-        authorizationUrl: state.oauthAuthorizationUrl,
-        tokenUrl: state.oauthTokenUrl,
+        // Trim credentials and URLs that get sent to external OAuth providers
+        clientId: state.oauthClientId.trim(),
+        clientSecret: state.oauthClientSecret.trim(),
+        authorizationUrl: state.oauthAuthorizationUrl.trim(),
+        tokenUrl: state.oauthTokenUrl.trim(),
         scopes: parseCommaSeparatedList(state.oauthScopes),
         // Advanced OAuth settings
         tokenAuthMethod: tokenAuthMethod || undefined,
@@ -159,7 +201,7 @@ export function buildNewOAuthServerInput(state: PluginFormState): OAuthServerInp
  * Builds the complete mutation input from form state
  */
 export function buildUpsertServiceInput(state: PluginFormState, options: MutationBuilderOptions): UpsertServiceInput {
-    const { editingUrn, existingOAuthServerUrn } = options;
+    const { editingUrn, existingOAuthServerUrn, sourceConfig } = options;
 
     // Determine OAuth handling:
     // - existingOAuthServerUrn: editing with existing OAuth server (updated via separate mutation, link via oauthServerUrn)
@@ -173,10 +215,10 @@ export function buildUpsertServiceInput(state: PluginFormState, options: Mutatio
         description: state.description || undefined,
         subType: ServiceSubType.McpServer,
         mcpServerProperties: {
-            url: state.url,
+            url: state.url.trim(),
             transport: state.transport,
             timeout: parseInt(state.timeout, 10) || 30,
-            customHeaders: buildCustomHeadersInput(state),
+            customHeaders: buildCustomHeadersInput(state, sourceConfig),
         },
         enabled: state.enabled,
         instructions: state.instructions || undefined,
@@ -185,7 +227,9 @@ export function buildUpsertServiceInput(state: PluginFormState, options: Mutatio
         oauthServerUrn: useExistingOAuthServer ? existingOAuthServerUrn : undefined,
         // Create new OAuth server inline (for creates)
         newOAuthServer: createNewOAuthServer ? buildNewOAuthServerInput(state) : undefined,
-        sharedApiKey: state.authType === AiPluginAuthType.SharedApiKey ? state.sharedApiKey || undefined : undefined,
+        // Trim credentials and auth values that get sent to external APIs
+        sharedApiKey:
+            state.authType === AiPluginAuthType.SharedApiKey ? state.sharedApiKey.trim() || undefined : undefined,
         sharedApiKeyAuthScheme:
             state.authType === AiPluginAuthType.SharedApiKey && state.sharedApiKeyAuthScheme
                 ? state.sharedApiKeyAuthScheme

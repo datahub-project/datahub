@@ -2,11 +2,13 @@ import { Empty, Spin, message } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import ApiKeyModal from '@app/settingsV2/personal/aiConnections/ApiKeyModal';
+import ApiKeyModal, { AdditionalApiKeyField } from '@app/settingsV2/personal/aiConnections/ApiKeyModal';
 import CustomHeadersModal from '@app/settingsV2/personal/aiConnections/CustomHeadersModal';
 import { useOAuthConnect } from '@app/settingsV2/personal/aiConnections/useOAuthConnect';
 import IntegrationCard from '@app/settingsV2/personal/myIntegrations/IntegrationCard';
+import { mergeCustomHeaders } from '@app/settingsV2/personal/myIntegrations/utils/headerMergeUtils';
 import { mergePluginsWithUserConfig } from '@app/settingsV2/personal/myIntegrations/utils/pluginDataMapper';
+import { detectPluginSourceName, getPluginSource } from '@app/settingsV2/platform/ai/plugins/sources/pluginSources';
 import { PageTitle } from '@src/alchemy-components';
 
 import {
@@ -31,6 +33,7 @@ const PluginsList = styled.div`
 interface ApiKeyModalState {
     pluginId: string;
     pluginName: string;
+    pluginUrl?: string | null;
 }
 
 interface CustomHeadersModalState {
@@ -59,19 +62,40 @@ export const ManageMyAiSettings: React.FC = () => {
         return mergePluginsWithUserConfig(globalPlugins, userPlugins);
     }, [data]);
 
+    // Derive additional fields for the API key modal based on the plugin source
+    const apiKeyAdditionalFields = useMemo((): AdditionalApiKeyField[] => {
+        if (!apiKeyModal) return [];
+
+        const sourceName = detectPluginSourceName(apiKeyModal.pluginUrl, apiKeyModal.pluginName);
+        const sourceConfig = getPluginSource(sourceName);
+        if (!sourceConfig.structuredHeaders) return [];
+
+        // Collect structured header fields that are only visible for SharedApiKey in the admin form.
+        // These need to be collected from individual users in the UserApiKey flow.
+        return sourceConfig.structuredHeaders.fields
+            .filter((f) => f.visibleForAuthTypes && !f.visibleForAuthTypes.includes(AiPluginAuthType.UserApiKey))
+            .map((f) => ({
+                key: f.headerKey,
+                label: f.label,
+                placeholder: f.placeholder,
+                helperText: f.helperText,
+                required: f.required,
+            }));
+    }, [apiKeyModal]);
+
     const handleConnect = useCallback(
-        async (pluginId: string, pluginName: string, authType: AiPluginAuthType) => {
+        async (pluginId: string, pluginName: string, authType: AiPluginAuthType, pluginUrl?: string | null) => {
             if (authType === AiPluginAuthType.UserOauth) {
                 await initiateOAuthConnect(pluginId);
             } else {
-                setApiKeyModal({ pluginId, pluginName });
+                setApiKeyModal({ pluginId, pluginName, pluginUrl });
             }
         },
         [initiateOAuthConnect],
     );
 
     const handleApiKeySubmit = useCallback(
-        async (apiKey: string) => {
+        async (apiKey: string, additionalHeaders?: { key: string; value: string }[]) => {
             if (!apiKeyModal) return;
 
             try {
@@ -90,6 +114,22 @@ export const ManageMyAiSettings: React.FC = () => {
                     throw new Error(errorData.detail || `Failed to save API key: ${response.status}`);
                 }
 
+                // Save any additional headers as per-user custom headers
+                if (additionalHeaders && additionalHeaders.length > 0) {
+                    const existingHeaders =
+                        availablePlugins.find((p) => p.id === apiKeyModal.pluginId)?.customHeaders || [];
+                    const merged = mergeCustomHeaders(existingHeaders, additionalHeaders);
+
+                    await updateUserSettings({
+                        variables: {
+                            input: {
+                                pluginId: apiKeyModal.pluginId,
+                                customHeaders: merged.map((h) => ({ key: h.key, value: h.value })),
+                            },
+                        },
+                    });
+                }
+
                 message.success(`Connected to ${apiKeyModal.pluginName} successfully!`);
                 refetch();
             } catch (err) {
@@ -97,7 +137,7 @@ export const ManageMyAiSettings: React.FC = () => {
                 throw err;
             }
         },
-        [apiKeyModal, refetch],
+        [apiKeyModal, availablePlugins, updateUserSettings, refetch],
     );
 
     const handleToggleEnabled = useCallback(
@@ -188,6 +228,7 @@ export const ManageMyAiSettings: React.FC = () => {
                                 plugin.id,
                                 plugin.service?.properties?.displayName || 'Unknown Plugin',
                                 plugin.authType,
+                                plugin.service?.mcpServerProperties?.url,
                             )
                         }
                         onToggleEnabled={(enabled) => handleToggleEnabled(plugin.id, enabled)}
@@ -224,6 +265,7 @@ export const ManageMyAiSettings: React.FC = () => {
                 pluginName={apiKeyModal?.pluginName || ''}
                 onClose={() => setApiKeyModal(null)}
                 onSubmit={handleApiKeySubmit}
+                additionalFields={apiKeyAdditionalFields}
             />
 
             {/* Custom Headers Modal */}

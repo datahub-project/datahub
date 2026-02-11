@@ -1,5 +1,45 @@
 import { AiPluginAuthType, AiPluginConfig, McpTransport } from '@types';
 
+// ---------------------------------------------------------------------------
+// Types for GraphQL query data shapes used when hydrating the form
+// ---------------------------------------------------------------------------
+
+/** Shape of the service GraphQL query data used when hydrating form state */
+type ServiceQueryData = {
+    service?: {
+        properties?: {
+            displayName?: string | null;
+            description?: string | null;
+        } | null;
+        mcpServerProperties?: {
+            url?: string | null;
+            transport?: McpTransport | null;
+            timeout?: number | null;
+            customHeaders?: Array<{ key?: string | null; value?: string | null }> | null;
+        } | null;
+    } | null;
+};
+
+/** Shape of the OAuth server GraphQL query data used when hydrating form state */
+type OAuthServerQueryData = {
+    oauthAuthorizationServer?: {
+        properties?: {
+            displayName?: string | null;
+            description?: string | null;
+            clientId?: string | null;
+            authorizationUrl?: string | null;
+            tokenUrl?: string | null;
+            scopes?: string[] | null;
+            tokenAuthMethod?: string | null;
+            authLocation?: string | null;
+            authHeaderName?: string | null;
+            authScheme?: string | null;
+            authQueryParam?: string | null;
+            hasClientSecret?: boolean | null;
+        } | null;
+    } | null;
+};
+
 /**
  * Represents a custom header key-value pair
  */
@@ -49,7 +89,7 @@ export interface PluginFormState {
     // OAuth secret status (for showing "configured" indicator when editing)
     hasOAuthClientSecret: boolean;
 
-    // LLM Instructions
+    // AI Instructions
     instructions: string;
 
     // Status
@@ -57,6 +97,10 @@ export interface PluginFormState {
 
     // Advanced settings
     customHeaders: CustomHeader[];
+
+    // Structured headers (source-specific, e.g. dbt environment config)
+    // Maps header keys to their values (e.g. "x-dbt-prod-environment-id" → "123456")
+    structuredHeaderValues: Record<string, string>;
 }
 
 /**
@@ -66,7 +110,7 @@ export const DEFAULT_PLUGIN_FORM_STATE: PluginFormState = {
     displayName: '',
     description: '',
     url: '',
-    transport: McpTransport.Sse,
+    transport: McpTransport.Http,
     timeout: '30',
     authType: AiPluginAuthType.None,
     sharedApiKey: '',
@@ -89,28 +133,39 @@ export const DEFAULT_PLUGIN_FORM_STATE: PluginFormState = {
     instructions: '',
     enabled: true,
     customHeaders: [],
+    structuredHeaderValues: {},
 };
 
 /**
- * Creates initial form state from an existing plugin (for edit/duplicate modes)
+ * Creates initial form state from an existing plugin (for edit/duplicate modes).
+ *
+ * @param plugin - The plugin being edited/duplicated
+ * @param serviceData - Service query result (used as fallback when plugin lacks mcpServerProperties)
+ * @param oauthServerData - OAuth server query result (used to hydrate OAuth fields)
  */
 export function createFormStateFromPlugin(
     plugin: AiPluginConfig | null,
-    serviceData?: any,
-    oauthServerData?: any,
+    serviceData?: ServiceQueryData,
+    oauthServerData?: OAuthServerQueryData,
 ): PluginFormState {
     if (!plugin) {
         return { ...DEFAULT_PLUGIN_FORM_STATE };
     }
 
     const service = plugin.service || serviceData?.service;
-    const headers = service?.mcpServerProperties?.customHeaders;
+    const rawHeaders = service?.mcpServerProperties?.customHeaders || [];
+    // Normalize nullable values from GraphQL StringMapEntry to safe defaults
+    const headers = rawHeaders.map((h) => ({ key: h.key || '', value: h.value || '' }));
+
+    // Build a lookup map from existing headers for structured header hydration
+    const headerMap = new Map<string, string>();
+    headers.forEach((h) => headerMap.set(h.key, h.value));
 
     return {
         displayName: service?.properties?.displayName || '',
         description: service?.properties?.description || '',
         url: service?.mcpServerProperties?.url || '',
-        transport: service?.mcpServerProperties?.transport || McpTransport.Sse,
+        transport: service?.mcpServerProperties?.transport || McpTransport.Http,
         timeout: String(service?.mcpServerProperties?.timeout || 30),
         authType: plugin.authType || AiPluginAuthType.None,
         sharedApiKey: '',
@@ -132,12 +187,12 @@ export function createFormStateFromPlugin(
         hasOAuthClientSecret: oauthServerData?.oauthAuthorizationServer?.properties?.hasClientSecret ?? false,
         instructions: plugin.instructions || '',
         enabled: plugin.enabled ?? true,
-        customHeaders:
-            headers?.map((h: any, i: number) => ({
-                id: `header-${Date.now()}-${i}`,
-                key: h.key,
-                value: h.value,
-            })) || [],
+        customHeaders: headers.map((h, i) => ({
+            id: `header-${Date.now()}-${i}`,
+            key: h.key,
+            value: h.value,
+        })),
+        structuredHeaderValues: Object.fromEntries(headerMap),
     };
 }
 
