@@ -288,6 +288,7 @@ export class ChartEntity implements Entity<Chart> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.TEST,
+            EntityCapabilityType.FORMS,
         ]);
     };
 

@@ -17,9 +17,6 @@ query getDataProduct($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         ...notes
         proposals: proposals {
             ...proposalsFragment

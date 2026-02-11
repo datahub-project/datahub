@@ -217,6 +217,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.TEST,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }

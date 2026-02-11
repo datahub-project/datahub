@@ -22,9 +22,6 @@ query getDataJob($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         proposals: proposals {
             ...proposalsFragment
         }

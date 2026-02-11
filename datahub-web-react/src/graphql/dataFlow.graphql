@@ -90,9 +90,6 @@ query getDataFlow($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         proposals: proposals {
             ...proposalsFragment
         }

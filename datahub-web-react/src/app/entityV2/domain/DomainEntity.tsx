@@ -247,6 +247,7 @@ export class DomainEntity implements Entity<Domain> {
             EntityCapabilityType.OWNERS,
             EntityCapabilityType.TEST,
             EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }

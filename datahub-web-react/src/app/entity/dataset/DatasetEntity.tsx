@@ -397,6 +397,7 @@ export class DatasetEntity implements Entity<Dataset> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.TEST,
+            EntityCapabilityType.FORMS,
         ]);
     };
 

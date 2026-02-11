@@ -277,6 +277,7 @@ export class DataJobEntity implements Entity<DataJob> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.TEST,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }

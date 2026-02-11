@@ -570,6 +570,7 @@ export class DatasetEntity implements Entity<Dataset> {
             EntityCapabilityType.HEALTH,
             EntityCapabilityType.APPLICATIONS,
             EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 

@@ -243,9 +243,6 @@ fragment nonSiblingDatasetFields on Dataset {
     share {
         ...shareFields
     }
-    forms {
-        ...formsFields
-    }
     proposals: proposals {
         ...proposalsFragment
     }

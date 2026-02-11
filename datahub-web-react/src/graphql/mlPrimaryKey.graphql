@@ -20,9 +20,6 @@ query getMLPrimaryKey($urn: String!, $skipSiblingsSearch: Boolean = false) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         proposals: proposals {
             ...proposalsFragment
         }

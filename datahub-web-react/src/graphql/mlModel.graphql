@@ -57,9 +57,6 @@ query getMLModel($urn: String!) {
             }
             date
         }
-        forms {
-            ...formsFields
-        }
         ...entityProfileVersionProperties
         proposals: proposals {
             ...proposalsFragment
