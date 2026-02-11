@@ -101,7 +101,11 @@ class PostgresAdapter(PlatformAdapter):
         """
         # Use PERCENTILE_CONT which is supported in PostgreSQL
         # Column name is from database schema (validated), not user input
-        return sa.text(f"PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {column})")
+        # IMPORTANT: label() is required whenever using literal_column()
+        # Without label(), the column name would be the entire SQL string, which breaks query combiner result extraction
+        return sa.literal_column(
+            f"PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {column})"
+        ).label("median")
 
     # =========================================================================
     # Row Count Estimation

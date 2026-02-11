@@ -34,6 +34,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner_runner import (
+    FutureResult,
     QueryCombinerRunner,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import (
@@ -97,6 +98,10 @@ def _is_single_row_query_method(query: Any) -> bool:
     This is used by SQLAlchemyQueryCombiner to optimize query batching.
     For the custom profiler, we assume all our stat methods return single rows
     except for histogram and value frequencies which return multiple rows.
+
+    Why this is still needed despite FutureResult making batching explicit:
+    FutureResult marks methods as batchable at the API level, but the query combiner
+    intercepts at the SQLAlchemy connection level and needs runtime checking for safety.
 
     NOTE: Code duplication with ge_data_profiler.py
     This function is duplicated from the GE profiler implementation. We maintain
@@ -660,10 +665,37 @@ class SQLAlchemyProfiler:
                             type=PartitionTypeClass.QUERY, partition="SAMPLE"
                         )
 
-                    # Get row count - following GE profiler pattern:
-                    # 1. Call method that modifies profile (queues query)
-                    # 2. Flush to execute queries
-                    # 3. Read result from profile
+                    # ================================================================
+                    # 3-STAGE QUERY BATCHING PATTERN
+                    # ================================================================
+                    # To maximize query batching efficiency, we use 3 strategic flush points:
+                    #
+                    # STAGE 1: Row Count
+                    #   - Schedule: 1 row count query
+                    #   - Flush: Execute row count
+                    #   - Use: Need row count before deciding on sampling
+                    #
+                    # STAGE 2: Column Cardinality
+                    #   - Schedule: non-null + unique count for ALL columns
+                    #   - Flush: Batch all cardinality queries into ONE SQL statement
+                    #   - Use: Need cardinality to decide which columns get numeric stats
+                    #
+                    # STAGE 3: Numeric Stats + Complex Queries
+                    #   - Schedule: min/max/mean/stdev/median for numeric columns
+                    #   - Flush: Batch all numeric queries into ONE SQL statement
+                    #   - Execute: Non-batchable queries (histograms, frequencies) run separately
+                    #
+                    # Performance: Reduces 50-100+ queries down to 3-5 queries per table!
+                    #
+                    # Pattern (using FutureResult[T]):
+                    #   futures = {col: runner.get_stat(table, col) for col in cols}  # Schedule
+                    #   query_combiner.flush()                                          # Batch execute
+                    #   results = {col: future.result() for col, future in futures}    # Extract
+                    # ================================================================
+
+                    # ----------------------------------------------------------------
+                    # STAGE 1: ROW COUNT
+                    # ----------------------------------------------------------------
                     use_estimation = (
                         self.config.profile_table_row_count_estimate_only
                         and platform in ("postgresql", "mysql")
@@ -673,27 +705,19 @@ class SQLAlchemyProfiler:
                         f"use_estimation={use_estimation}, platform={platform}"
                     )
 
-                    # Queue the row count query by calling the method
-                    # The query will be executed when we flush
-                    def _get_row_count_wrapper() -> None:
-                        # Call the adapter directly to avoid double-wrapping with query combiner
-                        result = adapter.get_row_count(
-                            sql_table, conn, use_estimation=use_estimation
-                        )
-                        profile.rowCount = result
-                        logger.debug(
-                            f"_get_row_count_wrapper set profile.rowCount: {result}"
-                        )
+                    # Schedule row count query (returns FutureResult)
+                    row_count_future = runner.get_row_count(
+                        sql_table, use_estimation=use_estimation
+                    )
 
-                    if query_combiner:
-                        query_combiner.run(_get_row_count_wrapper)
-                    else:
-                        _get_row_count_wrapper()
+                    # Flush Stage 1: Execute row count query
+                    logger.debug(
+                        f"profiling {pretty_name}: flushing stage 1 (row count)"
+                    )
+                    query_combiner.flush()
 
-                    # Flush to ensure the query executes (following GE profiler pattern)
-                    if query_combiner:
-                        query_combiner.flush()
-
+                    # Extract row count result
+                    profile.rowCount = row_count_future.result()
                     row_count = profile.rowCount
                     logger.debug(
                         f"Row count result for {pretty_name}: {row_count}, type: {type(row_count)}"
@@ -759,19 +783,55 @@ class SQLAlchemyProfiler:
                             field_profile = DatasetFieldProfileClass(fieldPath=col_name)
                             field_profiles.append(field_profile)
 
-                    # Second pass: calculate stats only for columns in columns_to_profile
+                    # ----------------------------------------------------------------
+                    # STAGE 2: COLUMN CARDINALITY (Schedule all queries)
+                    # ----------------------------------------------------------------
+                    # Schedule non-null + unique count queries for ALL columns at once
+                    # This allows query combiner to batch them into ONE SQL statement
+                    cardinality_futures = {}
                     for column in sql_table.columns:
                         col_name = column.name
 
                         if col_name not in columns_to_profile_set:
                             continue
 
-                        # Find the corresponding column_profile we just created
+                        # Schedule non-null count (returns FutureResult)
+                        cardinality_futures[col_name] = {
+                            "non_null": runner.get_column_non_null_count(
+                                sql_table, col_name
+                            )
+                        }
+
+                        # Schedule unique count if needed (returns FutureResult)
+                        if self.config.include_field_distinct_count:
+                            cardinality_futures[col_name]["unique"] = (
+                                runner.get_column_unique_count(sql_table, col_name)
+                            )
+
+                    # Flush Stage 2: Execute ALL cardinality queries in ONE batch
+                    logger.debug(
+                        f"profiling {pretty_name}: flushing stage 2 "
+                        f"({len(cardinality_futures)} columns - cardinality)"
+                    )
+                    query_combiner.flush()
+
+                    # ----------------------------------------------------------------
+                    # STAGE 2: COLUMN CARDINALITY (Extract results and prepare for Stage 3)
+                    # ----------------------------------------------------------------
+                    # Extract cardinality results and collect column metadata for Stage 3
+                    columns_with_types = {}  # col_name -> (column_profile, col_type, cardinality, non_null_count)
+
+                    for column in sql_table.columns:
+                        col_name = column.name
+
+                        if col_name not in columns_to_profile_set:
+                            continue
+
+                        # Find the corresponding column_profile we created
                         column_profile: Optional[DatasetFieldProfileClass] = next(
                             (p for p in field_profiles if p.fieldPath == col_name), None
                         )
                         if column_profile is None:
-                            # Should not happen if columns_to_profile_set is not empty, but handle gracefully
                             continue
 
                         # Get column type
@@ -780,34 +840,14 @@ class SQLAlchemyProfiler:
                             col_type = resolve_profiler_type_with_fallback(
                                 column.type, platform, str(column.type)
                             )
-                        # Get non-null count and null count - following GE profiler pattern
-                        # Queue the query, then flush to execute
-                        non_null_count_container: Dict[str, Optional[int]] = {
-                            "value": None
-                        }
 
-                        def _get_non_null_count_wrapper(
-                            container: Dict[
-                                str, Optional[int]
-                            ] = non_null_count_container,
-                            name: str = col_name,
-                        ) -> None:
-                            # Call the internal implementation directly to avoid double-wrapping
-                            container["value"] = adapter.get_column_non_null_count(
-                                sql_table, name, conn
-                            )
+                        # Extract non-null count from FutureResult
+                        non_null_count = cardinality_futures[col_name][
+                            "non_null"
+                        ].result()
 
-                        if query_combiner:
-                            query_combiner.run(_get_non_null_count_wrapper)
-                            # Flush immediately to get the result (needed for subsequent calculations)
-                            query_combiner.flush()
-                        else:
-                            _get_non_null_count_wrapper()
-
-                        non_null_count = non_null_count_container["value"]
                         # Calculate null_count: use row_count variable (set from profile.rowCount)
                         # This matches GE profiler behavior which uses row_count directly
-                        # If row_count is None, try profile.rowCount as fallback
                         effective_row_count = row_count
                         if effective_row_count is None:
                             try:
@@ -831,30 +871,13 @@ class SQLAlchemyProfiler:
                                     1, null_count / row_count
                                 )
 
-                        # Get unique count
+                        # Extract unique count from FutureResult if we scheduled it
+                        unique_count = None
+                        cardinality = None
                         if self.config.include_field_distinct_count:
-                            unique_count_container: Dict[str, Optional[int]] = {
-                                "value": None
-                            }
-
-                            def _get_unique_count_wrapper(
-                                container: Dict[
-                                    str, Optional[int]
-                                ] = unique_count_container,
-                                name: str = col_name,
-                            ) -> None:
-                                # Call the internal implementation directly to avoid double-wrapping
-                                container["value"] = adapter.get_column_unique_count(
-                                    sql_table, name, conn
-                                )
-
-                            if query_combiner:
-                                query_combiner.run(_get_unique_count_wrapper)
-                                query_combiner.flush()
-                            else:
-                                _get_unique_count_wrapper()
-
-                            unique_count = unique_count_container["value"]
+                            unique_count = cardinality_futures[col_name][
+                                "unique"
+                            ].result()
                             column_profile.uniqueCount = unique_count
                             if (
                                 non_null_count is not None
@@ -873,55 +896,134 @@ class SQLAlchemyProfiler:
                                 and unique_count is not None
                                 else None,
                             )
-                        else:
-                            unique_count = None
-                            cardinality = None
 
-                        # Type-specific stats
+                        # Store metadata for Stage 3
+                        columns_with_types[col_name] = (
+                            column_profile,
+                            col_type,
+                            cardinality,
+                            non_null_count,
+                        )
+
+                    # ----------------------------------------------------------------
+                    # STAGE 3: NUMERIC STATS (Schedule all queries)
+                    # ----------------------------------------------------------------
+                    # Schedule min/max/mean/stdev/median queries for numeric and datetime columns
+                    # This allows query combiner to batch them into ONE SQL statement
+                    numeric_stats_futures: Dict[str, Dict[str, FutureResult[Any]]] = {}
+                    for col_name, (
+                        _column_profile,
+                        col_type,
+                        _cardinality,
+                        _non_null_count,
+                    ) in columns_with_types.items():
                         # Only calculate stats if not ignoring sampling for this column
                         if (
-                            not ignore_table_sampling
-                            and col_name not in columns_list_to_ignore_sampling
+                            ignore_table_sampling
+                            or col_name in columns_list_to_ignore_sampling
                         ):
-                            # Add sample values for all types
-                            # GE profiler uses expect_column_values_to_be_in_set with empty set
-                            # which returns actual sample rows (with duplicates), not distinct values
-                            if self.config.include_field_sample_values:
-                                sample_values = runner.get_column_sample_values(
-                                    sql_table,
-                                    col_name,
-                                    limit=self.config.field_sample_values_limit,
-                                )
-                                # Convert to strings (GE does: str(v) for v in partial_unexpected_list)
-                                sample_list = [
-                                    str(value)
-                                    for value in sample_values
-                                    if value is not None
-                                ]
-                                # Only set sampleValues if there are actual values (match GE behavior)
-                                if sample_list:
-                                    column_profile.sampleValues = sample_list
-                                # For null-only columns (rows exist but all null), set empty list to match GE behavior
-                                # But don't set it for empty tables (row_count == 0) - GE doesn't set it in that case
-                                elif (
-                                    non_null_count == 0
-                                    and row_count is not None
-                                    and row_count > 0
-                                ):
-                                    column_profile.sampleValues = []
+                            continue
 
-                            if col_type in (
-                                ProfilerDataType.INT,
-                                ProfilerDataType.FLOAT,
+                        # Schedule numeric stats for numeric columns
+                        if col_type in (ProfilerDataType.INT, ProfilerDataType.FLOAT):
+                            numeric_stats_futures[col_name] = {}
+                            if self.config.include_field_min_value:
+                                numeric_stats_futures[col_name]["min"] = (
+                                    runner.get_column_min(sql_table, col_name)
+                                )
+                            if self.config.include_field_max_value:
+                                numeric_stats_futures[col_name]["max"] = (
+                                    runner.get_column_max(sql_table, col_name)
+                                )
+                            if self.config.include_field_mean_value:
+                                numeric_stats_futures[col_name]["mean"] = (
+                                    runner.get_column_mean(sql_table, col_name)
+                                )
+                            if self.config.include_field_stddev_value:
+                                numeric_stats_futures[col_name]["stdev"] = (
+                                    runner.get_column_stdev(sql_table, col_name)
+                                )
+                            if self.config.include_field_median_value:
+                                numeric_stats_futures[col_name]["median"] = (
+                                    runner.get_column_median(sql_table, col_name)
+                                )
+
+                        # Schedule min/max for datetime columns
+                        elif col_type == ProfilerDataType.DATETIME:
+                            numeric_stats_futures[col_name] = {}
+                            if self.config.include_field_min_value:
+                                numeric_stats_futures[col_name]["min"] = (
+                                    runner.get_column_min(sql_table, col_name)
+                                )
+                            if self.config.include_field_max_value:
+                                numeric_stats_futures[col_name]["max"] = (
+                                    runner.get_column_max(sql_table, col_name)
+                                )
+
+                    # Flush Stage 3: Execute ALL numeric stats queries in ONE batch
+                    if numeric_stats_futures:
+                        logger.debug(
+                            f"profiling {pretty_name}: flushing stage 3 "
+                            f"({len(numeric_stats_futures)} columns - numeric stats)"
+                        )
+                        query_combiner.flush()
+
+                    # ----------------------------------------------------------------
+                    # STAGE 3: NUMERIC STATS (Extract results) + COMPLEX QUERIES
+                    # ----------------------------------------------------------------
+                    # Extract numeric stats results and execute non-batchable complex queries
+                    for col_name, (
+                        column_profile,
+                        col_type,
+                        cardinality,
+                        non_null_count,
+                    ) in columns_with_types.items():
+                        # Only calculate stats if not ignoring sampling for this column
+                        if (
+                            ignore_table_sampling
+                            or col_name in columns_list_to_ignore_sampling
+                        ):
+                            continue
+
+                        # Add sample values for all types (non-batchable)
+                        # GE profiler uses expect_column_values_to_be_in_set with empty set
+                        # which returns actual sample rows (with duplicates), not distinct values
+                        if self.config.include_field_sample_values:
+                            sample_values = runner.get_column_sample_values(
+                                sql_table,
+                                col_name,
+                                limit=self.config.field_sample_values_limit,
+                            )
+                            # Convert to strings (GE does: str(v) for v in partial_unexpected_list)
+                            sample_list = [
+                                str(value)
+                                for value in sample_values
+                                if value is not None
+                            ]
+                            # Only set sampleValues if there are actual values (match GE behavior)
+                            if sample_list:
+                                column_profile.sampleValues = sample_list
+                            # For null-only columns (rows exist but all null), set empty list to match GE behavior
+                            # But don't set it for empty tables (row_count == 0) - GE doesn't set it in that case
+                            elif (
+                                non_null_count == 0
+                                and row_count is not None
+                                and row_count > 0
                             ):
+                                column_profile.sampleValues = []
+
+                        # Extract numeric stats for numeric columns
+                        if col_type in (ProfilerDataType.INT, ProfilerDataType.FLOAT):
+                            # Extract batched numeric stats results
+                            if col_name in numeric_stats_futures:
+                                futures = numeric_stats_futures[col_name]
+
                                 # Match GE behavior: catch exceptions and log debug messages
                                 # GE always sets these fields, even when None (for null-only columns)
                                 # We need to set them even when non_null_count == 0 to match GE behavior
-                                if self.config.include_field_min_value:
+                                if "min" in futures:
                                     try:
-                                        min_val = adapter.get_column_min(
-                                            sql_table, col_name, conn
-                                        )
+                                        min_val = futures["min"].result()
                                         # GE does: str(self.dataset.get_column_min(column))
                                         # For null-only columns, this returns None, which becomes "None" string
                                         # But in JSON serialization, None becomes null
@@ -940,11 +1042,10 @@ class SQLAlchemyProfiler:
                                             context=f"{pretty_name}.{col_name}",
                                             exc=e,
                                         )
-                                if self.config.include_field_max_value:
+
+                                if "max" in futures:
                                     try:
-                                        max_val = adapter.get_column_max(
-                                            sql_table, col_name, conn
-                                        )
+                                        max_val = futures["max"].result()
                                         # GE does: str(self.dataset.get_column_max(column))
                                         column_profile.max = (
                                             _format_numeric_value(max_val, col_type)
@@ -961,10 +1062,9 @@ class SQLAlchemyProfiler:
                                             context=f"{pretty_name}.{col_name}",
                                             exc=e,
                                         )
-                                if self.config.include_field_mean_value:
-                                    mean_val = adapter.get_column_mean(
-                                        sql_table, col_name, conn
-                                    )
+
+                                if "mean" in futures:
+                                    mean_val = futures["mean"].result()
                                     # Match GE behavior: always set mean (None for null-only columns)
                                     # GE does: str(self.dataset.get_column_mean(column))
                                     # Mean should always be formatted as float (e.g., "100000.0" not "100000")
@@ -975,10 +1075,8 @@ class SQLAlchemyProfiler:
                                         else None
                                     )
 
-                                if self.config.include_field_stddev_value:
-                                    stdev_val = adapter.get_column_stdev(
-                                        sql_table, col_name, conn
-                                    )
+                                if "stdev" in futures:
+                                    stdev_val = futures["stdev"].result()
                                     # Match GE behavior: always set stdev
                                     # GE does: str(self.dataset.get_column_stdev(column))
                                     # For all-null columns, database returns NULL, which becomes None
@@ -989,10 +1087,8 @@ class SQLAlchemyProfiler:
                                         else None
                                     )
 
-                                if self.config.include_field_median_value:
-                                    median_val = adapter.get_column_median(
-                                        sql_table, col_name, conn
-                                    )
+                                if "median" in futures:
+                                    median_val = futures["median"].result()
                                     # Match GE behavior: always set median (None for null-only columns)
                                     # GE does: str(self.dataset.get_column_median(column))
                                     # Median formatting is platform-dependent:
@@ -1006,109 +1102,111 @@ class SQLAlchemyProfiler:
                                         else None
                                     )
 
-                                if self.config.include_field_quantiles:
-                                    quantiles = runner.get_column_quantiles(
-                                        sql_table,
-                                        col_name,
+                            # Non-batchable complex queries for numeric columns
+                            if self.config.include_field_quantiles:
+                                quantiles = runner.get_column_quantiles(
+                                    sql_table,
+                                    col_name,
+                                    [0.05, 0.25, 0.5, 0.75, 0.95],
+                                )
+                                column_profile.quantiles = [
+                                    QuantileClass(quantile=str(q), value=str(v))
+                                    for q, v in zip(
                                         [0.05, 0.25, 0.5, 0.75, 0.95],
+                                        quantiles,
+                                        strict=False,
                                     )
-                                    column_profile.quantiles = [
-                                        QuantileClass(quantile=str(q), value=str(v))
-                                        for q, v in zip(
-                                            [0.05, 0.25, 0.5, 0.75, 0.95],
-                                            quantiles,
-                                            strict=False,
-                                        )
-                                        if v is not None
+                                    if v is not None
+                                ]
+
+                            # Add histogram for numeric columns with high cardinality
+                            if (
+                                self.config.include_field_histogram
+                                and cardinality
+                                and cardinality
+                                in {
+                                    Cardinality.FEW,
+                                    Cardinality.MANY,
+                                    Cardinality.VERY_MANY,
+                                }
+                            ):
+                                histogram = runner.get_column_histogram(
+                                    sql_table, col_name
+                                )
+                                if histogram:
+                                    # Convert to HistogramClass format
+                                    # boundaries: bucket boundaries (k+1 values for k buckets)
+                                    # heights: counts per bucket (k values)
+                                    boundaries = [
+                                        str(start) for start, _, _ in histogram
                                     ]
-
-                                    # Add histogram for numeric columns with high cardinality
-                                    if (
-                                        self.config.include_field_histogram
-                                        and cardinality
-                                        and cardinality
-                                        in {
-                                            Cardinality.FEW,
-                                            Cardinality.MANY,
-                                            Cardinality.VERY_MANY,
-                                        }
-                                    ):
-                                        histogram = runner.get_column_histogram(
-                                            sql_table, col_name
-                                        )
-                                        if histogram:
-                                            # Convert to HistogramClass format
-                                            # boundaries: bucket boundaries (k+1 values for k buckets)
-                                            # heights: counts per bucket (k values)
-                                            boundaries = [
-                                                str(start) for start, _, _ in histogram
-                                            ]
-                                            # Add the last bucket end as final boundary
-                                            if histogram:
-                                                boundaries.append(str(histogram[-1][1]))
-                                            heights = [
-                                                float(count)
-                                                for _, _, count in histogram
-                                            ]
-                                            column_profile.histogram = HistogramClass(
-                                                boundaries=boundaries, heights=heights
-                                            )
-
-                                    # Add distinct value frequencies for low cardinality numeric columns
-                                    if (
-                                        self.config.include_field_distinct_value_frequencies
-                                        and cardinality
-                                        and cardinality
-                                        in {
-                                            Cardinality.ONE,
-                                            Cardinality.TWO,
-                                            Cardinality.VERY_FEW,
-                                        }
-                                    ):
-                                        frequencies = runner.get_column_distinct_value_frequencies(
-                                            sql_table, col_name
-                                        )
-                                        column_profile.distinctValueFrequencies = [
-                                            ValueFrequencyClass(
-                                                value=str(value), frequency=freq
-                                            )
-                                            for value, freq in frequencies
-                                        ]
-
-                            elif col_type == ProfilerDataType.STRING:
-                                # For string columns, add distinct value frequencies for low cardinality
-                                if (
-                                    self.config.include_field_distinct_value_frequencies
-                                    and cardinality
-                                    and cardinality
-                                    in {
-                                        Cardinality.ONE,
-                                        Cardinality.TWO,
-                                        Cardinality.VERY_FEW,
-                                        Cardinality.FEW,
-                                    }
-                                ):
-                                    frequencies = (
-                                        runner.get_column_distinct_value_frequencies(
-                                            sql_table, col_name
-                                        )
+                                    # Add the last bucket end as final boundary
+                                    if histogram:
+                                        boundaries.append(str(histogram[-1][1]))
+                                    heights = [
+                                        float(count) for _, _, count in histogram
+                                    ]
+                                    column_profile.histogram = HistogramClass(
+                                        boundaries=boundaries, heights=heights
                                     )
-                                    column_profile.distinctValueFrequencies = [
-                                        ValueFrequencyClass(
-                                            value=str(value), frequency=freq
-                                        )
-                                        for value, freq in frequencies
-                                    ]
 
-                            elif col_type == ProfilerDataType.DATETIME:
-                                # For datetime columns, add min/max
+                            # Add distinct value frequencies for low cardinality numeric columns
+                            if (
+                                self.config.include_field_distinct_value_frequencies
+                                and cardinality
+                                and cardinality
+                                in {
+                                    Cardinality.ONE,
+                                    Cardinality.TWO,
+                                    Cardinality.VERY_FEW,
+                                }
+                            ):
+                                frequencies = (
+                                    runner.get_column_distinct_value_frequencies(
+                                        sql_table, col_name
+                                    )
+                                )
+                                column_profile.distinctValueFrequencies = [
+                                    ValueFrequencyClass(
+                                        value=str(value), frequency=freq
+                                    )
+                                    for value, freq in frequencies
+                                ]
+
+                        elif col_type == ProfilerDataType.STRING:
+                            # For string columns, add distinct value frequencies for low cardinality
+                            if (
+                                self.config.include_field_distinct_value_frequencies
+                                and cardinality
+                                and cardinality
+                                in {
+                                    Cardinality.ONE,
+                                    Cardinality.TWO,
+                                    Cardinality.VERY_FEW,
+                                    Cardinality.FEW,
+                                }
+                            ):
+                                frequencies = (
+                                    runner.get_column_distinct_value_frequencies(
+                                        sql_table, col_name
+                                    )
+                                )
+                                column_profile.distinctValueFrequencies = [
+                                    ValueFrequencyClass(
+                                        value=str(value), frequency=freq
+                                    )
+                                    for value, freq in frequencies
+                                ]
+
+                        elif col_type == ProfilerDataType.DATETIME:
+                            # Extract batched min/max results for datetime columns
+                            if col_name in numeric_stats_futures:
+                                futures = numeric_stats_futures[col_name]
+
                                 # Match GE behavior: catch exceptions and log debug messages
-                                # Use _get_column_min_impl directly to avoid query combiner issues
-                                if self.config.include_field_min_value:
+                                if "min" in futures:
                                     try:
-                                        min_val = adapter.get_column_min(
-                                            sql_table, col_name, conn
-                                        )
+                                        min_val = futures["min"].result()
                                         if min_val is not None:
                                             # Format datetime values to match GE's ISO format
                                             column_profile.min = _format_datetime_value(
@@ -1124,11 +1222,10 @@ class SQLAlchemyProfiler:
                                             context=f"{pretty_name}.{col_name}",
                                             exc=e,
                                         )
-                                if self.config.include_field_max_value:
+
+                                if "max" in futures:
                                     try:
-                                        max_val = adapter.get_column_max(
-                                            sql_table, col_name, conn
-                                        )
+                                        max_val = futures["max"].result()
                                         if max_val is not None:
                                             # Format datetime values to match GE's ISO format
                                             column_profile.max = _format_datetime_value(
@@ -1144,60 +1241,55 @@ class SQLAlchemyProfiler:
                                             context=f"{pretty_name}.{col_name}",
                                             exc=e,
                                         )
-                                        self.report.warning(
-                                            title="Profiling: Unable to Calculate Max",
-                                            message="The max for the column will not be accessible",
-                                            context=f"{pretty_name}.{col_name}",
-                                            exc=e,
-                                        )
-                                # Add distinct value frequencies for low cardinality datetime columns
-                                if (
-                                    self.config.include_field_distinct_value_frequencies
-                                    and cardinality
-                                    and cardinality
-                                    in {
-                                        Cardinality.ONE,
-                                        Cardinality.TWO,
-                                        Cardinality.VERY_FEW,
-                                        Cardinality.FEW,
-                                    }
-                                ):
-                                    frequencies = (
-                                        runner.get_column_distinct_value_frequencies(
-                                            sql_table, col_name
-                                        )
-                                    )
-                                    column_profile.distinctValueFrequencies = [
-                                        ValueFrequencyClass(
-                                            value=str(value), frequency=freq
-                                        )
-                                        for value, freq in frequencies
-                                    ]
 
-                            else:
-                                # For other types, add distinct value frequencies for low cardinality
-                                if (
-                                    self.config.include_field_distinct_value_frequencies
-                                    and cardinality
-                                    and cardinality
-                                    in {
-                                        Cardinality.ONE,
-                                        Cardinality.TWO,
-                                        Cardinality.VERY_FEW,
-                                        Cardinality.FEW,
-                                    }
-                                ):
-                                    frequencies = (
-                                        runner.get_column_distinct_value_frequencies(
-                                            sql_table, col_name
-                                        )
+                            # Add distinct value frequencies for low cardinality datetime columns
+                            if (
+                                self.config.include_field_distinct_value_frequencies
+                                and cardinality
+                                and cardinality
+                                in {
+                                    Cardinality.ONE,
+                                    Cardinality.TWO,
+                                    Cardinality.VERY_FEW,
+                                    Cardinality.FEW,
+                                }
+                            ):
+                                frequencies = (
+                                    runner.get_column_distinct_value_frequencies(
+                                        sql_table, col_name
                                     )
-                                    column_profile.distinctValueFrequencies = [
-                                        ValueFrequencyClass(
-                                            value=str(value), frequency=freq
-                                        )
-                                        for value, freq in frequencies
-                                    ]
+                                )
+                                column_profile.distinctValueFrequencies = [
+                                    ValueFrequencyClass(
+                                        value=str(value), frequency=freq
+                                    )
+                                    for value, freq in frequencies
+                                ]
+
+                        else:
+                            # For other types, add distinct value frequencies for low cardinality
+                            if (
+                                self.config.include_field_distinct_value_frequencies
+                                and cardinality
+                                and cardinality
+                                in {
+                                    Cardinality.ONE,
+                                    Cardinality.TWO,
+                                    Cardinality.VERY_FEW,
+                                    Cardinality.FEW,
+                                }
+                            ):
+                                frequencies = (
+                                    runner.get_column_distinct_value_frequencies(
+                                        sql_table, col_name
+                                    )
+                                )
+                                column_profile.distinctValueFrequencies = [
+                                    ValueFrequencyClass(
+                                        value=str(value), frequency=freq
+                                    )
+                                    for value, freq in frequencies
+                                ]
 
                     profile.fieldProfiles = field_profiles
 
