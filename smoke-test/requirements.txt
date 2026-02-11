@@ -25,7 +25,6 @@ deepdiff!=8.0.0
 opensearch-py==2.6.0
 
 python-dotenv==1.1.1
-acryl-executor==0.3.4
 
 # Required for inference_utils integration tests
 -e ../datahub-executor[observe]
