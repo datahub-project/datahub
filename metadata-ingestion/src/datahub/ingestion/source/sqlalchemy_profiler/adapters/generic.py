@@ -81,15 +81,18 @@ class GenericAdapter(PlatformAdapter):
 
     def get_median_expr(self, column: str) -> Optional[Any]:
         """
-        Generic median - not supported.
+        Generic median - tries MEDIAN function.
 
-        Standard SQL doesn't have a MEDIAN function. Platforms that support
-        it (BigQuery, Snowflake, Redshift) override this method.
+        Some databases (like Snowflake, Oracle) have a native MEDIAN function.
+        For databases that don't support it, the query will fail at execution time
+        and get_column_median will return None.
 
         Args:
             column: Column name
 
         Returns:
-            None (not supported)
+            SQLAlchemy expression for MEDIAN function, or None if database doesn't support it
         """
-        return None
+        # Try using MEDIAN function - works on Snowflake, Oracle, and SQLite with custom aggregate
+        # For databases without MEDIAN support, this will fail at query execution
+        return sa.func.median(sa.column(column))

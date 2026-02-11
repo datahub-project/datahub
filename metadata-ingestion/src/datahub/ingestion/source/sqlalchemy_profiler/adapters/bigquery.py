@@ -6,7 +6,10 @@ from typing import Any, List, Optional
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 
-from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+    DEFAULT_QUANTILES,
+    PlatformAdapter,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
@@ -352,8 +355,16 @@ class BigQueryAdapter(PlatformAdapter):
 
         APPROX_QUANTILES(column, 2) returns [min, median, max].
         We use OFFSET(1) to get the median value.
+
+        Note: BigQuery's SQLAlchemy dialect doesn't support the [] operator on expressions,
+        so we generate the full SQL string using literal_column().
         """
-        return sa.func.APPROX_QUANTILES(sa.column(column), 2)[sa.text("OFFSET(1)")]
+        # Column name is from database schema (validated), not user input
+        # IMPORTANT: label() is required whenever using literal_column()
+        # Without label(), the column name would be the entire SQL string, which breaks query combiner result extraction
+        return sa.literal_column(f"APPROX_QUANTILES(`{column}`, 2)[OFFSET(1)]").label(
+            "median"
+        )
 
     def get_quantiles_expr(self, column: str, quantiles: List[float]) -> Optional[Any]:
         """
@@ -367,3 +378,42 @@ class BigQueryAdapter(PlatformAdapter):
     def get_sample_clause(self, sample_size: int) -> Optional[str]:
         """BigQuery uses TABLESAMPLE SYSTEM."""
         return f"TABLESAMPLE SYSTEM ({sample_size} ROWS)"
+
+    def get_column_quantiles(
+        self,
+        table: sa.Table,
+        column: str,
+        conn: Connection,
+        quantiles: Optional[List[float]] = None,
+    ) -> List[Optional[float]]:
+        """
+        Get quantile values for a column using BigQuery's approx_quantiles.
+
+        BigQuery: approx_quantiles(col, 100) returns 101 values (0th to 100th percentile).
+        We map quantiles to indices to extract the desired percentiles.
+
+        Args:
+            table: SQLAlchemy table object
+            column: Column name
+            conn: Active database connection
+            quantiles: List of quantile values (default: DEFAULT_QUANTILES)
+
+        Returns:
+            List of quantile values (None for unavailable quantiles)
+        """
+        if quantiles is None:
+            quantiles = DEFAULT_QUANTILES
+
+        # BigQuery: approx_quantiles(col, 100) returns 101 values
+        indices = [int(q * 100) for q in quantiles]
+        selects = [
+            sa.literal_column(
+                f"approx_quantiles(`{column}`, 100)[OFFSET({idx})]"
+            ).label(f"q_{int(q * 100)}")
+            for q, idx in zip(quantiles, indices, strict=False)
+        ]
+        query = sa.select(selects).select_from(table)
+        result = conn.execute(query).fetchone()
+        if result is None:
+            return [None] * len(quantiles)
+        return [float(v) if v is not None else None for v in result]

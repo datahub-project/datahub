@@ -7,7 +7,10 @@ from typing import Any, List, Optional
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 
-from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+    DEFAULT_QUANTILES,
+    PlatformAdapter,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
@@ -191,3 +194,48 @@ class AthenaAdapter(PlatformAdapter):
         # Build ARRAY[0.05, 0.25, 0.5, 0.75, 0.95] string
         array_str = f"ARRAY[{', '.join(str(q) for q in quantiles)}]"
         return sa.literal_column(f"approx_percentile({column}, {array_str})")
+
+    def get_column_quantiles(
+        self,
+        table: sa.Table,
+        column: str,
+        conn: Connection,
+        quantiles: Optional[List[float]] = None,
+    ) -> List[Optional[float]]:
+        """
+        Get quantile values for a column using Athena's approx_percentile.
+
+        Athena: approx_percentile(col, ARRAY[0.05, 0.25, ...]) returns an array.
+
+        Args:
+            table: SQLAlchemy table object
+            column: Column name
+            conn: Active database connection
+            quantiles: List of quantile values (default: DEFAULT_QUANTILES)
+
+        Returns:
+            List of quantile values (None for unavailable quantiles)
+        """
+        if quantiles is None:
+            quantiles = DEFAULT_QUANTILES
+
+        # Athena/Trino: approx_percentile(col, ARRAY[0.05, 0.25, ...])
+        array_str = f"ARRAY[{', '.join(str(q) for q in quantiles)}]"
+        athena_expr = sa.literal_column(f"approx_percentile({column}, {array_str})")
+        query = sa.select([athena_expr]).select_from(table)
+        result = conn.execute(query).scalar()
+        logger.debug(
+            f"Athena quantiles for {column}: result type={type(result)}, "
+            f"value={result}, expected_length={len(quantiles)}"
+        )
+        # Result is an array, convert to list
+        if isinstance(result, list):
+            if len(result) != len(quantiles):
+                logger.warning(
+                    f"Quantile result length mismatch: got {len(result)}, expected {len(quantiles)}"
+                )
+            return [float(v) if v is not None else None for v in result]
+        logger.warning(
+            f"Quantile result is not a list: type={type(result)}, value={result}"
+        )
+        return [None] * len(quantiles)

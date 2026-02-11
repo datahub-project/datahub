@@ -38,7 +38,7 @@ def _is_single_row_query_method(query):
 
 
 def _register_sqlite_functions(dbapi_conn, connection_record):
-    """Register custom aggregate functions for SQLite to support stddev."""
+    """Register custom aggregate functions for SQLite to support stddev and median."""
 
     class StdDevAggregate:
         """SQLite aggregate for standard deviation."""
@@ -61,7 +61,34 @@ def _register_sqlite_functions(dbapi_conn, connection_record):
             )
             return math.sqrt(variance)
 
+    class MedianAggregate:
+        """SQLite aggregate for MEDIAN."""
+
+        def __init__(self):
+            self.values = []
+
+        def step(self, value):
+            if value is not None:
+                self.values.append(value)
+
+        def finalize(self):
+            if len(self.values) == 0:
+                return None
+
+            sorted_values = sorted(self.values)
+            n = len(sorted_values)
+
+            # For even number of values, return average of two middle values
+            # For odd number, return the middle value
+            if n % 2 == 0:
+                mid1 = sorted_values[n // 2 - 1]
+                mid2 = sorted_values[n // 2]
+                return (mid1 + mid2) / 2.0
+            else:
+                return sorted_values[n // 2]
+
     dbapi_conn.create_aggregate("stddev", 1, StdDevAggregate)
+    dbapi_conn.create_aggregate("median", 1, MedianAggregate)
 
 
 @pytest.fixture

@@ -15,6 +15,9 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 
 logger = logging.getLogger(__name__)
 
+# Default quantiles for statistical profiling
+DEFAULT_QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
+
 
 class PlatformAdapter(ABC):
     """
@@ -419,28 +422,53 @@ class PlatformAdapter(ABC):
         """
         Get quantile values for a column (approximate where possible).
 
+        Default implementation uses PERCENTILE_CONT which is supported by:
+        - PostgreSQL
+        - Redshift
+        - SQL Server
+        - Oracle
+        - And other SQL:2011 compliant databases
+
+        Platform-specific adapters (BigQuery, Snowflake, etc.) override this
+        method to use their native approximate percentile functions.
+
         Args:
             table: SQLAlchemy table object
             column: Column name
             conn: Active database connection
-            quantiles: List of quantile values (default: [0.05, 0.25, 0.5, 0.75, 0.95])
+            quantiles: List of quantile values (default: DEFAULT_QUANTILES)
 
         Returns:
-            List of quantile values
+            List of quantile values (None for unavailable quantiles)
         """
         if quantiles is None:
-            quantiles = [0.05, 0.25, 0.5, 0.75, 0.95]
+            quantiles = DEFAULT_QUANTILES
 
-        # Note: This method doesn't use the decorator because it may execute
-        # multiple queries or a single query with array results
-        from datahub.ingestion.source.sqlalchemy_profiler.database_handlers import (
-            DatabaseHandlers,
+        # Fallback: Use exact PERCENTILE_CONT if supported
+        logger.debug(
+            f"Using PERCENTILE_CONT fallback for {self.__class__.__name__} on column {column}, "
+            f"quantiles={quantiles}"
         )
-
-        # Get platform name from class name (e.g., "BigQueryAdapter" -> "bigquery")
-        platform = self.__class__.__name__.replace("Adapter", "").lower()
-
-        return DatabaseHandlers.get_quantiles(conn, platform, table, column, quantiles)
+        results = []
+        for q in quantiles:
+            try:
+                percentile_expr = sa.text(
+                    f"PERCENTILE_CONT({q}) WITHIN GROUP (ORDER BY {column})"
+                )
+                query = sa.select([percentile_expr]).select_from(table)
+                result = conn.execute(query).scalar()
+                logger.debug(
+                    f"Quantile {q} for {column}: result type={type(result)}, value={result}"
+                )
+                results.append(float(result) if result is not None else None)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to compute quantile {q} for {column}: {e}",
+                    exc_info=True,
+                )
+                results.append(None)
+        logger.debug(f"Final quantile results for {column}: {results}")
+        return results
 
     def get_column_histogram(
         self,
@@ -556,6 +584,16 @@ class PlatformAdapter(ABC):
         )
 
         result = conn.execute(query).fetchall()
+        logger.debug(
+            f"get_column_value_frequencies for {column}: got {len(result)} rows"
+        )
+        if result and len(result) > 0:
+            if len(result[0]) < 2:
+                logger.error(
+                    f"Invalid result row structure for {column} in value_frequencies: "
+                    f"row has {len(result[0])} columns, expected at least 2. "
+                    f"First row: {result[0]}"
+                )
         return [(row[0], int(row[1])) for row in result]
 
     def get_column_distinct_value_frequencies(
@@ -584,6 +622,16 @@ class PlatformAdapter(ABC):
         )
 
         result = conn.execute(query).fetchall()
+        logger.debug(
+            f"get_column_distinct_value_frequencies for {column}: got {len(result)} rows"
+        )
+        if result and len(result) > 0:
+            if len(result[0]) < 2:
+                logger.error(
+                    f"Invalid result row structure for {column} in distinct_value_frequencies: "
+                    f"row has {len(result[0])} columns, expected at least 2. "
+                    f"First row: {result[0]}"
+                )
         return [(row[0], int(row[1])) for row in result]
 
     def get_column_sample_values(
@@ -616,6 +664,16 @@ class PlatformAdapter(ABC):
         )
 
         result = conn.execute(query).fetchall()
+        logger.debug(
+            f"get_column_sample_values for {column}: got {len(result)} rows, limit={limit}"
+        )
+        if result and len(result) > 0:
+            if len(result[0]) < 1:
+                logger.error(
+                    f"Invalid result row structure for {column} in sample_values: "
+                    f"row has {len(result[0])} columns, expected at least 1. "
+                    f"First row: {result[0]}"
+                )
         return [row[0] for row in result]
 
     # =========================================================================

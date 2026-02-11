@@ -38,7 +38,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 
 
 def _register_sqlite_functions(dbapi_conn, connection_record):
-    """Register custom aggregate functions for SQLite to support stddev."""
+    """Register custom aggregate functions for SQLite to support stddev and median."""
 
     class StdDevAggregate:
         """SQLite aggregate for standard deviation."""
@@ -61,7 +61,34 @@ def _register_sqlite_functions(dbapi_conn, connection_record):
             )
             return math.sqrt(variance)
 
+    class MedianAggregate:
+        """SQLite aggregate for MEDIAN."""
+
+        def __init__(self):
+            self.values = []
+
+        def step(self, value):
+            if value is not None:
+                self.values.append(value)
+
+        def finalize(self):
+            if len(self.values) == 0:
+                return None
+
+            sorted_values = sorted(self.values)
+            n = len(sorted_values)
+
+            # For even number of values, return average of two middle values
+            # For odd number, return the middle value
+            if n % 2 == 0:
+                mid1 = sorted_values[n // 2 - 1]
+                mid2 = sorted_values[n // 2]
+                return (mid1 + mid2) / 2.0
+            else:
+                return sorted_values[n // 2]
+
     dbapi_conn.create_aggregate("stddev", 1, StdDevAggregate)
+    dbapi_conn.create_aggregate("median", 1, MedianAggregate)
 
 
 @pytest.fixture
@@ -212,9 +239,14 @@ class TestGenericAdapter:
         assert "distinct" in str(expr).lower()
 
     def test_get_median_expr(self, adapter):
-        """Test median expression returns None for generic adapter."""
+        """Test median expression uses MEDIAN function."""
         expr = adapter.get_median_expr("column_name")
-        assert expr is None
+        assert expr is not None
+        # Should generate MEDIAN(column_name)
+        compiled = expr.compile(compile_kwargs={"literal_binds": True})
+        expr_str = str(compiled)
+        assert "median" in expr_str.lower()
+        assert "column_name" in expr_str
 
     def test_get_quantiles_expr(self, adapter):
         """Test quantiles expression returns None for generic adapter."""
@@ -240,6 +272,9 @@ class TestGenericAdapter:
     def sqlite_engine_with_data(self):
         """Create an in-memory SQLite engine with test data."""
         engine = create_engine("sqlite:///:memory:")
+        # Register custom functions on connect
+        event.listen(engine, "connect", _register_sqlite_functions)
+
         metadata = sa.MetaData()
         table = sa.Table(
             "test_table",
@@ -344,12 +379,10 @@ class TestGenericAdapter:
         engine, table = sqlite_engine_with_data
         adapter = get_adapter("sqlite", config, report, engine)
         with engine.connect() as conn:
-            try:
-                stdev_val = adapter.get_column_stdev(table, "value", conn)
-                if stdev_val is not None:
-                    assert stdev_val > 0
-            except Exception:
-                pytest.skip("SQLite doesn't support stddev function")
+            stdev_val = adapter.get_column_stdev(table, "value", conn)
+            # Should return a positive value for our test data
+            assert stdev_val is not None
+            assert stdev_val > 0
 
     def test_get_column_stdev_single_value(self, config, report):
         """Test standard deviation with single non-null value returns None."""
@@ -467,11 +500,10 @@ class TestGenericAdapter:
         engine, table = sqlite_engine_with_data
         adapter = get_adapter("sqlite", config, report, engine)
         with engine.connect() as conn:
-            try:
-                median_val = adapter.get_column_median(table, "value", conn)
-                assert median_val is None or median_val == pytest.approx(25.5, rel=1e-6)
-            except Exception:
-                pytest.skip("SQLite doesn't support PERCENTILE_CONT function")
+            median_val = adapter.get_column_median(table, "value", conn)
+            # With registered median aggregate, SQLite should return median value
+            # Test data: [10.5, 20.5, 30.5, 40.5] -> median = (20.5 + 30.5) / 2 = 25.5
+            assert median_val == pytest.approx(25.5, rel=1e-6)
 
     def test_get_column_quantiles(self, config, report, sqlite_engine_with_data):
         """Test quantiles calculation."""
@@ -800,6 +832,23 @@ class TestAthenaAdapter:
         assert "approx_percentile" in expr_str.lower()
         assert "0.5" in expr_str
 
+    def test_get_column_quantiles(self, adapter, test_table):
+        """Test Athena get_column_quantiles with mocked connection."""
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        # Athena returns array of quantile values
+        mock_result.scalar.return_value = [5.0, 25.0, 50.0, 75.0, 95.0]
+        mock_conn.execute.return_value = mock_result
+
+        quantiles = adapter.get_column_quantiles(
+            test_table, "test_column", mock_conn, [0.05, 0.25, 0.5, 0.75, 0.95]
+        )
+
+        assert len(quantiles) == 5
+        assert quantiles == [5.0, 25.0, 50.0, 75.0, 95.0]
+        # Verify query was executed
+        assert mock_conn.execute.called
+
 
 class TestBigQueryAdapter:
     """Test cases for BigQueryAdapter."""
@@ -819,13 +868,17 @@ class TestBigQueryAdapter:
         assert "APPROX_COUNT_DISTINCT" in expr_str
 
     def test_get_median_expr(self, adapter):
-        """Test BigQuery median expression - has known SQLAlchemy limitation."""
-        # Note: The current implementation uses subscript notation which
-        # SQLAlchemy doesn't support for function objects. This needs to be
-        # rewritten to use literal_column or a custom SQL construct.
-        # For now, we document that calling this raises NotImplementedError.
-        with pytest.raises(NotImplementedError, match="Operator 'getitem'"):
-            adapter.get_median_expr("test_column")
+        """Test BigQuery median expression using literal_column."""
+        # BigQuery uses APPROX_QUANTILES with array indexing.
+        # We use literal_column() to generate the full SQL string since
+        # SQLAlchemy's dialect doesn't support the [] operator on expressions.
+        expr = adapter.get_median_expr("test_column")
+        assert expr is not None
+        expr_str = str(expr)
+        # Should generate: APPROX_QUANTILES(`test_column`, 2)[OFFSET(1)]
+        assert "APPROX_QUANTILES" in expr_str
+        assert "test_column" in expr_str
+        assert "OFFSET(1)" in expr_str
 
     def test_get_quantiles_expr(self, adapter):
         """Test BigQuery quantiles expression."""
@@ -991,6 +1044,23 @@ class TestBigQueryAdapter:
         # Should not raise any errors
         adapter.cleanup(context)
 
+    def test_get_column_quantiles(self, adapter, test_table):
+        """Test BigQuery get_column_quantiles with mocked connection."""
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        # BigQuery returns a row with values for each quantile
+        mock_result.fetchone.return_value = (5.0, 25.0, 50.0, 75.0, 95.0)
+        mock_conn.execute.return_value = mock_result
+
+        quantiles = adapter.get_column_quantiles(
+            test_table, "test_column", mock_conn, [0.05, 0.25, 0.5, 0.75, 0.95]
+        )
+
+        assert len(quantiles) == 5
+        assert quantiles == [5.0, 25.0, 50.0, 75.0, 95.0]
+        # Verify query was executed
+        assert mock_conn.execute.called
+
 
 class TestSnowflakeAdapter:
     """Test cases for SnowflakeAdapter."""
@@ -1041,6 +1111,23 @@ class TestSnowflakeAdapter:
         # Should not raise any errors
         adapter.cleanup(context)
 
+    def test_get_column_quantiles(self, adapter, test_table):
+        """Test Snowflake get_column_quantiles with mocked connection."""
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        # Snowflake executes one query per quantile
+        mock_result.scalar.side_effect = [5.0, 25.0, 50.0, 75.0, 95.0]
+        mock_conn.execute.return_value = mock_result
+
+        quantiles = adapter.get_column_quantiles(
+            test_table, "test_column", mock_conn, [0.05, 0.25, 0.5, 0.75, 0.95]
+        )
+
+        assert len(quantiles) == 5
+        assert quantiles == [5.0, 25.0, 50.0, 75.0, 95.0]
+        # Should execute 5 queries (one per quantile)
+        assert mock_conn.execute.call_count == 5
+
 
 class TestDatabricksAdapter:
     """Test cases for DatabricksAdapter."""
@@ -1090,6 +1177,23 @@ class TestDatabricksAdapter:
         )
         # Should not raise any errors
         adapter.cleanup(context)
+
+    def test_get_column_quantiles(self, adapter, test_table):
+        """Test Databricks get_column_quantiles with mocked connection."""
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        # Databricks returns array of quantile values
+        mock_result.scalar.return_value = [5.0, 25.0, 50.0, 75.0, 95.0]
+        mock_conn.execute.return_value = mock_result
+
+        quantiles = adapter.get_column_quantiles(
+            test_table, "test_column", mock_conn, [0.05, 0.25, 0.5, 0.75, 0.95]
+        )
+
+        assert len(quantiles) == 5
+        assert quantiles == [5.0, 25.0, 50.0, 75.0, 95.0]
+        # Verify query was executed
+        assert mock_conn.execute.called
 
 
 class TestTrinoAdapter:
@@ -1144,3 +1248,20 @@ class TestTrinoAdapter:
         )
         # Should not raise any errors - cleanup always runs for Trino
         adapter.cleanup(context)
+
+    def test_get_column_quantiles(self, adapter, test_table):
+        """Test Trino get_column_quantiles with mocked connection."""
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        # Trino returns array of quantile values
+        mock_result.scalar.return_value = [5.0, 25.0, 50.0, 75.0, 95.0]
+        mock_conn.execute.return_value = mock_result
+
+        quantiles = adapter.get_column_quantiles(
+            test_table, "test_column", mock_conn, [0.05, 0.25, 0.5, 0.75, 0.95]
+        )
+
+        assert len(quantiles) == 5
+        assert quantiles == [5.0, 25.0, 50.0, 75.0, 95.0]
+        # Verify query was executed
+        assert mock_conn.execute.called
