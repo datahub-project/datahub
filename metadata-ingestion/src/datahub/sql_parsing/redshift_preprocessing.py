@@ -10,7 +10,7 @@ This module fixes SQL parsing issues caused by:
 
 import logging
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 # for stl_query.querytxt, Redshift applies RTRIM to each segment before
 # concatenation, removing meaningful trailing spaces at segment boundaries.
 # This affects ANY long query, not just from specific tools like Sigma.
-_REDSHIFT_COMPOUND_PATTERNS: List[Tuple[str, re.Pattern[str], str]] = [
+
+# Static patterns: keyword-keyword compounds (safe, no false positives)
+_REDSHIFT_STATIC_PATTERNS: List[Tuple[str, re.Pattern[str], str]] = [
     ("notnull", re.compile(r"\bnotnull\b", re.IGNORECASE), "not null"),
     ("casewhen", re.compile(r"\bcasewhen\b", re.IGNORECASE), "case when"),
     ("nulland", re.compile(r"\bnulland\b", re.IGNORECASE), "null and"),
@@ -31,7 +33,50 @@ _REDSHIFT_COMPOUND_PATTERNS: List[Tuple[str, re.Pattern[str], str]] = [
     ("groupby", re.compile(r"\bgroupby\b", re.IGNORECASE), "group by"),
     ("thencase", re.compile(r"\bthencase\b", re.IGNORECASE), "then case"),
     ("orderby", re.compile(r"\borderby\b", re.IGNORECASE), "order by"),
+    # Additional keyword-keyword patterns found in production
+    ("distinctcase", re.compile(r"\bdistinctcase\b", re.IGNORECASE), "distinct case"),
+    ("nullend", re.compile(r"\bnullend\b", re.IGNORECASE), "null end"),
 ]
+
+# Dynamic patterns: keyword-identifier/function compounds
+# These use regex with capturing groups to preserve the identifier
+_WHEN_IDENTIFIER_PATTERN = re.compile(r"\bwhen([a-z])", re.IGNORECASE)
+_THEN_IDENTIFIER_PATTERN = re.compile(r"\bthen([a-z])", re.IGNORECASE)
+_ELSE_FUNCTION_PATTERN = re.compile(
+    r"\belse(dateadd|datediff|date_add)\b", re.IGNORECASE
+)
+
+# Words that should NOT be split (false positive prevention)
+_WHEN_BLACKLIST = {"whenever", "whence"}
+_THEN_BLACKLIST = {"thence", "thenceforth"}
+
+
+def _apply_dynamic_pattern(
+    query: str,
+    pattern: re.Pattern[str],
+    keyword: str,
+    blacklist: Optional[set[str]] = None,
+) -> str:
+    """Apply a dynamic keyword-identifier pattern with blacklist checking."""
+    if blacklist is None:
+        blacklist = set()
+
+    def replacer(match: re.Match[str]) -> str:
+        full_match = match.group(0)
+        # Check if this is a blacklisted word
+        # Find the full word starting from match position
+        start = match.start()
+        end = match.end()
+        # Extend to find full word
+        while end < len(query) and (query[end].isalnum() or query[end] == "_"):
+            end += 1
+        full_word = query[start:end].lower()
+        if full_word in blacklist:
+            return full_match
+        # Insert space after keyword
+        return f"{keyword} {match.group(1)}"
+
+    return pattern.sub(replacer, query)
 
 
 def preprocess_redshift_query(query: str) -> str:
@@ -55,18 +100,38 @@ def preprocess_redshift_query(query: str) -> str:
     """
     query_lower = query.lower()
 
-    # Quick check: only process if any pattern indicator is present
-    needs_processing = any(
-        indicator in query_lower for indicator, _, _ in _REDSHIFT_COMPOUND_PATTERNS
+    # Quick check for static patterns
+    static_indicators = [ind for ind, _, _ in _REDSHIFT_STATIC_PATTERNS]
+    needs_static = any(ind in query_lower for ind in static_indicators)
+
+    # Quick check for dynamic patterns
+    needs_dynamic = (
+        "when" in query_lower or "then" in query_lower or "else" in query_lower
     )
-    if not needs_processing:
+
+    if not needs_static and not needs_dynamic:
         return query
 
-    # Apply matching patterns
     result = query
-    for indicator, pattern, replacement in _REDSHIFT_COMPOUND_PATTERNS:
-        if indicator in query_lower:
-            result = pattern.sub(replacement, result)
+
+    # Apply static patterns
+    if needs_static:
+        for indicator, pattern, replacement in _REDSHIFT_STATIC_PATTERNS:
+            if indicator in query_lower:
+                result = pattern.sub(replacement, result)
+
+    # Apply dynamic patterns
+    if needs_dynamic:
+        if "when" in query_lower:
+            result = _apply_dynamic_pattern(
+                result, _WHEN_IDENTIFIER_PATTERN, "when", _WHEN_BLACKLIST
+            )
+        if "then" in query_lower:
+            result = _apply_dynamic_pattern(
+                result, _THEN_IDENTIFIER_PATTERN, "then", _THEN_BLACKLIST
+            )
+        if "else" in query_lower:
+            result = _ELSE_FUNCTION_PATTERN.sub(r"else \1", result)
 
     return result
 
