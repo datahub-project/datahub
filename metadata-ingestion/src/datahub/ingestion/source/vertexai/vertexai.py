@@ -437,7 +437,7 @@ class VertexAISource(Source):
     ) -> Iterable[MetadataWorkUnit]:
         """
         Process a single project's resources with parallelism.
-        Follows BigQuery's pattern: sequential projects, parallel resources within each project.
+
         """
         yield from self._gen_project_workunits()
 
@@ -454,14 +454,20 @@ class VertexAISource(Source):
                     yield from auto_workunit(self._get_experiment_runs_mcps())
                 elif resource_type == "pipelines":
                     yield from auto_workunit(self._get_pipelines_mcps())
-            except Exception as e:
+            except GoogleAPICallError as e:
                 logger.warning(
-                    f"Failed to fetch {resource_type} for project {project.id}: {e}"
+                    f"API error fetching {resource_type} for project {project.id}: {e}"
                 )
                 self.report.report_warning(
                     title=f"Failed to fetch {resource_type} for project {project.id}",
                     message=str(e),
                 )
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error in {resource_type} fetcher for project {project.id}: {e}",
+                    exc_info=True,
+                )
+                raise
 
         resource_types = [
             ("models",),
@@ -496,7 +502,7 @@ class VertexAISource(Source):
         for resource_type, fetch_func in resource_fetchers:
             try:
                 yield from fetch_func()
-            except Exception as e:
+            except GoogleAPICallError as e:
                 self._handle_resource_error(e, resource_type)
 
     def _get_pipelines_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:

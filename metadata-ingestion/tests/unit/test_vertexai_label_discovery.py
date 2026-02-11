@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.api_core.exceptions import GoogleAPICallError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
@@ -236,29 +237,22 @@ class TestVertexAIParallelism:
         )
         source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
 
-        with patch.object(source, "_gen_project_workunits") as mock_proj_wu:
+        with (
+            patch.object(source, "_gen_project_workunits") as mock_proj_wu,
+            patch.object(source, "_get_ml_models_mcps") as mock_models,
+            patch.object(source, "_get_training_jobs_mcps") as mock_jobs,
+            patch.object(source, "_get_experiments_workunits") as mock_exp,
+            patch.object(source, "_get_experiment_runs_mcps") as mock_runs,
+            patch.object(source, "_get_pipelines_mcps") as mock_pipes,
+        ):
             mock_proj_wu.return_value = [MagicMock(id="project-wu")]
+            mock_models.return_value = [MagicMock(id="model-mcp")]
+            mock_jobs.return_value = [MagicMock(id="job-mcp")]
+            mock_exp.return_value = [MagicMock(id="exp-wu")]
+            mock_runs.return_value = [MagicMock(id="run-mcp")]
+            mock_pipes.return_value = [MagicMock(id="pipe-mcp")]
 
-            with patch.object(source, "_get_ml_models_mcps") as mock_models:
-                mock_models.return_value = [MagicMock(id="model-mcp")]
-
-                with patch.object(source, "_get_training_jobs_mcps") as mock_jobs:
-                    mock_jobs.return_value = [MagicMock(id="job-mcp")]
-
-                    with patch.object(source, "_get_experiments_workunits") as mock_exp:
-                        mock_exp.return_value = [MagicMock(id="exp-wu")]
-
-                        with patch.object(
-                            source, "_get_experiment_runs_mcps"
-                        ) as mock_runs:
-                            mock_runs.return_value = [MagicMock(id="run-mcp")]
-
-                            with patch.object(
-                                source, "_get_pipelines_mcps"
-                            ) as mock_pipes:
-                                mock_pipes.return_value = [MagicMock(id="pipe-mcp")]
-
-                                workunits = list(source.get_workunits_internal())
+            workunits = list(source.get_workunits_internal())
 
         assert len(workunits) == 6
         wu_ids = {wu.id for wu in workunits}
@@ -278,7 +272,7 @@ class TestVertexAIParallelism:
     @patch("google.cloud.aiplatform.init")
     @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
     def test_parallel_error_handling(self, mock_get_projects, mock_aiplatform_init):
-        """Errors in one resource type don't stop others from processing."""
+        """API errors in one resource type don't stop others from processing."""
         mock_get_projects.return_value = [GCPProject(id="test-project", name="Test")]
         config = VertexAIConfig(
             project_ids=["test-project"],
@@ -287,29 +281,22 @@ class TestVertexAIParallelism:
         )
         source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
 
-        with patch.object(source, "_gen_project_workunits") as mock_proj_wu:
+        with (
+            patch.object(source, "_gen_project_workunits") as mock_proj_wu,
+            patch.object(source, "_get_ml_models_mcps") as mock_models,
+            patch.object(source, "_get_training_jobs_mcps") as mock_jobs,
+            patch.object(source, "_get_experiments_workunits") as mock_exp,
+            patch.object(source, "_get_experiment_runs_mcps") as mock_runs,
+            patch.object(source, "_get_pipelines_mcps") as mock_pipes,
+        ):
             mock_proj_wu.return_value = [MagicMock(id="project-wu")]
+            mock_models.side_effect = GoogleAPICallError("Models API failure")
+            mock_jobs.return_value = [MagicMock(id="job-mcp")]
+            mock_exp.return_value = [MagicMock(id="exp-wu")]
+            mock_runs.return_value = [MagicMock(id="run-mcp")]
+            mock_pipes.return_value = [MagicMock(id="pipe-mcp")]
 
-            with patch.object(source, "_get_ml_models_mcps") as mock_models:
-                mock_models.side_effect = Exception("Models API failure")
-
-                with patch.object(source, "_get_training_jobs_mcps") as mock_jobs:
-                    mock_jobs.return_value = [MagicMock(id="job-mcp")]
-
-                    with patch.object(source, "_get_experiments_workunits") as mock_exp:
-                        mock_exp.return_value = [MagicMock(id="exp-wu")]
-
-                        with patch.object(
-                            source, "_get_experiment_runs_mcps"
-                        ) as mock_runs:
-                            mock_runs.return_value = [MagicMock(id="run-mcp")]
-
-                            with patch.object(
-                                source, "_get_pipelines_mcps"
-                            ) as mock_pipes:
-                                mock_pipes.return_value = [MagicMock(id="pipe-mcp")]
-
-                                workunits = list(source.get_workunits_internal())
+            workunits = list(source.get_workunits_internal())
 
         assert len(workunits) == 5
         wu_ids = {wu.id for wu in workunits}
@@ -319,6 +306,34 @@ class TestVertexAIParallelism:
         assert "run-mcp" in wu_ids
         assert "pipe-mcp" in wu_ids
         assert "model-mcp" not in wu_ids
+
+    @patch("google.cloud.aiplatform.init")
+    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
+    def test_sequential_programming_error_fails_fast(
+        self, mock_get_projects, mock_aiplatform_init
+    ):
+        """Programming errors (TypeError, etc.) fail fast in sequential mode."""
+        mock_get_projects.return_value = [GCPProject(id="test-project", name="Test")]
+        config = VertexAIConfig(
+            project_ids=["test-project"],
+            region="us-west2",
+            max_threads_resource_parallelism=1,
+        )
+        source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+        with (
+            patch.object(source, "_gen_project_workunits") as mock_proj_wu,
+            patch.object(source, "_get_ml_models_mcps") as mock_models,
+            patch.object(source, "_get_training_jobs_mcps"),
+            patch.object(source, "_get_experiments_workunits"),
+            patch.object(source, "_get_experiment_runs_mcps"),
+            patch.object(source, "_get_pipelines_mcps"),
+        ):
+            mock_proj_wu.return_value = [MagicMock(id="project-wu")]
+            mock_models.side_effect = TypeError("Programming bug: unexpected type")
+
+            with pytest.raises(TypeError, match="Programming bug"):
+                list(source.get_workunits_internal())
 
     @patch("google.cloud.aiplatform.init")
     @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
