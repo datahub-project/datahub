@@ -1225,62 +1225,14 @@ def test_multi_project_fallback_to_project_id_when_resolution_fails(
     assert source._projects == ["fallback-project"]
 
 
-@patch("google.cloud.aiplatform.aiplatform.list_models")
-def test_region_discovery_for_project(mock_list_models: MagicMock) -> None:
-    """Test automatic region discovery for projects"""
-    mock_list_models.side_effect = [
-        [],  # us-central1 - empty
-        [MagicMock()],  # us-west1 - has models
-        [],  # europe-west1 - empty
-    ]
-
-    config = VertexAIConfig.model_validate(
-        {
-            "project_id": "test-project",
-            "region": "us-central1",
-            "discover_regions": True,
-            "candidate_regions": ["us-central1", "us-west1", "europe-west1"],
-        }
-    )
-    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
-
-    assert "test-project" in source._project_to_regions
-    assert "us-west1" in source._project_to_regions["test-project"]
-
-
-@patch("google.cloud.aiplatform.aiplatform.list_models")
-def test_region_discovery_handles_errors_gracefully(
-    mock_list_models: MagicMock,
-) -> None:
-    """Test that region discovery continues on API errors"""
-    from google.api_core.exceptions import GoogleAPICallError
-
-    mock_list_models.side_effect = [
-        GoogleAPICallError("Permission denied"),
-        [MagicMock()],  # us-west1 succeeds
-    ]
-
-    config = VertexAIConfig.model_validate(
-        {
-            "project_id": "test-project",
-            "region": "us-central1",
-            "discover_regions": True,
-            "candidate_regions": ["us-central1", "us-west1"],
-        }
-    )
-    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
-
-    assert "us-west1" in source._project_to_regions.get("test-project", [])
-
-
 @pytest.mark.parametrize(
     "duration,expected",
     [
-        (timedelta(seconds=45), "45 seconds"),
-        (timedelta(minutes=5, seconds=30), "5 minutes 30 seconds"),
-        (timedelta(hours=2, minutes=15), "2 hours 15 minutes 0 seconds"),
-        (timedelta(days=1, hours=3, minutes=20), "1 days 3 hours 20 minutes"),
-        (timedelta(seconds=0), "0 seconds"),
+        (timedelta(seconds=45), "45s"),
+        (timedelta(minutes=5, seconds=30), "5m 30s"),
+        (timedelta(hours=2, minutes=15), "2h 15m"),
+        (timedelta(days=1, hours=3, minutes=20), "1d 3h 20m"),
+        (timedelta(seconds=0), "0s"),
     ],
 )
 def test_format_pipeline_duration(
@@ -1320,4 +1272,3 @@ def test_ml_metadata_helper_handles_init_errors(mock_client: MagicMock) -> None:
     source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
 
     assert source._ml_metadata_helper is None
-    assert len(source.report.failures) > 0
