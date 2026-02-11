@@ -181,14 +181,14 @@ class VertexAIConfig(EnvConfigMixin):
                 "Both 'project_id' (deprecated) and 'project_ids' are set with the same project. "
                 "Ignoring 'project_id' - please remove it from your config."
             )
-        else:
-            logger.warning(
-                "Both 'project_id' (deprecated) and 'project_ids' are set. "
-                "Using 'project_ids' and ignoring 'project_id'. "
-                "Please remove 'project_id' from your config."
-            )
-        values.pop("project_id", None)
-        return handler(values)
+            values.pop("project_id", None)
+            return handler(values)
+
+        raise ValueError(
+            f"Conflicting project configuration: 'project_id' is set to '{project_id}' "
+            f"but 'project_ids' is set to {project_ids}. "
+            "Please remove the deprecated 'project_id' field and use only 'project_ids'."
+        )
 
     @model_validator(mode="after")
     def _validate_pattern_filtering(self) -> VertexAIConfig:

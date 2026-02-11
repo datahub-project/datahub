@@ -918,15 +918,16 @@ class TestMultiProjectConfig:
         )
         assert config.project_ids == ["my-project"]
 
-    def test_project_ids_takes_precedence(self) -> None:
-        config = VertexAIConfig.model_validate(
-            {
-                "project_id": "old-project",
-                "project_ids": ["new-project-1", "new-project-2"],
-                "region": "us-central1",
-            }
-        )
-        assert config.project_ids == ["new-project-1", "new-project-2"]
+    def test_project_ids_conflicts_with_project_id(self) -> None:
+        """When project_id and project_ids conflict, raise ValueError."""
+        with pytest.raises(ValueError, match="Conflicting project configuration"):
+            VertexAIConfig.model_validate(
+                {
+                    "project_id": "old-project",
+                    "project_ids": ["new-project-1", "new-project-2"],
+                    "region": "us-central1",
+                }
+            )
 
     @pytest.mark.parametrize(
         "project_ids,pattern,expected_count",
@@ -1283,10 +1284,10 @@ class TestDeprecationWarnings:
         assert config.project_ids == ["legacy-project"]
         assert any("deprecated" in record.message.lower() for record in caplog.records)
 
-    def test_both_fields_prefers_project_ids_with_warning(self, caplog: Any) -> None:
-        """When both fields provided, project_ids wins with a warning."""
-        with caplog.at_level(logging.WARNING):
-            config = VertexAIConfig.model_validate(
+    def test_both_fields_with_conflict_raises_error(self) -> None:
+        """When both fields provided with different values, raises ValueError."""
+        with pytest.raises(ValueError, match="Conflicting project configuration"):
+            VertexAIConfig.model_validate(
                 {
                     "project_id": "old-project",
                     "project_ids": ["new-project-one", "new-project-two"],
@@ -1294,8 +1295,21 @@ class TestDeprecationWarnings:
                 }
             )
 
-        assert config.project_ids == ["new-project-one", "new-project-two"]
-        assert any("ignoring" in record.message.lower() for record in caplog.records)
+    def test_both_fields_same_value_warns(self, caplog: Any) -> None:
+        """When both fields provided with same value, warns but allows."""
+        with caplog.at_level(logging.WARNING):
+            config = VertexAIConfig.model_validate(
+                {
+                    "project_id": "same-project",
+                    "project_ids": ["same-project"],
+                    "region": "us-central1",
+                }
+            )
+
+        assert config.project_ids == ["same-project"]
+        assert any(
+            "same project" in record.message.lower() for record in caplog.records
+        )
 
 
 class TestCredentialManagement:
