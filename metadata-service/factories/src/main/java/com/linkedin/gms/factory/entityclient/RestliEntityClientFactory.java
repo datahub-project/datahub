@@ -32,17 +32,42 @@ public class RestliEntityClientFactory {
       @Value("${datahub.gms.useSSL}") boolean gmsUseSSL,
       @Value("${datahub.gms.uri}") String gmsUri,
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
+      @Value("${datahub.gms.truststore.path}") String gmsSslTrustStorePath,
+      @Value("${datahub.gms.truststore.password}") String gmsSslTrustStorePass,
+      @Value("${datahub.gms.truststore.type}") String gmsSslTrustStoreType,
+      @Value("${datahub.server.keystore.path}") String serverSslKeyStorePath,
+      @Value("${datahub.server.keystore.password}") String serverSslKeyStorePass,
+      @Value("${datahub.server.keystore.type}") String serverSslKeyStoreType,
       final EntityClientConfig entityClientConfig,
       final MetricUtils metricUtils) {
     final Client restClient;
     if (gmsUri != null) {
-      restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
+      restClient =
+          DefaultRestliClientFactory.getRestLiClient(
+              URI.create(gmsUri),
+              gmsSslProtocol,
+              gmsSslTrustStorePath,
+              gmsSslTrustStorePass,
+              gmsSslTrustStoreType,
+              serverSslKeyStorePath,
+              serverSslKeyStorePass,
+              serverSslKeyStoreType);
     } else {
       // Use the same logic as GMSConfiguration.getResolvedBasePath()
       String resolvedBasePath = BasePathUtils.resolveBasePath(gmsBasePathEnabled, gmsBasePath);
       restClient =
           DefaultRestliClientFactory.getRestLiClient(
-              gmsHost, gmsPort, resolvedBasePath, gmsUseSSL, gmsSslProtocol);
+              gmsHost,
+              gmsPort,
+              resolvedBasePath,
+              gmsUseSSL,
+              gmsSslProtocol,
+              gmsSslTrustStorePath,
+              gmsSslTrustStorePass,
+              gmsSslTrustStoreType,
+              serverSslKeyStorePath,
+              serverSslKeyStorePass,
+              serverSslKeyStoreType);
     }
     return new RestliEntityClient(restClient, entityClientConfig, metricUtils);
   }
@@ -57,19 +82,44 @@ public class RestliEntityClientFactory {
       @Value("${datahub.gms.useSSL}") boolean gmsUseSSL,
       @Value("${datahub.gms.uri}") String gmsUri,
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
+      @Value("${datahub.gms.truststore.path}") String gmsSslTrustStorePath,
+      @Value("${datahub.gms.truststore.password}") String gmsSslTrustStorePass,
+      @Value("${datahub.gms.truststore.type}") String gmsSslTrustStoreType,
+      @Value("${datahub.server.keystore.path}") String serverSslKeyStorePath,
+      @Value("${datahub.server.keystore.password}") String serverSslKeyStorePass,
+      @Value("${datahub.server.keystore.type}") String serverSslKeyStoreType,
       final EntityClientCacheConfig entityClientCacheConfig,
       final EntityClientConfig entityClientConfig,
       final MetricUtils metricUtils) {
 
     final Client restClient;
     if (gmsUri != null) {
-      restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
+      restClient =
+          DefaultRestliClientFactory.getRestLiClient(
+              URI.create(gmsUri),
+              gmsSslProtocol,
+              gmsSslTrustStorePath,
+              gmsSslTrustStorePass,
+              gmsSslTrustStoreType,
+              serverSslKeyStorePath,
+              serverSslKeyStorePass,
+              serverSslKeyStoreType);
     } else {
       // Use the same logic as GMSConfiguration.getResolvedBasePath()
       String resolvedBasePath = BasePathUtils.resolveBasePath(gmsBasePathEnabled, gmsBasePath);
       restClient =
           DefaultRestliClientFactory.getRestLiClient(
-              gmsHost, gmsPort, resolvedBasePath, gmsUseSSL, gmsSslProtocol);
+              gmsHost,
+              gmsPort,
+              resolvedBasePath,
+              gmsUseSSL,
+              gmsSslProtocol,
+              gmsSslTrustStorePath,
+              gmsSslTrustStorePass,
+              gmsSslTrustStoreType,
+              serverSslKeyStorePath,
+              serverSslKeyStorePass,
+              serverSslKeyStoreType);
     }
     return new SystemRestliEntityClient(
         restClient, entityClientConfig, entityClientCacheConfig, metricUtils);

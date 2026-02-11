@@ -22,6 +22,10 @@ public class ConfigUtil {
       "metadataService.truststore.password";
   public static final String METADATA_SERVICE_SSL_TRUST_STORE_TYPE =
       "metadataService.truststore.type";
+  public static final String METADATA_SERVICE_SSL_KEY_STORE_PATH = "metadataService.keystore.path";
+  public static final String METADATA_SERVICE_SSL_KEY_STORE_PASSWORD =
+      "metadataService.keystore.password";
+  public static final String METADATA_SERVICE_SSL_KEY_STORE_TYPE = "metadataService.keystore.type";
 
   // Legacy env-var based config values, for backwards compatibility:
   public static final String GMS_HOST_ENV_VAR = "DATAHUB_GMS_HOST";
