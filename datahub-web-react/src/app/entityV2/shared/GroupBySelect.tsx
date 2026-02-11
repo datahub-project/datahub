@@ -11,7 +11,7 @@ type GroupBySelectProps = {
     options: Option[];
     selectedValue: string | undefined;
     onSelect: (value: string) => void;
-    width?: number;
+    width?: number | 'full' | 'fit-content';
 };
 
 export function GroupBySelect({ options, selectedValue, onSelect, width = 50 }: GroupBySelectProps) {
