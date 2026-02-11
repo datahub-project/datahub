@@ -5,10 +5,16 @@ from pydantic import Field
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+)
 from datahub.ingestion.source.vertexai.vertexai_constants import IngestionLimits
 
 
-class VertexAIConfig(EnvConfigMixin):
+class VertexAIConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     credential: Optional[GCPCredential] = Field(
         default=None, description="GCP credential information"
     )
@@ -131,6 +137,11 @@ class VertexAIConfig(EnvConfigMixin):
     vertexai_url: Optional[str] = Field(
         default="https://console.cloud.google.com/vertex-ai",
         description=("VertexUI URI"),
+    )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None,
+        description="Stateful ingestion configuration for tracking and removing stale metadata.",
     )
 
     def get_credentials(self) -> Optional[Dict[str, str]]:
