@@ -160,6 +160,8 @@ dependencies {
   implementation externalDependency.opentelemetrySdkTrace
   implementation externalDependency.opentelemetrySdkMetrics
   implementation externalDependency.resilience4j
+  // exp4j for mathematical expression evaluation in Java-based rescoring
+  implementation 'net.objecthunter:exp4j:0.4.8'
   // Newer Spring libraries require JDK17 classes, allow for JDK11
   compileOnly externalDependency.springBootAutoconfigureJdk11
   implementation(externalDependency.mixpanel) {

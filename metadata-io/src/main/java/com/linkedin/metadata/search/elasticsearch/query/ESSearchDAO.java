@@ -7,11 +7,14 @@ import static com.linkedin.metadata.utils.SearchUtil.*;
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.RescoreFormulaConfig;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -24,6 +27,8 @@ import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -31,6 +36,13 @@ import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQuery
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestOptions;
+import com.linkedin.metadata.search.rescore.Exp4jRescorer;
+import com.linkedin.metadata.search.rescore.NormalizationConfig;
+import com.linkedin.metadata.search.rescore.NormalizationType;
+import com.linkedin.metadata.search.rescore.RescoreResult;
+import com.linkedin.metadata.search.rescore.SignalDefinition;
+import com.linkedin.metadata.search.rescore.SignalType;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.test.definition.operator.Predicate;
@@ -43,11 +55,15 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -68,6 +84,7 @@ import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
 /** A search DAO for Elasticsearch backend. */
@@ -83,6 +100,19 @@ public class ESSearchDAO {
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
   private final boolean testLoggingEnabled;
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
+
+  /** Cached exp4j rescorer, lazily initialized */
+  private final AtomicReference<Exp4jRescorer> cachedRescorer = new AtomicReference<>();
+
+  /** Cached resolved rescore formula config */
+  private final AtomicReference<RescoreFormulaConfig> resolvedRescoreFormulaConfig =
+      new AtomicReference<>();
+
+  /** ObjectMapper for JSON serialization of rescore explanations */
+  private static final ObjectMapper RESCORE_MAPPER = new ObjectMapper();
+
+  /** ObjectMapper for YAML parsing of rescore config */
+  private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
 
   public ESSearchDAO(
       SearchClientShim<?> client,
@@ -146,29 +176,16 @@ public class ESSearchDAO {
     return opContext.withSpan(
         "executeAndExtract_search",
         () -> {
-          SearchResponse searchResponse = null;
           try {
-            log.debug("Executing request {}: {}", id, searchRequest);
-            searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
-            // extract results, validated against document model as well
-            return transformIndexIntoEntityName(
-                opContext.getSearchContext().getIndexConvention(),
-                SearchRequestHandler.getBuilder(
-                        opContext,
-                        entitySpec,
-                        searchConfiguration,
-                        customSearchConfiguration,
-                        queryFilterRewriteChain,
-                        searchServiceConfig)
-                    .extractResult(
-                        opContext,
-                        searchResponse,
-                        filter,
-                        from,
-                        ConfigUtils.applyLimit(searchServiceConfig, size)));
+            if (resolveSearchV2_5Enabled(opContext)) {
+              return executeAndExtractSearchV2_5(
+                  opContext, entitySpec, searchRequest, filter, from, size, id);
+            } else {
+              return executeAndExtractSearchV2(
+                  opContext, entitySpec, searchRequest, filter, from, size, id);
+            }
           } catch (Exception e) {
             log.error("Search query failed", e);
-            log.error("Response to the failed search query: {}", searchResponse);
             throw new ESQueryException("Search query failed:", e);
           } finally {
             log.debug("Returning from request {}.", id);
@@ -176,6 +193,110 @@ public class ESSearchDAO {
         },
         MetricUtils.DROPWIZARD_NAME,
         MetricUtils.name(this.getClass(), "executeAndExtract_search"));
+  }
+
+  /** V2 (control): Execute search as-is with no modification (acryl-main behavior). */
+  private SearchResult executeAndExtractSearchV2(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpec,
+      @Nonnull SearchRequest searchRequest,
+      @Nullable Filter filter,
+      int from,
+      @Nullable Integer size,
+      long id)
+      throws IOException {
+    log.debug("Executing V2 request {} (no rescoring): {}", id, searchRequest);
+    SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+
+    try {
+      return transformIndexIntoEntityName(
+          opContext.getSearchContext().getIndexConvention(),
+          SearchRequestHandler.getBuilder(
+                  opContext,
+                  entitySpec,
+                  searchConfiguration,
+                  customSearchConfiguration,
+                  queryFilterRewriteChain,
+                  searchServiceConfig)
+              .extractResult(
+                  opContext,
+                  searchResponse,
+                  filter,
+                  from,
+                  ConfigUtils.applyLimit(searchServiceConfig, size)));
+    } catch (Exception e) {
+      log.error("Response to the failed search query: {}", searchResponse);
+      throw e;
+    }
+  }
+
+  /** V2.5 (treatment): Fetch a rescore window and apply Stage 2 rescoring. */
+  private SearchResult executeAndExtractSearchV2_5(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpec,
+      @Nonnull SearchRequest searchRequest,
+      @Nullable Filter filter,
+      int from,
+      @Nullable Integer size,
+      long id)
+      throws IOException {
+    RescoreFormulaConfig rescoreConfig = getRescoreFormulaConfig();
+    int configuredWindow = rescoreConfig != null ? rescoreConfig.getWindowSize() : 100;
+    int maxWindow = rescoreConfig != null ? rescoreConfig.getMaxRescoreWindow() : 5000;
+
+    // Optimization: Skip rescoring if request is entirely beyond rescore window
+    // Items at positions >= windowSize never get rescored, so we can fetch directly
+    if (from >= configuredWindow) {
+      log.debug(
+          "Executing request {} without rescoring (from={} >= windowSize={}): {}",
+          id,
+          from,
+          configuredWindow,
+          searchRequest);
+      return executeAndExtractSearchV2(
+          opContext, entitySpec, searchRequest, filter, from, size, id);
+    }
+
+    // Calculate how many results to fetch for rescoring
+    int rescoreWindow = calculateRescoreWindow(from, size, configuredWindow, maxWindow);
+
+    // Store original pagination params
+    int requestedFrom = from;
+    Integer requestedSize = size;
+
+    // Modify search request to fetch rescore window from beginning
+    searchRequest.source().from(0).size(rescoreWindow);
+
+    log.debug(
+        "Executing request {}: {} (rescore window: {}, requested: from={}, size={})",
+        id,
+        searchRequest,
+        rescoreWindow,
+        requestedFrom,
+        requestedSize);
+    SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+
+    // Extract results (full window)
+    SearchResult fullWindowResult =
+        transformIndexIntoEntityName(
+            opContext.getSearchContext().getIndexConvention(),
+            SearchRequestHandler.getBuilder(
+                    opContext,
+                    entitySpec,
+                    searchConfiguration,
+                    customSearchConfiguration,
+                    queryFilterRewriteChain,
+                    searchServiceConfig)
+                .extractResult(
+                    opContext,
+                    searchResponse,
+                    filter,
+                    0, // Extract from beginning
+                    rescoreWindow)); // Extract full window
+
+    // Apply Stage 2 rescoring and slice to requested pagination
+    SearchResult rescored = applyJavaRescore(opContext, searchResponse, fullWindowResult);
+    return sliceSearchResultForPagination(rescored, requestedFrom, requestedSize);
   }
 
   private String transformIndexToken(
@@ -275,15 +396,23 @@ public class ESSearchDAO {
     try {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
-      return SearchRequestHandler.getBuilder(
-              opContext,
-              entitySpecs,
-              searchConfiguration,
-              customSearchConfiguration,
-              queryFilterRewriteChain,
-              searchServiceConfig)
-          .extractScrollResult(
-              opContext, searchResponse, filters, keepAlive, size, pointInTimeCreationEnabled);
+      ScrollResult result =
+          SearchRequestHandler.getBuilder(
+                  opContext,
+                  entitySpecs,
+                  searchConfiguration,
+                  customSearchConfiguration,
+                  queryFilterRewriteChain,
+                  searchServiceConfig)
+              .extractScrollResult(
+                  opContext, searchResponse, filters, keepAlive, size, pointInTimeCreationEnabled);
+
+      // Apply Java-based rescoring (Stage 2) only for V2.5
+      if (resolveSearchV2_5Enabled(opContext)) {
+        return applyJavaRescore(opContext, searchResponse, result);
+      } else {
+        return result; // V2: Return ES results directly
+      }
     } catch (Exception e) {
       log.error("Search Scroll query failed", e);
       throw new ESQueryException("Search Scroll query failed:", e);
@@ -303,15 +432,23 @@ public class ESSearchDAO {
       final SearchResponse searchResponse =
           client.scroll(searchScrollRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
-      return SearchRequestHandler.getBuilder(
-              opContext,
-              entitySpec,
-              searchConfiguration,
-              customSearchConfiguration,
-              queryFilterRewriteChain,
-              searchServiceConfig)
-          .extractScrollResult(
-              opContext, searchResponse, filters, keepAlive, size, pointInTimeCreationEnabled);
+      ScrollResult result =
+          SearchRequestHandler.getBuilder(
+                  opContext,
+                  entitySpec,
+                  searchConfiguration,
+                  customSearchConfiguration,
+                  queryFilterRewriteChain,
+                  searchServiceConfig)
+              .extractScrollResult(
+                  opContext, searchResponse, filters, keepAlive, size, pointInTimeCreationEnabled);
+
+      // Apply Java-based rescoring (Stage 2) only for V2.5
+      if (resolveSearchV2_5Enabled(opContext)) {
+        return applyJavaRescore(opContext, searchResponse, result);
+      } else {
+        return result; // V2: Return ES results directly
+      }
     } catch (Exception e) {
       log.error("Scroll query failed", e);
       throw new ESQueryException("Scroll query failed:", e);
@@ -333,23 +470,35 @@ public class ESSearchDAO {
           try {
             final SearchResponse searchResponse =
                 client.search(searchRequest, RequestOptions.DEFAULT);
+            // NOTE: Scroll-based search uses searchAfter pagination which is incompatible
+            // with global rescore windowing. Rescoring is applied per-page for scroll,
+            // which is acceptable since scroll is primarily used for bulk exports where
+            // ranking consistency across page sizes is not critical.
             // extract results, validated against document model as well
-            return transformIndexIntoEntityName(
-                opContext.getSearchContext().getIndexConvention(),
-                SearchRequestHandler.getBuilder(
-                        opContext,
-                        entitySpecs,
-                        searchConfiguration,
-                        customSearchConfiguration,
-                        queryFilterRewriteChain,
-                        searchServiceConfig)
-                    .extractScrollResult(
-                        opContext,
-                        searchResponse,
-                        filter,
-                        keepAlive,
-                        ConfigUtils.applyLimit(searchServiceConfig, size),
-                        pointInTimeCreationEnabled));
+            ScrollResult result =
+                transformIndexIntoEntityName(
+                    opContext.getSearchContext().getIndexConvention(),
+                    SearchRequestHandler.getBuilder(
+                            opContext,
+                            entitySpecs,
+                            searchConfiguration,
+                            customSearchConfiguration,
+                            queryFilterRewriteChain,
+                            searchServiceConfig)
+                        .extractScrollResult(
+                            opContext,
+                            searchResponse,
+                            filter,
+                            keepAlive,
+                            ConfigUtils.applyLimit(searchServiceConfig, size),
+                            pointInTimeCreationEnabled));
+
+            // Apply Java-based rescoring (Stage 2) only for V2.5
+            if (resolveSearchV2_5Enabled(opContext)) {
+              return applyJavaRescore(opContext, searchResponse, result);
+            } else {
+              return result; // V2: Return ES results directly
+            }
           } catch (Exception e) {
             log.error("Search query failed: {}", searchRequest, e);
             throw new ESQueryException("Search query failed:", e);
@@ -448,13 +597,15 @@ public class ESSearchDAO {
                 searchServiceConfig)
             .getSearchRequest(
                 opContext,
-                finalInput,
-                transformedFilters,
-                sortCriteria,
-                from,
-                size,
-                facets,
-                searchDocFieldFetchConfig)
+                SearchRequestOptions.builder()
+                    .input(finalInput)
+                    .filter(transformedFilters)
+                    .sortCriteria(sortCriteria)
+                    .from(from)
+                    .size(size)
+                    .facets(facets)
+                    .fieldFetchConfig(searchDocFieldFetchConfig)
+                    .build())
             .indices(
                 entityNames.stream()
                     .map(indexConvention::getEntityIndexName)
@@ -568,15 +719,17 @@ public class ESSearchDAO {
                 customSearchConfiguration,
                 queryFilterRewriteChain,
                 searchServiceConfig)
-            .getSearchAfterRequest(
+            .getSearchRequest(
                 opContext,
-                filters,
-                sortCriteria,
-                size,
-                keepAlive,
-                pitId,
-                sort,
-                searchDocFieldFetchConfig);
+                SearchRequestOptions.builder()
+                    .filter(filters)
+                    .sortCriteria(sortCriteria)
+                    .size(size)
+                    .keepAlive(keepAlive)
+                    .pitId(pitId)
+                    .searchAfter(sort)
+                    .fieldFetchConfig(searchDocFieldFetchConfig)
+                    .build());
 
     // PIT specifies indices in creation so it doesn't support specifying indices on the request, so
     // we only specify if not using PIT
@@ -848,15 +1001,17 @@ public class ESSearchDAO {
                 searchServiceConfig)
             .getSearchRequest(
                 opContext,
-                finalInput,
-                transformedFilters,
-                sortCriteria,
-                sort,
-                pitId,
-                keepAlive,
-                size,
-                facets,
-                searchDocFieldFetchConfig);
+                SearchRequestOptions.builder()
+                    .input(finalInput)
+                    .filter(transformedFilters)
+                    .sortCriteria(sortCriteria)
+                    .searchAfter(sort)
+                    .pitId(pitId)
+                    .keepAlive(keepAlive)
+                    .size(size)
+                    .facets(facets)
+                    .fieldFetchConfig(searchDocFieldFetchConfig)
+                    .build());
 
     // PIT specifies indices in creation so it doesn't support specifying indices on the
     // request, so
@@ -1052,25 +1207,108 @@ public class ESSearchDAO {
       @Nullable Integer size) {
     long id = System.currentTimeMillis();
     try {
-      log.debug("Executing request {}: {}", id, searchRequest);
-      final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
-      // extract results, validated against document model as well
-      return transformIndexIntoEntityName(
-          opContext.getSearchContext().getIndexConvention(),
-          SearchRequestHandler.getBuilder(
-                  opContext,
-                  entitySpec,
-                  searchConfiguration,
-                  customSearchConfiguration,
-                  queryFilterRewriteChain,
-                  searchServiceConfig)
-              .extractPredicateResult(opContext, searchResponse, predicate, from, size));
+      if (resolveSearchV2_5Enabled(opContext)) {
+        return executeAndExtractPredicateSearchV2_5(
+            opContext, entitySpec, searchRequest, predicate, from, size, id);
+      } else {
+        return executeAndExtractPredicateSearchV2(
+            opContext, entitySpec, searchRequest, predicate, from, size, id);
+      }
     } catch (Exception e) {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
     } finally {
       log.debug("Returning from request {}.", id);
     }
+  }
+
+  /** V2 (control): Execute predicate search as-is with no modification (acryl-main behavior). */
+  private SearchResult executeAndExtractPredicateSearchV2(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpec,
+      @Nonnull SearchRequest searchRequest,
+      @Nullable Predicate predicate,
+      int from,
+      @Nullable Integer size,
+      long id)
+      throws IOException {
+    log.debug("Executing V2 predicate search request {} (no rescoring): {}", id, searchRequest);
+    final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+
+    return transformIndexIntoEntityName(
+        opContext.getSearchContext().getIndexConvention(),
+        SearchRequestHandler.getBuilder(
+                opContext,
+                entitySpec,
+                searchConfiguration,
+                customSearchConfiguration,
+                queryFilterRewriteChain,
+                searchServiceConfig)
+            .extractPredicateResult(opContext, searchResponse, predicate, from, size));
+  }
+
+  /** V2.5 (treatment): Fetch a rescore window and apply Stage 2 predicate rescoring. */
+  private SearchResult executeAndExtractPredicateSearchV2_5(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpec,
+      @Nonnull SearchRequest searchRequest,
+      @Nullable Predicate predicate,
+      int from,
+      @Nullable Integer size,
+      long id)
+      throws IOException {
+    RescoreFormulaConfig rescoreConfig = getRescoreFormulaConfig();
+    int configuredWindow = rescoreConfig != null ? rescoreConfig.getWindowSize() : 100;
+    int maxWindow = rescoreConfig != null ? rescoreConfig.getMaxRescoreWindow() : 5000;
+
+    // Optimization: Skip rescoring if request is entirely beyond rescore window
+    // Items at positions >= windowSize never get rescored, so we can fetch directly
+    if (from >= configuredWindow) {
+      log.debug(
+          "Executing predicate search request {} without rescoring (from={} >= windowSize={}): {}",
+          id,
+          from,
+          configuredWindow,
+          searchRequest);
+      return executeAndExtractPredicateSearchV2(
+          opContext, entitySpec, searchRequest, predicate, from, size, id);
+    }
+
+    // Calculate how many results to fetch for rescoring
+    int rescoreWindow = calculateRescoreWindow(from, size, configuredWindow, maxWindow);
+
+    // Store original pagination params
+    int requestedFrom = from;
+    Integer requestedSize = size;
+
+    // Modify search request to fetch rescore window from beginning
+    searchRequest.source().from(0).size(rescoreWindow);
+
+    log.debug(
+        "Executing predicate search request {}: {} (rescore window: {}, requested: from={}, size={})",
+        id,
+        searchRequest,
+        rescoreWindow,
+        requestedFrom,
+        requestedSize);
+    final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+
+    // Extract results (full window)
+    SearchResult fullWindowResult =
+        transformIndexIntoEntityName(
+            opContext.getSearchContext().getIndexConvention(),
+            SearchRequestHandler.getBuilder(
+                    opContext,
+                    entitySpec,
+                    searchConfiguration,
+                    customSearchConfiguration,
+                    queryFilterRewriteChain,
+                    searchServiceConfig)
+                .extractPredicateResult(opContext, searchResponse, predicate, 0, rescoreWindow));
+
+    // Apply Stage 2 rescoring and slice to requested pagination
+    SearchResult rescored = applyJavaRescore(opContext, searchResponse, fullWindowResult);
+    return sliceSearchResultForPagination(rescored, requestedFrom, requestedSize);
   }
 
   /**
@@ -1197,25 +1435,560 @@ public class ESSearchDAO {
     try {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
-      return transformIndexIntoEntityName(
-          opContext.getSearchContext().getIndexConvention(),
-          SearchRequestHandler.getBuilder(
-                  opContext,
-                  entitySpecs,
-                  searchConfiguration,
-                  customSearchConfiguration,
-                  queryFilterRewriteChain,
-                  searchServiceConfig)
-              .extractPredicateScrollResult(
-                  opContext,
-                  searchResponse,
-                  predicate,
-                  keepAlive,
-                  size,
-                  pointInTimeCreationEnabled));
+      ScrollResult result =
+          transformIndexIntoEntityName(
+              opContext.getSearchContext().getIndexConvention(),
+              SearchRequestHandler.getBuilder(
+                      opContext,
+                      entitySpecs,
+                      searchConfiguration,
+                      customSearchConfiguration,
+                      queryFilterRewriteChain,
+                      searchServiceConfig)
+                  .extractPredicateScrollResult(
+                      opContext,
+                      searchResponse,
+                      predicate,
+                      keepAlive,
+                      size,
+                      pointInTimeCreationEnabled));
+
+      // Apply Java-based rescoring (Stage 2) only for V2.5
+      if (resolveSearchV2_5Enabled(opContext)) {
+        return applyJavaRescore(opContext, searchResponse, result);
+      } else {
+        return result; // V2: Return ES results directly
+      }
     } catch (Exception e) {
       log.error("Search query failed: {}", searchRequest, e);
       throw new ESQueryException("Search query failed:", e);
     }
+  }
+
+  // ==================== Java/exp4j Rescoring ====================
+
+  /**
+   * Get or initialize the exp4j rescorer based on configuration.
+   *
+   * @return the rescorer, or null if rescoring is disabled
+   */
+  @Nullable
+  private Exp4jRescorer getRescorer() {
+    RescoreFormulaConfig config = getRescoreFormulaConfig();
+    if (config == null || !config.isEnabled() || config.getFormula() == null) {
+      return null;
+    }
+
+    return cachedRescorer.updateAndGet(
+        existing -> {
+          if (existing != null) {
+            return existing;
+          }
+          try {
+            List<SignalDefinition> signalDefs = buildSignalDefinitions(config);
+            return new Exp4jRescorer(config.getFormula(), signalDefs);
+          } catch (Exception e) {
+            log.error("Failed to initialize Exp4jRescorer", e);
+            return null;
+          }
+        });
+  }
+
+  /**
+   * Get rescorer with UI overrides if provided, otherwise use server default.
+   *
+   * @param searchFlags SearchFlags containing potential overrides
+   * @return the rescorer to use, or null if rescoring is disabled
+   */
+  @Nullable
+  private Exp4jRescorer getRescorerWithOverrides(@Nullable SearchFlags searchFlags) {
+    if (searchFlags == null) {
+      return getRescorer();
+    }
+
+    // Check for formula or signal overrides
+    boolean hasFormulaOverride = searchFlags.hasRescoreFormulaOverride();
+    boolean hasSignalsOverride = searchFlags.hasRescoreSignalsOverride();
+
+    if (!hasFormulaOverride && !hasSignalsOverride) {
+      return getRescorer();
+    }
+
+    try {
+      // Get base config
+      RescoreFormulaConfig baseConfig = getRescoreFormulaConfig();
+      if (baseConfig == null) {
+        log.warn("Cannot apply rescore overrides: no base configuration found");
+        return null;
+      }
+
+      // Use override formula if provided, otherwise use base config formula
+      String formula =
+          hasFormulaOverride ? searchFlags.getRescoreFormulaOverride() : baseConfig.getFormula();
+
+      // Use override signals if provided, otherwise use base config signals
+      List<SignalDefinition> signals;
+      if (hasSignalsOverride) {
+        signals = parseSignalOverrides(searchFlags.getRescoreSignalsOverride());
+      } else {
+        signals = buildSignalDefinitions(baseConfig);
+      }
+
+      return new Exp4jRescorer(formula, signals);
+    } catch (Exception e) {
+      log.warn(
+          "Failed to build override rescorer: {}. Falling back to server default.", e.getMessage());
+      return getRescorer();
+    }
+  }
+
+  /**
+   * Parse signal overrides from JSON string.
+   *
+   * @param signalsJson JSON array of signal definitions
+   * @return list of signal definitions
+   */
+  private List<SignalDefinition> parseSignalOverrides(String signalsJson) throws Exception {
+    List<Map<String, Object>> signalMaps =
+        RESCORE_MAPPER.readValue(
+            signalsJson, new com.fasterxml.jackson.core.type.TypeReference<>() {});
+
+    List<SignalDefinition> signals = new ArrayList<>();
+    for (Map<String, Object> signalMap : signalMaps) {
+      // Validate required fields
+      String name = (String) signalMap.get("name");
+      String normalizedName = (String) signalMap.get("normalizedName");
+      String fieldPath = (String) signalMap.get("fieldPath");
+
+      if (name == null || name.isEmpty()) {
+        throw new IllegalArgumentException("Signal 'name' is required");
+      }
+      if (normalizedName == null || normalizedName.isEmpty()) {
+        throw new IllegalArgumentException("Signal 'normalizedName' is required for: " + name);
+      }
+      if (fieldPath == null || fieldPath.isEmpty()) {
+        throw new IllegalArgumentException("Signal 'fieldPath' is required for: " + name);
+      }
+
+      // Default type to NUMERIC if not specified
+      String typeStr = signalMap.containsKey("type") ? signalMap.get("type").toString() : "NUMERIC";
+      SignalType signalType = SignalType.valueOf(typeStr.toUpperCase().replace("-", "_"));
+
+      NormalizationConfig normConfig = NormalizationConfig.none();
+      @SuppressWarnings("unchecked")
+      Map<String, Object> normMap = (Map<String, Object>) signalMap.get("normalization");
+      if (normMap != null) {
+        // Default normalization type to NONE if not specified
+        String normTypeStr = normMap.containsKey("type") ? normMap.get("type").toString() : "NONE";
+        NormalizationType normType =
+            NormalizationType.valueOf(normTypeStr.toUpperCase().replace("-", "_"));
+        // Use same defaults as NormalizationYaml for consistency
+        normConfig =
+            NormalizationConfig.builder()
+                .type(normType)
+                .inputMin(getDoubleValue(normMap, "inputMin", 0.0))
+                .inputMax(getDoubleValue(normMap, "inputMax", 1000.0))
+                .steepness(getDoubleValue(normMap, "steepness", 6.0)) // Match YAML default
+                .scale(getDoubleValue(normMap, "scale", 180.0)) // Match YAML default
+                .outputMin(getDoubleValue(normMap, "outputMin", 1.0))
+                .outputMax(getDoubleValue(normMap, "outputMax", 2.0))
+                .trueValue(getDoubleValue(normMap, "trueValue", 1.0)) // Match YAML default
+                .falseValue(getDoubleValue(normMap, "falseValue", 1.0))
+                .build();
+      }
+
+      signals.add(
+          SignalDefinition.builder()
+              .name(name)
+              .normalizedName(normalizedName)
+              .fieldPath(fieldPath)
+              .type(signalType)
+              .normalization(normConfig)
+              .boost(getDoubleValue(signalMap, "boost", 1.0))
+              .build());
+    }
+    return signals;
+  }
+
+  private double getDoubleValue(Map<String, Object> map, String key, double defaultValue) {
+    Object value = map.get(key);
+    if (value == null) {
+      return defaultValue;
+    }
+    if (value instanceof Number) {
+      return ((Number) value).doubleValue();
+    }
+    return Double.parseDouble(String.valueOf(value));
+  }
+
+  @Nullable
+  private RescoreFormulaConfig getRescoreFormulaConfig() {
+    // Return cached resolved config if available
+    RescoreFormulaConfig cached = resolvedRescoreFormulaConfig.get();
+    if (cached != null) {
+      return cached;
+    }
+
+    if (searchConfiguration.getSearch() == null) {
+      return null;
+    }
+
+    RescoreFormulaConfig config = searchConfiguration.getSearch().getRescoreFormula();
+    if (config == null) {
+      return null;
+    }
+
+    // Resolve config from YAML file if enabled and formula not already loaded
+    if (config.isEnabled() && config.getFormula() == null && config.getFile() != null) {
+      try {
+        config = config.resolve(YAML_MAPPER);
+        resolvedRescoreFormulaConfig.set(config);
+        log.info(
+            "Resolved rescore formula config: enabled={}, formula={}",
+            config.isEnabled(),
+            config.getFormula() != null
+                ? config.getFormula().substring(0, Math.min(50, config.getFormula().length()))
+                    + "..."
+                : null);
+      } catch (IOException e) {
+        log.warn("Failed to resolve rescore formula config from file: {}", e.getMessage());
+      }
+    } else if (config.getFormula() != null) {
+      // Config already has formula (e.g., set directly), cache it
+      resolvedRescoreFormulaConfig.set(config);
+    }
+
+    return config;
+  }
+
+  private List<SignalDefinition> buildSignalDefinitions(RescoreFormulaConfig config) {
+    List<SignalDefinition> defs = new ArrayList<>();
+    if (config.getSignals() == null) {
+      return defs;
+    }
+
+    for (RescoreFormulaConfig.SignalConfig signalConfig : config.getSignals()) {
+      SignalType signalType =
+          SignalType.valueOf(signalConfig.getType().toUpperCase().replace("-", "_"));
+
+      NormalizationConfig normConfig = buildNormalizationConfig(signalConfig.getNormalization());
+
+      defs.add(
+          SignalDefinition.builder()
+              .name(signalConfig.getName())
+              .normalizedName(signalConfig.getNormalizedName())
+              .fieldPath(signalConfig.getFieldPath())
+              .type(signalType)
+              .normalization(normConfig)
+              .boost(signalConfig.getBoost())
+              .build());
+    }
+    return defs;
+  }
+
+  private NormalizationConfig buildNormalizationConfig(
+      RescoreFormulaConfig.NormalizationYaml normYaml) {
+    if (normYaml == null) {
+      return NormalizationConfig.none();
+    }
+
+    NormalizationType normType =
+        NormalizationType.valueOf(normYaml.getType().toUpperCase().replace("-", "_"));
+
+    return NormalizationConfig.builder()
+        .type(normType)
+        .inputMin(normYaml.getInputMin())
+        .inputMax(normYaml.getInputMax())
+        .steepness(normYaml.getSteepness())
+        .scale(normYaml.getScale())
+        .outputMin(normYaml.getOutputMin())
+        .outputMax(normYaml.getOutputMax())
+        .trueValue(normYaml.getTrueValue())
+        .falseValue(normYaml.getFalseValue())
+        .build();
+  }
+
+  /**
+   * Apply Java-based rescoring to search results.
+   *
+   * @param opContext operation context
+   * @param searchResponse raw ES response containing SearchHits
+   * @param result transformed search result
+   * @return rescored search result with updated scores and explanations
+   */
+  private SearchResult applyJavaRescore(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      @Nonnull SearchResult result) {
+
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+
+    // Check if rescoring is explicitly disabled via SearchFlags
+    if (searchFlags != null && searchFlags.hasRescoreEnabled() && !searchFlags.isRescoreEnabled()) {
+      log.debug("Rescoring explicitly disabled via searchFlags");
+      return result;
+    }
+
+    // Get rescorer - use override if provided, otherwise use server default
+    Exp4jRescorer rescorer = getRescorerWithOverrides(searchFlags);
+    if (rescorer == null) {
+      log.debug("Rescorer is null - rescoring skipped");
+      return result;
+    }
+
+    RescoreFormulaConfig config = getRescoreFormulaConfig();
+
+    // Check SearchFlags.includeExplain or config.includeExplain
+    boolean includeExplain =
+        (searchFlags != null && searchFlags.hasIncludeExplain() && searchFlags.isIncludeExplain())
+            || (config != null && config.isIncludeExplain());
+
+    // Build a map from document ID to SearchHit for efficient lookup
+    Map<String, SearchHit> hitMap = new HashMap<>();
+    for (SearchHit hit : searchResponse.getHits().getHits()) {
+      hitMap.put(hit.getId(), hit);
+    }
+
+    // Get window size - only rescore top K entities
+    int windowSize = config != null ? config.getWindowSize() : 100;
+    List<SearchEntity> allEntities = result.getEntities();
+
+    // Guard against null or empty entity list
+    if (allEntities == null || allEntities.isEmpty()) {
+      return result;
+    }
+
+    int totalEntities = allEntities.size();
+    int actualWindowSize = Math.min(windowSize, totalEntities);
+
+    // Dynamic boost calculation using recognizable tier values.
+    // We use round numbers (1, 10, 100, 1000, ...) as boost values to make scores
+    // easily interpretable:
+    //   - If item #100's original BM25 is 42, use boost = 100
+    //   - Rescored items will have scores like 104.17, 103.82, etc.
+    //   - Easy to identify: score > 100 means rescored
+    //   - Easy to extract raw rescore: 104.17 - 100 = 4.17
+    //
+    // We use item #100's (last rescored item) original BM25 score as the baseline.
+    // Since BM25 ranking is monotonic, item #101+ will have BM25 ≤ item #100's BM25.
+    // By ensuring rescored items > item #100's BM25, they'll rank above all non-rescored items.
+    // Safety margin (1.0) ensures rescored items with small values (e.g., 0.5) still rank higher.
+    final double SAFETY_MARGIN = 1.0;
+
+    double maxNonRescoredScore = 0.0;
+    // Use item #100's original BM25 score (before rescoring) as the baseline
+    if (actualWindowSize > 0) {
+      SearchEntity lastRescoredEntity = allEntities.get(actualWindowSize - 1);
+      String lastDocId = lastRescoredEntity.getEntity().toString();
+
+      // ES document IDs are URL-encoded, so we need to encode the URN to match
+      try {
+        lastDocId = java.net.URLEncoder.encode(lastDocId, "UTF-8");
+      } catch (java.io.UnsupportedEncodingException e) {
+        log.warn("Failed to URL-encode docId: {}", lastDocId, e);
+      }
+
+      SearchHit lastHit = hitMap.get(lastDocId);
+      if (lastHit != null) {
+        maxNonRescoredScore = lastHit.getScore(); // Original BM25 score of item #100
+      }
+    }
+
+    // Find smallest power of 10 greater than (maxNonRescoredScore + SAFETY_MARGIN)
+    // Examples: 45.2 + 1.0 = 46.2 → boost = 100
+    //           4.5 + 1.0 = 5.5 → boost = 10
+    //           450.2 + 1.0 = 451.2 → boost = 1000
+    final double threshold = maxNonRescoredScore + SAFETY_MARGIN;
+    final double rescoreBoost;
+    if (threshold <= 1.0) {
+      // For small/negative thresholds, use minimum boost of 1.0
+      // This ensures rescored items always have a meaningful boost
+      rescoreBoost = 1.0;
+    } else {
+      // Calculate ceiling power of 10: 10^ceil(log10(threshold))
+      double power = Math.ceil(Math.log10(threshold));
+      rescoreBoost = Math.pow(10, power);
+    }
+
+    // Rescore entities within window, keep rest with original scores
+    List<Pair<SearchEntity, Double>> allScoredEntities = new ArrayList<>(totalEntities);
+    int rescoredCount = 0;
+
+    for (int i = 0; i < totalEntities; i++) {
+      SearchEntity entity = allEntities.get(i);
+      String docId = entity.getEntity().toString();
+
+      // ES document IDs are URL-encoded, so we need to encode the URN to match
+      try {
+        docId = java.net.URLEncoder.encode(docId, "UTF-8");
+      } catch (java.io.UnsupportedEncodingException e) {
+        log.warn("Failed to URL-encode docId: {}", docId, e);
+      }
+
+      SearchHit hit = hitMap.get(docId);
+
+      if (i < actualWindowSize && hit != null) {
+        // Within window: apply rescoring + dynamic boost
+        double esScore = hit.getScore();
+        RescoreResult rescoreResult = rescorer.rescore(hit, esScore);
+        double rawRescoreValue = rescoreResult.getFinalScore();
+
+        // Add dynamic boost to ensure rescored items rank above non-rescored
+        double boostedScore = rawRescoreValue + rescoreBoost;
+        entity.setScore(boostedScore);
+
+        // Add explanation if enabled - include boost info for debugging
+        if (includeExplain) {
+          try {
+            // Create enhanced explanation with boost information
+            Map<String, Object> explanationMap = new LinkedHashMap<>();
+            explanationMap.put("documentId", rescoreResult.getDocumentId());
+            explanationMap.put("bm25Score", rescoreResult.getBm25Score());
+            explanationMap.put("rescoreValue", rawRescoreValue);
+            explanationMap.put("rescoreBoost", rescoreBoost);
+            explanationMap.put("finalScore", boostedScore);
+            explanationMap.put("formula", rescoreResult.getFormula());
+            explanationMap.put("signals", rescoreResult.getSignals());
+
+            String explanation = RESCORE_MAPPER.writeValueAsString(explanationMap);
+            StringMap extraFields = entity.getExtraFields();
+            if (extraFields == null) {
+              extraFields = new StringMap();
+            }
+            extraFields.put("_rescoreExplain", explanation);
+            entity.setExtraFields(extraFields);
+          } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize rescore explanation for {}", docId, e);
+          }
+        }
+
+        allScoredEntities.add(Pair.of(entity, boostedScore));
+        rescoredCount++;
+      } else {
+        // Outside window or no hit: keep original ES score (no boost)
+        double originalScore = entity.getScore() != null ? entity.getScore() : 0.0;
+        allScoredEntities.add(Pair.of(entity, originalScore));
+      }
+    }
+
+    // Sort ALL entities by score (descending)
+    // Rescored items (with boost) will naturally appear before non-rescored items
+    allScoredEntities.sort(Comparator.comparing(Pair<SearchEntity, Double>::getRight).reversed());
+
+    // Rebuild the entities array
+    SearchEntityArray reorderedEntities = new SearchEntityArray();
+    for (Pair<SearchEntity, Double> pair : allScoredEntities) {
+      reorderedEntities.add(pair.getLeft());
+    }
+    result.setEntities(reorderedEntities);
+
+    log.debug(
+        "Applied Java rescoring to {} of {} entities (windowSize={}, actualWindow={}, boost={}) with formula: {}",
+        rescoredCount,
+        totalEntities,
+        windowSize,
+        actualWindowSize,
+        String.format("%.3f", rescoreBoost),
+        rescorer.getFormula().substring(0, Math.min(50, rescorer.getFormula().length())));
+
+    return result;
+  }
+
+  /**
+   * Calculate the number of results to fetch from ES for rescoring. We need to fetch enough results
+   * to cover both: 1. The configured rescore window (top K to rescore) 2. The requested pagination
+   * range (from + size)
+   *
+   * @param from Starting offset requested by user
+   * @param size Number of results requested by user
+   * @param configuredWindow Configured windowSize from rescore config
+   * @param maxWindow Maximum allowed fetch size (cap for memory safety)
+   * @return Number of results to fetch from ES
+   */
+  private int calculateRescoreWindow(
+      int from, @Nullable Integer size, int configuredWindow, int maxWindow) {
+    // Apply size limit
+    int effectiveSize = ConfigUtils.applyLimit(searchServiceConfig, size);
+
+    // Need to fetch at least up to the end of requested range
+    int requestedEnd = from + effectiveSize;
+
+    // Also need to fetch at least the configured window for rescoring
+    int fetchSize = Math.max(configuredWindow, requestedEnd);
+
+    // Cap at maxWindow for safety
+    return Math.min(fetchSize, maxWindow);
+  }
+
+  /**
+   * Slice a SearchResult to return only the requested page after rescoring.
+   *
+   * @param rescored Full SearchResult with all rescored entities
+   * @param requestedFrom Starting offset requested by user
+   * @param requestedSize Number of results requested by user
+   * @return SearchResult containing only the requested page
+   */
+  private SearchResult sliceSearchResultForPagination(
+      SearchResult rescored, int requestedFrom, @Nullable Integer requestedSize) {
+
+    int effectiveSize = ConfigUtils.applyLimit(searchServiceConfig, requestedSize);
+    List<SearchEntity> allEntities = rescored.getEntities();
+
+    // Slice for requested page
+    int startIndex = Math.min(requestedFrom, allEntities.size());
+    int endIndex = Math.min(requestedFrom + effectiveSize, allEntities.size());
+    List<SearchEntity> pageEntities = allEntities.subList(startIndex, endIndex);
+
+    // Build result with paginated entities but preserve original metadata
+    return rescored
+        .setEntities(new SearchEntityArray(pageEntities))
+        .setFrom(requestedFrom)
+        .setPageSize(effectiveSize);
+  }
+
+  /**
+   * Apply Java-based rescoring to scroll results.
+   *
+   * @param opContext operation context
+   * @param searchResponse raw ES response containing SearchHits
+   * @param result transformed scroll result
+   * @return rescored scroll result with updated scores and explanations
+   */
+  private ScrollResult applyJavaRescore(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      @Nonnull ScrollResult result) {
+    // Convert ScrollResult to SearchResult, apply rescoring, then convert back
+    SearchResult tempResult =
+        new SearchResult()
+            .setEntities(result.getEntities())
+            .setMetadata(result.getMetadata())
+            .setNumEntities(result.getNumEntities())
+            .setPageSize(result.getPageSize());
+
+    SearchResult rescored = applyJavaRescore(opContext, searchResponse, tempResult);
+
+    result.setEntities(rescored.getEntities());
+    return result;
+  }
+
+  /**
+   * Resolves whether Search V2.5 is enabled for the current request. Priority: per-request
+   * SearchFlags > server configuration
+   *
+   * @param opContext operation context containing search flags
+   * @return true if V2.5 features should be used, false for V2 (main branch behavior)
+   */
+  private boolean resolveSearchV2_5Enabled(@Nonnull OperationContext opContext) {
+    // Check per-request override first
+    if (opContext.getSearchContext() != null
+        && opContext.getSearchContext().getSearchFlags() != null
+        && opContext.getSearchContext().getSearchFlags().hasSearchVersionV2_5()) {
+      return opContext.getSearchContext().getSearchFlags().isSearchVersionV2_5();
+    }
+
+    // Fall back to server configuration (getSearch() can be null)
+    return searchConfiguration.getSearch() != null
+        && searchConfiguration.getSearch().isEnableSearchV2_5();
   }
 }

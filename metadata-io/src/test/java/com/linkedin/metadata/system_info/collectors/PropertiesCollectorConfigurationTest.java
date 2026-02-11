@@ -699,6 +699,13 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.validation.regex",
           "elasticsearch.search.validation.maxLengthEnabled",
           "elasticsearch.search.validation.enabled",
+          "elasticsearch.search.enableFuzzyMatching",
+          "elasticsearch.search.enableSearchV2_5",
+          "elasticsearch.search.rescore.file",
+          "elasticsearch.search.rescore.queryWeight",
+          "elasticsearch.search.rescore.rescoreQueryWeight",
+          "elasticsearch.search.rescore.windowSize",
+          "elasticsearch.search.rescoreFormula.file",
 
           // Additional DataHub services and features
           "businessAttribute.fetchRelatedEntitiesBatchSize",

@@ -78,6 +78,30 @@ public class SearchFlagsInputMapper
     if (searchFlags.getRewriteQuery() != null) {
       result.setRewriteQuery(searchFlags.getRewriteQuery());
     }
+    if (searchFlags.getIncludeExplain() != null) {
+      result.setIncludeExplain(searchFlags.getIncludeExplain());
+    }
+    if (searchFlags.getSearchType() != null) {
+      result.setSearchType(searchFlags.getSearchType());
+    }
+    if (searchFlags.getFunctionScoreOverride() != null) {
+      result.setFunctionScoreOverride(searchFlags.getFunctionScoreOverride());
+    }
+    if (searchFlags.getRescoreEnabled() != null) {
+      result.setRescoreEnabled(searchFlags.getRescoreEnabled());
+    }
+    if (searchFlags.getRescoreOverride() != null) {
+      result.setRescoreOverride(searchFlags.getRescoreOverride());
+    }
+    if (searchFlags.getRescoreFormulaOverride() != null) {
+      result.setRescoreFormulaOverride(searchFlags.getRescoreFormulaOverride());
+    }
+    if (searchFlags.getRescoreSignalsOverride() != null) {
+      result.setRescoreSignalsOverride(searchFlags.getRescoreSignalsOverride());
+    }
+    if (searchFlags.getSearchVersionV2_5() != null) {
+      result.setSearchVersionV2_5(searchFlags.getSearchVersionV2_5());
+    }
     return result;
   }
 }

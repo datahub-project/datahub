@@ -353,6 +353,7 @@ net.java.dev.jna:jna-platform:5.17.0=compileClasspath,productionRuntimeClasspath
 net.java.dev.jna:jna:5.17.0=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 net.minidev:accessors-smart:2.5.2=testCompileClasspath,testRuntimeClasspath
 net.minidev:json-smart:2.5.2=testCompileClasspath,testRuntimeClasspath
+net.objecthunter:exp4j:0.4.8=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 net.openhft:zero-allocation-hashing:0.7=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 net.sf.jopt-simple:jopt-simple:5.0.4=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 nl.basjes.collections:prefixmap:2.0=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath

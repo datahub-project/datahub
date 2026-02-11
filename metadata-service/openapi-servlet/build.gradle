@@ -24,6 +24,7 @@ dependencies {
 
   implementation project (':metadata-service:openapi-servlet:models')
   implementation project(':metadata-service:events-service')
+  implementation project(':datahub-graphql-core')
 
   implementation externalDependency.reflections
   implementation externalDependency.springBoot

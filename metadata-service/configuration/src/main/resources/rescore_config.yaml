@@ -1,0 +1,312 @@
+##################################################
+# Java/exp4j Rescore Configuration (Stage 2)
+#
+# Stage 1 (search_config.yaml + PDL boosts): BM25 + field boosts → Top 500-1000
+# Stage 2 (rescore_config.yaml): Rerank with quality signals → Top 100
+#
+# This configuration uses Java/exp4j for formula evaluation, providing full
+# explainability of how each signal contributes to the final score.
+#
+##################################################
+# SCORING MODEL
+##################################################
+# Formula: final = norm(signal1)^boost1 × norm(signal2)^boost2 × ...
+#
+# Each signal is:
+#   1. Extracted from ES document (fieldPath)
+#   2. Normalized to a bounded range (e.g., 1.0-2.0)
+#   3. Raised to its boost power
+#   4. Multiplied together for final score
+#
+##################################################
+# NORMALIZATION TYPES - When to Use Each
+##################################################
+#
+# SIGMOID: Standard S-curve normalization
+#   Use for: Bounded numeric values with known distribution
+#   Examples: BM25 scores, view counts (moderate range), query counts
+#   Best when: Values cluster in a predictable range (e.g., 0-1000)
+#
+# LOG_SIGMOID: Log base 2 transform + sigmoid
+#   Use for: Values spanning multiple orders of magnitude
+#   Examples: View counts (0 to millions), file sizes, follower counts
+#   Best when: 10 vs 100 vs 1000 should all be meaningfully different
+#   Note: Uses log base 2, so doubling a value = +1 in log space
+#
+# LINEAR_DECAY: Linear interpolation over time
+#   Use for: Time-based freshness/recency signals
+#   Examples: Last modified date, creation date
+#   Best when: You want linear penalty for age (not exponential)
+#
+# BOOLEAN: Simple true/false mapping
+#   Use for: Binary quality signals
+#   Examples: hasDescription, hasOwners, deprecated
+#   Best when: Presence/absence of a feature matters
+#
+##################################################
+# SIGMOID PARAMETERS
+##################################################
+#
+# inputMin:  Values <= this map to outputMin (default: 0)
+# inputMax:  Values >= this map to outputMax (set to p95-p99 of your data)
+# steepness: Controls S-curve slope (default: 1 for standard sigmoid)
+# outputMin: Minimum output value (typically 1.0 for multiplicative scoring)
+# outputMax: Maximum output value (typically 1.5-2.0)
+#
+# STEEPNESS GUIDE (standard sigmoid has steepness=1):
+#   Steepness | Output Range (0→1 input) | Character
+#   ----------|--------------------------|---------------------------
+#       1     | 0.38 → 0.62              | Very gentle, almost linear
+#       2     | 0.27 → 0.73              | Gentle S-curve
+#       3     | 0.18 → 0.82              | Moderate S-curve
+#       6     | 0.05 → 0.95              | Full S-curve (recommended)
+#      10     | 0.01 → 0.99              | Near step function
+#
+# Recommendation: Use steepness=6 as default. It uses ~90% of the S-curve
+# range while maintaining smooth transitions at the edges.
+#
+##################################################
+# BOOST GUIDELINES
+##################################################
+#
+# Boost is the exponent in pow(normalizedValue, boost).
+# Since normalized values are typically 1.0-2.0:
+#
+#   boost=1.0: Linear effect (normalized value used as-is)
+#   boost>1.0: Amplifies differences (high values get higher)
+#   boost<1.0: Dampens differences (compresses the range)
+#
+# RECOMMENDED BOOST RANGES:
+#   Primary signals (BM25, key metrics):     1.0 - 1.5
+#   Secondary signals (usage, popularity):   0.5 - 1.0
+#   Quality signals (hasDescription, etc.):  1.0 - 1.5
+#   Penalty signals (deprecated):            1.0 (use outputMin < 1.0)
+#
+# Example impact with normalized value = 1.5:
+#   boost=0.5: 1.5^0.5 = 1.22 (dampened)
+#   boost=1.0: 1.5^1.0 = 1.50 (linear)
+#   boost=1.5: 1.5^1.5 = 1.84 (amplified)
+#
+##################################################
+# PARAMETER TUNING WORKFLOW
+##################################################
+#
+# 1. ANALYZE YOUR DATA:
+#    - Query ES for p50, p90, p95, p99 of each numeric field
+#    - Set inputMax to p95-p99 (outliers will be clamped)
+#
+# 2. CHOOSE OUTPUT RANGE:
+#    - Start with outputMin=1.0, outputMax=2.0 for most signals
+#    - Use outputMin < 1.0 for penalty signals (e.g., deprecated: 0.7)
+#    - Narrower ranges (1.0-1.5) for less important signals
+#
+# 3. SET STEEPNESS:
+#    - Start with steepness=6 (balanced S-curve)
+#    - Use lower (2-4) if you want more linear behavior
+#    - Use higher (8-10) if you want sharp cutoffs
+#
+# 4. TUNE BOOSTS:
+#    - Start with all boosts at 1.0
+#    - Increase boost for signals that should dominate
+#    - Decrease boost for signals that should have subtle effect
+#
+# 5. TEST AND ITERATE:
+#    - Use includeExplain=true to see signal contributions
+#    - Compare rankings for known good/bad results
+#    - Adjust one parameter at a time
+#
+##################################################
+
+rescore:
+  # Enable/disable rescore globally
+  enabled: true
+
+  # Number of top results to rescore (higher = more accurate but slower)
+  windowSize: 100
+
+  # Maximum number of results to fetch from ES for rescoring (cap for memory safety)
+  maxRescoreWindow: 5000
+
+  # Include explanation in search results (for debugging)
+  includeExplain: true
+
+  # exp4j formula - variables are normalized signal names
+  formula: >
+    pow(norm_bm25, 1.0) *
+    pow(norm_views, 0.8) *
+    pow(norm_queries, 0.8) *
+    pow(norm_usage, 0.8) *
+    pow(norm_users, 0.9) *
+    pow(hasDesc, 1.3) *
+    pow(hasOwners, 1.2) *
+    pow(hasTags, 1.1) *
+    pow(hasTerms, 1.1) *
+    pow(recency, 1.0) *
+    pow(notDeprecated, 1.0) *
+    pow(entityTypeBoost, 1.0)
+
+  # Signal definitions - each signal is extracted, normalized, and used in formula
+  signals:
+    # ===== SIGNAL 1: BM25 Text Relevance =====
+    # Normalize Stage 1 score to [1.0, 2.0] using sigmoid
+    - name: bm25
+      normalizedName: norm_bm25
+      fieldPath: _score
+      type: SCORE
+      normalization:
+        type: SIGMOID
+        inputMin: 0.0
+        inputMax: 500.0      # Typical BM25 scores range 0-500
+        steepness: 6.0       # Balanced S-curve
+        outputMin: 1.0
+        outputMax: 2.0
+      boost: 1.0
+
+    # ===== SIGNAL 2: View Count =====
+    # Normalize to [1.0, 2.0] using sigmoid
+    # Adjust inputMax based on your data distribution (p95-p99)
+    - name: viewCount
+      normalizedName: norm_views
+      fieldPath: viewCountLast30DaysFeature
+      type: NUMERIC
+      normalization:
+        type: SIGMOID
+        inputMin: 0.0
+        inputMax: 1000.0     # Adjust to your p95-p99 view count
+        steepness: 6.0
+        outputMin: 1.0
+        outputMax: 2.0
+      boost: 0.8
+
+    # ===== SIGNAL 3: Query Count =====
+    # Normalize to [1.0, 1.8] using sigmoid
+    - name: queryCount
+      normalizedName: norm_queries
+      fieldPath: queryCountLast30DaysFeature
+      type: NUMERIC
+      normalization:
+        type: SIGMOID
+        inputMin: 0.0
+        inputMax: 1000.0     # Adjust to your p95-p99 query count
+        steepness: 6.0
+        outputMin: 1.0
+        outputMax: 1.8
+      boost: 0.8
+
+    # ===== SIGNAL 4: Usage Count =====
+    # Normalize to [1.0, 1.5] using sigmoid
+    - name: usageCount
+      normalizedName: norm_usage
+      fieldPath: usageCountLast30DaysFeature
+      type: NUMERIC
+      normalization:
+        type: SIGMOID
+        inputMin: 0.0
+        inputMax: 500.0      # Adjust to your p95-p99 usage count
+        steepness: 6.0
+        outputMin: 1.0
+        outputMax: 1.5
+      boost: 0.8
+
+    # ===== SIGNAL 5: Unique User Count =====
+    # Normalize to [1.0, 1.8] using sigmoid
+    - name: uniqueUserCount
+      normalizedName: norm_users
+      fieldPath: uniqueUserCountLast30DaysFeature
+      type: NUMERIC
+      normalization:
+        type: SIGMOID
+        inputMin: 0.0
+        inputMax: 20.0       # Adjust to your p95-p99 unique user count
+        steepness: 6.0
+        outputMin: 1.0
+        outputMax: 1.8
+      boost: 0.9
+
+    # ===== SIGNAL 6: Has Description =====
+    # Boolean quality signal [1.0, 1.3]
+    - name: hasDescription
+      normalizedName: hasDesc
+      fieldPath: hasDescription
+      type: BOOLEAN
+      normalization:
+        type: BOOLEAN
+        trueValue: 1.3
+        falseValue: 1.0
+      boost: 1.3
+
+    # ===== SIGNAL 7: Has Owners =====
+    # Boolean quality signal [1.0, 1.2]
+    - name: hasOwners
+      normalizedName: hasOwners
+      fieldPath: hasOwners
+      type: BOOLEAN
+      normalization:
+        type: BOOLEAN
+        trueValue: 1.2
+        falseValue: 1.0
+      boost: 1.2
+
+    # ===== SIGNAL 8: Has Tags =====
+    # Boolean quality signal [1.0, 1.1]
+    - name: hasTags
+      normalizedName: hasTags
+      fieldPath: hasTags
+      type: BOOLEAN
+      normalization:
+        type: BOOLEAN
+        trueValue: 1.1
+        falseValue: 1.0
+      boost: 1.1
+
+    # ===== SIGNAL 9: Has Glossary Terms =====
+    # Boolean quality signal [1.0, 1.1]
+    - name: hasGlossaryTerms
+      normalizedName: hasTerms
+      fieldPath: hasGlossaryTerms
+      type: BOOLEAN
+      normalization:
+        type: BOOLEAN
+        trueValue: 1.1
+        falseValue: 1.0
+      boost: 1.1
+
+    # ===== SIGNAL 10: Recency (Last Modified) =====
+    # Linear decay [0.7, 1.2] over 180 days
+    - name: lastModified
+      normalizedName: recency
+      fieldPath: lastModified
+      type: TIMESTAMP
+      normalization:
+        type: LINEAR_DECAY
+        scale: 180.0         # Days until full decay
+        outputMin: 0.7       # Score after 180+ days
+        outputMax: 1.2       # Score for recent items
+      boost: 1.0
+
+    # ===== SIGNAL 11: Deprecated =====
+    # Negative signal [0.7, 1.0] - deprecated items get penalty
+    - name: deprecated
+      normalizedName: notDeprecated
+      fieldPath: deprecated
+      type: BOOLEAN
+      normalization:
+        type: BOOLEAN
+        trueValue: 0.7       # Deprecated = penalty
+        falseValue: 1.0      # Not deprecated = neutral
+      boost: 1.0
+
+    # ===== SIGNAL 12: Entity Type Boost =====
+    # Boost logical entity types (glossary terms, tags, domains, data products)
+    # Ensures these organizational/definitional entities rank higher
+    - name: entityType
+      normalizedName: entityTypeBoost
+      fieldPath: _index       # Index name contains entity type
+      type: INDEX_NAME
+      normalization:
+        type: NONE           # Return boost values directly (1.0, 1.3, 1.4)
+      boost: 1.0
+      # Values returned by INDEX_NAME extraction:
+      #   1.4 = Glossary Term, Glossary Node, or Tag (40% boost)
+      #   1.3 = Domain or Data Product (30% boost)
+      #   1.0 = All other entity types (no boost)

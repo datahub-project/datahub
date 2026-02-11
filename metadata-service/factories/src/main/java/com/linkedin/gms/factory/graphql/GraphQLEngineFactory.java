@@ -245,6 +245,11 @@ public class GraphQLEngineFactory {
   @Value("${LINEAGE_DEFAULT_LAST_DAYS_FILTER:#{null}}")
   private Integer defaultLineageLastDaysFilter;
 
+  @Autowired(required = false)
+  @Qualifier("customSearchConfiguration")
+  private com.linkedin.metadata.config.search.custom.CustomSearchConfiguration
+      customSearchConfiguration;
+
   @Autowired
   @Qualifier("connectionService")
   private ConnectionService _connectionService;
@@ -395,6 +400,8 @@ public class GraphQLEngineFactory {
     args.setActionWorkflowService(actionWorkflowService);
     args.setUserService(userService);
     args.setSemanticSearchService(_semanticSearchService);
+    args.setSearchConfiguration(configProvider.getElasticSearch().getSearch());
+    args.setCustomSearchConfiguration(customSearchConfiguration);
     args.setS3Util(s3Util);
     args.setSampleDataService(sampleDataService);
     args.setRateLimitThrottle(rateLimitThrottle);

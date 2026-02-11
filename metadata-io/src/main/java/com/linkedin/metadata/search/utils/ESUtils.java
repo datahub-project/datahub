@@ -590,8 +590,14 @@ public class ESUtils {
       @Nullable List<SortCriterion> sortCriteria,
       List<EntitySpec> entitySpecs,
       boolean enableDefaultSort) {
-    if (sortCriteria.isEmpty() && enableDefaultSort) {
+    if ((sortCriteria == null || sortCriteria.isEmpty()) && enableDefaultSort) {
+      // Primary sort: relevance score (descending)
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
+
+      // Secondary sort: tie-breaking on URN (ascending) for deterministic ordering
+      // When multiple documents have identical scores, ensure consistent order across queries
+      searchSourceBuilder.sort(
+          new FieldSortBuilder("urn").order(SortOrder.ASC).unmappedType("keyword"));
     } else {
       sortCriteria = sortCriteria != null ? sortCriteria : Collections.emptyList();
       for (SortCriterion sortCriterion : sortCriteria) {
@@ -638,7 +644,8 @@ public class ESUtils {
       }
     }
     if (enableDefaultSort
-        && (sortCriteria.isEmpty()
+        && (sortCriteria == null
+            || sortCriteria.isEmpty()
             || sortCriteria.stream()
                 .noneMatch(c -> c.getField().equals(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD)))) {
       searchSourceBuilder.sort(

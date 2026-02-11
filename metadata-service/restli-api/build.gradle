@@ -4,6 +4,17 @@ plugins {
 
 apply from: '../../gradle/coverage/java-coverage.gradle'
 
+// Snapshot files are published into this project by :metadata-service:restli-servlet-impl.
+// Spotless must wait for that to complete to avoid Gradle's implicit dependency validation error.
+afterEvaluate {
+  def servletImpl = project(':metadata-service:restli-servlet-impl')
+  servletImpl.tasks.matching { it.name == 'publishRestliSnapshot' }.configureEach { publishTask ->
+    tasks.matching { it.name == 'spotlessJava' }.configureEach { spotlessTask ->
+      spotlessTask.mustRunAfter(publishTask)
+    }
+  }
+}
+
 dependencies {
   dataModel project(':metadata-models')
   dataModel spec.product.pegasus.restliCommon

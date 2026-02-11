@@ -41,6 +41,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +53,7 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
+import org.apache.lucene.search.Explanation;
 import org.json.JSONObject;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchRequest;
@@ -88,7 +90,7 @@ public class ElasticsearchController {
   private final OperationContext systemOperationContext;
   private final SystemMetadataService systemMetadataService;
   private final TimeseriesAspectService timeseriesAspectService;
-  private final EntitySearchService searchService;
+  private final EntitySearchService entitySearchService;
   private final EntityService<?> entityService;
   private final ObjectMapper objectMapper;
   private final ESSearchDAO esSearchDAO;
@@ -97,7 +99,7 @@ public class ElasticsearchController {
       OperationContext systemOperationContext,
       SystemMetadataService systemMetadataService,
       TimeseriesAspectService timeseriesAspectService,
-      EntitySearchService searchService,
+      EntitySearchService entitySearchService,
       EntityService<?> entityService,
       AuthorizerChain authorizerChain,
       ESSearchDAO esSearchDAO) {
@@ -105,7 +107,7 @@ public class ElasticsearchController {
     this.authorizerChain = authorizerChain;
     this.systemMetadataService = systemMetadataService;
     this.timeseriesAspectService = timeseriesAspectService;
-    this.searchService = searchService;
+    this.entitySearchService = entitySearchService;
     this.entityService = entityService;
     this.objectMapper = systemOperationContext.getObjectMapper();
     this.esSearchDAO = esSearchDAO;
@@ -293,7 +295,7 @@ public class ElasticsearchController {
     }
 
     ExplainResponse response =
-        searchService.explain(
+        entitySearchService.explain(
             opContext,
             query,
             encodeValue(documentId),
@@ -405,7 +407,7 @@ public class ElasticsearchController {
     }
 
     ExplainResponse responseA =
-        searchService.explain(
+        entitySearchService.explain(
             opContext,
             query,
             encodeValue(documentIdA),
@@ -417,7 +419,7 @@ public class ElasticsearchController {
             size);
 
     ExplainResponse responseB =
-        searchService.explain(
+        entitySearchService.explain(
             opContext,
             query,
             encodeValue(documentIdB),
@@ -976,5 +978,24 @@ public class ElasticsearchController {
     return systemOperationContext
         .getObjectMapper()
         .readValue(sortCriteriaJson, new TypeReference<List<SortCriterion>>() {});
+  }
+
+  /** Converts a Lucene Explanation to a Map for JSON serialization. */
+  private Map<String, Object> explanationToMap(Explanation explanation) {
+    Map<String, Object> map = new HashMap<>();
+    map.put("value", explanation.getValue().floatValue());
+    map.put("description", explanation.getDescription());
+    map.put("match", explanation.isMatch());
+
+    Explanation[] details = explanation.getDetails();
+    if (details != null && details.length > 0) {
+      List<Map<String, Object>> detailsList = new ArrayList<>();
+      for (Explanation detail : details) {
+        detailsList.add(explanationToMap(detail));
+      }
+      map.put("details", detailsList);
+    }
+
+    return map;
   }
 }

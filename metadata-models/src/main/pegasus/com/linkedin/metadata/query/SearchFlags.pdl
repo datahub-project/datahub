@@ -92,4 +92,92 @@ record SearchFlags {
     id: int
     max: int
   }
+
+  /**
+   * Include Elasticsearch scoring explanation in search results.
+   * When enabled, each result includes detailed score breakdown in extraProperties._explain.
+   * Note: Adds 10-30% computational overhead - use for debugging only.
+   */
+  includeExplain: optional boolean = false
+
+  /**
+   * Elasticsearch search type for controlling IDF calculation across shards.
+   * - QUERY_THEN_FETCH: Shard-local IDF (faster, but less accurate scoring)
+   * - DFS_QUERY_THEN_FETCH: Global IDF across all shards (default, more accurate scoring)
+   *
+   * Only affects relevance scoring in multi-shard scenarios.
+   * DFS mode adds 20-50% latency overhead but provides consistent scoring.
+   */
+  searchType: optional string = "DFS_QUERY_THEN_FETCH"
+
+  /**
+   * Function score override for debugging ranking behavior.
+   * JSON string containing Elasticsearch function_score configuration.
+   * When provided, overrides both YAML and PDL-based function scores for this query only.
+   *
+   * Example: {"functions":[{"filter":{"term":{"active":true}},"weight":5.0}],"score_mode":"sum","boost_mode":"sum"}
+   *
+   * Priority: UI override (this field) > YAML config > PDL annotations
+   * Note: This is for debugging only - production configs should be in search_config.yaml
+   */
+  functionScoreOverride: optional string
+
+  /**
+   * Enable or disable Stage 2 rescore for this query only.
+   * When set to false, overrides the global rescore.enabled configuration.
+   * When set to true, uses rescore if globally enabled.
+   * When null/unset, uses the global configuration default.
+   *
+   * Use for A/B testing or debugging rescore impact on specific queries.
+   */
+  rescoreEnabled: optional boolean
+
+  /**
+   * Rescore configuration override for debugging Stage 2 reranking behavior (ES Painless mode).
+   * JSON string containing rescore configuration (window_size, query_weight, rescore_query_weight, function_score).
+   * When provided, overrides YAML-based rescore configuration for this query only.
+   *
+   * Example: {"window_size":500,"query_weight":0.7,"rescore_query_weight":0.3,"function_score":{...}}
+   *
+   * Priority: UI override (this field) > rescore_config.yaml > application.yaml defaults
+   * Note: This is for debugging only - production configs should be in rescore_config.yaml
+   * Note: Only applies when using ES Painless rescore mode (not Java/exp4j mode)
+   */
+  rescoreOverride: optional string
+
+  /**
+   * Formula override for Java/exp4j Stage 2 rescoring.
+   * exp4j formula string for computing final score.
+   * When provided, overrides the formula from rescore_config.yaml for this query only.
+   *
+   * Example: "pow(norm_bm25, 1.0) * pow(norm_views, 0.8) * pow(hasDesc, 1.3)"
+   *
+   * Variables must match signal normalizedNames defined in rescoreSignalsOverride or server config.
+   * Note: This is for debugging only - production configs should be in rescore_config.yaml
+   * Note: Only applies when using Java/exp4j rescore mode
+   */
+  rescoreFormulaOverride: optional string
+
+  /**
+   * Signal configuration override for Java/exp4j Stage 2 rescoring.
+   * JSON array of signal definitions with name, normalizedName, fieldPath, type, boost, and normalization.
+   * When provided, overrides signal configs from rescore_config.yaml for this query only.
+   *
+   * Example: [{"name":"bm25","normalizedName":"norm_bm25","fieldPath":"_score","type":"SCORE",
+   *           "boost":1.0,"normalization":{"type":"SIGMOID","inputMax":500,"outputMin":1.0,"outputMax":2.0}}]
+   *
+   * Note: This is for debugging only - production configs should be in rescore_config.yaml
+   * Note: Only applies when using Java/exp4j rescore mode
+   */
+  rescoreSignalsOverride: optional string
+
+  /**
+   * Enable Search V2.5 features for this query only.
+   * When false: Uses V2 logic (current main branch).
+   * When true: Uses V2.5 logic (fuzzy matching, OR operator, improved ranking).
+   * When null/unset: Uses global configuration default.
+   *
+   * Use for A/B testing or debugging search version differences.
+   */
+  searchVersionV2_5: optional boolean
 }

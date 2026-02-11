@@ -173,7 +173,7 @@ public class CustomizedQueryHandler {
     return result;
   }
 
-  private static FunctionScoreQueryBuilder toFunctionScoreQueryBuilder(
+  public static FunctionScoreQueryBuilder toFunctionScoreQueryBuilder(
       @Nonnull ObjectMapper objectMapper,
       @Nonnull QueryBuilder queryBuilder,
       @Nonnull Map<String, Object> params,

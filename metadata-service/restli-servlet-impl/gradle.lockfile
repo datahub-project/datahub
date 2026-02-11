@@ -299,6 +299,7 @@ net.bytebuddy:byte-buddy-agent:1.12.19=testCompileClasspath,testRuntimeClasspath
 net.bytebuddy:byte-buddy:1.12.19=testCompileClasspath,testRuntimeClasspath
 net.java.dev.jna:jna:5.13.0=compileClasspath,integTestCompileClasspath,integTestRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 net.jcip:jcip-annotations:1.0=modelValidation
+net.objecthunter:exp4j:0.4.8=integTestRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 net.openhft:zero-allocation-hashing:0.7=compileClasspath,integTestCompileClasspath,integTestRuntimeClasspath,pegasusPlugin,restClient,restClientCompile,runtimeClasspath,testCompileClasspath,testRestClient,testRuntimeClasspath
 net.sf.jopt-simple:jopt-simple:5.0.4=compileClasspath,integTestCompileClasspath,integTestRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 nl.basjes.collections:prefixmap:2.0=compileClasspath,integTestCompileClasspath,integTestRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath

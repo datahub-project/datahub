@@ -238,6 +238,7 @@ joda-time:joda-time:2.12.7=compileClasspath,runtimeClasspath,testCompileClasspat
 net.bytebuddy:byte-buddy-agent:1.12.19=testCompileClasspath,testRuntimeClasspath
 net.bytebuddy:byte-buddy:1.12.19=testCompileClasspath,testRuntimeClasspath
 net.java.dev.jna:jna:5.13.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+net.objecthunter:exp4j:0.4.8=runtimeClasspath,testRuntimeClasspath
 net.openhft:zero-allocation-hashing:0.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 net.sf.jopt-simple:jopt-simple:5.0.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 nl.basjes.collections:prefixmap:2.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath

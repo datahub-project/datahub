@@ -51,6 +51,7 @@ import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.PITAwareSearchRequest;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestOptions;
 import com.linkedin.metadata.test.definition.operator.OperatorType;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import io.datahubproject.metadata.context.OperationContext;
@@ -1106,12 +1107,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     SearchRequest searchRequest =
         limitHandler.getSearchRequest(
             operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
-            "test query",
-            null,
-            null,
-            0,
-            requestedSize,
-            List.of());
+            SearchRequestOptions.builder()
+                .input("test query")
+                .filter(null)
+                .sortCriteria(null)
+                .from(0)
+                .size(requestedSize)
+                .facets(List.of())
+                .build());
 
     SearchSourceBuilder sourceBuilder = searchRequest.source();
 
@@ -1123,12 +1126,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     searchRequest =
         limitHandler.getSearchRequest(
             operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
-            "test query",
-            null,
-            null,
-            0,
-            requestedSize,
-            List.of());
+            SearchRequestOptions.builder()
+                .input("test query")
+                .filter(null)
+                .sortCriteria(null)
+                .from(0)
+                .size(requestedSize)
+                .facets(List.of())
+                .build());
 
     sourceBuilder = searchRequest.source();
 
@@ -1162,12 +1167,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     SearchRequest searchRequest =
         strictHandler.getSearchRequest(
             operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
-            "test query",
-            null,
-            null,
-            0,
-            requestedSize,
-            List.of());
+            SearchRequestOptions.builder()
+                .input("test query")
+                .filter(null)
+                .sortCriteria(null)
+                .from(0)
+                .size(requestedSize)
+                .facets(List.of())
+                .build());
 
     SearchSourceBuilder sourceBuilder = searchRequest.source();
 
@@ -1180,12 +1187,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
       requestedSize = 50;
       strictHandler.getSearchRequest(
           operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
-          "test query",
-          null,
-          null,
-          0,
-          requestedSize,
-          List.of());
+          SearchRequestOptions.builder()
+              .input("test query")
+              .filter(null)
+              .sortCriteria(null)
+              .from(0)
+              .size(requestedSize)
+              .facets(List.of())
+              .build());
       Assert.fail(
           "Should throw IllegalArgumentException when count exceeds limit with strict config");
     } catch (IllegalArgumentException e) {
@@ -1442,14 +1451,16 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     Predicate predicate = new Predicate(OperatorType.AND, List.of());
 
     SearchRequest searchRequest =
-        handler.getPredicateSearchRequest(
+        handler.getSearchRequest(
             operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
-            "test query",
-            predicate,
-            Collections.emptyList(),
-            0,
-            null, // null size
-            List.of("platform", "origin"));
+            SearchRequestOptions.builder()
+                .input("test query")
+                .predicate(predicate)
+                .sortCriteria(Collections.emptyList())
+                .from(0)
+                .size(null) // null size
+                .facets(List.of("platform", "origin"))
+                .build());
 
     SearchSourceBuilder sourceBuilder = searchRequest.source();
 
@@ -1482,14 +1493,17 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     int requestedSize = 50;
 
     SearchRequest searchRequest =
-        handler.getPredicateSearchRequest(
+        handler.getSearchRequest(
             operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
-            "search term",
-            predicate,
-            List.of(new SortCriterion().setField("name").setOrder(SortOrder.ASCENDING)),
-            10,
-            requestedSize,
-            List.of());
+            SearchRequestOptions.builder()
+                .input("search term")
+                .predicate(predicate)
+                .sortCriteria(
+                    List.of(new SortCriterion().setField("name").setOrder(SortOrder.ASCENDING)))
+                .from(10)
+                .size(requestedSize)
+                .facets(List.of())
+                .build());
 
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertEquals(sourceBuilder.size(), requestedSize);

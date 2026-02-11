@@ -593,6 +593,15 @@ elasticsearch:
       file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config_acryl.yaml} # update for Saas
       searchFieldConfigDefault: ${ELASTICSEARCH_QUERY_SEARCH_FIELD_CONFIG_DEFAULT:legacy} # which field configuration to use by default for search
       autoCompleteFieldConfigDefault: ${ELASTICSEARCH_QUERY_AUTOCOMPLETE_FIELD_CONFIG_DEFAULT:legacy} # which field configuration to use by default for autocomplete
+    rescore:
+      enabled: ${ELASTICSEARCH_QUERY_RESCORE_ENABLED:true} # Enable Stage 2 reranking with rescore
+      file: ${ELASTICSEARCH_QUERY_RESCORE_CONFIG_FILE:rescore_config.yaml} # Rescore configuration file
+      windowSize: ${ELASTICSEARCH_QUERY_RESCORE_WINDOW_SIZE:100} # Number of top results to rescore (fallback if file not loaded)
+      queryWeight: ${ELASTICSEARCH_QUERY_RESCORE_QUERY_WEIGHT:0.0} # Weight for Stage 1 score (0.0 = Stage 2 replaces Stage 1)
+      rescoreQueryWeight: ${ELASTICSEARCH_QUERY_RESCORE_WEIGHT:1.0} # Weight for Stage 2 score (1.0 = 100% Stage 2)
+    rescoreFormula:
+      enabled: ${ELASTICSEARCH_QUERY_RESCORE_FORMULA_ENABLED:true} # Enable Java/exp4j based Stage 2 rescoring
+      file: ${ELASTICSEARCH_QUERY_RESCORE_FORMULA_CONFIG_FILE:rescore_config.yaml} # Rescore formula configuration file
     graph:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size
@@ -616,6 +625,15 @@ elasticsearch:
       maxLengthEnabled: ${SEARCH_VALIDATION_MAX_LENGTH_ENABLED:true}
       maxQueryLength: ${SEARCH_VALIDATION_MAX_QUERY_LENGTH:500}
       regex: ${SEARCH_VALIDATION_REGEX:.*[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+.*|(?i).*\b(java|javax)\.(util|lang|io|naming|xml|security|beans|management|script|sql)\.(\w+\.)*\w+.*|(?i).*\b(org\.(springframework|apache|hibernate|jboss|codehaus|eclipse)|com\.sun)\.(\w+\.)*\w+.*|(?i).*(ldap://|rmi://|dns://|iiop://|corba:|jndi:|oastify\.com).*|.*(\u00ac\u00ed|\\xac\\xed).*}
+    # Search version toggle for A/B testing
+    # When false: V2 (current acryl-main behavior)
+    # When true: V2.5 (fuzzy matching, OR operator, improved ranking)
+    enableSearchV2_5: ${SEARCH_VERSION_V2_5_ENABLED:false}
+
+    # Fuzzy matching toggle (only applies when enableSearchV2_5 is true)
+    # When false: V2.5 without fuzzy matching (exact terms only)
+    # When true: V2.5 with fuzzy matching (~1/~2 edit distance for typo tolerance)
+    enableFuzzyMatching: ${ENABLE_FUZZY_MATCHING:false}
   scroll:
     timeout: ${ELASTICSEARCH_SCROLL_TIMEOUT:5m} # Default timeout of the scroll reference for legacy scroll and PIT for searchAfter
 

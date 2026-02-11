@@ -80,6 +80,263 @@ extend type Query {
   browse endpoint.
   """
   browseV2(input: BrowseV2Input!): BrowseResultsV2
+
+  # SaaS Only
+  """
+  Get current search configuration for Stage 1 and Stage 2 scoring.
+  Useful for debugging and for populating UI defaults.
+  """
+  searchConfiguration: SearchConfiguration!
+}
+
+"""
+Rescore implementation mode
+"""
+enum RescoreMode {
+  """
+  Java/exp4j based rescoring with full explainability
+  """
+  JAVA_EXP4J
+  """
+  Elasticsearch Painless script based rescoring
+  """
+  ES_PAINLESS
+}
+
+"""
+Current search configuration (Stage 1 and Stage 2)
+"""
+type SearchConfiguration {
+  """
+  Stage 1: Function score configuration
+  """
+  stage1: Stage1Configuration!
+
+  """
+  Stage 2: Rescore configuration
+  """
+  stage2: Stage2Configuration!
+}
+
+"""
+Stage 1 (function score) configuration
+"""
+type Stage1Configuration {
+  """
+  Source of config: 'yaml', 'pdl', or 'default'
+  """
+  source: String!
+
+  """
+  Function score JSON (from search_config.yaml or PDL annotations)
+  """
+  functionScore: String
+
+  """
+  Available presets with their configs
+  """
+  presets: [ConfigPreset!]!
+}
+
+"""
+Stage 2 (rescore) configuration
+"""
+type Stage2Configuration {
+  """
+  Whether Stage 2 rescoring is enabled
+  """
+  enabled: Boolean!
+
+  """
+  Rescoring implementation mode
+  """
+  mode: RescoreMode!
+
+  """
+  Window size for rescoring
+  """
+  windowSize: Int!
+
+  """
+  exp4j formula string (for JAVA_EXP4J mode)
+  """
+  formula: String
+
+  """
+  Signal definitions with normalization configs (for JAVA_EXP4J mode)
+  """
+  signals: [SignalConfig!]
+
+  """
+  Available presets
+  """
+  presets: [ConfigPreset!]!
+}
+
+"""
+Signal configuration for Stage 2 rescoring
+"""
+type SignalConfig {
+  """
+  Signal name (e.g., 'bm25', 'viewCount')
+  """
+  name: String!
+
+  """
+  Variable name in formula (e.g., 'norm_bm25', 'norm_views')
+  """
+  normalizedName: String!
+
+  """
+  Path to extract value from ES document (e.g., '_score', 'viewCount')
+  """
+  fieldPath: String!
+
+  """
+  Signal type: SCORE, NUMERIC, BOOLEAN, TIMESTAMP
+  """
+  type: String!
+
+  """
+  Boost exponent in power-law formula
+  """
+  boost: Float!
+
+  """
+  Normalization configuration (optional, null if signal doesn't use normalization)
+  """
+  normalization: NormalizationConfigType
+}
+
+"""
+Normalization configuration for a signal
+"""
+type NormalizationConfigType {
+  """
+  Normalization type: SIGMOID, LOG_SIGMOID, LINEAR_DECAY, BOOLEAN, NONE
+  """
+  type: String!
+
+  """
+  Minimum input value for sigmoid
+  """
+  inputMin: Float
+
+  """
+  Maximum input value for sigmoid
+  """
+  inputMax: Float
+
+  """
+  Steepness of sigmoid curve (1=gentle, 6=balanced, 10=sharp)
+  """
+  steepness: Float
+
+  """
+  Scale factor for decay (days for LINEAR_DECAY)
+  """
+  scale: Float
+
+  """
+  Minimum output value after normalization
+  """
+  outputMin: Float!
+
+  """
+  Maximum output value after normalization
+  """
+  outputMax: Float!
+
+  """
+  Value when boolean signal is true
+  """
+  trueValue: Float
+
+  """
+  Value when boolean signal is false
+  """
+  falseValue: Float
+}
+
+"""
+A configuration preset
+"""
+type ConfigPreset {
+  """
+  Preset name
+  """
+  name: String!
+
+  """
+  Description of what this preset does
+  """
+  description: String!
+
+  """
+  Configuration JSON string
+  """
+  config: String!
+}
+
+"""
+Stage 2 rescore explanation for a single search result.
+Provides detailed breakdown of how the final score was computed.
+"""
+type RescoreExplanation {
+  """
+  Stage 1 score (from ES BM25 + function scores)
+  """
+  stage1Score: Float!
+
+  """
+  Stage 2 score (after Java/exp4j rescoring)
+  """
+  stage2Score: Float!
+
+  """
+  Formula used for rescoring (may be null if rescore explanation is incomplete)
+  """
+  formula: String
+
+  """
+  Signal breakdown showing how each signal contributed
+  """
+  signals: [SignalExplanation!]!
+}
+
+"""
+Explanation of a single signal's contribution to the rescore
+"""
+type SignalExplanation {
+  """
+  Signal name (e.g., 'bm25', 'viewCount')
+  """
+  name: String!
+
+  """
+  Raw value from the document (may be null for missing fields)
+  """
+  rawValue: String
+
+  """
+  Numeric value (parsed or converted)
+  """
+  numericValue: Float!
+
+  """
+  Value after normalization (1.0-2.0 range typically)
+  """
+  normalizedValue: Float!
+
+  """
+  Boost exponent applied in power-law formula
+  """
+  boost: Float!
+
+  """
+  Final contribution to score (normalizedValue^boost)
+  """
+  contribution: Float!
 }
 
 """
@@ -205,6 +462,74 @@ input SearchFlags {
   assets in child domains and child containers.
   """
   rewriteQuery: Boolean
+
+  """
+  Include Elasticsearch scoring explanation in search results.
+  Explanations appear in SearchResult.extraProperties with key '_explain'.
+  Note: Adds computational overhead - use for debugging only.
+  """
+  includeExplain: Boolean
+
+  """
+  Elasticsearch search type for controlling IDF calculation across shards.
+  - QUERY_THEN_FETCH: Shard-local IDF (default, faster, production behavior)
+  - DFS_QUERY_THEN_FETCH: Global IDF across all shards (slower, more accurate for debugging)
+  Note: DFS mode adds 20-50% latency overhead - use for debugging only.
+  """
+  searchType: String
+
+  """
+  Function score override for debugging ranking behavior.
+  JSON string containing Elasticsearch function_score configuration.
+  When provided, overrides both YAML and PDL-based function scores for this query only.
+  Example: {"functions":[{"filter":{"term":{"active":true}},"weight":5.0}],"score_mode":"sum","boost_mode":"sum"}
+  Note: This is for debugging only - production configs should be in search_config.yaml
+  """
+  functionScoreOverride: String
+
+  """
+  Enable or disable Stage 2 rescore for this query only.
+  When set to false, disables rescore regardless of global config.
+  When set to true, uses rescore if globally enabled.
+  When null/unset, uses the global configuration default.
+  Use for A/B testing or debugging rescore impact.
+  """
+  rescoreEnabled: Boolean
+
+  """
+  Rescore configuration override for debugging Stage 2 reranking (ES Painless mode).
+  JSON string containing rescore config (window_size, query_weight, rescore_query_weight, function_score).
+  When provided, overrides YAML rescore configuration for this query only.
+  Example: {"window_size":500,"query_weight":0.7,"rescore_query_weight":0.3,"function_score":{...}}
+  Note: This is for debugging only - production configs should be in rescore_config.yaml
+  Note: Only applies when using ES Painless rescore mode (not Java/exp4j mode)
+  """
+  rescoreOverride: String
+
+  """
+  Formula override for Java/exp4j Stage 2 rescoring.
+  exp4j formula string for computing final score.
+  When provided, overrides the formula from rescore_config.yaml for this query only.
+  Example: "pow(norm_bm25, 1.0) * pow(norm_views, 0.8) * pow(hasDesc, 1.3)"
+  Note: Only applies when using Java/exp4j rescore mode
+  """
+  rescoreFormulaOverride: String
+
+  """
+  Signal configuration override for Java/exp4j Stage 2 rescoring.
+  JSON array of signal definitions with name, normalizedName, fieldPath, type, boost, and normalization.
+  When provided, overrides signal configs from rescore_config.yaml for this query only.
+  Note: Only applies when using Java/exp4j rescore mode
+  """
+  rescoreSignalsOverride: String
+
+  """
+  Enable Search V2.5 features for this query only.
+  When false: Uses V2 logic (current main branch).
+  When true: Uses V2.5 logic (fuzzy matching, OR operator, improved ranking).
+  When null/unset: Uses global configuration default.
+  """
+  searchVersionV2_5: Boolean
 }
 
 """
@@ -746,6 +1071,12 @@ type SearchResult {
   For semantic search, this is the cosine similarity score normalized to [0, 1].
   """
   score: Float
+
+  """
+  Stage 2 rescore explanation (when includeExplain is true and Stage 2 rescoring is enabled).
+  Parsed from extraProperties._rescoreExplain.
+  """
+  rescoreExplanation: RescoreExplanation
 }
 
 """

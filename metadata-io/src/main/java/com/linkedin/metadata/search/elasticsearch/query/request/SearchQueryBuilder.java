@@ -45,6 +45,7 @@ import org.opensearch.common.lucene.search.function.CombineFunction;
 import org.opensearch.common.lucene.search.function.FieldValueFactorFunction;
 import org.opensearch.common.lucene.search.function.FunctionScoreQuery;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.DisMaxQueryBuilder;
 import org.opensearch.index.query.Operator;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -62,8 +63,35 @@ public class SearchQueryBuilder {
   private final WordGramConfiguration wordGramConfiguration;
   private final SearchValidationConfiguration searchValidationConfiguration;
   private final Pattern validationRegex;
+  private final boolean enableSearchV2_5Default;
+  private final boolean enableFuzzyMatchingDefault;
 
   private final CustomizedQueryHandler customizedQueryHandler;
+
+  /**
+   * V2.5 boost overrides: maps original boostScore to V2.5 replacement value. V2.5 compresses the
+   * boost range so Stage 1 is more uniform and Stage 2 rescore (rescore_config.yaml) handles
+   * nuanced ranking with sigmoid-normalized signals.
+   */
+  @VisibleForTesting
+  static final Map<Float, Float> V2_5_BOOST_OVERRIDES =
+      Map.of(
+          10.0f, 2.5f, // entity names: reduce dominant name boost
+          8.0f, 1.5f, // ML/entity keys: reduce key field boost
+          4.0f, 1.5f, // tool fields (ChartKey, DashboardKey, DataProcessKey)
+          2.0f, 2.5f, // ldap field (CorpUserKey)
+          0.5f, 0.8f, // URN references (tags, glossary terms): slight increase
+          0.1f, 1.0f, // field descriptions: increase from near-zero
+          0.2f, 1.0f // field labels: increase from near-zero
+          );
+
+  private static SearchFieldConfig applyV2_5Boost(SearchFieldConfig cfg) {
+    Float override = V2_5_BOOST_OVERRIDES.get(cfg.boost());
+    if (override != null) {
+      return cfg.toBuilder().boost(override).build();
+    }
+    return cfg;
+  }
 
   public SearchQueryBuilder(
       @Nonnull SearchConfiguration searchConfiguration,
@@ -73,11 +101,15 @@ public class SearchQueryBuilder {
     this.wordGramConfiguration = searchConfiguration.getWordGram();
     this.searchValidationConfiguration = searchConfiguration.getValidation();
     this.validationRegex = Pattern.compile(searchConfiguration.getValidation().getRegex());
+    this.enableSearchV2_5Default = searchConfiguration.isEnableSearchV2_5();
+    this.enableFuzzyMatchingDefault = searchConfiguration.isEnableFuzzyMatching();
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(searchConfiguration.getCustom(), customSearchConfiguration)
             .build();
   }
 
+  /** Entry point for query building. Dispatches to V2 or V2.5 based on configuration. */
+  @Nonnull
   public QueryBuilder buildQuery(
       @Nonnull OperationContext opContext,
       @Nonnull List<EntitySpec> entitySpecs,
@@ -86,13 +118,31 @@ public class SearchQueryBuilder {
     QueryConfiguration customQueryConfig =
         customizedQueryHandler.lookupQueryConfig(query).orElse(null);
 
-    final QueryBuilder queryBuilder =
-        buildInternalQuery(opContext, customQueryConfig, entitySpecs, query, fulltext);
+    // Resolve search version for this request
+    boolean useV2_5 = resolveSearchV2_5Enabled(opContext);
+
+    if (log.isDebugEnabled()) {
+      log.debug("Building search query using version: {}", useV2_5 ? "V2.5" : "V2");
+    }
+
+    final QueryBuilder queryBuilder;
+    if (useV2_5) {
+      queryBuilder =
+          buildInternalQueryV2_5(opContext, customQueryConfig, entitySpecs, query, fulltext);
+    } else {
+      queryBuilder =
+          buildInternalQueryV2(opContext, customQueryConfig, entitySpecs, query, fulltext);
+    }
+
     return buildScoreFunctions(opContext, customQueryConfig, entitySpecs, query, queryBuilder);
   }
 
   /**
-   * Constructs the search query.
+   * Build query using V2 logic (acryl-main branch behavior). This is the EXACT code from acryl-main
+   * to ensure zero regression.
+   *
+   * <p>DO NOT MODIFY THIS METHOD - it must match acryl-main exactly. All changes should go in
+   * buildInternalQueryV2_5() instead.
    *
    * @param customQueryConfig custom configuration
    * @param entitySpecs entities being searched
@@ -100,7 +150,7 @@ public class SearchQueryBuilder {
    * @param fulltext use fulltext queries
    * @return query builder
    */
-  private QueryBuilder buildInternalQuery(
+  private QueryBuilder buildInternalQueryV2(
       @Nonnull OperationContext opContext,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
@@ -119,14 +169,15 @@ public class SearchQueryBuilder {
             .orElse(QueryBuilders.boolQuery());
 
     if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX)) {
-      getSimpleQuery(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
+      getSimpleQueryV2(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(finalQuery::should);
       getPrefixAndExactMatchQuery(
               opContext.getEntityRegistry(),
               customQueryConfig,
               entitySpecs,
               sanitizedQuery,
-              opContext.getAspectRetriever())
+              opContext.getAspectRetriever(),
+              false)
           .ifPresent(finalQuery::should);
     } else {
       final String withoutQueryPrefix =
@@ -134,7 +185,11 @@ public class SearchQueryBuilder {
               ? query.substring(STRUCTURED_QUERY_PREFIX.length())
               : query;
       getStructuredQuery(
-              opContext.getEntityRegistry(), customQueryConfig, entitySpecs, withoutQueryPrefix)
+              opContext.getEntityRegistry(),
+              customQueryConfig,
+              entitySpecs,
+              withoutQueryPrefix,
+              false)
           .ifPresent(finalQuery::should);
       if (exactMatchConfiguration.isEnableStructured()) {
         getPrefixAndExactMatchQuery(
@@ -142,7 +197,8 @@ public class SearchQueryBuilder {
                 customQueryConfig,
                 entitySpecs,
                 withoutQueryPrefix,
-                opContext.getAspectRetriever())
+                opContext.getAspectRetriever(),
+                false)
             .ifPresent(finalQuery::should);
       }
     }
@@ -152,6 +208,103 @@ public class SearchQueryBuilder {
     }
 
     return finalQuery;
+  }
+
+  /**
+   * Constructs the search query using V2.5 logic. This contains all the new ranking improvements: -
+   * Fuzzy matching with ~1/~2 edit distance - OR operator for lenient matching - DisMaxQuery
+   * structure - SUM + SUM scoring mode - Updated field boosts
+   *
+   * @param customQueryConfig custom configuration
+   * @param entitySpecs entities being searched
+   * @param query search string
+   * @param fulltext use fulltext queries
+   * @return query builder
+   */
+  private QueryBuilder buildInternalQueryV2_5(
+      @Nonnull OperationContext opContext,
+      @Nullable QueryConfiguration customQueryConfig,
+      @Nonnull List<EntitySpec> entitySpecs,
+      @Nonnull String query,
+      boolean fulltext) {
+    if (searchValidationConfiguration.isEnabled()) {
+      validateSearchQuery(query);
+    }
+    final String sanitizedQuery = query.replaceFirst("^:+", "");
+
+    // Use dis_max instead of bool/should to prevent score accumulation
+    // Takes MAX field score + (tie_breaker × sum_of_other_scores)
+    // This ensures exact name matches win over partial matches across many fields
+    final DisMaxQueryBuilder disMaxQuery = QueryBuilders.disMaxQuery();
+
+    // Set tie_breaker to 0.1 (10% contribution from other matching queries)
+    // This allows secondary matches to slightly influence ranking when primary scores are equal
+    disMaxQuery.tieBreaker(0.1f);
+
+    // Check if custom query config provides a bool query wrapper (for filters, must clauses)
+    final BoolQueryBuilder customBoolQuery =
+        Optional.ofNullable(customQueryConfig)
+            .flatMap(
+                cqc ->
+                    CustomizedQueryHandler.boolQueryBuilder(
+                        opContext.getObjectMapper(), cqc, sanitizedQuery))
+            .orElse(null);
+
+    if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX)) {
+      getSimpleQueryV2_5(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
+          .ifPresent(disMaxQuery::add);
+      getPrefixAndExactMatchQuery(
+              opContext.getEntityRegistry(),
+              customQueryConfig,
+              entitySpecs,
+              sanitizedQuery,
+              opContext.getAspectRetriever(),
+              true)
+          .ifPresent(disMaxQuery::add);
+    } else {
+      final String withoutQueryPrefix =
+          query.startsWith(STRUCTURED_QUERY_PREFIX)
+              ? query.substring(STRUCTURED_QUERY_PREFIX.length())
+              : query;
+      getStructuredQuery(
+              opContext.getEntityRegistry(),
+              customQueryConfig,
+              entitySpecs,
+              withoutQueryPrefix,
+              true)
+          .ifPresent(disMaxQuery::add);
+      if (exactMatchConfiguration.isEnableStructured()) {
+        getPrefixAndExactMatchQuery(
+                opContext.getEntityRegistry(),
+                customQueryConfig,
+                entitySpecs,
+                withoutQueryPrefix,
+                opContext.getAspectRetriever(),
+                true)
+            .ifPresent(disMaxQuery::add);
+      }
+    }
+
+    // Check if dis_max has any queries (it requires at least one sub-query)
+    boolean hasDisMaxQueries = !disMaxQuery.innerQueries().isEmpty();
+
+    // If custom bool query exists (with filters/must clauses), wrap dis_max inside it
+    if (customBoolQuery != null
+        && (!customBoolQuery.filter().isEmpty()
+            || !customBoolQuery.must().isEmpty()
+            || !customBoolQuery.mustNot().isEmpty())) {
+      if (hasDisMaxQueries) {
+        customBoolQuery.must(disMaxQuery);
+      }
+      return customBoolQuery;
+    }
+
+    // If dis_max has no queries, return match_all to avoid malformed query error
+    if (!hasDisMaxQueries) {
+      return QueryBuilders.matchAllQuery();
+    }
+
+    return disMaxQuery;
   }
 
   /**
@@ -179,6 +332,130 @@ public class SearchQueryBuilder {
   }
 
   /**
+   * Adds fuzzy matching operators to query terms for typo tolerance.
+   *
+   * <p>Appends ~2 to each term to enable fuzzy matching with up to 2 character edits. This handles
+   * common typos like "notiphication" → "notification" without requiring exact matches.
+   *
+   * <p>Edit distance scaling: - Terms 1-2 chars: No fuzzy (exact match) - Terms 3-5 chars: ~1 (1
+   * edit) - Terms 6+ chars: ~2 (2 edits)
+   *
+   * @param query The sanitized search query
+   * @return Query with fuzzy operators added to terms
+   */
+  @Nonnull
+  private static String makeFuzzyQuery(@Nonnull String query) {
+    // Split on whitespace and add ~N fuzzy operator to each term
+    // Use different edit distances based on term length (mimics Fuzziness.AUTO)
+    String[] terms = query.split("\\s+");
+    StringBuilder fuzzyQuery = new StringBuilder();
+
+    for (int i = 0; i < terms.length; i++) {
+      String term = terms[i].trim();
+      if (term.isEmpty()) {
+        continue;
+      }
+
+      fuzzyQuery.append(term);
+
+      // Add fuzzy operator based on term length (similar to Fuzziness.AUTO)
+      int termLength = term.length();
+      if (termLength >= 6) {
+        fuzzyQuery.append("~2"); // Allow 2 edits for longer terms
+      } else if (termLength >= 3) {
+        fuzzyQuery.append("~1"); // Allow 1 edit for medium terms
+      }
+      // Terms < 3 chars get no fuzzy operator (exact match)
+
+      if (i < terms.length - 1) {
+        fuzzyQuery.append(" ");
+      }
+    }
+
+    return fuzzyQuery.toString();
+  }
+
+  /**
+   * V2: Simple query with exact matching, AND operator, and strict behavior. This is the EXACT code
+   * from acryl-main to ensure zero regression.
+   */
+  private Optional<QueryBuilder> getSimpleQueryV2(
+      @Nonnull OperationContext operationContext,
+      @Nullable QueryConfiguration customQueryConfig,
+      List<EntitySpec> entitySpecs,
+      String sanitizedQuery) {
+    Optional<QueryBuilder> result = Optional.empty();
+    EntityRegistry entityRegistry = operationContext.getEntityRegistry();
+
+    final boolean executeSimpleQuery;
+    if (customQueryConfig != null) {
+      executeSimpleQuery = customQueryConfig.isSimpleQuery();
+    } else {
+      executeSimpleQuery = !(isQuoted(sanitizedQuery) && exactMatchConfiguration.isExclusive());
+    }
+
+    if (executeSimpleQuery) {
+      BoolQueryBuilder simplePerField = QueryBuilders.boolQuery();
+
+      // Get base fields (V2: use original annotation boosts)
+      Set<SearchFieldConfig> baseFields =
+          entitySpecs.stream()
+              .map(spec -> getStandardFields(entityRegistry, spec, false))
+              .flatMap(Set::stream)
+              .collect(Collectors.toSet());
+
+      Set<SearchFieldConfig> configuredFields =
+          customizedQueryHandler.applySearchFieldConfiguration(
+              baseFields,
+              customizedQueryHandler.resolveFieldConfiguration(
+                  operationContext.getSearchContext().getSearchFlags(),
+                  CustomConfiguration::getSearchFieldConfigDefault));
+
+      /*
+       * NOTE: This logic applies the queryByDefault annotations for each entity to ALL entities
+       * If we ever have fields that are queryByDefault on some entities and not others, this section will need to be refactored
+       * to apply an index filter AND the analyzers added here.
+       */
+      // Simple query string does not use per field analyzers
+      // Group the fields by analyzer
+      Map<String, List<SearchFieldConfig>> analyzerGroup =
+          configuredFields.stream()
+              .filter(SearchFieldConfig::isQueryByDefault)
+              .collect(Collectors.groupingBy(SearchFieldConfig::analyzer));
+
+      analyzerGroup.keySet().stream()
+          .sorted()
+          .filter(str -> !str.contains("word_gram"))
+          .forEach(
+              analyzer -> {
+                List<SearchFieldConfig> fieldConfigs = analyzerGroup.get(analyzer);
+                SimpleQueryStringBuilder simpleBuilder =
+                    QueryBuilders.simpleQueryStringQuery(sanitizedQuery);
+                simpleBuilder.analyzer(analyzer);
+                simpleBuilder.defaultOperator(Operator.AND);
+                Map<String, List<SearchFieldConfig>> fieldAnalyzers =
+                    fieldConfigs.stream()
+                        .collect(Collectors.groupingBy(SearchFieldConfig::fieldName));
+                // De-duplicate fields across different indices
+                for (Map.Entry<String, List<SearchFieldConfig>> fieldAnalyzer :
+                    fieldAnalyzers.entrySet()) {
+                  SearchFieldConfig cfg = fieldAnalyzer.getValue().get(0);
+                  simpleBuilder.field(cfg.fieldName(), cfg.boost());
+                }
+                simplePerField.should(simpleBuilder);
+              });
+
+      if (!simplePerField.should().isEmpty()) {
+        simplePerField.minimumShouldMatch(1);
+      }
+
+      result = Optional.of(simplePerField);
+    }
+
+    return result;
+  }
+
+  /**
    * Gets searchable fields from all entities in the input collection. De-duplicates fields across
    * entities.
    *
@@ -188,8 +465,15 @@ public class SearchQueryBuilder {
   @VisibleForTesting
   public Set<SearchFieldConfig> getStandardFields(
       @Nonnull EntityRegistry entityRegistry, @Nonnull Collection<EntitySpec> entitySpecs) {
+    return getStandardFields(entityRegistry, entitySpecs, false);
+  }
+
+  private Set<SearchFieldConfig> getStandardFields(
+      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull Collection<EntitySpec> entitySpecs,
+      boolean useV2_5) {
     Set<SearchFieldConfig> fields = new HashSet<>();
-    // Always present
+    // Always present — URN boost is NOT overridden for V2.5
     final float urnBoost =
         Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
 
@@ -204,7 +488,7 @@ public class SearchQueryBuilder {
             true));
 
     entitySpecs.stream()
-        .map(spec -> getFieldsFromEntitySpec(entityRegistry, spec))
+        .map(spec -> getFieldsFromEntitySpec(entityRegistry, spec, useV2_5))
         .flatMap(Set::stream)
         .collect(Collectors.groupingBy(SearchFieldConfig::fieldName))
         .forEach(
@@ -240,6 +524,11 @@ public class SearchQueryBuilder {
   @VisibleForTesting
   public Set<SearchFieldConfig> getFieldsFromEntitySpec(
       @Nonnull EntityRegistry entityRegistry, EntitySpec entitySpec) {
+    return getFieldsFromEntitySpec(entityRegistry, entitySpec, false);
+  }
+
+  private Set<SearchFieldConfig> getFieldsFromEntitySpec(
+      @Nonnull EntityRegistry entityRegistry, EntitySpec entitySpec, boolean useV2_5) {
     Set<SearchFieldConfig> fields = new HashSet<>();
     List<SearchableFieldSpec> searchableFieldSpecs = entitySpec.getSearchableFieldSpecs();
     for (SearchableFieldSpec fieldSpec : searchableFieldSpecs) {
@@ -248,6 +537,9 @@ public class SearchQueryBuilder {
       }
 
       SearchFieldConfig searchFieldConfig = SearchFieldConfig.detectSubFieldType(fieldSpec);
+      if (useV2_5) {
+        searchFieldConfig = applyV2_5Boost(searchFieldConfig);
+      }
       fields.add(searchFieldConfig);
 
       if (SearchFieldConfig.detectSubFieldType(fieldSpec).hasDelimitedSubfield()) {
@@ -277,6 +569,12 @@ public class SearchQueryBuilder {
           SearchFieldConfig.detectSubFieldType(refFieldSpec, depth, entityRegistry).stream()
               .filter(SearchFieldConfig::isQueryByDefault)
               .collect(Collectors.toSet());
+      if (useV2_5) {
+        searchFieldConfigs =
+            searchFieldConfigs.stream()
+                .map(SearchQueryBuilder::applyV2_5Boost)
+                .collect(Collectors.toSet());
+      }
       fields.addAll(searchFieldConfigs);
 
       Map<String, SearchableAnnotation.FieldType> fieldTypeMap =
@@ -334,10 +632,10 @@ public class SearchQueryBuilder {
   }
 
   private Set<SearchFieldConfig> getStandardFields(
-      @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
+      @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec, boolean useV2_5) {
     Set<SearchFieldConfig> fields = new HashSet<>();
 
-    // Always present
+    // Always present — URN boost is NOT overridden for V2.5
     final float urnBoost =
         Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
 
@@ -351,12 +649,13 @@ public class SearchQueryBuilder {
             SearchableAnnotation.FieldType.URN,
             true));
 
-    fields.addAll(getFieldsFromEntitySpec(entityRegistry, entitySpec));
+    fields.addAll(getFieldsFromEntitySpec(entityRegistry, entitySpec, useV2_5));
 
     return fields;
   }
 
-  private Optional<QueryBuilder> getSimpleQuery(
+  /** V2.5: Simple query with fuzzy matching, OR operator, and lenient behavior. */
+  private Optional<QueryBuilder> getSimpleQueryV2_5(
       @Nonnull OperationContext operationContext,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
@@ -374,10 +673,10 @@ public class SearchQueryBuilder {
     if (executeSimpleQuery) {
       BoolQueryBuilder simplePerField = QueryBuilders.boolQuery();
 
-      // Get base fields
+      // Get base fields (V2.5: use compressed boost values)
       Set<SearchFieldConfig> baseFields =
           entitySpecs.stream()
-              .map(spec -> getStandardFields(entityRegistry, spec))
+              .map(spec -> getStandardFields(entityRegistry, spec, true))
               .flatMap(Set::stream)
               .collect(Collectors.toSet());
 
@@ -406,10 +705,33 @@ public class SearchQueryBuilder {
           .forEach(
               analyzer -> {
                 List<SearchFieldConfig> fieldConfigs = analyzerGroup.get(analyzer);
+
+                // Conditionally apply fuzzy matching based on configuration
+                String queryToUse;
+                if (enableFuzzyMatchingDefault) {
+                  // Add fuzzy operator (~) to query terms for typo tolerance
+                  // ~2 allows up to 2 character edits (insertions, deletions, substitutions)
+                  queryToUse = makeFuzzyQuery(sanitizedQuery);
+                } else {
+                  // Use exact terms without fuzzy matching
+                  queryToUse = sanitizedQuery;
+                }
+
                 SimpleQueryStringBuilder simpleBuilder =
-                    QueryBuilders.simpleQueryStringQuery(sanitizedQuery);
+                    QueryBuilders.simpleQueryStringQuery(queryToUse);
                 simpleBuilder.analyzer(analyzer);
-                simpleBuilder.defaultOperator(Operator.AND);
+
+                // Use OR operator to handle queries with garbage/non-existent terms
+                // At least one term must match (minimumShouldMatch enforced by parent query)
+                simpleBuilder.defaultOperator(Operator.OR);
+
+                // Configure fuzzy matching parameters (only if enabled)
+                if (enableFuzzyMatchingDefault) {
+                  simpleBuilder.fuzzyPrefixLength(1); // First character must match
+                  simpleBuilder.fuzzyMaxExpansions(50); // Cap expansions for performance
+                  simpleBuilder.fuzzyTranspositions(true); // Allow character swaps (teh → the)
+                }
+
                 Map<String, List<SearchFieldConfig>> fieldAnalyzers =
                     fieldConfigs.stream()
                         .collect(Collectors.groupingBy(SearchFieldConfig::fieldName));
@@ -437,7 +759,8 @@ public class SearchQueryBuilder {
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
       String query,
-      @Nullable AspectRetriever aspectRetriever) {
+      @Nullable AspectRetriever aspectRetriever,
+      boolean useV2_5) {
 
     final boolean isPrefixQuery =
         customQueryConfig == null
@@ -448,7 +771,7 @@ public class SearchQueryBuilder {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     String unquotedQuery = unquote(query);
 
-    getStandardFields(entityRegistry, entitySpecs)
+    getStandardFields(entityRegistry, entitySpecs, useV2_5)
         .forEach(
             searchFieldConfig -> {
               boolean caseSensitivityEnabled =
@@ -521,7 +844,8 @@ public class SearchQueryBuilder {
       @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
-      String sanitizedQuery) {
+      String sanitizedQuery,
+      boolean useV2_5) {
     Optional<QueryBuilder> result = Optional.empty();
 
     final boolean executeStructuredQuery;
@@ -534,7 +858,7 @@ public class SearchQueryBuilder {
     if (executeStructuredQuery) {
       QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(sanitizedQuery);
       queryBuilder.defaultOperator(Operator.AND);
-      getStandardFields(entityRegistry, entitySpecs)
+      getStandardFields(entityRegistry, entitySpecs, useV2_5)
           .forEach(entitySpec -> queryBuilder.field(entitySpec.fieldName(), entitySpec.boost()));
       result = Optional.of(queryBuilder);
     }
@@ -548,17 +872,40 @@ public class SearchQueryBuilder {
       String query,
       @Nonnull QueryBuilder queryBuilder) {
 
+    // Priority 1: Check for UI-provided function score override (for debugging)
+    if (opContext.getSearchContext() != null
+        && opContext.getSearchContext().getSearchFlags() != null
+        && opContext.getSearchContext().getSearchFlags().hasFunctionScoreOverride()) {
+      String overrideJson =
+          opContext.getSearchContext().getSearchFlags().getFunctionScoreOverride();
+      log.info("Using function score override from SearchFlags for debugging: {}", overrideJson);
+
+      try {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> functionScoreMap =
+            opContext.getObjectMapper().readValue(overrideJson, Map.class);
+
+        return CustomizedQueryHandler.toFunctionScoreQueryBuilder(
+            opContext.getObjectMapper(), queryBuilder, functionScoreMap, query);
+      } catch (Exception e) {
+        log.error(
+            "Failed to parse functionScoreOverride, falling back to config: {}", overrideJson, e);
+        // Fall through to YAML/PDL config
+      }
+    }
+
+    // Priority 2: Check for YAML configuration (production)
     if (customQueryConfig != null) {
       // Prefer configuration function scoring over annotation scoring
       return CustomizedQueryHandler.functionScoreQueryBuilder(
           opContext.getObjectMapper(), customQueryConfig, queryBuilder, query);
-    } else {
-      return QueryBuilders.functionScoreQuery(
-              queryBuilder, buildAnnotationScoreFunctions(entitySpecs))
-          .scoreMode(FunctionScoreQuery.ScoreMode.AVG) // Average score functions
-          .boostMode(
-              CombineFunction.MULTIPLY); // Multiply score function with the score from query;
     }
+
+    // Priority 3: Use PDL annotations (legacy fallback)
+    return QueryBuilders.functionScoreQuery(
+            queryBuilder, buildAnnotationScoreFunctions(entitySpecs))
+        .scoreMode(FunctionScoreQuery.ScoreMode.AVG) // Average score functions
+        .boostMode(CombineFunction.MULTIPLY); // Multiply score function with the score from query
   }
 
   private static FunctionScoreQueryBuilder.FilterFunctionBuilder[] buildAnnotationScoreFunctions(
@@ -705,5 +1052,24 @@ public class SearchQueryBuilder {
       }
     }
     return fieldNameMap;
+  }
+
+  /**
+   * Resolves whether Search V2.5 is enabled for the current request. Priority: per-request
+   * SearchFlags > server configuration
+   *
+   * @param opContext operation context containing search flags
+   * @return true if V2.5 features should be used, false for V2 (main branch behavior)
+   */
+  private boolean resolveSearchV2_5Enabled(@Nonnull OperationContext opContext) {
+    // Check per-request override first
+    if (opContext.getSearchContext() != null
+        && opContext.getSearchContext().getSearchFlags() != null
+        && opContext.getSearchContext().getSearchFlags().hasSearchVersionV2_5()) {
+      return opContext.getSearchContext().getSearchFlags().isSearchVersionV2_5();
+    }
+
+    // Fall back to server configuration
+    return enableSearchV2_5Default;
   }
 }

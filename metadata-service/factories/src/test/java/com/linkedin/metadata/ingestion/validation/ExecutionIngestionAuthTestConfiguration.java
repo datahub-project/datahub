@@ -7,6 +7,8 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.context.SystemOperationContextFactory;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.gms.factory.search.MappingsBuilderFactory;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
@@ -71,8 +73,10 @@ public class ExecutionIngestionAuthTestConfiguration {
   @Bean(name = "baseElasticSearchComponents")
   public BaseElasticSearchComponentsFactory.BaseElasticSearchComponents baseElasticSearchComponents(
       @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention mockIndexConvention) {
+    ElasticSearchConfiguration esConfig =
+        ElasticSearchConfiguration.builder().search(new SearchConfiguration()).build();
     return new BaseElasticSearchComponentsFactory.BaseElasticSearchComponents(
-        null, // config
+        esConfig,
         null, // searchClient
         mockIndexConvention,
         null, // bulkProcessor

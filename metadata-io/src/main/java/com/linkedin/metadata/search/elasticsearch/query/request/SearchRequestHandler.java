@@ -5,6 +5,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.*;
 import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -15,6 +16,8 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.RescoreConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -51,6 +54,7 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -67,18 +71,23 @@ import lombok.Getter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.lucene.search.Explanation;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchType;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.text.Text;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightField;
+import org.opensearch.search.rescore.QueryRescoreMode;
+import org.opensearch.search.rescore.QueryRescorerBuilder;
 import org.opensearch.search.suggest.term.TermSuggestion;
 
 @Slf4j
@@ -232,88 +241,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
     return applyDefaultSearchFilters(opContext, entityNames, filter, filterQuery);
   }
 
-  /**
-   * Constructs the search query based on the query request.
-   *
-   * <p>TODO: This part will be replaced by searchTemplateAPI when the elastic is upgraded to 6.4 or
-   * later
-   *
-   * @param input the search input text
-   * @param filter the search filter
-   * @param from index to start the search from
-   * @param size the number of search hits to return
-   * @param facets list of facets we want aggregations for
-   * @return a valid search request
-   */
-  @Nonnull
-  @WithSpan
-  public SearchRequest getSearchRequest(
-      @Nonnull OperationContext opContext,
-      @Nonnull String input,
-      @Nullable Filter filter,
-      List<SortCriterion> sortCriteria,
-      int from,
-      @Nullable Integer size,
-      @Nonnull List<String> facets) {
-
-    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
-    SearchSourceBuilder searchSourceBuilder = constructSearchSourceBuilder(from, size);
-
-    SearchRequest searchRequest = new SearchRequest();
-    return buildSearchRequestPageAgnostic(
-        opContext,
-        searchRequest,
-        searchSourceBuilder,
-        input,
-        searchFlags,
-        filterQuery,
-        facets,
-        sortCriteria);
-  }
-
-  /**
-   * Constructs the search request from the query, filter, sort and pagination information with
-   * support for custom field fetching configuration.
-   *
-   * @param input the search input text
-   * @param filter the request filter. Can be null
-   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
-   * @param from index to start the search from
-   * @param size the number of search hits to return
-   * @param facets list of facets we want aggregations for
-   * @param fieldFetchConfig configuration for which fields to fetch
-   * @return a valid search request
-   */
-  @Nonnull
-  @WithSpan
-  public SearchRequest getSearchRequest(
-      @Nonnull OperationContext opContext,
-      @Nonnull String input,
-      @Nullable Filter filter,
-      List<SortCriterion> sortCriteria,
-      int from,
-      @Nullable Integer size,
-      @Nonnull List<String> facets,
-      @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
-
-    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
-    SearchSourceBuilder searchSourceBuilder =
-        constructSearchSourceBuilder(from, size, fieldFetchConfig);
-
-    SearchRequest searchRequest = new SearchRequest();
-    return buildSearchRequestPageAgnostic(
-        opContext,
-        searchRequest,
-        searchSourceBuilder,
-        input,
-        searchFlags,
-        filterQuery,
-        facets,
-        sortCriteria);
-  }
-
   private SearchSourceBuilder constructSearchSourceBuilder(int from, @Nullable Integer size) {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
@@ -360,11 +287,31 @@ public class SearchRequestHandler extends BaseRequestHandler {
       searchSourceBuilder.highlighter(highlightBuilder);
     }
 
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
+    // Determine if rescore will be used - if so, skip default sort to avoid conflict
+    boolean willUseRescore = shouldUseRescore(opContext, sortCriteria);
+
+    // If rescore will be used, clear any existing sorts (may have been added by calling method)
+    if (willUseRescore
+        && searchSourceBuilder.sorts() != null
+        && !searchSourceBuilder.sorts().isEmpty()) {
+      searchSourceBuilder.sorts().clear();
+    }
+
+    boolean enableDefaultSort =
+        !willUseRescore || (sortCriteria != null && !sortCriteria.isEmpty());
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs, enableDefaultSort);
 
     if (Boolean.TRUE.equals(searchFlags.isGetSuggestions())) {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input);
     }
+
+    // Enable Elasticsearch explain if requested (use searchFlags parameter directly)
+    if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
+      searchSourceBuilder.explain(true);
+    }
+
+    // Add Stage 2 rescore if enabled
+    addRescoreIfEnabled(opContext, searchSourceBuilder, input);
 
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest);
@@ -372,17 +319,315 @@ public class SearchRequestHandler extends BaseRequestHandler {
   }
 
   /**
+   * Applies search type from SearchFlags to the SearchRequest. DFS_QUERY_THEN_FETCH is only used
+   * when V2.5 is enabled, since the PDL default of "DFS_QUERY_THEN_FETCH" would otherwise apply DFS
+   * mode (with 20-50% latency overhead) to all searches including V2.
+   *
+   * @param searchRequest the search request to configure
+   * @param opContext operation context for resolving V2.5 enablement
+   */
+  private void applySearchType(SearchRequest searchRequest, OperationContext opContext) {
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    boolean useV2_5 = resolveSearchV2_5Enabled(opContext);
+    String searchType = searchFlags.getSearchType();
+    if (useV2_5 && searchType != null && searchType.equals("DFS_QUERY_THEN_FETCH")) {
+      searchRequest.searchType(SearchType.DFS_QUERY_THEN_FETCH);
+    } else {
+      searchRequest.searchType(SearchType.QUERY_THEN_FETCH);
+    }
+  }
+
+  /**
+   * Resolves whether Search V2.5 is enabled for the current request. Priority: per-request
+   * SearchFlags > server configuration
+   *
+   * @param opContext operation context containing search flags
+   * @return true if V2.5 features should be used, false for V2 (main branch behavior)
+   */
+  private boolean resolveSearchV2_5Enabled(@Nonnull OperationContext opContext) {
+    // Check per-request override first
+    if (opContext.getSearchContext() != null
+        && opContext.getSearchContext().getSearchFlags() != null
+        && opContext.getSearchContext().getSearchFlags().hasSearchVersionV2_5()) {
+      return opContext.getSearchContext().getSearchFlags().isSearchVersionV2_5();
+    }
+
+    // Fall back to server configuration
+    SearchConfiguration searchConfig = opContext.getSearchContext().getSearchConfiguration();
+    return searchConfig != null && searchConfig.isEnableSearchV2_5();
+  }
+
+  /**
+   * Converts scoreMode string to QueryRescoreMode enum.
+   *
+   * @param scoreMode string value (total, multiply, avg, max, min)
+   * @return corresponding QueryRescoreMode enum value
+   */
+  private QueryRescoreMode convertScoreMode(String scoreMode) {
+    if (scoreMode == null) {
+      return QueryRescoreMode.Total;
+    }
+    switch (scoreMode.toLowerCase()) {
+      case "multiply":
+        return QueryRescoreMode.Multiply;
+      case "avg":
+        return QueryRescoreMode.Avg;
+      case "max":
+        return QueryRescoreMode.Max;
+      case "min":
+        return QueryRescoreMode.Min;
+      case "total":
+      default:
+        return QueryRescoreMode.Total;
+    }
+  }
+
+  /**
+   * Resolves the effective RescoreConfiguration for this query, or null if rescore should not be
+   * used. This is the single source of truth for the rescore guard logic, used by both
+   * shouldUseRescore() and addRescoreIfEnabled() to prevent them from drifting out of sync.
+   *
+   * <p>Guard checks (in order): - searchFlags.rescoreEnabled not explicitly false - No custom sort
+   * criteria (rescore incompatible with custom sort in OpenSearch) - Search configuration and
+   * rescore config available - Java/exp4j rescoring not enabled (it handles Stage 2 in ESSearchDAO)
+   * - Rescore is enabled (global config or per-query flag)
+   *
+   * @param opContext operation context
+   * @param hasSortCriteria true if custom sort criteria are present
+   * @return resolved RescoreConfiguration, or null if rescore should not be used
+   */
+  @Nullable
+  private RescoreConfiguration resolveRescoreConfig(
+      OperationContext opContext, boolean hasSortCriteria) {
+    try {
+      SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+
+      // Check for per-query rescoreEnabled flag (UI override)
+      if (searchFlags.isRescoreEnabled() != null && !searchFlags.isRescoreEnabled()) {
+        return null;
+      }
+
+      // Check if custom sort is applied - OpenSearch doesn't allow rescore with custom sort
+      if (hasSortCriteria) {
+        return null;
+      }
+
+      // Get search configuration
+      SearchConfiguration searchConfig = opContext.getSearchContext().getSearchConfiguration();
+      if (searchConfig == null) {
+        return null;
+      }
+
+      // Check if Java/exp4j rescoring is enabled - if so, ES Painless rescore is not used
+      if (searchConfig.getRescoreFormula() != null
+          && searchConfig.getRescoreFormula().isEnabled()
+          && searchConfig.getRescoreFormula().getFormula() != null) {
+        return null;
+      }
+
+      if (searchConfig.getRescore() == null) {
+        return null;
+      }
+
+      // Check if rescore is enabled (global or per-query)
+      RescoreConfiguration rescoreConfig = searchConfig.getRescore();
+      boolean rescoreEnabled = rescoreConfig.isEnabled();
+      if (searchFlags.isRescoreEnabled() != null) {
+        rescoreEnabled = searchFlags.isRescoreEnabled();
+      }
+
+      return rescoreEnabled ? rescoreConfig : null;
+    } catch (Exception e) {
+      log.warn("Error resolving rescore configuration, defaulting to disabled", e);
+      return null;
+    }
+  }
+
+  /**
+   * Determines if ES Painless rescore should be used for this query. Delegates to
+   * resolveRescoreConfig() for the guard logic.
+   *
+   * @param opContext operation context
+   * @param sortCriteria custom sort criteria (if any)
+   * @return true if ES Painless rescore should be used
+   */
+  private boolean shouldUseRescore(OperationContext opContext, List<SortCriterion> sortCriteria) {
+    boolean hasSortCriteria = sortCriteria != null && !sortCriteria.isEmpty();
+    return resolveRescoreConfig(opContext, hasSortCriteria) != null;
+  }
+
+  /**
+   * Add Elasticsearch rescore (Stage 2 reranking) if enabled. Delegates to resolveRescoreConfig()
+   * for the guard logic, then applies override and builds the rescorer.
+   *
+   * <p>Rescore applies a secondary query to the top N results from Stage 1, allowing expensive
+   * scoring (popularity, quality, recency) on a small candidate set.
+   *
+   * @param opContext operation context
+   * @param searchSourceBuilder search source builder to add rescore to
+   * @param query original query string
+   */
+  private void addRescoreIfEnabled(
+      OperationContext opContext, SearchSourceBuilder searchSourceBuilder, String query) {
+    try {
+      boolean hasSortCriteria =
+          searchSourceBuilder.sorts() != null && !searchSourceBuilder.sorts().isEmpty();
+      RescoreConfiguration rescoreConfig = resolveRescoreConfig(opContext, hasSortCriteria);
+      if (rescoreConfig == null) {
+        return;
+      }
+
+      // Check if rescore override provided (UI/debugging override)
+      SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+      if (searchFlags.hasRescoreOverride() && searchFlags.getRescoreOverride() != null) {
+        try {
+          log.info(
+              "Using rescore override from SearchFlags: {}",
+              searchFlags
+                  .getRescoreOverride()
+                  .substring(0, Math.min(100, searchFlags.getRescoreOverride().length())));
+
+          // Parse rescoreOverride JSON into a temporary config
+          java.util.Map<String, Object> overrideMap =
+              opContext
+                  .getObjectMapper()
+                  .readValue(
+                      searchFlags.getRescoreOverride(),
+                      new com.fasterxml.jackson.core.type.TypeReference<
+                          java.util.Map<String, Object>>() {});
+
+          // Build new RescoreConfiguration from override
+          RescoreConfiguration.RescoreConfigurationBuilder builder =
+              RescoreConfiguration.builder().enabled(true);
+
+          if (overrideMap.containsKey("window_size")) {
+            builder.windowSize(((Number) overrideMap.get("window_size")).intValue());
+          }
+          if (overrideMap.containsKey("query_weight")) {
+            builder.queryWeight(((Number) overrideMap.get("query_weight")).floatValue());
+          }
+          if (overrideMap.containsKey("rescore_query_weight")) {
+            builder.rescoreQueryWeight(
+                ((Number) overrideMap.get("rescore_query_weight")).floatValue());
+          }
+          if (overrideMap.containsKey("score_mode")) {
+            builder.scoreMode((String) overrideMap.get("score_mode"));
+          }
+          if (overrideMap.containsKey("function_score")) {
+            builder.functionScore(
+                (java.util.Map<String, Object>) overrideMap.get("function_score"));
+          }
+
+          rescoreConfig = builder.build();
+        } catch (Exception e) {
+          log.error("Failed to parse rescoreOverride, falling back to default config", e);
+        }
+      }
+
+      // Load rescore config from YAML file if not already loaded
+      if (rescoreConfig.getFunctionScore() == null && rescoreConfig.getFile() != null) {
+        rescoreConfig = rescoreConfig.resolve(opContext.getYamlMapper());
+      }
+
+      if (rescoreConfig.getFunctionScore() == null) {
+        log.warn("Rescore enabled but no function score configuration found");
+        return;
+      }
+
+      // Build rescore query using CustomizedQueryHandler
+      FunctionScoreQueryBuilder rescoreQuery =
+          CustomizedQueryHandler.toFunctionScoreQueryBuilder(
+              opContext.getObjectMapper(),
+              QueryBuilders.matchAllQuery(),
+              rescoreConfig.getFunctionScore(),
+              query);
+
+      // Determine score mode from configuration
+      QueryRescoreMode scoreMode = convertScoreMode(rescoreConfig.getScoreMode());
+
+      // Create rescore builder with configured score mode
+      QueryRescorerBuilder rescorer =
+          new QueryRescorerBuilder(rescoreQuery)
+              .windowSize(rescoreConfig.getWindowSize())
+              .setQueryWeight(rescoreConfig.getQueryWeight())
+              .setRescoreQueryWeight(rescoreConfig.getRescoreQueryWeight())
+              .setScoreMode(scoreMode);
+
+      // Add rescore to search
+      searchSourceBuilder.addRescorer(rescorer);
+
+      log.debug("Rescore added successfully");
+
+    } catch (Exception e) {
+      log.error("Failed to add rescore, continuing without it", e);
+      // Don't fail the entire search if rescore fails
+    }
+  }
+
+  /**
    * Constructs the search query based on the query request.
    *
-   * <p>TODO: This part will be replaced by searchTemplateAPI when the elastic is upgraded to 6.4 or
-   * later
-   *
-   * @param input the search input text
-   * @param filter the search filter
-   * @param sort sort values of the last result of the previous page
-   * @param size the number of search hits to return
-   * @return a valid search request
+   * @deprecated Use {@link #getSearchRequest(OperationContext, SearchRequestOptions)} instead.
    */
+  @Deprecated
+  @Nonnull
+  @WithSpan
+  public SearchRequest getSearchRequest(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nullable Filter filter,
+      List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      @Nonnull List<String> facets) {
+    return getSearchRequest(
+        opContext,
+        SearchRequestOptions.builder()
+            .input(input)
+            .filter(filter)
+            .sortCriteria(sortCriteria != null ? sortCriteria : Collections.emptyList())
+            .from(from)
+            .size(size)
+            .facets(facets)
+            .build());
+  }
+
+  /**
+   * Constructs the search query based on the query request with field fetch config.
+   *
+   * @deprecated Use {@link #getSearchRequest(OperationContext, SearchRequestOptions)} instead.
+   */
+  @Deprecated
+  @Nonnull
+  @WithSpan
+  public SearchRequest getSearchRequest(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nullable Filter filter,
+      List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      @Nonnull List<String> facets,
+      @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
+    return getSearchRequest(
+        opContext,
+        SearchRequestOptions.builder()
+            .input(input)
+            .filter(filter)
+            .sortCriteria(sortCriteria != null ? sortCriteria : Collections.emptyList())
+            .from(from)
+            .size(size)
+            .facets(facets)
+            .fieldFetchConfig(fieldFetchConfig)
+            .build());
+  }
+
+  /**
+   * Constructs the search query with scroll/PIT support.
+   *
+   * @deprecated Use {@link #getSearchRequest(OperationContext, SearchRequestOptions)} instead.
+   */
+  @Deprecated
   @Nonnull
   @WithSpan
   public SearchRequest getSearchRequest(
@@ -396,40 +641,73 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable Integer size,
       @Nonnull List<String> facets,
       @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
+    return getSearchRequest(
+        opContext,
+        SearchRequestOptions.builder()
+            .input(input)
+            .filter(filter)
+            .sortCriteria(sortCriteria != null ? sortCriteria : Collections.emptyList())
+            .searchAfter(sort)
+            .pitId(pitId)
+            .keepAlive(keepAlive)
+            .size(size)
+            .facets(facets)
+            .fieldFetchConfig(fieldFetchConfig)
+            .build());
+  }
+
+  /**
+   * Constructs the search query based on the query request.
+   *
+   * @param opContext the operation context
+   * @param options the search request options
+   * @return a valid search request
+   */
+  @Nonnull
+  @WithSpan
+  public SearchRequest getSearchRequest(
+      @Nonnull OperationContext opContext, @Nonnull SearchRequestOptions options) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
+    BoolQueryBuilder filterQuery;
+    if (options.getPredicate() != null) {
+      filterQuery = getFilterQuery(opContext, options.getPredicate());
+    } else {
+      filterQuery = getFilterQuery(opContext, options.getFilter());
+    }
     SearchRequest searchRequest = new PITAwareSearchRequest();
+    applySearchType(searchRequest, opContext);
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
-    ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
+    ESUtils.setSearchAfter(
+        searchSourceBuilder, options.getSearchAfter(), options.getPitId(), options.getKeepAlive());
     ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
 
-    searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
+    searchSourceBuilder.from(options.getFrom());
+    searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, options.getSize()));
 
+    SearchDocFieldFetchConfig fieldFetchConfig = options.getFieldFetchConfig();
     if (fieldFetchConfig == null) {
       fieldFetchConfig = new SearchDocFieldFetchConfig();
     }
+    searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
+
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
-      // Apply custom highlight configuration
       HighlightBuilder highlightBuilder = getHighlightBuilder(opContext, searchFlags);
       searchSourceBuilder.highlighter(highlightBuilder);
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
-    searchRequest.source(searchSourceBuilder);
-    log.debug("Search request is: " + searchRequest);
-    searchRequest.indicesOptions(null);
 
-    searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
+    List<SortCriterion> sortCriteria =
+        options.getSortCriteria() != null ? options.getSortCriteria() : Collections.emptyList();
 
     return buildSearchRequestPageAgnostic(
             opContext,
             searchRequest,
             searchSourceBuilder,
-            input,
+            options.getInput(),
             searchFlags,
             filterQuery,
-            facets,
+            options.getFacets(),
             sortCriteria)
         .indicesOptions(null);
   }
@@ -458,47 +736,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(ConfigUtils.applyLimit(searchServiceConfig, size));
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
-    searchRequest.source(searchSourceBuilder);
-
-    return searchRequest;
-  }
-
-  /**
-   * Returns a {@link SearchRequest} given filters to be applied to search query and sort criterion
-   * to be applied to search results with scrolling capabilities, uses new SearchAfter instead of
-   * legacy scroll
-   *
-   * @param filters {@link Filter} list of conditions with fields and values
-   * @param sortCriteria list of {@link SortCriterion} to be applied to the search results
-   * @param size the number of search hits to return
-   * @param keepAliveDuration duration the search context should be kept alive i.e. 10s, 1m
-   * @return {@link SearchRequest} that contains the filtered query
-   */
-  @Nonnull
-  public SearchRequest getSearchAfterRequest(
-      @Nonnull OperationContext opContext,
-      @Nullable Filter filters,
-      List<SortCriterion> sortCriteria,
-      @Nullable Integer size,
-      @Nullable String keepAliveDuration,
-      @Nullable String pitId,
-      @Nullable Object[] sort,
-      @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
-    SearchRequest searchRequest = new SearchRequest();
-    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
-
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filters);
-    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-    searchSourceBuilder.query(filterQuery);
-    searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    if (fieldFetchConfig == null) {
-      fieldFetchConfig = new SearchDocFieldFetchConfig();
-    }
-    searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
-    ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAliveDuration);
-    ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
-
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
@@ -746,12 +983,66 @@ public class SearchRequestHandler extends BaseRequestHandler {
   }
 
   private SearchEntity getResult(@Nonnull ObjectMapper objectMapper, @Nonnull SearchHit hit) {
+    StringMap extraFields = getStringMap(objectMapper, hit.getSourceAsMap());
+
+    // Extract and serialize explanation if available
+    if (hit.getExplanation() != null) {
+      try {
+        String explanationJson = serializeExplanation(objectMapper, hit.getExplanation());
+        if (extraFields == null) {
+          extraFields = new StringMap();
+        }
+        extraFields.put("_explain", explanationJson);
+      } catch (Exception e) {
+        log.warn("Failed to serialize explanation for document: {}", hit.getId(), e);
+        // Continue without explanation rather than failing the search
+      }
+    }
+
     return new SearchEntity()
         .setEntity(getUrnFromSearchHit(hit))
         .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit)))
         .setScore(hit.getScore())
         .setFeatures(new DoubleMap(extractFeatures(hit)))
-        .setExtraFields(getStringMap(objectMapper, hit.getSourceAsMap()));
+        .setExtraFields(extraFields);
+  }
+
+  /**
+   * Serializes Elasticsearch Explanation to JSON string.
+   *
+   * @param objectMapper Jackson ObjectMapper for JSON serialization
+   * @param explanation Elasticsearch Explanation object
+   * @return JSON string representation of the explanation
+   */
+  private String serializeExplanation(
+      @Nonnull ObjectMapper objectMapper, @Nonnull Explanation explanation)
+      throws JsonProcessingException {
+    Map<String, Object> explanationMap = explanationToMap(explanation);
+    return objectMapper.writeValueAsString(explanationMap);
+  }
+
+  /**
+   * Recursively converts Explanation to Map for JSON serialization.
+   *
+   * @param explanation Elasticsearch Explanation object
+   * @return Map representation suitable for JSON serialization
+   */
+  private Map<String, Object> explanationToMap(@Nonnull Explanation explanation) {
+    Map<String, Object> map = new HashMap<>();
+    map.put("value", explanation.getValue().floatValue());
+    map.put("description", explanation.getDescription());
+    map.put("match", explanation.isMatch());
+
+    Explanation[] details = explanation.getDetails();
+    if (details != null && details.length > 0) {
+      List<Map<String, Object>> detailsList = new ArrayList<>();
+      for (Explanation detail : details) {
+        detailsList.add(explanationToMap(detail));
+      }
+      map.put("details", detailsList);
+    }
+
+    return map;
   }
 
   /**

@@ -286,6 +286,7 @@ javax.validation:validation-api:2.0.1.Final=compileClasspath,runtimeClasspath,te
 javax.ws.rs:javax.ws.rs-api:2.1.1=runtimeClasspath,testRuntimeClasspath
 joda-time:joda-time:2.12.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 net.java.dev.jna:jna:5.13.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+net.objecthunter:exp4j:0.4.8=runtimeClasspath,testRuntimeClasspath
 net.openhft:zero-allocation-hashing:0.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 net.sf.jopt-simple:jopt-simple:5.0.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 nl.basjes.collections:prefixmap:2.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath

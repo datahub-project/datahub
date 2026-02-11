@@ -14,7 +14,9 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.*;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
@@ -129,6 +131,8 @@ public class GmsGraphQLEngineArgs {
   S3Util s3Util;
   SemanticSearchService semanticSearchService;
   SemanticSearchConfiguration semanticSearchConfiguration;
+  SearchConfiguration searchConfiguration;
+  CustomSearchConfiguration customSearchConfiguration;
   // any fork specific args should go below this line
   Integer defaultLineageLastDaysFilter;
   ControlPlaneService controlPlaneService;

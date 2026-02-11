@@ -3,6 +3,7 @@ package io.datahubproject.metadata.context;
 import com.linkedin.common.UrnArray;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
@@ -66,6 +67,7 @@ public class SearchContext implements ContextInterface {
   @Nonnull private final LineageFlags lineageFlags;
   @Nullable private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
   @Nullable private final Map<PathSpec, String> searchableFieldPaths;
+  @Nullable private final SearchConfiguration searchConfiguration;
 
   public boolean isRestrictedSearch() {
     return Optional.ofNullable(searchFlags.isIncludeRestricted()).orElse(false);
@@ -175,7 +177,8 @@ public class SearchContext implements ContextInterface {
           this.searchFlags,
           this.lineageFlags,
           this.searchableFieldTypes,
-          this.searchableFieldPaths);
+          this.searchableFieldPaths,
+          this.searchConfiguration);
     }
   }
 

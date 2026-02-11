@@ -75,6 +75,7 @@ public class SystemOperationContextFactory {
             .searchableFieldTypes(
                 ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
             .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
+            .searchConfiguration(components.getConfig().getSearch())
             .build();
 
     OperationContext systemOperationContext =
@@ -143,6 +144,7 @@ public class SystemOperationContextFactory {
             .searchableFieldTypes(
                 ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
             .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
+            .searchConfiguration(components.getConfig().getSearch())
             .build();
 
     OperationContext systemOperationContext =

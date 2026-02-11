@@ -234,10 +234,12 @@ import com.linkedin.datahub.graphql.resolvers.search.AggregateAcrossEntitiesReso
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.GetQuickFiltersResolver;
+import com.linkedin.datahub.graphql.resolvers.search.RescoreExplanationResolver;
 import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
+import com.linkedin.datahub.graphql.resolvers.search.SearchConfigurationResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.service.DeleteServiceResolver;
 import com.linkedin.datahub.graphql.resolvers.service.ListServicesResolver;
@@ -359,6 +361,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.*;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
@@ -492,6 +495,9 @@ public class GmsGraphQLEngine {
   private final HomePageConfiguration homePageConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
   private final SemanticSearchConfiguration semanticSearchConfiguration;
+  private final SearchConfiguration searchConfiguration;
+  private final com.linkedin.metadata.config.search.custom.CustomSearchConfiguration
+      customSearchConfiguration;
 
   private final DatasetType datasetType;
 
@@ -662,6 +668,8 @@ public class GmsGraphQLEngine {
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
     this.semanticSearchConfiguration = args.semanticSearchConfiguration;
+    this.searchConfiguration = args.searchConfiguration;
+    this.customSearchConfiguration = args.customSearchConfiguration;
 
     this.datasetType = new DatasetType(entityClient, restrictedService);
     this.roleType = new RoleType(entityClient);
@@ -1253,6 +1261,10 @@ public class GmsGraphQLEngine {
                     new GlobalHomePageSettingsResolver(this.settingsService))
                 /* Start SaaS Only */
                 .dataFetcher(
+                    "searchConfiguration",
+                    new SearchConfigurationResolver(
+                        this.searchConfiguration, this.customSearchConfiguration))
+                .dataFetcher(
                     "listAssertions",
                     new ListAssertionsResolver(this.entityClient, this.graphClient))
                 .dataFetcher(
@@ -1645,10 +1657,12 @@ public class GmsGraphQLEngine {
         .type(
             "SearchResult",
             typeWiring ->
-                typeWiring.dataFetcher(
-                    "entity",
-                    new EntityTypeResolver(
-                        entityTypes, (env) -> ((SearchResult) env.getSource()).getEntity())))
+                typeWiring
+                    .dataFetcher(
+                        "entity",
+                        new EntityTypeResolver(
+                            entityTypes, (env) -> ((SearchResult) env.getSource()).getEntity()))
+                    .dataFetcher("rescoreExplanation", new RescoreExplanationResolver()))
         .type(
             "MatchedField",
             typeWiring ->

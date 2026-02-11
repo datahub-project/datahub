@@ -48,7 +48,8 @@ public class MapperUtils {
         getInsightsFromFeatures(searchEntity.getFeatures()),
         getMatchedFieldEntry(context, searchEntity.getMatchedFields()),
         getExtraProperties(searchEntity.getExtraFields()),
-        score);
+        score,
+        null); // rescoreExplanation is populated by RescoreExplanationResolver
   }
 
   private static List<ExtraProperty> getExtraProperties(@Nullable StringMap extraFields) {
