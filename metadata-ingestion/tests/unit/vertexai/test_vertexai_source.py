@@ -122,13 +122,13 @@ def test_get_ml_model_mcps(source: VertexAISource) -> None:
             ),
         )
 
-        mcp_container = MetadataChangeProposalWrapper(
+        model_group_container_urn = source._get_model_group_container(
+            mock_model
+        ).as_urn()
+
+        mcp_mlgroup_container = MetadataChangeProposalWrapper(
             entityUrn=expected_urn,
-            aspect=ContainerClass(
-                container=get_resource_category_container_urn(
-                    source, ResourceCategory.MODELS
-                )
-            ),
+            aspect=ContainerClass(container=model_group_container_urn),
         )
         mcp_subtype = MetadataChangeProposalWrapper(
             entityUrn=expected_urn,
@@ -138,12 +138,12 @@ def test_get_ml_model_mcps(source: VertexAISource) -> None:
         mcp_dataplatform = MetadataChangeProposalWrapper(
             entityUrn=expected_urn,
             aspect=DataPlatformInstanceClass(
-                platform=str(DataPlatformUrn(source.platform))
+                platform=DataPlatformUrn(source.platform).urn(), instance=None
             ),
         )
 
-        assert len(actual_mcps) == 4
-        assert any(mcp_container == mcp.metadata for mcp in actual_mcps)
+        assert len(actual_mcps) == 9
+        assert any(mcp_mlgroup_container == mcp.metadata for mcp in actual_mcps)
         assert any(mcp_subtype == mcp.metadata for mcp in actual_mcps)
         assert any(mcp_mlgroup == mcp.metadata for mcp in actual_mcps)
         assert any(mcp_dataplatform == mcp.metadata for mcp in actual_mcps)
@@ -189,13 +189,10 @@ def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
         ),
     )
 
+    model_group_container_urn = source._get_model_group_container(mock_model).as_urn()
     mcp_container = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
-        aspect=ContainerClass(
-            container=get_resource_category_container_urn(
-                source, ResourceCategory.MODELS
-            )
-        ),
+        aspect=ContainerClass(container=model_group_container_urn),
     )
     mcp_subtype = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
@@ -205,7 +202,7 @@ def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
     mcp_dataplatform = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
         aspect=DataPlatformInstanceClass(
-            platform=str(DataPlatformUrn(source.platform))
+            platform=DataPlatformUrn(source.platform).urn()
         ),
     )
 
@@ -269,14 +266,17 @@ def test_get_endpoint_mcps(
         ),
     )
 
+    mcp_dataplatform = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=DataPlatformInstanceClass(
+            platform=DataPlatformUrn(source.platform).urn(), instance=None
+        ),
+    )
+
     assert len(actual_mcps) == 3
     assert any(mcp_endpoint == mcp.metadata for mcp in actual_mcps)
     assert any(mcp_container == mcp.metadata for mcp in actual_mcps)
-    assert any(
-        hasattr(mcp.metadata, "__class__")
-        and mcp.metadata.__class__.__name__ == "DataPlatformInstanceClass"
-        for mcp in actual_mcps
-    )
+    assert any(mcp_dataplatform == mcp.metadata for mcp in actual_mcps)
 
 
 def test_get_training_jobs_mcps(
@@ -358,7 +358,7 @@ def test_get_training_jobs_mcps(
         mcp_dataplatform = MetadataChangeProposalWrapper(
             entityUrn=expected_urn,
             aspect=DataPlatformInstanceClass(
-                platform=str(DataPlatformUrn(source.platform))
+                platform=DataPlatformUrn(source.platform).urn()
             ),
         )
 
@@ -428,7 +428,7 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
     mcp_dataplatform = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
         aspect=DataPlatformInstanceClass(
-            platform=str(DataPlatformUrn(source.platform))
+            platform=DataPlatformUrn(source.platform).urn()
         ),
     )
 
@@ -560,7 +560,7 @@ def test_get_input_dataset_mcps(source: VertexAISource) -> None:
     mcp_dataplatform = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
         aspect=DataPlatformInstanceClass(
-            platform=str(DataPlatformUrn(source.platform))
+            platform=DataPlatformUrn(source.platform).urn()
         ),
     )
 
@@ -604,7 +604,7 @@ def test_get_experiment_mcps(
     mcp_dataplatform = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
         aspect=DataPlatformInstanceClass(
-            platform=str(DataPlatformUrn(source.platform))
+            platform=DataPlatformUrn(source.platform).urn(), instance=None
         ),
     )
 
@@ -614,6 +614,7 @@ def test_get_experiment_mcps(
             name=mock_experiment.name,
             customProperties={
                 "platform": source.platform,
+                "env": source.config.env,
                 "id": source.name_formatter.format_experiment_id(mock_experiment.name),
                 "name": mock_experiment.name,
                 "resourceName": mock_experiment.resource_name,
@@ -621,6 +622,7 @@ def test_get_experiment_mcps(
                 if mock_experiment.dashboard_url
                 else "",
             },
+            env=source.config.env,
             externalUrl=source.url_builder.make_experiment_url(mock_experiment.name),
         ),
     )
@@ -699,7 +701,7 @@ def test_gen_experiment_run_mcps(
     mcp_dataplatform = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
         aspect=DataPlatformInstanceClass(
-            platform=str(DataPlatformUrn(source.platform))
+            platform=DataPlatformUrn(source.platform).urn()
         ),
     )
 
@@ -850,7 +852,7 @@ def test_get_pipeline_mcps(
         mcp_task_run_dataplatform = MetadataChangeProposalWrapper(
             entityUrn=dpi_urn,
             aspect=DataPlatformInstanceClass(
-                platform=str(DataPlatformUrn(source.platform))
+                platform=DataPlatformUrn(source.platform).urn(), instance=None
             ),
         )
 
@@ -861,7 +863,7 @@ def test_get_pipeline_mcps(
             ),
         )
 
-        assert len(actual_mcps) == 19
+        assert len(actual_mcps) == 18
         assert any(mcp_pipe_df_info == mcp.metadata for mcp in actual_mcps)
         assert any(mcp_pipe_df_status == mcp.metadata for mcp in actual_mcps)
         assert any(mcp_pipe_subtype == mcp.metadata for mcp in actual_mcps)

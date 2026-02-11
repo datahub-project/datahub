@@ -247,11 +247,11 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+            "container": "urn:li:container:1a2660749ba479c40a56e4635029605d"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770840700646,
+        "lastObserved": 1770852376902,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -397,12 +397,16 @@
                 {
                     "id": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
                     "urn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+                },
+                {
+                    "id": "urn:li:container:1a2660749ba479c40a56e4635029605d",
+                    "urn": "urn:li:container:1a2660749ba479c40a56e4635029605d"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770840700647,
+        "lastObserved": 1770852376903,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -457,11 +461,11 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+            "container": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770840700888,
+        "lastObserved": 1770852377065,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -497,12 +501,16 @@
                 {
                     "id": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
                     "urn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+                },
+                {
+                    "id": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb",
+                    "urn": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770840700889,
+        "lastObserved": 1770852377066,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -761,6 +769,22 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:1a2660749ba479c40a56e4635029605d",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770852376897,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:1f16c00952f79966aa7222f9937f884b",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -771,6 +795,61 @@
     },
     "systemMetadata": {
         "lastObserved": 1770840700638,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1a2660749ba479c40a56e4635029605d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "env": "PROD",
+                "project_id": "test-project-id",
+                "model_group_name": "test-project-id.model_group.mock_prediction_model_1"
+            },
+            "name": "mock_prediction_model_1_display_name",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770852376897,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1a2660749ba479c40a56e4635029605d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770852376898,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1a2660749ba479c40a56e4635029605d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770852376897,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -794,6 +873,49 @@
     },
     "systemMetadata": {
         "lastObserved": 1770851521890,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1a2660749ba479c40a56e4635029605d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "ML Model Group"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770852376898,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1a2660749ba479c40a56e4635029605d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                },
+                {
+                    "id": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+                    "urn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770852376898,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -853,6 +975,22 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770852376903,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:c6dbf9d132a9cd66c540f875ffbebc17",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -865,6 +1003,61 @@
     },
     "systemMetadata": {
         "lastObserved": 1770840700635,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "env": "PROD",
+                "project_id": "test-project-id",
+                "model_group_name": "test-project-id.model_group.mock_prediction_model_2"
+            },
+            "name": "mock_prediction_model_2_display_name",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770852376904,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770852376904,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770852376904,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -886,6 +1079,49 @@
     },
     "systemMetadata": {
         "lastObserved": 1770840700637,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "ML Model Group"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770852376905,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                },
+                {
+                    "id": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+                    "urn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770852376905,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }

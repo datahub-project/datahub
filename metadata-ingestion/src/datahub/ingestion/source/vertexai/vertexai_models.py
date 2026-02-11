@@ -21,6 +21,12 @@ class VertexAIResourceCategoryKey(ProjectIdKey):
     category: str
 
 
+class ModelGroupKey(ProjectIdKey):
+    """Container key for a Vertex AI model group."""
+
+    model_group_name: str
+
+
 @dataclasses.dataclass
 class ExecutionMetadata:
     execution_name: str

@@ -98,6 +98,7 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     MLMetadataConfig,
     MLModelCustomProperties,
     ModelEvaluationCustomProperties,
+    ModelGroupKey,
     ModelMetadata,
     PipelineMetadata,
     PipelineProperties,
@@ -1305,8 +1306,19 @@ class VertexAISource(StatefulIngestionSourceBase):
         model: Model,
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Generate an MLModelGroup mcp for a VertexAI  Model.
+        Generate container and MLModelGroup mcp for a VertexAI Model.
         """
+        model_group_container_key = self._get_model_group_container(model)
+
+        yield from gen_containers(
+            parent_container_key=self._get_resource_category_container(
+                ResourceCategory.MODELS
+            ),
+            container_key=model_group_container_key,
+            name=model.display_name,
+            sub_types=[VertexAISubTypes.MODEL_GROUP],
+        )
+
         ml_model_group_urn = self.urn_builder.make_ml_model_group_urn(model)
 
         yield MetadataChangeProposalWrapper(
@@ -1338,10 +1350,15 @@ class VertexAISource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
+        yield MetadataChangeProposalWrapper(
+            entityUrn=ml_model_group_urn,
+            aspect=ContainerClass(container=model_group_container_key.as_urn()),
+        ).as_workunit()
+
         yield from self._yield_common_aspects(
             entity_urn=ml_model_group_urn,
             subtype=VertexAISubTypes.MODEL_GROUP,
-            resource_category=ResourceCategory.MODELS,
+            include_container=False,
         )
 
     def _get_project_container(self) -> ProjectIdKey:
@@ -1361,6 +1378,15 @@ class VertexAISource(StatefulIngestionSourceBase):
             instance=self.config.platform_instance,
             env=self.config.env,
             category=category,
+        )
+
+    def _get_model_group_container(self, model: Model) -> ModelGroupKey:
+        return ModelGroupKey(
+            project_id=self._get_project_id(),
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+            model_group_name=self.name_formatter.format_model_group_name(model.name),
         )
 
     def _generate_resource_category_containers(self) -> Iterable[MetadataWorkUnit]:
@@ -1680,10 +1706,16 @@ class VertexAISource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
+        model_group_container_urn = self._get_model_group_container(model).as_urn()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=model_urn,
+            aspect=ContainerClass(container=model_group_container_urn),
+        ).as_workunit()
+
         yield from self._yield_common_aspects(
             entity_urn=model_urn,
             subtype=VertexAISubTypes.MODEL,
-            resource_category=ResourceCategory.MODELS,
+            include_container=False,
         )
 
         yield MetadataChangeProposalWrapper(
