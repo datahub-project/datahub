@@ -19,7 +19,13 @@ from datahub.ingestion.source.vertexai.vertexai import (
     VertexAIConfig,
     VertexAISource,
 )
-from datahub.ingestion.source.vertexai.vertexai_constants import VertexAISubTypes
+from datahub.ingestion.source.vertexai.vertexai_constants import (
+    ResourceCategory,
+    VertexAISubTypes,
+)
+from datahub.ingestion.source.vertexai.vertexai_models import (
+    VertexAIResourceCategoryKey,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceRelationships,
 )
@@ -66,6 +72,15 @@ PROJECT_ID = "acryl-poc"
 REGION = "us-west2"
 
 
+def get_resource_category_container_urn(source: VertexAISource, category: str) -> str:
+    """Helper to get resource category container URN for tests."""
+    return VertexAIResourceCategoryKey(
+        project_id=source._get_project_id(),
+        platform=source.platform,
+        category=category,
+    ).as_urn()
+
+
 @pytest.fixture
 def source() -> VertexAISource:
     return VertexAISource(
@@ -108,7 +123,11 @@ def test_get_ml_model_mcps(source: VertexAISource) -> None:
 
         mcp_container = MetadataChangeProposalWrapper(
             entityUrn=expected_urn,
-            aspect=ContainerClass(container=source._get_project_container().as_urn()),
+            aspect=ContainerClass(
+                container=get_resource_category_container_urn(
+                    source, ResourceCategory.MODELS
+                )
+            ),
         )
         mcp_subtype = MetadataChangeProposalWrapper(
             entityUrn=expected_urn,
@@ -171,7 +190,11 @@ def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
 
     mcp_container = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
-        aspect=ContainerClass(container=source._get_project_container().as_urn()),
+        aspect=ContainerClass(
+            container=get_resource_category_container_urn(
+                source, ResourceCategory.MODELS
+            )
+        ),
     )
     mcp_subtype = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
@@ -238,12 +261,21 @@ def test_get_endpoint_mcps(
 
     mcp_container = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
-        aspect=ContainerClass(container=source._get_project_container().as_urn()),
+        aspect=ContainerClass(
+            container=get_resource_category_container_urn(
+                source, ResourceCategory.ENDPOINTS
+            )
+        ),
+    )
+    mcp_subtype = MetadataChangeProposalWrapper(
+        entityUrn=expected_urn,
+        aspect=SubTypesClass(typeNames=[VertexAISubTypes.ENDPOINT]),
     )
 
-    assert len(actual_mcps) == 2
+    assert len(actual_mcps) == 3
     assert any(mcp_endpoint == mcp.metadata for mcp in actual_mcps)
     assert any(mcp_container == mcp.metadata for mcp in actual_mcps)
+    assert any(mcp_subtype == mcp.metadata for mcp in actual_mcps)
 
 
 def test_get_training_jobs_mcps(
@@ -311,7 +343,11 @@ def test_get_training_jobs_mcps(
 
         mcp_container = MetadataChangeProposalWrapper(
             entityUrn=expected_urn,
-            aspect=ContainerClass(container=source._get_project_container().as_urn()),
+            aspect=ContainerClass(
+                container=get_resource_category_container_urn(
+                    source, ResourceCategory.TRAINING_JOBS
+                )
+            ),
         )
         mcp_subtype = MetadataChangeProposalWrapper(
             entityUrn=expected_urn,
@@ -377,7 +413,11 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
 
     mcp_container = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
-        aspect=ContainerClass(container=source._get_project_container().as_urn()),
+        aspect=ContainerClass(
+            container=get_resource_category_container_urn(
+                source, ResourceCategory.TRAINING_JOBS
+            )
+        ),
     )
     mcp_subtype = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
@@ -505,7 +545,11 @@ def test_get_input_dataset_mcps(source: VertexAISource) -> None:
     )
     mcp_container = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
-        aspect=ContainerClass(container=source._get_project_container().as_urn()),
+        aspect=ContainerClass(
+            container=get_resource_category_container_urn(
+                source, ResourceCategory.DATASETS
+            )
+        ),
     )
     mcp_subtype = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
@@ -708,7 +752,11 @@ def test_get_pipeline_mcps(
         )
         mcp_pipe_container = MetadataChangeProposalWrapper(
             entityUrn=expected_pipeline_urn,
-            aspect=ContainerClass(container=source._get_project_container().as_urn()),
+            aspect=ContainerClass(
+                container=get_resource_category_container_urn(
+                    source, ResourceCategory.PIPELINES
+                )
+            ),
         )
         mcp_pipe_subtype = MetadataChangeProposalWrapper(
             entityUrn=expected_pipeline_urn,
@@ -745,7 +793,11 @@ def test_get_pipeline_mcps(
 
         mcp_task_container = MetadataChangeProposalWrapper(
             entityUrn=expected_task_urn,
-            aspect=ContainerClass(container=source._get_project_container().as_urn()),
+            aspect=ContainerClass(
+                container=get_resource_category_container_urn(
+                    source, ResourceCategory.PIPELINES
+                )
+            ),
         )
         mcp_task_subtype = MetadataChangeProposalWrapper(
             entityUrn=expected_task_urn,
@@ -779,7 +831,11 @@ def test_get_pipeline_mcps(
 
         mcp_task_run_container = MetadataChangeProposalWrapper(
             entityUrn=dpi_urn,
-            aspect=ContainerClass(container=source._get_project_container().as_urn()),
+            aspect=ContainerClass(
+                container=get_resource_category_container_urn(
+                    source, ResourceCategory.PIPELINES
+                )
+            ),
         )
         mcp_task_run_subtype = MetadataChangeProposalWrapper(
             entityUrn=dpi_urn,

@@ -9,9 +9,16 @@ from google.cloud.aiplatform_v1.types import PipelineTaskDetail
 from google.protobuf import timestamp_pb2
 from pydantic import BaseModel, Field
 
+from datahub.emitter.mcp_builder import ProjectIdKey
 from datahub.ingestion.source.vertexai.vertexai_constants import MLMetadataDefaults
 from datahub.metadata.schema_classes import MLHyperParamClass, MLMetricClass
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn
+
+
+class VertexAIResourceCategoryKey(ProjectIdKey):
+    """Container key for Vertex AI resource categories (Models, Training Jobs, etc.)."""
+
+    category: str
 
 
 @dataclasses.dataclass

@@ -6,6 +6,17 @@ from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 DATAHUB_ACTOR = "urn:li:corpuser:datahub"
 
 
+class ResourceCategory:
+    """Container categories for organizing Vertex AI resources."""
+
+    MODELS = "Models"
+    TRAINING_JOBS = "Training Jobs"
+    DATASETS = "Datasets"
+    ENDPOINTS = "Endpoints"
+    PIPELINES = "Pipelines"
+    EVALUATIONS = "Evaluations"
+
+
 class VertexAISubTypes:
     """
     Vertex AI resource subtypes used for entity classification in DataHub.

@@ -53,6 +53,7 @@ from datahub.ingestion.source.common.gcp_project_filter import (
     GcpProjectFilterConfig,
     resolve_gcp_projects,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.vertexai.ml_metadata_helper import MLMetadataHelper
 from datahub.ingestion.source.vertexai.protobuf_utils import (
     extract_numeric_value,
@@ -77,6 +78,7 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     MLMetadataDefaults,
     MLMetadataSchemas,
     MLModelType,
+    ResourceCategory,
     TrainingJobTypes,
     VertexAISubTypes,
 )
@@ -97,6 +99,7 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     RunTimestamps,
     TrainingJobCustomProperties,
     TrainingJobMetadata,
+    VertexAIResourceCategoryKey,
 )
 from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_execution_result_status,
@@ -241,6 +244,7 @@ class VertexAISource(Source):
         subtype: str,
         include_container: bool = True,
         include_platform: bool = True,
+        resource_category: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Helper method to yield common aspects that most entities share.
@@ -248,13 +252,22 @@ class VertexAISource(Source):
         Args:
             entity_urn: The URN of the entity
             subtype: The subtype from VertexAISubTypes
-            include_container: Whether to include project container aspect
+            include_container: Whether to include container aspect
             include_platform: Whether to include platform instance aspect
+            resource_category: Optional resource category (Models, Training Jobs, etc.)
+                If provided, entity is placed in category container; otherwise in project container
         """
         if include_container:
+            if resource_category:
+                container_urn = self._get_resource_category_container(
+                    resource_category
+                ).as_urn()
+            else:
+                container_urn = self._get_project_container().as_urn()
+
             yield MetadataChangeProposalWrapper(
                 entityUrn=entity_urn,
-                aspect=ContainerClass(container=self._get_project_container().as_urn()),
+                aspect=ContainerClass(container=container_urn),
             ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
@@ -480,6 +493,7 @@ class VertexAISource(Source):
         yield from self._yield_common_aspects(
             entity_urn=dpi_urn,
             subtype=VertexAISubTypes.PIPELINE_TASK_RUN,
+            resource_category=ResourceCategory.PIPELINES,
         )
 
         yield MetadataChangeProposalWrapper(
@@ -526,6 +540,7 @@ class VertexAISource(Source):
                 entity_urn=datajob.urn.urn(),
                 subtype=VertexAISubTypes.PIPELINE_TASK,
                 include_platform=False,
+                resource_category=ResourceCategory.PIPELINES,
             )
             for mcp in datajob.generate_mcp():
                 yield mcp.as_workunit()
@@ -609,6 +624,7 @@ class VertexAISource(Source):
             entity_urn=dataflow.urn.urn(),
             subtype=VertexAISubTypes.PIPELINE,
             include_platform=False,
+            resource_category=ResourceCategory.PIPELINES,
         )
 
     def _get_experiments_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -890,6 +906,8 @@ class VertexAISource(Source):
             sub_types=[VertexAISubTypes.PROJECT],
         )
 
+        yield from self._generate_resource_category_containers()
+
     def _get_ml_models_mcps(self) -> Iterable[MetadataWorkUnit]:
         """
         Fetch List of Models in Model Registry and generate a corresponding mcp.
@@ -1040,6 +1058,7 @@ class VertexAISource(Source):
         yield from self._yield_common_aspects(
             entity_urn=evaluation_urn,
             subtype=VertexAISubTypes.MODEL_EVALUATION,
+            resource_category=ResourceCategory.EVALUATIONS,
         )
 
         yield MetadataChangeProposalWrapper(
@@ -1228,6 +1247,7 @@ class VertexAISource(Source):
         yield from self._yield_common_aspects(
             entity_urn=job_urn,
             subtype=VertexAISubTypes.TRAINING_JOB,
+            resource_category=ResourceCategory.TRAINING_JOBS,
         )
 
         if dataset_urn or external_input_edges:
@@ -1309,10 +1329,39 @@ class VertexAISource(Source):
         yield from self._yield_common_aspects(
             entity_urn=ml_model_group_urn,
             subtype=VertexAISubTypes.MODEL_GROUP,
+            resource_category=ResourceCategory.MODELS,
         )
 
     def _get_project_container(self) -> ProjectIdKey:
         return ProjectIdKey(project_id=self._get_project_id(), platform=self.platform)
+
+    def _get_resource_category_container(
+        self, category: str
+    ) -> VertexAIResourceCategoryKey:
+        """Get container for a specific resource category within a project."""
+        return VertexAIResourceCategoryKey(
+            project_id=self._get_project_id(), platform=self.platform, category=category
+        )
+
+    def _generate_resource_category_containers(self) -> Iterable[MetadataWorkUnit]:
+        """Generate all resource category containers for the current project."""
+        categories = [
+            ResourceCategory.MODELS,
+            ResourceCategory.TRAINING_JOBS,
+            ResourceCategory.DATASETS,
+            ResourceCategory.ENDPOINTS,
+            ResourceCategory.PIPELINES,
+            ResourceCategory.EVALUATIONS,
+        ]
+
+        for category in categories:
+            category_key = self._get_resource_category_container(category)
+            yield from gen_containers(
+                parent_container_key=self._get_project_container(),
+                container_key=category_key,
+                name=category,
+                sub_types=[DatasetContainerSubTypes.FOLDER],
+            )
 
     def _get_project_id(self) -> str:
         return self._current_project_id or self.config.project_id
@@ -1410,6 +1459,7 @@ class VertexAISource(Source):
             yield from self._yield_common_aspects(
                 entity_urn=dataset_urn,
                 subtype=VertexAISubTypes.DATASET,
+                resource_category=ResourceCategory.DATASETS,
             )
 
     def _get_training_job_metadata(
@@ -1524,12 +1574,12 @@ class VertexAISource(Source):
                     ),
                 ).as_workunit()
 
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=endpoint_urn,
-                    aspect=ContainerClass(
-                        container=self._get_project_container().as_urn()
-                    ),
-                ).as_workunit()
+                yield from self._yield_common_aspects(
+                    entity_urn=endpoint_urn,
+                    subtype=VertexAISubTypes.ENDPOINT,
+                    resource_category=ResourceCategory.ENDPOINTS,
+                    include_platform=False,
+                )
 
     def _gen_ml_model_mcps(
         self, ModelMetadata: ModelMetadata
@@ -1613,6 +1663,7 @@ class VertexAISource(Source):
         yield from self._yield_common_aspects(
             entity_urn=model_urn,
             subtype=VertexAISubTypes.MODEL,
+            resource_category=ResourceCategory.MODELS,
         )
 
         yield MetadataChangeProposalWrapper(
