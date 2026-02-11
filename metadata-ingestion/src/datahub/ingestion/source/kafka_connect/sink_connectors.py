@@ -1237,7 +1237,6 @@ class ClickHouseSinkConnector(BaseConnector):
         Extract lineage from Kafka topics to ClickHouse tables.
 
         Creates lineage for each topic: Kafka topic → ClickHouse table
-        Uses 2-tier hierarchy: database.table (no schema).
 
         Returns:
             List of lineage mappings
