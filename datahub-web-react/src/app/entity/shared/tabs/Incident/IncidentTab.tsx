@@ -1,4 +1,5 @@
 import { PlusOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import { Button, Empty, List, Select, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -6,7 +7,7 @@ import styled from 'styled-components';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
+import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { AddIncidentModal } from '@app/entity/shared/tabs/Incident/components/AddIncidentModal';
 import IncidentListItem from '@app/entity/shared/tabs/Incident/components/IncidentListItem';
 import { IncidentSummary } from '@app/entity/shared/tabs/Incident/components/IncidentSummary';
@@ -18,7 +19,7 @@ import {
 } from '@app/entity/shared/tabs/Incident/incidentUtils';
 
 import { useGetEntityIncidentsQuery } from '@graphql/incident.generated';
-import { EntityType, Incident, IncidentState } from '@types';
+import { Incident, IncidentState } from '@types';
 
 const Header = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[3]};
@@ -51,10 +52,11 @@ const IncidentStateSelect = styled(Select)`
 `;
 
 export const IncidentTab = () => {
-    const { urn, entityType } = useEntityData();
+    const { urn } = useEntityData();
     const incidentStates = INCIDENT_DISPLAY_STATES;
     const [selectedIncidentState, setSelectedIncidentState] = useState<IncidentState | undefined>(IncidentState.Active);
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
+    const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
 
     // Fetch filtered incidents.
     const { loading, data, refetch } = useGetEntityIncidentsQuery({
@@ -63,11 +65,11 @@ export const IncidentTab = () => {
             start: 0,
             count: PAGE_SIZE,
         },
-        fetchPolicy: 'cache-and-network',
+        fetchPolicy: 'cache-first',
     });
 
     const hasData = (data?.entity as any)?.incidents;
-    const combinedData = (entityType === EntityType.Dataset && combineEntityDataWithSiblings(data)) || data;
+    const combinedData = isSeparateSiblingsMode ? data : combineEntityDataWithSiblings(data);
     const allIncidents: Incident[] =
         (combinedData && (combinedData as any).entity?.incidents?.incidents?.map((incident) => incident as Incident)) ||
         [];
@@ -75,18 +77,30 @@ export const IncidentTab = () => {
         (incident) => !selectedIncidentState || incident.incidentStatus?.state === selectedIncidentState,
     );
 
+    const canEditIncidents = (data?.entity as any)?.privileges?.canEditIncidents || false;
+
     return (
         <>
             <Header>
                 <TabToolbar>
-                    <Button icon={<PlusOutlined />} onClick={() => setIsRaiseIncidentModalVisible(true)} type="text">
-                        Raise Incident
-                    </Button>
-                    <AddIncidentModal
-                        refetch={refetch}
-                        open={isRaiseIncidentModalVisible}
-                        onClose={() => setIsRaiseIncidentModalVisible(false)}
-                    />
+                    <Tooltip
+                        showArrow={false}
+                        title={!canEditIncidents && 'You do not have permission to create an incidents for this asset'}
+                    >
+                        <Button
+                            icon={<PlusOutlined />}
+                            onClick={() => canEditIncidents && setIsRaiseIncidentModalVisible(true)}
+                            type="text"
+                            disabled={!canEditIncidents}
+                        >
+                            Raise Incident
+                        </Button>
+                        <AddIncidentModal
+                            refetch={refetch}
+                            open={isRaiseIncidentModalVisible}
+                            onClose={() => setIsRaiseIncidentModalVisible(false)}
+                        />
+                    </Tooltip>
                 </TabToolbar>
                 <Summary>
                     <IncidentSummary summary={getIncidentsStatusSummary(allIncidents)} />
