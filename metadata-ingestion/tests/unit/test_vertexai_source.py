@@ -1523,6 +1523,12 @@ class TestEmptyStringValidation:
         with pytest.raises(ValueError, match="cannot be an empty list"):
             VertexAIConfig(project_ids=[], region="us-west2")
 
+    def test_omitted_project_ids_allows_auto_discovery(self) -> None:
+        """Omitting project_ids (None) should allow auto-discovery."""
+        config = VertexAIConfig(region="us-west2")
+        assert config.project_ids is None
+        assert config.has_explicit_project_ids() is False
+
     def test_empty_string_in_project_labels_rejected(self) -> None:
         """Empty strings in project_labels should be rejected."""
         with pytest.raises(ValueError, match="empty"):

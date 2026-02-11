@@ -6,7 +6,7 @@ from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
 import pydantic
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 from typing_extensions import Self
 
 from datahub.configuration.common import AllowDenyPattern
@@ -45,8 +45,8 @@ class VertexAIConfig(EnvConfigMixin):
         description="[DEPRECATED] Use 'project_ids' instead. Single GCP project ID.",
     )
 
-    project_ids: List[str] = Field(
-        default_factory=list,
+    project_ids: Optional[List[str]] = Field(
+        default=None,
         description=(
             "List of GCP project IDs to ingest Vertex AI resources from. "
             "If set, takes precedence over project_labels and auto-discovery. "
@@ -56,17 +56,25 @@ class VertexAIConfig(EnvConfigMixin):
         ),
     )
 
-    @field_validator("project_ids")
+    @field_validator("project_ids", mode="before")
     @classmethod
-    def validate_project_ids_field(cls, project_ids: List[str]) -> List[str]:
+    def validate_project_ids_field(
+        cls, project_ids: Any, info: ValidationInfo
+    ) -> Optional[List[str]]:
+        if project_ids is None:
+            return None
+
+        if not isinstance(project_ids, list):
+            raise ValueError("project_ids must be a list")
+
         try:
             validate_project_id_list(project_ids, allow_empty=False)
         except GCPValidationError as e:
             raise ValueError(str(e)) from e
         return project_ids
 
-    project_labels: List[str] = Field(
-        default_factory=list,
+    project_labels: Optional[List[str]] = Field(
+        default=None,
         description=(
             "Ingests projects with the specified labels. Format: 'key:value' or 'key' (for any value). "
             "Example: ['env:prod', 'team:ml']. If project_ids is set, this is ignored. "
@@ -77,9 +85,17 @@ class VertexAIConfig(EnvConfigMixin):
         ),
     )
 
-    @field_validator("project_labels")
+    @field_validator("project_labels", mode="before")
     @classmethod
-    def validate_project_labels_field(cls, project_labels: List[str]) -> List[str]:
+    def validate_project_labels_field(
+        cls, project_labels: Any, info: ValidationInfo
+    ) -> Optional[List[str]]:
+        if project_labels is None:
+            return None
+
+        if not isinstance(project_labels, list):
+            raise ValueError("project_labels must be a list")
+
         try:
             validate_project_label_list(project_labels)
         except GCPValidationError as e:
