@@ -38,10 +38,7 @@ const TimezoneContainer = styled.div`
 `;
 
 export function ScheduleSection() {
-    const { updateState, setCurrentStepCompleted, setCurrentStepUncompleted, state } = useMultiStepContext<
-        MultiStepSourceBuilderState,
-        IngestionSourceFormStep
-    >();
+    const { updateState, state } = useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep>();
     const { schedule } = state;
     const interval = schedule?.interval?.replaceAll(', ', ' ') || DAILY_MIDNIGHT_CRON_INTERVAL;
     const timezone = schedule?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -92,14 +89,6 @@ export function ScheduleSection() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [scheduleCronInterval, scheduleEnabled, scheduleTimezone]);
-
-    useEffect(() => {
-        if (cronAsText.error) {
-            setCurrentStepUncompleted();
-        } else {
-            setCurrentStepCompleted();
-        }
-    }, [cronAsText, setCurrentStepCompleted, setCurrentStepUncompleted]);
 
     useEffect(() => {
         if (analyticsRef.current) return;
