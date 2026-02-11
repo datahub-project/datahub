@@ -1157,3 +1157,167 @@ def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
         ]
 
         assert len(run_mcps) > 0
+
+
+@patch("datahub.ingestion.source.vertexai.vertexai.resolve_gcp_projects")
+def test_multi_project_initialization_with_explicit_ids(
+    mock_resolve: MagicMock,
+) -> None:
+    """Test initialization with explicit project_ids"""
+    from datahub.ingestion.source.common.gcp_project_filter import GcpProject
+
+    mock_resolve.return_value = [
+        GcpProject(id="project-1", name="Project 1"),
+        GcpProject(id="project-2", name="Project 2"),
+    ]
+
+    config = VertexAIConfig.model_validate(
+        {
+            "project_id": "test-project",
+            "region": "us-central1",
+            "project_ids": ["project-1", "project-2"],
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+    assert source._projects == ["project-1", "project-2"]
+    mock_resolve.assert_called_once()
+
+
+@patch("datahub.ingestion.source.vertexai.vertexai.resolve_gcp_projects")
+def test_multi_project_initialization_with_labels(mock_resolve: MagicMock) -> None:
+    """Test initialization with project labels"""
+    from datahub.ingestion.source.common.gcp_project_filter import GcpProject
+
+    mock_resolve.return_value = [
+        GcpProject(id="dev-project", name="Development"),
+        GcpProject(id="prod-project", name="Production"),
+    ]
+
+    config = VertexAIConfig.model_validate(
+        {
+            "project_id": "test-project",
+            "region": "us-central1",
+            "project_labels": ["env:prod", "team:ml"],
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+    assert source._projects == ["dev-project", "prod-project"]
+
+
+@patch("datahub.ingestion.source.vertexai.vertexai.resolve_gcp_projects")
+def test_multi_project_fallback_to_project_id_when_resolution_fails(
+    mock_resolve: MagicMock,
+) -> None:
+    """Test fallback to project_id when multi-project resolution returns empty"""
+    mock_resolve.return_value = []
+
+    config = VertexAIConfig.model_validate(
+        {
+            "project_id": "fallback-project",
+            "region": "us-central1",
+            "project_ids": ["invalid-project"],
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+    assert source._projects == ["fallback-project"]
+
+
+@patch("google.cloud.aiplatform.aiplatform.list_models")
+def test_region_discovery_for_project(mock_list_models: MagicMock) -> None:
+    """Test automatic region discovery for projects"""
+    mock_list_models.side_effect = [
+        [],  # us-central1 - empty
+        [MagicMock()],  # us-west1 - has models
+        [],  # europe-west1 - empty
+    ]
+
+    config = VertexAIConfig.model_validate(
+        {
+            "project_id": "test-project",
+            "region": "us-central1",
+            "discover_regions": True,
+            "candidate_regions": ["us-central1", "us-west1", "europe-west1"],
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+    assert "test-project" in source._project_to_regions
+    assert "us-west1" in source._project_to_regions["test-project"]
+
+
+@patch("google.cloud.aiplatform.aiplatform.list_models")
+def test_region_discovery_handles_errors_gracefully(
+    mock_list_models: MagicMock,
+) -> None:
+    """Test that region discovery continues on API errors"""
+    from google.api_core.exceptions import GoogleAPICallError
+
+    mock_list_models.side_effect = [
+        GoogleAPICallError("Permission denied"),
+        [MagicMock()],  # us-west1 succeeds
+    ]
+
+    config = VertexAIConfig.model_validate(
+        {
+            "project_id": "test-project",
+            "region": "us-central1",
+            "discover_regions": True,
+            "candidate_regions": ["us-central1", "us-west1"],
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+    assert "us-west1" in source._project_to_regions.get("test-project", [])
+
+
+@pytest.mark.parametrize(
+    "duration,expected",
+    [
+        (timedelta(seconds=45), "45 seconds"),
+        (timedelta(minutes=5, seconds=30), "5 minutes 30 seconds"),
+        (timedelta(hours=2, minutes=15), "2 hours 15 minutes 0 seconds"),
+        (timedelta(days=1, hours=3, minutes=20), "1 days 3 hours 20 minutes"),
+        (timedelta(seconds=0), "0 seconds"),
+    ],
+)
+def test_format_pipeline_duration(
+    source: VertexAISource, duration: timedelta, expected: str
+) -> None:
+    """Test various duration formatting scenarios"""
+    formatted = source._format_pipeline_duration(duration)
+    assert formatted == expected
+
+
+def test_ml_metadata_helper_disabled_by_config() -> None:
+    """Test that ML Metadata helper is not initialized when disabled"""
+    config = VertexAIConfig.model_validate(
+        {
+            "project_id": "test-project",
+            "region": "us-central1",
+            "use_ml_metadata_for_lineage": False,
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+    assert source._ml_metadata_helper is None
+
+
+@patch("datahub.ingestion.source.vertexai.ml_metadata_helper.MetadataServiceClient")
+def test_ml_metadata_helper_handles_init_errors(mock_client: MagicMock) -> None:
+    """Test ML Metadata helper gracefully handles initialization errors"""
+    mock_client.side_effect = Exception("Auth error")
+
+    config = VertexAIConfig.model_validate(
+        {
+            "project_id": "test-project",
+            "region": "us-central1",
+            "use_ml_metadata_for_lineage": True,
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+    assert source._ml_metadata_helper is None
+    assert len(source.report.failures) > 0
