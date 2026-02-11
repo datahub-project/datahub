@@ -269,7 +269,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     final String entityName = urn.getEntityType();
     final String docId = opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
 
-    log.info("Appending run id for entity '{}', docId='{}', runId='{}'", entityName, docId, runId);
+    log.debug("Appending run id for entity '{}', docId='{}', runId='{}'", entityName, docId, runId);
 
     // Create an upsert document that will be used if the document doesn't exist
     Map<String, Object> upsert = new HashMap<>();
@@ -298,7 +298,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     String semanticIndexName =
         opContext.getSearchContext().getIndexConvention().getEntityIndexNameSemantic(entityName);
     if (indexExists(semanticIndexName)) {
-      log.info(
+      log.debug(
           "Semantic dual-write: APPEND_RUNID to '{}' for entity '{}', docId='{}', runId='{}'",
           semanticIndexName,
           entityName,
@@ -306,7 +306,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
           runId);
       applyScriptUpdateByIndexName(semanticIndexName, docId, SCRIPT_SOURCE, scriptParams, upsert);
     } else {
-      log.info(
+      log.debug(
           "Semantic dual-write: SKIP - index '{}' does not exist for runId update",
           semanticIndexName);
     }
