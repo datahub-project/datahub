@@ -8,9 +8,6 @@ cat > /tmp/datahub-docs.yml << 'EOF'
 source:
   type: datahub-documents
   config: {}
-sink:
-  type: datahub-rest
-  config: {}
 EOF
 
 datahub ingest deploy -c /tmp/datahub-docs.yml --name "document-embeddings" --schedule "0 * * * *"
