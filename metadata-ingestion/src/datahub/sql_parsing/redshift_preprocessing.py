@@ -46,6 +46,14 @@ _ELSE_FUNCTION_PATTERN = re.compile(
     r"\belse(dateadd|datediff|date_add)\b", re.IGNORECASE
 )
 
+# AS + datatype pattern (e.g., "ASINT4" -> "AS INT4")
+# Matches AS followed by common SQL datatypes
+_AS_DATATYPE_PATTERN = re.compile(
+    r"\bas(int[0-9]*|bool|text|numeric|timestamp|timestamptz|varchar|char|"
+    r"float[0-9]*|real|double|decimal|bigint|smallint|date|time|interval)\b",
+    re.IGNORECASE,
+)
+
 # Words that should NOT be split (false positive prevention)
 _WHEN_BLACKLIST = {"whenever", "whence"}
 _THEN_BLACKLIST = {"thence", "thenceforth"}
@@ -106,7 +114,10 @@ def preprocess_redshift_query(query: str) -> str:
 
     # Quick check for dynamic patterns
     needs_dynamic = (
-        "when" in query_lower or "then" in query_lower or "else" in query_lower
+        "when" in query_lower
+        or "then" in query_lower
+        or "else" in query_lower
+        or "as" in query_lower
     )
 
     if not needs_static and not needs_dynamic:
@@ -132,6 +143,8 @@ def preprocess_redshift_query(query: str) -> str:
             )
         if "else" in query_lower:
             result = _ELSE_FUNCTION_PATTERN.sub(r"else \1", result)
+        if "as" in query_lower:
+            result = _AS_DATATYPE_PATTERN.sub(r"as \1", result)
 
     return result
 
