@@ -237,7 +237,7 @@ public class DataHubOAuthAuthenticator implements Authenticator {
       trustedIssuers.add(issuer);
 
       Jws<Claims> claims =
-          Jwts.parserBuilder()
+          Jwts.parser()
               .setSigningKeyResolver(
                   new DataHubOAuthSigningKeyResolver(
                       trustedIssuers, matchingProvider.getJwksUri(), providerAlgorithm))
