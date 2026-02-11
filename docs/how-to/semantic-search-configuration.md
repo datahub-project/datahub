@@ -1,220 +1,147 @@
 # Semantic Search Configuration
 
-This guide walks you through configuring semantic search in DataHub using AWS Bedrock for embedding generation.
-
-## Overview
-
-DataHub's semantic search uses vector embeddings to find semantically similar entities. In OSS, embeddings are generated using AWS Bedrock with Cohere Embed models. This provides:
-
-- **Natural language search**: Find datasets using conversational queries like "customer churn analysis"
-- **Semantic understanding**: Match concepts even when exact keywords differ
-- **Cross-entity search**: Search across datasets, dashboards, and other entities simultaneously
+Semantic search lets you find DataHub entities using natural language queries like "customer churn analysis" — even when exact keywords differ.
 
 ## Prerequisites
 
-### 1. OpenSearch Requirements
+1. **OpenSearch 2.17.0+** with k-NN plugin (DataHub ships with `opensearchproject/opensearch:2.19.3`). Elasticsearch is **not** supported.
+2. **An API key** for your chosen embedding provider (see table below).
 
-- **OpenSearch 2.17.0 or higher** with k-NN plugin enabled
-- Alternative: Elasticsearch with k-NN plugin (not officially tested)
+## How to Configure Semantic Search
 
-Verify k-NN plugin is enabled:
+### DataHub Helm Charts (Recommended)
 
-```bash
-curl -X GET "localhost:9200/_cat/plugins?v&s=component&h=name,component,version"
-```
+If you deploy DataHub using the [DataHub Helm chart](https://github.com/acryldata/datahub-helm), add the following to your `values.yaml` and run `helm upgrade`.
 
-You should see `opensearch-knn` in the output.
+#### OpenAI (Default)
 
-### 2. AWS Bedrock Requirements
-
-#### AWS Account Setup
-
-1. **AWS Account** with Bedrock access
-2. **Supported AWS Region**: Bedrock with Cohere Embed v3 is available in:
-   - `us-west-2` (Oregon) - Recommended
-   - `us-east-1` (N. Virginia)
-   - Other regions - check [AWS Bedrock documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-bedrock.html)
-
-#### Enable Model Access
-
-1. Go to AWS Console → Amazon Bedrock → Model access
-2. Request access to **Cohere Embed English v3** (`cohere.embed-english-v3`)
-3. Wait for approval (usually instant for Cohere models)
-
-#### IAM Permissions
-
-Your AWS credentials (IAM user or role) need:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["bedrock:InvokeModel"],
-      "Resource": [
-        "arn:aws:bedrock:*::foundation-model/cohere.embed-english-v3",
-        "arn:aws:bedrock:*::foundation-model/cohere.embed-multilingual-v3"
-      ]
-    }
-  ]
-}
-```
-
-For broader access (all Bedrock models):
-
-```json
-{
-  "Effect": "Allow",
-  "Action": "bedrock:InvokeModel",
-  "Resource": "arn:aws:bedrock:*::foundation-model/*"
-}
-```
-
-**Important:** Ensure AWS roles are configured for **both** the GMS container (for query embeddings at search time) and the ingestion container (for document embeddings during ingestion). In typical Kubernetes deployments using the [DataHub Helm chart](https://github.com/acryl-data/datahub-helm), you'll need to configure IAM roles for service accounts (IRSA) for both the `datahub-gms` and `datahub-ingestion` pods.
-
-## Configuration
-
-### Step 1: Configure DataHub
-
-Edit your `application.yaml` or set environment variables:
-
-#### Option A: Environment Variables (Recommended for Production)
+Create a secret, then configure:
 
 ```bash
-# Enable semantic search
-export ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
-export ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document  # Comma-separated: dataset,dashboard,chart
-
-# Configure embedding provider
-export EMBEDDING_PROVIDER_TYPE=aws-bedrock
-export EMBEDDING_PROVIDER_AWS_REGION=us-west-2
-export EMBEDDING_PROVIDER_MODEL_ID=cohere.embed-english-v3
-export EMBEDDING_PROVIDER_MAX_CHAR_LENGTH=2048
-
-# Vector index configuration
-export ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION=1024
-export ELASTICSEARCH_SEMANTIC_KNN_ENGINE=faiss
-export ELASTICSEARCH_SEMANTIC_SPACE_TYPE=cosinesimil
+kubectl create secret generic openai-secret --from-literal=api-key=sk-your-api-key-here
 ```
-
-#### Option B: application.yaml
 
 ```yaml
-elasticsearch:
-  index:
-    semanticSearch:
+global:
+  datahub:
+    semantic_search:
       enabled: true
-      enabledEntities: document # Or: dataset,dashboard,chart
-      models:
-        cohere_embed_v3:
-          vectorDimension: 1024
-          knnEngine: faiss
-          spaceType: cosinesimil
-          efConstruction: 128
-          m: 16
-      embeddingProvider:
-        type: aws-bedrock
-        awsRegion: us-west-2
-        modelId: cohere.embed-english-v3
-        maxCharacterLength: 2048
+      vectorDimension: 3072
+      provider:
+        type: "openai"
+        openai:
+          apiKey:
+            secretRef: "openai-secret"
+            secretKey: "api-key"
+          model: "text-embedding-3-large"
 ```
 
-### Step 2: Configure AWS Credentials
+#### AWS Bedrock
 
-Choose one of these authentication methods:
+No API key needed — Bedrock authenticates via the [AWS SDK default credential chain](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials-chain.html) (IRSA, EC2/ECS instance credentials, etc).
 
-#### Option 1: AWS Profile (Development)
-
-Create/edit `~/.aws/credentials`:
-
-```ini
-[datahub-dev]
-aws_access_key_id = YOUR_ACCESS_KEY_ID
-aws_secret_access_key = YOUR_SECRET_ACCESS_KEY
+```yaml
+global:
+  datahub:
+    semantic_search:
+      enabled: true
+      vectorDimension: 1024
+      provider:
+        type: "aws-bedrock"
+        bedrock:
+          modelId: "cohere.embed-english-v3"
+          awsRegion: "us-west-2"
 ```
 
-Then set the profile:
+#### Cohere
+
+Create a secret, then configure:
 
 ```bash
-export AWS_PROFILE=datahub-dev
+kubectl create secret generic cohere-secret --from-literal=api-key=your-cohere-api-key
 ```
 
-#### Option 2: Environment Variables (CI/CD)
+```yaml
+global:
+  datahub:
+    semantic_search:
+      enabled: true
+      vectorDimension: 1024
+      provider:
+        type: "cohere"
+        cohere:
+          apiKey:
+            secretRef: "cohere-secret"
+            secretKey: "api-key"
+          model: "embed-english-v3.0"
+```
+
+#### Apply Changes
 
 ```bash
-export AWS_ACCESS_KEY_ID=YOUR_ACCESS_KEY_ID
-export AWS_SECRET_ACCESS_KEY=YOUR_SECRET_ACCESS_KEY
-export AWS_REGION=us-west-2  # Optional, uses config default if not set
+helm upgrade datahub datahub/datahub -f values.yaml
 ```
 
-#### Option 3: EC2 Instance Role (Production - Recommended)
+### Environment Variables
 
-For production deployments on EC2:
+For Docker Compose or non-Helm deployments, set these on the **datahub-gms** service and restart it.
 
-1. Create an IAM role with Bedrock permissions (see IAM Permissions above)
-2. Attach the role to your EC2 instance
-3. **No additional configuration needed** - credentials auto-discovered via IMDS
+#### OpenAI (Default)
 
-#### Option 4: ECS Task Role (Container Deployments)
+```bash
+ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
+ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document
+OPENAI_API_KEY=sk-your-api-key-here
+```
 
-For ECS/Fargate deployments:
+That's it — OpenAI is the default provider, so no other variables are needed.
 
-1. Create an IAM role with Bedrock permissions
-2. Assign the role to your ECS task definition
-3. **No additional configuration needed** - credentials auto-discovered
+#### AWS Bedrock
 
-### Step 3: Restart DataHub
+```bash
+ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
+ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document
+EMBEDDING_PROVIDER_TYPE=aws-bedrock
+EMBEDDING_PROVIDER_AWS_REGION=us-west-2
+ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION=1024
+```
+
+Authentication uses the AWS SDK default credential chain (EC2/ECS instance credentials, `AWS_PROFILE`, or `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`).
+
+#### Cohere
+
+```bash
+ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
+ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document
+EMBEDDING_PROVIDER_TYPE=cohere
+COHERE_API_KEY=your-cohere-api-key
+ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION=1024
+```
+
+### Verify It's Working
+
+After restarting, check the GMS logs:
 
 ```bash
 # Docker Compose
-docker-compose restart datahub-gms
+docker-compose logs datahub-gms | grep -i "embedding"
 
 # Kubernetes
-kubectl rollout restart deployment datahub-gms
+kubectl logs deployment/datahub-gms | grep -i "embedding"
 ```
 
-### Step 4: Verify Configuration
-
-Check DataHub logs for successful initialization:
-
-```bash
-# Look for these log messages
-docker-compose logs datahub-gms | grep -i "semantic\|embedding"
-```
-
-Expected output:
+You should see:
 
 ```
-Creating embedding provider with type: aws-bedrock
-Configuring AWS Bedrock embedding provider: region=us-west-2, model=cohere.embed-english-v3, maxCharLength=2048
-Initialized AwsBedrockEmbeddingProvider with region=us-west-2, model=cohere.embed-english-v3, maxCharLength=2048
+Creating embedding provider with type: openai
+Initialized OpenAiEmbeddingProvider with model=text-embedding-3-large
 ```
 
 ## Generating Embeddings
 
-Embeddings are generated by dedicated ingestion sources that connect to specific systems where your documents live (e.g., Notion, Confluence, SharePoint). Each source is responsible for:
+Once semantic search is enabled, you need to run an ingestion source to generate embeddings for your documents.
 
-1. Extracting document content from the source system
-2. Chunking the text into manageable segments
-3. Generating embeddings for each chunk using the configured provider (e.g., AWS Bedrock)
-4. Emitting the embeddings to DataHub as `SemanticContent` aspects
-
-### DataHub Documents Source
-
-DataHub provides a native ingestion source for generating semantic embeddings for **DataHub's native Document entities**. This source processes documents that are already stored in DataHub (created via GraphQL, Python SDK, or other ingestion sources) and enriches them with embeddings.
-
-**Key features:**
-
-- Processes Document entities from DataHub
-- Supports both batch mode (GraphQL) and event-driven mode (Kafka MCL)
-- Incremental processing - only reprocesses documents when content changes
-- Stateful ingestion for tracking progress
-- Multiple chunking strategies (by_title, basic)
-
-### Example Recipe
-
-The DataHub Documents Source uses smart defaults to minimize configuration. Here's the minimal recipe:
+### Minimal Recipe
 
 ```yaml
 source:
@@ -226,312 +153,37 @@ sink:
   config: {}
 ```
 
-This minimal configuration automatically:
-
-- Connects to DataHub using `DATAHUB_GMS_URL` and `DATAHUB_GMS_TOKEN` environment variables (defaults to `http://localhost:8080` if not set)
-- Enables **event-driven mode** (processes documents in real-time from Kafka MCL)
-- Enables **incremental processing** (only reprocesses documents when content changes)
-- Uses **by_title chunking** with sensible defaults (500 characters, smart combining)
-- **Fetches embedding configuration from the server** (matches your GMS semantic search config automatically)
-
-#### Customization Options
-
-If you need to override defaults, you can specify them explicitly:
-
-```yaml
-source:
-  type: datahub-documents
-  config:
-    # DataHub connection (optional - defaults to env vars)
-    datahub:
-      server: "http://datahub-gms:8080"
-      token: "${DATAHUB_TOKEN}"
-
-    # Platform filtering (optional - defaults to all documents)
-    platform_filter: ["notion", "confluence"]
-
-    # Event mode (optional - enabled by default)
-    event_mode:
-      enabled: true
-      idle_timeout_seconds: 60
-
-    # Incremental processing (optional - enabled by default)
-    incremental:
-      enabled: true
-
-    # Chunking strategy (optional - has sensible defaults)
-    chunking:
-      strategy: by_title
-      max_characters: 500
-
-    # Embedding (optional - fetches from server by default)
-    embedding:
-      # Leave empty to auto-fetch from server
-      batch_size: 50 # Can override processing options
-
-sink:
-  type: datahub-rest
-  config: {}
-```
-
-**Running the source:**
+This automatically connects to DataHub, fetches your embedding config from the server, and processes documents in real-time.
 
 ```bash
-# Set environment variables
-export DATAHUB_GMS_URL="http://localhost:8080"
-export DATAHUB_GMS_TOKEN="your-token"
-
-# Run ingestion with minimal recipe
 datahub ingest -c recipe.yml
-
-# Or inline for one-time use
-DATAHUB_GMS_TOKEN=your-token datahub ingest -c recipe.yml
 ```
 
-For detailed configuration options and advanced features (event-driven mode, platform filtering, chunking strategies), see the [DataHub Documents Source documentation](../generated/ingestion/sources/datahub-documents.md).
-
-### External Sources
-
-For documents from external systems like Notion or Confluence, use the respective ingestion sources that support semantic search:
-
-- **Notion**: [Notion Source](../generated/ingestion/sources/notion.md) - Ingest pages, databases, and hierarchical content with embeddings
-- **Confluence**: Coming soon
-- **SharePoint**: Coming soon
-
-Each external source handles fetching, chunking, and embedding generation specific to that platform's document format.
-
-#### Notion Example
-
-The Notion source automatically fetches embedding configuration from your DataHub server, so you only need to specify your Notion credentials:
-
-```yaml
-source:
-  type: notion
-  config:
-    api_key: "${NOTION_API_KEY}"
-    page_ids:
-      - "your-page-id-here"
-
-sink:
-  type: datahub-rest
-  config:
-    server: "http://localhost:8080"
-```
-
-For complete configuration options including custom embedding providers and chunking strategies, see the [Notion Source documentation](../generated/ingestion/sources/notion.md).
-
-## Usage
-
-### GraphQL API
-
-#### Single Entity Type Search
-
-```graphql
-query {
-  semanticSearch(
-    input: {
-      type: DATASET
-      query: "customer churn prediction models"
-      start: 0
-      count: 10
-    }
-  ) {
-    start
-    count
-    total
-    searchResults {
-      entity {
-        urn
-        type
-        ... on Dataset {
-          name
-          description
-        }
-      }
-    }
-  }
-}
-```
-
-#### Multi-Entity Search
-
-```graphql
-query {
-  semanticSearchAcrossEntities(
-    input: {
-      types: [DATASET, DASHBOARD, CHART]
-      query: "revenue analysis last quarter"
-      start: 0
-      count: 10
-    }
-  ) {
-    start
-    count
-    total
-    searchResults {
-      entity {
-        urn
-        type
-      }
-      matchedFields {
-        name
-        value
-      }
-    }
-  }
-}
-```
-
-### Python SDK (Coming Soon)
-
-```python
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-
-emitter = DatahubRestEmitter("http://localhost:8080")
-
-# Semantic search
-results = emitter.semantic_search(
-    query="customer data pipeline",
-    types=["dataset"],
-    start=0,
-    count=10
-)
-```
+For external document sources (Notion, Confluence, etc.), see the [Notion Source](../generated/ingestion/sources/notion.md) and [DataHub Documents Source](../generated/ingestion/sources/datahub-documents.md) documentation.
 
 ## Supported Models
 
-### Cohere Embed v3 (Default)
+| Provider    | Model                     | Dimensions | Notes                   |
+| ----------- | ------------------------- | ---------- | ----------------------- |
+| OpenAI      | `text-embedding-3-large`  | 3072       | Default, higher quality |
+| OpenAI      | `text-embedding-3-small`  | 1536       | Fast, cost-effective    |
+| AWS Bedrock | `cohere.embed-english-v3` | 1024       | AWS-managed             |
+| Cohere      | `embed-english-v3.0`      | 1024       | English optimized       |
+| Cohere      | `embed-multilingual-v3.0` | 1024       | 100+ languages          |
 
-| Model ID                       | Dimensions | Max Tokens | Languages      |
-| ------------------------------ | ---------- | ---------- | -------------- |
-| `cohere.embed-english-v3`      | 1024       | 512        | English        |
-| `cohere.embed-multilingual-v3` | 1024       | 512        | 100+ languages |
-
-### Amazon Titan Embed
-
-| Model ID                       | Dimensions          | Max Tokens | Languages |
-| ------------------------------ | ------------------- | ---------- | --------- |
-| `amazon.titan-embed-text-v1`   | 1536                | 8192       | English   |
-| `amazon.titan-embed-text-v2:0` | 1024 (configurable) | 8192       | English   |
-
-**Note**: If you change models, ensure `vectorDimension` matches the model's output dimensions.
+> To use a non-default model, set the model name in your Helm values or environment variable and update `vectorDimension` / `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match.
 
 ## Troubleshooting
 
-### Issue: "Semantic search is disabled or not configured"
+| Symptom                                         | Fix                                                                  |
+| ----------------------------------------------- | -------------------------------------------------------------------- |
+| "Semantic search is disabled or not configured" | Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` and restart GMS  |
+| "Invalid API key provided"                      | Check your API key is set correctly in the GMS environment           |
+| "Dimension mismatch: expected 3072, got 1024"   | Update `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match your model |
 
-**Solution**: Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` and restart GMS.
+## Further Reading
 
-### Issue: AWS Credentials Error
-
-```
-Unable to load credentials from any provider in the chain
-```
-
-**Solutions**:
-
-1. Verify AWS_PROFILE is set and profile exists in `~/.aws/credentials`
-2. For EC2, verify instance role is attached: `curl http://169.254.169.254/latest/meta-data/iam/security-credentials/`
-3. Check environment variables are set correctly
-
-### Issue: Bedrock Access Denied
-
-```
-User: arn:aws:iam::123456789:user/datahub is not authorized to perform: bedrock:InvokeModel
-```
-
-**Solution**: Add IAM permissions (see IAM Permissions section above).
-
-### Issue: Model Not Found
-
-```
-Could not find model: cohere.embed-english-v3
-```
-
-**Solutions**:
-
-1. Verify model access is enabled in AWS Console → Bedrock → Model access
-2. Check the region supports the model (use `us-west-2` for broadest support)
-3. Ensure `EMBEDDING_PROVIDER_AWS_REGION` matches where you enabled access
-
-### Issue: k-NN Index Creation Failed
-
-```
-Codec [zstd_no_dict] cannot be used with k-NN indices
-```
-
-**Solution**: This is a known issue with older DataHub versions. The semantic search port includes a fix. Ensure you have the latest code.
-
-### Issue: Vector Dimension Mismatch
-
-```
-Dimension mismatch: expected 1024, got 1536
-```
-
-**Solution**: Your model's dimensions don't match the configuration. Update `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match your model.
-
-## Performance Tuning
-
-### OpenSearch k-NN Settings
-
-For better performance, tune these parameters in `application.yaml`:
-
-```yaml
-semanticSearch:
-  models:
-    cohere_embed_v3:
-      efConstruction: 128 # Higher = better recall, slower indexing (default: 128)
-      m: 16 # Higher = better recall, more memory (default: 16)
-      spaceType: cosinesimil # cosinesimil, l2, innerproduct
-      knnEngine: faiss # faiss, nmslib, lucene
-```
-
-**Recommendations**:
-
-- **Small datasets (<10K docs)**: `efConstruction: 128, m: 16`
-- **Medium datasets (10K-100K docs)**: `efConstruction: 256, m: 32`
-- **Large datasets (>100K docs)**: `efConstruction: 512, m: 48`
-
-### AWS Bedrock Rate Limits
-
-Cohere Embed v3 on Bedrock has default limits:
-
-- **Requests per minute**: 1000
-- **Tokens per minute**: 200,000
-
-For higher limits, request a quota increase in AWS Service Quotas.
-
-## Cost Estimation
-
-### AWS Bedrock Pricing (Cohere Embed v3)
-
-As of December 2024 in us-west-2:
-
-- **$0.0001 per 1,000 input tokens** (~750 words)
-
-**Example costs**:
-
-- 10,000 datasets with 200 tokens each = 2M tokens = **$0.20**
-- 100,000 datasets with 200 tokens each = 20M tokens = **$2.00**
-- Query embeddings: ~50 tokens per query = 10,000 queries = **$0.05**
-
-**Monthly estimates** (assuming daily re-indexing):
-
-- 10K entities: ~$6/month
-- 100K entities: ~$60/month
-
-Check current pricing: https://aws.amazon.com/bedrock/pricing/
-
-## Security Best Practices
-
-1. **Use IAM Roles**: Prefer EC2 instance roles over static credentials
-2. **Principle of Least Privilege**: Grant only `bedrock:InvokeModel` permission
-3. **Enable CloudTrail**: Monitor Bedrock API calls
-4. **Resource Tags**: Tag IAM roles for cost tracking
-5. **Rotate Credentials**: If using access keys, rotate regularly
-
-## References
-
-- [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
-- [Cohere Embed Models](https://docs.cohere.com/docs/embed-2)
+- [Switching Providers](../dev-guides/semantic-search/SWITCHING_PROVIDERS.md) — how to migrate between providers (requires re-indexing)
+- [Configuration Guide](../dev-guides/semantic-search/CONFIGURATION.md) — advanced `application.yaml` reference and performance tuning
+- [DataHub Helm Chart](https://github.com/acryldata/datahub-helm)
 - [OpenSearch k-NN Plugin](https://opensearch.org/docs/latest/search-plugins/knn/index/)

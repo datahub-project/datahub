@@ -23,10 +23,10 @@ configurations {
 dependencies {
 
   constraints {
-    provided(externalDependency.hadoopMapreduceClient) {
+    provided(externalDependency.hadoopClient) {
       because 'Needed for tie breaking of guava version need for spark and wiremock'
     }
-    provided(externalDependency.hadoopCommon) {
+    provided(externalDependency.hadoopCommon3) {
       because 'required for org.apache.hadoop.util.StopWatch'
     }
     provided(externalDependency.commonsIo) {
