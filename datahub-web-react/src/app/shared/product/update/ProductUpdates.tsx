@@ -1,7 +1,8 @@
 import { Button, Heading, Text, Tooltip } from '@components';
-import * as phosphorIcons from '@phosphor-icons/react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
+
+import * as phosphorIcons from '@components/components/Icon/phosphor-icons';
 
 import analytics, { EventType } from '@app/analytics';
 import { NAV_SIDEBAR_ID, NAV_SIDEBAR_WIDTH_COLLAPSED, NAV_SIDEBAR_WIDTH_EXPANDED } from '@app/shared/constants';

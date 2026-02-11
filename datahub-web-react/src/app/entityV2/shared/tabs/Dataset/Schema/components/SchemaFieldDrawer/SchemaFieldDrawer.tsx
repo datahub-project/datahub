@@ -1,7 +1,8 @@
-import { BookOpen, ChartBar, Code, ListBullets } from '@phosphor-icons/react';
 import { Drawer, Typography } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
+
+import { BookOpen, ChartBar, Code, ListBullets } from '@components/components/Icon/phosphor-icons';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';

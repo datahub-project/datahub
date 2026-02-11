@@ -1,3 +1,7 @@
+import React, { useContext, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import styled, { useTheme } from 'styled-components';
+
 import {
     AppWindow,
     BookBookmark,
@@ -13,10 +17,7 @@ import {
     TextColumns,
     TrendUp,
     UserCircle,
-} from '@phosphor-icons/react';
-import React, { useContext, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
-import styled, { useTheme } from 'styled-components';
+} from '@components/components/Icon/phosphor-icons';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';

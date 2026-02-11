@@ -1,6 +1,7 @@
-import { Check, Warning } from '@phosphor-icons/react';
 import { FormInstance } from 'antd/es/form/Form';
 import React from 'react';
+
+import { Check, Warning } from '@components/components/Icon/phosphor-icons';
 
 import { SelectFormItem, SelectWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { INCIDENT_OPTION_LABEL_MAPPING } from '@app/entityV2/shared/tabs/Incident/constant';

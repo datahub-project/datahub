@@ -1,8 +1,9 @@
 import { Icon, Tooltip, colors } from '@components';
 import FilterCenterFocusOutlinedIcon from '@mui/icons-material/FilterCenterFocusOutlined';
-import { GlobeHemisphereEast, Lock } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
+
+import { GlobeHemisphereEast, Lock } from '@components/components/Icon/phosphor-icons';
 
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewDropdownMenu } from '@app/entityV2/view/menu/ViewDropdownMenu';

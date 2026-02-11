@@ -1,7 +1,8 @@
 import { DownOutlined, LoadingOutlined, RightOutlined } from '@ant-design/icons';
-import { BookmarksSimple } from '@phosphor-icons/react';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
+
+import { BookmarksSimple } from '@components/components/Icon/phosphor-icons';
 
 import { sortGlossaryNodes } from '@app/entity/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entity/glossaryTerm/utils';
