@@ -210,11 +210,9 @@ class GenericProfiler:
         logger.debug(f"sql_alchemy_url={url}")
 
         engine = create_engine(url, **self.config.options)
-        with engine.connect() as conn:
-            inspector = inspect(conn)
 
         return DatahubGEProfiler(
-            conn=inspector.bind,
+            engine=engine,
             report=self.report,
             config=self.config.profiling,
             platform=self.platform,

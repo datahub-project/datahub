@@ -2,7 +2,7 @@ import logging
 from typing import Callable, Dict, Iterable, List, Optional
 
 from snowflake.sqlalchemy import snowdialect
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine
 from sqlalchemy.sql import sqltypes
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -144,11 +144,9 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             creator=self.callable_for_db_connection(db_name),
             **self.config.get_options(),
         )
-        conn = engine.connect()
-        inspector = inspect(conn)
 
         return DatahubGEProfiler(
-            conn=inspector.bind,
+            engine=engine,
             report=self.report,
             config=self.config.profiling,
             platform=self.platform,
