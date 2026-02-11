@@ -3,7 +3,8 @@
     "query_type_props": {},
     "query_fingerprint": "07fd3fd50838cd074f3d5c92c5082e82c6c31e6e4463aba6268e0324de006426",
     "in_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.subscriptions,PROD)"
     ],
     "out_tables": [],
     "column_lineage": [

@@ -1647,20 +1647,19 @@ JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers".
     )
 
 
-def test_clickhouse_dictget_not_treated_as_table() -> None:
-    """Test that ClickHouse DICTGET function arguments are not treated as table references.
+def test_clickhouse_dictget_lineage() -> None:
+    """Test that ClickHouse DICTGET dictionary references are included in table-level lineage.
 
     DICTGET(dict_name, attr_name, key) takes a dictionary name as the first argument,
-    which sqlglot parses as a Table node but should NOT appear in lineage.
+    which sqlglot parses as a Table node. The dictionary is backed by a table, so it
+    should appear in upstream lineage.
 
     Expected lineage:
-        analytics.events
-              |
-              v
-          [output]
-
-    NOT included (dictionary reference, not a table):
-        default.subscriptions
+        analytics.events    default.subscriptions
+                    \\           /
+                     \\         /
+                      v       v
+                      [output]
     """
     assert_sql_result(
         """\
@@ -1678,17 +1677,14 @@ FROM analytics.events
 def test_clickhouse_dictget_with_multiple_tables() -> None:
     """Test DICTGET with actual table joins.
 
-    Dictionary refs should be excluded, but real table refs should be included.
+    Dictionary references are included alongside real table references.
 
     Expected lineage:
-        analytics.events    analytics.users
-                    \           /
-                     \         /
-                      v       v
-                      [output]
-
-    NOT included (dictionary reference, not a table):
-        default.categories
+        analytics.events    analytics.users    default.categories
+                    \\           |              /
+                     \\          |             /
+                      v         v            v
+                            [output]
     """
     assert_sql_result(
         """\

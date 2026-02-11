@@ -388,13 +388,11 @@ def _extract_table_names(
 # ClickHouse-specific helpers
 # ==============================================================================
 # ClickHouse has unique SQL features that require special handling:
-# 1. Dictionary functions (DICTGET, etc.) - first arg is dict name, not a table
+# 1. Dictionary functions (dictGet, etc.) - first arg is a dict name backed by a table
 # 2. Materialized views with TO clause - output goes to target table, not the view
 # 3. ARRAY JOIN pseudo-tables - may create unresolvable table references
 
-
 # Dictionary functions that take a dictionary name as first argument.
-# These are NOT table references and should be excluded from lineage.
 # See: https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions
 _CLICKHOUSE_DICTIONARY_FUNCTIONS = frozenset(
     {
@@ -412,31 +410,47 @@ _CLICKHOUSE_DICTIONARY_FUNCTIONS = frozenset(
 )
 
 
-def _is_in_clickhouse_dict_function(table: sqlglot.exp.Table) -> bool:
-    """Check if a Table node is a dictionary reference in a ClickHouse dict function.
+def _clickhouse_extract_dictget_tables(
+    statement: sqlglot.Expression,
+    dialect: sqlglot.Dialect,
+) -> OrderedSet[_TableName]:
+    """Extract dictionary references from ClickHouse dictGet() function calls.
 
-    ClickHouse dictionary functions like DICTGET(dict_name, attr_name, key) take a
-    dictionary name (e.g., 'default.subscriptions') as the first argument. sqlglot
-    parses this as a Table node, but it's not a real table reference for lineage.
+    ClickHouse dictGet(dict_name, attr, key) references a dictionary backed by
+    a table. sqlglot parses the dict_name as a Column node (e.g.,
+    Column(this='subscriptions', table='default')), not a Table node. This
+    function finds those references and converts them to _TableName so they
+    appear in upstream lineage.
     """
-    node: Optional[sqlglot.exp.Expression] = table.parent
-    while node is not None:
-        if isinstance(node, sqlglot.exp.Anonymous):
-            func_name = node.this
-            if (
-                isinstance(func_name, str)
-                and func_name.lower() in _CLICKHOUSE_DICTIONARY_FUNCTIONS
-                and node.expressions
-            ):
-                first_arg = node.expressions[0]
-                if first_arg is table or (
-                    hasattr(first_arg, "find")
-                    and table in list(first_arg.find_all(sqlglot.exp.Table))
-                ):
-                    return True
-            break
-        node = node.parent
-    return False
+    if not is_dialect_instance(dialect, "clickhouse"):
+        return OrderedSet()
+
+    result: OrderedSet[_TableName] = OrderedSet()
+    for func in statement.find_all(sqlglot.exp.Anonymous):
+        if (
+            not isinstance(func.this, str)
+            or func.this.lower() not in _CLICKHOUSE_DICTIONARY_FUNCTIONS
+            or not func.expressions
+        ):
+            continue
+
+        first_arg = func.expressions[0]
+        if isinstance(first_arg, sqlglot.exp.Column):
+            # dictGet(default.subscriptions, ...) → Column(table='default', this='subscriptions')
+            table_name = first_arg.name
+            schema = first_arg.table if first_arg.table else None
+            result.add(_TableName(database=None, db_schema=schema, table=table_name))
+        elif isinstance(first_arg, sqlglot.exp.Literal) and first_arg.is_string:
+            # dictGet('default.subscriptions', ...) → Literal('default.subscriptions')
+            parts = first_arg.this.split(".")
+            if len(parts) == 2:
+                result.add(
+                    _TableName(database=None, db_schema=parts[0], table=parts[1])
+                )
+            elif len(parts) == 1:
+                result.add(_TableName(database=None, db_schema=None, table=parts[0]))
+
+    return result
 
 
 def _clickhouse_extract_to_tables(
@@ -472,7 +486,6 @@ def _is_clickhouse_non_input(
     """Check if a table should be excluded from input tables for ClickHouse.
 
     Excludes:
-    - Dictionary references inside DICTGET functions (not real tables)
     - TO table references (they are outputs, not inputs)
     - Materialized view name when TO table exists (not an input)
 
@@ -481,10 +494,8 @@ def _is_clickhouse_non_input(
     if not is_dialect_instance(dialect, "clickhouse"):
         return False
 
-    return (
-        _is_in_clickhouse_dict_function(table)
-        or isinstance(table.parent, sqlglot.exp.ToTableProperty)
-        or (has_to_table and isinstance(table.parent, sqlglot.exp.Schema))
+    return isinstance(table.parent, sqlglot.exp.ToTableProperty) or (
+        has_to_table and isinstance(table.parent, sqlglot.exp.Schema)
     )
 
 
@@ -494,7 +505,7 @@ def _clickhouse_filter_column_lineage(
 ) -> List[_ColumnLineageInfo]:
     """Filter column lineage to remove entries with unresolvable tables.
 
-    ClickHouse DICTGET functions and ARRAY JOIN can create pseudo-table references
+    ClickHouse ARRAY JOIN and other constructs can create pseudo-table references
     that don't exist in the table mapping. This filters those out to prevent
     KeyError during translation.
     """
@@ -720,6 +731,9 @@ def _table_level_lineage(
             ),
             dialect,
         )
+        # ClickHouse dictGet() references dictionaries backed by tables.
+        # sqlglot parses these as Column nodes, so extract them separately.
+        | _clickhouse_extract_dictget_tables(statement, dialect)
         # ignore references created in this query
         - modified
         # ignore CTEs created in this statement
