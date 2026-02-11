@@ -6,13 +6,15 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { TimezoneSelect } from '@app/ingestV2/source/builder/TimezoneSelect';
 import { SourceBuilderState } from '@app/ingestV2/source/builder/types';
-import CronField from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/CronField';
-import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/constants';
+import { SectionName } from '@app/ingestV2/source/multiStepBuilder/components/SectionName';
+import CronField from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/CronField';
+import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/constants';
+import { useScheduleStepSubtitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/useScheduleStepSubtitle';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 
-const StepContainer = styled.div`
+const SectionContainer = styled.div`
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -35,7 +37,7 @@ const TimezoneContainer = styled.div`
     gap: 8px;
 `;
 
-export function ScheduleStep() {
+export function ScheduleSection() {
     const { updateState, setCurrentStepCompleted, setCurrentStepUncompleted, state } = useMultiStepContext<
         MultiStepSourceBuilderState,
         IngestionSourceFormStep
@@ -46,6 +48,8 @@ export function ScheduleStep() {
     const [scheduleEnabled, setScheduleEnabled] = useState(!!schedule);
     const [scheduleCronInterval, setScheduleCronInterval] = useState(interval);
     const [scheduleTimezone, setScheduleTimezone] = useState(timezone);
+
+    const subtitle = useScheduleStepSubtitle();
 
     const analyticsRef = useRef(false);
 
@@ -111,7 +115,8 @@ export function ScheduleStep() {
     }, [state]);
 
     return (
-        <StepContainer>
+        <SectionContainer>
+            <SectionName name="Sync Schedule" description={subtitle} />
             <SwitchLabel>
                 <Text size="sm" weight="bold" color="gray" colorLevel={600}>
                     Run on a schedule
@@ -143,6 +148,6 @@ export function ScheduleStep() {
                 <Text color="gray">Choose a timezone for the schedule.</Text>
                 <TimezoneSelect value={scheduleTimezone} onChange={setScheduleTimezone} />
             </TimezoneContainer>
-        </StepContainer>
+        </SectionContainer>
     );
 }
