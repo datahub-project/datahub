@@ -217,7 +217,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                         f"  Model: {self.config.embedding.model}\n"
                         f"  AWS Region: {self.config.embedding.aws_region or 'N/A'}\n\n"
                         f"Note: Semantic search on the server may not work if the configuration doesn't match. "
-                        f"Consider upgrading to DataHub v0.14.0+ for automatic configuration sync."
+                        f"Consider upgrading to DataHub 1.4.0+ (DataHub Core) or 0.3.16.3+ (DataHub Cloud) for automatic configuration sync."
                     )
                     # Continue with local config (don't raise)
                 elif is_old_server:
@@ -229,7 +229,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                         "    provider: bedrock  # or cohere\n"
                         "    model: cohere.embed-english-v3\n"
                         "    aws_region: us-west-2\n\n"
-                        "Or upgrade your DataHub server to v0.14.0+ for automatic configuration sync."
+                        "Or upgrade your DataHub server to 1.4.0+ (DataHub Core) or 0.3.16.3+ (DataHub Cloud) for automatic configuration sync."
                     ) from e
                 else:
                     # Other error (semantic search disabled, validation failed, etc.)
