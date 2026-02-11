@@ -2886,7 +2886,7 @@ class TestClickHouseSinkConnector:
         assert parser.target_platform == "clickhouse"
         assert (
             parser.db_connection_url
-            == "clickhouse://clickhouse.example.com:8123/analytics"
+            == "clickhouse.example.com:8123/analytics"
         )
 
     def test_clickhouse_sink_parser_default_port(self) -> None:
@@ -3088,7 +3088,7 @@ class TestClickHouseSinkConnector:
         assert "admin" not in property_bag["connection.url"]
         assert "secret123" not in property_bag["connection.url"]
         assert (
-            "clickhouse://clickhouse.example.com:8123/mydb"
+            "clickhouse.example.com:8123/mydb"
             in property_bag["connection.url"]
         )
 

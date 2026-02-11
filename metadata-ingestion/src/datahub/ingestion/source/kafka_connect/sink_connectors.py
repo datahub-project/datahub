@@ -1096,7 +1096,7 @@ class ClickHouseSinkConnector(BaseConnector):
         @property
         def db_connection_url(self) -> str:
             """Build connection URL for display purposes."""
-            return f"clickhouse://{self.hostname}:{self.port}/{self.database_name}"
+            return f"{self.hostname}:{self.port}/{self.database_name}"
 
     def get_parser(self) -> ClickHouseSinkParser:
         """
