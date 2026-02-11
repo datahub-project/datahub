@@ -129,11 +129,17 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         )
 
         # Initialize DataHub client
-        graph_config = DatahubClientConfig(
-            server=self.config.datahub.server,
-            token=self.config.datahub.token,
-        )
-        self.graph = DataHubGraph(config=graph_config)
+        # Use pipeline context graph if available (automatically configured from sink)
+        # This ensures we connect to the correct GMS in managed ingestion environments
+        if self.ctx.graph:
+            self.graph = self.ctx.graph
+        else:
+            # Fallback: Create graph from config (for standalone usage)
+            graph_config = DatahubClientConfig(
+                server=self.config.datahub.server,
+                token=self.config.datahub.token,
+            )
+            self.graph = DataHubGraph(config=graph_config)
 
         # Load/validate embedding configuration from server
         if not self.config.embedding.allow_local_embedding_config:
