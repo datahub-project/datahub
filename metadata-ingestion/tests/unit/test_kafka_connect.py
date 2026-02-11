@@ -3155,22 +3155,22 @@ class TestClickHouseSinkConnector:
             assert lineage.source_dataset is not None
         sorted_lineages = sorted(lineages, key=lambda x: cast(str, x.source_dataset))
 
-        # Check first lineage (default_topic) - no explicit mapping, uses topic name
-        assert sorted_lineages[0].source_dataset == "default_topic"
+        # Check first lineage (app.events.created) - has explicit mapping
+        assert sorted_lineages[0].source_dataset == "app.events.created"
         assert sorted_lineages[0].source_platform == "kafka"
-        assert sorted_lineages[0].target_dataset == "production.default_topic"
+        assert sorted_lineages[0].target_dataset == "production.events_created_stream"
         assert sorted_lineages[0].target_platform == "clickhouse"
 
-        # Check second lineage (app.events.created) - has explicit mapping
-        assert sorted_lineages[1].source_dataset == "app.events.created"
+        # Check second lineage (app.events.deleted) - has explicit mapping
+        assert sorted_lineages[1].source_dataset == "app.events.deleted"
         assert sorted_lineages[1].source_platform == "kafka"
-        assert sorted_lineages[1].target_dataset == "production.events_created_stream"
+        assert sorted_lineages[1].target_dataset == "production.events_deleted_stream"
         assert sorted_lineages[1].target_platform == "clickhouse"
 
-        # Check third lineage (app.events.deleted) - has explicit mapping
-        assert sorted_lineages[2].source_dataset == "app.events.deleted"
+        # Check third lineage (default_topic) - no explicit mapping, uses topic name
+        assert sorted_lineages[2].source_dataset == "default_topic"
         assert sorted_lineages[2].source_platform == "kafka"
-        assert sorted_lineages[2].target_dataset == "production.events_deleted_stream"
+        assert sorted_lineages[2].target_dataset == "production.default_topic"
         assert sorted_lineages[2].target_platform == "clickhouse"
 
     def test_clickhouse_sink_topic2table_map_parsing(self) -> None:
