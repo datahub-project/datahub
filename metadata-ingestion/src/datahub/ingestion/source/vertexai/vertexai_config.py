@@ -5,6 +5,7 @@ from pydantic import Field
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
+from datahub.ingestion.source.vertexai.vertexai_constants import IngestionLimits
 
 
 class VertexAIConfig(EnvConfigMixin):
@@ -34,6 +35,21 @@ class VertexAIConfig(EnvConfigMixin):
         default=True,
         description="Ingest pipelines and tasks.",
     )
+    include_evaluations: bool = Field(
+        default=True,
+        description="Ingest model evaluations and evaluation metrics.",
+    )
+    # Advanced metadata extraction options
+    use_ml_metadata_for_lineage: bool = Field(
+        default=True,
+        description="Extract lineage from Vertex AI ML Metadata API for CustomJob and other training jobs. "
+        "This enables input dataset → training job → output model lineage for non-AutoML jobs.",
+    )
+    extract_execution_metrics: bool = Field(
+        default=True,
+        description="Extract hyperparameters and metrics from ML Metadata Executions. "
+        "Useful for training jobs that don't use Experiments but log to ML Metadata.",
+    )
     # Name/type filters
     experiment_name_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -50,20 +66,35 @@ class VertexAIConfig(EnvConfigMixin):
 
     # Pagination / safety knobs
     max_models: Optional[int] = Field(
-        default=None,
-        description="Optional cap on number of models to ingest.",
+        default=IngestionLimits.DEFAULT_MAX_MODELS,
+        le=IngestionLimits.ABSOLUTE_MAX_MODELS,
+        description=f"Maximum number of models to ingest. Default: {IngestionLimits.DEFAULT_MAX_MODELS}, "
+        f"Max: {IngestionLimits.ABSOLUTE_MAX_MODELS}. Set to None for unlimited (not recommended).",
     )
     max_training_jobs_per_type: Optional[int] = Field(
-        default=None,
-        description="Optional cap per training job type.",
+        default=IngestionLimits.DEFAULT_MAX_TRAINING_JOBS_PER_TYPE,
+        le=IngestionLimits.ABSOLUTE_MAX_TRAINING_JOBS_PER_TYPE,
+        description=f"Maximum training jobs per type (CustomJob, AutoML, etc.). "
+        f"Default: {IngestionLimits.DEFAULT_MAX_TRAINING_JOBS_PER_TYPE}, "
+        f"Max: {IngestionLimits.ABSOLUTE_MAX_TRAINING_JOBS_PER_TYPE}. Set to None for unlimited (not recommended).",
     )
     max_experiments: Optional[int] = Field(
-        default=None,
-        description="Optional cap on number of experiments to ingest.",
+        default=IngestionLimits.DEFAULT_MAX_EXPERIMENTS,
+        le=IngestionLimits.ABSOLUTE_MAX_EXPERIMENTS,
+        description=f"Maximum number of experiments to ingest. Default: {IngestionLimits.DEFAULT_MAX_EXPERIMENTS}, "
+        f"Max: {IngestionLimits.ABSOLUTE_MAX_EXPERIMENTS}. Set to None for unlimited (not recommended).",
     )
     max_runs_per_experiment: Optional[int] = Field(
-        default=None,
-        description="Optional cap on runs ingested per experiment.",
+        default=IngestionLimits.DEFAULT_MAX_RUNS_PER_EXPERIMENT,
+        le=IngestionLimits.ABSOLUTE_MAX_RUNS_PER_EXPERIMENT,
+        description=f"Maximum experiment runs per experiment. Default: {IngestionLimits.DEFAULT_MAX_RUNS_PER_EXPERIMENT}, "
+        f"Max: {IngestionLimits.ABSOLUTE_MAX_RUNS_PER_EXPERIMENT}. Set to None for unlimited (not recommended).",
+    )
+    max_evaluations_per_model: Optional[int] = Field(
+        default=IngestionLimits.DEFAULT_MAX_EVALUATIONS_PER_MODEL,
+        le=IngestionLimits.ABSOLUTE_MAX_EVALUATIONS_PER_MODEL,
+        description=f"Maximum evaluations per model. Default: {IngestionLimits.DEFAULT_MAX_EVALUATIONS_PER_MODEL}, "
+        f"Max: {IngestionLimits.ABSOLUTE_MAX_EVALUATIONS_PER_MODEL}. Set to None for unlimited (not recommended).",
     )
     # Optional multi-project / filter support
     project_ids: List[str] = Field(

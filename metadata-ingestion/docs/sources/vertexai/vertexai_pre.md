@@ -79,9 +79,25 @@ Default GCP Role which contains these permissions [roles/aiplatform.viewer](http
 
 ### Integration Details
 
-Ingestion Job extract Models, Datasets, Training Jobs, Endpoints, Experiment and Experiment Runs in a given project and region on Vertex AI.
+Ingestion Job extracts Models, Datasets, Training Jobs, Endpoints, Experiments, Experiment Runs, Model Evaluations, and Pipelines from Vertex AI in a given project and region.
 
 Starting with this version, the source supports ingesting across multiple GCP projects. You can specify `project_ids`, `project_labels`, or `project_id_pattern` to select projects. The Vertex AI `region` should be specified as a single value; `regions` is deprecated—run separate recipes per region if needed.
+
+#### New Features for CustomJob Lineage
+
+The connector now supports extracting lineage and metrics from CustomJob training jobs using the **Vertex AI ML Metadata API**. This enables:
+
+- **Full lineage tracking** for CustomJob: input datasets → training job → output models
+- **Hyperparameters and metrics extraction** from training jobs that log to ML Metadata Executions
+- **Model evaluation** ingestion with evaluation metrics and lineage to models
+
+These features are controlled by new configuration options:
+
+- `use_ml_metadata_for_lineage` (default: `true`) - Extracts lineage from ML Metadata for CustomJob and other non-AutoML training jobs
+- `extract_execution_metrics` (default: `true`) - Extracts hyperparameters and metrics from ML Metadata Executions
+- `include_evaluations` (default: `true`) - Ingests model evaluations and evaluation metrics
+
+**Note**: For CustomJob lineage to work, your training jobs must log to Vertex AI ML Metadata. This happens automatically when using Vertex AI Experiments SDK or manually logging artifacts/executions to ML Metadata.
 
 #### Concept Mapping
 
@@ -107,10 +123,53 @@ Vertex AI Concept Diagram:
 
 Lineage is emitted using Vertex AI API to capture the following relationships:
 
-- A training job and a model (which training job produce a model)
+**AutoML Jobs** (existing functionality):
+
+- A training job and a model (which training job produces a model)
 - A dataset and a training job (which dataset was consumed by a training job to train a model)
+
+**CustomJob and other training jobs** (new ML Metadata-based lineage):
+
+- Input datasets → training job (extracted from ML Metadata Executions)
+- Training job → output models (extracted from ML Metadata Executions)
+- Requires `use_ml_metadata_for_lineage: true` (default)
+- Training jobs must log to ML Metadata for lineage to be captured
+
+**Other relationships**:
+
 - Experiment runs and an experiment
 - Metadata execution and an experiment run
-- Cross-platform lineage from Execution artifacts to external sources when URIs are present:
+- Model evaluations and models
+- Cross-platform lineage from Execution and Job artifacts to external sources when URIs are present:
   - GCS artifacts (gs://...) are linked to `gcs` datasets
   - BigQuery artifacts (bq://project.dataset.table or projects/.../datasets/.../tables/...) are linked to `bigquery` datasets
+
+**Note for CustomJob users**: To enable lineage tracking for CustomJob, ensure your training scripts log artifacts to Vertex AI ML Metadata using the Vertex AI SDK:
+
+```python
+from google.cloud import aiplatform
+
+# Initialize Vertex AI
+aiplatform.init(project="your-project", location="us-central1")
+
+# Log input dataset
+dataset_artifact = aiplatform.Artifact.create(
+    schema_title="system.Dataset",
+    uri="gs://your-bucket/data/train.csv",
+    display_name="training-dataset"
+)
+
+# In your training job, link artifacts via Execution
+with aiplatform.start_execution(
+    schema_title="system.ContainerExecution",
+    display_name=f"training-job-{job_name}"
+) as execution:
+    execution.assign_input_artifacts([dataset_artifact])
+    # ... training logic ...
+    model_artifact = aiplatform.Artifact.create(
+        schema_title="system.Model",
+        uri=model_uri,
+        display_name="trained-model"
+    )
+    execution.assign_output_artifacts([model_artifact])
+```

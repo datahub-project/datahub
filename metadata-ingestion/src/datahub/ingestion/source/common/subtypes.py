@@ -146,6 +146,7 @@ class MLAssetSubTypes(StrEnum):
 
     VERTEX_MODEL = "ML Model"
     VERTEX_MODEL_GROUP = "ML Model Group"
+    VERTEX_MODEL_EVALUATION = "Model Evaluation"
     VERTEX_TRAINING_JOB = "Training Job"
     VERTEX_ENDPOINT = "Endpoint"
     VERTEX_DATASET = "Dataset"

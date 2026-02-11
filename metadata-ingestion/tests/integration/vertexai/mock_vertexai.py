@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
-from typing import List
-from unittest.mock import MagicMock
+from typing import Dict, List, Optional
+from unittest.mock import MagicMock, PropertyMock
 
 from google.cloud.aiplatform import (
     AutoMLTabularTrainingJob,
@@ -8,15 +8,27 @@ from google.cloud.aiplatform import (
     Experiment,
     ExperimentRun,
     Model,
+    ModelEvaluation,
     PipelineJob,
 )
 from google.cloud.aiplatform.base import VertexAiResourceNoun
+from google.cloud.aiplatform.metadata.execution import Execution
 from google.cloud.aiplatform.models import Endpoint, VersionInfo
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
-from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
+from google.cloud.aiplatform_v1.types import (
+    Artifact,
+    Event,
+    PipelineJob as PipelineJobType,
+)
 
 
-def gen_mock_model(num: int = 1) -> Model:
+def gen_mock_model(
+    num: int = 1,
+    labels: Optional[Dict[str, str]] = None,
+    list_model_evaluations_return: Optional[List] = None,
+) -> Model:
+    from unittest.mock import Mock
+
     mock_model = MagicMock(spec=Model)
     mock_model.name = f"mock_prediction_model_{num}"
 
@@ -28,6 +40,18 @@ def gen_mock_model(num: int = 1) -> Model:
     mock_model.resource_name = (
         f"projects/123/locations/us-central1/models/{num + 1}{num + 2}{num + 3}"
     )
+    # Configure labels property with PropertyMock
+    if labels is not None:
+        type(mock_model).labels = PropertyMock(return_value=labels)
+    else:
+        mock_model.labels = {}
+
+    # Configure list_model_evaluations if provided
+    if list_model_evaluations_return is not None:
+        mock_model.list_model_evaluations = Mock(
+            return_value=iter(list_model_evaluations_return)
+        )
+
     return mock_model
 
 
@@ -35,13 +59,17 @@ def gen_mock_models(num: int = 2) -> List[Model]:
     return [gen_mock_model(i) for i in range(1, num + 1)]
 
 
-def gen_mock_training_custom_job() -> CustomJob:
+def gen_mock_training_custom_job(labels: Optional[Dict[str, str]] = None) -> CustomJob:
     mock_training_job = MagicMock(spec=CustomJob)
     mock_training_job.name = "mock_training_job"
     mock_training_job.create_time = datetime.fromtimestamp(1647878400)
     mock_training_job.update_time = datetime.fromtimestamp(1647878500)
     mock_training_job.display_name = "mock_training_job_display_name"
     mock_training_job.description = "mock_training_job_description"
+    # Configure labels property with PropertyMock if provided
+    if labels is not None:
+        type(mock_training_job).labels = PropertyMock(return_value=labels)
+    mock_training_job.labels = {}
 
     return mock_training_job
 
@@ -162,3 +190,62 @@ def get_mock_pipeline_job() -> PipelineJob:
     }
 
     return mock_pipeline_job
+
+
+def gen_mock_model_evaluation(
+    num: int = 1, display_name: Optional[str] = None
+) -> ModelEvaluation:
+    """Generate a mock ModelEvaluation object."""
+    mock_evaluation = MagicMock(spec=ModelEvaluation)
+    mock_evaluation.name = f"projects/123/locations/us/models/456/evaluations/{num}"
+    # Configure display_name property with PropertyMock if provided
+    if display_name is not None:
+        type(mock_evaluation).display_name = PropertyMock(return_value=display_name)
+    else:
+        mock_evaluation.display_name = f"Evaluation {num}"
+    mock_evaluation.create_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
+
+    mock_evaluation.to_dict.return_value = {
+        "name": mock_evaluation.name,
+        "displayName": mock_evaluation.display_name,
+        "metrics": {
+            "auPrc": 0.95,
+            "auRoc": 0.94,
+            "logLoss": 0.15,
+        },
+        "metricSchemaUri": "gs://bucket/schema.json",
+    }
+
+    return mock_evaluation
+
+
+def gen_mock_execution(name: str = "test-execution") -> Execution:
+    """Generate a mock ML Metadata Execution object."""
+    mock_execution = MagicMock(spec=Execution)
+    mock_execution.name = (
+        f"projects/123/locations/us/metadataStores/default/executions/{name}"
+    )
+    mock_execution.display_name = name
+    mock_execution.metadata = {}
+
+    return mock_execution
+
+
+def gen_mock_artifact(uri: str, artifact_type: str = "input") -> Artifact:
+    """Generate a mock ML Metadata Artifact object."""
+    mock_artifact = Artifact(
+        name=f"{artifact_type}-artifact",
+        uri=uri,
+        display_name=f"{artifact_type.title()} Artifact",
+    )
+    mock_artifact.schema_title = "system.Dataset"
+
+    return mock_artifact
+
+
+def gen_mock_event(artifact_name: str, event_type: str = "INPUT") -> Event:
+    """Generate a mock ML Metadata Event object."""
+    mock_event = Event(artifact=artifact_name)
+    mock_event.type_.name = event_type
+
+    return mock_event
