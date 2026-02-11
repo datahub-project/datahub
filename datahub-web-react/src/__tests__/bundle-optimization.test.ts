@@ -211,15 +211,14 @@ describe('Phase 1: Bundle Optimization', () => {
     describe('Chunk Generation (requires build)', () => {
         const distPath = path.join(projectRoot, 'dist/assets');
 
-        test.skipIf(!fs.existsSync(distPath))('should generate expected chunks (acryl-main strategy)', () => {
+        test.skipIf(!fs.existsSync(distPath))('should generate expected chunks (simplified strategy)', () => {
             const files = fs.readdirSync(distPath);
             const jsFiles = files.filter((f) => f.endsWith('.js'));
 
-            // acryl-main strategy: separate MUI, Phosphor; React + Ant Design together
+            // Simplified strategy: React + Ant Design + MUI together to eliminate load order issues
             const expectedChunks = [
-                'mui-vendor', // Material UI separate
                 'phosphor-vendor', // Phosphor icons separate (optimized)
-                'vendor', // React + Ant Design + other node_modules
+                'vendor', // React + Ant Design + MUI + other node_modules
                 'source', // Application code
             ];
 
@@ -249,30 +248,23 @@ describe('Phase 1: Bundle Optimization', () => {
             const files = fs.readdirSync(distPath);
             const jsFiles = files.filter((f) => f.endsWith('.js'));
 
-            const muiVendorFile = jsFiles.find((f) => f.includes('mui-vendor'));
             const phosphorVendorFile = jsFiles.find((f) => f.includes('phosphor-vendor'));
             const vendorFile = jsFiles.find((f) => f.startsWith('vendor-'));
             const sourceFile = jsFiles.find((f) => f.includes('source'));
 
-            expect(muiVendorFile).toBeDefined();
             expect(phosphorVendorFile).toBeDefined();
             expect(vendorFile).toBeDefined();
             expect(sourceFile).toBeDefined();
 
-            const muiSize = fs.statSync(path.join(distPath, muiVendorFile!)).size;
             const phosphorSize = fs.statSync(path.join(distPath, phosphorVendorFile!)).size;
             const vendorSize = fs.statSync(path.join(distPath, vendorFile!)).size;
 
             // Phosphor should be optimized (< 500 KB)
             expect(phosphorSize).toBeLessThan(500 * 1024);
 
-            // MUI vendor should be ~3-4 MB
-            expect(muiSize).toBeGreaterThan(3 * 1024 * 1024);
-            expect(muiSize).toBeLessThan(5 * 1024 * 1024);
-
-            // Vendor (React + Ant Design) should be ~4-5 MB
-            expect(vendorSize).toBeGreaterThan(4 * 1024 * 1024);
-            expect(vendorSize).toBeLessThan(6 * 1024 * 1024);
+            // Vendor (React + Ant Design + MUI together) should be ~8-9 MB
+            expect(vendorSize).toBeGreaterThan(7 * 1024 * 1024);
+            expect(vendorSize).toBeLessThan(10 * 1024 * 1024);
         });
     });
 });

@@ -171,13 +171,10 @@ export default defineConfig(async ({ mode }) => {
                 output: {
                     manualChunks(id) {
                         if (id.includes('node_modules')) {
-                            if (id.includes('@mui')) {
-                                return 'mui-vendor';
-                            }
                             if (id.includes('phosphor-icons')) {
                                 return 'phosphor-vendor';
                             }
-                            // All other node_modules (React + Ant Design together = no load order issues)
+                            // All other node_modules (React + Ant + MUI together = no load order issues)
                             return 'vendor';
                         }
                         if (id.includes('src/')) {
