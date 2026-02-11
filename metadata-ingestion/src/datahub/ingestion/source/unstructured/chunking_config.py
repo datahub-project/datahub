@@ -4,6 +4,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import Field, field_validator
 
+from datahub.configuration import env_vars
 from datahub.configuration.common import ConfigModel, TransparentSecretStr
 
 
@@ -247,10 +248,12 @@ class DataHubConnectionConfig(ConfigModel):
     """DataHub connection configuration."""
 
     server: str = Field(
-        default="http://localhost:8080", description="DataHub GMS server URL"
+        default_factory=lambda: env_vars.get_gms_url() or "http://localhost:8080",
+        description="DataHub GMS server URL (defaults to DATAHUB_GMS_URL env var or localhost:8080)",
     )
     token: Optional[TransparentSecretStr] = Field(
-        default=None, description="DataHub API token for authentication"
+        default_factory=lambda: TransparentSecretStr(env_vars.get_gms_token()) if env_vars.get_gms_token() else None,
+        description="DataHub API token for authentication (defaults to DATAHUB_GMS_TOKEN env var)",
     )
 
 
