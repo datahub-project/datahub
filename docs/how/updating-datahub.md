@@ -67,7 +67,11 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
-- #15840 The Vertex AI source config `project_id` is deprecated in favor of `project_ids` (plural) to support multi-project ingestion. **Existing configs will continue to work** - the value is automatically converted and a warning is logged. No action required immediately, but we recommend updating your config. See the [Vertex AI source documentation](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/docs/sources/vertexai/vertexai_recipe.yml) for configuration examples and migration details.
+- #15840 The Vertex AI source config `project_id` (singular) is deprecated in favor of `project_ids` (plural) to support multi-project ingestion.
+  - **Backward compatible:** Existing configs with `project_id` will continue to work - the value is automatically migrated to `project_ids` and a deprecation warning is logged.
+  - **Breaking change if conflict:** If both `project_id` and `project_ids` are set with different values, ingestion will now fail with a `ValueError` instead of silently using one. This is intentional to prevent configuration errors.
+  - **Migration:** Simply replace `project_id: my-project` with `project_ids: [my-project]` in your recipe YAML.
+  - See the [Vertex AI source documentation](https://datahubproject.io/docs/generated/ingestion/sources/vertexai) for multi-project configuration examples, label-based discovery, and detailed migration guidance.
 - (CLI) The `--use-password` flag in `datahub init` command is deprecated. Token generation is now automatically detected when both `--username` and `--password` are provided together. The flag continues to work for backward compatibility but will be removed in a future release.
 
 ### Other Notable Changes

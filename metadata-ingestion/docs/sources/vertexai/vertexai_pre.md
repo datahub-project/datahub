@@ -133,10 +133,27 @@ project_id_pattern:
 
 #### Migration from `project_id`
 
+The deprecated `project_id` field is automatically migrated to `project_ids` for backward compatibility:
+
 ```yaml
 # Old (deprecated, still works)     →    # New (recommended)
 project_id: my-project                    project_ids: [my-project]
 ```
+
+**Migration scenarios:**
+
+| Scenario                       | Behavior                                                    |
+| ------------------------------ | ----------------------------------------------------------- |
+| Only `project_id` set          | ✅ Auto-migrates to `project_ids`, logs deprecation warning |
+| Only `project_ids` set         | ✅ Works as expected                                        |
+| Both set with same value       | ⚠️ Uses `project_ids`, logs warning to remove `project_id`  |
+| Both set with different values | ❌ Raises `ValueError` - must resolve conflict              |
+
+**Action required:**
+
+- If you see deprecation warnings, update your config to use `project_ids: [...]`
+- If you get a `ValueError` about conflicting projects, remove the `project_id` field
+- No immediate action required - existing configs continue to work
 
 ### Troubleshooting
 
