@@ -11,6 +11,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.dataset_transformer import DatasetTagsTransformer
 from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
     GlobalTagsClass,
     MetadataChangeProposalClass,
     TagAssociationClass,
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 class AddDatasetTagsConfig(TransformerSemanticsConfigModel):
     get_tags_to_add: Callable[[str], List[TagAssociationClass]]
+    is_container: bool = False
 
     _resolve_tag_fn = pydantic_resolve_key("get_tags_to_add")
 
@@ -73,6 +75,7 @@ class AddDatasetTags(DatasetTagsTransformer):
 
         logger.debug("Generating tags")
 
+        # Generate tag entities
         for tag_association in self.processed_tags.values():
             tag_urn = TagUrn.from_string(tag_association.tag)
             mcps.append(
@@ -82,11 +85,58 @@ class AddDatasetTags(DatasetTagsTransformer):
                 )
             )
 
+        # Handle container tags if is_container is enabled
+        container_tag_mcps: List[MetadataChangeProposalWrapper] = []
+        container_tag_mapping: Dict[str, List[TagAssociationClass]] = {}
+
+        logger.debug("Generating tags for containers")
+
+        if self.config.is_container:
+            for entity_urn, tags_to_add in (
+                (urn, self.config.get_tags_to_add(urn)) for urn in self.entity_map
+            ):
+                if not tags_to_add:
+                    continue
+
+                assert self.ctx.graph
+                browse_paths = self.ctx.graph.get_aspect(entity_urn, BrowsePathsV2Class)
+                if not browse_paths:
+                    continue
+
+                for path in browse_paths.path:
+                    container_urn = path.urn
+
+                    if not container_urn or not container_urn.startswith(
+                        "urn:li:container:"
+                    ):
+                        continue
+
+                    if container_urn not in container_tag_mapping:
+                        container_tag_mapping[container_urn] = tags_to_add.copy()
+                    else:
+                        # Merge tags, avoiding duplicates
+                        existing_tag_urns = {
+                            tag.tag for tag in container_tag_mapping[container_urn]
+                        }
+                        for tag in tags_to_add:
+                            if tag.tag not in existing_tag_urns:
+                                container_tag_mapping[container_urn].append(tag)
+
+            for urn, tags in container_tag_mapping.items():
+                container_tag_mcps.append(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=urn,
+                        aspect=GlobalTagsClass(tags=tags),
+                    )
+                )
+
+        mcps.extend(container_tag_mcps)
         return mcps
 
 
 class SimpleDatasetTagConfig(TransformerSemanticsConfigModel):
     tag_urns: List[str]
+    is_container: bool = False
 
 
 class SimpleAddDatasetTags(AddDatasetTags):
@@ -99,6 +149,7 @@ class SimpleAddDatasetTags(AddDatasetTags):
             get_tags_to_add=lambda _: tags,
             replace_existing=config.replace_existing,
             semantics=config.semantics,
+            is_container=config.is_container,
         )
         super().__init__(generic_config, ctx)
 
@@ -110,6 +161,7 @@ class SimpleAddDatasetTags(AddDatasetTags):
 
 class PatternDatasetTagsConfig(TransformerSemanticsConfigModel):
     tag_pattern: KeyValuePattern = KeyValuePattern.all()
+    is_container: bool = False
 
 
 class PatternAddDatasetTags(AddDatasetTags):
@@ -123,6 +175,7 @@ class PatternAddDatasetTags(AddDatasetTags):
             ],
             replace_existing=config.replace_existing,
             semantics=config.semantics,
+            is_container=config.is_container,
         )
         super().__init__(generic_config, ctx)
 
