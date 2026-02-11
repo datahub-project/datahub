@@ -17,7 +17,7 @@ describe('Phase 1: Bundle Optimization', () => {
     const phosphorIconsPath = path.join(projectRoot, 'src/alchemy-components/components/Icon/phosphor-icons.ts');
 
     describe('Icon Import Validation', () => {
-        test('no files should import directly from @phosphor-icons/react', { timeout: 10000 }, () => {
+        test('no files should import directly from @phosphor-icons/react', () => {
             const files = glob.sync('src/**/*.{ts,tsx}', {
                 cwd: projectRoot,
                 absolute: true,
@@ -52,7 +52,7 @@ describe('Phase 1: Bundle Optimization', () => {
             expect(problemFiles).toHaveLength(0);
         });
 
-        test('all imported icons should be exported in custom bundle', { timeout: 10000 }, () => {
+        test('all imported icons should be exported in custom bundle', () => {
             const phosphorIconsContent = fs.readFileSync(phosphorIconsPath, 'utf8');
 
             // Extract exported icons
@@ -113,7 +113,7 @@ describe('Phase 1: Bundle Optimization', () => {
             expect(exportedIcons.size).toBeGreaterThan(100);
         });
 
-        test('all dynamic icon references should be in custom bundle', { timeout: 10000 }, () => {
+        test('all dynamic icon references should be in custom bundle', () => {
             const phosphorIconsContent = fs.readFileSync(phosphorIconsPath, 'utf8');
 
             // Extract exported icons
@@ -262,7 +262,6 @@ describe('Phase 1: Bundle Optimization', () => {
             const muiSize = fs.statSync(path.join(distPath, muiVendorFile!)).size;
             const phosphorSize = fs.statSync(path.join(distPath, phosphorVendorFile!)).size;
             const vendorSize = fs.statSync(path.join(distPath, vendorFile!)).size;
-            const sourceSize = fs.statSync(path.join(distPath, sourceFile!)).size;
 
             // Phosphor should be optimized (< 500 KB)
             expect(phosphorSize).toBeLessThan(500 * 1024);
