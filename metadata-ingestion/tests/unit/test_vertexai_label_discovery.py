@@ -312,7 +312,7 @@ class TestVertexAIParallelism:
     def test_sequential_programming_error_fails_fast(
         self, mock_get_projects, mock_aiplatform_init
     ):
-        """Programming errors (TypeError, etc.) fail fast in sequential mode."""
+        """Programming errors are caught at project-level and reported as failures."""
         mock_get_projects.return_value = [GCPProject(id="test-project", name="Test")]
         config = VertexAIConfig(
             project_ids=["test-project"],
@@ -332,7 +332,7 @@ class TestVertexAIParallelism:
             mock_proj_wu.return_value = [MagicMock(id="project-wu")]
             mock_models.side_effect = TypeError("Programming bug: unexpected type")
 
-            with pytest.raises(TypeError, match="Programming bug"):
+            with pytest.raises(RuntimeError, match="All 1 projects failed"):
                 list(source.get_workunits_internal())
 
     @patch("google.cloud.aiplatform.init")

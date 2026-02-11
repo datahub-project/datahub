@@ -340,9 +340,6 @@ class VertexAISource(Source):
     ) -> None:
         """
         Handle resource-level errors with appropriate log level and reporting.
-
-        GoogleAPICallError → error log + failure report
-        Other exceptions → warning log + warning report
         """
         is_api_error = isinstance(exc, GoogleAPICallError)
         title = f"Failed to process {resource_type}"
@@ -358,15 +355,16 @@ class VertexAISource(Source):
                 resource_id or "",
                 exc,
             )
-            self.report.failure(title=title, message=message, exc=exc)
         else:
-            logger.warning(
-                "Failed to process %s %s: %s",
+            logger.error(
+                "Programming error processing %s %s: %s",
                 resource_type,
                 resource_id or "",
                 exc,
+                exc_info=True,
             )
-            self.report.warning(title=title, message=message, exc=exc)
+
+        self.report.failure(title=title, message=message, exc=exc)
 
     def _handle_project_error(
         self,
@@ -412,7 +410,7 @@ class VertexAISource(Source):
                 else:
                     yield from self._process_current_project()
                 successful_projects += 1
-            except GoogleAPICallError as exc:
+            except Exception as exc:
                 self._handle_project_error(
                     project.id, exc, failed_projects, failed_exceptions
                 )
@@ -456,13 +454,7 @@ class VertexAISource(Source):
             try:
                 yield from self._fetch_resource_by_type(resource_type)
             except GoogleAPICallError as e:
-                logger.warning(
-                    f"API error fetching {resource_type} for project {project.id}: {e}"
-                )
-                self.report.report_warning(
-                    title=f"Failed to fetch {resource_type} for project {project.id}",
-                    message=str(e),
-                )
+                self._handle_resource_error(e, resource_type)
             except Exception as e:
                 logger.error(
                     f"Unexpected error in {resource_type} fetcher for project {project.id}: {e}",
@@ -1351,18 +1343,6 @@ class VertexAISource(Source):
                         )
                         job_meta.output_model = model
                         job_meta.output_model_version = model_version
-                except PermissionDenied as e:
-                    logger.warning(
-                        "Permission denied accessing model '%s'. "
-                        "Ensure service account has 'aiplatform.models.get' permission. "
-                        "Error: %s",
-                        model_name,
-                        str(e),
-                    )
-                    self.report.warning(
-                        title=f"No permission to access model {model_name}",
-                        message=f"Check IAM permissions. Error: {str(e)}",
-                    )
                 except NotFound:
                     logger.info(
                         "Model '%s' or version '%s' not found. "
@@ -1371,8 +1351,6 @@ class VertexAISource(Source):
                         model_version_str,
                     )
                 except GoogleAPICallError as e:
-                    # Transient errors are already retried by _call_with_retry above.
-                    # If we get here, retries were exhausted or it's a non-transient error.
                     self._handle_resource_error(e, "model", model_name)
 
         return job_meta
