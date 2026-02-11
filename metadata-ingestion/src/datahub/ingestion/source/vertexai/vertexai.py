@@ -46,7 +46,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceCapability
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.gcp_project_filter import (
@@ -60,9 +60,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
-)
-from datahub.ingestion.source.state.workunit_processor import (
-    MetadataWorkUnitProcessor,
 )
 from datahub.ingestion.source.vertexai.ml_metadata_helper import MLMetadataHelper
 from datahub.ingestion.source.vertexai.protobuf_utils import (
