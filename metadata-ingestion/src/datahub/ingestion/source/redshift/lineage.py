@@ -541,13 +541,11 @@ class RedshiftSqlLineage(Closeable):
         # Handle all the temp tables up front.
         if self.config.resolve_temp_table_in_lineage:
             for temp_row in self.get_temp_tables(connection=connection):
-                # Temp table queries use RTRIM(LISTAGG(...)) which preserves spaces.
-                # Skip Redshift RTRIM fix preprocessing.
+                # Apply Redshift RTRIM preprocessing. Even though we use RTRIM(LISTAGG(...))
+                # in the query, Redshift may still return corrupted text from SVL_STATEMENTTEXT.
                 self.aggregator.add_observed_query(
                     ObservedQuery(
-                        query=self._preprocess_query(
-                            temp_row.query_text, apply_redshift_rtrim_fix=False
-                        ),
+                        query=self._preprocess_query(temp_row.query_text),
                         default_db=self.database,
                         default_schema=self.config.default_schema,
                         session_id=temp_row.session_id,
@@ -713,12 +711,7 @@ class RedshiftSqlLineage(Closeable):
             )
             self.report_status(f"extract-{lineage_type.name}", False)
 
-    def _preprocess_query(
-        self,
-        query: str,
-        apply_dms_update: bool = True,
-        apply_redshift_rtrim_fix: bool = True,
-    ) -> str:
+    def _preprocess_query(self, query: str, apply_dms_update: bool = True) -> str:
         """Preprocess SQL query to fix Redshift and AWS DMS malformations.
 
         This applies Redshift-specific preprocessing before SQL parsing:
@@ -734,14 +727,8 @@ class RedshiftSqlLineage(Closeable):
             apply_dms_update: Whether to apply DMS UPDATE FROM clause injection.
                 Set to False when source/target tables are already known from
                 metadata (e.g., STL scan) and only CLL extraction is needed.
-            apply_redshift_rtrim_fix: Whether to apply Redshift RTRIM bug fixes.
-                Set to False for SQL_BASED mode where we reconstruct queries
-                from STL_QUERYTEXT with our own RTRIM fix. Set to True (default)
-                for STL_SCAN_BASED mode where stl_query.querytxt is already
-                corrupted by Redshift's internal RTRIM.
         """
-        if apply_redshift_rtrim_fix:
-            query = preprocess_redshift_query(query)
+        query = preprocess_redshift_query(query)
         if apply_dms_update:
             query = preprocess_dms_update_query(query)
         query = preprocess_dms_password_redaction(query)
@@ -754,11 +741,11 @@ class RedshiftSqlLineage(Closeable):
 
         # TODO actor
 
-        # SQL_BASED mode reconstructs queries from STL_QUERYTEXT using our fixed
-        # RTRIM(LISTAGG(...)) which preserves spaces. Skip Redshift RTRIM fix.
+        # Apply Redshift RTRIM preprocessing. Even though we use RTRIM(LISTAGG(...))
+        # in STL_QUERYTEXT queries, Redshift may still return corrupted text.
         self.aggregator.add_observed_query(
             ObservedQuery(
-                query=self._preprocess_query(ddl, apply_redshift_rtrim_fix=False),
+                query=self._preprocess_query(ddl),
                 default_db=self.database,
                 default_schema=self.config.default_schema,
                 timestamp=lineage_row.timestamp,
