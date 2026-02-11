@@ -1,0 +1,25 @@
+namespace com.linkedin.organization
+
+import com.linkedin.common.Urn
+
+/**
+ * Hierarchy information for an Organization.
+ */
+@Aspect = {
+  "name": "organizationHierarchy"
+}
+record OrganizationHierarchy {
+  /**
+   * The parent organization.
+   */
+  @Relationship = {
+    "name": "IsChildOf",
+    "entityTypes": [ "organization" ]
+  }
+  @Searchable = {
+    "fieldName": "parent",
+    "fieldType": "URN",
+    "queryByDefault": false
+  }
+  parent: optional Urn
+}

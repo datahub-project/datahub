@@ -1,0 +1,58 @@
+namespace com.linkedin.organization
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.Urn
+
+/**
+ * Properties of an Organization (Company)
+ */
+@Aspect = {
+  "name": "organizationProperties"
+}
+record OrganizationProperties includes CustomProperties {
+  /**
+   * Display name of the Organization (Company)
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
+  }
+  name: string
+
+  /**
+   * Description of the Organization
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "searchTier": 2
+  }
+  description: optional string
+
+  /**
+   * URL to the Organization's logo
+   */
+  logoUrl: optional string
+
+  /**
+   * URL to the Organization's external website
+   */
+  externalUrl: optional string
+
+  /**
+   * Created Audit stamp
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdTime",
+      "fieldType": "DATETIME",
+      "searchLabel": "createdAt"
+    }
+  }
+  created: optional AuditStamp
+}

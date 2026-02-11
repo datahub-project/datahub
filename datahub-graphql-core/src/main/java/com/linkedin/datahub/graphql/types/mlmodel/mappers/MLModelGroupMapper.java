@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.organization.mappers.OrganizationsAspectMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
@@ -39,6 +40,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.MLModelGroupKey;
 import com.linkedin.ml.metadata.EditableMLModelGroupProperties;
 import com.linkedin.ml.metadata.MLModelGroupProperties;
+import com.linkedin.organization.Organizations;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -125,6 +127,11 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
             mlModelGroup.setInstitutionalMemory(
                 InstitutionalMemoryMapper.map(
                     context, new InstitutionalMemory(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        ORGANIZATIONS_ASPECT_NAME,
+        (mlModelGroup, dataMap) ->
+            mlModelGroup.setOrganizations(
+                OrganizationsAspectMapper.map(context, new Organizations(dataMap))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLModelGroup.class);

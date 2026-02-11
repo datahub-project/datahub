@@ -26,6 +26,7 @@ import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.organization.mappers.OrganizationsAspectMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datajob.EditableDataJobProperties;
@@ -33,6 +34,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DataJobKey;
+import com.linkedin.organization.Organizations;
 import com.linkedin.structured.StructuredProperties;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -139,6 +141,9 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
               } else if (DATA_TRANSFORM_LOGIC_ASPECT_NAME.equals(name)) {
                 result.setDataTransformLogic(
                     DataTransformLogicMapper.map(context, new DataTransformLogic(data)));
+              } else if (ORGANIZATIONS_ASPECT_NAME.equals(name)) {
+                result.setOrganizations(
+                    OrganizationsAspectMapper.map(context, new Organizations(data)));
               }
             });
 

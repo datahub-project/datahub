@@ -3,6 +3,7 @@ import React from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { Content, SideBar } from '@app/entityV2/shared/SidebarStyledComponents';
+import { SidebarOrganizationSection } from '@app/entityV2/shared/containers/profile/sidebar/Organizations/SidebarOrganizationSection';
 import { AboutSidebarSection } from '@app/entityV2/shared/sidebarSection/AboutSidebarSection';
 import { UserGroupSideBarSection } from '@app/entityV2/shared/sidebarSection/UserGroupSidebarSection';
 import { UserOwnershipSidebarSection } from '@app/entityV2/shared/sidebarSection/UserOwnershipSideBarSection';
@@ -70,6 +71,7 @@ export default function UserSidebar({ sidebarData, refetch }: Props) {
                 />
                 <UserOwnershipSidebarSection ownershipResults={ownershipResults} />
                 <UserGroupSideBarSection groupsDetails={groupsDetails} />
+                <SidebarOrganizationSection />
             </Content>
         </SideBar>
     );

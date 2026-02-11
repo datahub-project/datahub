@@ -1,5 +1,5 @@
 import { DataContext, Margin } from '@visx/xychart';
-import { RefObject, useContext, useEffect, useMemo } from 'react';
+import React, { RefObject, useContext, useEffect, useMemo } from 'react';
 
 interface DynamicMarginSetterProps {
     setMargin: (margin: Margin) => void;
@@ -17,7 +17,7 @@ export default function DynamicMarginSetter({
     minimalMargin,
     currentMargin,
 }: DynamicMarginSetterProps) {
-    const { margin } = useContext(DataContext);
+    const { margin } = useContext(DataContext as React.Context<typeof DataContext extends React.Context<infer T> ? T : never>);
 
     const safeMargin = useMemo(
         () => ({

@@ -20,6 +20,7 @@ import StructuredProperties from '@app/govern/structuredProperties/StructuredPro
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
 import IngestionRoutes from '@app/ingestV2/IngestionRoutes';
 import { MFERoutes } from '@app/mfeframework/mfeConfigLoader';
+import { OrganizationsList } from '@app/organization/OrganizationsList';
 import { SearchPage } from '@app/search/SearchPage';
 import { SearchablePage } from '@app/search/SearchablePage';
 import { SearchPage as SearchPageV2 } from '@app/searchV2/SearchPage';
@@ -112,6 +113,7 @@ export const SearchRoutes = (): JSX.Element => {
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                 {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
                 <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
+                <Route path={PageRoutes.ORGANIZATIONS} render={() => <OrganizationsList />} />
                 <Route path={PageRoutes.ANALYTICS} render={renderAnalyticsPage} />
                 <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
                 <Route

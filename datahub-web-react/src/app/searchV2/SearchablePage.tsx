@@ -22,10 +22,11 @@ import {
     useGetAutoCompleteMultipleResultsLazyQuery,
 } from '@graphql/search.generated';
 
-const Body = styled.div`
+const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex-direction: row;
     flex: 1;
+    margin-left: ${(props) => (props.$isShowNavBarRedesign ? '0' : '76px')};
 `;
 
 const BodyBackground = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -37,6 +38,10 @@ const BodyBackground = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const Navigation = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    position: ${(props) => (props.$isShowNavBarRedesign ? 'relative' : 'fixed')};
+    top: 0;
+    left: 0;
+    height: 100vh;
     z-index: ${(props) => (props.$isShowNavBarRedesign ? 0 : 200)};
 `;
 
@@ -138,7 +143,7 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
                 hideSearchBar={hideSearchBar}
             />
             <BodyBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
-            <Body>
+            <Body $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <Navigation $isShowNavBarRedesign={isShowNavBarRedesign}>
                     <FinalNavBar />
                 </Navigation>

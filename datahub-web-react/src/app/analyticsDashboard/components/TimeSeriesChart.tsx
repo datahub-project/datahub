@@ -145,54 +145,56 @@ export const TimeSeriesChart = ({
                 xScale={{ type: 'time' }}
                 yScale={yScale ?? { type: 'linear' }}
             >
-                <Axis
-                    orientation="bottom"
-                    stroke={style?.axisColor}
-                    strokeWidth={style?.axisWidth}
-                    tickLabelProps={{ fill: 'black', fontFamily: 'inherit', fontSize: 10 }}
-                    numTicks={3}
-                    tickFormat={(value) => formatAxisDate(value, chartData)}
-                />
-                <Axis
-                    orientation="right"
-                    stroke={style?.axisColor}
-                    strokeWidth={style?.axisWidth}
-                    tickFormat={(tick) => (yAxis?.formatter ? yAxis.formatter(tick) : formatNumber(tick))}
-                    tickLabelProps={{ fill: 'black', fontFamily: 'inherit', fontSize: 10 }}
-                    numTicks={3}
-                />
-                {lines.map((line, i) => (
-                    <>
-                        <LineSeries
-                            dataKey={line.name}
-                            data={line.data.map((point) => ({ x: new Date(point.x), y: point.y }))}
-                            stroke={(style && style.lineColor) || lineColors[i]}
-                            curve={curveMonotoneX}
-                            {...accessors}
-                        />
-                        <GlyphSeries
-                            dataKey={line.name}
-                            data={line.data.map((point) => ({ x: new Date(point.x), y: point.y }))}
-                            {...accessors}
-                        />
-                    </>
-                ))}
-                <StyledTooltip
-                    snapTooltipToDatumX
-                    showVerticalCrosshair
-                    showDatumGlyph
-                    verticalCrosshairStyle={{ stroke: '#D8D8D8', strokeDasharray: '5,2', strokeWidth: 1 }}
-                    renderTooltip={({ tooltipData }) =>
-                        tooltipData?.nearestDatum && (
-                            <div>
+                <>
+                    <Axis
+                        orientation="bottom"
+                        stroke={style?.axisColor}
+                        strokeWidth={style?.axisWidth}
+                        tickLabelProps={{ fill: 'black', fontFamily: 'inherit', fontSize: 10 }}
+                        numTicks={3}
+                        tickFormat={(value) => formatAxisDate(value, chartData)}
+                    />
+                    <Axis
+                        orientation="right"
+                        stroke={style?.axisColor}
+                        strokeWidth={style?.axisWidth}
+                        tickFormat={(tick) => (yAxis?.formatter ? yAxis.formatter(tick) : formatNumber(tick))}
+                        tickLabelProps={{ fill: 'black', fontFamily: 'inherit', fontSize: 10 }}
+                        numTicks={3}
+                    />
+                    {lines.map((line, i) => (
+                        <React.Fragment key={line.name}>
+                            <LineSeries
+                                dataKey={line.name}
+                                data={line.data.map((point) => ({ x: new Date(point.x), y: point.y }))}
+                                stroke={(style && style.lineColor) || lineColors[i]}
+                                curve={curveMonotoneX}
+                                {...accessors}
+                            />
+                            <GlyphSeries
+                                dataKey={line.name}
+                                data={line.data.map((point) => ({ x: new Date(point.x), y: point.y }))}
+                                {...accessors}
+                            />
+                        </React.Fragment>
+                    ))}
+                    <StyledTooltip
+                        snapTooltipToDatumX
+                        showVerticalCrosshair
+                        showDatumGlyph
+                        verticalCrosshairStyle={{ stroke: '#D8D8D8', strokeDasharray: '5,2', strokeWidth: 1 }}
+                        renderTooltip={({ tooltipData }) =>
+                            (tooltipData?.nearestDatum && (
                                 <div>
-                                    {formatAxisDate(accessors.xAccessor(tooltipData.nearestDatum.datum), chartData)}
+                                    <div>
+                                        {formatAxisDate(accessors.xAccessor(tooltipData.nearestDatum.datum), chartData)}
+                                    </div>
+                                    <div>{accessors.yAccessor(tooltipData.nearestDatum.datum)}</div>
                                 </div>
-                                <div>{accessors.yAccessor(tooltipData.nearestDatum.datum)}</div>
-                            </div>
-                        )
-                    }
-                />
+                            )) as React.ReactNode
+                        }
+                    />
+                </>
             </XYChart>
             {!hideLegend && <Legend ordinalScale={ordinalColorScale} />}
         </>

@@ -41,6 +41,7 @@ const ALLOWED_ENTITY_TYPES = [
     EntityType.GlossaryTerm,
     EntityType.GlossaryNode,
     EntityType.SchemaField,
+    EntityType.Organization,
 ];
 
 /**

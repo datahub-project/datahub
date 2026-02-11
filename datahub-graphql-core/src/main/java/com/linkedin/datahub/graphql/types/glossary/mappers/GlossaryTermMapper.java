@@ -26,6 +26,7 @@ import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.organization.mappers.OrganizationsAspectMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.util.EntityResponseUtils;
 import com.linkedin.domain.Domains;
@@ -33,6 +34,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.key.GlossaryTermKey;
+import com.linkedin.organization.Organizations;
 import com.linkedin.settings.asset.AssetSettings;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
@@ -115,6 +117,11 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
         ASSET_SETTINGS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setSettings(AssetSettingsMapper.map(new AssetSettings(dataMap)))));
+    mappingHelper.mapToResult(
+        ORGANIZATIONS_ASPECT_NAME,
+        (glossaryTerm, dataMap) ->
+            glossaryTerm.setOrganizations(
+                OrganizationsAspectMapper.map(context, new Organizations(dataMap))));
 
     // If there's no name property, resort to the legacy name computation.
     if (result.getGlossaryTermInfo() != null && result.getGlossaryTermInfo().getName() == null) {

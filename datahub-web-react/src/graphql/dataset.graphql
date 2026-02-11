@@ -227,6 +227,9 @@ fragment nonSiblingDatasetFields on Dataset {
     institutionalMemory {
         ...institutionalMemoryFields
     }
+    organizations {
+        ...organizationsFields
+    }
     ...notes
     ...entityProfileVersionProperties
     settings {

@@ -171,97 +171,99 @@ export function BarChart({
                             horizontal={horizontal}
                             {...scales}
                         >
-                            {renderGradients()}
+                            <>
+                                {renderGradients()}
 
-                            <DynamicMarginSetter
-                                setMargin={setDynamicMargin}
-                                wrapperRef={wrapperRef}
-                                minimalMargin={defaultMargin}
-                            />
-
-                            <Axis
-                                orientation="left"
-                                numTicks={computeLeftAxisNumTicks?.(width, height, dynamicMargin, data)}
-                                tickComponent={(props) => (
-                                    <TruncatableTick {...props} limit={maxLengthOfLeftAxisLabel} />
-                                )}
-                                axisClassName="left-axis"
-                                {...mergedLeftAxisProps}
-                            />
-
-                            <Axis
-                                orientation="bottom"
-                                numTicks={computeBottomAxisNumTicks?.(width, height, dynamicMargin, data)}
-                                tickClassName="bottom-axis-tick"
-                                {...mergedBottomAxisProps}
-                            />
-
-                            <Group className="content-group">
-                                <Grid {...mergedGridProps} />
-
-                                {/* hide the first (left) column line */}
-                                {mergedGridProps.columns && (
-                                    <line
-                                        x1={dynamicMargin.left}
-                                        x2={dynamicMargin.left}
-                                        y1={0}
-                                        y2={height - dynamicMargin.bottom}
-                                        stroke="white"
-                                        strokeWidth={2}
-                                    />
-                                )}
-
-                                {showLeftAxisLine && (
-                                    <line
-                                        x1={dynamicMargin.left}
-                                        x2={dynamicMargin.left}
-                                        y1={0}
-                                        y2={height - dynamicMargin.bottom}
-                                        stroke={mergedGridProps?.stroke}
-                                    />
-                                )}
-
-                                <StyledBarSeries
-                                    as={BarSeries<AxisScale, AxisScale, Datum>}
-                                    $hasSelectedItem={selectedBarIndex !== null}
-                                    $isEmpty={isEmpty}
-                                    dataKey="bar-seria-0"
-                                    data={data}
-                                    radius={4}
-                                    radiusTop
-                                    radiusBottom={horizontal}
-                                    onBlur={() => setSelectedBarIndex(null)}
-                                    onFocus={({ index }) => setSelectedBarIndex(index)}
-                                    colorAccessor={colorAccessor}
-                                    onPointerMove={({ index }) => setHoweredBarIndex(index)}
-                                    onPointerOut={() => setHoweredBarIndex(null)}
-                                    {...accessors}
+                                <DynamicMarginSetter
+                                    setMargin={setDynamicMargin}
+                                    wrapperRef={wrapperRef}
+                                    minimalMargin={defaultMargin}
                                 />
-                            </Group>
 
-                            <Tooltip<Datum>
-                                // needed for bounds to update correctly (https://airbnb.io/visx/tooltip)
-                                key={Math.random()}
-                                snapTooltipToDatumX
-                                snapTooltipToDatumY
-                                unstyled
-                                applyPositionStyle
-                                renderTooltip={({ tooltipData }) => {
-                                    return (
-                                        tooltipData?.nearestDatum && (
-                                            <Popover
-                                                open
-                                                defaultOpen
-                                                // adjust offset for horizontal barchart to prevent blinking of popover and hover state
-                                                align={horizontal ? { offset: [0, 20] } : undefined}
-                                                placement={horizontal ? 'bottomRight' : 'topLeft'}
-                                                key={`${xAccessor(tooltipData.nearestDatum.datum)}`}
-                                                content={popoverRenderer?.(tooltipData.nearestDatum.datum)}
-                                            />
-                                        )
-                                    );
-                                }}
-                            />
+                                <Axis
+                                    orientation="left"
+                                    numTicks={computeLeftAxisNumTicks?.(width, height, dynamicMargin, data)}
+                                    tickComponent={(props) => (
+                                        <TruncatableTick {...props} limit={maxLengthOfLeftAxisLabel} />
+                                    )}
+                                    axisClassName="left-axis"
+                                    {...mergedLeftAxisProps}
+                                />
+
+                                <Axis
+                                    orientation="bottom"
+                                    numTicks={computeBottomAxisNumTicks?.(width, height, dynamicMargin, data)}
+                                    tickClassName="bottom-axis-tick"
+                                    {...mergedBottomAxisProps}
+                                />
+
+                                <Group className="content-group">
+                                    <Grid {...mergedGridProps} />
+
+                                    {/* hide the first (left) column line */}
+                                    {mergedGridProps.columns && (
+                                        <line
+                                            x1={dynamicMargin.left}
+                                            x2={dynamicMargin.left}
+                                            y1={0}
+                                            y2={height - dynamicMargin.bottom}
+                                            stroke="white"
+                                            strokeWidth={2}
+                                        />
+                                    )}
+
+                                    {showLeftAxisLine && (
+                                        <line
+                                            x1={dynamicMargin.left}
+                                            x2={dynamicMargin.left}
+                                            y1={0}
+                                            y2={height - dynamicMargin.bottom}
+                                            stroke={mergedGridProps?.stroke}
+                                        />
+                                    )}
+
+                                    <StyledBarSeries
+                                        as={BarSeries<AxisScale, AxisScale, Datum>}
+                                        $hasSelectedItem={selectedBarIndex !== null}
+                                        $isEmpty={isEmpty}
+                                        dataKey="bar-seria-0"
+                                        data={data}
+                                        radius={4}
+                                        radiusTop
+                                        radiusBottom={horizontal}
+                                        onBlur={() => setSelectedBarIndex(null)}
+                                        onFocus={({ index }) => setSelectedBarIndex(index)}
+                                        colorAccessor={colorAccessor}
+                                        onPointerMove={({ index }) => setHoweredBarIndex(index)}
+                                        onPointerOut={() => setHoweredBarIndex(null)}
+                                        {...accessors}
+                                    />
+                                </Group>
+
+                                <Tooltip<Datum>
+                                    // needed for bounds to update correctly (https://airbnb.io/visx/tooltip)
+                                    key={Math.random()}
+                                    snapTooltipToDatumX
+                                    snapTooltipToDatumY
+                                    unstyled
+                                    applyPositionStyle
+                                    renderTooltip={({ tooltipData }) => {
+                                        return (
+                                            (tooltipData?.nearestDatum && (
+                                                <Popover
+                                                    open
+                                                    defaultOpen
+                                                    // adjust offset for horizontal barchart to prevent blinking of popover and hover state
+                                                    align={horizontal ? { offset: [0, 20] } : undefined}
+                                                    placement={horizontal ? 'bottomRight' : 'topLeft'}
+                                                    key={`${xAccessor(tooltipData.nearestDatum.datum)}`}
+                                                    content={popoverRenderer?.(tooltipData.nearestDatum.datum)}
+                                                />
+                                            ))
+                                        ) as React.ReactNode;
+                                    }}
+                                />
+                            </>
                         </XYChart>
                     );
                 }}

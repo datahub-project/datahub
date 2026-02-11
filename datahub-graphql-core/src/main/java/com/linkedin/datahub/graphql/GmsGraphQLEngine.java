@@ -186,6 +186,19 @@ import com.linkedin.datahub.graphql.resolvers.mutate.UpdateParentNodeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateUserSettingResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpsertLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.operation.ReportOperationResolver;
+import com.linkedin.datahub.graphql.resolvers.organization.AddEntityToOrganizationsResolver;
+import com.linkedin.datahub.graphql.resolvers.organization.AddUserToOrganizationsResolver;
+import com.linkedin.datahub.graphql.resolvers.organization.CreateOrganizationResolver;
+import com.linkedin.datahub.graphql.resolvers.organization.DeleteOrganizationResolver;
+import com.linkedin.datahub.graphql.resolvers.organization.GetEntitiesByOrganizationResolver;
+import com.linkedin.datahub.graphql.resolvers.organization.ListOrganizationsResolver;
+import com.linkedin.datahub.graphql.resolvers.organization.OrganizationChildrenResolver;
+import com.linkedin.datahub.graphql.resolvers.organization.OrganizationParentResolver;
+import com.linkedin.datahub.graphql.resolvers.organization.OrganizationResolver;
+import com.linkedin.datahub.graphql.resolvers.organization.RemoveEntityFromOrganizationsResolver;
+import com.linkedin.datahub.graphql.resolvers.organization.RemoveUserFromOrganizationsResolver;
+import com.linkedin.datahub.graphql.resolvers.organization.SetEntityOrganizationsResolver;
+import com.linkedin.datahub.graphql.resolvers.organization.UpdateOrganizationResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.CreateOwnershipTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.DeleteOwnershipTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.ListOwnershipTypesResolver;
@@ -315,6 +328,7 @@ import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
 import com.linkedin.datahub.graphql.types.module.PageModuleType;
 import com.linkedin.datahub.graphql.types.notebook.NotebookType;
+import com.linkedin.datahub.graphql.types.organization.OrganizationType;
 import com.linkedin.datahub.graphql.types.ownership.OwnershipType;
 import com.linkedin.datahub.graphql.types.policy.DataHubPolicyType;
 import com.linkedin.datahub.graphql.types.post.PostType;
@@ -496,6 +510,7 @@ public class GmsGraphQLEngine {
   private final QueryType queryType;
   private final DataProductType dataProductType;
   private final ApplicationType applicationType;
+  private final OrganizationType organizationType;
   private final OwnershipType ownershipType;
   private final StructuredPropertyType structuredPropertyType;
   private final DataTypeType dataTypeType;
@@ -638,6 +653,7 @@ public class GmsGraphQLEngine {
     this.queryType = new QueryType(entityClient);
     this.dataProductType = new DataProductType(entityClient);
     this.applicationType = new ApplicationType(entityClient);
+    this.organizationType = new OrganizationType(entityClient);
     this.ownershipType = new OwnershipType(entityClient);
     this.structuredPropertyType = new StructuredPropertyType(entityClient);
     this.dataTypeType = new DataTypeType(entityClient);
@@ -696,6 +712,7 @@ public class GmsGraphQLEngine {
                 dataHubViewType,
                 queryType,
                 dataProductType,
+                organizationType,
                 ownershipType,
                 structuredPropertyType,
                 dataTypeType,
@@ -803,6 +820,8 @@ public class GmsGraphQLEngine {
     configureEntityPathResolvers(builder);
     configureResolvedAuditStampResolvers(builder);
     configureViewResolvers(builder);
+    configureOrganizationResolvers(builder);
+
     configureQueryEntityResolvers(builder);
     configureOwnershipTypeResolver(builder);
     configurePluginResolvers(builder);
@@ -889,6 +908,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FILES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(ORGANIZATION_SCHEMA_FILE));
         .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
@@ -3061,6 +3081,12 @@ public class GmsGraphQLEngine {
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
                         documentService, entityClient, groupService)));
     builder.type(
+        "Organization",
+        typeWiring ->
+            typeWiring
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+    builder.type(
         "DomainAssociation",
         typeWiring ->
             typeWiring.dataFetcher(
@@ -3895,5 +3921,52 @@ public class GmsGraphQLEngine {
                       }
                       return null;
                     })));
+  }
+
+  private void configureOrganizationResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Query",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "organization",
+                    new OrganizationResolver<>(organizationType, (env) -> env.getArgument("urn")))
+                .dataFetcher("listOrganizations", new ListOrganizationsResolver(entityClient))
+                .dataFetcher(
+                    "getEntitiesByOrganization",
+                    new GetEntitiesByOrganizationResolver(entityClient)));
+    builder.type(
+        "Mutation",
+        typeWiring ->
+            typeWiring
+                .dataFetcher("createOrganization", new CreateOrganizationResolver(entityClient))
+                .dataFetcher("updateOrganization", new UpdateOrganizationResolver(entityClient))
+                .dataFetcher("deleteOrganization", new DeleteOrganizationResolver(entityClient))
+                .dataFetcher(
+                    "addEntityToOrganizations", new AddEntityToOrganizationsResolver(entityClient))
+                .dataFetcher(
+                    "removeEntityFromOrganizations",
+                    new RemoveEntityFromOrganizationsResolver(entityClient))
+                .dataFetcher(
+                    "setEntityOrganizations", new SetEntityOrganizationsResolver(entityClient))
+                .dataFetcher(
+                    "addUserToOrganizations", new AddUserToOrganizationsResolver(entityClient))
+                .dataFetcher(
+                    "removeUserFromOrganizations",
+                    new RemoveUserFromOrganizationsResolver(entityClient)));
+    // Configure the Organization type to properly resolve properties when
+    // organizations
+    // are returned as nested entities (e.g., in dataset.organizations)
+    builder.type(
+        "Organization",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "properties",
+                    new com.linkedin.datahub.graphql.resolvers.load
+                        .OrganizationPropertiesDataFetcher(entityClient))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+                .dataFetcher("parent", new OrganizationParentResolver(entityClient))
+                .dataFetcher("children", new OrganizationChildrenResolver(entityClient)));
   }
 }

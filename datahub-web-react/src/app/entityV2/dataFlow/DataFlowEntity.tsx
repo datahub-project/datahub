@@ -13,6 +13,7 @@ import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sid
 import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOrganizationSection } from '@app/entityV2/shared/containers/profile/sidebar/Organizations/SidebarOrganizationSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
@@ -148,6 +149,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
             component: SidebarNotesSection,
         },
         {
+            component: SidebarOrganizationSection,
+        },
+        {
             component: SidebarOwnerSection,
         },
         {
@@ -275,6 +279,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
+            EntityCapabilityType.ORGANIZATIONS,
             EntityCapabilityType.TEST,
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,

@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an Organization (Company)
+ */
+@Aspect = {
+  "name": "organizationKey"
+}
+record OrganizationKey {
+  /**
+   * A unique identifier for the organization (company).
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "queryByDefault": true,
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  id: string
+}

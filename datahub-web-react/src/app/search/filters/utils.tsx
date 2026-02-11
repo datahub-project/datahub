@@ -26,6 +26,7 @@ import {
     FILTER_DELIMITER,
     GLOSSARY_TERMS_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
+    ORGANIZATIONS_FILTER_NAME,
     OWNERS_FILTER_NAME,
     PLATFORM_FILTER_NAME,
     STRUCTURED_PROPERTIES_FILTER_NAME,
@@ -56,6 +57,7 @@ import {
 } from '@types';
 
 import DomainsIcon from '@images/domain.svg?react';
+import OrganizationsIcon from '@images/organization.svg?react';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
 export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {
@@ -307,6 +309,8 @@ export function getFilterDropdownIcon(field: string) {
             return <FolderOutlined />;
         case DOMAINS_FILTER_NAME:
             return <Icon component={DomainsIcon} />;
+        case ORGANIZATIONS_FILTER_NAME:
+            return <Icon component={OrganizationsIcon} />;
         default:
             return null;
     }

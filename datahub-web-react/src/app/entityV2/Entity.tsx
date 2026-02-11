@@ -109,6 +109,10 @@ export enum EntityCapabilityType {
      * Adding a business attribute to the entity
      */
     BUSINESS_ATTRIBUTES,
+    /**
+     * Assigning an organization to a entity
+     */
+    ORGANIZATIONS,
 }
 
 export interface EntityMenuActions {

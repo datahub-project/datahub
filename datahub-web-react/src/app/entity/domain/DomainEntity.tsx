@@ -8,8 +8,9 @@ import { Preview } from '@app/entity/domain/preview/Preview';
 import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
 import { EntityProfileTab } from '@app/entity/shared/constants';
 import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOrganizationSection } from '@app/entity/shared/containers/profile/sidebar/Organization/SidebarOrganizationSection';
 import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
 import { EntityActionItem } from '@app/entity/shared/entity/EntityActions';
@@ -110,10 +111,13 @@ export class DomainEntity implements Entity<Domain> {
 
     getSidebarSections = () => [
         {
-            component: SidebarAboutSection,
+            component: SidebarDomainSection,
         },
         {
-            component: SidebarOwnerSection,
+            component: SidebarOrganizationSection,
+        },
+        {
+            component: DataProductSection,
         },
         {
             component: SidebarStructuredPropsSection,

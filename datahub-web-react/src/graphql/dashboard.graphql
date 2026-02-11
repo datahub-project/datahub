@@ -26,6 +26,9 @@ query getDashboard($urn: String!) {
         forms {
             ...formsFields
         }
+        organizations {
+            ...entityOrganization
+        }
         ...notes
     }
 }

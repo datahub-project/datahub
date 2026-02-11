@@ -44,6 +44,9 @@ query getUser($urn: String!, $groupsCount: Int!) {
         forms {
             ...formsFields
         }
+        organizations {
+            ...entityOrganization
+        }
         groups: relationships(
             input: {
                 types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]

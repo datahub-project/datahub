@@ -366,6 +366,14 @@ fragment autoCompleteFields on Entity {
     ... on StructuredPropertyEntity {
         ...structuredPropertyFields
     }
+    ... on Organization {
+        urn
+        type
+        properties {
+            name
+            description
+        }
+    }
     ... on Document {
         urn
         type
@@ -1166,6 +1174,14 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on StructuredPropertyEntity {
         ...structuredPropertyFields
+    }
+    ... on Organization {
+        urn
+        type
+        properties {
+            name
+            description
+        }
     }
     ... on SupportsVersions {
         versionProperties {

@@ -45,6 +45,7 @@ export enum EntityMenuItems {
     MOVE,
     CLONE,
     RAISE_INCIDENT,
+    EDIT,
 }
 
 export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`

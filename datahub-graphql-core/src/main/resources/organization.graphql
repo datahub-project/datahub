@@ -1,0 +1,137 @@
+extend type Mutation {
+  """
+  Add an entity to one or more organizations.
+  Works for all entity types (datasets, users, tags, domains, etc.)
+
+  Examples:
+  - urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)
+  - urn:li:chart:12345
+  - urn:li:tag:mytag
+  - urn:li:domain:marketing
+  """
+  addEntityToOrganizations(
+    """
+    URN of the entity to add to organizations
+    """
+    entityUrn: String!
+
+    """
+    URNs of organizations to add this entity to
+    """
+    organizationUrns: [String!]!
+  ): Boolean!
+
+  """
+  Remove an entity from one or more organizations
+  """
+  removeEntityFromOrganizations(
+    """
+    URN of the entity to remove from organizations
+    """
+    entityUrn: String!
+
+    """
+    URNs of organizations to remove this entity from
+    """
+    organizationUrns: [String!]!
+  ): Boolean!
+
+  """
+  Set the organizations for an entity (replaces existing)
+  """
+  setEntityOrganizations(
+    """
+    URN of the entity
+    """
+    entityUrn: String!
+
+    """
+    URNs of organizations (replaces all existing)
+    """
+    organizationUrns: [String!]!
+  ): Boolean!
+
+  """
+  Add a user to organizations
+  Uses the userOrganizations aspect for corpUser entities
+  """
+  addUserToOrganizations(
+    """
+    URN of the user
+    """
+    userUrn: String!
+
+    """
+    URNs of organizations to add the user to
+    """
+    organizationUrns: [String!]!
+  ): Boolean!
+
+  """
+  Remove a user from organizations
+  """
+  removeUserFromOrganizations(
+    """
+    URN of the user
+    """
+    userUrn: String!
+
+    """
+    URNs of organizations to remove the user from
+    """
+    organizationUrns: [String!]!
+  ): Boolean!
+}
+
+extend type Query {
+  """
+  Get all entities belonging to an organization.
+  Supports filtering by entity type.
+  """
+  getEntitiesByOrganization(
+    """
+    Organization URN
+    """
+    organizationUrn: String!
+
+    """
+    Optional: filter by entity types
+    """
+    entityTypes: [EntityType!]
+
+    """
+    Pagination start
+    """
+    start: Int = 0
+
+    """
+    Pagination count
+    """
+    count: Int = 20
+  ): GetEntitiesByOrganizationResult!
+}
+
+"""
+Result type for getEntitiesByOrganization query
+"""
+type GetEntitiesByOrganizationResult {
+  """
+  Start offset
+  """
+  start: Int!
+
+  """
+  Count of results in this response
+  """
+  count: Int!
+
+  """
+  Total entities matching criteria
+  """
+  total: Int!
+
+  """
+  List of entities
+  """
+  entities: [Entity!]!
+}

@@ -83,7 +83,8 @@ public class DashboardType
           BROWSE_PATHS_V2_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
-          APPLICATION_MEMBERSHIP_ASPECT_NAME);
+          APPLICATION_MEMBERSHIP_ASPECT_NAME,
+          ORGANIZATIONS_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "tool");
 
   private final EntityClient _entityClient;
@@ -265,7 +266,8 @@ public class DashboardType
     final ConjunctivePrivilegeGroup specificPrivilegeGroup =
         new ConjunctivePrivilegeGroup(specificPrivileges);
 
-    // If you either have all entity privileges, or have the specific privileges required, you are
+    // If you either have all entity privileges, or have the specific privileges
+    // required, you are
     // authorized.
     return new DisjunctivePrivilegeGroup(
         ImmutableList.of(allPrivilegesGroup, specificPrivilegeGroup));

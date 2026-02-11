@@ -16,6 +16,9 @@ query getDomain($urn: String!) {
         ownership {
             ...ownershipFields
         }
+        organizations {
+            ...entityOrganization
+        }
         privileges {
             ...entityPrivileges
         }
