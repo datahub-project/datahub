@@ -362,6 +362,12 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         to these two config. If MaxItems is more than PageSize then we expect MaxItems / PageSize pages in response_iterator will return
         """
         self.include_table_item_to_schema(dynamodb_client, region, table_name, schema)
+        if self.config.schema_sampling_size > PAGE_SIZE:
+            self.report.info(
+                title="Large schema sampling size configured",
+                message="High schema_sampling_size increases DynamoDB read capacity consumption and ingestion time.",
+                context=f"schema_sampling_size={self.config.schema_sampling_size}",
+            )
         response_iterator = paginator.paginate(
             TableName=table_name,
             PaginationConfig={
