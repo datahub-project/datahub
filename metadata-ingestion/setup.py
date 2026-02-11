@@ -702,7 +702,7 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
     "powerbi": (
         microsoft_common
-        | {"lark[regex]==1.1.4", "sqlparse<1.0.0", "more-itertools<11.0.0"}
+        | {"lark[regex]==1.1.4", "sqlparse<1.0.0", "more-itertools<11.0.0", "pbixray>=0.5.0", "xpress9>=0.2.0"}
         | sqlglot_lib
         | threading_timeout_common
     ),
