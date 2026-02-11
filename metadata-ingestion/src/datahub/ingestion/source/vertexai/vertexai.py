@@ -262,18 +262,6 @@ class VertexAISource(StatefulIngestionSourceBase):
         resource_category: Optional[str] = None,
         include_subtypes: bool = True,
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        Helper method to yield common aspects that most entities share.
-
-        Args:
-            entity_urn: The URN of the entity
-            subtype: The subtype from VertexAISubTypes
-            include_container: Whether to include container aspect
-            include_platform: Whether to include platform instance aspect
-            resource_category: Optional resource category (Models, Training Jobs, etc.)
-                If provided, entity is placed in category container; otherwise in project container
-            include_subtypes: Whether to include SubTypesClass aspect (default True)
-        """
         if include_container:
             if resource_category:
                 container_urn = self._get_resource_category_container(
@@ -297,7 +285,8 @@ class VertexAISource(StatefulIngestionSourceBase):
             yield MetadataChangeProposalWrapper(
                 entityUrn=entity_urn,
                 aspect=DataPlatformInstanceClass(
-                    platform=DataPlatformUrn(self.platform).urn()
+                    platform=DataPlatformUrn(self.platform).urn(),
+                    instance=self.config.platform_instance,
                 ),
             ).as_workunit()
 
@@ -553,6 +542,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                 owners={"urn:li:corpuser:datahub"},
                 upstream_urns=task.upstreams if task.upstreams else [],
                 url=self.url_builder.make_pipeline_url(pipeline.name),
+                platform_instance=self.config.platform_instance,
             )
             yield from self._yield_common_aspects(
                 entity_urn=datajob.urn.urn(),
@@ -629,7 +619,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             id=self.name_formatter.format_pipeline_id(pipeline.name),
             env=self.config.env,
             name=pipeline.name,
-            platform_instance=self.platform,
+            platform_instance=self.config.platform_instance,
             properties=self._get_pipeline_properties(pipeline).model_dump(),
             owners={"urn:li:corpuser:datahub"},
             url=self.url_builder.make_pipeline_url(pipeline_name=pipeline.name),
@@ -680,6 +670,8 @@ class VertexAISource(StatefulIngestionSourceBase):
             parent_container_key=self._get_project_container(),
             container_key=ExperimentKey(
                 platform=self.platform,
+                instance=self.config.platform_instance,
+                env=self.config.env,
                 id=self.name_formatter.format_experiment_id(experiment.name),
             ),
             name=experiment.name,
@@ -850,6 +842,8 @@ class VertexAISource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         experiment_key = ExperimentKey(
             platform=self.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
             id=self.name_formatter.format_experiment_id(experiment.name),
         )
         run_urn = self.urn_builder.make_experiment_run_urn(experiment, run)
@@ -1351,14 +1345,22 @@ class VertexAISource(StatefulIngestionSourceBase):
         )
 
     def _get_project_container(self) -> ProjectIdKey:
-        return ProjectIdKey(project_id=self._get_project_id(), platform=self.platform)
+        return ProjectIdKey(
+            project_id=self._get_project_id(),
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+        )
 
     def _get_resource_category_container(
         self, category: str
     ) -> VertexAIResourceCategoryKey:
-        """Get container for a specific resource category within a project."""
         return VertexAIResourceCategoryKey(
-            project_id=self._get_project_id(), platform=self.platform, category=category
+            project_id=self._get_project_id(),
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+            category=category,
         )
 
     def _generate_resource_category_containers(self) -> Iterable[MetadataWorkUnit]:
@@ -1596,8 +1598,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                     entity_urn=endpoint_urn,
                     subtype=VertexAISubTypes.ENDPOINT,
                     resource_category=ResourceCategory.ENDPOINTS,
-                    include_platform=False,
-                    include_subtypes=False,  # mlModelDeployment entity doesn't support subTypes aspect
+                    include_subtypes=False,
                 )
 
     def _gen_ml_model_mcps(

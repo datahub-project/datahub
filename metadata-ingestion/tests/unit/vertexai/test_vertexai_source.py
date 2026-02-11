@@ -73,10 +73,11 @@ REGION = "us-west2"
 
 
 def get_resource_category_container_urn(source: VertexAISource, category: str) -> str:
-    """Helper to get resource category container URN for tests."""
     return VertexAIResourceCategoryKey(
         project_id=source._get_project_id(),
         platform=source.platform,
+        instance=source.config.platform_instance,
+        env=source.config.env,
         category=category,
     ).as_urn()
 
@@ -268,10 +269,14 @@ def test_get_endpoint_mcps(
         ),
     )
 
-    # mlModelDeployment doesn't support SubTypesClass, so only 2 MCPs expected
-    assert len(actual_mcps) == 2
+    assert len(actual_mcps) == 3
     assert any(mcp_endpoint == mcp.metadata for mcp in actual_mcps)
     assert any(mcp_container == mcp.metadata for mcp in actual_mcps)
+    assert any(
+        hasattr(mcp.metadata, "__class__")
+        and mcp.metadata.__class__.__name__ == "DataPlatformInstanceClass"
+        for mcp in actual_mcps
+    )
 
 
 def test_get_training_jobs_mcps(
@@ -582,6 +587,8 @@ def test_get_experiment_mcps(
 
     expected_urn = ExperimentKey(
         platform=source.platform,
+        instance=source.config.platform_instance,
+        env=source.config.env,
         id=source.name_formatter.format_experiment_id(mock_experiment.name),
     ).as_urn()
 
@@ -644,6 +651,8 @@ def test_gen_experiment_run_mcps(
 
     expected_exp_urn = ExperimentKey(
         platform=source.platform,
+        instance=source.config.platform_instance,
+        env=source.config.env,
         id=source.name_formatter.format_experiment_id(mock_exp.name),
     ).as_urn()
 

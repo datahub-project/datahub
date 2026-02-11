@@ -8,13 +8,15 @@
         "json": {
             "customProperties": {
                 "platform": "vertexai",
+                "env": "PROD",
                 "project_id": "test-project-id"
             },
-            "name": "test-project-id"
+            "name": "test-project-id",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770808093613,
+        "lastObserved": 1770851521876,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -110,14 +112,16 @@
         "json": {
             "customProperties": {
                 "platform": "vertexai",
+                "env": "PROD",
                 "project_id": "test-project-id",
                 "category": "Models"
             },
-            "name": "Models"
+            "name": "Models",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770840700629,
+        "lastObserved": 1770851521879,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -222,14 +226,16 @@
         "json": {
             "customProperties": {
                 "platform": "vertexai",
+                "env": "PROD",
                 "project_id": "test-project-id",
                 "category": "Training Jobs"
             },
-            "name": "Training Jobs"
+            "name": "Training Jobs",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770840700631,
+        "lastObserved": 1770851521882,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -568,14 +574,16 @@
         "json": {
             "customProperties": {
                 "platform": "vertexai",
+                "env": "PROD",
                 "project_id": "test-project-id",
                 "category": "Datasets"
             },
-            "name": "Datasets"
+            "name": "Datasets",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770840700634,
+        "lastObserved": 1770851521885,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -671,14 +679,16 @@
         "json": {
             "customProperties": {
                 "platform": "vertexai",
+                "env": "PROD",
                 "project_id": "test-project-id",
                 "category": "Endpoints"
             },
-            "name": "Endpoints"
+            "name": "Endpoints",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770840700636,
+        "lastObserved": 1770851521887,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -774,14 +784,16 @@
         "json": {
             "customProperties": {
                 "platform": "vertexai",
+                "env": "PROD",
                 "project_id": "test-project-id",
                 "category": "Pipelines"
             },
-            "name": "Pipelines"
+            "name": "Pipelines",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770840700638,
+        "lastObserved": 1770851521890,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1055,17 +1067,19 @@
         "json": {
             "customProperties": {
                 "platform": "vertexai",
+                "env": "PROD",
                 "id": "test-project-id.experiment.mock_experiment_1",
                 "name": "mock_experiment_1",
                 "resourceName": "projects/123/locations/us-central1/experiments/1",
                 "dashboardURL": "https://console.cloud.google.com/vertex-ai/locations/us-central1/experiments/123"
             },
             "externalUrl": "https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/mock_experiment_1/runs?project=test-project-id",
-            "name": "mock_experiment_1"
+            "name": "mock_experiment_1",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770808095103,
+        "lastObserved": 1770851522137,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1226,14 +1240,16 @@
         "json": {
             "customProperties": {
                 "platform": "vertexai",
+                "env": "PROD",
                 "project_id": "test-project-id",
                 "category": "Evaluations"
             },
-            "name": "Evaluations"
+            "name": "Evaluations",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770840700640,
+        "lastObserved": 1770851521892,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1305,48 +1321,6 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(vertexai,vertexai.test-project-id.pipeline.mock_pipeline_job,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "resource_name": "projects/123/locations/us-central1/pipelineJobs/456",
-                "create_time": "2022-03-21T16:00:00+00:00",
-                "update_time": "2022-03-21T16:01:40+00:00",
-                "duration": "1m 40s",
-                "location": "us-west2",
-                "labels": "key1:value1"
-            },
-            "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-west2/runs/mock_pipeline_job?project=test-project-id",
-            "name": "mock_pipeline_job",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1770808095109,
-        "runId": "vertexai-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(vertexai,vertexai.test-project-id.pipeline.mock_pipeline_job,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1770808095109,
-        "runId": "vertexai-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "container",
     "entityUrn": "urn:li:container:f000432009c15836a11623aed62c0382",
     "changeType": "UPSERT",
@@ -1387,24 +1361,81 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(vertexai,vertexai.test-project-id.pipeline.mock_pipeline_job,PROD)",
+    "entityUrn": "urn:li:dataFlow:(vertexai,test-project-id.pipeline.mock_pipeline_job,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:vertexai",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:vertexai,vertexai)"
+            "customProperties": {
+                "resource_name": "projects/123/locations/us-central1/pipelineJobs/456",
+                "create_time": "2022-03-21T16:00:00+00:00",
+                "update_time": "2022-03-21T16:01:40+00:00",
+                "duration": "1m 40s",
+                "location": "us-west2",
+                "labels": "key1:value1"
+            },
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/pipelines/locations/us-west2/runs/mock_pipeline_job?project=test-project-id",
+            "name": "mock_pipeline_job",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770808095109,
+        "lastObserved": 1770851522144,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(vertexai,vertexai.test-project-id.pipeline.mock_pipeline_job,PROD),test-project-id.pipeline_task.reverse)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:1f16c00952f79966aa7222f9937f884b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770840700953,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(vertexai,vertexai.test-project-id.pipeline.mock_pipeline_job,PROD)",
+    "entityUrn": "urn:li:dataFlow:(vertexai,test-project-id.pipeline.mock_pipeline_job,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770851522144,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(vertexai,test-project-id.pipeline.mock_pipeline_job,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770851522145,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(vertexai,test-project-id.pipeline.mock_pipeline_job,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -1426,98 +1457,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770808095110,
-        "runId": "vertexai-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(vertexai,vertexai.test-project-id.pipeline.mock_pipeline_job,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1770808095110,
-        "runId": "vertexai-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(vertexai,vertexai.test-project-id.pipeline.mock_pipeline_job,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:1f16c00952f79966aa7222f9937f884b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1770840700951,
-        "runId": "vertexai-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(vertexai,vertexai.test-project-id.pipeline.mock_pipeline_job,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Pipeline Job"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1770808095111,
-        "runId": "vertexai-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(vertexai,vertexai.test-project-id.pipeline.mock_pipeline_job,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
-                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
-                },
-                {
-                    "id": "urn:li:container:1f16c00952f79966aa7222f9937f884b",
-                    "urn": "urn:li:container:1f16c00952f79966aa7222f9937f884b"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1770840700952,
-        "runId": "vertexai-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(vertexai,vertexai.test-project-id.pipeline.mock_pipeline_job,PROD),test-project-id.pipeline_task.reverse)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:1f16c00952f79966aa7222f9937f884b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1770840700953,
+        "lastObserved": 1770851522145,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1541,6 +1481,47 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(vertexai,test-project-id.pipeline.mock_pipeline_job,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                },
+                {
+                    "id": "urn:li:container:1f16c00952f79966aa7222f9937f884b",
+                    "urn": "urn:li:container:1f16c00952f79966aa7222f9937f884b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770851522146,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(vertexai,test-project-id.pipeline.mock_pipeline_job,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:1f16c00952f79966aa7222f9937f884b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770851522145,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(vertexai,vertexai.test-project-id.pipeline.mock_pipeline_job,PROD),test-project-id.pipeline_task.reverse)",
     "changeType": "UPSERT",
@@ -1558,6 +1539,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1770808095113,
+        "runId": "vertexai-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(vertexai,test-project-id.pipeline.mock_pipeline_job,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Pipeline Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1770851522146,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }

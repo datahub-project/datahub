@@ -3,7 +3,10 @@ from typing import Dict, List, Optional
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -14,7 +17,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.vertexai.vertexai_constants import IngestionLimits
 
 
-class VertexAIConfig(StatefulIngestionConfigBase, EnvConfigMixin):
+class VertexAIConfig(
+    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
+):
     credential: Optional[GCPCredential] = Field(
         default=None, description="GCP credential information"
     )
