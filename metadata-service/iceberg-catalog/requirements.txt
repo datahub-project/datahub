@@ -2,6 +2,9 @@ pytest>=6.2
 pytest-dependency>=0.5.1
 pyspark==3.5.6
 -e ../../metadata-ingestion[iceberg-catalog]
+# setuptools 82.0.0 deprecated pkg_resources, which breaks building third-party
+# packages (e.g. flatdict via okta) that import pkg_resources in their setup.py
+setuptools<82.0.0
 # libaries for linting below this
 mypy==1.14.1
 ruff==0.11.7
