@@ -171,29 +171,13 @@ export default defineConfig(async ({ mode }) => {
                 output: {
                     manualChunks(id) {
                         if (id.includes('node_modules')) {
-                            // Core React (most stable, changes least)
-                            if (
-                                id.includes('/react/') ||
-                                id.includes('/react-dom/') ||
-                                id.includes('/react-router')
-                            ) {
-                                return 'framework';
-                            }
-
-                            // UI frameworks
                             if (id.includes('@mui')) {
                                 return 'mui-vendor';
                             }
-                            if (id.includes('antd') || id.includes('@ant-design')) {
-                                return 'antd-vendor';
-                            }
-
-                            // Icons (optimized bundle)
                             if (id.includes('phosphor-icons')) {
                                 return 'phosphor-vendor';
                             }
-
-                            // Everything else
+                            // All other node_modules (React + Ant Design together = no load order issues)
                             return 'vendor';
                         }
                         if (id.includes('src/')) {

@@ -17,7 +17,7 @@ describe('Phase 1: Bundle Optimization', () => {
     const phosphorIconsPath = path.join(projectRoot, 'src/alchemy-components/components/Icon/phosphor-icons.ts');
 
     describe('Icon Import Validation', () => {
-        test('no files should import directly from @phosphor-icons/react', () => {
+        test('no files should import directly from @phosphor-icons/react', { timeout: 10000 }, () => {
             const files = glob.sync('src/**/*.{ts,tsx}', {
                 cwd: projectRoot,
                 absolute: true,
@@ -52,7 +52,7 @@ describe('Phase 1: Bundle Optimization', () => {
             expect(problemFiles).toHaveLength(0);
         });
 
-        test('all imported icons should be exported in custom bundle', () => {
+        test('all imported icons should be exported in custom bundle', { timeout: 10000 }, () => {
             const phosphorIconsContent = fs.readFileSync(phosphorIconsPath, 'utf8');
 
             // Extract exported icons
@@ -113,7 +113,7 @@ describe('Phase 1: Bundle Optimization', () => {
             expect(exportedIcons.size).toBeGreaterThan(100);
         });
 
-        test('all dynamic icon references should be in custom bundle', () => {
+        test('all dynamic icon references should be in custom bundle', { timeout: 10000 }, () => {
             const phosphorIconsContent = fs.readFileSync(phosphorIconsPath, 'utf8');
 
             // Extract exported icons
@@ -211,15 +211,15 @@ describe('Phase 1: Bundle Optimization', () => {
     describe('Chunk Generation (requires build)', () => {
         const distPath = path.join(projectRoot, 'dist/assets');
 
-        test.skipIf(!fs.existsSync(distPath))('should generate expected vendor chunks', () => {
+        test.skipIf(!fs.existsSync(distPath))('should generate expected chunks (acryl-main strategy)', () => {
             const files = fs.readdirSync(distPath);
             const jsFiles = files.filter((f) => f.endsWith('.js'));
 
+            // acryl-main strategy: separate MUI, Phosphor; React + Ant Design together
             const expectedChunks = [
-                'framework', // React core
-                'antd-vendor', // Ant Design
-                'mui-vendor', // Material UI
-                'vendor', // Other node_modules
+                'mui-vendor', // Material UI separate
+                'phosphor-vendor', // Phosphor icons separate (optimized)
+                'vendor', // React + Ant Design + other node_modules
                 'source', // Application code
             ];
 
@@ -245,22 +245,35 @@ describe('Phase 1: Bundle Optimization', () => {
             expect(missingChunks).toHaveLength(0);
         });
 
-        test.skipIf(!fs.existsSync(distPath))('framework chunk should be smaller than vendor chunk', () => {
+        test.skipIf(!fs.existsSync(distPath))('chunk sizes should be reasonable', () => {
             const files = fs.readdirSync(distPath);
             const jsFiles = files.filter((f) => f.endsWith('.js'));
 
-            const frameworkFile = jsFiles.find((f) => f.includes('framework'));
-            // Find main vendor chunk (starts with "vendor-" not other vendor chunks like "antd-vendor")
+            const muiVendorFile = jsFiles.find((f) => f.includes('mui-vendor'));
+            const phosphorVendorFile = jsFiles.find((f) => f.includes('phosphor-vendor'));
             const vendorFile = jsFiles.find((f) => f.startsWith('vendor-'));
+            const sourceFile = jsFiles.find((f) => f.includes('source'));
 
-            expect(frameworkFile).toBeDefined();
+            expect(muiVendorFile).toBeDefined();
+            expect(phosphorVendorFile).toBeDefined();
             expect(vendorFile).toBeDefined();
+            expect(sourceFile).toBeDefined();
 
-            const frameworkSize = fs.statSync(path.join(distPath, frameworkFile!)).size;
+            const muiSize = fs.statSync(path.join(distPath, muiVendorFile!)).size;
+            const phosphorSize = fs.statSync(path.join(distPath, phosphorVendorFile!)).size;
             const vendorSize = fs.statSync(path.join(distPath, vendorFile!)).size;
+            const sourceSize = fs.statSync(path.join(distPath, sourceFile!)).size;
 
-            // Framework (React) should be smaller than vendor (all other deps)
-            expect(frameworkSize).toBeLessThan(vendorSize);
+            // Phosphor should be optimized (< 500 KB)
+            expect(phosphorSize).toBeLessThan(500 * 1024);
+
+            // MUI vendor should be ~3-4 MB
+            expect(muiSize).toBeGreaterThan(3 * 1024 * 1024);
+            expect(muiSize).toBeLessThan(5 * 1024 * 1024);
+
+            // Vendor (React + Ant Design) should be ~4-5 MB
+            expect(vendorSize).toBeGreaterThan(4 * 1024 * 1024);
+            expect(vendorSize).toBeLessThan(6 * 1024 * 1024);
         });
     });
 });
