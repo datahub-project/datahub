@@ -252,7 +252,9 @@ class DataHubConnectionConfig(ConfigModel):
         description="DataHub GMS server URL (defaults to DATAHUB_GMS_URL env var or localhost:8080)",
     )
     token: Optional[TransparentSecretStr] = Field(
-        default_factory=lambda: TransparentSecretStr(env_vars.get_gms_token()) if env_vars.get_gms_token() else None,
+        default_factory=lambda: TransparentSecretStr(env_vars.get_gms_token())
+        if env_vars.get_gms_token()
+        else None,
         description="DataHub API token for authentication (defaults to DATAHUB_GMS_TOKEN env var)",
     )
 
