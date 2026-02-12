@@ -693,7 +693,7 @@ def test_oracle_parse_dependencies_empty_string():
 
 
 def test_oracle_parse_dependencies_malformed_format():
-    """Test that completely malformed dependency strings raise ValueError."""
+    """Test that malformed dependency strings are silently skipped and return empty list."""
     database_key = DatabaseKey(
         database="ORCL", platform="oracle", instance=None, env="PROD"
     )
@@ -701,23 +701,46 @@ def test_oracle_parse_dependencies_malformed_format():
         database="ORCL", schema="hr", platform="oracle", instance=None, env="PROD"
     )
 
-    # Completely malformed - no parentheses
-    with pytest.raises(ValueError, match="Failed to parse any valid dependencies"):
-        _parse_oracle_procedure_dependencies(
-            "INVALID_FORMAT", database_key, schema_key, None
-        )
+    # Completely malformed - no parentheses (returns empty, not an error)
+    result = _parse_oracle_procedure_dependencies(
+        "INVALID_FORMAT", database_key, schema_key, None
+    )
+    assert result == []
 
-    # Malformed - wrong format
-    with pytest.raises(ValueError, match="Failed to parse any valid dependencies"):
-        _parse_oracle_procedure_dependencies(
-            "SCHEMA.NAME.TOOMANY (PROCEDURE)", database_key, schema_key, None
-        )
+    # Malformed - wrong format (returns empty, not an error)
+    result = _parse_oracle_procedure_dependencies(
+        "SCHEMA.NAME.TOOMANY (PROCEDURE)", database_key, schema_key, None
+    )
+    assert result == []
 
-    # Malformed - invalid type
-    with pytest.raises(ValueError, match="Failed to parse any valid dependencies"):
-        _parse_oracle_procedure_dependencies(
-            "HR.PROC (INVALID_TYPE)", database_key, schema_key, None
-        )
+    # Malformed - invalid type (returns empty, not an error)
+    result = _parse_oracle_procedure_dependencies(
+        "HR.PROC (INVALID_TYPE)", database_key, schema_key, None
+    )
+    assert result == []
+
+
+def test_oracle_parse_dependencies_only_tables_and_views():
+    """Test that dependencies with only tables/views (no procedures) return empty list.
+
+    This is valid behavior - table/view lineage is extracted by the SQL parser
+    from procedure code, not from system metadata dependencies.
+    """
+    database_key = DatabaseKey(
+        database="ORCL", platform="oracle", instance=None, env="PROD"
+    )
+    schema_key = SchemaKey(
+        database="ORCL", schema="hr", platform="oracle", instance=None, env="PROD"
+    )
+
+    # Only tables and views - should return empty list (not an error!)
+    result = _parse_oracle_procedure_dependencies(
+        "HR.EMPLOYEES (TABLE), HR.DEPARTMENTS (VIEW), HR.SALARY_DATA (MATERIALIZED VIEW)",
+        database_key,
+        schema_key,
+        None,
+    )
+    assert result == []
 
 
 def test_oracle_parse_dependencies_partial_malformed():
