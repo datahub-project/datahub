@@ -1651,23 +1651,23 @@ def test_clickhouse_dictget_lineage() -> None:
     """Test that ClickHouse DICTGET dictionary references are included in table-level lineage.
 
     DICTGET(dict_name, attr_name, key) takes a dictionary name as the first argument,
-    which sqlglot parses as a Table node. The dictionary is backed by a table, so it
+    which sqlglot parses as a Column node. The dictionary is backed by a table, so it
     should appear in upstream lineage.
 
     Expected lineage:
-        analytics.events    default.subscriptions
-                    \\           /
-                     \\         /
-                      v       v
-                      [output]
+        db1.events    default.my_dict
+                \\           /
+                 \\         /
+                  v       v
+                  [output]
     """
     assert_sql_result(
         """\
 SELECT
-    subscription_id,
-    DICTGET(default.subscriptions, 'type', subscription_id) AS subscription_type,
-    DICTGET(default.subscriptions, 'domain', subscription_id) AS subscription_domain
-FROM analytics.events
+    col_id,
+    DICTGET(default.my_dict, 'type', col_id) AS dict_type,
+    DICTGET(default.my_dict, 'domain', col_id) AS dict_domain
+FROM db1.events
 """,
         dialect="clickhouse",
         expected_file=RESOURCE_DIR / "test_clickhouse_dictget.json",
@@ -1680,20 +1680,20 @@ def test_clickhouse_dictget_with_multiple_tables() -> None:
     Dictionary references are included alongside real table references.
 
     Expected lineage:
-        analytics.events    analytics.users    default.categories
-                    \\           |              /
-                     \\          |             /
-                      v         v            v
-                            [output]
+        db1.events    db1.users    default.my_dict
+                \\         |          /
+                 \\        |         /
+                  v       v        v
+                      [output]
     """
     assert_sql_result(
         """\
 SELECT
     e.event_id,
     u.user_name,
-    DICTGETORDEFAULT(default.categories, 'name', e.category_id, 'Unknown') AS category_name
-FROM analytics.events e
-JOIN analytics.users u ON e.user_id = u.id
+    DICTGETORDEFAULT(default.my_dict, 'name', e.category_id, 'Unknown') AS dict_name
+FROM db1.events e
+JOIN db1.users u ON e.user_id = u.id
 """,
         dialect="clickhouse",
         expected_file=RESOURCE_DIR / "test_clickhouse_dictget_with_joins.json",
