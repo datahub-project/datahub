@@ -1,3 +1,4 @@
+import threading
 import unittest
 from typing import Union
 from unittest.mock import MagicMock, call, patch
@@ -7,12 +8,14 @@ import pytest
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigurationError
+from datahub.emitter.kafka_emitter import MCP_KEY
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import SinkReport, WriteCallback
 from datahub.ingestion.sink.datahub_kafka import (
     DatahubKafkaSink,
     KafkaSinkConfig,
+    _AggregatingKafkaCallback,
     _enhance_schema_registry_error,
     _KafkaCallback,
 )
@@ -33,12 +36,6 @@ class KafkaSinkTest(unittest.TestCase):
         assert (
             mock_producer.call_count == 2
         )  # constructor should be called twice (once each for mce,mcp)
-
-    def validate_kafka_callback(self, mock_k_callback, record_envelope, write_callback):
-        assert mock_k_callback.call_count == 1  # KafkaCallback constructed
-        constructor_args, constructor_kwargs = mock_k_callback.call_args
-        assert constructor_args[1] == record_envelope
-        assert constructor_args[2] == write_callback
 
     @patch("datahub.ingestion.sink.datahub_kafka._KafkaCallback", autospec=True)
     @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
@@ -65,11 +62,7 @@ class KafkaSinkTest(unittest.TestCase):
 
     @patch("datahub.ingestion.api.sink.PipelineContext", autospec=True)
     @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
-    @patch("datahub.ingestion.sink.datahub_kafka._KafkaCallback", autospec=True)
-    def test_kafka_sink_write(self, mock_k_callback, mock_producer, mock_context):
-        from datahub.emitter.kafka_emitter import MCP_KEY
-
-        mock_k_callback_instance = mock_k_callback.return_value
+    def test_kafka_sink_write(self, mock_producer, mock_context):
         callback = MagicMock(spec=WriteCallback)
         kafka_sink = DatahubKafkaSink.create(
             {"connection": {"bootstrap": "foobar:9092"}}, mock_context
@@ -93,51 +86,45 @@ class KafkaSinkTest(unittest.TestCase):
         ] = RecordEnvelope(record=mce, metadata={})
         kafka_sink.write_record_async(re, callback)
 
-        # With the fix, MCEs are unpacked into MCPs. The lineage MCE contains 1 aspect (UpstreamLineage).
-        # So we expect 1 produce call to the MCP producer
+        # The lineage MCE has 1 aspect (UpstreamLineage), so expect 1 produce call
         assert mock_mcp_producer.produce.call_count == 1
 
-        self.validate_kafka_callback(
-            mock_k_callback, re, callback
-        )  # validate kafka callback was constructed appropriately
-
-        # Validate that the MCP producer was used (not MCE producer)
-        # and that the produced value is an MCP (not the original MCE)
+        # The produced value should be an MCP (not the original MCE)
         args, kwargs = mock_mcp_producer.produce.call_args
         produced_value = kwargs["value"]
         assert isinstance(produced_value, MetadataChangeProposalWrapper)
         assert kwargs["key"]  # produce call should include a Kafka key
-        created_callback = kwargs["on_delivery"]
-        assert created_callback == mock_k_callback_instance.kafka_callback
+
+        # The on_delivery callback should be the aggregating callback, not
+        # the inner _KafkaCallback directly.
+        agg_callback = kwargs["on_delivery"]
+
+        # Simulate successful Kafka delivery -- the aggregating callback should
+        # forward to the write_callback exactly once.
+        agg_callback(None, MagicMock())
+        callback.on_success.assert_called_once()
+        assert callback.on_success.call_args[0][0] == re
 
     @patch("datahub.ingestion.api.sink.PipelineContext", autospec=True)
     @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
-    @patch("datahub.ingestion.sink.datahub_kafka._KafkaCallback", autospec=True)
-    def test_kafka_sink_mce_with_multiple_aspects(
-        self, mock_k_callback, mock_producer, mock_context
-    ):
-        """Test that MCEs with multiple aspects (like GroupMembership) are unpacked into separate MCPs.
+    def test_kafka_sink_mce_with_multiple_aspects(self, mock_producer, mock_context):
+        """Test that MCEs with multiple aspects are unpacked into separate MCPs.
 
-        This test validates the fix for CUS-7626, where EntraID user ingestion with Kafka sink
-        was missing group membership information because MCEs weren't being unpacked.
+        Validates that the aggregating callback fires on_success exactly once
+        after all MCP deliveries succeed.
         """
-        from datahub.emitter.kafka_emitter import MCP_KEY
-
-        mock_k_callback_instance = mock_k_callback.return_value
         callback = MagicMock(spec=WriteCallback)
         kafka_sink = DatahubKafkaSink.create(
             {"connection": {"bootstrap": "foobar:9092"}}, mock_context
         )
         mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
 
-        # Create an MCE with multiple aspects (simulating Azure AD user ingestion)
         user_urn = builder.make_user_urn("testuser")
         group_urns = [
             builder.make_group_urn("group1"),
             builder.make_group_urn("group2"),
         ]
 
-        # Build user snapshot with multiple aspects
         user_snapshot = models.CorpUserSnapshotClass(
             urn=user_urn,
             aspects=[
@@ -151,7 +138,6 @@ class KafkaSinkTest(unittest.TestCase):
         )
 
         mce = MetadataChangeEvent(proposedSnapshot=user_snapshot)
-
         re: RecordEnvelope[
             Union[
                 MetadataChangeEvent,
@@ -162,20 +148,100 @@ class KafkaSinkTest(unittest.TestCase):
 
         kafka_sink.write_record_async(re, callback)
 
-        # With the fix, the MCE should be unpacked into 2 MCPs (one per aspect)
+        # MCE with 2 aspects should produce 2 MCP messages
         assert mock_mcp_producer.produce.call_count == 2
 
-        self.validate_kafka_callback(
-            mock_k_callback, re, callback
-        )  # validate kafka callback was constructed
-
-        # Verify that all produced values are MCPs
+        # All produced values should be MCPs with the same entity URN
+        agg_callbacks = []
         for call_args in mock_mcp_producer.produce.call_args_list:
-            args, kwargs = call_args
-            produced_value = kwargs["value"]
-            assert isinstance(produced_value, MetadataChangeProposalWrapper)
-            assert kwargs["key"] == user_urn  # All MCPs should have the user URN as key
-            assert kwargs["on_delivery"] == mock_k_callback_instance.kafka_callback
+            _, kwargs = call_args
+            assert isinstance(kwargs["value"], MetadataChangeProposalWrapper)
+            assert kwargs["key"] == user_urn
+            agg_callbacks.append(kwargs["on_delivery"])
+
+        # All produce calls should share the same aggregating callback instance
+        assert agg_callbacks[0] == agg_callbacks[1]
+
+        # Before any delivery, write_callback should not have been called
+        callback.on_success.assert_not_called()
+        callback.on_failure.assert_not_called()
+
+        # Simulate first MCP delivery -- should not trigger the write_callback yet
+        agg_callbacks[0](None, MagicMock())
+        callback.on_success.assert_not_called()
+
+        # Simulate second MCP delivery -- now the aggregating callback fires
+        agg_callbacks[1](None, MagicMock())
+        callback.on_success.assert_called_once()
+        assert callback.on_success.call_args[0][0] == re
+
+    @patch("datahub.ingestion.api.sink.PipelineContext", autospec=True)
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+    def test_kafka_sink_mce_partial_failure(self, mock_producer, mock_context):
+        """Test that partial delivery failure fires on_failure exactly once."""
+        callback = MagicMock(spec=WriteCallback)
+        kafka_sink = DatahubKafkaSink.create(
+            {"connection": {"bootstrap": "foobar:9092"}}, mock_context
+        )
+        mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+
+        user_snapshot = models.CorpUserSnapshotClass(
+            urn=builder.make_user_urn("testuser"),
+            aspects=[
+                models.CorpUserInfoClass(
+                    active=True,
+                    displayName="Test User",
+                    email="test@example.com",
+                ),
+                models.GroupMembershipClass(groups=[builder.make_group_urn("group1")]),
+            ],
+        )
+
+        mce = MetadataChangeEvent(proposedSnapshot=user_snapshot)
+        re = RecordEnvelope(record=mce, metadata={})
+        kafka_sink.write_record_async(re, callback)
+
+        assert mock_mcp_producer.produce.call_count == 2
+
+        agg_callbacks = [
+            c[1]["on_delivery"] for c in mock_mcp_producer.produce.call_args_list
+        ]
+
+        # First MCP succeeds
+        agg_callbacks[0](None, MagicMock())
+        callback.on_failure.assert_not_called()
+
+        # Second MCP fails -- should trigger on_failure exactly once
+        mock_error = MagicMock()
+        agg_callbacks[1](mock_error, MagicMock())
+        callback.on_failure.assert_called_once()
+        callback.on_success.assert_not_called()
+
+    @patch("datahub.ingestion.api.sink.PipelineContext", autospec=True)
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+    def test_kafka_sink_mce_empty_aspects(self, mock_producer, mock_context):
+        """Test that an MCE with zero aspects calls on_success immediately."""
+        callback = MagicMock(spec=WriteCallback)
+        kafka_sink = DatahubKafkaSink.create(
+            {"connection": {"bootstrap": "foobar:9092"}}, mock_context
+        )
+        mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+
+        user_snapshot = models.CorpUserSnapshotClass(
+            urn=builder.make_user_urn("testuser"),
+            aspects=[],
+        )
+
+        mce = MetadataChangeEvent(proposedSnapshot=user_snapshot)
+        re = RecordEnvelope(record=mce, metadata={})
+        kafka_sink.write_record_async(re, callback)
+
+        # No MCPs should be produced
+        mock_mcp_producer.produce.assert_not_called()
+
+        # on_success should have been called immediately
+        callback.on_success.assert_called_once()
+        assert callback.on_success.call_args[0][0] == re
 
     # TODO: Test that kafka producer is configured correctly
 
@@ -204,6 +270,79 @@ class KafkaSinkTest(unittest.TestCase):
         callback.kafka_callback(None, mock_message)
         mock_w_callback.on_success.assert_called_once()
         assert mock_w_callback.on_success.call_args[0][0] == mock_re
+
+
+def _run_concurrent_callbacks(
+    agg: _AggregatingKafkaCallback,
+    num_threads: int,
+    error_thread_idx: int = -1,
+) -> None:
+    """Helper: fire num_threads concurrent callbacks through a barrier.
+
+    Args:
+        agg: The aggregating callback under test.
+        num_threads: How many threads to launch.
+        error_thread_idx: If >= 0, that thread delivers an error; others succeed.
+    """
+    barrier = threading.Barrier(num_threads)
+    mock_error = MagicMock()
+
+    def deliver(
+        idx: int,
+        _barrier: threading.Barrier = barrier,
+        _agg: _AggregatingKafkaCallback = agg,
+        _mock_error: MagicMock = mock_error,
+    ) -> None:
+        _barrier.wait()
+        if idx == error_thread_idx:
+            _agg.kafka_callback(_mock_error, MagicMock())
+        else:
+            _agg.kafka_callback(None, MagicMock())
+
+    threads = [threading.Thread(target=deliver, args=(i,)) for i in range(num_threads)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+
+def test_aggregating_callback_thread_safety():
+    """Verify that concurrent delivery callbacks fire the inner callback exactly once.
+
+    Kafka delivery callbacks are invoked from librdkafka's background thread,
+    so _AggregatingKafkaCallback must be thread-safe. This test uses a
+    threading.Barrier to force all callbacks to execute simultaneously,
+    maximizing the chance of hitting a race condition if the lock is missing.
+    """
+    num_threads = 20
+    iterations = 200
+
+    for _ in range(iterations):
+        mock_inner = MagicMock(spec=_KafkaCallback)
+        agg = _AggregatingKafkaCallback(total=num_threads, inner=mock_inner)
+        _run_concurrent_callbacks(agg, num_threads)
+
+        assert mock_inner.kafka_callback.call_count == 1, (
+            f"Expected exactly 1 inner callback call, got {mock_inner.kafka_callback.call_count}"
+        )
+
+
+def test_aggregating_callback_thread_safety_with_failure():
+    """Verify that concurrent callbacks with one failure fire on_failure exactly once."""
+    num_threads = 20
+    iterations = 200
+
+    for _ in range(iterations):
+        mock_inner = MagicMock(spec=_KafkaCallback)
+        agg = _AggregatingKafkaCallback(total=num_threads, inner=mock_inner)
+        _run_concurrent_callbacks(agg, num_threads, error_thread_idx=0)
+
+        assert mock_inner.kafka_callback.call_count == 1, (
+            f"Expected exactly 1 inner callback call, got {mock_inner.kafka_callback.call_count}"
+        )
+        # The single call must have been the failure
+        err_arg = mock_inner.kafka_callback.call_args[0][0]
+        assert err_arg is not None, "Expected on_failure (err != None), got on_success"
 
 
 def test_kafka_sink_producer_config_without_oauth_cb():
