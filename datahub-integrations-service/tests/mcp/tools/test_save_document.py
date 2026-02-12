@@ -413,7 +413,7 @@ class TestSaveDocument:
     def test_save_document_exception_handling(
         self, mock_datahub_client, mock_user_info
     ):
-        """Test handling of exceptions during save."""
+        """Test that exceptions during save are raised as RuntimeError."""
         mock_datahub_client.entities.get.return_value = Mock()
         mock_datahub_client._graph.execute_graphql.return_value = {
             "me": {"corpUser": mock_user_info}
@@ -424,14 +424,12 @@ class TestSaveDocument:
             "datahub_integrations.mcp.mcp_server.get_datahub_client",
             return_value=mock_datahub_client,
         ):
-            result = save_document(
-                document_type="Insight",
-                title="Test Document",
-                content="Some content",
-            )
-
-        assert result["success"] is False
-        assert "Error saving document" in result["message"]
+            with pytest.raises(RuntimeError, match="Error saving document"):
+                save_document(
+                    document_type="Insight",
+                    title="Test Document",
+                    content="Some content",
+                )
 
     def test_save_document_without_user_info(self, mock_datahub_client):
         """Test saving when user info is not available."""

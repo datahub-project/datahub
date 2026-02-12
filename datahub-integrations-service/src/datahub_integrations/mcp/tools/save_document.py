@@ -632,12 +632,7 @@ def save_document(
 
     except Exception as e:
         logger.error(f"Failed to save document: {e}")
-        return {
-            "success": False,
-            "urn": None,
-            "message": f"Error saving document: {str(e)}",
-            "author": None,
-        }
+        raise RuntimeError(f"Error saving document: {str(e)}") from e
 
 
 def is_save_document_enabled() -> bool:

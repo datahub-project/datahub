@@ -1285,7 +1285,7 @@ def list_schema_fields(
     truncate_descriptions(result)
 
     # Extract total field count before processing
-    total_fields = len(result.get("schemaMetadata", {}).get("fields", []))
+    total_fields = len((result.get("schemaMetadata") or {}).get("fields", []))
 
     if total_fields == 0:
         return {
