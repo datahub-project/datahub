@@ -418,7 +418,7 @@ def _clickhouse_extract_dictget_tables(
 
     ClickHouse dictGet(dict_name, attr, key) references a dictionary backed by
     a table. sqlglot parses the dict_name as a Column node (e.g.,
-    Column(this='subscriptions', table='default')), not a Table node. This
+    Column(this='dict_name', table='schema')), not a Table node. This
     function finds those references and converts them to _TableName so they
     appear in upstream lineage.
     """
@@ -436,12 +436,12 @@ def _clickhouse_extract_dictget_tables(
 
         first_arg = func.expressions[0]
         if isinstance(first_arg, sqlglot.exp.Column):
-            # dictGet(default.subscriptions, ...) → Column(table='default', this='subscriptions')
+            # dictGet(schema.dict_name, ...) → Column(table='schema', this='dict_name')
             table_name = first_arg.name
             schema = first_arg.table if first_arg.table else None
             result.add(_TableName(database=None, db_schema=schema, table=table_name))
         elif isinstance(first_arg, sqlglot.exp.Literal) and first_arg.is_string:
-            # dictGet('default.subscriptions', ...) → Literal('default.subscriptions')
+            # dictGet('schema.dict_name', ...) → Literal('schema.dict_name')
             parts = first_arg.this.split(".")
             if len(parts) == 2:
                 result.add(
@@ -736,12 +736,16 @@ def _table_level_lineage(
         | _clickhouse_extract_dictget_tables(statement, dialect)
         # ignore references created in this query
         - modified
-        # ignore CTEs created in this statement
-        - {
-            _TableName(database=None, db_schema=None, table=cte.alias_or_name)
-            for cte in statement.find_all(sqlglot.exp.CTE)
-        }
     )
+
+    # Filter out CTE references. After qualify_tables(), CTE references like
+    # "FROM my_cte" may gain default schema/db (e.g., db_schema='default'),
+    # so we match by table name only.
+    cte_names = {
+        cte.alias_or_name.lower() for cte in statement.find_all(sqlglot.exp.CTE)
+    }
+    if cte_names:
+        tables = {t for t in tables if t.table.lower() not in cte_names}
     # TODO: If a CTAS has "LIMIT 0", it's not really lineage, just copying the schema.
 
     # TSQL-specific: Remove aliases from input tables to avoid phantom dependencies.
