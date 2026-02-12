@@ -16,7 +16,6 @@ from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
-    FlowContainerSubTypes,
     JobContainerSubTypes,
 )
 from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
@@ -80,7 +79,7 @@ class BaseProcedure:
     def to_urn(self, database_key: DatabaseKey, schema_key: Optional[SchemaKey]) -> str:
         return make_data_job_urn(
             orchestrator=database_key.platform,
-            flow_id=_get_procedure_flow_name(database_key, schema_key),
+            flow_id=get_procedure_flow_name(database_key, schema_key),
             job_id=self.get_procedure_identifier(),
             cluster=database_key.env or DEFAULT_ENV,
             platform_instance=database_key.instance,
@@ -97,7 +96,7 @@ def _generate_flow_workunits(
     in a schema, enabling consistent organization in DataHub's browse UI.
     """
 
-    procedure_flow_name = _get_procedure_flow_name(database_key, schema_key)
+    procedure_flow_name = get_procedure_flow_name(database_key, schema_key)
 
     flow_urn = make_data_flow_urn(
         orchestrator=database_key.platform,
@@ -116,7 +115,7 @@ def _generate_flow_workunits(
     yield MetadataChangeProposalWrapper(
         entityUrn=flow_urn,
         aspect=SubTypesClass(
-            typeNames=[FlowContainerSubTypes.MSSQL_PROCEDURE_CONTAINER],
+            typeNames=[subtype],
         ),
     ).as_workunit()
 
@@ -141,7 +140,7 @@ def _generate_flow_workunits(
         ).as_workunit()
 
 
-def _get_procedure_flow_name(
+def get_procedure_flow_name(
     database_key: DatabaseKey, schema_key: Optional[SchemaKey]
 ) -> str:
     """Build flow name from database, schema, and container suffix, omitting empty parts."""

@@ -94,7 +94,7 @@ class BIContainerSubTypes(StrEnum):
 
 class FlowContainerSubTypes(StrEnum):
     MSSQL_JOB = "Job"
-    MSSQL_PROCEDURE_CONTAINER = "Procedures Container"
+    PROCEDURE_CONTAINER = "Procedures Container"
     ADF_DATA_FACTORY = "Data Factory"
 
 

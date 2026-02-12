@@ -69,8 +69,8 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
-    _get_procedure_flow_name,
     generate_procedure_workunits,
+    get_procedure_flow_name,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
@@ -934,12 +934,16 @@ def _parse_oracle_procedure_dependencies(
     procedure_registry: Optional[Dict[str, str]] = None,
 ) -> List[str]:
     """
-    Parse Oracle ALL_DEPENDENCIES string to DataJob URNs.
+    Parse Oracle ALL_DEPENDENCIES string to DataJob URNs for procedure-to-procedure dependencies.
 
     Format: "SCHEMA.NAME (TYPE)" where TYPE is PROCEDURE, FUNCTION, or PACKAGE.
 
-    Raises:
-        ValueError: If dependencies_str is completely malformed (no valid entries found)
+    Note: Only extracts procedure/function/package dependencies. Table/view dependencies
+    are handled separately by the SQL parser analyzing the procedure code.
+
+    Returns:
+        List of DataJob URNs for procedure dependencies. Empty list if no procedure
+        dependencies found (e.g., procedure only depends on tables/views).
     """
     if not dependencies_str.strip():
         return []
@@ -972,7 +976,7 @@ def _parse_oracle_procedure_dependencies(
 
         dep_job_urn = make_data_job_urn(
             orchestrator=database_key.platform,
-            flow_id=_get_procedure_flow_name(
+            flow_id=get_procedure_flow_name(
                 database_key,
                 SchemaKey(
                     database=database_key.database,
@@ -989,12 +993,6 @@ def _parse_oracle_procedure_dependencies(
         )
 
         input_jobs.append(dep_job_urn)
-
-    if not input_jobs and deps:
-        raise ValueError(
-            f"Failed to parse any valid dependencies from: {dependencies_str[:100]}. "
-            f"Expected format: 'SCHEMA.NAME (TYPE)' where TYPE is PROCEDURE, FUNCTION, or PACKAGE"
-        )
 
     return input_jobs
 

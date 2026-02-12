@@ -56,7 +56,7 @@ from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
-    JobContainerSubTypes,
+    FlowContainerSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
@@ -1589,7 +1589,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             yield from generate_procedure_container_workunits(
                 database_key=database_key,
                 schema_key=schema_key,
-                subtype=JobContainerSubTypes.STORED_PROCEDURE,
+                subtype=FlowContainerSubTypes.PROCEDURE_CONTAINER,
             )
 
         # Build procedure registry for resolving procedure-to-procedure lineage

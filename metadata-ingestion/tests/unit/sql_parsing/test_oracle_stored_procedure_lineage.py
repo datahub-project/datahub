@@ -6,8 +6,8 @@ from datahub.ingestion.source.common.subtypes import JobContainerSubTypes
 from datahub.ingestion.source.sql.oracle import _parse_oracle_procedure_dependencies
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
-    _get_procedure_flow_name,
     generate_procedure_lineage,
+    get_procedure_flow_name,
 )
 from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
 from datahub.metadata.schema_classes import (
@@ -585,7 +585,7 @@ def test_oracle_procedure_flow_name_without_database():
         env="PROD",
     )
 
-    flow_name = _get_procedure_flow_name(database_key, schema_key)
+    flow_name = get_procedure_flow_name(database_key, schema_key)
     assert flow_name == "hr.stored_procedures"
     assert not flow_name.startswith(".")
 
@@ -610,7 +610,7 @@ def test_oracle_procedure_flow_name_with_database():
         env="PROD",
     )
 
-    flow_name = _get_procedure_flow_name(database_key, schema_key)
+    flow_name = get_procedure_flow_name(database_key, schema_key)
     assert flow_name == "orcl.hr.stored_procedures"
 
 
@@ -626,7 +626,7 @@ def test_oracle_procedure_flow_name_without_schema_key():
         env="PROD",
     )
 
-    flow_name = _get_procedure_flow_name(database_key_empty, None)
+    flow_name = get_procedure_flow_name(database_key_empty, None)
     assert flow_name == "stored_procedures"
     assert not flow_name.startswith(".")
 
@@ -637,7 +637,7 @@ def test_oracle_procedure_flow_name_without_schema_key():
         env="PROD",
     )
 
-    proc_flow_name_with_db = _get_procedure_flow_name(database_key_with_db, None)
+    proc_flow_name_with_db = get_procedure_flow_name(database_key_with_db, None)
     assert proc_flow_name_with_db == "orcl.stored_procedures"
 
 
