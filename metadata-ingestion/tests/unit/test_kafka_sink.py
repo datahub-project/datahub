@@ -198,7 +198,13 @@ class KafkaSinkTest(unittest.TestCase):
         )
 
         mce = MetadataChangeEvent(proposedSnapshot=user_snapshot)
-        re = RecordEnvelope(record=mce, metadata={})
+        re: RecordEnvelope[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ] = RecordEnvelope(record=mce, metadata={})
         kafka_sink.write_record_async(re, callback)
 
         assert mock_mcp_producer.produce.call_count == 2
@@ -233,7 +239,13 @@ class KafkaSinkTest(unittest.TestCase):
         )
 
         mce = MetadataChangeEvent(proposedSnapshot=user_snapshot)
-        re = RecordEnvelope(record=mce, metadata={})
+        re: RecordEnvelope[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ] = RecordEnvelope(record=mce, metadata={})
         kafka_sink.write_record_async(re, callback)
 
         # No MCPs should be produced
@@ -270,6 +282,54 @@ class KafkaSinkTest(unittest.TestCase):
         callback.kafka_callback(None, mock_message)
         mock_w_callback.on_success.assert_called_once()
         assert mock_w_callback.on_success.call_args[0][0] == mock_re
+
+
+def test_aggregating_callback_all_success():
+    """Cover _AggregatingKafkaCallback: all N deliveries succeed."""
+    mock_inner = MagicMock(spec=_KafkaCallback)
+    agg = _AggregatingKafkaCallback(total=3, inner=mock_inner)
+
+    agg.kafka_callback(None, MagicMock())
+    mock_inner.kafka_callback.assert_not_called()
+
+    agg.kafka_callback(None, MagicMock())
+    mock_inner.kafka_callback.assert_not_called()
+
+    agg.kafka_callback(None, MagicMock())
+    mock_inner.kafka_callback.assert_called_once()
+    # The single call should be a success (err=None)
+    assert mock_inner.kafka_callback.call_args[0][0] is None
+
+
+def test_aggregating_callback_first_fails():
+    """Cover _AggregatingKafkaCallback: first delivery fails, rest succeed."""
+    mock_inner = MagicMock(spec=_KafkaCallback)
+    agg = _AggregatingKafkaCallback(total=3, inner=mock_inner)
+
+    mock_error = MagicMock()
+    agg.kafka_callback(mock_error, MagicMock())
+    # Failure fires immediately
+    mock_inner.kafka_callback.assert_called_once()
+    assert mock_inner.kafka_callback.call_args[0][0] is mock_error
+
+    # Subsequent deliveries (success or failure) should not fire again
+    agg.kafka_callback(None, MagicMock())
+    agg.kafka_callback(None, MagicMock())
+    assert mock_inner.kafka_callback.call_count == 1
+
+
+def test_aggregating_callback_last_fails():
+    """Cover _AggregatingKafkaCallback: last delivery fails after others succeed."""
+    mock_inner = MagicMock(spec=_KafkaCallback)
+    agg = _AggregatingKafkaCallback(total=2, inner=mock_inner)
+
+    agg.kafka_callback(None, MagicMock())
+    mock_inner.kafka_callback.assert_not_called()
+
+    mock_error = MagicMock()
+    agg.kafka_callback(mock_error, MagicMock())
+    mock_inner.kafka_callback.assert_called_once()
+    assert mock_inner.kafka_callback.call_args[0][0] is mock_error
 
 
 def _run_concurrent_callbacks(
