@@ -61,6 +61,11 @@ public class RateLimitThrottleSensor implements ThrottleSensor {
   }
 
   public RateLimitThrottleSensor start() {
+    if (updateIntervalMs <= 0 || activationIntervalMinutes <= 0 || rateLimitIntervalSeconds <= 0) {
+      log.warn("Invalid configuration for RateLimitThrottleSensor, not starting sensor");
+      return this;
+    }
+
     scheduler.scheduleAtFixedRate(
         () -> {
           try {
