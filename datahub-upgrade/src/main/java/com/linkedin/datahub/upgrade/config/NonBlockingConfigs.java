@@ -6,6 +6,7 @@ import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
+import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
@@ -13,6 +14,7 @@ import com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromS
 import com.linkedin.datahub.upgrade.system.schemafield.MigrateSchemaFieldDocIds;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.aspect.consistency.ConsistencyService;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -165,5 +167,18 @@ public class NonBlockingConfigs {
   public NonBlockingSystemUpgrade kafkaSetupNonBlocking(
       final ConfigurationProvider configurationProvider, KafkaProperties properties) {
     return new KafkaNonBlockingSetup(opContext, configurationProvider.getKafka(), properties);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade fixEntityConsistency(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      @Qualifier("consistencyService") final ConsistencyService consistencyService,
+      final ConfigurationProvider configurationProvider) {
+    return new FixEntityConsistency(
+        opContext,
+        entityService,
+        consistencyService,
+        configurationProvider.getSystemUpdate().getEntityConsistency());
   }
 }

@@ -17,12 +17,12 @@ If you're interested in a managed version, [DataHub](https://www.datahub.com) pr
 
   | Platform | Application                                                                                                                                     |
   | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-  | Window   | [Docker Desktop](https://www.docker.com/products/docker-desktop/)                                                                               |
+  | Windows  | [Docker Desktop](https://www.docker.com/products/docker-desktop/)                                                                               |
   | Mac      | [Docker Desktop](https://www.docker.com/products/docker-desktop/)                                                                               |
   | Linux    | [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/) and [Docker Compose](https://docs.docker.com/compose/install/linux/) |
 
 - **Launch the Docker engine** from command line or the desktop app.
-- Ensure you have **Python 3.9+** installed & configured. (Check using `python3 --version`).
+- Ensure you have **Python 3.10+** installed & configured. (Check using `python3 --version`).
 
 :::note Docker Resource Allocation
 
@@ -199,26 +199,17 @@ datahub docker quickstart --quickstart-compose-file <path to compose file>
 The quickstart image is not recommended for use as a production instance. <br />
 However, in case you want to take a backup of your current quickstart state (e.g. you have a demo to your company coming up and you want to create a copy of the quickstart data so you can restore it at a future date), you can supply the `--backup` flag to quickstart.
 
-<Tabs>
-<TabItem value="backup" label="Back up (default)">
-
 ```bash
 datahub docker quickstart --backup
 ```
 
 This will take a backup of your MySQL image and write it by default to your `~/.datahub/quickstart/` directory as the file `backup.sql`.
 
-</TabItem>
-<TabItem value="backup custom" label="Back up to custom directory">
+You can customize the backup file path by passing a `--backup-file` argument:
 
 ```bash
 datahub docker quickstart --backup --backup-file <path to backup file>
 ```
-
-You can customize the backup file path by passing a `--backup-file` argument.
-
-</TabItem>
-</Tabs>
 
 :::caution
 
@@ -230,8 +221,7 @@ Note that the Quickstart backup does not include any timeseries data (dataset st
 
 As you might imagine, these backups are restore-able. The following section describes a few different options you have to restore your backup.
 
-<Tabs>
-<TabItem value="General" label="General Restoring">
+#### General Restoring
 
 To restore a previous backup, run the following command:
 
@@ -247,8 +237,7 @@ To supply a specific backup file, use the `--restore-file` option.
 datahub docker quickstart --restore --restore-file /home/my_user/datahub_backups/quickstart_backup_2002_22_01.sql
 ```
 
-</TabItem>
-<TabItem value="Restoring Only Index" label="Restore Only Index">
+#### Restore Only Index
 
 Another situation that can come up is the index can get corrupt, or be missing some update. In order to re-bootstrap the index from the primary store, you can run this command to sync the index with the primary store.
 
@@ -256,18 +245,13 @@ Another situation that can come up is the index can get corrupt, or be missing s
 datahub docker quickstart --restore-indices
 ```
 
-</TabItem>
-
-<TabItem value="Restoring Only Primary" label="Restore Only Primary">
+#### Restore Only Primary
 
 Sometimes, you might want to just restore the state of your primary database (MySQL), but not re-index the data. To do this, you have to explicitly disable the restore-indices capability.
 
 ```bash
 datahub docker quickstart --restore --no-restore-indices
 ```
-
-</TabItem>
-</Tabs>
 
 ---
 

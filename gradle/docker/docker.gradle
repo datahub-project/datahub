@@ -294,9 +294,10 @@ project.afterEvaluate {
 
           extension.variants.get().each { variant, variantSpec ->
             if (matrixBuild || variant == extension.defaultVariant.get()) {
-                // Its not easy to merge common buildArgs and variant buildArgs with json format. 
-                // So, we just add common buildArgs to matrix.
-                bake_spec_target.matrix.variants.add([ 'tagSuffix': "${variantSpec.suffix}", 'args': variantSpec.args + bake_spec_target.args])
+                // Its not easy to merge common buildArgs and variant buildArgs with json format via bake spec.
+                // So, we just add common buildArgs to matrix. variantArgs are added to buildArgs so that variant specific overrides
+                // are added last and retained.
+                bake_spec_target.matrix.variants.add([ 'tagSuffix': "${variantSpec.suffix}", 'args': bake_spec_target.args + variantSpec.args ])
               }
           }
           // When variants are present, fix up tags to include the variant suffix

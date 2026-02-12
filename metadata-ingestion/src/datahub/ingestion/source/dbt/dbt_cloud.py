@@ -2,14 +2,14 @@ import logging
 from copy import deepcopy
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
-import dateutil.parser
 import requests
 from pydantic import Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -29,13 +29,22 @@ from datahub.ingestion.source.dbt.dbt_cloud_models import (
     DBTCloudJob,
 )
 from datahub.ingestion.source.dbt.dbt_common import (
+    DBT_EXPOSURE_MATURITY,
+    DBT_EXPOSURE_TYPES,
     DBTColumn,
     DBTCommonConfig,
+    DBTExposure,
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    parse_dbt_timestamp,
 )
-from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
+from datahub.ingestion.source.dbt.dbt_tests import (
+    DBTFreshnessInfo,
+    DBTTest,
+    DBTTestResult,
+    parse_freshness_criteria,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -260,9 +269,20 @@ _DBT_FIELDS_BY_TYPE = {
     sourceDescription
     maxLoadedAt
     snapshottedAt
+    maxLoadedAtTimeAgoInS
     state
     freshnessChecked
     loader
+    criteria {{
+      warnAfter {{
+        count
+        period
+      }}
+      errorAfter {{
+        count
+        period
+      }}
+    }}
 """,
     "snapshots": f"""
     {_DBT_GRAPHQL_COMMON_FIELDS}
@@ -290,10 +310,18 @@ _DBT_FIELDS_BY_TYPE = {
     compiledSql
     compiledCode
 """,
+    "exposures": f"""
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    packageName
+    exposureType
+    url
+    maturity
+    ownerName
+    ownerEmail
+    dependsOn
+""",
     # Currently unsupported dbt node types:
     # - metrics
-    # - snapshots
-    # - exposures
 }
 
 _DBT_GRAPHQL_QUERY = """
@@ -314,6 +342,9 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 class DBTCloudSource(DBTSourceBase, TestableSource):
     config: DBTCloudConfig
     report: DBTSourceReport  # nothing cloud-specific in the report
+
+    def __init__(self, config: DBTCloudConfig, ctx: PipelineContext):
+        super().__init__(config, ctx)
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -629,6 +660,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         # Fetch nodes from all jobs
         raw_nodes = []
+        raw_exposures = []
         for job_id in job_ids_to_ingest:
             self.report.processed_jobs_list.append(job_id)
             self.report.total_jobs_processed += 1
@@ -647,7 +679,10 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                         },
                     )
 
-                    raw_nodes.extend(data["job"][node_type])
+                    if node_type == "exposures":
+                        raw_exposures.extend(data["job"][node_type])
+                    else:
+                        raw_nodes.extend(data["job"][node_type])
                 except Exception as e:
                     logger.warning(
                         f"Failed to fetch {node_type} from job {job_id}: {e}. Continuing with other jobs."
@@ -656,37 +691,113 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
 
+        # Parse exposures
+        self._exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
+
         additional_metadata: Dict[str, Optional[str]] = {
             "account_id": str(self.config.account_id),
         }
 
         return nodes, additional_metadata
 
+    def _extract_code_fields(
+        self, node: Dict, materialization: Optional[str]
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Extract raw_code and compiled_code from a node."""
+        key = node["uniqueId"]
+        resource_type = node["resourceType"]
+
+        if resource_type in {"model", "seed", "snapshot"}:
+            status = node["status"]
+            if status is None and materialization != "ephemeral":
+                self.report.warning(
+                    title="Schema information may be incomplete",
+                    message="Some nodes are missing the `status` field, which dbt uses to track the status of the node in the target database.",
+                    context=key,
+                )
+
+            raw_code = node["rawCode"] or node["rawSql"]
+            compiled_code = node["compiledCode"] or node["compiledSql"]
+
+            if not compiled_code:
+                self.report.warning(
+                    title="Missing compiled_code",
+                    message=f"compiled_code is missing (materialization={materialization}). "
+                    "Column-level lineage will not be available for this model.",
+                    context=key,
+                )
+            return raw_code, compiled_code
+
+        return None, None
+
+    def _extract_test_info(
+        self, node: Dict, name: str
+    ) -> Tuple[Optional[DBTTest], Optional[DBTTestResult]]:
+        """Extract test info and result from a test node."""
+        qualified_test_name = name
+
+        for dependency in node["dependsOn"]:
+            if dependency.startswith("macro."):
+                _, macro = dependency.split(".", 1)
+                if macro.startswith("dbt."):
+                    if not macro.startswith("dbt.test_"):
+                        continue
+                    macro = macro[len("dbt.test_") :]
+
+                qualified_test_name = macro
+                break
+
+        test_info = DBTTest(
+            qualified_test_name=qualified_test_name,
+            column_name=node["columnName"],
+            kw_args={},  # TODO: dbt Cloud doesn't expose the args.
+        )
+
+        test_result = None
+        if not node["skip"]:
+            test_result = DBTTestResult(
+                invocation_id=f"job{node['jobId']}-run{node['runId']}",
+                execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
+                status=node["status"],
+                native_results={
+                    key: str(node[key])
+                    for key in {
+                        "columnName",
+                        "error",
+                        "fail",
+                        "warn",
+                        "skip",
+                        "state",
+                        "status",
+                    }
+                },
+            )
+        return test_info, test_result
+
     def _parse_into_dbt_node(self, node: Dict) -> DBTNode:
         key = node["uniqueId"]
+        resource_type = node["resourceType"]
 
         name = node["name"]
         if self.config.use_identifiers and node.get("identifier"):
             name = node["identifier"]
-        if node["resourceType"] != "test" and node.get("alias"):
+        if resource_type != "test" and node.get("alias"):
             name = node["alias"]
 
         comment = node.get("comment", "")
+        # description is table-level (more specific), sourceDescription is schema-level
+        table_level_desc = node.get("description")
+        schema_level_desc = node.get("sourceDescription")
+        description = table_level_desc or schema_level_desc or ""
 
-        # In dbt sources, there are two types of descriptions:
-        # - description: table-level description (specific to the source table)
-        # - sourceDescription: schema-level description (describes the overall source schema)
-        # The table-level description should take precedence since it's more specific.
-        description = node["description"] or node.get("sourceDescription", "")
-
-        if node["resourceType"] == "model":
+        if resource_type == "model":
             materialization = node["materializedType"]
-        elif node["resourceType"] == "snapshot":
+        elif resource_type == "snapshot":
             materialization = "snapshot"
         else:
             materialization = None
 
-        if node["resourceType"] == "snapshot":
+        if resource_type == "snapshot":
             upstream_nodes = [
                 obj["uniqueId"]
                 for obj in [
@@ -698,44 +809,49 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             upstream_nodes = node.get("dependsOn", [])
 
         catalog_type = node.get("type")
-
         meta = node["meta"]
-
-        # The dbt owner field is set to the db user, and not the meta property.
-        # owner = node.get("owner")
+        # Note: node["owner"] contains the database user, not the meta property.
+        # We use meta.owner to match dbt_core.py behavior.
         owner = meta.get("owner")
+        tags = [self.config.tag_prefix + tag for tag in node["tags"]]
 
-        tags = node["tags"]
-        tags = [self.config.tag_prefix + tag for tag in tags]
-
-        if node["resourceType"] in {"model", "seed", "snapshot"}:
-            status = node["status"]
-            if status is None and materialization != "ephemeral":
-                self.report.warning(
-                    title="Schema information may be incomplete",
-                    message="Some nodes are missing the `status` field, which dbt uses to track the status of the node in the target database.",
-                    context=key,
-                    log=False,
-                )
-
-            # The code fields are new in dbt 1.3, and replace the sql ones.
-            raw_code = node["rawCode"] or node["rawSql"]
-            compiled_code = node["compiledCode"] or node["compiledSql"]
-        else:
-            raw_code = None
-            compiled_code = None
+        raw_code, compiled_code = self._extract_code_fields(node, materialization)
 
         max_loaded_at = None
-        if node["resourceType"] == "source":
+        freshness_info = None
+        if resource_type == "source":
             max_loaded_at_str = node["maxLoadedAt"]
             if max_loaded_at_str:
-                max_loaded_at = dateutil.parser.parse(max_loaded_at_str)
-
-                # For missing data, dbt returns 0001-01-01T00:00:00.000Z.
+                max_loaded_at = parse_dbt_timestamp(max_loaded_at_str)
                 if max_loaded_at.year <= 1:
                     max_loaded_at = None
 
-        columns = []
+            freshness_state = node.get("state")
+            if freshness_state and node.get("freshnessChecked"):
+                snapshotted_at_str = node.get("snapshottedAt")
+                snapshotted_at = (
+                    parse_dbt_timestamp(snapshotted_at_str)
+                    if snapshotted_at_str
+                    else None
+                )
+                criteria = node.get("criteria", {})
+
+                if max_loaded_at and snapshotted_at:
+                    freshness_info = DBTFreshnessInfo(
+                        invocation_id=f"job{node['jobId']}-run{node['runId']}",
+                        status=freshness_state.lower(),
+                        max_loaded_at=max_loaded_at,
+                        snapshotted_at=snapshotted_at,
+                        max_loaded_at_time_ago_in_s=node.get(
+                            "maxLoadedAtTimeAgoInS", 0.0
+                        ),
+                        warn_after=parse_freshness_criteria(criteria.get("warnAfter")),
+                        error_after=parse_freshness_criteria(
+                            criteria.get("errorAfter")
+                        ),
+                    )
+
+        columns: List[DBTColumn] = []
         if "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = list(
@@ -747,50 +863,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         test_info = None
         test_result = None
-        if node["resourceType"] == "test":
-            qualified_test_name = name
-
-            # The qualified test name should be the test name from the dbt project.
-            # It can be simple (e.g. 'unique') or prefixed (e.g. 'dbt_expectations.expect_column_values_to_not_be_null').
-            # We attempt to guess the test name based on the macros used.
-            for dependency in node["dependsOn"]:
-                # An example dependsOn list could be:
-                #     ['model.sample_dbt.monthly_billing_with_cust', 'macro.dbt.test_not_null', 'macro.dbt.get_where_subquery']
-                # In that case, the test should be `not_null`.
-
-                if dependency.startswith("macro."):
-                    _, macro = dependency.split(".", 1)
-                    if macro.startswith("dbt."):
-                        if not macro.startswith("dbt.test_"):
-                            continue
-                        macro = macro[len("dbt.test_") :]
-
-                    qualified_test_name = macro
-                    break
-
-            test_info = DBTTest(
-                qualified_test_name=qualified_test_name,
-                column_name=node["columnName"],
-                kw_args={},  # TODO: dbt Cloud doesn't expose the args.
-            )
-            if not node["skip"]:
-                test_result = DBTTestResult(
-                    invocation_id=f"job{node['jobId']}-run{node['runId']}",
-                    execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
-                    status=node["status"],
-                    native_results={
-                        key: str(node[key])
-                        for key in {
-                            "columnName",
-                            "error",
-                            "fail",
-                            "warn",
-                            "skip",
-                            "state",
-                            "status",
-                        }
-                    },
-                )
+        if resource_type == "test":
+            test_info, test_result = self._extract_test_info(node, name)
 
         return DBTNode(
             dbt_name=key,
@@ -802,7 +876,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             name=name,
             alias=node.get("alias"),
             dbt_file_path=None,  # TODO: Get this from the dbt API.
-            node_type=node["resourceType"],
+            node_type=resource_type,
             max_loaded_at=max_loaded_at,
             comment=comment,
             description=description,
@@ -821,6 +895,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             test_info=test_info,
             test_results=[test_result] if test_result else [],
             model_performances=[],  # TODO: support model performance with dbt Cloud
+            freshness_info=freshness_info,
         )
 
     def _parse_into_dbt_column(
@@ -838,6 +913,40 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             data_type=column["type"],
             meta=column["meta"],
             tags=column["tags"],
+        )
+
+    def _parse_into_dbt_exposure(self, exposure: Dict) -> DBTExposure:
+        """Parse a raw exposure from dbt Cloud API into a DBTExposure object."""
+        tags = exposure.get("tags", [])
+        tags = [self.config.tag_prefix + tag for tag in tags] if tags else []
+
+        depends_on = exposure.get("dependsOn", [])
+        # dependsOn in GraphQL response is a list of unique IDs
+        depends_on_nodes = depends_on if isinstance(depends_on, list) else []
+
+        raw_type = exposure.get("exposureType", "dashboard")
+        exposure_type: Literal[
+            "dashboard", "notebook", "ml", "application", "analysis"
+        ] = cast(
+            Literal["dashboard", "notebook", "ml", "application", "analysis"],
+            raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard",
+        )
+        raw_maturity = exposure.get("maturity")
+        maturity = raw_maturity if raw_maturity in DBT_EXPOSURE_MATURITY else None
+
+        return DBTExposure(
+            name=exposure["name"],
+            unique_id=exposure["uniqueId"],
+            type=exposure_type,
+            owner_name=exposure.get("ownerName"),
+            owner_email=exposure.get("ownerEmail"),
+            description=exposure.get("description"),
+            url=exposure.get("url"),
+            maturity=maturity,
+            depends_on=depends_on_nodes,
+            tags=tags,
+            meta=exposure.get("meta", {}) if exposure.get("meta") else {},
+            dbt_package_name=exposure.get("packageName"),
         )
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:

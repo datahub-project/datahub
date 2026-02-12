@@ -2,17 +2,22 @@ import { Badge, Icon, SearchBar, colors } from '@components';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import sourcesJson from '@app/ingestV2/source/builder/sources.json';
+import analytics, { EventType } from '@app/analytics';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
-import EmptySearchResults from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/EmptySearchResults';
+import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
+import CreateSourceEducationModal from '@app/ingestV2/source/multiStepBuilder/CreateSourceEducationModal';
 import ShowAllCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/ShowAllCard';
 import SourcePlatformCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SourcePlatformCard';
 import { useCardsPerRow } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/useCardsPerRow';
 import {
     CARD_WIDTH,
+    CUSTOM_SOURCE_NAME,
+    EXTERNAL_SOURCE_REDIRECT_URL,
     computeRows,
+    getOrderedByCategoryEntriesOfGroups,
     groupByCategory,
     sortByPopularFirst,
+    sortByPriorityAndDisplayName,
 } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/utils';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
@@ -71,12 +76,16 @@ export function SelectSourceStep() {
     >();
     const [searchQuery, setSearchQuery] = useState<string>('');
 
-    const ingestionSources: SourceConfig[] = JSON.parse(JSON.stringify(sourcesJson));
+    const { ingestionSources } = useIngestionSources();
+
     const filteredSources = ingestionSources.filter((src) =>
         src.displayName.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
+    const customSource = ingestionSources.find((src) => src.name === CUSTOM_SOURCE_NAME);
+
     const categories = groupByCategory(filteredSources);
+    const orderedCategoryEntries = getOrderedByCategoryEntriesOfGroups(categories);
     const [expanded, setExpanded] = useState({});
 
     const containerRef = useRef<HTMLDivElement | null>(null);
@@ -84,18 +93,26 @@ export function SelectSourceStep() {
 
     const [showAllByCategory, setShowAllByCategory] = useState<Record<string, boolean>>({});
 
-    const onSelectCard = (platformName: string) => {
+    const onSelectCard = (platformSource: SourceConfig) => {
+        analytics.event({
+            type: EventType.IngestionSelectSourceEvent,
+            sourceType: platformSource.name,
+        });
+        if (platformSource.isExternal) {
+            window.open(platformSource.docsUrl ?? EXTERNAL_SOURCE_REDIRECT_URL, '_blank');
+            return;
+        }
+
         if (!isCurrentStepCompleted()) {
             setCurrentStepCompleted();
         }
         updateState({
-            type: platformName,
+            type: platformSource.name,
             // Reset state of the connection details form
             isConnectionDetailsValid: false,
             config: undefined,
             name: undefined,
             owners: undefined,
-            schedule: undefined,
         });
         goToNext();
     };
@@ -113,85 +130,96 @@ export function SelectSourceStep() {
                 width="320px"
             />
             {searchQuery && filteredSources.length === 0 ? (
-                <EmptySearchResults />
+                <>
+                    {customSource && (
+                        <>
+                            <SectionHeader>
+                                <LeftSection>
+                                    {customSource.category}
+                                    <Badge count={1} size="xs" />
+                                </LeftSection>
+                            </SectionHeader>
+                            <SourcePlatformCard
+                                key={customSource.urn || customSource.name}
+                                source={customSource}
+                                onSelect={onSelectCard}
+                            />
+                        </>
+                    )}
+                </>
             ) : (
                 <CardsContainer>
-                    {Object.entries(categories)
-                        .sort(([a], [b]) => {
-                            if (a === 'Other') return 1;
-                            if (b === 'Other') return -1;
-                            return a.localeCompare(b);
-                        })
-                        .map(([category, list]) => {
-                            const sorted = sortByPopularFirst(list);
-                            const popular = sorted.filter((s) => s.isPopular);
-                            const nonPopular = sorted.filter((s) => !s.isPopular);
+                    {orderedCategoryEntries.map(([category, list]) => {
+                        const sorted = sortByPopularFirst(list);
+                        const popular = sortByPriorityAndDisplayName(sorted.filter((s) => s.isPopular));
+                        const nonPopular = sortByPriorityAndDisplayName(sorted.filter((s) => !s.isPopular));
 
-                            const { visible: computedVisible, hidden: computedHidden } = computeRows(
-                                popular,
-                                nonPopular,
-                                cardsPerRow,
-                            );
+                        const { visible: computedVisible, hidden: computedHidden } = computeRows(
+                            popular,
+                            nonPopular,
+                            cardsPerRow,
+                        );
 
-                            const isOpen = expanded[category] ?? true;
-                            const showAll = showAllByCategory[category] ?? false;
+                        const isOpen = !!searchQuery || (expanded[category] ?? true);
+                        const showAll = showAllByCategory[category] ?? false;
 
-                            const visible = showAll || searchQuery ? [...popular, ...nonPopular] : computedVisible;
-                            const hidden = showAll || searchQuery ? [] : computedHidden;
+                        const visible = showAll || searchQuery ? [...popular, ...nonPopular] : computedVisible;
+                        const hidden = showAll || searchQuery ? [] : computedHidden;
 
-                            return (
-                                <Section key={category}>
-                                    <SectionHeader>
-                                        <LeftSection>
-                                            {category}
-                                            <Badge count={list.length} size="xs" />
-                                        </LeftSection>
+                        return (
+                            <Section key={category}>
+                                <SectionHeader>
+                                    <LeftSection>
+                                        {category}
+                                        <Badge count={list.length} size="xs" />
+                                    </LeftSection>
 
-                                        {!searchQuery && (
-                                            <RightSection>
-                                                <Icon
-                                                    icon={isOpen ? 'CaretDown' : 'CaretRight'}
-                                                    source="phosphor"
-                                                    color="gray"
-                                                    size="2xl"
-                                                    onClick={() =>
-                                                        setExpanded((prev) => ({ ...prev, [category]: !isOpen }))
+                                    {!searchQuery && (
+                                        <RightSection>
+                                            <Icon
+                                                icon={isOpen ? 'CaretDown' : 'CaretRight'}
+                                                source="phosphor"
+                                                color="gray"
+                                                size="2xl"
+                                                onClick={() =>
+                                                    setExpanded((prev) => ({ ...prev, [category]: !isOpen }))
+                                                }
+                                            />
+                                        </RightSection>
+                                    )}
+                                </SectionHeader>
+
+                                {isOpen && (
+                                    <div>
+                                        <CardsWrapper>
+                                            {visible.map((src) => (
+                                                <SourcePlatformCard
+                                                    key={src.urn || src.name}
+                                                    source={src}
+                                                    onSelect={onSelectCard}
+                                                />
+                                            ))}
+
+                                            {!searchQuery && !showAll && hidden.length > 0 && (
+                                                <ShowAllCard
+                                                    hiddenSources={hidden}
+                                                    onShowAll={() =>
+                                                        setShowAllByCategory((prev) => ({
+                                                            ...prev,
+                                                            [category]: true,
+                                                        }))
                                                     }
                                                 />
-                                            </RightSection>
-                                        )}
-                                    </SectionHeader>
-
-                                    {isOpen && (
-                                        <div>
-                                            <CardsWrapper>
-                                                {visible.map((src) => (
-                                                    <SourcePlatformCard
-                                                        key={src.urn || src.name}
-                                                        source={src}
-                                                        onSelect={onSelectCard}
-                                                    />
-                                                ))}
-
-                                                {!searchQuery && !showAll && hidden.length > 0 && (
-                                                    <ShowAllCard
-                                                        hiddenSources={hidden}
-                                                        onShowAll={() =>
-                                                            setShowAllByCategory((prev) => ({
-                                                                ...prev,
-                                                                [category]: true,
-                                                            }))
-                                                        }
-                                                    />
-                                                )}
-                                            </CardsWrapper>
-                                        </div>
-                                    )}
-                                </Section>
-                            );
-                        })}
+                                            )}
+                                        </CardsWrapper>
+                                    </div>
+                                )}
+                            </Section>
+                        );
+                    })}
                 </CardsContainer>
             )}
+            <CreateSourceEducationModal />
         </StepContainer>
     );
 }

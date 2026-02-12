@@ -136,7 +136,11 @@ dependencies {
   }
   api externalDependency.datastaxOssQueryBuilder
   api externalDependency.elasticSearchRest
-  
+
+  // AWS SDK for Bedrock (semantic search embeddings)
+  implementation platform(externalDependency.awsSdk2Bom)
+  implementation 'software.amazon.awssdk:bedrockruntime'
+
   // Optional search client shim dependencies
   api externalDependency.elasticsearch8Client
   implementation externalDependency.awsRds
@@ -189,6 +193,10 @@ dependencies {
   testImplementation 'ch.qos.logback:logback-classic:1.4.7'
   testImplementation 'net.datafaker:datafaker:1.9.0'
   testImplementation externalDependency.awaitility
+
+  // SDK dependencies for integration tests (comparing our implementation vs official SDKs)
+  testImplementation 'com.openai:openai-java:0.18.0'
+  testImplementation 'com.cohere:cohere-java:1.5.0'
 
   testImplementation(testFixtures(project(":entity-registry")))
 
@@ -257,7 +265,7 @@ task testEs7CassandraNeo4j(type: Test) {
   }
 
   environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
-  
+
   group = 'verification'
   description = 'Runs only the testng-es7-cassandra-neo4j.xml test suite'
 }
@@ -276,7 +284,7 @@ task testOpenSearch(type: Test) {
   }
 
   environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
-  
+
   group = 'verification'
   description = 'Runs only the testng-opensearch.xml test suite'
 }
@@ -295,7 +303,7 @@ task testOther(type: Test) {
   }
 
   environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
-  
+
   group = 'verification'
   description = 'Runs only other test suite to debug the failing tests'
 }
@@ -327,4 +335,3 @@ clean {
   //TODO: Is this really needed? dont see generated folder in projectDir. It is in build, but that doest need explicit clean
   delete "$projectDir/generated"
 }
-

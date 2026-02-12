@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, Optional
 
@@ -22,6 +23,7 @@ from confluent_kafka import KafkaError, KafkaException, TopicPartition
 from confluent_kafka.schema_registry.avro import AvroDeserializer
 from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
 from prometheus_client import Counter, Gauge
+from pydantic import Field
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -40,6 +42,7 @@ from datahub_actions.event.event_registry import (
 )
 
 # May or may not need these.
+from datahub_actions.observability.kafka_lag_monitor import KafkaLagMonitor
 from datahub_actions.pipeline.pipeline_context import PipelineContext
 from datahub_actions.plugin.source.kafka.utils import with_retry
 from datahub_actions.source.event_source import EventSource
@@ -94,7 +97,7 @@ def build_entity_change_event(payload: GenericPayloadClass) -> EntityChangeEvent
 
 class KafkaEventSourceConfig(ConfigModel):
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
-    topic_routes: Optional[Dict[str, str]]
+    topic_routes: Optional[Dict[str, str]] = Field(default=None)
     async_commit_enabled: bool = False
     async_commit_interval: int = 10000
     commit_retry_count: int = 5
@@ -123,6 +126,7 @@ def kafka_messages_observer(pipeline_name: str) -> Callable:
 class KafkaEventSource(EventSource):
     running = False
     source_config: KafkaEventSourceConfig
+    _lag_monitor: Optional[KafkaLagMonitor] = None
 
     def __init__(self, config: KafkaEventSourceConfig, ctx: PipelineContext):
         self.source_config = config
@@ -158,6 +162,41 @@ class KafkaEventSource(EventSource):
         )
         self._observe_message: Callable = kafka_messages_observer(ctx.pipeline_name)
 
+        # Initialize lag monitoring (if enabled)
+        if self._is_lag_monitoring_enabled():
+            lag_interval = float(
+                os.environ.get("DATAHUB_ACTIONS_KAFKA_LAG_INTERVAL_SECONDS", "30")
+            )
+            lag_timeout = float(
+                os.environ.get("DATAHUB_ACTIONS_KAFKA_LAG_TIMEOUT_SECONDS", "5")
+            )
+            self._lag_monitor = KafkaLagMonitor(
+                consumer=self.consumer,
+                pipeline_name=ctx.pipeline_name,
+                interval_seconds=lag_interval,
+                timeout_seconds=lag_timeout,
+            )
+            logger.info(
+                f"Kafka lag monitoring enabled for '{ctx.pipeline_name}' "
+                f"(interval={lag_interval}s, timeout={lag_timeout}s)"
+            )
+        else:
+            logger.debug(
+                f"Kafka lag monitoring disabled for pipeline '{ctx.pipeline_name}'"
+            )
+
+    @staticmethod
+    def _is_lag_monitoring_enabled() -> bool:
+        """Check if Kafka lag monitoring should be enabled.
+
+        Lag monitoring is enabled if:
+        1. DATAHUB_ACTIONS_KAFKA_LAG_ENABLED=true (case-insensitive)
+
+        Default: False (conservative default for OSS rollout)
+        """
+        enabled_str = os.environ.get("DATAHUB_ACTIONS_KAFKA_LAG_ENABLED", "false")
+        return enabled_str.lower() in ("true", "1", "yes")
+
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "EventSource":
         config = KafkaEventSourceConfig.model_validate(config_dict)
@@ -168,6 +207,11 @@ class KafkaEventSource(EventSource):
         topics_to_subscribe = list(topic_routes.values())
         logger.debug(f"Subscribing to the following topics: {topics_to_subscribe}")
         self.consumer.subscribe(topics_to_subscribe)
+
+        # Start lag monitoring after subscription
+        if self._lag_monitor is not None:
+            self._lag_monitor.start()
+
         self.running = True
         while self.running:
             try:
@@ -228,6 +272,11 @@ class KafkaEventSource(EventSource):
             yield EventEnvelope(RELATIONSHIP_CHANGE_EVENT_V1_TYPE, rce, kafka_meta)
 
     def close(self) -> None:
+        # Stop lag monitoring first
+        if self._lag_monitor is not None:
+            self._lag_monitor.stop()
+
+        # Then close consumer
         if self.consumer:
             self.running = False
             self.consumer.close()

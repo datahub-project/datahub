@@ -89,11 +89,4 @@ record DocumentInfo includes CustomProperties {
      * Parent article for this asset. 
      */
     parentDocument: optional ParentDocument
-
-    /**
-     * If this document is a draft, the document it is a draft of.
-     * When set, this document should be hidden from normal knowledge base browsing and search.
-     * Only the published document (draftOf target) should be visible to end users.
-     */
-    draftOf: optional DraftOf
 }
