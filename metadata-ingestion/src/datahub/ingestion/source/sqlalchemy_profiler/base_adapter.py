@@ -468,6 +468,14 @@ class PlatformAdapter(ABC):
         if quantiles is None:
             quantiles = DEFAULT_QUANTILES
 
+        # Validate quantile range
+        for q in quantiles:
+            if not (0 <= q <= 1):
+                raise ValueError(
+                    f"Quantiles must be in [0, 1], got {q}. "
+                    f"Quantiles represent percentiles as decimals (e.g., 0.5 for median)."
+                )
+
         # Fallback: Use exact PERCENTILE_CONT if supported
         logger.debug(
             f"Using PERCENTILE_CONT fallback for {self.__class__.__name__} on column {column}, "

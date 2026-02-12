@@ -39,6 +39,21 @@ class ProfilingContext:
     # Resource tracking for cleanup
     resources_to_cleanup: List[str] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        """Validate profiling context invariants."""
+        # Must have either table or custom_sql
+        if not self.table and not self.custom_sql:
+            raise ValueError(
+                "ProfilingContext requires either 'table' or 'custom_sql' to be specified"
+            )
+
+        # Sample percentage must be in range [0, 100]
+        if self.sample_percentage is not None:
+            if not (0 <= self.sample_percentage <= 100):
+                raise ValueError(
+                    f"sample_percentage must be in [0, 100], got {self.sample_percentage}"
+                )
+
     def add_temp_resource(self, resource_type: str, resource_name: str) -> None:
         """Track a temporary resource that needs cleanup."""
         self.resources_to_cleanup.append(f"{resource_type}:{resource_name}")

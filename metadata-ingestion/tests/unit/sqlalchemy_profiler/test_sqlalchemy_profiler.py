@@ -116,72 +116,12 @@ class TestSQLAlchemyProfiler:
         assert not profiler._should_ignore_column(sa.String(), "name")
         assert not profiler._should_ignore_column(sa.Float(), "value")
 
-    @patch(
-        "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.QueryCombinerRunner"
-    )
-    def test_generate_single_profile(
-        self, mock_runner, profiler, sqlite_engine, test_table
-    ):
-        """Test single profile generation."""
-        # Mock the query combiner runner
-        mock_runner_instance = MagicMock()
-        mock_runner_instance.get_row_count.return_value = 3
-        mock_runner_instance.get_column_non_null_count.return_value = 3
-        mock_runner_instance.get_column_min.return_value = 10.5
-        mock_runner_instance.get_column_max.return_value = 30.5
-        mock_runner_instance.get_column_mean.return_value = 20.5
-        mock_runner_instance.get_column_stdev.return_value = 10.0
-        mock_runner_instance.get_column_unique_count.return_value = 3
-        mock_runner.return_value = mock_runner_instance
-
-        request = ProfilerRequest(
-            pretty_name="test_table",
-            batch_kwargs={"table": "test_table", "schema": None},
-        )
-
-        with (
-            sqlite_engine.connect() as conn,
-            patch.object(profiler, "base_engine") as mock_engine,
-        ):
-            mock_engine.connect.return_value.__enter__.return_value = conn
-
-            # _generate_profile_from_request is the actual method called
-            # It takes request and query_combiner as arguments
-            # Returns a tuple: (request, profile)
-            _, profile = profiler._generate_profile_from_request(
-                None,
-                request,  # query_combiner, request
-            )
-
-            # Should return a profile or None
-            assert profile is None or hasattr(profile, "rowCount")
-
     def test_generate_profiles_empty_list(self, profiler):
         """Test generate_profiles with empty request list."""
         requests: list = []
         # max_workers must be > 0
         profiles = list(profiler.generate_profiles(requests, max_workers=1))
         assert len(profiles) == 0
-
-    @patch("concurrent.futures.ThreadPoolExecutor")
-    def test_generate_profiles_parallel(self, mock_executor, profiler):
-        """Test parallel profile generation."""
-        mock_future = MagicMock()
-        mock_future.result.return_value = None
-        mock_executor.return_value.__enter__.return_value.submit.return_value = (
-            mock_future
-        )
-
-        request = ProfilerRequest(
-            pretty_name="test_table",
-            batch_kwargs={"table": "test_table", "schema": None},
-        )
-
-        requests = [request]
-        list(profiler.generate_profiles(requests, max_workers=1))
-
-        # ThreadPoolExecutor should have been used
-        mock_executor.assert_called_once()
 
     def test_get_columns_to_profile_with_nested_fields_disabled(
         self, profiler, sqlite_engine

@@ -213,8 +213,13 @@ class TestGenericAdapter:
 
     def test_setup_profiling_requires_table_name(self, adapter, sqlite_engine):
         """Test setup fails without table name."""
+        # Provide custom_sql to pass ProfilingContext validation
+        # but no table, which setup_profiling should reject
         context = ProfilingContext(
-            schema=None, table=None, custom_sql=None, pretty_name="test"
+            schema=None,
+            table=None,
+            custom_sql="SELECT * FROM users",
+            pretty_name="test",
         )
 
         with (
@@ -1036,7 +1041,7 @@ class TestBigQueryAdapter:
         """Test BigQuery cleanup logs temp table (no-op)."""
         context = ProfilingContext(
             schema=None,
-            table=None,
+            table="test_table",
             custom_sql=None,
             pretty_name="test",
             temp_table="temp_table_123",
@@ -1329,3 +1334,123 @@ class TestTrinoAdapter:
         assert quantiles == [5.0, 25.0, 50.0, 75.0, 95.0]
         # Verify query was executed
         assert mock_conn.execute.called
+
+
+class TestQuantileValidation:
+    """Test quantile range validation in PlatformAdapter."""
+
+    @pytest.fixture
+    def adapter(self):
+        """Create a generic PlatformAdapter instance for testing."""
+        config = ProfilingConfig()
+        report = SQLSourceReport()
+        engine = sa.create_engine("sqlite:///:memory:")
+        adapter = GenericAdapter(config, report, engine)
+        return adapter
+
+    @pytest.fixture
+    def sqlite_table(self):
+        """Create a SQLite table for testing."""
+        engine = sa.create_engine("sqlite:///:memory:")
+        metadata = sa.MetaData()
+        table = sa.Table(
+            "test_table",
+            metadata,
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("value", sa.Float),
+        )
+        metadata.create_all(engine)
+
+        # Insert test data
+        with engine.connect() as conn:
+            conn.execute(
+                sa.insert(table).values(
+                    [
+                        {"id": 1, "value": 10.0},
+                        {"id": 2, "value": 20.0},
+                        {"id": 3, "value": 30.0},
+                    ]
+                )
+            )
+
+        return table, engine
+
+    def test_valid_quantiles_default(self, adapter, sqlite_table):
+        """Should accept default quantiles."""
+        table, engine = sqlite_table
+        with engine.connect() as conn:
+            # Should not raise
+            results = adapter.get_column_quantiles(table, "value", conn, quantiles=None)
+            assert isinstance(results, list)
+
+    def test_valid_quantiles_zero_and_one(self, adapter, sqlite_table):
+        """Should accept quantiles at boundaries [0, 1]."""
+        table, engine = sqlite_table
+        with engine.connect() as conn:
+            # Should not raise
+            results = adapter.get_column_quantiles(
+                table, "value", conn, quantiles=[0, 0.5, 1]
+            )
+            assert isinstance(results, list)
+            assert len(results) == 3
+
+    def test_valid_quantiles_median(self, adapter, sqlite_table):
+        """Should accept median quantile (0.5)."""
+        table, engine = sqlite_table
+        with engine.connect() as conn:
+            # Should not raise
+            results = adapter.get_column_quantiles(
+                table, "value", conn, quantiles=[0.5]
+            )
+            assert isinstance(results, list)
+            assert len(results) == 1
+
+    def test_invalid_quantile_negative(self, adapter, sqlite_table):
+        """Should reject negative quantiles."""
+        table, engine = sqlite_table
+        with (
+            engine.connect() as conn,
+            pytest.raises(
+                ValueError,
+                match="Quantiles must be in \\[0, 1\\], got -0.1",
+            ),
+        ):
+            adapter.get_column_quantiles(table, "value", conn, quantiles=[-0.1, 0.5])
+
+    def test_invalid_quantile_over_one(self, adapter, sqlite_table):
+        """Should reject quantiles > 1."""
+        table, engine = sqlite_table
+        with (
+            engine.connect() as conn,
+            pytest.raises(
+                ValueError,
+                match="Quantiles must be in \\[0, 1\\], got 1.5",
+            ),
+        ):
+            adapter.get_column_quantiles(table, "value", conn, quantiles=[0.5, 1.5])
+
+    def test_invalid_quantile_percentage_value(self, adapter, sqlite_table):
+        """Should reject percentage values (e.g., 50 instead of 0.5)."""
+        table, engine = sqlite_table
+        with (
+            engine.connect() as conn,
+            pytest.raises(
+                ValueError,
+                match="Quantiles must be in \\[0, 1\\], got 50.*percentiles as decimals",
+            ),
+        ):
+            adapter.get_column_quantiles(table, "value", conn, quantiles=[50])
+
+    def test_invalid_quantile_95_percent(self, adapter, sqlite_table):
+        """Should reject 95 (should be 0.95)."""
+        table, engine = sqlite_table
+        with (
+            engine.connect() as conn,
+            pytest.raises(
+                ValueError,
+                match="Quantiles must be in \\[0, 1\\], got 95",
+            ),
+        ):
+            adapter.get_column_quantiles(
+                table, "value", conn, quantiles=[0.05, 0.25, 0.5, 0.75, 95]
+            )
