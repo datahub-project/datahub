@@ -313,7 +313,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
     builder.setRequestConfigCallback(
         requestConfigBuilder ->
-            requestConfigBuilder.setConnectionRequestTimeout(config.getConnectionRequestTimeout()));
+            requestConfigBuilder
+                .setConnectionRequestTimeout(config.getConnectionRequestTimeout())
+                .setSocketTimeout(config.getSocketTimeout()));
 
     return builder;
   }
@@ -330,9 +332,15 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     SchemeIOSessionStrategy sslStrategy =
         new SSLIOSessionStrategy(sslContext, null, null, hostnameVerifier);
 
-    log.info("Creating IOReactorConfig with threadCount: {}", config.getThreadCount());
+    log.info(
+        "Creating IOReactorConfig with threadCount: {}, socketTimeout: {}ms",
+        config.getThreadCount(),
+        config.getSocketTimeout());
     IOReactorConfig ioReactorConfig =
-        IOReactorConfig.custom().setIoThreadCount(config.getThreadCount()).build();
+        IOReactorConfig.custom()
+            .setIoThreadCount(config.getThreadCount())
+            .setSoTimeout(config.getSocketTimeout())
+            .build();
     DefaultConnectingIOReactor ioReactor = new DefaultConnectingIOReactor(ioReactorConfig);
     IOReactorExceptionHandler ioReactorExceptionHandler =
         new IOReactorExceptionHandler() {
