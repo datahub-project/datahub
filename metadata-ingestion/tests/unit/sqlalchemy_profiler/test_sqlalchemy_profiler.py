@@ -237,3 +237,274 @@ class TestSQLAlchemyProfiler:
         columns = profiler._get_columns_to_profile(table, "test_table")
         # Should be limited to max_number_of_fields_to_profile
         assert len(columns) <= 2
+
+    def test_setup_permission_error_with_catch_exceptions_true(
+        self, profiler, mock_report, sqlite_engine
+    ):
+        """Test permission error during setup when catch_exceptions=True."""
+        profiler.config.catch_exceptions = True
+
+        request = ProfilerRequest(
+            pretty_name="test_table",
+            batch_kwargs={"table": "test_table", "schema": None},
+        )
+
+        # Mock setup_profiling to raise PermissionError
+        with (
+            sqlite_engine.connect() as conn,
+            patch.object(profiler, "base_engine") as mock_engine,
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+            ) as mock_get_adapter,
+        ):
+            mock_engine.connect.return_value.__enter__.return_value = conn
+            mock_adapter = MagicMock()
+            mock_adapter.setup_profiling.side_effect = PermissionError(
+                "permission denied"
+            )
+            mock_get_adapter.return_value = mock_adapter
+
+            # Should return tuple (request, None) and log warning, not raise
+            result_request, result_profile = profiler._generate_profile_from_request(
+                None, request
+            )
+
+            # Should return None for profile (error was caught)
+            assert result_request == request
+            assert result_profile is None
+
+            # Should have called report.warning for setup failure
+            mock_report.warning.assert_called()
+            call_args = mock_report.warning.call_args
+            assert call_args is not None
+            assert "Profiling setup failed" in call_args[1]["title"]
+
+    def test_permission_error_with_catch_exceptions_false(
+        self, profiler, sqlite_engine
+    ):
+        """Test permission error handling when catch_exceptions=False."""
+        profiler.config.catch_exceptions = False
+
+        request = ProfilerRequest(
+            pretty_name="test_table",
+            batch_kwargs={"table": "test_table", "schema": None},
+        )
+
+        # Mock setup_profiling to raise PermissionError
+        with (
+            sqlite_engine.connect() as conn,
+            patch.object(profiler, "base_engine") as mock_engine,
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+            ) as mock_get_adapter,
+        ):
+            mock_engine.connect.return_value.__enter__.return_value = conn
+            mock_adapter = MagicMock()
+            mock_adapter.setup_profiling.side_effect = PermissionError(
+                "permission denied"
+            )
+            mock_get_adapter.return_value = mock_adapter
+
+            # Should re-raise the exception
+            with pytest.raises(PermissionError, match="permission denied"):
+                profiler._generate_profile_from_request(None, request)
+
+    def test_sqlalchemy_error_with_catch_exceptions_true(
+        self, profiler, mock_report, sqlite_engine
+    ):
+        """Test SQLAlchemy error handling when catch_exceptions=True."""
+        profiler.config.catch_exceptions = True
+
+        request = ProfilerRequest(
+            pretty_name="test_table",
+            batch_kwargs={"table": "test_table", "schema": None},
+        )
+
+        # Mock setup_profiling to raise SQLAlchemy error
+        with (
+            sqlite_engine.connect() as conn,
+            patch.object(profiler, "base_engine") as mock_engine,
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+            ) as mock_get_adapter,
+        ):
+            mock_engine.connect.return_value.__enter__.return_value = conn
+            mock_adapter = MagicMock()
+            mock_adapter.setup_profiling.side_effect = sa.exc.OperationalError(
+                "database error", None, None
+            )
+            mock_get_adapter.return_value = mock_adapter
+
+            # Should return tuple (request, None) and log warning, not raise
+            result_request, result_profile = profiler._generate_profile_from_request(
+                None, request
+            )
+
+            # Should return None for profile (error was caught)
+            assert result_request == request
+            assert result_profile is None
+
+            # Should have called report.warning
+            mock_report.warning.assert_called()
+            call_args = mock_report.warning.call_args
+            assert "Profiling setup failed" in call_args[1]["title"]
+
+    def test_sqlalchemy_error_with_catch_exceptions_false(
+        self, profiler, sqlite_engine
+    ):
+        """Test SQLAlchemy error handling when catch_exceptions=False."""
+        profiler.config.catch_exceptions = False
+
+        request = ProfilerRequest(
+            pretty_name="test_table",
+            batch_kwargs={"table": "test_table", "schema": None},
+        )
+
+        # Mock setup_profiling to raise SQLAlchemy error
+        with (
+            sqlite_engine.connect() as conn,
+            patch.object(profiler, "base_engine") as mock_engine,
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+            ) as mock_get_adapter,
+        ):
+            mock_engine.connect.return_value.__enter__.return_value = conn
+            mock_adapter = MagicMock()
+            mock_adapter.setup_profiling.side_effect = sa.exc.OperationalError(
+                "database error", None, None
+            )
+            mock_get_adapter.return_value = mock_adapter
+
+            # Should re-raise the exception
+            with pytest.raises(sa.exc.OperationalError):
+                profiler._generate_profile_from_request(None, request)
+
+    def test_connection_error_with_catch_exceptions_true(
+        self, profiler, mock_report, sqlite_engine
+    ):
+        """Test ConnectionError handling when catch_exceptions=True."""
+        profiler.config.catch_exceptions = True
+
+        request = ProfilerRequest(
+            pretty_name="test_table",
+            batch_kwargs={"table": "test_table", "schema": None},
+        )
+
+        # Mock setup_profiling to raise ConnectionError
+        with (
+            sqlite_engine.connect() as conn,
+            patch.object(profiler, "base_engine") as mock_engine,
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+            ) as mock_get_adapter,
+        ):
+            mock_engine.connect.return_value.__enter__.return_value = conn
+            mock_adapter = MagicMock()
+            mock_adapter.setup_profiling.side_effect = ConnectionError(
+                "connection lost"
+            )
+            mock_get_adapter.return_value = mock_adapter
+
+            # Should return tuple (request, None) and log warning, not raise
+            result_request, result_profile = profiler._generate_profile_from_request(
+                None, request
+            )
+
+            # Should return None for profile (error was caught)
+            assert result_request == request
+            assert result_profile is None
+
+            # Should have called report.warning
+            mock_report.warning.assert_called()
+
+    def test_unexpected_error_with_catch_exceptions_true(
+        self, profiler, mock_report, sqlite_engine
+    ):
+        """Test unexpected exception handling when catch_exceptions=True."""
+        profiler.config.catch_exceptions = True
+
+        request = ProfilerRequest(
+            pretty_name="test_table",
+            batch_kwargs={"table": "test_table", "schema": None},
+        )
+
+        # Mock setup_profiling to raise an unexpected error
+        with (
+            sqlite_engine.connect() as conn,
+            patch.object(profiler, "base_engine") as mock_engine,
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+            ) as mock_get_adapter,
+        ):
+            mock_engine.connect.return_value.__enter__.return_value = conn
+            mock_adapter = MagicMock()
+            mock_adapter.setup_profiling.side_effect = RuntimeError("unexpected error")
+            mock_get_adapter.return_value = mock_adapter
+
+            # Should return tuple (request, None) and log warning, not raise
+            result_request, result_profile = profiler._generate_profile_from_request(
+                None, request
+            )
+
+            # Should return None for profile (error was caught)
+            assert result_request == request
+            assert result_profile is None
+
+            # Should have called report.warning
+            mock_report.warning.assert_called()
+
+    def test_unexpected_error_with_catch_exceptions_false(
+        self, profiler, sqlite_engine
+    ):
+        """Test unexpected exception handling when catch_exceptions=False."""
+        profiler.config.catch_exceptions = False
+
+        request = ProfilerRequest(
+            pretty_name="test_table",
+            batch_kwargs={"table": "test_table", "schema": None},
+        )
+
+        # Mock setup_profiling to raise an unexpected error
+        with (
+            sqlite_engine.connect() as conn,
+            patch.object(profiler, "base_engine") as mock_engine,
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+            ) as mock_get_adapter,
+        ):
+            mock_engine.connect.return_value.__enter__.return_value = conn
+            mock_adapter = MagicMock()
+            mock_adapter.setup_profiling.side_effect = RuntimeError("unexpected error")
+            mock_get_adapter.return_value = mock_adapter
+
+            # Should re-raise the exception
+            with pytest.raises(RuntimeError, match="unexpected error"):
+                profiler._generate_profile_from_request(None, request)
+
+    def test_cleanup_called_after_error(self, profiler, sqlite_engine):
+        """Test that adapter cleanup is called even when profiling fails."""
+        profiler.config.catch_exceptions = True
+
+        request = ProfilerRequest(
+            pretty_name="test_table",
+            batch_kwargs={"table": "test_table", "schema": None},
+        )
+
+        # Mock setup_profiling to raise an error
+        with (
+            sqlite_engine.connect() as conn,
+            patch.object(profiler, "base_engine") as mock_engine,
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+            ) as mock_get_adapter,
+        ):
+            mock_engine.connect.return_value.__enter__.return_value = conn
+            mock_adapter = MagicMock()
+            mock_adapter.setup_profiling.side_effect = RuntimeError("test error")
+            mock_get_adapter.return_value = mock_adapter
+
+            # Execute profiling (will fail)
+            profiler._generate_profile_from_request(None, request)
+
+            # Cleanup should have been called even though profiling failed
+            mock_adapter.cleanup.assert_called_once()

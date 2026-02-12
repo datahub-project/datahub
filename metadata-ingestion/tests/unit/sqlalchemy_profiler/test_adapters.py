@@ -1061,6 +1061,70 @@ class TestBigQueryAdapter:
         # Verify query was executed
         assert mock_conn.execute.called
 
+    def test_temp_table_creation_failure_raises_error(self, adapter, config):
+        """Test that temp table creation failure raises RuntimeError."""
+        config.limit = 100
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="my_schema",
+            table="my_table",
+            custom_sql=None,
+            pretty_name="my_schema.my_table",
+        )
+
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        # Simulate query execution failure
+        mock_cursor.execute.side_effect = Exception("BigQuery query failed")
+
+        mock_raw_conn = MagicMock()
+        mock_raw_conn.cursor.return_value = mock_cursor
+
+        with (
+            patch.object(
+                adapter.base_engine, "raw_connection", return_value=mock_raw_conn
+            ),
+            pytest.raises(
+                RuntimeError,
+                match="Cannot profile my_schema.my_table: BigQuery temp table creation failed",
+            ),
+        ):
+            adapter.setup_profiling(context, mock_conn)
+
+    def test_temp_table_no_destination_raises_error(self, adapter, config):
+        """Test that missing destination table raises RuntimeError."""
+        config.limit = 100
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="my_schema",
+            table="my_table",
+            custom_sql=None,
+            pretty_name="my_schema.my_table",
+        )
+
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_query_job = MagicMock()
+        # No destination means BigQuery didn't cache results
+        mock_query_job.destination = None
+        mock_cursor.query_job = mock_query_job
+
+        mock_raw_conn = MagicMock()
+        mock_raw_conn.cursor.return_value = mock_cursor
+
+        with (
+            patch.object(
+                adapter.base_engine, "raw_connection", return_value=mock_raw_conn
+            ),
+            pytest.raises(
+                RuntimeError,
+                match="Cannot profile my_schema.my_table: BigQuery temp table creation failed",
+            ),
+        ):
+            adapter.setup_profiling(context, mock_conn)
+
 
 class TestSnowflakeAdapter:
     """Test cases for SnowflakeAdapter."""

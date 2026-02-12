@@ -53,7 +53,6 @@ class PlatformAdapter(ABC):
     # Setup & Teardown
     # =========================================================================
 
-    @abstractmethod
     def setup_profiling(
         self, context: ProfilingContext, conn: Connection
     ) -> ProfilingContext:
@@ -65,24 +64,49 @@ class PlatformAdapter(ABC):
         - Setting up table sampling for large tables
         - Creating the SQLAlchemy Table object
 
+        Default implementation: Creates SQLAlchemy table object with no special handling.
+        Platforms like BigQuery, Athena, and Trino override this for custom behavior.
+
         Args:
             context: Current profiling context
             conn: Active database connection
 
         Returns:
             Updated context with sql_table ready for profiling
-        """
-        pass
 
-    @abstractmethod
+        Raises:
+            ValueError: If table name is not provided
+        """
+        if not context.table:
+            raise ValueError(
+                f"Cannot profile {context.pretty_name}: table name required"
+            )
+
+        # Create SQLAlchemy table object
+        context.sql_table = self._create_sqlalchemy_table(
+            schema=context.schema,
+            table=context.table,
+        )
+
+        logger.debug(
+            f"Setup profiling for {context.pretty_name}: "
+            f"schema={context.schema}, table={context.table}"
+        )
+
+        return context
+
     def cleanup(self, context: ProfilingContext) -> None:
         """
         Cleanup temp resources created during profiling.
 
+        Default implementation: No cleanup needed (no temp resources created).
+        Platforms that create temp resources (like BigQuery) should override this.
+
         Args:
             context: Profiling context with resources to clean up
         """
-        pass
+        # Default implementation: no temp resources to clean up
+        return
 
     # =========================================================================
     # SQL Expression Builders (used by query execution methods)
@@ -463,8 +487,7 @@ class PlatformAdapter(ABC):
                 results.append(float(result) if result is not None else None)
             except Exception as e:
                 logger.warning(
-                    f"Failed to compute quantile {q} for {column}: {e}",
-                    exc_info=True,
+                    f"Failed to compute quantile {q} for {column}: {type(e).__name__}: {str(e)}",
                 )
                 results.append(None)
         logger.debug(f"Final quantile results for {column}: {results}")

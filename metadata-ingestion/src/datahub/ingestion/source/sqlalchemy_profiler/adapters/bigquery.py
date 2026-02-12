@@ -114,6 +114,7 @@ class BigQueryAdapter(PlatformAdapter):
             logger.debug(
                 f"BigQuery temp table {context.temp_table} will auto-expire in 24h"
             )
+        return
 
     def _create_temp_table_for_query(
         self, context: ProfilingContext
@@ -195,23 +196,37 @@ class BigQueryAdapter(PlatformAdapter):
                 logger.debug(
                     f"Created BigQuery temp table: {context.temp_schema}.{context.temp_table}"
                 )
+                return context
             else:
-                logger.warning(
-                    f"Failed to get BigQuery temp table destination for {context.pretty_name}"
+                # No destination means BigQuery didn't cache results (too large, security settings, etc)
+                error_msg = (
+                    f"Cannot profile {context.pretty_name}: BigQuery did not create cached results table. "
+                    "This typically happens when query results exceed 10GB or table has row-level security."
                 )
+                self.report.warning(
+                    title="BigQuery temporary table required but not created",
+                    message="Cannot profile with custom SQL/LIMIT/OFFSET - temp table creation required",
+                    context=f"{context.pretty_name}: No cached results table",
+                )
+                raise RuntimeError(error_msg)
 
         except Exception as e:
-            if not self.config.catch_exceptions:
-                raise
-            logger.exception(f"Failed to create BigQuery temp table: {e}")
+            error_msg = (
+                f"Cannot profile {context.pretty_name}: BigQuery temp table creation failed. "
+                f"Temp table is required for custom SQL/LIMIT/OFFSET queries. "
+                f"{type(e).__name__}: {str(e)}"
+            )
             self.report.warning(
                 title="Failed to create BigQuery temporary table",
-                message=f"Profiling exception when running custom sql: {bq_sql}",
-                context=f"Asset: {context.pretty_name}",
+                message="Cannot profile with custom SQL/LIMIT/OFFSET - temp table creation required",
+                context=f"{context.pretty_name}: {type(e).__name__}: {str(e)}",
                 exc=e,
             )
-
-        return context
+            if not self.config.catch_exceptions:
+                raise
+            # Even with catch_exceptions, we must fail here because temp table is REQUIRED
+            # Without it, we'd silently profile the full table instead of the requested sample
+            raise RuntimeError(error_msg) from e
 
     def _should_sample_table(self, context: ProfilingContext, conn: Connection) -> bool:
         """
@@ -278,7 +293,7 @@ class BigQueryAdapter(PlatformAdapter):
             result = conn.execute(query).scalar()
             return int(result) if result is not None else None
         except Exception as e:
-            logger.debug(f"Failed to get quick row count: {e}")
+            logger.debug(f"Failed to get quick row count: {type(e).__name__}: {str(e)}")
             return None
 
     def _setup_sampling(

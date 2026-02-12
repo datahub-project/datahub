@@ -128,6 +128,7 @@ class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
         return not self.profile_table_level_only
 
 
+# TODO: should this max_wait_secs had been implemented as a global profiler feature instead of keeping it specific to Unity Catalog?
 class UnityCatalogGEProfilerConfig(UnityCatalogProfilerConfig, GEProfilingConfig):
     method: Literal["ge"] = "ge"
 

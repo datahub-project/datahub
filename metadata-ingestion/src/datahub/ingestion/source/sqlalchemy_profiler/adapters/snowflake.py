@@ -127,7 +127,7 @@ class SnowflakeAdapter(PlatformAdapter):
             except Exception as e:
                 logger.debug(
                     f"Failed to reflect {schema}.{table} with quoting, "
-                    f"trying without quotes: {e}"
+                    f"trying without quotes: {type(e).__name__}: {str(e)}"
                 )
 
         # Try unquoted (standard Snowflake - auto-uppercase)
@@ -145,7 +145,7 @@ class SnowflakeAdapter(PlatformAdapter):
             if not (has_lowercase or has_lowercase_schema):
                 logger.debug(
                     f"Failed to reflect {schema}.{table} without quoting, "
-                    f"trying with quotes: {e}"
+                    f"trying with quotes: {type(e).__name__}: {str(e)}"
                 )
                 return sa.Table(
                     table,
@@ -226,8 +226,7 @@ class SnowflakeAdapter(PlatformAdapter):
                 results.append(float(result) if result is not None else None)
             except Exception as e:
                 logger.warning(
-                    f"Failed to compute quantile {q} for {column}: {e}",
-                    exc_info=True,
+                    f"Failed to compute quantile {q} for {column}: {type(e).__name__}: {str(e)}"
                 )
                 results.append(None)
         return results

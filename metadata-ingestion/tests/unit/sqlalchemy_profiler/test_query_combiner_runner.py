@@ -549,3 +549,81 @@ class TestQueryCombinerRunner:
             assert query_combiner.report.queries_combined == 5, (
                 f"Expected 5 queries to be combined, got {query_combiner.report.queries_combined}"
             )
+
+    def test_query_exception_propagates_as_sql_error(
+        self, sqlite_engine, test_adapter, test_table
+    ):
+        """
+        Test that SQL exceptions are raised as SQLAlchemy errors, not generic ValueErrors.
+
+        This is the core concern: when a SQL query fails, the exception should be
+        the actual SQLAlchemy error (e.g., OperationalError) that describes what
+        went wrong, not a generic ValueError like "Result not available yet".
+
+        This test verifies that:
+        1. flush() raises the actual SQLAlchemy error when a query fails
+        2. The error message contains details about the SQL problem
+        3. The exception type is correct (not a generic Python error)
+        """
+        with (
+            sqlite_engine.connect() as conn,
+            SQLAlchemyQueryCombiner(
+                enabled=True,
+                catch_exceptions=False,  # Fail fast on SQL errors
+                is_single_row_query_method=_is_single_row_query_method,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
+            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+
+            # Schedule a query that will fail (non-existent column)
+            _ = runner.get_column_min(test_table, "nonexistent_column")
+
+            # flush() should raise the actual SQL exception, not a generic ValueError
+            with pytest.raises(
+                (sa.exc.SQLAlchemyError, sa.exc.OperationalError)
+            ) as exc_info:
+                query_combiner.flush()
+
+            # Verify it's the actual SQL error with meaningful details
+            assert "nonexistent_column" in str(exc_info.value)
+            assert isinstance(
+                exc_info.value, (sa.exc.SQLAlchemyError, sa.exc.OperationalError)
+            )
+
+            # Note: After flush() raises, the FutureResult state is implementation-specific
+            # and depends on greenlet execution order, so we don't test it here
+
+    def test_future_result_value_error_when_not_flushed(
+        self, sqlite_engine, test_adapter, test_table
+    ):
+        """
+        Test that calling result() before flush() raises a clear ValueError.
+
+        This test verifies that users get a helpful error message when they
+        forget to call flush() before accessing results. The error should
+        clearly indicate that flush() needs to be called first.
+        """
+        with (
+            sqlite_engine.connect() as conn,
+            SQLAlchemyQueryCombiner(
+                enabled=True,
+                catch_exceptions=False,
+                is_single_row_query_method=_is_single_row_query_method,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
+            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+
+            # Schedule a query but don't flush
+            future = runner.get_row_count(test_table)
+
+            # Calling result() before flush() should raise ValueError with helpful message
+            with pytest.raises(
+                ValueError, match="Result not available yet.*flush\\(\\)"
+            ):
+                future.result()
+
+            # After flush(), result should work
+            query_combiner.flush()
+            assert future.result() == 3

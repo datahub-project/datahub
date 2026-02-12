@@ -10,9 +10,6 @@ from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
 )
-from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
-    ProfilingContext,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -27,48 +24,9 @@ class DatabricksAdapter(PlatformAdapter):
 
     Note: Databricks uses lowercase function names (approx_count_distinct, approx_percentile)
     unlike some other platforms.
+
+    Uses default setup_profiling and cleanup from PlatformAdapter.
     """
-
-    def setup_profiling(
-        self, context: ProfilingContext, conn: Connection
-    ) -> ProfilingContext:
-        """
-        Databricks setup - create SQL table object.
-
-        Args:
-            context: Current profiling context
-            conn: Active database connection
-
-        Returns:
-            Updated context with sql_table populated
-        """
-        if not context.table:
-            raise ValueError(
-                f"Cannot profile {context.pretty_name}: table name required"
-            )
-
-        # Create SQLAlchemy table object
-        context.sql_table = self._create_sqlalchemy_table(
-            schema=context.schema,
-            table=context.table,
-        )
-
-        logger.debug(
-            f"Databricks setup for {context.pretty_name}: "
-            f"schema={context.schema}, table={context.table}"
-        )
-
-        return context
-
-    def cleanup(self, context: ProfilingContext) -> None:
-        """
-        Databricks cleanup - nothing to clean up.
-
-        Args:
-            context: Profiling context
-        """
-        # No temp resources created in Databricks setup
-        pass
 
     # =========================================================================
     # SQL Expression Builders

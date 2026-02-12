@@ -104,8 +104,7 @@ def resolve_profiler_type_with_fallback(
                 return ProfilerDataType.FLOAT
         except Exception as e:
             logger.debug(
-                f"Error resolving sql type {column_type_str}: {e}",
-                exc_info=True,
+                f"Error resolving sql type {column_type_str}: {type(e).__name__}: {str(e)}",
             )
 
     return profiler_type

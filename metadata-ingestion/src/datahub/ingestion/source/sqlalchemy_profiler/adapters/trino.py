@@ -127,7 +127,6 @@ class TrinoAdapter(PlatformAdapter):
         except Exception as e:
             if not self.config.catch_exceptions:
                 raise
-            logger.exception(f"Failed to create Trino temp view: {e}")
             self.report.warning(
                 title="Failed to create Trino temporary view",
                 message=f"Profiling exception when running custom sql: {context.custom_sql}",
@@ -153,7 +152,9 @@ class TrinoAdapter(PlatformAdapter):
                 connection.execute(sa.text(f"DROP VIEW IF EXISTS {full_view_name}"))
                 logger.debug(f"Dropped Trino temp view: {full_view_name}")
         except Exception as e:
-            logger.warning(f"Unable to drop Trino temp view {view_name}: {e}")
+            logger.warning(
+                f"Unable to drop Trino temp view {view_name}: {type(e).__name__}: {str(e)}"
+            )
 
     # =========================================================================
     # SQL Expression Builders
