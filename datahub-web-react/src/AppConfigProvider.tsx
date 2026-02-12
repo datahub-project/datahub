@@ -3,9 +3,9 @@ import '@src/App.less';
 import React, { useEffect } from 'react';
 
 import { SERVER_VERSION_KEY, THIRD_PARTY_LOGGING_KEY } from '@app/analytics/analytics';
+import UpdateGlobalFlags from '@app/appConfig/UpdateGlobalFlags';
 import { checkAuthStatus } from '@app/auth/checkAuthStatus';
 import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
-import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/useAppConfig';
 import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 import { useAppConfigQuery } from '@graphql/app.generated';
@@ -59,16 +59,6 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, [customLogoUrl, appConfigData]);
 
-    useEffect(() => {
-        showSeparateSiblingsRef.current.showSeparateSiblings =
-            appConfigData?.appConfig?.featureFlags.showSeparateSiblings || false;
-    }, [appConfigData?.appConfig?.featureFlags.showSeparateSiblings]);
-
-    useEffect(() => {
-        hideLineageInSearchCardsRef.current.hideLineageInSearchCards =
-            appConfigData?.appConfig?.featureFlags.hideLineageInSearchCards || false;
-    }, [appConfigData?.appConfig?.featureFlags.hideLineageInSearchCards]);
-
     return (
         <AppConfigContext.Provider
             value={{
@@ -77,6 +67,7 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
                 refreshContext: refreshAppConfig,
             }}
         >
+            <UpdateGlobalFlags />
             {children}
         </AppConfigContext.Provider>
     );
