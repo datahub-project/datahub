@@ -33,9 +33,27 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #16134: Java 17 Runtime Required - DataHub now compiles to Java 17 bytecode (previously Java 11). All Docker images already ship with Java 17 runtime. Self-hosted users must ensure their runtime environment uses Java 17+. The Maven artifact name remains `datahub-client-java8` for backward compatibility, but now requires Java 17+ at runtime. This change also includes:
+  - Spark integration upgraded from 3.0.3 to 3.3.4 (minimum version required for Java 17 support)
+  - Hadoop upgraded from 2.7.2 to 3.3.6 (addresses Hadoop CVEs, bundled with Spark 3.3+)
+  - Note: If you're a self-hosted user still running Java 11, you must upgrade to Java 17 before deploying this release. Spark lineage users must upgrade to Spark 3.3.0+.
+
+### Known Issues
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+## v1.4.0
+
+### Breaking Changes
+
 - Python 3.9 support has been dropped. All Python modules now require Python 3.10 or later. This affects `acryl-datahub`, `acryl-datahub-airflow-plugin`, `acryl-datahub-dagster-plugin`, `acryl-datahub-gx-plugin`, `prefect-datahub`, and `acryl-datahub-actions`. Upgrade to Python 3.10+ before upgrading these packages.
 - #15930: The Airflow plugin's kill switch for Airflow 2.x now uses environment variables instead of Airflow Variables. If you were using `airflow variables set datahub_airflow_plugin_disable_listener true` to disable the plugin, you must now use `export AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER=true` instead.
 - #15877: The LDAP ingestion source now enforces TLS certificate verification by default (`tls_verify: true`). This prevents Man-in-the-Middle attacks (CWE-295) but may break existing configurations using self-signed certificates. To restore the previous behavior, explicitly set `tls_verify: false` in your recipe.
+- #15748: PowerBI ingestion source `create_corp_user` default changed from `True` to `False`. Previously, PowerBI would create user entities by default, potentially overwriting existing user profiles from LDAP/Okta. Now, PowerBI emits ownership URNs only (soft references) by default. To restore previous behavior, explicitly set `ownership.create_corp_user: true` in your recipe. **Migration note**: If upgrading and users appear with incomplete profiles, re-ingest from your authoritative source (LDAP/Okta/SCIM). Additionally, when `create_corp_user: true`, the connector now emits both `CorpUserKeyClass` and `CorpUserInfoClass` (was only `CorpUserKeyClass`), providing complete user metadata. **Stateful ingestion note**: User entities created by PowerBI are now marked as non-primary (`is_primary_source=False`), so they will NOT be soft-deleted by stateful ingestion when they disappear. This prevents accidental deletion of users who may also exist in LDAP/Okta/SCIM.
 - #15415: MLModel and MLModelGroup search field mapping has been updated to resolve duplicate field name conflicts. Existing entities will be automatically reindexed in the background after upgrade. New MLModel and MLModelGroup entities ingested after the upgrade will work immediately.
 - #15397: Grafana ingestion source dataset granularity changed from per-datasource to per-panel (per visual). This improves lineage accuracy by ensuring each panel's query results in a unique dataset entity with precise upstream/downstream connections. Dataset URN format changed from `{ds_type}.{ds_uid}` to `{ds_type}.{ds_uid}.{dashboard_uid}.{panel_id}`. This means all existing Grafana dataset entities will have different URNs. If stateful ingestion is enabled, running ingestion with the latest CLI version will automatically clean up old entities and create new ones. Otherwise, we recommend soft deleting all Grafana datasets via the DataHub CLI: `datahub delete --platform grafana --soft` and then re-ingesting with the latest CLI version.
 - #15005: `SqlParsingBuilder` is removed, use `SqlParsingAggregator` instead
@@ -47,10 +65,6 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - In `Dashboard` entitiy and `dashboardInfo` aspect, `charts` property (deprecated) is replaced with `chartEdges`
   - Only emits MCPs
 - #16023: In PowerBI, Container URNs change for users with `platform_instance` configured, as this PR now passes `platform_instance` to dataset containers (affects GUID generation). The `env` parameter addition is harmless as it's excluded from GUID calculation. Stateful ingestion will soft-delete old containers and create new ones on the next run. Dataset entities and their lineage are unaffected.
-
-### Known Issues
-
-### Potential Downtime
 
 ### Deprecations
 

@@ -3,11 +3,11 @@ import os
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata._urns.urn_defs import GlossaryNodeUrn, GlossaryTermUrn
 from datahub.metadata.schema_classes import (
     GlossaryNodeInfoClass,
     GlossaryTermInfoClass,
 )
+from datahub.metadata.urns import GlossaryNodeUrn, GlossaryTermUrn
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
