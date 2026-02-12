@@ -31,7 +31,7 @@ import org.testng.annotations.Test;
       "elasticsearch.port=9200",
       "elasticsearch.threadCount=1",
       "elasticsearch.connectionRequestTimeout=5000",
-      "elasticsearch.socketTimeout=180000",
+      "elasticsearch.socketTimeout=30000",
       "elasticsearch.username=",
       "elasticsearch.password=",
       "elasticsearch.useSSL=false",
@@ -74,7 +74,7 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
             .withSSL(false)
             .withThreadCount(1)
             .withConnectionRequestTimeout(5000)
-            .withSocketTimeout(180000)
+            .withSocketTimeout(30000)
             .build();
 
     assertNotNull(config);
@@ -84,7 +84,7 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
     assertFalse(config.isUseSSL());
     assertEquals(config.getThreadCount(), Integer.valueOf(1));
     assertEquals(config.getConnectionRequestTimeout(), Integer.valueOf(5000));
-    assertEquals(config.getSocketTimeout(), Integer.valueOf(180000));
+    assertEquals(config.getSocketTimeout(), Integer.valueOf(30000));
 
     log.info("Configuration test passed for engine type: {}", engineType);
   }
@@ -165,7 +165,7 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
             .withSSL(false)
             .withThreadCount(1)
             .withConnectionRequestTimeout(5000)
-            .withSocketTimeout(180000)
+            .withSocketTimeout(30000)
             .build();
 
     try {

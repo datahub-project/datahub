@@ -24,7 +24,7 @@ public class SearchClientShimTest {
             .withAwsIamAuth(false, null)
             .withThreadCount(2)
             .withConnectionRequestTimeout(5000)
-            .withSocketTimeout(180000)
+            .withSocketTimeout(30000)
             .build();
 
     assertEquals(config.getEngineType(), SearchEngineType.ELASTICSEARCH_7);
@@ -37,7 +37,7 @@ public class SearchClientShimTest {
     assertFalse(config.isUseAwsIamAuth());
     assertEquals(config.getThreadCount(), Integer.valueOf(2));
     assertEquals(config.getConnectionRequestTimeout(), Integer.valueOf(5000));
-    assertEquals(config.getSocketTimeout(), Integer.valueOf(180000));
+    assertEquals(config.getSocketTimeout(), Integer.valueOf(30000));
   }
 
   @Test
@@ -88,7 +88,7 @@ public class SearchClientShimTest {
             .withAwsIamAuth(false, null)
             .withThreadCount(2)
             .withConnectionRequestTimeout(5000)
-            .withSocketTimeout(180000)
+            .withSocketTimeout(30000)
             .build();
 
     // We can't test the actual shim implementations without a live cluster
