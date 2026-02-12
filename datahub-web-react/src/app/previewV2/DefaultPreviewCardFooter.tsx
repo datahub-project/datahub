@@ -10,6 +10,7 @@ import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shar
 import Pills from '@app/previewV2/Pills';
 import PreviewCardFooterRightSection from '@app/previewV2/PreviewCardFooterRightSection';
 import { entityHasCapability } from '@app/previewV2/utils';
+import { useHideLineageInSearchCards } from '@app/useAppConfig';
 
 import { DatasetStatsSummary, EntityPath, EntityType, GlobalTags, GlossaryTerms, Maybe, Owner } from '@types';
 
@@ -36,6 +37,7 @@ const Container = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
+
     .ant-btn-link {
         padding: inherit;
     }
@@ -96,13 +98,13 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     paths,
     isFullViewCard,
 }) => {
+    const hideLineage = useHideLineageInSearchCards();
+    const showLineageBadge = !hideLineage && entityHasCapability(entityCapabilities, EntityCapabilityType.LINEAGE);
+
     const shouldRenderPillsRow = [glossaryTerms?.terms, tags?.tags, owners?.length].some(Boolean);
     const shouldRenderEntityLink = previewType === PreviewType.HOVER_CARD && entityTitleSuffix;
     const shouldRenderRightSection =
-        tier !== undefined ||
-        lastUpdatedMs?.lastUpdatedMs ||
-        statsSummary?.queryCountLast30Days ||
-        entityHasCapability(entityCapabilities, EntityCapabilityType.LINEAGE);
+        tier !== undefined || lastUpdatedMs?.lastUpdatedMs || statsSummary?.queryCountLast30Days || showLineageBadge;
 
     return shouldRenderPillsRow || shouldRenderRightSection || shouldRenderEntityLink ? (
         <>
@@ -124,7 +126,7 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
                         entityType={entityType}
                         urn={urn}
                         entityRegistry={entityRegistry}
-                        entityCapabilities={entityCapabilities}
+                        showLineageBadge={showLineageBadge}
                         lastUpdatedMs={lastUpdatedMs}
                         tier={tier}
                         statsSummary={statsSummary}
