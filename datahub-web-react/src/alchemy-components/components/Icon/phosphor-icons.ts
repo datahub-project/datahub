@@ -1,9 +1,9 @@
 /**
  * Custom Phosphor Icons Bundle
  *
- * Exports only icons used in DataHub (131 icons instead of 4,539)
+ * Exports only icons used in DataHub (133 icons instead of 4,539)
  *
- * This reduces the Phosphor bundle from ~6 MB (4,539 icons) to ~296 KB minified / ~65 KB gzipped (131 icons)
+ * This reduces the Phosphor bundle from ~6 MB (4,539 icons) to ~296 KB minified / ~65 KB gzipped (133 icons)
  *
  * DO NOT import directly from '@phosphor-icons/react' elsewhere in the codebase.
  * Always import from this file to maintain the optimized bundle size.
@@ -114,6 +114,7 @@ export { SignIn } from '@phosphor-icons/react/dist/csr/SignIn';
 export { SignOut } from '@phosphor-icons/react/dist/csr/SignOut';
 export { Sparkle } from '@phosphor-icons/react/dist/csr/Sparkle';
 export { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
+export { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 export { Star } from '@phosphor-icons/react/dist/csr/Star';
 export { Stop } from '@phosphor-icons/react/dist/csr/Stop';
 export { Table } from '@phosphor-icons/react/dist/csr/Table';
@@ -140,9 +141,10 @@ export { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 // Text formatting icons (for Editor toolbar)
 export { TextB } from '@phosphor-icons/react/dist/csr/TextB';
 export { TextColumns } from '@phosphor-icons/react/dist/csr/TextColumns';
+export { TextT } from '@phosphor-icons/react/dist/csr/TextT';
 export { TextItalic } from '@phosphor-icons/react/dist/csr/TextItalic';
 export { TextStrikethrough } from '@phosphor-icons/react/dist/csr/TextStrikethrough';
 export { TextUnderline } from '@phosphor-icons/react/dist/csr/TextUnderline';
 
-// Total: 131 icons exported (126 core icons + 5 text formatting icons)
+// Total: 133 icons exported (127 core icons + 6 text formatting icons)
 // This reduces the Phosphor bundle from ~6 MB (4,539 icons) to ~296 KB minified / ~65 KB gzipped (97.1% reduction)
