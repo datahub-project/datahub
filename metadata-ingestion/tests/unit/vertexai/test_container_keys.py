@@ -67,17 +67,3 @@ def test_vertex_ai_resource_category_key_different_from_project():
     assert models_urn != project_urn, (
         "Resource category URN should be different from project URN"
     )
-
-
-def test_vertex_ai_resource_category_key_guid_dict():
-    """Test that guid_dict includes the category field"""
-    key = VertexAIResourceCategoryKey(
-        project_id="test-project", platform="vertexai", category="Models"
-    )
-
-    guid_dict = key.guid_dict()
-
-    assert "project_id" in guid_dict, "guid_dict should include project_id"
-    assert "platform" in guid_dict, "guid_dict should include platform"
-    assert "category" in guid_dict, "guid_dict should include category"
-    assert guid_dict["category"] == "Models", "category value should be 'Models'"

@@ -27,6 +27,12 @@ class ModelGroupKey(ProjectIdKey):
     model_group_name: str
 
 
+class PipelineKey(ProjectIdKey):
+    """Container key for a Vertex AI pipeline."""
+
+    pipeline_name: str
+
+
 @dataclasses.dataclass
 class ExecutionMetadata:
     execution_name: str
@@ -176,7 +182,7 @@ class PipelineProperties(BaseModel):
 
     def to_custom_properties(self) -> Dict[str, str]:
         """Convert to custom properties dict."""
-        return {k: v for k, v in self.dict().items() if v}
+        return {k: v for k, v in self.model_dump().items() if v}
 
 
 class PipelineTaskProperties(BaseModel):
@@ -186,7 +192,7 @@ class PipelineTaskProperties(BaseModel):
 
     def to_custom_properties(self) -> Dict[str, str]:
         """Convert to custom properties dict."""
-        return {k: v for k, v in self.dict().items() if v}
+        return {k: v for k, v in self.model_dump().items() if v}
 
 
 class ModelEvaluationCustomProperties(BaseModel):

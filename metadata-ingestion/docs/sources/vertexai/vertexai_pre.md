@@ -81,7 +81,12 @@ Default GCP Role which contains these permissions [roles/aiplatform.viewer](http
 
 Ingestion Job extracts Models, Datasets, Training Jobs, Endpoints, Experiments, Experiment Runs, Model Evaluations, and Pipelines from Vertex AI in a given project and region.
 
-The source supports ingesting across multiple GCP projects by specifying `project_ids`, `project_labels`, or `project_id_pattern`. The optional `platform_instance` configuration field can be used to distinguish between different Vertex AI environments (e.g., dev, staging, prod). Model versions are organized under their model group folders in the DataHub UI for easier navigation.
+The source supports ingesting across multiple GCP projects by specifying `project_ids`, `project_labels`, or `project_id_pattern`. The optional `platform_instance` configuration field can be used to distinguish between different Vertex AI environments (e.g., dev, staging, prod).
+
+For improved organization in the DataHub UI:
+
+- Model versions are organized under their respective model group folders
+- Pipeline tasks and task runs are nested under their parent pipeline folders
 
 #### New Features for CustomJob Lineage
 

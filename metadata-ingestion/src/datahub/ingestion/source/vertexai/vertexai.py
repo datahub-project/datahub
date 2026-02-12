@@ -100,6 +100,7 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     ModelEvaluationCustomProperties,
     ModelGroupKey,
     ModelMetadata,
+    PipelineKey,
     PipelineMetadata,
     PipelineProperties,
     PipelineTaskMetadata,
@@ -447,7 +448,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             orchestrator=self.platform,
             env=self.config.env,
             flow_id=self.name_formatter.format_pipeline_id(pipeline.name),
-            platform_instance=self.platform,
+            platform_instance=self.config.platform_instance,
         )
         tasks = self._get_pipeline_tasks_metadata(
             pipeline=pipeline, pipeline_urn=dataflow_urn
@@ -498,10 +499,17 @@ class VertexAISource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dpi_urn,
+            aspect=ContainerClass(
+                container=self._get_pipeline_container(pipeline).as_urn()
+            ),
+        ).as_workunit()
+
         yield from self._yield_common_aspects(
             entity_urn=dpi_urn,
             subtype=VertexAISubTypes.PIPELINE_TASK_RUN,
-            resource_category=ResourceCategory.PIPELINES,
+            include_container=False,
         )
 
         yield MetadataChangeProposalWrapper(
@@ -534,6 +542,8 @@ class VertexAISource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         dataflow_urn = pipeline.urn
 
+        pipeline_container_urn = self._get_pipeline_container(pipeline).as_urn()
+
         for task in pipeline.tasks:
             datajob = DataJob(
                 id=self.name_formatter.format_pipeline_task_id(task.name),
@@ -545,11 +555,17 @@ class VertexAISource(StatefulIngestionSourceBase):
                 url=self.url_builder.make_pipeline_url(pipeline.name),
                 platform_instance=self.config.platform_instance,
             )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=datajob.urn.urn(),
+                aspect=ContainerClass(container=pipeline_container_urn),
+            ).as_workunit()
+
             yield from self._yield_common_aspects(
                 entity_urn=datajob.urn.urn(),
                 subtype=VertexAISubTypes.PIPELINE_TASK,
                 include_platform=False,
-                resource_category=ResourceCategory.PIPELINES,
+                include_container=False,
             )
             for mcp in datajob.generate_mcp():
                 yield mcp.as_workunit()
@@ -615,13 +631,24 @@ class VertexAISource(StatefulIngestionSourceBase):
     def _get_pipeline_mcps(
         self, pipeline: PipelineMetadata
     ) -> Iterable[MetadataWorkUnit]:
+        pipeline_container_key = self._get_pipeline_container(pipeline)
+
+        yield from gen_containers(
+            parent_container_key=self._get_resource_category_container(
+                ResourceCategory.PIPELINES
+            ),
+            container_key=pipeline_container_key,
+            name=pipeline.name,
+            sub_types=[VertexAISubTypes.PIPELINE],
+        )
+
         dataflow = DataFlow(
             orchestrator=self.platform,
             id=self.name_formatter.format_pipeline_id(pipeline.name),
             env=self.config.env,
             name=pipeline.name,
             platform_instance=self.config.platform_instance,
-            properties=self._get_pipeline_properties(pipeline).model_dump(),
+            properties=self._get_pipeline_properties(pipeline).to_custom_properties(),
             owners={"urn:li:corpuser:datahub"},
             url=self.url_builder.make_pipeline_url(pipeline_name=pipeline.name),
         )
@@ -1350,15 +1377,10 @@ class VertexAISource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=ml_model_group_urn,
-            aspect=ContainerClass(container=model_group_container_key.as_urn()),
-        ).as_workunit()
-
         yield from self._yield_common_aspects(
             entity_urn=ml_model_group_urn,
             subtype=VertexAISubTypes.MODEL_GROUP,
-            include_container=False,
+            resource_category=ResourceCategory.MODELS,
         )
 
     def _get_project_container(self) -> ProjectIdKey:
@@ -1387,6 +1409,15 @@ class VertexAISource(StatefulIngestionSourceBase):
             instance=self.config.platform_instance,
             env=self.config.env,
             model_group_name=self.name_formatter.format_model_group_name(model.name),
+        )
+
+    def _get_pipeline_container(self, pipeline: PipelineMetadata) -> PipelineKey:
+        return PipelineKey(
+            project_id=self._get_project_id(),
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+            pipeline_name=self.name_formatter.format_pipeline_id(pipeline.name),
         )
 
     def _generate_resource_category_containers(self) -> Iterable[MetadataWorkUnit]:

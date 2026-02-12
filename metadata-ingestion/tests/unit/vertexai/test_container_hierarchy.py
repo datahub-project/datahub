@@ -1,8 +1,11 @@
 """Test container hierarchy generation for Vertex AI"""
 
+import pytest
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
-from datahub.ingestion.source.vertexai.vertexai import VertexAISource
+from datahub.ingestion.source.vertexai.vertexai import VertexAIConfig, VertexAISource
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     ResourceCategory,
 )
@@ -11,6 +14,17 @@ from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     SubTypesClass,
 )
+
+PROJECT_ID = "acryl-poc"
+REGION = "us-west2"
+
+
+@pytest.fixture
+def source() -> VertexAISource:
+    return VertexAISource(
+        ctx=PipelineContext(run_id="vertexai-source-test"),
+        config=VertexAIConfig(project_id=PROJECT_ID, region=REGION),
+    )
 
 
 def test_project_container_generation(source: VertexAISource) -> None:

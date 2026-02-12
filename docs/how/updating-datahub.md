@@ -48,13 +48,13 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
-- #16176: Vertex AI Source Connector - Enhanced ML Metadata extraction is now enabled by default, providing improved lineage tracking for CustomJob training jobs and automatic extraction of hyperparameters, metrics, and model evaluations. Model versions now appear under their respective model group folders in the UI for easier navigation. These features gracefully fall back if ML Metadata is not accessible (e.g., missing permissions). Three new configuration options control metadata extraction behavior (all default to `true`):
+- #16176: Vertex AI Source Connector - Enhanced ML Metadata extraction is now enabled by default, providing improved lineage tracking for CustomJob training jobs and automatic extraction of hyperparameters, metrics, and model evaluations. The UI organization has been improved with hierarchical folders: model versions appear under their model group folders, and pipeline tasks nest under their parent pipelines for easier navigation. These features gracefully fall back if ML Metadata is not accessible (e.g., missing permissions). Three new configuration options control metadata extraction behavior (all default to `true`):
   - `use_ml_metadata_for_lineage`: Extracts lineage from ML Metadata for CustomJob training jobs (requires jobs to log artifacts to ML Metadata)
   - `extract_execution_metrics`: Extracts hyperparameters and metrics from ML Metadata Executions
   - `include_evaluations`: Ingests model evaluations with metrics
   - If you experience performance issues with large projects (1000+ training jobs), you can disable these features selectively
   - The connector also supports the optional `platform_instance` configuration field for environments running multiple Vertex AI instances
-  - Existing ingestion configurations continue to work without modification
+  - Existing ingestion configurations continue to work without modification, and URNs remain unchanged unless `platform_instance` is explicitly configured
 
 ## v1.4.0
 
