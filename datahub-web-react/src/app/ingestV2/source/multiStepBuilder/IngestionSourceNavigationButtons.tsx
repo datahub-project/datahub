@@ -1,4 +1,4 @@
-import { Button, Tooltip } from '@components';
+import { Button } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -14,14 +14,13 @@ const ButtonsContainer = styled.div`
     flex-direction: row;
     gap: 8px;
 `;
-interface Props {
-    disabledNextTooltip?: string;
-    isEditing?: boolean;
-}
 
-export default function IngestionSourceNavigationButtons({ disabledNextTooltip, isEditing }: Props) {
-    const { goToNext, canGoToNext, submit, cancel, isFinalStep, isCurrentStepCompleted, currentStepIndex } =
-        useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep, SubmitOptions>();
+export default function IngestionSourceNavigationButtons() {
+    const { submit, cancel, isFinalStep, isCurrentStepCompleted } = useMultiStepContext<
+        MultiStepSourceBuilderState,
+        IngestionSourceFormStep,
+        SubmitOptions
+    >();
 
     const [isSaveAndRunInProgress, setIsSaveAndRunInProgress] = useState<boolean>(false);
 
@@ -54,30 +53,6 @@ export default function IngestionSourceNavigationButtons({ disabledNextTooltip, 
             </Button>,
         );
 
-        if (canGoToNext() && (isEditing || currentStepIndex !== 0)) {
-            const isDisabled = !isCurrentStepCompleted();
-            const nextButton = (
-                <Button key="next" size="sm" disabled={isDisabled} onClick={goToNext} data-testid="next-button">
-                    Next
-                </Button>
-            );
-
-            buttons.push(
-                isDisabled ? (
-                    <Tooltip
-                        key="next"
-                        title={
-                            disabledNextTooltip || 'Please complete all required fields before moving to the next step'
-                        }
-                    >
-                        <span>{nextButton}</span>
-                    </Tooltip>
-                ) : (
-                    nextButton
-                ),
-            );
-        }
-
         if (isFinalStep()) {
             buttons.push(
                 <Button
@@ -95,19 +70,7 @@ export default function IngestionSourceNavigationButtons({ disabledNextTooltip, 
         }
 
         return buttons;
-    }, [
-        cancel,
-        canGoToNext,
-        isEditing,
-        currentStepIndex,
-        isFinalStep,
-        isCurrentStepCompleted,
-        goToNext,
-        disabledNextTooltip,
-        isSaveAndRunInProgress,
-        onSave,
-        onSaveAndRun,
-    ]);
+    }, [cancel, isFinalStep, isCurrentStepCompleted, isSaveAndRunInProgress, onSave, onSaveAndRun]);
 
     return <ButtonsContainer>{navigationButtons}</ButtonsContainer>;
 }

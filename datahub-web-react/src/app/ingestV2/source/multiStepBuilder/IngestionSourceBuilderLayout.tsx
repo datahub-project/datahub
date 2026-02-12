@@ -71,12 +71,7 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
             subTitle={currentStep?.subTitle}
             rightPanelContent={currentStep?.hideRightPanel ? null : <AIChat />}
             topBreadcrumb={breadCrumb}
-            topRightContent={
-                <IngestionSourceNavigationButtons
-                    disabledNextTooltip="Enter a name to continue"
-                    isEditing={isEditing}
-                />
-            }
+            topRightContent={<IngestionSourceNavigationButtons />}
         >
             <ContentWrapper ref={scrollContainerRef}>{children}</ContentWrapper>
         </PageLayout>

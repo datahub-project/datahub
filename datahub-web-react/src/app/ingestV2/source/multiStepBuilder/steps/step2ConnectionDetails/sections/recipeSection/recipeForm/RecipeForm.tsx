@@ -17,7 +17,6 @@ import { resolveDynamicOptions } from '@app/ingestV2/source/multiStepBuilder/ste
 import { getValuesFromRecipe } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/utils';
 import { SettingsSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/SettingsSection';
 import { FiltersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/FiltersSection';
-import { ScheduleSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/ScheduleSection';
 import { MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { jsonToYaml } from '@app/ingestV2/source/utils';
 
@@ -194,7 +193,6 @@ function RecipeForm({
                 <FiltersSection fields={filterFields} updateRecipe={updateRecipe} recipe={displayRecipe} />
 
                 <SettingsSection settingsFields={advancedFields} updateFormValue={updateFormValue} />
-                <ScheduleSection />
             </SectionsContainer>
         </Form>
     );

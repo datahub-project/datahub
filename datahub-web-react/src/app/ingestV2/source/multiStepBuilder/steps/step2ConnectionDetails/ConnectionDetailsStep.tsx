@@ -13,6 +13,7 @@ import { INGESTION_TYPE_ERROR } from '@app/ingestV2/source/multiStepBuilder/step
 import { AdvancedSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/AdvancedSection';
 import { NameAndOwnersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/NameAndOwnersSection';
 import { RecipeSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/RecipeSection';
+import { ScheduleSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/ScheduleSection';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '@app/ingestV2/source/utils';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
@@ -162,6 +163,8 @@ export function ConnectionDetailsStep() {
                     sourceConfigs={sourceConfigs}
                     setStagedRecipe={updateStagedRecipeAndState}
                 />
+
+                <ScheduleSection />
 
                 <AdvancedSection state={state} updateState={updateState} />
             </Container>
