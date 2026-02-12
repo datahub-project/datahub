@@ -120,14 +120,22 @@ class AthenaAdapter(PlatformAdapter):
             logger.debug(f"Created Athena temp view: {temp_view}")
 
         except Exception as e:
-            if not self.config.catch_exceptions:
-                raise
+            error_msg = (
+                f"Cannot profile {context.pretty_name}: Athena temp view creation failed. "
+                f"Temp view is required for custom SQL queries. "
+                f"{type(e).__name__}: {str(e)}"
+            )
             self.report.warning(
                 title="Failed to create Athena temporary view",
                 message=f"Profiling exception when running custom sql: {context.custom_sql}",
                 context=f"Asset: {context.pretty_name}",
                 exc=e,
             )
+            if not self.config.catch_exceptions:
+                raise
+            # Even with catch_exceptions, we must fail here because temp view is REQUIRED
+            # Without it, we'd silently profile the full table instead of the requested custom SQL
+            raise RuntimeError(error_msg) from e
 
         return context
 
