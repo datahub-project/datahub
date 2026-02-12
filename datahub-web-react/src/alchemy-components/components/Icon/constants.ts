@@ -547,7 +547,6 @@ export const MATERIAL_UI_ICONS = [
 ];
 
 export const PHOSPHOR_ICONS = [
-    'Activity',
     'AddressBook',
     'Airplane',
     'AirplaneInFlight',

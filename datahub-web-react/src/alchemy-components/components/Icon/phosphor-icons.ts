@@ -1,9 +1,9 @@
 /**
  * Custom Phosphor Icons Bundle
  *
- * Exports only icons used in DataHub (123 icons instead of 4,539)
+ * Exports only icons used in DataHub (131 icons instead of 4,539)
  *
- * This reduces the Phosphor bundle from ~6 MB (4,539 icons) to ~296 KB minified / ~65 KB gzipped (123 icons)
+ * This reduces the Phosphor bundle from ~6 MB (4,539 icons) to ~296 KB minified / ~65 KB gzipped (131 icons)
  *
  * DO NOT import directly from '@phosphor-icons/react' elsewhere in the codebase.
  * Always import from this file to maintain the optimized bundle size.
@@ -18,9 +18,12 @@ export { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
 export { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 export { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 export { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
+export { ArrowClockwise } from '@phosphor-icons/react/dist/csr/ArrowClockwise';
+export { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 export { ArrowUpRight } from '@phosphor-icons/react/dist/csr/ArrowUpRight';
 export { ArrowUUpLeft } from '@phosphor-icons/react/dist/csr/ArrowUUpLeft';
 export { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+export { ArrowsCounterClockwise } from '@phosphor-icons/react/dist/csr/ArrowsCounterClockwise';
 export { ArrowsInLineVertical } from '@phosphor-icons/react/dist/csr/ArrowsInLineVertical';
 export { ArrowsOutLineVertical } from '@phosphor-icons/react/dist/csr/ArrowsOutLineVertical';
 export { Bank } from '@phosphor-icons/react/dist/csr/Bank';
@@ -46,6 +49,7 @@ export { Circle } from '@phosphor-icons/react/dist/csr/Circle';
 export { CircleDashed } from '@phosphor-icons/react/dist/csr/CircleDashed';
 export { CircleHalf } from '@phosphor-icons/react/dist/csr/CircleHalf';
 export { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+export { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 export { Code } from '@phosphor-icons/react/dist/csr/Code';
 export { CodeBlock } from '@phosphor-icons/react/dist/csr/CodeBlock';
 export { Columns } from '@phosphor-icons/react/dist/csr/Columns';
@@ -53,13 +57,16 @@ export { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 export { Database } from '@phosphor-icons/react/dist/csr/Database';
 export { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 export { DotsSixVertical } from '@phosphor-icons/react/dist/csr/DotsSixVertical';
+export { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 export { Dresser } from '@phosphor-icons/react/dist/csr/Dresser';
+export { Envelope } from '@phosphor-icons/react/dist/csr/Envelope';
 export { ExclamationMark } from '@phosphor-icons/react/dist/csr/ExclamationMark';
 export { ExcludeSquare } from '@phosphor-icons/react/dist/csr/ExcludeSquare';
 export { FadersHorizontal } from '@phosphor-icons/react/dist/csr/FadersHorizontal';
 export { FileLock } from '@phosphor-icons/react/dist/csr/FileLock';
 export { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 export { Folder } from '@phosphor-icons/react/dist/csr/Folder';
+export { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 export { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 export { Gear } from '@phosphor-icons/react/dist/csr/Gear';
 export { GitFork } from '@phosphor-icons/react/dist/csr/GitFork';
@@ -76,6 +83,7 @@ export { Image } from '@phosphor-icons/react/dist/csr/Image';
 export { Infinity } from '@phosphor-icons/react/dist/csr/Infinity';
 export { Info } from '@phosphor-icons/react/dist/csr/Info';
 export { Lightning } from '@phosphor-icons/react/dist/csr/Lightning';
+export { Link } from '@phosphor-icons/react/dist/csr/Link';
 export { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
 export { LinkSimpleHorizontal } from '@phosphor-icons/react/dist/csr/LinkSimpleHorizontal';
 export { List } from '@phosphor-icons/react/dist/csr/List';
@@ -136,5 +144,5 @@ export { TextItalic } from '@phosphor-icons/react/dist/csr/TextItalic';
 export { TextStrikethrough } from '@phosphor-icons/react/dist/csr/TextStrikethrough';
 export { TextUnderline } from '@phosphor-icons/react/dist/csr/TextUnderline';
 
-// Total: 123 icons exported (118 core icons + 5 text formatting icons)
-// This reduces the Phosphor bundle from ~6 MB (4,539 icons) to ~296 KB minified / ~65 KB gzipped (97.3% reduction)
+// Total: 131 icons exported (126 core icons + 5 text formatting icons)
+// This reduces the Phosphor bundle from ~6 MB (4,539 icons) to ~296 KB minified / ~65 KB gzipped (97.1% reduction)
