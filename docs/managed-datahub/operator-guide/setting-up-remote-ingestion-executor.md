@@ -49,9 +49,9 @@ Before deploying a Remote Executor, ensure you have the following:
    The Remote Executor requires **outbound** HTTPS (port 443) connectivity only — no inbound connectivity is needed. Ensure the following endpoints are reachable from your deployment environment:
 
    - `https://<your-company>.acryl.io/*` — DataHub GMS API
-   - `https://sqs.<DATAHUB_CLOUD_AWS_REGION>.amazonaws.com/<DATAHUB_AWS_ACCOUNT_ID>/re-*` — AWS SQS queue used for remote execution task dispatch
+   - `https://sqs.*.amazonaws.com/*` — AWS SQS, used for remote execution task dispatch
    - A Python package index (e.g., `https://pypi.org`) or an alternate internal mirror, to download pip packages required by ingestion sources
-   - A container registry hosting the DataHub Remote Executor image (e.g., `docker.datahub.com/enterprise/datahub-executor`)
+   - A container registry hosting the DataHub Remote Executor image (e.g., `docker.datahub.com/re/datahub-executor`)
 
 4. **Registry Access**
    - For AWS: Provide your AWS account ID to DataHub Cloud
