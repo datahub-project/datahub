@@ -87,7 +87,7 @@ ARG PIP_EXTRA_INDEX_URL=""
 # Persist settings for subsequent build layers and for optional venv builds
 ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
 ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
-ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+ENV UV_DEFAULT_INDEX=${PIP_MIRROR_URL}
 ENV UV_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 # Allow uv to find best version from any index (needed when packages exist on both PyPI and Cloudsmith)
 ENV UV_INDEX_STRATEGY=unsafe-best-match
@@ -395,7 +395,7 @@ USER datahub
 # Locked variant extends slim-base and blocks network access at runtime
 FROM build-slim-base AS build-locked
 # Block network access to PyPI - locked variant only uses bundled venvs
-ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV UV_DEFAULT_INDEX=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 USER datahub
 
@@ -637,7 +637,7 @@ RUN apk --no-cache add \
 
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
     if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
-ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+ENV UV_DEFAULT_INDEX=${PIP_MIRROR_URL}
 ENV UV_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 # Allow uv to find best version from any index (needed when packages exist on both PyPI and Cloudsmith)
 ENV UV_INDEX_STRATEGY=unsafe-best-match
@@ -775,7 +775,7 @@ COPY --from=venv-builder-locked-alpine /build_info.json /build_info.json
 RUN ln -sv /metadata-ingestion-modules/acryl-cloud /acryl-cloud
 
 # Block network access to PyPI - locked variant only uses bundled venvs
-ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV UV_DEFAULT_INDEX=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
 USER datahub
@@ -845,7 +845,7 @@ RUN apk update && apk add --no-cache \
 # Configure pip/uv index URLs
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uv pip config set global.index-url ${PIP_MIRROR_URL} || true ; fi && \
     if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uv pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} || true ; fi
-ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+ENV UV_DEFAULT_INDEX=${PIP_MIRROR_URL}
 ENV UV_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 # Allow uv to find best version from any index (needed when packages exist on both PyPI and Cloudsmith)
 ENV UV_INDEX_STRATEGY=unsafe-best-match
@@ -1065,7 +1065,7 @@ COPY --from=venv-builder-locked-wolfi /build_info.json /build_info.json
 RUN ln -sv /metadata-ingestion-modules/acryl-cloud /acryl-cloud
 
 # Block network access to PyPI - locked variant only uses bundled venvs
-ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV UV_DEFAULT_INDEX=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
 USER datahub
