@@ -277,6 +277,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.APPLICATIONS,
             EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 
