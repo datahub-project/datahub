@@ -687,24 +687,28 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         ClickHouse materialized views can specify a separate target table using the
         TO clause: CREATE MATERIALIZED VIEW view_name TO target_table AS SELECT ...
         The target table stores the actual data, while the materialized view is just a trigger.
-        For lineage, we want source → target_table (not source → materialized view).
+
+        For MVs with TO clause, we generate CLL for:
+        - SRC → MV: Source tables → materialized view (with column-level lineage)
+        - SRC → TO: Source tables → target table (with column-level lineage)
         """
         target_table_urn = self._extract_to_table_urn(
             view_urn, view_definition, default_db
         )
         if target_table_urn:
-            # Register lineage to the target table instead of the view
+            # Register CLL: SRC → MV (source tables → materialized view)
+            self.aggregator.add_view_definition(
+                view_urn=view_urn,
+                view_definition=view_definition,
+                default_db=default_db,
+                default_schema=default_schema,
+            )
+            # Register CLL: SRC → TO (source tables → target table)
             self.aggregator.add_view_definition(
                 view_urn=target_table_urn,
                 view_definition=view_definition,
                 default_db=default_db,
                 default_schema=default_schema,
-            )
-            # Also add view → target table relationship
-            self.aggregator.add_known_lineage_mapping(
-                upstream_urn=view_urn,
-                downstream_urn=target_table_urn,
-                lineage_type=DatasetLineageTypeClass.VIEW,
             )
         else:
             super()._add_view_to_aggregator(
@@ -1096,6 +1100,9 @@ ORDER BY event_time ASC
         )
 
         # get materialized view downstream and upstream
+        # This query generates 2 types of lineage for materialized views with TO clause:
+        # 1. SRC → MV: Source tables referenced in SELECT → materialized view
+        # 2. SRC → TO: Source tables → target table (direct lineage)
         materialized_view_lineage_query = textwrap.dedent(
             """\
         SELECT source_schema, source_table, target_schema, target_table
@@ -1104,6 +1111,7 @@ ORDER BY event_time ASC
                       (SELECT groupUniqArray(concat(database, '.', name))
                          FROM system.tables
                       ) AS tables
+                -- Part 1: SRC → MV (source tables → materialized view)
                 SELECT substring(source, 1, position(source, '.') - 1) AS source_schema
                      , substring(source, position(source, '.') + 1)    AS source_table
                      , database                                        AS target_schema
@@ -1115,13 +1123,18 @@ ORDER BY event_time ASC
                    AND NOT (source_schema = target_schema AND source_table = target_table)
                    AND source <> extract_to
                  UNION ALL
-                SELECT database                                                AS source_schema
-                     , name                                                    AS source_table
+                -- Part 2: SRC → TO (source tables → target table, direct lineage)
+                SELECT substring(source, 1, position(source, '.') - 1) AS source_schema
+                     , substring(source, position(source, '.') + 1)    AS source_table
                      , substring(extract_to, 1, position(extract_to, '.') - 1) AS target_schema
                      , substring(extract_to, position(extract_to, '.') + 1)    AS target_table
-                     , extract(create_table_query, 'TO (\\S+)')             AS extract_to
+                     , extract(create_table_query, 'TO (\\S+)')     AS extract_to
                   FROM system.tables
+                 ARRAY JOIN arrayIntersect(splitByRegexp('[\\s()'']+', create_table_query), tables) AS source
                  WHERE engine IN ('MaterializedView')
+                   AND NOT (source_schema = target_schema AND source_table = target_table)
+                   AND source <> extract_to
+                   AND source <> concat(database, '.', name)
                    AND extract_to <> '')
          ORDER BY target_schema, target_table, source_schema, source_table"""
         )
