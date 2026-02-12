@@ -51,8 +51,9 @@ FROM base AS prod-install
 COPY datahub-upgrade/build/libs/datahub-upgrade.jar /datahub/datahub-upgrade/bin/
 COPY docker/datahub-upgrade/start.sh /datahub/datahub-upgrade/scripts/start.sh
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-upgrade/scripts/prometheus-config.yaml
-RUN chmod +x /datahub/datahub-upgrade/scripts/start.sh
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
+RUN chmod a+rx /datahub/datahub-upgrade/scripts/start.sh && \
+    chmod -R a+rX /datahub/
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
