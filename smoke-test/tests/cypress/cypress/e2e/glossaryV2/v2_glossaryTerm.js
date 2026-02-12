@@ -9,7 +9,7 @@ const applyAdvancedSearchFilter = (filterType, value) => {
   cy.clickOptionWithText("Add Filter");
   cy.clickOptionWithText(filterType);
   cy.get("div.ant-select-selection-overflow").click();
-  cy.get(".ant-select-item-option-content").contains(value).click();
+  cy.get(`[data-testid="tag-term-option-${value}"]`).click();
   cy.clickOptionWithText("Add Tags");
   cy.clickOptionWithTestId("add-tag-term-from-modal-btn");
 };

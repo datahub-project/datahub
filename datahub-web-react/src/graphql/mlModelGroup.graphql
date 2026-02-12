@@ -47,9 +47,6 @@ query getMLModelGroup($urn: String!, $skipSiblingsSearch: Boolean = false) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         ...notes
     }
 }

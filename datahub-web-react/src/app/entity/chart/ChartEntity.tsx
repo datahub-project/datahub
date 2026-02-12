@@ -283,6 +283,7 @@ export class ChartEntity implements Entity<Chart> {
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 
