@@ -1,7 +1,5 @@
 package com.linkedin.metadata.billing;
 
-import com.linkedin.metadata.billing.contract.ContractSpec;
-import java.util.List;
 import javax.annotation.Nonnull;
 
 /**
@@ -13,19 +11,6 @@ import javax.annotation.Nonnull;
  * @see com.linkedin.metadata.billing.metronome.MetronomeClient
  */
 public interface BillingProvider {
-
-  /**
-   * Resolve the billing provider product ID for a given {@link BillingProduct}.
-   *
-   * <p>Each provider maps {@link BillingProduct} enum values to their provider-specific product
-   * IDs, typically loaded from configuration.
-   *
-   * @param product The billing product to resolve
-   * @return The provider-specific product ID
-   * @throws BillingException if no product ID is configured for the given product
-   */
-  @Nonnull
-  String resolveProductId(@Nonnull BillingProduct product) throws BillingException;
 
   /**
    * Look up the provider's internal customer ID by customer name.
@@ -41,23 +26,19 @@ public interface BillingProvider {
   String getCustomerId(@Nonnull String customerName) throws BillingException;
 
   /**
-   * Provision a customer and add contracts.
+   * Provision a customer with a billing package.
    *
-   * <p>This method is idempotent. If the customer already exists in the billing system, it will
-   * simply add the specified contracts to the existing customer. If the customer does not exist, it
-   * will create the customer first and then add the contracts.
-   *
-   * <p>The contracts are created in the order provided. If any contract creation fails, the
-   * implementation should decide whether to rollback or continue (provider-specific behavior).
+   * <p>This method is idempotent. If the customer already exists in the billing system, it will add
+   * the specified package contract to the existing customer. If the customer does not exist, it
+   * will create the customer first and then add the contract.
    *
    * @param customerName The customer name to use in the billing provider
-   * @param contracts List of contract specifications to create for the customer
+   * @param packageAlias The package alias identifying the billing package to assign
    * @return The billing provider's internal customer ID
    * @throws BillingException if customer provisioning or contract creation fails
-   * @throws IllegalArgumentException if contracts list is null or empty
    */
   @Nonnull
-  String provisionCustomer(@Nonnull String customerName, @Nonnull List<ContractSpec> contracts)
+  String provisionCustomer(@Nonnull String customerName, @Nonnull String packageAlias)
       throws BillingException;
 
   /**
@@ -67,25 +48,23 @@ public interface BillingProvider {
    * the specified product.
    *
    * @param customerId The billing provider's internal customer ID
-   * @param productId The product ID to check credits for (e.g., "ask_datahub_product")
+   * @param product The billing product to check credits for
    * @return true if customer has remaining credits, false if limit is exhausted
    * @throws BillingException if balance check fails
    */
-  boolean hasRemainingCredits(@Nonnull String customerId, @Nonnull String productId)
+  boolean hasRemainingCredits(@Nonnull String customerId, @Nonnull BillingProduct product)
       throws BillingException;
 
   /**
    * Report usage after successful operation.
    *
-   * <p>Called after AI chat response is generated to decrement the customer's credit balance. This
-   * is typically called asynchronously to avoid blocking the response.
+   * <p>Called after an operation completes to decrement the customer's credit balance.
    *
    * @param customerId The billing provider's internal customer ID
    * @param eventType The type of event being reported (e.g., "ai_message", "data_export", etc.)
    * @param transactionId Unique identifier for this usage event (for idempotency)
-   * @param quantity Number of credits to deduct (typically 1 per AI chat answer)
-   * @param properties Additional properties to include with the usage event (e.g., conversation_id,
-   *     user_id)
+   * @param quantity Number of credits to deduct
+   * @param properties Additional properties to include with the usage event
    * @throws BillingException if usage reporting fails
    */
   void reportUsage(

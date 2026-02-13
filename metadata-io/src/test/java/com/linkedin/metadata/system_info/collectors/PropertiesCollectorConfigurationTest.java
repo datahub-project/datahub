@@ -195,14 +195,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Rate Limit Throttling
           "metadataChangeProposal.throttle.rateLimit.*",
 
-          // Billing configuration with dynamic indices
+          // Billing configuration
           "datahub.billing.metronome.products.*",
-          "datahub.billing.metronome.contracts.freeTrial.rateCardId",
-          "datahub.billing.metronome.contracts.freeTrial.recurringCredits[*].productName",
-          "datahub.billing.metronome.contracts.freeTrial.recurringCredits[*].productId",
-          "datahub.billing.metronome.contracts.freeTrial.recurringCredits[*].creditTypeId",
-          "datahub.billing.metronome.contracts.freeTrial.recurringCredits[*].monthlyCredits",
-          "datahub.billing.metronome.contracts.freeTrial.recurringCredits[*].displayName");
+          "datahub.billing.metronome.packageAlias");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are

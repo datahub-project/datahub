@@ -38,68 +38,12 @@ public class BillingConfiguration {
     private java.util.Map<String, String> products;
 
     /**
-     * Named contract templates for different customer types.
+     * Metronome package alias used when creating contracts for customers.
      *
-     * <p>Allows defining multiple contract types in configuration without code changes. Map keys
-     * are contract template names (e.g., "freeTrial", "standard", "enterprise"), and values are
-     * contract configurations.
-     *
-     * <p>Example YAML:
-     *
-     * <pre>
-     * billing:
-     *   metronome:
-     *     contracts:
-     *       freeTrial:
-     *         rateCardId: "rc-free-trial"
-     *         recurringCredits: [...]
-     *       standard:
-     *         rateCardId: "rc-standard"
-     *         recurringCredits: [...]
-     *       enterprise:
-     *         rateCardId: "rc-enterprise"
-     *         recurringCredits: [...]
-     * </pre>
+     * <p>Packages in Metronome bundle a rate card, recurring credits, and other contract details
+     * into a reusable template. Using a package alias simplifies contract creation to a single
+     * identifier instead of specifying rate cards and credits individually.
      */
-    private java.util.Map<String, ContractConfiguration> contracts;
-
-    /**
-     * Configuration for a contract with recurring credits.
-     *
-     * <p>A contract defines the pricing structure (rate card) and the recurring credits that
-     * customers receive. This can be used for free trials, paid plans, or custom agreements.
-     */
-    @Data
-    public static class ContractConfiguration {
-      /** Metronome rate card ID that defines pricing structure */
-      private String rateCardId;
-
-      /** List of recurring credit allocations for different products/credit types */
-      private java.util.List<RecurringCredit> recurringCredits;
-
-      /**
-       * Recurring credit allocation for a specific product and credit type.
-       *
-       * <p>Example: 1000 monthly credits for "Ask DataHub" answers, or 5000 monthly credits for
-       * search queries.
-       */
-      @Data
-      public static class RecurringCredit {
-        /** Product name identifier for lookup (e.g., "askDataHub") */
-        private String productName;
-
-        /** Metronome product ID (e.g., AI Chat product, Search product) */
-        private String productId;
-
-        /** Metronome credit type ID (e.g., answers, searches, API calls) */
-        private String creditTypeId;
-
-        /** Number of credits to grant per month */
-        private int monthlyCredits;
-
-        /** Optional display name for logging and debugging (e.g., "Ask DataHub Answers") */
-        private String displayName;
-      }
-    }
+    private String packageAlias;
   }
 }

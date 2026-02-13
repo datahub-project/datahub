@@ -202,19 +202,8 @@ datahub:
       products:
         askDataHubProductId: ${METRONOME_ASK_DATAHUB_PRODUCT_ID:}
 
-      # Named contract templates for different customer types
-      contracts:
-        # Free trial contract configuration
-        freeTrial:
-          # Metronome rate card ID that defines pricing structure
-          rateCardId: ${METRONOME_FREE_TRIAL_RATE_CARD_ID:}
-          # Recurring credit allocations
-          recurringCredits:
-            - productName: askDataHub
-              productId: ${METRONOME_ASK_DATAHUB_PRODUCT_ID:}
-              creditTypeId: ${METRONOME_ASK_DATAHUB_ANSWER_CREDIT_TYPE_ID:}
-              monthlyCredits: ${ASK_DATAHUB_MONTHLY_ANSWERS_CREDITS:1000}
-              displayName: ${METRONOME_FREE_TRIAL_ASK_DATAHUB_RECURRING_CREDITS_NAME:"Ask DataHub Answers"}
+      # Metronome package alias used when creating contracts for customers
+      packageAlias: ${METRONOME_PACKAGE_ALIAS:standard}
 
   validation:
     aspectSize:
