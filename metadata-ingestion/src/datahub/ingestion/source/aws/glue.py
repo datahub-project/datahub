@@ -473,9 +473,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_all_lf_tags(self) -> List:
         # 1. Get all LF-Tags in your account (metadata only)
-        response = self.lf_client.list_lf_tags(
-            MaxResults=50  # Adjust as needed
-        )
+        response = self.lf_client.list_lf_tags(MaxResults=50)  # Adjust as needed
         all_lf_tags = response["LFTags"]
         # Continue pagination if necessary
         while "NextToken" in response:
@@ -1173,13 +1171,19 @@ class GlueSource(StatefulIngestionSourceBase):
                     # Support multiple partition keys
                     partition_values = p.get("Values", [])
                     if len(partition_keys) == len(partition_values):
-                        partition_spec = str({
-                            partition_keys[i]: partition_values[i] 
-                            for i in range(len(partition_keys))
-                        })
+                        partition_spec = str(
+                            {
+                                partition_keys[i]: partition_values[i]
+                                for i in range(len(partition_keys))
+                            }
+                        )
                     else:
                         # Fallback to single partition key for backward compatibility
-                        partition_spec = str({partition_keys[0]: partition_values[0]}) if partition_values else str({partition_keys[0]: "unknown"})
+                        partition_spec = (
+                            str({partition_keys[0]: partition_values[0]})
+                            if partition_values
+                            else str({partition_keys[0]: "unknown"})
+                        )
 
                     if self.source_config.profiling.partition_patterns.allowed(
                         partition_spec
@@ -1517,19 +1521,21 @@ class GlueSource(StatefulIngestionSourceBase):
                 if k not in ["Columns", "Parameters"]
             },
         }
-            
+
         # Add partition key information to custom properties
         partition_keys = table.get("PartitionKeys", [])
         if partition_keys:
             partition_key_names = [pk["Name"] for pk in partition_keys]
             partition_key_types = [pk.get("Type", "unknown") for pk in partition_keys]
             partition_key_comments = [pk.get("Comment", "") for pk in partition_keys]
-            
+
             custom_properties["partition_keys"] = ",".join(partition_key_names)
             custom_properties["partition_key_types"] = ",".join(partition_key_types)
-            custom_properties["partition_key_comments"] = ",".join(partition_key_comments)
+            custom_properties["partition_key_comments"] = ",".join(
+                partition_key_comments
+            )
             custom_properties["num_partition_keys"] = str(len(partition_keys))
-        
+
         return DatasetPropertiesClass(
             description=table.get("Description"),
             customProperties=custom_properties,
