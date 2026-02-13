@@ -8,7 +8,8 @@ import { CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS } from '@app/ingestV2/sou
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { YamlEditor } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/YamlEditor';
 import RecipeForm from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/RecipeForm';
-import { MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
+import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
+import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 
 interface Props {
     state: MultiStepSourceBuilderState;
@@ -21,6 +22,9 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
     const { type } = state;
     const hasForm = useMemo(() => type && CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS.has(type), [type]);
     const [selectedTabKey, setSelectedTabKey] = useState<string>('form');
+    const {
+        state: { ingestionSource: existingIngestionSource },
+    } = useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep>();
 
     const [form] = Form.useForm();
     const runFormValidation = useCallback(() => {
@@ -34,20 +38,36 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                 return;
             }
 
+            let parsedYaml: Record<string, any> | null = null;
             // Validate yaml content when switching from yaml tab to form
             try {
-                YAML.parse(displayRecipe);
-                setTimeout(runFormValidation, 0); // let form remount and then run validation
+                try {
+                    parsedYaml = YAML.parse(displayRecipe);
+                    setTimeout(runFormValidation, 0); // let form remount and then run validation
+                } catch (e) {
+                    const messageText = (e as any).parsedLine
+                        ? `Fix line ${(e as any).parsedLine} in your recipe`
+                        : 'Please fix your recipe';
+                    throw new Error(`Found invalid YAML. ${messageText} in order to switch views.`);
+                }
+
+                if (
+                    parsedYaml &&
+                    !!existingIngestionSource &&
+                    parsedYaml?.source?.config?.type !== existingIngestionSource.type
+                ) {
+                    throw new Error("It's not possible to change source type for existing ingestion source");
+                }
+
                 setSelectedTabKey(activeKey);
-            } catch (e) {
+            } catch (e: unknown) {
                 message.destroy();
-                const messageText = (e as any).parsedLine
-                    ? `Fix line ${(e as any).parsedLine} in your recipe`
-                    : 'Please fix your recipe';
-                message.warn(`Found invalid YAML. ${messageText} in order to switch views.`);
+                if (e instanceof Error) {
+                    message.warn(e.message);
+                }
             }
         },
-        [displayRecipe, runFormValidation],
+        [displayRecipe, runFormValidation, existingIngestionSource],
     );
 
     const tabs: Tab[] = useMemo(

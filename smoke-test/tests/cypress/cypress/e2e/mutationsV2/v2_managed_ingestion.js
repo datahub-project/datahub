@@ -22,7 +22,9 @@ function typeInMonacoEditor(text) {
 
 describe("run managed ingestion", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
+    cy.setFeatureFlags(true, (res) => {
+      res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
+    });
   });
 
   it("cannot access ingestion page when disabled", () => {
