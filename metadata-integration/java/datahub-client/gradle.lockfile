@@ -2,8 +2,8 @@
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-ch.qos.logback:logback-classic:1.5.21=testRuntimeClasspath
-ch.qos.logback:logback-core:1.5.21=testRuntimeClasspath
+ch.qos.logback:logback-classic:1.5.25=testRuntimeClasspath
+ch.qos.logback:logback-core:1.5.25=testRuntimeClasspath
 com.beust:jcommander:1.82=testCompileClasspath,testRuntimeClasspath
 com.eclipsesource.minimal-json:minimal-json:0.9.5=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.fasterxml.jackson.core:jackson-annotations:2.18.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
