@@ -162,7 +162,7 @@ public class V2LegacySettingsBuilder implements SettingsBuilder {
       ImmutableList.of(ASCII_FOLDING, AUTOCOMPLETE_CUSTOM_DELIMITER, LOWERCASE);
 
   public static final List<String> WORD_GRAM_TOKEN_FILTERS =
-      ImmutableList.of(ASCII_FOLDING, LOWERCASE, TRIM, REMOVE_QUOTES);
+      ImmutableList.of(ASCII_FOLDING, LOWERCASE, TRIM, REMOVE_QUOTES, STEM_OVERRIDE, SNOWBALL);
 
   final String mainTokenizer;
   @Nonnull private final IndexConvention indexConvention;

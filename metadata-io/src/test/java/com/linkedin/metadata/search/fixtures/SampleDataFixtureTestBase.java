@@ -530,7 +530,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_3", queryWithMinus);
     assertEquals(
         getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
-        List.of("logging events -bckp"));
+        List.of("log event -bckp"));
 
     request =
         AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_4", queryWithMinus);
@@ -562,19 +562,19 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
             "smpldat_datasetindex_v2", "word_gram_2", testMoreSeparators);
     assertEquals(
         getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
-        List.of("quick brown", "brown fox", "fox jumped", "jumped lazy", "lazy dog"));
+        List.of("quick brown", "brown fox", "fox jump", "jump lazi", "lazi dog"));
     request =
         AnalyzeRequest.withIndexAnalyzer(
             "smpldat_datasetindex_v2", "word_gram_3", testMoreSeparators);
     assertEquals(
         getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
-        List.of("quick brown fox", "brown fox jumped", "fox jumped lazy", "jumped lazy dog"));
+        List.of("quick brown fox", "brown fox jump", "fox jump lazi", "jump lazi dog"));
     request =
         AnalyzeRequest.withIndexAnalyzer(
             "smpldat_datasetindex_v2", "word_gram_4", testMoreSeparators);
     assertEquals(
         getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
-        List.of("quick brown fox jumped", "brown fox jumped lazy", "fox jumped lazy dog"));
+        List.of("quick brown fox jump", "brown fox jump lazi", "fox jump lazi dog"));
 
     String textWithQuotesAndDuplicateWord = "\"my_db.my_exact_table\"";
     request =
@@ -582,19 +582,19 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
             "smpldat_datasetindex_v2", "word_gram_2", textWithQuotesAndDuplicateWord);
     assertEquals(
         getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
-        List.of("my db", "db my", "my exact", "exact table"));
+        List.of("my db", "db my", "my exact", "exact tabl"));
     request =
         AnalyzeRequest.withIndexAnalyzer(
             "smpldat_datasetindex_v2", "word_gram_3", textWithQuotesAndDuplicateWord);
     assertEquals(
         getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
-        List.of("my db my", "db my exact", "my exact table"));
+        List.of("my db my", "db my exact", "my exact tabl"));
     request =
         AnalyzeRequest.withIndexAnalyzer(
             "smpldat_datasetindex_v2", "word_gram_4", textWithQuotesAndDuplicateWord);
     assertEquals(
         getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
-        List.of("my db my exact", "db my exact table"));
+        List.of("my db my exact", "db my exact tabl"));
 
     String textWithParens = "(hi) there";
     request =
