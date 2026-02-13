@@ -28,6 +28,7 @@ configurations.all {
     }
   }
   resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
+  resolutionStrategy.force "org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}"
   resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
     select(candidates.find { it.id.group == 'at.yawk.lz4' } ?: candidates.first())
   }
