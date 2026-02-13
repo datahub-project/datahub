@@ -6,6 +6,9 @@ import dataclasses
 import json
 import logging
 import re
+import traceback
+from datetime import datetime
+from decimal import Decimal
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -20,6 +23,7 @@ from typing import (
 import sqlalchemy as sa
 import sqlalchemy.sql.compiler
 import sqlalchemy.types as sa_types
+from dateutil import parser as date_parser
 from sqlalchemy.engine import Connection, Engine
 
 from datahub.emitter.mce_builder import get_sys_time
@@ -101,8 +105,6 @@ def _is_single_row_query_method(query: Any) -> bool:
     For now, traceback inspection is battle-tested (used by GE profiler in production)
     and the performance overhead (~1-5 microseconds) is negligible in the profiling context.
     """
-    import traceback
-
     # Methods that return single rows (scalar results)
     SINGLE_ROW_QUERY_METHODS = {
         "get_row_count",
@@ -171,15 +173,11 @@ def _format_datetime_value(value: Any) -> str:
 
     # For string values, try to parse as datetime
     if isinstance(value, str):
-        from datetime import datetime as dt
-
-        from dateutil import parser as date_parser
-
         # Check if it's a date-only string (YYYY-MM-DD) - preserve as-is
         if len(value) == 10 and value.count("-") == 2:
             try:
                 # Validate it's a valid date format
-                dt.strptime(value, "%Y-%m-%d")
+                datetime.strptime(value, "%Y-%m-%d")
                 return value  # Return date-only string as-is
             except ValueError:
                 pass  # Not a valid date, continue to parsing
@@ -193,7 +191,7 @@ def _format_datetime_value(value: Any) -> str:
             try:
                 # Handle space separator by replacing with T
                 iso_str = value.replace(" ", "T", 1)
-                parsed = dt.fromisoformat(iso_str)
+                parsed = datetime.fromisoformat(iso_str)
                 return parsed.isoformat()
             except (ValueError, AttributeError):
                 # Final fallback: simple space-to-T replacement for common formats
@@ -227,8 +225,6 @@ def _format_mean_value(value: Any) -> str:
     """
     if value is None:
         return ""
-
-    from decimal import Decimal
 
     # Convert to float to ensure proper formatting
     if isinstance(value, (Decimal, int, float)):
@@ -300,8 +296,6 @@ def _format_numeric_value(value: Any, col_type: ProfilerDataType) -> str:
         return ""
 
     # Handle Decimal types (common in BigQuery for NUMERIC columns)
-    from decimal import Decimal
-
     if isinstance(value, Decimal):
         # For FLOAT columns, format Decimal integers as "0.0" to match GE
         if col_type == ProfilerDataType.FLOAT:

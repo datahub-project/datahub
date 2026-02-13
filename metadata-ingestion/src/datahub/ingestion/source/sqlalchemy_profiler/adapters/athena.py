@@ -5,6 +5,7 @@ import uuid
 from typing import Any, List, Optional
 
 import sqlalchemy as sa
+from pyathena.cursor import Cursor
 from sqlalchemy.engine import Connection
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
@@ -96,11 +97,9 @@ class AthenaAdapter(PlatformAdapter):
             return context
 
         try:
-            from pyathena.cursor import Cursor
-
             # Get raw DBAPI connection
             raw_conn = self.base_engine.raw_connection()
-            cursor: "Cursor" = raw_conn.cursor()  # type: ignore[assignment]
+            cursor: Cursor = raw_conn.cursor()  # type: ignore[assignment]
 
             # Generate unique view name
             temp_view = f"ge_{uuid.uuid4().hex[:8]}"

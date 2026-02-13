@@ -3,7 +3,9 @@
 import logging
 from typing import Any, List, Optional
 
+import google.cloud.bigquery.job.query
 import sqlalchemy as sa
+from google.cloud.bigquery.dbapi.cursor import Cursor as BigQueryCursor
 from sqlalchemy.engine import Connection
 from sqlalchemy_bigquery import BigQueryDialect
 
@@ -186,12 +188,9 @@ class BigQueryAdapter(PlatformAdapter):
 
         # Execute query to create cached temp table
         try:
-            import google.cloud.bigquery.job.query
-            from google.cloud.bigquery.dbapi.cursor import Cursor as BigQueryCursor
-
             # Get raw DBAPI connection
             raw_conn = self.base_engine.raw_connection()
-            cursor: "BigQueryCursor" = raw_conn.cursor()  # type: ignore[assignment]
+            cursor: BigQueryCursor = raw_conn.cursor()  # type: ignore[assignment]
 
             logger.debug(
                 f"Creating BigQuery temp table for {context.pretty_name}: {bq_sql}"
@@ -199,7 +198,7 @@ class BigQueryAdapter(PlatformAdapter):
             cursor.execute(bq_sql)
 
             # Extract the name of the cached results table from the query job
-            query_job: Optional["google.cloud.bigquery.job.query.QueryJob"] = (
+            query_job: Optional[google.cloud.bigquery.job.query.QueryJob] = (
                 # In google-cloud-bigquery 3.15.0, the _query_job attribute was
                 # made public and renamed to query_job.
                 cursor.query_job if hasattr(cursor, "query_job") else cursor._query_job  # type: ignore[attr-defined]
