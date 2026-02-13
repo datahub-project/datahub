@@ -55,10 +55,6 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverInterface,
 )
-from datahub.sql_parsing.sql_parsing_aggregator import (
-    ObservedQuery,
-    SqlParsingAggregator,
-)
 from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_CASE_INSENSITIVE_COLS,
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
@@ -2234,77 +2230,6 @@ def create_lineage_sql_parsed_result(
             schema_resolver.close()
 
 
-def _detect_dropped_urns(
-    queries: List[str],
-    dialect: sqlglot.Dialect,
-    default_db: Optional[str],
-    default_schema: Optional[str],
-    schema_resolver: SchemaResolverInterface,
-) -> Set[str]:
-    """Detect DROP TABLE/VIEW statements and return the set of dropped URNs."""
-    dropped_urns: Set[str] = set()
-    for raw_query in queries:
-        raw_query = raw_query.strip()
-        if not raw_query:
-            continue
-        try:
-            stmt = parse_statement(raw_query, dialect=dialect)
-            if isinstance(stmt, sqlglot.exp.Drop):
-                table_expr = stmt.this
-                if isinstance(table_expr, sqlglot.exp.Table) and table_expr.name:
-                    tname = _table_name_from_sqlglot_table(
-                        table_expr, dialect, default_db, default_schema
-                    )
-                    qualified_tname = tname.qualified(
-                        dialect=dialect,
-                        default_db=default_db,
-                        default_schema=default_schema,
-                    )
-                    urn = schema_resolver.get_urn_for_table(qualified_tname)
-                    dropped_urns.add(urn)
-        except Exception:
-            pass
-    return dropped_urns
-
-
-def _promote_non_dropped_temp_tables(
-    aggregator: "SqlParsingAggregator",
-    session_id: str,
-    dropped_urns: Set[str],
-) -> None:
-    """Promote non-dropped temp tables to real tables in the aggregator.
-
-    Temp tables that are created but NOT dropped are moved from _temp_lineage_map
-    to _lineage_map so they appear as real tables in the lineage output.
-    Also cleans up spurious _lineage_map entries created by DROP TABLE processing.
-    """
-    session_temps = aggregator._temp_lineage_map.get(session_id, {})
-    promoted_urns: Set[str] = set()
-
-    for temp_urn, query_ids in list(session_temps.items()):
-        if temp_urn not in dropped_urns:
-            for qid in query_ids:
-                aggregator._lineage_map.for_mutation(temp_urn, OrderedSet()).add(qid)
-            promoted_urns.add(temp_urn)
-
-    # Remove promoted tables from _temp_lineage_map so resolution
-    # does not resolve them away.
-    if promoted_urns:
-        remaining = {u: q for u, q in session_temps.items() if u not in promoted_urns}
-        if remaining:
-            aggregator._temp_lineage_map[session_id] = remaining
-        else:
-            del aggregator._temp_lineage_map[session_id]
-
-    # Clean up DROP-induced _lineage_map entries for dropped temp tables.
-    # When the aggregator processes DROP TABLE, it creates a spurious entry
-    # in _lineage_map with empty upstreams. Remove it for dropped temp tables.
-    for dropped_urn in dropped_urns:
-        if dropped_urn in session_temps and dropped_urn not in promoted_urns:
-            if dropped_urn in aggregator._lineage_map:
-                del aggregator._lineage_map[dropped_urn]
-
-
 def create_lineage_sql_parsed_result_from_statements(
     queries: List[str],
     default_db: Optional[str],
@@ -2315,15 +2240,20 @@ def create_lineage_sql_parsed_result_from_statements(
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
 ) -> SqlParsingResult:
-    """Parse multiple SQL statements and return merged lineage with temp table handling.
+    """Parse multiple SQL statements and return merged lineage with temp table resolution.
 
-    Processes all statements sequentially with a shared session. Temp tables that
-    are created AND dropped within the statement set are resolved away. Temp tables
-    that are created but NOT dropped are promoted to real tables and remain visible
-    in the lineage as intermediate nodes.
+    Processes all statements sequentially with a shared session, resolving temp table
+    lineage to produce a single SqlParsingResult with real (non-temp) tables only.
+    Tables created with CREATE TEMP TABLE are resolved away (their upstreams become
+    direct upstreams of downstream consumers). Tables created with plain CREATE TABLE
+    are kept as real intermediate tables in the lineage.
 
     This is the multi-statement counterpart to create_lineage_sql_parsed_result().
     """
+    from datahub.sql_parsing.sql_parsing_aggregator import (
+        ObservedQuery,
+        SqlParsingAggregator,
+    )
 
     if not queries:
         return SqlParsingResult.make_from_error(
@@ -2370,15 +2300,6 @@ def create_lineage_sql_parsed_result_from_statements(
                     session_id=session_id,
                 )
             )
-
-        # Promote non-dropped temp tables to real tables.
-        # Temp tables that are created but NOT dropped should be visible in lineage,
-        # since they persist beyond the statement set and may be used by other tasks.
-        dialect = get_dialect(platform)
-        dropped_urns = _detect_dropped_urns(
-            queries, dialect, default_db, default_schema, schema_resolver
-        )
-        _promote_non_dropped_temp_tables(aggregator, session_id, dropped_urns)
 
         # Extract resolved lineage directly from aggregator internals.
         all_in_tables: List[str] = []
