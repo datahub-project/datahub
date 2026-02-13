@@ -1108,6 +1108,7 @@ class OracleSource(SQLAlchemySource):
         In that case, it tries to retrieve the database name by sending a query to the DB.
 
         Note: This is used as a fallback if database is not specified in the config.
+        Returns a normalized (lowercased) database name for consistency with schema/table names.
         """
 
         # call default implementation first
@@ -1135,7 +1136,7 @@ class OracleSource(SQLAlchemySource):
             # Normalize database name to match Oracle dialect behavior
             # Oracle returns names in uppercase, but SQLAlchemy's normalize_name
             # converts them to lowercase for consistency with schema/table names
-            if db_name and hasattr(inspector, "dialect"):
+            if db_name:
                 normalized = inspector.dialect.normalize_name(db_name)
                 if normalized:
                     db_name = normalized
