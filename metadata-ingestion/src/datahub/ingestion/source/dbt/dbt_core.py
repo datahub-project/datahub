@@ -2,7 +2,7 @@ import dataclasses
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
 import requests
@@ -28,8 +28,11 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.dbt.dbt_common import (
+    DBT_EXPOSURE_MATURITY,
+    DBT_EXPOSURE_TYPES,
     DBTColumn,
     DBTCommonConfig,
+    DBTExposure,
     DBTModelPerformance,
     DBTNode,
     DBTSourceBase,
@@ -357,6 +360,53 @@ def extract_dbt_entities(
     return dbt_entities
 
 
+def extract_dbt_exposures(
+    manifest_exposures: Dict[str, Dict[str, Any]],
+    tag_prefix: str,
+) -> List[DBTExposure]:
+    """Extract dbt exposures from the manifest.json exposures section."""
+    exposures = []
+    for key, exposure_node in manifest_exposures.items():
+        owner = exposure_node.get("owner", {})
+        depends_on = exposure_node.get("depends_on", {})
+        # depends_on can have "nodes" and "macros" keys
+        depends_on_nodes = (
+            depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+        )
+
+        tags = exposure_node.get("tags", [])
+        tags = [tag_prefix + tag for tag in tags]
+
+        raw_type = exposure_node.get("type", "dashboard")
+        exposure_type: Literal[
+            "dashboard", "notebook", "ml", "application", "analysis"
+        ] = cast(
+            Literal["dashboard", "notebook", "ml", "application", "analysis"],
+            raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard",
+        )
+        raw_maturity = exposure_node.get("maturity")
+        maturity = raw_maturity if raw_maturity in DBT_EXPOSURE_MATURITY else None
+
+        exposures.append(
+            DBTExposure(
+                name=exposure_node["name"],
+                unique_id=key,
+                type=exposure_type,
+                owner_name=owner.get("name") if isinstance(owner, dict) else None,
+                owner_email=owner.get("email") if isinstance(owner, dict) else None,
+                description=exposure_node.get("description"),
+                url=exposure_node.get("url"),
+                maturity=maturity,
+                depends_on=depends_on_nodes,
+                tags=tags,
+                meta=exposure_node.get("meta", {}),
+                dbt_package_name=exposure_node.get("package_name"),
+                dbt_file_path=exposure_node.get("original_file_path"),
+            )
+        )
+    return exposures
+
+
 class DBTRunTiming(BaseModel):
     name: Optional[str] = None
     started_at: Optional[str] = None
@@ -600,6 +650,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
         manifest_nodes = dbt_manifest_json["nodes"]
         manifest_sources = dbt_manifest_json["sources"]
+        manifest_exposures = dbt_manifest_json.get("exposures", {})
 
         all_manifest_entities = {**manifest_nodes, **manifest_sources}
 
@@ -621,6 +672,12 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             include_database_name=self.config.include_database_name,
             report=self.report,
             sources_invocation_id=sources_invocation_id,
+        )
+
+        # Extract exposures from manifest
+        self._exposures = extract_dbt_exposures(
+            manifest_exposures=manifest_exposures,
+            tag_prefix=self.config.tag_prefix,
         )
 
         return (
