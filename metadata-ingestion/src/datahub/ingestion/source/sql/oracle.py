@@ -1,10 +1,22 @@
 import datetime
 import logging
+import os
 import platform
 import re
 import sys
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, NoReturn, Optional, Tuple, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    NoReturn,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 from unittest.mock import patch
 
 import oracledb
@@ -18,8 +30,13 @@ from sqlalchemy.types import FLOAT, INTEGER, TIMESTAMP
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    DEFAULT_ENV,
+    make_data_job_urn,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -33,10 +50,12 @@ from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
+    JobContainerSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
+    SQLCommonConfig,
     SqlWorkUnit,
     get_schema_metadata,
     make_sqlalchemy_type,
@@ -44,7 +63,15 @@ from datahub.ingestion.source.sql.sql_common import (
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
 )
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.sql_utils import (
+    gen_database_key,
+    gen_schema_key,
+)
+from datahub.ingestion.source.sql.stored_procedures.base import (
+    BaseProcedure,
+    generate_procedure_workunits,
+    get_procedure_flow_name,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 # Oracle uses SQL aggregator for usage and lineage like SQL Server
@@ -258,7 +285,10 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     )
     add_database_name_to_urn: Optional[bool] = Field(
         default=False,
-        description="Add oracle database name to urn, default urn is schema.table",
+        description=(
+            "Include database name in URNs. Default is False (schema.table format). "
+            "Set to True for database.schema.table format when ingesting from multiple Oracle databases."
+        ),
     )
     # custom
     data_dictionary_mode: DataDictionaryMode = Field(
@@ -897,6 +927,76 @@ class OracleInspectorObjectWrapper:
 # when parsing stored procedures and materialized views, similar to SQL Server
 
 
+def _parse_oracle_procedure_dependencies(
+    dependencies_str: str,
+    database_key: DatabaseKey,
+    schema_key: Optional[SchemaKey],
+    procedure_registry: Optional[Dict[str, str]] = None,
+) -> List[str]:
+    """
+    Parse Oracle ALL_DEPENDENCIES string to DataJob URNs for procedure-to-procedure dependencies.
+
+    Format: "SCHEMA.NAME (TYPE)" where TYPE is PROCEDURE, FUNCTION, or PACKAGE.
+
+    Note: Only extracts procedure/function/package dependencies. Table/view dependencies
+    are handled separately by the SQL parser analyzing the procedure code.
+
+    Returns:
+        List of DataJob URNs for procedure dependencies. Empty list if no procedure
+        dependencies found (e.g., procedure only depends on tables/views).
+    """
+    if not dependencies_str.strip():
+        return []
+
+    input_jobs = []
+    deps = [d.strip() for d in dependencies_str.split(",") if d.strip()]
+
+    if not deps:
+        return []
+
+    for dep in deps:
+        match = re.match(r"^([^(]+)\s*\(\s*(PROCEDURE|FUNCTION|PACKAGE)\s*\)$", dep)
+        if not match:
+            continue
+
+        full_name = match.group(1).strip()
+        parts = full_name.split(".")
+
+        if len(parts) != 2:
+            continue
+
+        dep_schema, dep_name = parts
+
+        # Normalize to lowercase for case-insensitive matching (Oracle default behavior)
+        registry_key = f"{dep_schema.lower()}.{dep_name.lower()}"
+        job_id = dep_name.lower()
+
+        if procedure_registry and registry_key in procedure_registry:
+            job_id = procedure_registry[registry_key]
+
+        dep_job_urn = make_data_job_urn(
+            orchestrator=database_key.platform,
+            flow_id=get_procedure_flow_name(
+                database_key,
+                SchemaKey(
+                    database=database_key.database,
+                    schema=dep_schema.lower(),
+                    platform=database_key.platform,
+                    instance=database_key.instance,
+                    env=database_key.env,
+                    backcompat_env_as_instance=database_key.backcompat_env_as_instance,
+                ),
+            ),
+            job_id=job_id,
+            cluster=database_key.env or DEFAULT_ENV,
+            platform_instance=database_key.instance,
+        )
+
+        input_jobs.append(dep_job_urn)
+
+    return input_jobs
+
+
 @platform_name("Oracle")
 @config_class(OracleConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -986,8 +1086,6 @@ class OracleSource(SQLAlchemySource):
     @classmethod
     def test_connection(cls, config_dict: dict) -> TestConnectionReport:
         """Test Oracle connection."""
-        import os
-
         # Force thin mode in test environments to avoid Oracle Client issues
         os.environ["ORACLE_CLIENT_LIBRARY_DIR"] = ""
         os.environ["TNS_ADMIN"] = ""
@@ -1099,6 +1197,102 @@ class OracleSource(SQLAlchemySource):
         ):
             raise ValueError(f"Invalid tables_prefix: {tables_prefix}")
 
+    def loop_stored_procedures(
+        self,
+        inspector: Inspector,
+        schema: str,
+        config: Union[SQLCommonConfig, Type[SQLCommonConfig]],
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Override parent to ensure stored procedure URNs match table URNs.
+
+        For Oracle, we always pass the actual database name to _process_procedures
+        for correct container hierarchy, but BaseProcedure.default_db controls
+        whether the database appears in the procedure's URN.
+        """
+        actual_db_name = self.get_db_name(inspector)
+
+        procedures = self.fetch_procedures_for_schema(inspector, schema, actual_db_name)
+        if procedures:
+            yield from self._process_procedures(procedures, actual_db_name, schema)
+
+    def _process_procedure(
+        self,
+        procedure: BaseProcedure,
+        schema: str,
+        db_name: str,
+        procedure_registry: Optional[Dict[str, str]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        additional_input_jobs: Optional[List[str]] = None
+        if procedure.extra_properties and procedure_registry:
+            upstream_deps = procedure.extra_properties.get("upstream_dependencies", "")
+            if upstream_deps:
+                try:
+                    database_key = gen_database_key(
+                        database=db_name,
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
+                    schema_key = gen_schema_key(
+                        db_name=db_name,
+                        schema=schema,
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
+                    additional_input_jobs = _parse_oracle_procedure_dependencies(
+                        upstream_deps, database_key, schema_key, procedure_registry
+                    )
+                except (ValueError, KeyError, AttributeError) as e:
+                    logger.warning(
+                        f"Failed to parse Oracle procedure dependencies for {procedure.name}: {e}. "
+                        f"Dependencies string: {upstream_deps[:200]}"
+                    )
+                    additional_input_jobs = None
+
+        try:
+            yield from generate_procedure_workunits(
+                procedure=procedure,
+                database_key=gen_database_key(
+                    database=db_name,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_key=gen_schema_key(
+                    db_name=db_name,
+                    schema=schema,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_resolver=self.get_schema_resolver(),
+                additional_input_jobs=additional_input_jobs,
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to emit stored procedure",
+                message=f"Failed to process stored procedure {schema}.{procedure.name}",
+                context=f"{db_name}.{schema}.{procedure.name}",
+                exc=e,
+            )
+
+    def _get_procedure_default_db(self) -> Optional[str]:
+        """
+        Determine the default_db value for procedure lineage URN generation.
+
+        Returns one of three values to control how database names appear in lineage URNs:
+        - None: Fallback to database_key.database (inherits from connection)
+        - "": Explicitly exclude database from URNs (two-tier: schema.table)
+        - str: Use specific database name in URNs (three-tier: database.schema.table)
+
+        This ensures procedure lineage URNs match the URN format of tables/views.
+        """
+        if self.config.add_database_name_to_urn and self.config.database:
+            return self.config.database
+        return ""
+
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
     ) -> List[BaseProcedure]:
@@ -1155,6 +1349,14 @@ class OracleSource(SQLAlchemySource):
                                 dependencies["downstream"]
                             )
 
+                    default_db = self._get_procedure_default_db()
+
+                    subtype = (
+                        JobContainerSubTypes.FUNCTION
+                        if row.type == "FUNCTION"
+                        else JobContainerSubTypes.STORED_PROCEDURE
+                    )
+
                     base_procedures.append(
                         BaseProcedure(
                             name=row.name,
@@ -1166,6 +1368,9 @@ class OracleSource(SQLAlchemySource):
                             last_altered=row.last_ddl_time,
                             comment=None,
                             extra_properties=extra_props,
+                            default_db=default_db,
+                            default_schema=normalized_schema,
+                            subtype=subtype,
                         )
                     )
 
