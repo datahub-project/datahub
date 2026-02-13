@@ -66,6 +66,19 @@ class RDFToASTConverter:
             "include_provisional": self.config.include_provisional,
         }
 
+        # When FIBO dialect is in use, extract ontology-level copyright for terms and term groups
+        from datahub.ingestion.source.rdf.dialects.base import RDFDialect
+
+        if dialect_instance.dialect_type == RDFDialect.FIBO:
+            fibo_copyright = self._extract_ontology_copyright(graph)
+            if fibo_copyright:
+                context["fibo_copyright"] = fibo_copyright
+
+        # Create DataHubGraph
+        datahub_graph = DataHubGraph()
+        if context.get("fibo_copyright"):
+            datahub_graph.metadata["fibo_copyright"] = context["fibo_copyright"]
+
         # Helper to check if a CLI name should be processed
         def should_process_cli_name(cli_name: str) -> bool:
             if export_only and cli_name not in export_only:
@@ -73,9 +86,6 @@ class RDFToASTConverter:
             if skip_export and cli_name in skip_export:
                 return False
             return True
-
-        # Create DataHubGraph
-        datahub_graph = DataHubGraph()
 
         # Extract glossary terms
         if should_process_cli_name("glossary"):
@@ -131,6 +141,33 @@ class RDFToASTConverter:
                 exc_info=True,
             )
             return None
+
+    def _extract_ontology_copyright(self, graph: Graph) -> Optional[str]:
+        """
+        Extract all copyright/rights from ontology-level metadata (owl:Ontology + dcterms:rights or dc:rights).
+
+        Collects every distinct rights statement from every ontology in the graph and joins them
+        (newline-separated). Used when FIBO dialect is active to attach all copyrights to every term and term group.
+        Returns a default EDM Council copyright if the graph has no explicit rights.
+        """
+        from rdflib import RDF, URIRef
+        from rdflib.namespace import DCTERMS, OWL
+
+        DC = "http://purl.org/dc/elements/1.1/"
+        rights_predicates = [DCTERMS.rights, URIRef(DC + "rights")]
+        seen: set[str] = set()
+        parts: list[str] = []
+        for ontology in graph.subjects(RDF.type, OWL.Ontology):
+            for pred in rights_predicates:
+                for obj in graph.objects(ontology, pred):
+                    if obj:
+                        s = str(obj).strip()
+                        if s and s not in seen:
+                            seen.add(s)
+                            parts.append(s)
+        if parts:
+            return "\n".join(parts)
+        return "Copyright © EDM Council. All rights reserved."
 
     def _create_dialect_instance(self):
         """Create dialect instance from config or default to auto-detection."""

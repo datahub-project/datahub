@@ -5,7 +5,8 @@ FIBO RDF Dialect implementation.
 This dialect handles OWL-based formal ontologies used in financial domain modeling.
 """
 
-from typing import Optional
+import re
+from typing import Any, Dict, Optional
 
 from rdflib import RDF, RDFS, Graph, URIRef
 from rdflib.namespace import OWL, SKOS
@@ -153,7 +154,12 @@ class FIBODialect(RDFDialectInterface):
 
         return False
 
-    def extract_custom_properties(self, graph: Graph, uri: URIRef) -> dict:
+    def extract_custom_properties(
+        self,
+        graph: Graph,
+        uri: URIRef,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> dict:
         """
         Extract FIBO-specific custom properties from a URI.
 
@@ -164,6 +170,10 @@ class FIBODialect(RDFDialectInterface):
         - skos:example, skos:changeNote
         - owl:versionInfo
         - fibo:termIRI (full term IRI - critical for reverse export)
+        - fibo:maturityLevel (Release/Provisional/Informative - for LLM stability context)
+        - fibo:deprecated (when owl:deprecated is true - for LLM usage guidance)
+        - fibo:module (top-level module from IRI, e.g. FBC, FND - for LLM domain context)
+        - fibo:copyright (ontology-level copyright on every term; also set on term groups by the pipeline)
 
         Note: rdfs:isDefinedBy only provides the ontology URI, not the full term IRI.
         The full term IRI is stored as fibo:termIRI for reverse export purposes.
@@ -235,7 +245,98 @@ class FIBODialect(RDFDialectInterface):
         # rdfs:isDefinedBy only gives the ontology URI, not the full term IRI
         properties["fibo:termIRI"] = str(uri)
 
+        # --- LLM-oriented FIBO extras ---
+
+        # Maturity level (Release / Provisional / Informative) - helps LLMs judge term stability
+        maturity = self._extract_maturity_level(graph, uri, CMNS_AV, URIRefType)
+        if maturity:
+            properties["fibo:maturityLevel"] = maturity
+
+        # owl:deprecated - signal that the term should not be used for new modeling
+        if self._is_owl_deprecated(graph, uri):
+            properties["fibo:deprecated"] = "true"
+
+        # Top-level module from IRI (e.g. FBC, FND, BE, MD) - helps LLMs know domain
+        module = self._parse_fibo_module_from_iri(str(uri))
+        if module:
+            properties["fibo:module"] = module
+
+        # Copyright on every term (from context when set by converter, else from graph)
+        copyright_str = (context or {}).get(
+            "fibo_copyright"
+        ) or self._extract_ontology_copyright(graph)
+        if copyright_str:
+            properties["fibo:copyright"] = copyright_str
+
         return properties
+
+    def _extract_maturity_level(
+        self, graph: Graph, uri: URIRef, cmns_av: str, uriref_type: type
+    ) -> Optional[str]:
+        """
+        Extract FIBO maturity level as a short name (Release, Provisional, Informative).
+
+        Helps LLMs understand term stability: Release = stable, Provisional = in progress,
+        Informative = deprecated but kept for reference.
+        """
+        predicate = uriref_type(f"{cmns_av}hasMaturityLevel")
+        for obj in graph.objects(uri, predicate):
+            if obj:
+                s = str(obj)
+                # Use fragment or last path segment (e.g. .../Provisional -> Provisional)
+                if "#" in s:
+                    return s.split("#")[-1]
+                return s.split("/")[-1] if "/" in s else s
+        return None
+
+    def _is_owl_deprecated(self, graph: Graph, uri: URIRef) -> bool:
+        """Return True if owl:deprecated is set to true (literal or boolean)."""
+        from rdflib import Literal
+
+        for obj in graph.objects(uri, OWL.deprecated):
+            if isinstance(obj, Literal):
+                val = str(obj).lower()
+                if val in ("true", "1"):
+                    return True
+            # RDF/OWL sometimes uses typed literal
+            if obj is True:
+                return True
+        return False
+
+    def _extract_ontology_copyright(self, graph: Graph) -> Optional[str]:
+        """Extract all copyright/rights from ontology-level dcterms:rights or dc:rights; default EDM Council."""
+        from rdflib import URIRef
+        from rdflib.namespace import DCTERMS, OWL
+
+        DC = "http://purl.org/dc/elements/1.1/"
+        rights_predicates = [DCTERMS.rights, URIRef(DC + "rights")]
+        seen: set[str] = set()
+        parts: list[str] = []
+        for ontology in graph.subjects(RDF.type, OWL.Ontology):
+            for pred in rights_predicates:
+                for obj in graph.objects(ontology, pred):
+                    if obj:
+                        s = str(obj).strip()
+                        if s and s not in seen:
+                            seen.add(s)
+                            parts.append(s)
+        if parts:
+            return "\n".join(parts)
+        return "Copyright © EDM Council. All rights reserved."
+
+    def _parse_fibo_module_from_iri(self, iri: str) -> Optional[str]:
+        """
+        Parse top-level FIBO module from term IRI for LLM context.
+
+        EDM Council FIBO IRIs look like: .../fibo/ontology/<Module>/...
+        e.g. .../ontology/FBC/..., .../ontology/FND/..., .../ontology/BE/...
+        Returns the first segment after 'ontology/' (e.g. FBC, FND, BE, MD).
+        """
+        # Match /ontology/<Segment>/ or /ontology/<Segment>?
+        match = re.search(r"/ontology/([A-Za-z0-9_-]+)(?:/|$|\?)", iri)
+        if match:
+            return match.group(1)
+        return None
 
     def _has_label(self, graph: Graph, uri: URIRef) -> bool:
         """Check if a URI has a label."""

@@ -124,6 +124,9 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
             if scope_note:
                 custom_properties["skos:scopeNote"] = scope_note
 
+            # LLM-oriented properties: rdf:definition, types, hierarchy, provenance, SHACL, etc.
+            self._extract_llm_properties(graph, uri, custom_properties)
+
             # Generate DataHub URN
             term_urn = self.urn_generator.generate_glossary_term_urn(source_uri)
 
@@ -278,7 +281,7 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
         # Dialect is always provided by RDF source (or defaults to GenericDialect for tests)
         dialect = self._get_dialect(context)
         # Let dialect extract its own custom properties
-        return dialect.extract_custom_properties(graph, uri)
+        return dialect.extract_custom_properties(graph, uri, context)
 
     def _extract_shacl_constraints_description(  # noqa: C901
         self, graph: Graph, term_uri: URIRef
@@ -419,3 +422,216 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
             if isinstance(obj, Literal):
                 return str(obj)
         return None
+
+    # --- LLM-oriented properties: RDF definition, SHACL, types, hierarchy, provenance ---
+
+    _MAX_DEFINITION_TURTLE_CHARS = 50000
+
+    def _serialize_subgraph_to_turtle(
+        self,
+        graph: Graph,
+        uri: URIRef,
+        as_subject: bool,
+    ) -> Optional[str]:
+        """
+        Build a subgraph of triples where uri is subject (or object) and serialize to Turtle.
+
+        Copies namespace bindings from the source graph so output uses prefixes.
+        Returns None if the subgraph is empty. Truncates at _MAX_DEFINITION_TURTLE_CHARS.
+        """
+        from io import StringIO
+
+        if as_subject:
+            triples = list(graph.triples((uri, None, None)))
+        else:
+            triples = list(graph.triples((None, None, uri)))
+        if not triples:
+            return None
+
+        subgraph = Graph()
+        for prefix, ns in graph.namespaces():
+            subgraph.bind(prefix, ns)
+        for t in triples:
+            subgraph.add(t)
+
+        out = StringIO()
+        try:
+            subgraph.serialize(destination=out, format="turtle", encoding="utf-8")
+            s = out.getvalue()
+        except Exception as e:
+            logger.debug("Failed to serialize subgraph to Turtle: %s", e)
+            return None
+
+        if not s or not s.strip():
+            return None
+        if len(s) > self._MAX_DEFINITION_TURTLE_CHARS:
+            s = s[: self._MAX_DEFINITION_TURTLE_CHARS] + "\n# ... (truncated)"
+        return s
+
+    def _extract_rdf_definitions(
+        self, graph: Graph, uri: URIRef, custom_properties: Dict[str, Any]
+    ) -> None:
+        """Extract RDF definition triples (outgoing and incoming)."""
+        rdf_def = self._serialize_subgraph_to_turtle(graph, uri, as_subject=True)
+        if rdf_def:
+            custom_properties["rdf:definition"] = rdf_def
+
+        rdf_incoming = self._serialize_subgraph_to_turtle(graph, uri, as_subject=False)
+        if rdf_incoming:
+            custom_properties["rdf:definitionIncoming"] = rdf_incoming
+
+    def _extract_types_and_hierarchy(
+        self, graph: Graph, uri: URIRef, custom_properties: Dict[str, Any]
+    ) -> None:
+        """Extract RDF types and SKOS hierarchy (broader/narrower)."""
+        types = [str(o) for o in graph.objects(uri, RDF.type) if o]
+        if types:
+            custom_properties["rdf:types"] = ", ".join(types)
+
+        broader = [
+            str(o) for o in graph.objects(uri, SKOS.broader) if isinstance(o, URIRef)
+        ]
+        narrower = [
+            str(o) for o in graph.objects(uri, SKOS.narrower) if isinstance(o, URIRef)
+        ]
+        if broader:
+            custom_properties["skos:broaderIRIs"] = ", ".join(broader)
+        if narrower:
+            custom_properties["skos:narrowerIRIs"] = ", ".join(narrower)
+
+    def _extract_equivalence_mappings(
+        self, graph: Graph, uri: URIRef, custom_properties: Dict[str, Any]
+    ) -> None:
+        """Extract equivalence and mapping relationships."""
+        exact = [
+            str(o) for o in graph.objects(uri, SKOS.exactMatch) if isinstance(o, URIRef)
+        ]
+        close = [
+            str(o) for o in graph.objects(uri, SKOS.closeMatch) if isinstance(o, URIRef)
+        ]
+        equiv = [
+            str(o)
+            for o in graph.objects(uri, OWL.equivalentClass)
+            if isinstance(o, URIRef)
+        ]
+        same_as = [
+            str(o) for o in graph.objects(uri, OWL.sameAs) if isinstance(o, URIRef)
+        ]
+        sub_class = [
+            str(o) for o in graph.objects(uri, RDFS.subClassOf) if isinstance(o, URIRef)
+        ]
+
+        if exact:
+            custom_properties["skos:exactMatch"] = ", ".join(exact)
+        if close:
+            custom_properties["skos:closeMatch"] = ", ".join(close)
+        if equiv:
+            custom_properties["owl:equivalentClass"] = ", ".join(equiv)
+        if same_as:
+            custom_properties["owl:sameAs"] = ", ".join(same_as)
+        if sub_class:
+            custom_properties["rdfs:subClassOf"] = ", ".join(sub_class)
+
+    def _extract_ontology_reference(
+        self, graph: Graph, uri: URIRef, custom_properties: Dict[str, Any]
+    ) -> None:
+        """Extract ontology/vocabulary reference (isDefinedBy)."""
+        if (
+            "rdf:isDefinedBy" not in custom_properties
+            and "fibo:isDefinedBy" not in custom_properties
+        ):
+            defined_by = list(graph.objects(uri, RDFS.isDefinedBy))
+            if defined_by:
+                custom_properties["rdf:isDefinedBy"] = str(defined_by[0])
+
+    def _extract_provenance(
+        self, graph: Graph, uri: URIRef, custom_properties: Dict[str, Any]
+    ) -> None:
+        """Extract provenance information (source, version, created, modified)."""
+        parts = []
+        for obj in graph.objects(uri, DCTERMS.source):
+            if obj:
+                parts.append(f"source: {obj}")
+        for obj in graph.objects(uri, OWL.versionInfo):
+            if obj:
+                parts.append(f"version: {obj}")
+        for obj in graph.objects(uri, DCTERMS.created):
+            if obj:
+                parts.append(f"created: {obj}")
+        for obj in graph.objects(uri, DCTERMS.modified):
+            if obj:
+                parts.append(f"modified: {obj}")
+        if parts:
+            custom_properties["rdf:provenance"] = "; ".join(parts)
+
+    def _extract_owl_property_info(
+        self, graph: Graph, uri: URIRef, custom_properties: Dict[str, Any]
+    ) -> None:
+        """Extract OWL domain and range for OWL properties."""
+        is_property = (uri, RDF.type, OWL.ObjectProperty) in graph or (
+            uri,
+            RDF.type,
+            OWL.DatatypeProperty,
+        ) in graph
+        if not is_property:
+            return
+
+        domains = [
+            str(o) for o in graph.objects(uri, RDFS.domain) if isinstance(o, URIRef)
+        ]
+        ranges = [
+            str(o) for o in graph.objects(uri, RDFS.range) if isinstance(o, URIRef)
+        ]
+        if domains:
+            custom_properties["owl:domain"] = ", ".join(domains)
+        if ranges:
+            custom_properties["owl:range"] = ", ".join(ranges)
+
+    def _extract_shacl_definition(
+        self, graph: Graph, uri: URIRef, custom_properties: Dict[str, Any]
+    ) -> None:
+        """Extract raw SHACL definition when term is a PropertyShape."""
+        from rdflib import Namespace
+
+        SH = Namespace("http://www.w3.org/ns/shacl#")
+        if (uri, RDF.type, SH.PropertyShape) in graph:
+            shacl_turtle = self._serialize_subgraph_to_turtle(
+                graph, uri, as_subject=True
+            )
+            if shacl_turtle:
+                custom_properties["shacl:definition"] = shacl_turtle
+
+    def _extract_lexical_summary(
+        self, graph: Graph, uri: URIRef, custom_properties: Dict[str, Any]
+    ) -> None:
+        """Extract lexical summary for quick LLM scanning."""
+        name = self._extract_name(graph, uri) or ""
+        definition = self._extract_definition(graph, uri) or ""
+        alt = self._extract_alternative_labels(graph, uri)
+        scope = self._extract_scope_note(graph, uri) or ""
+
+        summary_parts = [f"Preferred label: {name}."]
+        if definition:
+            summary_parts.append(f"Definition: {definition}.")
+        if alt:
+            summary_parts.append(f"Alternative labels: {', '.join(alt)}.")
+        if scope:
+            summary_parts.append(f"Scope note: {scope}.")
+        custom_properties["rdf:lexicalSummary"] = " ".join(summary_parts)
+
+    def _extract_llm_properties(
+        self, graph: Graph, uri: URIRef, custom_properties: Dict[str, Any]
+    ) -> None:
+        """
+        Add properties that help an LLM reason about and use the term:
+        rdf:definition, rdf:types, hierarchy IRIs, equivalence/mapping, provenance,
+        raw SHACL when applicable, OWL domain/range for properties, lexical summary.
+        """
+        self._extract_rdf_definitions(graph, uri, custom_properties)
+        self._extract_types_and_hierarchy(graph, uri, custom_properties)
+        self._extract_equivalence_mappings(graph, uri, custom_properties)
+        self._extract_ontology_reference(graph, uri, custom_properties)
+        self._extract_provenance(graph, uri, custom_properties)
+        self._extract_owl_property_info(graph, uri, custom_properties)
+        self._extract_shacl_definition(graph, uri, custom_properties)
+        self._extract_lexical_summary(graph, uri, custom_properties)

@@ -159,13 +159,17 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
 
     @staticmethod
     def create_glossary_node_mcp(
-        node_urn: str, node_name: str, parent_urn: Optional[str] = None
+        node_urn: str,
+        node_name: str,
+        parent_urn: Optional[str] = None,
+        custom_properties: Optional[Dict[str, str]] = None,
     ) -> MetadataChangeProposalWrapper:
         """Create MCP for a glossary node."""
         node_info = GlossaryNodeInfoClass(
             name=node_name,
             definition=f"Glossary node: {node_name}",
             parentNode=parent_urn,
+            customProperties=custom_properties or {},
         )
 
         return MetadataChangeProposalWrapper(
@@ -201,6 +205,12 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
 
         mcps = []
         report = context.get("report") if context else None
+        datahub_graph = context.get("datahub_graph") if context else None
+        node_custom_properties: Optional[Dict[str, str]] = None
+        if datahub_graph and getattr(datahub_graph, "metadata", None):
+            fibo_copyright = datahub_graph.metadata.get("fibo_copyright")
+            if fibo_copyright:
+                node_custom_properties = {"fibo:copyright": fibo_copyright}
 
         # Track created glossary nodes to avoid duplicates
         created_nodes = {}  # node_urn -> node_name
@@ -217,7 +227,10 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
 
                 if node_urn not in created_nodes:
                     node_mcp = self.create_glossary_node_mcp(
-                        node_urn, node_name, parent_node_urn
+                        node_urn,
+                        node_name,
+                        parent_node_urn,
+                        custom_properties=node_custom_properties,
                     )
                     mcps.append(node_mcp)
                     created_nodes[node_urn] = node_name

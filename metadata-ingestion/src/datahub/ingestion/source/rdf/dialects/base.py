@@ -7,7 +7,7 @@ This module defines the common interface that all RDF dialects must implement.
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from rdflib import Graph, URIRef
 
@@ -98,13 +98,16 @@ class RDFDialectInterface(ABC):
         """
         pass
 
-    def extract_custom_properties(self, graph: Graph, uri: URIRef) -> dict:
+    def extract_custom_properties(
+        self, graph: Graph, uri: URIRef, context: Optional[Dict[str, Any]] = None
+    ) -> dict:
         """
         Extract dialect-specific custom properties from a URI.
 
         Args:
             graph: RDFLib Graph containing the URI
             uri: URIRef to extract properties from
+            context: Optional context (e.g. precomputed fibo_copyright for FIBO dialect)
 
         Returns:
             Dictionary of custom properties (empty dict by default)
