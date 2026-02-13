@@ -439,7 +439,7 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
         Copies namespace bindings from the source graph so output uses prefixes.
         Returns None if the subgraph is empty. Truncates at _MAX_DEFINITION_TURTLE_CHARS.
         """
-        from io import StringIO
+        from io import BytesIO
 
         if as_subject:
             triples = list(graph.triples((uri, None, None)))
@@ -454,10 +454,10 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
         for t in triples:
             subgraph.add(t)
 
-        out = StringIO()
+        out = BytesIO()
         try:
             subgraph.serialize(destination=out, format="turtle", encoding="utf-8")
-            s = out.getvalue()
+            s = out.getvalue().decode("utf-8")
         except Exception as e:
             logger.debug("Failed to serialize subgraph to Turtle: %s", e)
             return None
