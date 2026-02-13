@@ -80,6 +80,16 @@ GRANT SELECT ON ALL_MVIEWS TO datahub_user;
 GRANT SELECT ON DBA_MVIEWS TO datahub_user;
 ```
 
+**Query Usage from V$SQL (optional)**
+
+For extracting real query usage patterns, enable `include_query_usage: true` and grant:
+
+```sql
+GRANT SELECT ON V_$SQL TO datahub_user;
+-- OR
+GRANT SELECT_CATALOG_ROLE TO datahub_user;
+```
+
 **Database Name Resolution**
 
 ```sql
