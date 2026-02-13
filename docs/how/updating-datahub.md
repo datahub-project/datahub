@@ -37,6 +37,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - Spark integration upgraded from 3.0.3 to 3.3.4 (minimum version required for Java 17 support)
   - Hadoop upgraded from 2.7.2 to 3.3.6 (addresses Hadoop CVEs, bundled with Spark 3.3+)
   - Note: If you're a self-hosted user still running Java 11, you must upgrade to Java 17 before deploying this release. Spark lineage users must upgrade to Spark 3.3.0+.
+- (Frontend) CustomHttpClientFactory now restricts TLS to 1.2 and 1.3 only when using a custom truststore; TLS 1.0 and 1.1 are disabled for security. If the frontend uses a custom truststore to reach GMS or an IdP that only supports TLS 1.0/1.1, those connections will fail until the server is upgraded to support at least TLS 1.2.
 
 ### Known Issues
 
