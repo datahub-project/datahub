@@ -1,7 +1,8 @@
-"""Bot observability metrics for Slack and Teams integrations.
+"""Bot and plugin observability metrics.
 
 This module provides instrumentation for bot command execution, external API calls,
-and OAuth flows with low-cardinality labels for Prometheus compatibility.
+OAuth flows, and external MCP plugin operations with low-cardinality labels
+for Prometheus compatibility.
 """
 
 import time
@@ -11,6 +12,8 @@ from typing import Optional
 from opentelemetry import metrics
 
 from datahub_integrations.observability.metrics_constants import (
+    AI_PLUGIN_OAUTH_DURATION,
+    AI_PLUGIN_OAUTH_TOTAL,
     BOT_DATAHUB_QUERY_DURATION,
     BOT_DATAHUB_QUERY_TOTAL,
     BOT_OAUTH_DURATION,
@@ -19,9 +22,13 @@ from datahub_integrations.observability.metrics_constants import (
     BOT_SLACK_API_TOTAL,
     BOT_TEAMS_API_DURATION,
     BOT_TEAMS_API_TOTAL,
+    EXTERNAL_MCP_PLUGIN_DISCOVERY_DURATION,
+    EXTERNAL_MCP_PLUGIN_DISCOVERY_TOTAL,
     LABEL_API_METHOD,
     LABEL_OAUTH_FLOW,
+    LABEL_OAUTH_STEP,
     LABEL_PLATFORM,
+    LABEL_PLUGIN_NAME,
     LABEL_QUERY_TYPE,
     LABEL_STATUS,
 )
@@ -194,6 +201,90 @@ def record_oauth_flow(
     }
     _oauth_duration.record(duration_seconds, attributes=labels)
     _oauth_counter.add(1, attributes=labels)
+
+
+# External MCP plugin discovery metrics
+_plugin_discovery_duration = _meter.create_histogram(
+    name=EXTERNAL_MCP_PLUGIN_DISCOVERY_DURATION,
+    description="Duration of external MCP plugin tool discovery",
+    unit="s",
+)
+
+_plugin_discovery_counter = _meter.create_counter(
+    name=EXTERNAL_MCP_PLUGIN_DISCOVERY_TOTAL,
+    description="Total external MCP plugin discovery attempts",
+    unit="discoveries",
+)
+
+
+def record_plugin_discovery(
+    plugin_name: str,
+    duration_seconds: float,
+    success: bool,
+) -> None:
+    """Record external MCP plugin discovery metrics.
+
+    Args:
+        plugin_name: Human-readable name of the plugin being discovered.
+        duration_seconds: Discovery duration in seconds.
+        success: Whether the discovery succeeded.
+    """
+    labels = {
+        LABEL_PLUGIN_NAME: plugin_name,
+        LABEL_STATUS: "success" if success else "error",
+    }
+    _plugin_discovery_duration.record(duration_seconds, attributes=labels)
+    _plugin_discovery_counter.add(1, attributes=labels)
+
+
+# AI plugin OAuth flow metrics (user connecting credentials to external services)
+# Separate from bot OAuth metrics (bot_oauth_*) which track bot installation flows.
+
+
+class AiPluginOAuthStep(str, Enum):
+    """Steps in the AI plugin OAuth flow."""
+
+    CONNECT = "connect"
+    CALLBACK = "callback"
+    REFRESH = "refresh"
+
+
+_ai_plugin_oauth_duration = _meter.create_histogram(
+    name=AI_PLUGIN_OAUTH_DURATION,
+    description="Duration of AI plugin OAuth flows (user credential connections)",
+    unit="s",
+)
+
+_ai_plugin_oauth_counter = _meter.create_counter(
+    name=AI_PLUGIN_OAUTH_TOTAL,
+    description="Total AI plugin OAuth flow attempts",
+    unit="flows",
+)
+
+
+def record_ai_plugin_oauth_flow(
+    *,
+    step: AiPluginOAuthStep,
+    duration_seconds: float,
+    success: bool,
+) -> None:
+    """Record AI plugin OAuth flow metrics.
+
+    Tracks user-initiated OAuth flows for connecting credentials to external
+    services (MCP servers). Separate from bot OAuth metrics which track
+    Slack/Teams bot installation flows.
+
+    Args:
+        step: Which step of the OAuth flow (connect, callback, refresh).
+        duration_seconds: Flow duration in seconds.
+        success: Whether the flow step succeeded.
+    """
+    labels = {
+        LABEL_OAUTH_STEP: step.value,
+        LABEL_STATUS: "success" if success else "error",
+    }
+    _ai_plugin_oauth_duration.record(duration_seconds, attributes=labels)
+    _ai_plugin_oauth_counter.add(1, attributes=labels)
 
 
 class datahub_query_tracker:

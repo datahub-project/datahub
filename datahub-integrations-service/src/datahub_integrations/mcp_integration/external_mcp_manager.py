@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
+import time
 from typing import Callable, Dict, List, Optional, Set
 
 import asyncer
@@ -37,6 +38,11 @@ from datahub_integrations.mcp_integration.ai_plugin_loader import (
 from datahub_integrations.oauth.credential_store import (
     DataHubConnectionCredentialStore,
     TokenRefreshError,
+)
+from datahub_integrations.observability.bot_metrics import (
+    AiPluginOAuthStep,
+    record_ai_plugin_oauth_flow,
+    record_plugin_discovery,
 )
 
 # HTTP status codes that indicate credential failures during EXECUTION (should disconnect)
@@ -436,11 +442,21 @@ class ExternalMCPManager:
                 )
 
             # Let TokenRefreshError propagate - it will be handled as an auth error
-            # and trigger the plugin disable flow
+            # and trigger the plugin disable flow.
+            # The on_refresh callback records metrics only when an actual token
+            # refresh occurs (not on every get_access_token call).
+            def _on_token_refresh(duration_seconds: float, success: bool) -> None:
+                record_ai_plugin_oauth_flow(
+                    step=AiPluginOAuthStep.REFRESH,
+                    duration_seconds=duration_seconds,
+                    success=success,
+                )
+
             access_token = self._credential_store.get_access_token(
                 user_urn=self._user_urn,
                 plugin_id=plugin.id,
                 oauth_server_urn=plugin.oauth_config.server_urn,
+                on_refresh=_on_token_refresh,
             )
             headers["Authorization"] = f"Bearer {access_token}"
 
@@ -626,13 +642,29 @@ class ExternalMCPManager:
 
         for plugin in self._plugins:
             tool_prefix = prefixes[plugin.id]
+            start_time = time.perf_counter()
             try:
                 tools = await self._discover_tools(plugin, tool_prefix)
                 all_tools.extend(tools)
+                record_plugin_discovery(
+                    plugin_name=plugin.display_name,
+                    duration_seconds=time.perf_counter() - start_time,
+                    success=True,
+                )
             except PluginConnectionError:
+                record_plugin_discovery(
+                    plugin_name=plugin.display_name,
+                    duration_seconds=time.perf_counter() - start_time,
+                    success=False,
+                )
                 # Auth error - re-raise to trigger disable flow
                 raise
             except Exception as e:
+                record_plugin_discovery(
+                    plugin_name=plugin.display_name,
+                    duration_seconds=time.perf_counter() - start_time,
+                    success=False,
+                )
                 # Non-auth error (transient) - log warning with stack trace and skip
                 logger.bind(
                     plugin_id=plugin.id,

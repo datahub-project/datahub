@@ -170,3 +170,8 @@ class ChatbotToolCallEvent(BaseEvent):
     tool_result_length: Optional[int] = None
     tool_result_is_error: bool = False
     tool_error: Optional[str] = None
+
+    # External plugin context (populated for external MCP plugin tools)
+    is_external: bool = False
+    plugin_id: Optional[str] = None
+    plugin_name: Optional[str] = None

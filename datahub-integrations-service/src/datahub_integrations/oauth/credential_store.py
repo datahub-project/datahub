@@ -25,7 +25,7 @@ import json
 import threading
 import time
 from dataclasses import dataclass
-from typing import Dict, Optional, Protocol
+from typing import Callable, Dict, Optional, Protocol
 
 import httpx
 from datahub.ingestion.graph.client import DataHubGraph
@@ -615,6 +615,7 @@ mutation UpsertConnection($id: String!, $platformUrn: String!, $blob: String!, $
         user_urn: str,
         plugin_id: str,
         oauth_server_urn: str,
+        on_refresh: Optional[Callable[[float, bool], None]] = None,
     ) -> str:
         """
         Get a valid access token, refreshing if needed.
@@ -626,6 +627,10 @@ mutation UpsertConnection($id: String!, $platformUrn: String!, $blob: String!, $
             user_urn: The URN of the user.
             plugin_id: The ID of the AI plugin.
             oauth_server_urn: The URN of the OAuth server for refresh.
+            on_refresh: Optional callback invoked only when a token refresh
+                actually occurs. Called with (duration_seconds, success).
+                Callers can use this for metrics without coupling the store
+                to a specific observability system.
 
         Returns:
             A valid access token.
@@ -667,9 +672,18 @@ mutation UpsertConnection($id: String!, $platformUrn: String!, $blob: String!, $
                     f"Token expired but no refresh token available for {user_urn}/{plugin_id}"
                 )
 
-            new_tokens = self._refresh_oauth_token(
-                tokens.refresh_token, oauth_server_urn
-            )
+            refresh_start = time.perf_counter()
+            try:
+                new_tokens = self._refresh_oauth_token(
+                    tokens.refresh_token, oauth_server_urn
+                )
+            except Exception:
+                if on_refresh:
+                    on_refresh(time.perf_counter() - refresh_start, False)
+                raise
+            else:
+                if on_refresh:
+                    on_refresh(time.perf_counter() - refresh_start, True)
 
             # Save the new tokens
             self.save_oauth_tokens(user_urn, plugin_id, new_tokens)

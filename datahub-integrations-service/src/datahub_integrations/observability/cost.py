@@ -33,6 +33,7 @@ from datahub_integrations.observability.metrics_constants import (
     GENAI_USER_MESSAGE_DURATION,
     GENAI_USER_MESSAGES_TOTAL,
     LABEL_AI_MODULE,
+    LABEL_IS_EXTERNAL,
     LABEL_MODEL,
     LABEL_PLATFORM,
     LABEL_PROVIDER,
@@ -602,9 +603,11 @@ class CostTrackerProtocol(Protocol):
 
     def record_tool_call(
         self,
+        *,
         ai_module: AIModule,
         tool: str,
         success: bool = True,
+        is_external: bool = False,
     ) -> None:
         """Record a tool invocation by the LLM (Tier 3)."""
         ...
@@ -632,10 +635,12 @@ class CostTrackerProtocol(Protocol):
 
     def record_tool_call_latency(
         self,
+        *,
         duration_seconds: float,
         ai_module: AIModule,
         tool: str,
         success: bool = True,
+        is_external: bool = False,
     ) -> None:
         """Record latency for a tool invocation (Tier 3)."""
         ...
@@ -800,9 +805,11 @@ class CostTracker:
 
     def record_tool_call(
         self,
+        *,
         ai_module: AIModule,
         tool: str,
         success: bool = True,
+        is_external: bool = False,
     ) -> None:
         """Record a tool invocation by the LLM (Tier 3).
 
@@ -813,11 +820,13 @@ class CostTracker:
             ai_module: AI module invoking the tool.
             tool: Name of the tool being called.
             success: Whether the tool call succeeded.
+            is_external: Whether this tool belongs to an external MCP plugin.
         """
         labels = {
             LABEL_AI_MODULE: ai_module.value,
             LABEL_TOOL: tool,
             LABEL_STATUS: "success" if success else "error",
+            LABEL_IS_EXTERNAL: str(is_external).lower(),
         }
         self._tool_call_counter.add(1, attributes=labels)
 
@@ -875,10 +884,12 @@ class CostTracker:
 
     def record_tool_call_latency(
         self,
+        *,
         duration_seconds: float,
         ai_module: AIModule,
         tool: str,
         success: bool = True,
+        is_external: bool = False,
     ) -> None:
         """Record latency for a tool invocation (Tier 3).
 
@@ -889,11 +900,13 @@ class CostTracker:
             ai_module: AI module invoking the tool.
             tool: Name of the tool that was called.
             success: Whether the tool call succeeded.
+            is_external: Whether this tool belongs to an external MCP plugin.
         """
         labels = {
             LABEL_AI_MODULE: ai_module.value,
             LABEL_TOOL: tool,
             LABEL_STATUS: "success" if success else "error",
+            LABEL_IS_EXTERNAL: str(is_external).lower(),
         }
         self._tool_call_duration.record(duration_seconds, attributes=labels)
 

@@ -17,23 +17,27 @@ Two separate but connected features:
 
 ## Implementation Tasks
 
-| ID                    | Task                                                                        | Status  |
-| --------------------- | --------------------------------------------------------------------------- | ------- |
-| redis-infra           | Add Redis to Helm chart and Docker Compose                                  | pending |
-| pdl-oauth-auth-server | Create OAuthAuthorizationServer entity (key + properties PDL)               | pending |
-| pdl-ai-plugin         | Create AIPlugin entity (key + aiPluginProperties + mcpServerProperties PDL) | pending |
-| entity-registry       | Register OAuthAuthorizationServer and AIPlugin in entity-registry.yml       | pending |
-| oauth-endpoints       | Implement OAuth endpoints for auth server entities                          | pending |
-| oauth-state-storage   | Implement secure server-side OAuth state storage (Redis)                    | pending |
-| credential-storage    | Implement credential storage using DataHubConnection                        | pending |
-| token-refresh         | Implement token refresh with distributed locks (Redis)                      | pending |
-| mcp-manager           | Update ExternalMCPManager to load AIPlugin entities from OpenSearch         | pending |
-| chat-integration      | Integrate external MCP tools into chat session                              | pending |
-| graphql-auth-servers  | Add GraphQL API for OAuthAuthorizationServer entities                       | pending |
-| graphql-ai-plugins    | Add GraphQL API for AIPlugin entities                                       | pending |
-| admin-ui-auth-servers | Build admin UI for OAuth auth server configuration                          | pending |
-| admin-ui-ai-plugins   | Build admin UI for AI plugin configuration                                  | pending |
-| user-ui-connections   | Build user UI for auth server connections                                   | pending |
+| ID                    | Task                                                                      | Status   | Phase |
+| --------------------- | ------------------------------------------------------------------------- | -------- | ----- |
+| pdl-oauth-auth-server | Create OAuthAuthorizationServer entity (key + properties PDL)             | complete | 1     |
+| pdl-ai-plugin         | Create Service entity (key + serviceProperties + mcpServerProperties PDL) | complete | 1     |
+| entity-registry       | Register OAuthAuthorizationServer and Service in entity-registry.yml      | complete | 1     |
+| graphql-auth-servers  | Add GraphQL API for OAuthAuthorizationServer entities                     | complete | 1     |
+| graphql-ai-plugins    | Add GraphQL API for Service entities and AI plugin config                 | complete | 1     |
+| admin-ui-auth-servers | Build admin UI for OAuth auth server configuration                        | complete | 1     |
+| admin-ui-ai-plugins   | Build admin UI for AI plugin configuration                                | complete | 1     |
+| oauth-endpoints       | Implement OAuth endpoints for auth server entities                        | complete | 2     |
+| oauth-state-storage   | Implement secure server-side OAuth state storage (in-memory TTLCache)     | complete | 2     |
+| credential-storage    | Implement credential storage using DataHubConnection                      | complete | 2     |
+| user-ui-connections   | Build user UI for auth server connections                                 | complete | 2     |
+| token-refresh         | Implement on-demand token refresh with thread-safe locking                | complete | 3     |
+| mcp-manager           | Update ExternalMCPManager to load from GlobalSettings + CorpUserSettings  | complete | 3     |
+| chat-integration      | Integrate external MCP tools into chat session                            | complete | 3     |
+| test-coverage         | Improve test coverage (token refresh, OAuth errors, resolvers, deletes)   | pending  | 4     |
+| operational-metrics   | MCP tool call metrics, OAuth flow metrics, latency logging                | pending  | 4     |
+| test-connectivity     | Admin "Test Connection" flow to validate MCP server config                | pending  | 4     |
+| cascading-deletes     | Proper cascading delete via deletion hook or GC (not in resolvers)        | pending  | 4     |
+| dcr                   | Dynamic Client Registration (RFC 7591) for providers like Glean           | pending  | 4     |
 
 ## Architecture
 
@@ -1163,7 +1167,9 @@ Implementation is split into phases with clear PR boundaries for review and team
 
 See [Object Model Document](./ai-plugins-object-model.md) for detailed entity definitions.
 
-### Phase 1: Entity Model + Admin UI (No OAuth)
+### Phase 1: Entity Model + Admin UI (No OAuth) ✅
+
+**Status:** Complete. Merged.
 
 **Goal:** Establish the foundational data model and admin management UI.
 
@@ -1250,7 +1256,9 @@ Delete MCP Server → Remove from GlobalSettings + Delete Service entity
 
 ---
 
-### Phase 2: OAuth Flow + User Credentials
+### Phase 2: OAuth Flow + User Credentials ✅
+
+**Status:** Complete. Merged.
 
 **Goal:** Enable users to connect to auth servers via OAuth or API key.
 
@@ -1261,12 +1269,12 @@ Delete MCP Server → Remove from GlobalSettings + Delete Service entity
 - OAuth endpoints (start flow, callback, api-key, status, disconnect)
 - DataHubConnection creation for user credentials
 - User-facing "Provider Connections" UI
-- **OAuth Dynamic Client Registration (RFC 7591)** - Required for providers like Glean
 
 **Deferred to future (not Phase 2):**
 
 - Redis infrastructure (Helm + Docker Compose) - singleton deployment uses in-memory
 - Redis-based state storage - only needed for multi-instance deployments
+- Dynamic Client Registration (RFC 7591) - moved to Phase 4
 
 **Dynamic Client Registration (DCR):**
 
@@ -1305,19 +1313,23 @@ Response:
 
 ---
 
-### Phase 3: Token Refresh + MCP Integration
+### Phase 3: Token Refresh + MCP Integration ✅
+
+**Status:** Complete. Merged.
 
 **Goal:** Make AI plugins functional with user credentials.
 
 **Scope:**
 
 - CorpUserSettings.aiPluginSettings for user overrides
-- Token refresh logic (on-demand + background)
-- Distributed locks for refresh
+- Token refresh logic (on-demand with 5-min buffer, thread-safe locking)
+- AiPluginLoader with two-level enablement (global + user)
 - Update ExternalMCPManager to load from GlobalSettings.aiPluginSettings.plugins
 - Load Service entity for connection details
-- Auth injection into MCP client
-- Chat session integration
+- Auth injection into MCP client (OAuth, API key, shared key)
+- Chat session integration with PluginConnectionError handling and auto-disable
+- Plugin instructions forwarded to planner and main agent LLMs
+- Per-user custom headers
 
 **Depends on:** Phase 2 merged
 
@@ -1325,24 +1337,70 @@ Response:
 
 ### Phase 4: Polish + Production Readiness
 
-**Goal:** Production hardening and UX improvements.
+**Goal:** Production hardening, operational visibility, and remaining feature gaps.
+
+**Depends on:** Phase 3 merged
 
 **Scope:**
 
-- Error handling and user feedback
-- Connection status indicators
-- Scope merging UI
-- Test connection functionality
-- Monitoring and logging
-- Documentation
+#### 4.1 Improve Test Coverage
 
-**Depends on:** Phase 3 merged
+| Area                         | What to test                                                                                                                                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Access token refresh         | Concurrent refresh contention, expired refresh token handling, provider returning rotated refresh token, token refresh with 5-min buffer edge cases                                                                             |
+| OAuth error handling         | Expired state on callback, invalid/revoked token, provider error during token exchange, malformed provider responses, user cancels OAuth popup                                                                                  |
+| GraphQL resolver smoke tests | End-to-end lifecycle in Cypress: create service with each auth type, edit changing auth type, delete, verify GlobalSettings stays consistent. Expand existing `ai_plugins.js` (currently `describe.skip`)                       |
+| Cascading delete tests       | Verify that deleting a Service cleans up: AiPluginConfig from GlobalSettings, shared API key credentials, user plugin settings referencing it. Verify deleting an OAuthAuthorizationServer cleans up services that reference it |
+
+#### 4.2 Improve Operational Metrics
+
+| Metric                        | Details                                                                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| MCP tool call success/failure | Emit metric on each tool execution with: plugin ID, tool name, status (success/failure), status code, error message (if failed) |
+| MCP tool call latency         | Duration of each tool call, broken down by plugin ID and tool name                                                              |
+| OAuth flow success/failure    | Emit metric on each OAuth flow completion: plugin ID, auth type, outcome (success/failure/cancelled), failure reason            |
+| Token refresh events          | Emit metric on refresh attempts: plugin ID, outcome (success/failure), whether it was on-demand or background                   |
+
+#### 4.3 Test Connectivity Flow for Admins
+
+Admin "Test Connection" button in the plugin create/edit modal that:
+
+- Pings the MCP server URL with the configured transport and auth
+- Attempts tool discovery (list tools) to validate the server is a valid MCP endpoint
+- Reports success (with tool count) or failure (with error details) back to the admin
+- Available before saving, so admins can validate config before sharing with users
+
+#### 4.4 Cascading Deletes (Architecture Rework)
+
+**Current state:** `DeleteServiceResolver` manually removes the AiPluginConfig from GlobalSettings, but leaves orphaned credentials and doesn't handle all deletion paths (e.g., entity deleted via REST API, timeseries cleanup, etc.).
+
+**Approach:** Don't do cleanup in the delete resolver. Instead:
+
+| Task                                | Description                                                                                                                                                                                                                                                                         |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Add `@Relationship` annotations     | Add relationship edges in the PDL/GraphQL so references between entities are tracked (e.g., AiPluginConfig → Service, AiPluginConfig → OAuthAuthorizationServer, shared credential → Service)                                                                                       |
+| Add searchable reference fields     | Make reference URN fields searchable so we can quickly query "which plugins reference this auth server?" or "which users have settings for this plugin?"                                                                                                                            |
+| Implement deletion hook or GC       | Either a `ServiceDeletionHook` (like `MonitorDeletionHook`) that fires on entity deletion and cleans up referencing entities/settings, or a datahub-gc job that periodically finds and cleans orphaned references. Hook is more immediate; GC is more resilient to partial failures |
+| Remove cleanup logic from resolvers | Once hook/GC is in place, remove the manual GlobalSettings cleanup from `DeleteServiceResolver` and `DeleteAiPluginResolver`                                                                                                                                                        |
+
+#### 4.5 Dynamic Client Registration (RFC 7591)
+
+Some OAuth providers (notably Glean) require Dynamic Client Registration rather than manual Client ID/Secret configuration. Instead of the admin entering credentials, DataHub registers itself with the provider.
+
+| Task                             | Description                                                                                                                                                                                                                             |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend: DCR endpoint            | Implement `POST /oauth/register` flow - send registration request to the provider's `registrationUrl` with DataHub's callback URL, store returned `client_id`/`client_secret` as DataHubSecrets, update OAuthAuthorizationServer entity |
+| PDL: registration fields         | `registrationUrl` and `initialAccessTokenUrn` fields already exist in `OAuthAuthorizationServerProperties` - wire them up                                                                                                               |
+| Admin UI: "Auto-register" button | In the OAuth server form, when `registrationUrl` is provided, show an "Auto-register" button instead of manual client ID/secret fields. Button triggers registration, shows success/failure, and populates credentials automatically    |
+| Error handling                   | Handle registration failures gracefully (provider rejects, network error, invalid initial access token), surface clear error messages to admin                                                                                          |
+
+**Design decision (already made):** Admin-time registration, not runtime. OAuth always has credentials available when users connect. Admin sees registration failures immediately.
 
 ---
 
 ## Future Enhancements
 
-Potential improvements documented during Phase 1 development. Not planned for immediate implementation.
+Potential improvements documented during development. Not planned for immediate implementation.
 
 ### Platform Instance Support for OAuth Servers
 
@@ -1413,6 +1471,30 @@ The Teams integration uses a "Cloud Router" pattern where Acryl maintains a sing
 - (-) Some providers limit OAuth app usage
 
 **Decision:** Deferred. Current customer-managed approach works for both SaaS and self-hosted. Revisit if there's demand for zero-config SaaS OAuth.
+
+### Redis Infrastructure
+
+Add Redis to Helm chart and Docker Compose as required dependency when integrations service is enabled. Enables distributed state storage (OAuth state, token refresh locks) for multi-instance deployments. Current in-memory approach works for singleton deployment.
+
+### ToolDefinition Entity
+
+Model individual tools exposed by AI plugins as a separate entity: `urn:li:toolDefinition:(<serviceUrn>,<toolName>)`. Enables granular tool governance, discoverability, and per-tool metrics. Not needed until tool-level access control is required.
+
+### Per-User Tool Opt-Out (`disabledTools`)
+
+The `allowedTools` field exists in `UserAiPluginConfig` PDL but is not exposed in the UI. When implemented, rename to `disabledTools` (default = all tools available, users opt out of specific ones). Requires ToolDefinition entity for tool enumeration.
+
+### Scope Merging UI
+
+When a user clicks "Connect" for a USER_OAUTH plugin, show a confirmation screen listing the effective OAuth scopes before redirecting to the provider. Effective scopes = auth server base scopes + plugin-specific `requiredScopes`. Gives users visibility into what permissions they're granting.
+
+### Connection Status Indicators
+
+Show real-time connection health in admin and user UIs (e.g., whether the MCP server is reachable, last successful tool call timestamp, error rate).
+
+### User-Facing Documentation
+
+Admin guide for configuring AI plugins, user guide for connecting to plugins, supported auth types reference.
 
 ---
 
@@ -1637,11 +1719,11 @@ _None currently._
 
 #### Remaining Work
 
-| Task                             | Status   | Notes                                                            |
-| -------------------------------- | -------- | ---------------------------------------------------------------- |
-| Frontend Provider Connections UI | complete | React components for user OAuth/API key management               |
-| End-to-end testing               | complete | Tested OAuth flow with GitHub OAuth provider                     |
-| Build verification               | pending  | Verify generated Java classes compile (requires ./gradlew build) |
+| Task                             | Status   | Notes                                              |
+| -------------------------------- | -------- | -------------------------------------------------- |
+| Frontend Provider Connections UI | complete | React components for user OAuth/API key management |
+| End-to-end testing               | complete | Tested OAuth flow with GitHub OAuth provider       |
+| Build verification               | complete | Merged and running                                 |
 
 ---
 
@@ -1728,11 +1810,11 @@ _None currently._
 
 #### Remaining Work
 
-| Task                | Status  | Notes                                       |
-| ------------------- | ------- | ------------------------------------------- |
-| Build verification  | pending | Run ./gradlew build to verify compilation   |
-| Linting             | pending | Run lintFix to verify code style            |
-| Integration testing | pending | Test end-to-end flow with a real MCP server |
+| Task                | Status   | Notes              |
+| ------------------- | -------- | ------------------ |
+| Build verification  | complete | Merged and running |
+| Linting             | complete | Merged and running |
+| Integration testing | complete | Merged and running |
 
 #### Open Questions
 
@@ -1747,3 +1829,13 @@ _None currently._
 ### Phase 4 Log
 
 _Not started._
+
+#### Remaining Work
+
+| Task                             | Status  | Notes                                                                                |
+| -------------------------------- | ------- | ------------------------------------------------------------------------------------ |
+| 4.1 Improve test coverage        | pending | Token refresh, OAuth errors, resolver smoke tests, cascading delete tests            |
+| 4.2 Improve operational metrics  | pending | MCP tool call success/failure/latency, OAuth flow metrics, token refresh metrics     |
+| 4.3 Test connectivity for admins | pending | "Test Connection" button: ping MCP server, list tools, report success/failure        |
+| 4.4 Cascading deletes rework     | pending | Deletion hook or GC, `@Relationship` annotations, searchable reference fields        |
+| 4.5 Dynamic Client Registration  | pending | RFC 7591 for Glean etc., admin-time registration, auto-register button in OAuth form |

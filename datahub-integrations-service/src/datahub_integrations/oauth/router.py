@@ -109,6 +109,10 @@ from datahub_integrations.oauth.state_store import (
     generate_code_challenge,
     generate_code_verifier,
 )
+from datahub_integrations.observability.bot_metrics import (
+    AiPluginOAuthStep,
+    record_ai_plugin_oauth_flow,
+)
 
 # Create routers for OAuth endpoints:
 # - authenticated_router: endpoints that require JWT authentication (connect, api-key, disconnect)
@@ -967,54 +971,68 @@ async def initiate_oauth_connect(
         ConnectResponse with the authorization URL.
     """
 
-    # Get plugin configuration
-    plugin_config = get_plugin_config(plugin_id)
+    start_time = time.perf_counter()
+    try:
+        # Get plugin configuration
+        plugin_config = get_plugin_config(plugin_id)
 
-    if plugin_config.get("authType") != "USER_OAUTH":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Plugin {plugin_id} does not use OAuth authentication",
+        if plugin_config.get("authType") != "USER_OAUTH":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Plugin {plugin_id} does not use OAuth authentication",
+            )
+
+        oauth_config = plugin_config.get("oauthConfig")
+        if not oauth_config or not oauth_config.get("serverUrn"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Plugin {plugin_id} is not properly configured for OAuth",
+            )
+
+        # Get OAuth server configuration
+        server_config = get_oauth_server_config(oauth_config["serverUrn"])
+
+        # Generate PKCE code verifier and challenge
+        code_verifier = generate_code_verifier()
+        code_challenge = generate_code_challenge(code_verifier)
+
+        # Build the callback URL server-side for security and consistency
+        # This URL must be pre-registered with the OAuth provider
+        redirect_uri = build_oauth_callback_url(plugin_id)
+
+        # Build the base authorization URL
+        base_auth_url = build_authorization_url(
+            server_config=server_config,
+            redirect_uri=redirect_uri,
+            code_challenge=code_challenge,
+            additional_scopes=oauth_config.get("requiredScopes"),
         )
 
-    oauth_config = plugin_config.get("oauthConfig")
-    if not oauth_config or not oauth_config.get("serverUrn"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Plugin {plugin_id} is not properly configured for OAuth",
+        # Create and store state (including auth token for callback API calls)
+        result = state_store.create_state(
+            user_urn=user_urn,
+            plugin_id=plugin_id,
+            redirect_uri=redirect_uri,
+            authorization_url=base_auth_url,
+            code_verifier=code_verifier,
+            auth_token=auth_token,
         )
 
-    # Get OAuth server configuration
-    server_config = get_oauth_server_config(oauth_config["serverUrn"])
+        logger.info(f"Initiated OAuth flow for user {user_urn} and plugin {plugin_id}")
 
-    # Generate PKCE code verifier and challenge
-    code_verifier = generate_code_verifier()
-    code_challenge = generate_code_challenge(code_verifier)
-
-    # Build the callback URL server-side for security and consistency
-    # This URL must be pre-registered with the OAuth provider
-    redirect_uri = build_oauth_callback_url(plugin_id)
-
-    # Build the base authorization URL
-    base_auth_url = build_authorization_url(
-        server_config=server_config,
-        redirect_uri=redirect_uri,
-        code_challenge=code_challenge,
-        additional_scopes=oauth_config.get("requiredScopes"),
-    )
-
-    # Create and store state (including auth token for callback API calls)
-    result = state_store.create_state(
-        user_urn=user_urn,
-        plugin_id=plugin_id,
-        redirect_uri=redirect_uri,
-        authorization_url=base_auth_url,
-        code_verifier=code_verifier,
-        auth_token=auth_token,
-    )
-
-    logger.info(f"Initiated OAuth flow for user {user_urn} and plugin {plugin_id}")
-
-    return ConnectResponse(authorization_url=result.authorization_url)
+        record_ai_plugin_oauth_flow(
+            step=AiPluginOAuthStep.CONNECT,
+            duration_seconds=time.perf_counter() - start_time,
+            success=True,
+        )
+        return ConnectResponse(authorization_url=result.authorization_url)
+    except Exception:
+        record_ai_plugin_oauth_flow(
+            step=AiPluginOAuthStep.CONNECT,
+            duration_seconds=time.perf_counter() - start_time,
+            success=False,
+        )
+        raise
 
 
 @callback_router.get("/callback")
@@ -1064,9 +1082,16 @@ async def handle_oauth_callback_unified(
     Returns:
         HTML page for popup window communication.
     """
+    start_time = time.perf_counter()
+
     # Handle OAuth errors (plugin_id unknown at this point)
     if error:
         logger.warning(f"OAuth error: {error} - {error_description}")
+        record_ai_plugin_oauth_flow(
+            step=AiPluginOAuthStep.CALLBACK,
+            duration_seconds=time.perf_counter() - start_time,
+            success=False,
+        )
         return _create_popup_response(
             success=False,
             plugin_id="unknown",
@@ -1078,6 +1103,11 @@ async def handle_oauth_callback_unified(
 
     if not oauth_state:
         logger.warning(f"Invalid or expired OAuth state: {state}")
+        record_ai_plugin_oauth_flow(
+            step=AiPluginOAuthStep.CALLBACK,
+            duration_seconds=time.perf_counter() - start_time,
+            success=False,
+        )
         return _create_popup_response(
             success=False,
             plugin_id="unknown",
@@ -1128,6 +1158,11 @@ async def handle_oauth_callback_unified(
             f"OAuth flow completed for user {oauth_state.user_urn} and plugin {plugin_id}"
         )
 
+        record_ai_plugin_oauth_flow(
+            step=AiPluginOAuthStep.CALLBACK,
+            duration_seconds=time.perf_counter() - start_time,
+            success=True,
+        )
         return _create_popup_response(
             success=True,
             plugin_id=plugin_id,
@@ -1136,6 +1171,11 @@ async def handle_oauth_callback_unified(
 
     except HTTPException as e:
         logger.error(f"OAuth callback failed for plugin {plugin_id}: {e.detail}")
+        record_ai_plugin_oauth_flow(
+            step=AiPluginOAuthStep.CALLBACK,
+            duration_seconds=time.perf_counter() - start_time,
+            success=False,
+        )
         return _create_popup_response(
             success=False,
             plugin_id=plugin_id,
@@ -1144,6 +1184,11 @@ async def handle_oauth_callback_unified(
     except Exception as e:
         logger.exception(
             f"Unexpected error in OAuth callback for plugin {plugin_id}: {e}"
+        )
+        record_ai_plugin_oauth_flow(
+            step=AiPluginOAuthStep.CALLBACK,
+            duration_seconds=time.perf_counter() - start_time,
+            success=False,
         )
         return _create_popup_response(
             success=False,

@@ -60,6 +60,7 @@ from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.llm.utils import is_verbose_llm_logging_enabled
 from datahub_integrations.mcp.mcp_server import with_datahub_client
 from datahub_integrations.mcp_integration.external_mcp_manager import (
+    ExternalToolWrapper,
     PluginConnectionError,
 )
 from datahub_integrations.mcp_integration.tool import Tool
@@ -877,6 +878,10 @@ class AgentRunner:
         # Calculate duration after execution (timer context has exited)
         duration_seconds = timer.elapsed_seconds()
 
+        # Determine if this is an external plugin tool
+        resolved_tool = self.tool_map.get(tool_name)
+        is_external = isinstance(resolved_tool, ExternalToolWrapper)
+
         # Create message with timing information
         if error is not None:
             msg: Union[ToolResult, ToolResultError] = ToolResultError(
@@ -887,7 +892,17 @@ class AgentRunner:
             self._add_message(history, msg)
             tracker = get_cost_tracker()
             tracker.record_tool_call(
-                ai_module=self.config.ai_module, tool=tool_name, success=False
+                ai_module=self.config.ai_module,
+                tool=tool_name,
+                success=False,
+                is_external=is_external,
+            )
+            tracker.record_tool_call_latency(
+                duration_seconds=duration_seconds,
+                ai_module=self.config.ai_module,
+                tool=tool_name,
+                success=False,
+                is_external=is_external,
             )
         else:
             # result is guaranteed non-None here: tool.run() returns str|dict,
@@ -902,7 +917,17 @@ class AgentRunner:
             # Track successful tool call (Tier 3)
             tracker = get_cost_tracker()
             tracker.record_tool_call(
-                ai_module=self.config.ai_module, tool=tool_name, success=True
+                ai_module=self.config.ai_module,
+                tool=tool_name,
+                success=True,
+                is_external=is_external,
+            )
+            tracker.record_tool_call_latency(
+                duration_seconds=duration_seconds,
+                ai_module=self.config.ai_module,
+                tool=tool_name,
+                success=True,
+                is_external=is_external,
             )
 
         tool_result = ToolExecutionResult(
@@ -927,6 +952,17 @@ class AgentRunner:
                 tool_error=(
                     tool_result.message.error
                     if isinstance(tool_result.message, ToolResultError)
+                    else None
+                ),
+                is_external=is_external,
+                plugin_id=(
+                    resolved_tool.plugin_id
+                    if isinstance(resolved_tool, ExternalToolWrapper)
+                    else None
+                ),
+                plugin_name=(
+                    resolved_tool.plugin_name
+                    if isinstance(resolved_tool, ExternalToolWrapper)
                     else None
                 ),
             )

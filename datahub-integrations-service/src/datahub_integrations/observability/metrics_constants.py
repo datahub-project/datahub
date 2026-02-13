@@ -72,12 +72,27 @@ LABEL_AI_MODULE = "ai_module"
 LABEL_STATUS = "status"
 LABEL_TOKEN_TYPE = "token_type"
 LABEL_TOOL = "tool"  # For tool call tracking
+LABEL_IS_EXTERNAL = "is_external"  # Whether tool call is to an external MCP plugin
 
 # Token types
 TOKEN_TYPE_PROMPT = "prompt"
 TOKEN_TYPE_COMPLETION = "completion"
 TOKEN_TYPE_CACHE_READ = "cache_read"
 TOKEN_TYPE_CACHE_WRITE = "cache_write"
+
+# === External MCP Plugin Metrics ===
+
+# Plugin discovery metrics (per-plugin tool listing from external MCP servers)
+EXTERNAL_MCP_PLUGIN_DISCOVERY_TOTAL = "external_mcp_plugin_discovery_total"
+EXTERNAL_MCP_PLUGIN_DISCOVERY_DURATION = (
+    "external_mcp_plugin_discovery_duration_seconds"
+)
+LABEL_PLUGIN_NAME = "plugin_name"  # Human-readable plugin name
+
+# AI plugin OAuth flow metrics (user connecting credentials to external services)
+AI_PLUGIN_OAUTH_TOTAL = "ai_plugin_oauth_total"
+AI_PLUGIN_OAUTH_DURATION = "ai_plugin_oauth_duration_seconds"
+LABEL_OAUTH_STEP = "step"  # connect, callback, refresh
 
 # === HTTP Metrics ===
 

@@ -5,6 +5,7 @@ import time
 from typing import Union
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
@@ -1610,3 +1611,462 @@ class TestOAuthCallbackLegacy:
         body_str = _get_response_body_str(response)
         assert "Connection Failed" in body_str
         assert "unexpected error" in body_str.lower()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for initiate_oauth_connect endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestInitiateOAuthConnect:
+    """Test initiate_oauth_connect endpoint."""
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router.build_authorization_url")
+    @patch("datahub_integrations.oauth.router.build_oauth_callback_url")
+    @patch("datahub_integrations.oauth.router.get_oauth_server_config")
+    @patch("datahub_integrations.oauth.router.get_plugin_config")
+    async def test_successful_oauth_connect(
+        self,
+        mock_get_plugin: MagicMock,
+        mock_get_server: MagicMock,
+        mock_build_callback: MagicMock,
+        mock_build_auth_url: MagicMock,
+    ) -> None:
+        """Test successful OAuth connect returns authorization URL."""
+        from datahub_integrations.oauth.router import initiate_oauth_connect
+
+        mock_get_plugin.return_value = {
+            "authType": "USER_OAUTH",
+            "oauthConfig": {"serverUrn": "urn:li:oauthServer:github"},
+        }
+        mock_get_server.return_value = {
+            "clientId": "client-123",
+            "authorizationUrl": "https://github.com/login/oauth/authorize",
+        }
+        mock_build_callback.return_value = (
+            "https://datahub.example.com/integrations/oauth/callback"
+        )
+        mock_build_auth_url.return_value = (
+            "https://github.com/login/oauth/authorize?client_id=client-123"
+        )
+
+        mock_state_store = MagicMock()
+        mock_state_store.create_state.return_value = MagicMock(
+            authorization_url="https://github.com/login/oauth/authorize?client_id=client-123&state=nonce123"
+        )
+
+        response = await initiate_oauth_connect(
+            plugin_id="urn:li:service:github",
+            user_urn="urn:li:corpuser:testuser",
+            auth_token="jwt-token",
+            state_store=mock_state_store,
+        )
+
+        assert response.authorization_url is not None
+        mock_state_store.create_state.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router.get_plugin_config")
+    async def test_rejects_non_oauth_plugin(self, mock_get_plugin: MagicMock) -> None:
+        """Test rejects connect for non-OAuth plugins."""
+        from datahub_integrations.oauth.router import initiate_oauth_connect
+
+        mock_get_plugin.return_value = {"authType": "USER_API_KEY"}
+        mock_state_store = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await initiate_oauth_connect(
+                plugin_id="urn:li:service:api-plugin",
+                user_urn="urn:li:corpuser:testuser",
+                auth_token="jwt-token",
+                state_store=mock_state_store,
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "does not use OAuth" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router.get_plugin_config")
+    async def test_rejects_oauth_plugin_without_config(
+        self, mock_get_plugin: MagicMock
+    ) -> None:
+        """Test rejects connect when OAuth config is missing."""
+        from datahub_integrations.oauth.router import initiate_oauth_connect
+
+        mock_get_plugin.return_value = {
+            "authType": "USER_OAUTH",
+            "oauthConfig": None,
+        }
+        mock_state_store = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await initiate_oauth_connect(
+                plugin_id="urn:li:service:broken",
+                user_urn="urn:li:corpuser:testuser",
+                auth_token="jwt-token",
+                state_store=mock_state_store,
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "not properly configured" in str(exc_info.value.detail)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for save_api_key endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestSaveApiKey:
+    """Test save_api_key endpoint."""
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router._update_user_plugin_settings")
+    @patch("datahub_integrations.oauth.router.get_plugin_config")
+    async def test_successful_api_key_save(
+        self,
+        mock_get_plugin: MagicMock,
+        mock_update_settings: MagicMock,
+    ) -> None:
+        """Test successful API key save."""
+        from datahub_integrations.oauth.router import ApiKeyRequest, save_api_key
+
+        mock_get_plugin.return_value = {"authType": "USER_API_KEY"}
+        mock_update_settings.return_value = None
+
+        mock_credential_store = MagicMock()
+        mock_credential_store.save_api_key.return_value = (
+            "urn:li:dataHubConnection:test"
+        )
+
+        response = await save_api_key(
+            plugin_id="urn:li:service:api-plugin",
+            body=ApiKeyRequest(api_key="my-secret-key"),
+            user_urn="urn:li:corpuser:testuser",
+            auth_token="jwt-token",
+            credential_store=mock_credential_store,
+        )
+
+        assert response.success is True
+        assert response.connection_urn == "urn:li:dataHubConnection:test"
+        mock_credential_store.save_api_key.assert_called_once_with(
+            user_urn="urn:li:corpuser:testuser",
+            plugin_id="urn:li:service:api-plugin",
+            api_key="my-secret-key",
+        )
+        mock_update_settings.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router.get_plugin_config")
+    async def test_rejects_non_api_key_plugin(self, mock_get_plugin: MagicMock) -> None:
+        """Test rejects API key save for non-API-key plugins."""
+        from datahub_integrations.oauth.router import ApiKeyRequest, save_api_key
+
+        mock_get_plugin.return_value = {"authType": "USER_OAUTH"}
+        mock_credential_store = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await save_api_key(
+                plugin_id="urn:li:service:oauth-plugin",
+                body=ApiKeyRequest(api_key="my-key"),
+                user_urn="urn:li:corpuser:testuser",
+                auth_token="jwt-token",
+                credential_store=mock_credential_store,
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "does not use API key" in str(exc_info.value.detail)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for disconnect_plugin endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestDisconnectPlugin:
+    """Test disconnect_plugin endpoint."""
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router._remove_user_plugin_connection")
+    async def test_successful_disconnect(
+        self, mock_remove_connection: MagicMock
+    ) -> None:
+        """Test successful plugin disconnect."""
+        from datahub_integrations.oauth.router import disconnect_plugin
+
+        mock_remove_connection.return_value = None
+        mock_credential_store = MagicMock()
+        mock_credential_store.delete_credentials.return_value = True
+
+        response = await disconnect_plugin(
+            plugin_id="urn:li:service:github",
+            user_urn="urn:li:corpuser:testuser",
+            auth_token="jwt-token",
+            credential_store=mock_credential_store,
+        )
+
+        assert response.success is True
+        mock_credential_store.delete_credentials.assert_called_once_with(
+            user_urn="urn:li:corpuser:testuser",
+            plugin_id="urn:li:service:github",
+        )
+        mock_remove_connection.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router._remove_user_plugin_connection")
+    async def test_disconnect_when_no_credentials_exist(
+        self, mock_remove_connection: MagicMock
+    ) -> None:
+        """Test disconnect succeeds even when no credentials exist."""
+        from datahub_integrations.oauth.router import disconnect_plugin
+
+        mock_remove_connection.return_value = None
+        mock_credential_store = MagicMock()
+        mock_credential_store.delete_credentials.return_value = (
+            False  # Nothing to delete
+        )
+
+        response = await disconnect_plugin(
+            plugin_id="urn:li:service:already-disconnected",
+            user_urn="urn:li:corpuser:testuser",
+            auth_token="jwt-token",
+            credential_store=mock_credential_store,
+        )
+
+        assert response.success is True
+        # Should still try to clean up user settings
+        mock_remove_connection.assert_called_once()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for _update_user_plugin_settings helper
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestUpdateUserPluginSettings:
+    """Test _update_user_plugin_settings helper."""
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router._execute_graphql_as_user")
+    async def test_oauth_connection_sets_correct_mutation_input(
+        self, mock_execute: MagicMock
+    ) -> None:
+        """Test OAuth connection builds correct GraphQL mutation input."""
+        from datahub_integrations.oauth.router import _update_user_plugin_settings
+
+        mock_execute.return_value = {"updateUserAiPluginSettings": True}
+
+        await _update_user_plugin_settings(
+            user_urn="urn:li:corpuser:testuser",
+            plugin_id="urn:li:service:github",
+            connection_urn="urn:li:dataHubConnection:test",
+            is_oauth=True,
+            auth_token="jwt-token",
+        )
+
+        call_kwargs = mock_execute.call_args.kwargs
+        variables = call_kwargs["variables"]
+        assert variables["input"]["pluginId"] == "urn:li:service:github"
+        assert (
+            variables["input"]["oauthConnectionUrn"] == "urn:li:dataHubConnection:test"
+        )
+        assert variables["input"]["enabled"] is True
+        assert "apiKey" not in variables["input"]
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router._execute_graphql_as_user")
+    async def test_api_key_connection_sets_correct_mutation_input(
+        self, mock_execute: MagicMock
+    ) -> None:
+        """Test API key connection builds correct GraphQL mutation input."""
+        from datahub_integrations.oauth.router import _update_user_plugin_settings
+
+        mock_execute.return_value = {"updateUserAiPluginSettings": True}
+
+        await _update_user_plugin_settings(
+            user_urn="urn:li:corpuser:testuser",
+            plugin_id="urn:li:service:api-plugin",
+            connection_urn="urn:li:dataHubConnection:test",
+            is_oauth=False,
+            auth_token="jwt-token",
+        )
+
+        call_kwargs = mock_execute.call_args.kwargs
+        variables = call_kwargs["variables"]
+        assert variables["input"]["pluginId"] == "urn:li:service:api-plugin"
+        assert variables["input"]["apiKey"] == "connected"
+        assert variables["input"]["enabled"] is True
+        assert "oauthConnectionUrn" not in variables["input"]
+
+    @pytest.mark.asyncio
+    async def test_raises_on_missing_auth_token(self) -> None:
+        """Test raises ValueError when auth_token is missing."""
+        from datahub_integrations.oauth.router import _update_user_plugin_settings
+
+        with pytest.raises(ValueError, match="auth_token is required"):
+            await _update_user_plugin_settings(
+                user_urn="urn:li:corpuser:testuser",
+                plugin_id="urn:li:service:github",
+                connection_urn="urn:li:dataHubConnection:test",
+                is_oauth=True,
+                auth_token="",
+            )
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router._execute_graphql_as_user")
+    async def test_raises_on_mutation_returning_false(
+        self, mock_execute: MagicMock
+    ) -> None:
+        """Test raises Exception when mutation returns False."""
+        from datahub_integrations.oauth.router import _update_user_plugin_settings
+
+        mock_execute.return_value = {"updateUserAiPluginSettings": False}
+
+        with pytest.raises(Exception, match="returned False"):
+            await _update_user_plugin_settings(
+                user_urn="urn:li:corpuser:testuser",
+                plugin_id="urn:li:service:github",
+                connection_urn="urn:li:dataHubConnection:test",
+                is_oauth=True,
+                auth_token="jwt-token",
+            )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for _remove_user_plugin_connection helper
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestRemoveUserPluginConnection:
+    """Test _remove_user_plugin_connection helper."""
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router._execute_graphql_as_user")
+    async def test_oauth_disconnect_sets_disconnect_flag(
+        self, mock_execute: MagicMock
+    ) -> None:
+        """Test OAuth disconnect sends disconnectOAuth=True."""
+        from datahub_integrations.oauth.router import _remove_user_plugin_connection
+
+        mock_execute.return_value = {"updateUserAiPluginSettings": True}
+
+        await _remove_user_plugin_connection(
+            user_urn="urn:li:corpuser:testuser",
+            plugin_id="urn:li:service:github",
+            is_oauth=True,
+            auth_token="jwt-token",
+        )
+
+        call_kwargs = mock_execute.call_args.kwargs
+        variables = call_kwargs["variables"]
+        assert variables["input"]["disconnectOAuth"] is True
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router._execute_graphql_as_user")
+    async def test_api_key_disconnect_sends_empty_api_key(
+        self, mock_execute: MagicMock
+    ) -> None:
+        """Test API key disconnect sends empty apiKey string."""
+        from datahub_integrations.oauth.router import _remove_user_plugin_connection
+
+        mock_execute.return_value = {"updateUserAiPluginSettings": True}
+
+        await _remove_user_plugin_connection(
+            user_urn="urn:li:corpuser:testuser",
+            plugin_id="urn:li:service:api-plugin",
+            is_oauth=False,
+            auth_token="jwt-token",
+        )
+
+        call_kwargs = mock_execute.call_args.kwargs
+        variables = call_kwargs["variables"]
+        assert variables["input"]["apiKey"] == ""
+
+    @pytest.mark.asyncio
+    async def test_raises_on_missing_auth_token(self) -> None:
+        """Test raises ValueError when auth_token is missing."""
+        from datahub_integrations.oauth.router import _remove_user_plugin_connection
+
+        with pytest.raises(ValueError, match="auth_token is required"):
+            await _remove_user_plugin_connection(
+                user_urn="urn:li:corpuser:testuser",
+                plugin_id="urn:li:service:github",
+                auth_token="",
+            )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for _execute_graphql_as_user helper
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestExecuteGraphqlAsUser:
+    """Test _execute_graphql_as_user helper."""
+
+    @patch("datahub_integrations.oauth.router.graph")
+    def test_sends_request_with_user_token(self, mock_graph: MagicMock) -> None:
+        """Test sends GraphQL request with user's auth token."""
+        from datahub_integrations.oauth.router import _execute_graphql_as_user
+
+        mock_graph._gms_server = "http://gms:8080"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": {"result": True}}
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("httpx.post", return_value=mock_response) as mock_post:
+            result = _execute_graphql_as_user(
+                auth_token="user-jwt-token",
+                query="mutation { doThing }",
+                variables={"input": {"key": "value"}},
+            )
+
+        assert result == {"result": True}
+        call_kwargs = mock_post.call_args
+        assert call_kwargs.kwargs["headers"]["Authorization"] == "Bearer user-jwt-token"
+        assert call_kwargs.kwargs["json"]["query"] == "mutation { doThing }"
+        assert call_kwargs.kwargs["json"]["variables"] == {"input": {"key": "value"}}
+
+    @patch("datahub_integrations.oauth.router.graph")
+    def test_raises_on_graphql_errors(self, mock_graph: MagicMock) -> None:
+        """Test raises Exception on GraphQL errors in response."""
+        from datahub_integrations.oauth.router import _execute_graphql_as_user
+
+        mock_graph._gms_server = "http://gms:8080"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "errors": [{"message": "Unauthorized"}],
+            "data": None,
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("httpx.post", return_value=mock_response):
+            with pytest.raises(Exception, match="GraphQL errors"):
+                _execute_graphql_as_user(
+                    auth_token="user-jwt-token",
+                    query="mutation { doThing }",
+                )
+
+    @patch("datahub_integrations.oauth.router.graph")
+    def test_raises_on_http_error(self, mock_graph: MagicMock) -> None:
+        """Test raises on HTTP error status."""
+        from datahub_integrations.oauth.router import _execute_graphql_as_user
+
+        mock_graph._gms_server = "http://gms:8080"
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Server Error",
+            request=MagicMock(),
+            response=MagicMock(status_code=500),
+        )
+
+        with patch("httpx.post", return_value=mock_response):
+            with pytest.raises(httpx.HTTPStatusError):
+                _execute_graphql_as_user(
+                    auth_token="user-jwt-token",
+                    query="mutation { doThing }",
+                )
