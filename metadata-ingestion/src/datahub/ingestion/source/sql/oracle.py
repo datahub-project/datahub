@@ -228,6 +228,10 @@ PROFILE_CANDIDATES_QUERY = """
     AND COALESCE(t.NUM_ROWS * t.AVG_ROW_LEN, 0) / (1024 * 1024 * 1024) < :table_size_limit
 """
 
+DB_NAME_QUERY = """
+    SELECT sys_context('USERENV','DB_NAME') FROM dual
+"""
+
 
 def _setup_oracle_compatibility() -> None:
     """
@@ -399,7 +403,7 @@ class OracleInspectorObjectWrapper:
         db_name = None
         try:
             db_name = self._inspector_instance.bind.execute(
-                sql.text("select sys_context('USERENV','DB_NAME') from dual")
+                sql.text(DB_NAME_QUERY)
             ).scalar()
             return str(db_name)
         except sqlalchemy.exc.DatabaseError as e:
@@ -1104,13 +1108,38 @@ class OracleSource(SQLAlchemySource):
         In that case, it tries to retrieve the database name by sending a query to the DB.
 
         Note: This is used as a fallback if database is not specified in the config.
+        Returns a normalized (lowercased) database name for consistency with schema/table names.
         """
 
         # call default implementation first
         db_name = super().get_db_name(inspector)
 
-        if db_name == "" and isinstance(inspector, OracleInspectorObjectWrapper):
-            db_name = inspector.get_db_name()
+        if db_name == "":
+            # Query Oracle for database name when using service_name
+            if isinstance(inspector, OracleInspectorObjectWrapper):
+                # Use the wrapper's method when using DBA mode
+                db_name = inspector.get_db_name()
+            else:
+                # For ALL mode (regular inspector), query directly
+                try:
+                    db_name_result = inspector.bind.execute(
+                        sql.text(DB_NAME_QUERY)
+                    ).scalar()
+                    if db_name_result:
+                        db_name = str(db_name_result)
+                except sqlalchemy.exc.DatabaseError as e:
+                    logger.warning(
+                        f"Error fetching database name using sys_context: {e}",
+                        exc_info=True,
+                    )
+
+            # Normalize database name to match Oracle dialect behavior
+            # Oracle returns names in uppercase, but SQLAlchemy's normalize_name
+            # converts them to lowercase for consistency with schema/table names
+            if db_name:
+                normalized = inspector.dialect.normalize_name(db_name)
+                if normalized:
+                    db_name = normalized
 
         return db_name
 
