@@ -743,14 +743,20 @@ def _table_level_lineage(
         - modified
     )
 
-    # Filter out CTE references. After qualify_tables(), CTE references like
-    # "FROM my_cte" may gain default schema/db (e.g., db_schema='default'),
-    # so we match by table name only.
+    # Filter out CTE references. qualify_tables() leaves CTE refs unqualified
+    # (db=None, schema=None) while qualifying real tables, so we only filter
+    # unqualified name matches.
     cte_names = {
         cte.alias_or_name.lower() for cte in statement.find_all(sqlglot.exp.CTE)
     }
     if cte_names:
-        tables = {t for t in tables if t.table.lower() not in cte_names}
+        tables = {
+            t
+            for t in tables
+            if t.table.lower() not in cte_names
+            or t.database is not None
+            or t.db_schema is not None
+        }
     # TODO: If a CTAS has "LIMIT 0", it's not really lineage, just copying the schema.
 
     # TSQL-specific: Remove aliases from input tables to avoid phantom dependencies.
