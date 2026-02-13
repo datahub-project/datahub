@@ -441,6 +441,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
+    resolutionStrategy.force externalDependency.gson // Gson before 2.8.9: deserialization DoS; single version across all configs
     resolutionStrategy.force 'org.apache.mina:mina-core:2.2.4'
     resolutionStrategy.force 'org.mozilla:rhino:1.7.12'
     resolutionStrategy.force 'commons-beanutils:commons-beanutils:1.11.0'
