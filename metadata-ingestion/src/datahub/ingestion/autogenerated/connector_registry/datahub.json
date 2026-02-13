@@ -136,6 +136,43 @@
       "platform_name": "Azure AD",
       "support_status": "CERTIFIED"
     },
+    "azure-data-factory": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Data Factory"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Extracts lineage from Copy and Data Flow activities",
+          "subtype_modifier": [
+            "Copy Activity",
+            "Data Flow Activity"
+          ],
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.azure_data_factory.adf_source.AzureDataFactorySource",
+      "platform_id": "azure-data-factory",
+      "platform_name": "Azure Data Factory",
+      "support_status": "INCUBATING"
+    },
     "bigquery": {
       "capabilities": [
         {
