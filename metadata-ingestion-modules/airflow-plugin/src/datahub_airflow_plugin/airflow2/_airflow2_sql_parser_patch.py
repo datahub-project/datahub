@@ -31,7 +31,11 @@ except ImportError:
     PROVIDER_IMPORTS_AVAILABLE = False
 
 # DataHub imports (always available)
-from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
+    create_lineage_sql_parsed_result_from_statements,
+)
 from datahub_airflow_plugin._config import get_configured_env
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
@@ -46,6 +50,62 @@ logger = logging.getLogger(__name__)
 
 # Store the original SQLParser method for fallback
 _original_sql_parser_method: Optional[Callable[..., Any]] = None
+
+
+def _build_operator_lineage_from_result(
+    sql_parsing_result: "SqlParsingResult",
+    sql_text: str,
+    platform: str,
+    default_database: Optional[str],
+    ol_result: Optional[Any],
+) -> "OperatorLineage":
+    """Build OperatorLineage from a SqlParsingResult.
+
+    Handles both OL-enabled mode (attach DataHub result as facet to OL result)
+    and OL-disabled mode (convert DataHub URNs to OL Datasets directly).
+    """
+    if ol_result is not None:
+        logger.debug(
+            "Using OpenLineage parser result for OperatorLineage, "
+            "adding DataHub parsing to run_facets"
+        )
+        updated_run_facets = dict(ol_result.run_facets or {})
+        updated_run_facets[DATAHUB_SQL_PARSING_RESULT_KEY] = sql_parsing_result
+
+        return OperatorLineage(  # type: ignore[misc]
+            inputs=ol_result.inputs,
+            outputs=ol_result.outputs,
+            job_facets=ol_result.job_facets,
+            run_facets=updated_run_facets,
+        )
+
+    logger.debug(
+        "OpenLineage plugin disabled or parser unavailable - "
+        "using DataHub parser result for OperatorLineage"
+    )
+
+    def _urn_to_ol_dataset(urn: str) -> "OpenLineageDataset":
+        """Convert DataHub URN to OpenLineage Dataset format."""
+        try:
+            parts = urn.split(",")
+            if len(parts) >= 2:
+                table_path = parts[1]
+                namespace = f"{platform}://{default_database or 'default'}"
+                return OpenLineageDataset(namespace=namespace, name=table_path)
+        except Exception as e:
+            logger.debug(f"Error converting URN {urn} to OL Dataset: {e}")
+
+        return OpenLineageDataset(namespace=f"{platform}://default", name=urn)
+
+    inputs = [_urn_to_ol_dataset(urn) for urn in sql_parsing_result.in_tables]
+    outputs = [_urn_to_ol_dataset(urn) for urn in sql_parsing_result.out_tables]
+
+    return OperatorLineage(  # type: ignore[misc]
+        inputs=inputs,
+        outputs=outputs,
+        job_facets={"sql": SqlJobFacet(query=sql_text)},
+        run_facets={DATAHUB_SQL_PARSING_RESULT_KEY: sql_parsing_result},
+    )
 
 
 def _datahub_generate_openlineage_metadata_from_sql(
@@ -145,15 +205,68 @@ def _datahub_generate_openlineage_metadata_from_sql(
         default_database = database or getattr(database_info, "database", None)
         default_schema = self.default_schema
 
-        # Handle list of SQL statements
-        if isinstance(sql, list):
-            logger.debug("Got list of SQL statements. Using first one for parsing.")
-            sql = sql[0] if sql else ""
-
         # Run DataHub's SQL parser
         listener = get_airflow_plugin_listener()
         graph = listener.graph if listener else None
         env = get_configured_env()
+
+        # Handle list of SQL statements
+        if isinstance(sql, list):
+            if len(sql) == 0:
+                sql = ""
+            elif len(sql) == 1:
+                sql = sql[0]
+            else:
+                # Multiple SQL statements: use multi-statement parser
+                # for temp table resolution and cross-statement lineage
+                logger.debug(
+                    "Got %d SQL statements. Using multi-statement parser for "
+                    "temp table resolution.",
+                    len(sql),
+                )
+
+                # Check for Jinja templates across all statements
+                for stmt in sql:
+                    if "{{" in str(stmt):
+                        logger.warning(
+                            "SQL still contains Jinja templates - lineage extraction may fail. "
+                            "SQL: %s... "
+                            "This usually means templates weren't rendered before SQL parsing.",
+                            str(stmt)[:200],
+                        )
+                        break
+
+                sql_parsing_result = create_lineage_sql_parsed_result_from_statements(
+                    queries=sql,
+                    graph=graph,
+                    platform=platform,
+                    platform_instance=None,
+                    env=env,
+                    default_db=default_database,
+                    default_schema=default_schema,
+                )
+
+                logger.debug(
+                    f"DataHub multi-statement SQL parser result: {sql_parsing_result}"
+                )
+
+                sql_text = ";\n".join(sql)
+                return _build_operator_lineage_from_result(
+                    sql_parsing_result=sql_parsing_result,
+                    sql_text=sql_text,
+                    platform=platform,
+                    default_database=default_database,
+                    ol_result=ol_result,
+                )
+
+        # Single SQL statement path
+        # Check if SQL still contains templates (should be rendered by operator)
+        if "{{" in str(sql):
+            logger.warning(
+                f"SQL still contains Jinja templates - lineage extraction may fail. "
+                f"SQL: {sql[:200]}... "
+                f"This usually means templates weren't rendered before SQL parsing."
+            )
 
         logger.debug(
             "Running DataHub SQL parser %s (platform=%s, default db=%s, schema=%s): %s",
@@ -176,70 +289,13 @@ def _datahub_generate_openlineage_metadata_from_sql(
 
         logger.debug(f"DataHub SQL parser result: {sql_parsing_result}")
 
-        # Store the sql_parsing_result in run_facets for later retrieval by the DataHub listener
-        # If OpenLineage plugin is enabled and we got a result from the original parser,
-        # use OpenLineage's result but add DataHub's parsing to the facets
-        if ol_result is not None:
-            logger.debug(
-                "Using OpenLineage parser result for OperatorLineage, "
-                "adding DataHub parsing to run_facets"
-            )
-            # Add DataHub's SQL parsing result to the existing run_facets
-            # OperatorLineage is frozen (uses @define), so we need to create a new dict
-            updated_run_facets = dict(ol_result.run_facets or {})
-            updated_run_facets[DATAHUB_SQL_PARSING_RESULT_KEY] = sql_parsing_result
-
-            # Create new OperatorLineage with OpenLineage's inputs/outputs but DataHub's facet
-            operator_lineage = OperatorLineage(  # type: ignore[misc]
-                inputs=ol_result.inputs,
-                outputs=ol_result.outputs,
-                job_facets=ol_result.job_facets,
-                run_facets=updated_run_facets,
-            )
-            return operator_lineage
-
-        # OpenLineage is disabled or original parser failed - use DataHub's parsing for everything
-        logger.debug(
-            "OpenLineage plugin disabled or parser unavailable - "
-            "using DataHub parser result for OperatorLineage"
+        return _build_operator_lineage_from_result(
+            sql_parsing_result=sql_parsing_result,
+            sql_text=sql,
+            platform=platform,
+            default_database=default_database,
+            ol_result=ol_result,
         )
-
-        # Convert DataHub URNs to OpenLineage Dataset objects
-        def _urn_to_ol_dataset(urn: str) -> "OpenLineageDataset":
-            """Convert DataHub URN to OpenLineage Dataset format."""
-            # Parse URN to extract database, schema, table
-            # URN format: urn:li:dataset:(urn:li:dataPlatform:{platform},{database}.{schema}.{table},{env})
-            try:
-                parts = urn.split(",")
-                if len(parts) >= 2:
-                    # Extract table path from URN
-                    table_path = parts[1]  # e.g., "database.schema.table"
-
-                    # Create OL namespace and name
-                    # For now, use platform as namespace and full path as name
-                    namespace = f"{platform}://{default_database or 'default'}"
-                    name = table_path
-
-                    return OpenLineageDataset(namespace=namespace, name=name)
-            except Exception as e:
-                logger.debug(f"Error converting URN {urn} to OL Dataset: {e}")
-
-            # Fallback: use URN as name
-            return OpenLineageDataset(namespace=f"{platform}://default", name=urn)
-
-        inputs = [_urn_to_ol_dataset(urn) for urn in sql_parsing_result.in_tables]
-        outputs = [_urn_to_ol_dataset(urn) for urn in sql_parsing_result.out_tables]
-
-        run_facets = {DATAHUB_SQL_PARSING_RESULT_KEY: sql_parsing_result}
-
-        # Create OperatorLineage with DataHub's results
-        operator_lineage = OperatorLineage(  # type: ignore[misc]
-            inputs=inputs,
-            outputs=outputs,
-            job_facets={"sql": SqlJobFacet(query=sql)},
-            run_facets=run_facets,
-        )
-        return operator_lineage
 
     except Exception as e:
         logger.warning(

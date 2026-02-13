@@ -4,6 +4,7 @@ import dataclasses
 import functools
 import logging
 import traceback
+import uuid
 from collections import defaultdict
 from typing import (
     AbstractSet,
@@ -53,6 +54,10 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
     SchemaResolverInterface,
+)
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    ObservedQuery,
+    SqlParsingAggregator,
 )
 from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_CASE_INSENSITIVE_COLS,
@@ -2221,6 +2226,218 @@ def create_lineage_sql_parsed_result(
             default_db=default_db,
             default_schema=default_schema,
             override_dialect=override_dialect,
+        )
+    except Exception as e:
+        return SqlParsingResult.make_from_error(e)
+    finally:
+        if needs_close:
+            schema_resolver.close()
+
+
+def _detect_dropped_urns(
+    queries: List[str],
+    dialect: sqlglot.Dialect,
+    default_db: Optional[str],
+    default_schema: Optional[str],
+    schema_resolver: SchemaResolverInterface,
+) -> Set[str]:
+    """Detect DROP TABLE/VIEW statements and return the set of dropped URNs."""
+    dropped_urns: Set[str] = set()
+    for raw_query in queries:
+        raw_query = raw_query.strip()
+        if not raw_query:
+            continue
+        try:
+            stmt = parse_statement(raw_query, dialect=dialect)
+            if isinstance(stmt, sqlglot.exp.Drop):
+                table_expr = stmt.this
+                if isinstance(table_expr, sqlglot.exp.Table) and table_expr.name:
+                    tname = _table_name_from_sqlglot_table(
+                        table_expr, dialect, default_db, default_schema
+                    )
+                    qualified_tname = tname.qualified(
+                        dialect=dialect,
+                        default_db=default_db,
+                        default_schema=default_schema,
+                    )
+                    urn = schema_resolver.get_urn_for_table(qualified_tname)
+                    dropped_urns.add(urn)
+        except Exception:
+            pass
+    return dropped_urns
+
+
+def _promote_non_dropped_temp_tables(
+    aggregator: "SqlParsingAggregator",
+    session_id: str,
+    dropped_urns: Set[str],
+) -> None:
+    """Promote non-dropped temp tables to real tables in the aggregator.
+
+    Temp tables that are created but NOT dropped are moved from _temp_lineage_map
+    to _lineage_map so they appear as real tables in the lineage output.
+    Also cleans up spurious _lineage_map entries created by DROP TABLE processing.
+    """
+    session_temps = aggregator._temp_lineage_map.get(session_id, {})
+    promoted_urns: Set[str] = set()
+
+    for temp_urn, query_ids in list(session_temps.items()):
+        if temp_urn not in dropped_urns:
+            for qid in query_ids:
+                aggregator._lineage_map.for_mutation(temp_urn, OrderedSet()).add(qid)
+            promoted_urns.add(temp_urn)
+
+    # Remove promoted tables from _temp_lineage_map so resolution
+    # does not resolve them away.
+    if promoted_urns:
+        remaining = {u: q for u, q in session_temps.items() if u not in promoted_urns}
+        if remaining:
+            aggregator._temp_lineage_map[session_id] = remaining
+        else:
+            del aggregator._temp_lineage_map[session_id]
+
+    # Clean up DROP-induced _lineage_map entries for dropped temp tables.
+    # When the aggregator processes DROP TABLE, it creates a spurious entry
+    # in _lineage_map with empty upstreams. Remove it for dropped temp tables.
+    for dropped_urn in dropped_urns:
+        if dropped_urn in session_temps and dropped_urn not in promoted_urns:
+            if dropped_urn in aggregator._lineage_map:
+                del aggregator._lineage_map[dropped_urn]
+
+
+def create_lineage_sql_parsed_result_from_statements(
+    queries: List[str],
+    default_db: Optional[str],
+    platform: str,
+    platform_instance: Optional[str],
+    env: str,
+    default_schema: Optional[str] = None,
+    graph: Optional[DataHubGraph] = None,
+    schema_aware: bool = True,
+) -> SqlParsingResult:
+    """Parse multiple SQL statements and return merged lineage with temp table handling.
+
+    Processes all statements sequentially with a shared session. Temp tables that
+    are created AND dropped within the statement set are resolved away. Temp tables
+    that are created but NOT dropped are promoted to real tables and remain visible
+    in the lineage as intermediate nodes.
+
+    This is the multi-statement counterpart to create_lineage_sql_parsed_result().
+    """
+
+    if not queries:
+        return SqlParsingResult.make_from_error(
+            ValueError("No SQL statements provided")
+        )
+
+    schema_resolver = create_schema_resolver(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        schema_aware=schema_aware,
+        graph=graph,
+    )
+
+    needs_close: bool = True
+    if graph and schema_aware:
+        needs_close = False
+
+    try:
+        aggregator = SqlParsingAggregator(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            schema_resolver=schema_resolver,
+            generate_lineage=True,
+            generate_queries=False,
+            generate_usage_statistics=False,
+            generate_operations=False,
+            generate_query_subject_fields=False,
+            generate_query_usage_statistics=False,
+        )
+
+        session_id = str(uuid.uuid4())
+
+        for query in queries:
+            query = query.strip()
+            if not query:
+                continue
+            aggregator.add_observed_query(
+                observed=ObservedQuery(
+                    query=query,
+                    default_db=default_db,
+                    default_schema=default_schema,
+                    session_id=session_id,
+                )
+            )
+
+        # Promote non-dropped temp tables to real tables.
+        # Temp tables that are created but NOT dropped should be visible in lineage,
+        # since they persist beyond the statement set and may be used by other tasks.
+        dialect = get_dialect(platform)
+        dropped_urns = _detect_dropped_urns(
+            queries, dialect, default_db, default_schema, schema_resolver
+        )
+        _promote_non_dropped_temp_tables(aggregator, session_id, dropped_urns)
+
+        # Extract resolved lineage directly from aggregator internals.
+        all_in_tables: List[str] = []
+        all_out_tables: List[str] = []
+        all_column_lineage: List[ColumnLineageInfo] = []
+        min_confidence = 1.0
+
+        for downstream_urn in aggregator._lineage_map:
+            all_out_tables.append(downstream_urn)
+            query_ids = aggregator._lineage_map[downstream_urn]
+
+            for query_id in query_ids:
+                query_meta = aggregator._query_map.get(query_id)
+                if query_meta is None:
+                    continue
+
+                resolved = aggregator._resolve_query_with_temp_tables(query_meta)
+
+                for upstream in resolved.upstreams:
+                    if upstream not in all_in_tables:
+                        all_in_tables.append(upstream)
+
+                min_confidence = min(min_confidence, resolved.confidence_score)
+
+                for cll in resolved.column_lineage:
+                    # Ensure downstream table is set
+                    if cll.downstream.table is None:
+                        cll = ColumnLineageInfo(
+                            downstream=DownstreamColumnRef(
+                                table=downstream_urn,
+                                column=cll.downstream.column,
+                                column_type=cll.downstream.column_type,
+                                native_column_type=cll.downstream.native_column_type,
+                            ),
+                            upstreams=cll.upstreams,
+                            logic=cll.logic,
+                        )
+                    all_column_lineage.append(cll)
+
+        aggregator.close()
+
+        if not all_in_tables and not all_out_tables:
+            return SqlParsingResult(
+                in_tables=[],
+                out_tables=[],
+                column_lineage=None,
+                debug_info=SqlParsingDebugInfo(
+                    confidence=0.0,
+                    error=None,
+                ),
+            )
+
+        return SqlParsingResult(
+            in_tables=all_in_tables,
+            out_tables=all_out_tables,
+            column_lineage=all_column_lineage if all_column_lineage else None,
+            debug_info=SqlParsingDebugInfo(
+                confidence=min_confidence,
+            ),
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
