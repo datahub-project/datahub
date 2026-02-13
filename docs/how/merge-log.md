@@ -3833,3 +3833,85 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **8653848a0b** - chore: add username for labeller (#16144)
   *by Dutt23 <29917752+Dutt23@users.noreply.github.com> on 2026-02-09*
+
+## Upstream Merge Session - 2026-02-12 06:28:53
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 23
+- **Strategy**: stacked
+- **Started**: 2026-02-12 06:28:53
+
+### Commits Included in This Merge
+
+- **30224683e3** - improvement(ui/ingestion): implement ui/ux feedback on the connection details page (#15999)
+  *by Purnima Garg <139125209+purnimagarg1@users.noreply.github.com> on 2026-02-10*
+
+- **15ca5ff3fa** - improvement(ui/ingestion): implement feedback on ingestion run details page (#16045)
+  *by Purnima Garg <139125209+purnimagarg1@users.noreply.github.com> on 2026-02-10*
+
+- **839436d1df** - improve(ingestion): reorder sources sections (#15976)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-02-10*
+
+- **2c8d51b97c** - tests(cypress): add basic lineage tests (#15998)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-02-10*
+
+- **8087e798b6** - fix(cypress): fix domains test (#16143)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-02-10*
+
+- **e99080fa48** - fix: align default model key and docs with OpenAI provider (#16131)
+  *by Alex <alex.skurikhin@datahub.com> on 2026-02-09*
+
+- **b96146d16e** - docs: update language on CTA bar at top of docs site (#16064)
+  *by Gray Ayer <grayayer@gmail.com> on 2026-02-09*
+
+- **7819abcdbf** - fix(ci): run validate-plugin-deps on any Python file changes (#16146)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-02-10*
+
+- **1212bc65ad** - feat(dbt): add support for ingesting dbt exposures (#15855)
+  *by Alfiya S <alfiya.samiulla@datahub.com> on 2026-02-10*
+
+- **1412a57e44** - docs(): Update MCP Server documentation to include v0.5.0 tools (#16129)
+  *by John Joyce <john@acryl.io> on 2026-02-10*
+
+- **0cfbd263f8** - chore(bump): bump cli version (#16159)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-10*
+
+- **7df644b1e5** - fix(docker): Add build constraints to Dockerfiles to fix flatdict build failure (#16158)
+  *by Jonny Dixon <45681293+acrylJonny@users.noreply.github.com> on 2026-02-10*
+
+- **edf2794679** - chore(ui) Update defaults in application.yaml for search bar experience (#16148)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-02-10*
+
+- **15551a3d9e** - fix(airflow-plugin): Register datahub-file connection type with Airflow provider (#16168)
+  *by Aviraj Gour <252974426+aviraj-gour@users.noreply.github.com> on 2026-02-11*
+
+- **c70f31a02f** - fix(powerbi): prevent user profile overwrites with create_corp_user flag (#15748)
+  *by dinesh-verma-datahub <dinesh.verma@datahub.com> on 2026-02-11*
+
+- **16a2ac5957** - (pr to linear): fixing cancelled -> done (#16115)
+  *by Gabe Lyons <gabe.lyons@acryl.io> on 2026-02-11*
+
+- **4e1091dbd2** - fix(CLI): filter on datasets for platform instance migration (#16145)
+  *by Kevin Karch <kevin.karch@acryl.io> on 2026-02-11*
+
+- **9e452459c9** - feat(UI): increase number of structured properties shown as columns max (#16157)
+  *by Kevin Karch <kevin.karch@acryl.io> on 2026-02-11*
+
+- **ada80b2341** - feat(ingestion): dynamodb configurable maxitems (#16155)
+  *by David Walker <68907545+davidwalker-tp@users.noreply.github.com> on 2026-02-11*
+
+- **60cc482613** - refactor(ui/forms): Request forms for all entity profiles in a separate query (#16180)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-02-11*
+
+- **161b361a0c** - chore(migrate es to os): Create docs for how to migrate Elasticsearch… (#16162)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-02-11*
+
+- **cfbd726042** - fix(clickhouse): add direct SRC→TO lineage for materialized views with TO clause (#16138)
+  *by kyungsoo-datahub <kyungsoo.lee@datahub.com> on 2026-02-11*
+
+- **0f5ac546e4** - Bump version (#16181)
+  *by Ben Blazke <benjiaming@users.noreply.github.com> on 2026-02-11*
