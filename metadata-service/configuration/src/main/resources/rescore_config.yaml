@@ -125,10 +125,10 @@ rescore:
   windowSize: 100
 
   # Maximum number of results to fetch from ES for rescoring (cap for memory safety)
-  maxRescoreWindow: 5000
+  maxRescoreWindow: 500
 
   # Include explanation in search results (for debugging)
-  includeExplain: true
+  includeExplain: false
 
   # exp4j formula - variables are normalized signal names
   formula: >

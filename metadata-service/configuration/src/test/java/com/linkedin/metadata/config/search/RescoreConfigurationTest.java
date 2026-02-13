@@ -186,4 +186,60 @@ public class RescoreConfigurationTest {
     assertTrue(
         config.getFunctionScore().containsKey("boost_mode"), "Should contain boost_mode key");
   }
+
+  @Test
+  public void testLoadRescoreConfigYamlWithFormulaFields() throws IOException {
+    // Test loading the actual rescore_config.yaml which contains formula/signals fields
+    RescoreConfiguration config =
+        RescoreConfiguration.builder().enabled(true).file("rescore_config.yaml").build();
+
+    ObjectMapper mapper = new YAMLMapper();
+    RescoreConfiguration resolved = config.resolve(mapper);
+
+    // Verify configuration was loaded successfully
+    assertTrue(resolved.isEnabled(), "Should be enabled");
+    assertEquals(resolved.getWindowSize(), 100, "Window size should match YAML");
+    assertEquals(resolved.getMaxRescoreWindow(), 500, "Max rescore window should match YAML");
+    assertFalse(
+        resolved.isIncludeExplain(), "Include explain should be false (production default)");
+    assertNotNull(resolved.getFormula(), "Formula should not be null");
+    assertNotNull(resolved.getSignals(), "Signals should not be null");
+    assertFalse(resolved.getSignals().isEmpty(), "Signals list should not be empty");
+  }
+
+  @Test
+  public void testYamlStructureWithFormulaFields() throws IOException {
+    // Test parsing YAML with both old and new fields
+    String yamlContent =
+        """
+        rescore:
+          enabled: true
+          windowSize: 300
+          maxRescoreWindow: 500
+          includeExplain: false
+          formula: "pow(norm_bm25, 1.0) * pow(norm_views, 0.8)"
+          signals:
+            - name: bm25
+              normalizedName: norm_bm25
+              fieldPath: _score
+              type: SCORE
+              boost: 1.0
+        """;
+
+    ObjectMapper mapper = new YAMLMapper();
+    RescoreConfiguration.RescoreConfigYaml yaml =
+        mapper.readValue(yamlContent, RescoreConfiguration.RescoreConfigYaml.class);
+
+    assertNotNull(yaml.getRescore(), "Rescore details should not be null");
+    assertTrue(yaml.getRescore().isEnabled(), "Should be enabled");
+    assertEquals(yaml.getRescore().getWindowSize(), 300, "Window size should be 300");
+    assertEquals(yaml.getRescore().getMaxRescoreWindow(), 500, "Max rescore window should be 500");
+    assertFalse(yaml.getRescore().isIncludeExplain(), "Include explain should be false");
+    assertNotNull(yaml.getRescore().getFormula(), "Formula should not be null");
+    assertTrue(
+        yaml.getRescore().getFormula().contains("norm_bm25"), "Formula should contain norm_bm25");
+    assertNotNull(yaml.getRescore().getSignals(), "Signals should not be null");
+    assertFalse(yaml.getRescore().getSignals().isEmpty(), "Signals should not be empty");
+    assertEquals(yaml.getRescore().getSignals().size(), 1, "Should have one signal");
+  }
 }

@@ -66,6 +66,20 @@ public class RescoreConfiguration {
    */
   private Map<String, Object> functionScore;
 
+  /** Maximum number of results to fetch from ES for rescoring (default: 500) */
+  private int maxRescoreWindow = 500;
+
+  /**
+   * Whether to include explanation in search results (default: false, enable only for debugging)
+   */
+  private boolean includeExplain = false;
+
+  /** exp4j formula string for computing final score (used by RescoreFormulaConfig) */
+  private String formula;
+
+  /** List of signal definitions (used by RescoreFormulaConfig) */
+  private java.util.List<Map<String, Object>> signals;
+
   /**
    * Load rescore configuration from file.
    *
@@ -105,13 +119,19 @@ public class RescoreConfiguration {
       this.rescoreQueryWeight = details.getRescoreQueryWeight();
       this.scoreMode = details.getScoreMode();
       this.functionScore = details.getFunctionScore();
+      this.maxRescoreWindow = details.getMaxRescoreWindow();
+      this.includeExplain = details.isIncludeExplain();
+      this.formula = details.getFormula();
+      this.signals = details.getSignals();
       log.info(
-          "Rescore configuration loaded: enabled={}, windowSize={}, queryWeight={}, rescoreQueryWeight={}, scoreMode={}",
+          "Rescore configuration loaded: enabled={}, windowSize={}, queryWeight={}, rescoreQueryWeight={}, scoreMode={}, maxRescoreWindow={}, includeExplain={}",
           enabled,
           windowSize,
           queryWeight,
           rescoreQueryWeight,
-          scoreMode);
+          scoreMode,
+          maxRescoreWindow,
+          includeExplain);
     }
     return this;
   }
@@ -129,6 +149,10 @@ public class RescoreConfiguration {
       private float rescoreQueryWeight = 1.0f;
       private String scoreMode = "total";
       private Map<String, Object> functionScore;
+      private int maxRescoreWindow = 500;
+      private boolean includeExplain = false;
+      private String formula;
+      private java.util.List<Map<String, Object>> signals;
     }
   }
 }
