@@ -53,6 +53,7 @@ buildscript {
   ext.playVersion = '2.8.22'
   ext.playScalaVersion = '2.13'
   ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
+  ext.commonsCompressVersion = '1.27.1' // CVE-2024-25710, CVE-2024-26308; min safe 1.26.0
   ext.log4jVersion = '2.25.3'
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.5.21'
@@ -445,6 +446,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force 'commons-beanutils:commons-beanutils:1.11.0'
     resolutionStrategy.force 'org.apache.commons:commons-collections4:4.5.0'
     resolutionStrategy.force 'org.apache.commons:commons-lang3:3.18.0'
+    resolutionStrategy.force "org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}"
     resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.83'
     // Substitute org.lz4:lz4-java with at.yawk.lz4 fork 1.10.1 (CVE-2025-12183); lockfile then shows 1.10.1 not 1.8.x
     resolutionStrategy.eachDependency { details ->
@@ -589,7 +591,7 @@ subprojects {
         implementation("org.apache.logging.log4j:log4j-jul:$log4jVersion")
         implementation('org.jline:jline:3.25.1') // CVE-2023-50572: OOM in GroovyEngine.execute
         implementation('org.apache.commons:commons-configuration2:2.10.1') // GHSA-xjp4-hw94-mvp5: StackOverflowError
-        implementation('org.apache.commons:commons-compress:1.27.1')
+        implementation("org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}")
         implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
