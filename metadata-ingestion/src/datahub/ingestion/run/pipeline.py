@@ -228,8 +228,8 @@ class Pipeline:
             self.sink.get_report().configure_report(
                 failure_sample_size=self.config.report.failure_sample_size,
                 warning_sample_size=self.config.report.warning_sample_size,
-                log_failures=self.config.report.log_failures,
-                log_warnings=self.config.report.log_warnings,
+                log_failure_summaries_to_console=self.config.report.log_failure_summaries_to_console,
+                log_warning_summaries_to_console=self.config.report.log_warning_summaries_to_console,
             )
 
             if self.graph is None and isinstance(self.sink, DatahubRestSink):
@@ -265,8 +265,8 @@ class Pipeline:
                 self.source.get_report().configure_report(
                     failure_sample_size=self.config.report.failure_sample_size,
                     warning_sample_size=self.config.report.warning_sample_size,
-                    log_failures=self.config.report.log_failures,
-                    log_warnings=self.config.report.log_warnings,
+                    log_failure_summaries_to_console=self.config.report.log_failure_summaries_to_console,
+                    log_warning_summaries_to_console=self.config.report.log_warning_summaries_to_console,
                 )
 
                 extractor_type = self.config.source.extractor

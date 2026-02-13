@@ -116,8 +116,8 @@ class StructuredLogs(Report):
     failure_sample_size: int = 10
     warning_sample_size: int = 10
     # None = use caller's log param, True = force log, False = suppress log
-    log_failures: Optional[bool] = None
-    log_warnings: Optional[bool] = None
+    log_failure_summaries_to_console: Optional[bool] = None
+    log_warning_summaries_to_console: Optional[bool] = None
 
     # Underlying Lossy Dicts to Capture Errors, Warnings, and Infos.
     _entries: Dict[StructuredLogLevel, LossyDict[str, StructuredLogEntry]] = field(
@@ -168,9 +168,9 @@ class StructuredLogs(Report):
         # Determine if we should log based on config and caller's log param.
         # Config values: None = use caller's log param, True = force, False = suppress
         config_value = (
-            self.log_failures
+            self.log_failure_summaries_to_console
             if level == StructuredLogLevel.ERROR
-            else self.log_warnings
+            else self.log_warning_summaries_to_console
             if level == StructuredLogLevel.WARN
             else None
         )
@@ -252,8 +252,8 @@ class SourceReport(ExamplesReport, IngestionStageReport):
     failure_sample_size: int = 10
     warning_sample_size: int = 10
     # None = use caller's log param, True = force log, False = suppress log
-    log_failures: Optional[bool] = None
-    log_warnings: Optional[bool] = None
+    log_failure_summaries_to_console: Optional[bool] = None
+    log_warning_summaries_to_console: Optional[bool] = None
 
     _structured_logs: StructuredLogs = field(init=False)
 
@@ -420,16 +420,16 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         self._structured_logs = StructuredLogs(
             failure_sample_size=self.failure_sample_size,
             warning_sample_size=self.warning_sample_size,
-            log_failures=self.log_failures,
-            log_warnings=self.log_warnings,
+            log_failure_summaries_to_console=self.log_failure_summaries_to_console,
+            log_warning_summaries_to_console=self.log_warning_summaries_to_console,
         )
 
     def configure_report(
         self,
         failure_sample_size: int = 10,
         warning_sample_size: int = 10,
-        log_failures: Optional[bool] = None,
-        log_warnings: Optional[bool] = None,
+        log_failure_summaries_to_console: Optional[bool] = None,
+        log_warning_summaries_to_console: Optional[bool] = None,
     ) -> None:
         """Configure report settings.
 
@@ -437,13 +437,17 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         """
         self.failure_sample_size = failure_sample_size
         self.warning_sample_size = warning_sample_size
-        self.log_failures = log_failures
-        self.log_warnings = log_warnings
+        self.log_failure_summaries_to_console = log_failure_summaries_to_console
+        self.log_warning_summaries_to_console = log_warning_summaries_to_console
         # Update existing structured logs in place to preserve any entries
         self._structured_logs.failure_sample_size = failure_sample_size
         self._structured_logs.warning_sample_size = warning_sample_size
-        self._structured_logs.log_failures = log_failures
-        self._structured_logs.log_warnings = log_warnings
+        self._structured_logs.log_failure_summaries_to_console = (
+            log_failure_summaries_to_console
+        )
+        self._structured_logs.log_warning_summaries_to_console = (
+            log_warning_summaries_to_console
+        )
 
     def as_obj(self) -> dict:
         return {

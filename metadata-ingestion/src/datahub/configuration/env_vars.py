@@ -149,15 +149,15 @@ def get_sentry_environment() -> str:
 # ============================================================================
 
 
-def get_report_log_failures() -> Optional[bool]:
-    """Control failure logging behavior.
+def get_report_log_failure_summaries_to_console() -> Optional[bool]:
+    """Control failure summary logging to console.
 
     Returns:
         None: Use caller's default (existing behavior - some log, some don't)
-        True: Force log ALL failures to console
-        False: Suppress ALL failure logging
+        True: Force log ALL failure summaries to console
+        False: Suppress ALL failure summary logging
     """
-    val = os.getenv("DATAHUB_REPORT_LOG_FAILURES", "").lower()
+    val = os.getenv("DATAHUB_REPORT_LOG_FAILURE_SUMMARIES_TO_CONSOLE", "").lower()
     if val == "true":
         return True
     elif val == "false":
@@ -165,15 +165,15 @@ def get_report_log_failures() -> Optional[bool]:
     return None
 
 
-def get_report_log_warnings() -> Optional[bool]:
-    """Control warning logging behavior.
+def get_report_log_warning_summaries_to_console() -> Optional[bool]:
+    """Control warning summary logging to console.
 
     Returns:
         None: Use caller's default (existing behavior - some log, some don't)
-        True: Force log ALL warnings to console
-        False: Suppress ALL warning logging
+        True: Force log ALL warning summaries to console
+        False: Suppress ALL warning summary logging
     """
-    val = os.getenv("DATAHUB_REPORT_LOG_WARNINGS", "").lower()
+    val = os.getenv("DATAHUB_REPORT_LOG_WARNING_SUMMARIES_TO_CONSOLE", "").lower()
     if val == "true":
         return True
     elif val == "false":

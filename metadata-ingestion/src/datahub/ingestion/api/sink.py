@@ -28,8 +28,8 @@ class SinkReport(Report):
     failure_sample_size: int = 10
     warning_sample_size: int = 10
     # None = use caller's log param, True = force log, False = suppress log
-    log_failures: Optional[bool] = None
-    log_warnings: Optional[bool] = None
+    log_failure_summaries_to_console: Optional[bool] = None
+    log_warning_summaries_to_console: Optional[bool] = None
 
     warnings: LossyList[Any] = field(init=False)
     failures: LossyList[Any] = field(init=False)
@@ -46,8 +46,8 @@ class SinkReport(Report):
         self,
         failure_sample_size: int = 10,
         warning_sample_size: int = 10,
-        log_failures: Optional[bool] = None,
-        log_warnings: Optional[bool] = None,
+        log_failure_summaries_to_console: Optional[bool] = None,
+        log_warning_summaries_to_console: Optional[bool] = None,
     ) -> None:
         """Configure report settings.
 
@@ -56,8 +56,8 @@ class SinkReport(Report):
         """
         self.failure_sample_size = failure_sample_size
         self.warning_sample_size = warning_sample_size
-        self.log_failures = log_failures
-        self.log_warnings = log_warnings
+        self.log_failure_summaries_to_console = log_failure_summaries_to_console
+        self.log_warning_summaries_to_console = log_warning_summaries_to_console
         # Only reinitialize if no entries yet, to preserve existing data
         if not self.failures and not self.warnings:
             self._init_lossy_lists()
@@ -80,12 +80,12 @@ class SinkReport(Report):
         self.total_records_written += 1
 
     def report_warning(self, info: Any, log: bool = False) -> None:
-        if self._should_log(log, self.log_warnings):
+        if self._should_log(log, self.log_warning_summaries_to_console):
             logger.warning(f"Sink warning: {info}")
         self.warnings.append(info)
 
     def report_failure(self, info: Any, log: bool = False) -> None:
-        if self._should_log(log, self.log_failures):
+        if self._should_log(log, self.log_failure_summaries_to_console):
             logger.error(f"Sink failure: {info}")
         self.failures.append(info)
 
