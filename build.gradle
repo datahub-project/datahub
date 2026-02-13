@@ -33,7 +33,7 @@ buildscript {
     }
   }
 
-  ext.junitJupiterVersion = '5.6.1'
+  ext.junitJupiterVersion = '5.12.2'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.8.1'
@@ -446,11 +446,23 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force 'org.apache.commons:commons-collections4:4.5.0'
     resolutionStrategy.force 'org.apache.commons:commons-lang3:3.18.0'
     resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.83'
-    resolutionStrategy.force 'org.lz4:lz4-java:1.8.1'
-    // Resolve capability conflict between org.lz4:lz4-java and at.yawk.lz4:lz4-java (CVE-2025-12183 fix)
-    resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
-      select 'org.lz4:lz4-java:0'
+    // Substitute org.lz4:lz4-java with at.yawk.lz4 fork 1.10.1 (CVE-2025-12183); lockfile then shows 1.10.1 not 1.8.x
+    resolutionStrategy.eachDependency { details ->
+      if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
+        details.useTarget("at.yawk.lz4:lz4-java:1.10.1")
+        details.because("CVE-2025-12183, upgrade to 1.10.1")
+      }
     }
+    resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
+    resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
+      select(candidates.find { it.id.group == 'at.yawk.lz4' } ?: candidates.first())
+    }
+    resolutionStrategy.force 'org.junit.platform:junit-platform-engine:1.12.2'
+    resolutionStrategy.force 'org.junit.platform:junit-platform-launcher:1.12.2'
+    resolutionStrategy.force "org.junit.jupiter:junit-jupiter-api:${rootProject.ext.junitJupiterVersion}"
+    resolutionStrategy.force "org.junit.jupiter:junit-jupiter-engine:${rootProject.ext.junitJupiterVersion}"
+    resolutionStrategy.force "org.junit.jupiter:junit-jupiter-params:${rootProject.ext.junitJupiterVersion}"
+    resolutionStrategy.force "org.junit:junit-bom:${rootProject.ext.junitJupiterVersion}"
     // Force all Jetty 12 modules to same version (overrides BOM and dependency lock). Single list used for
     // both force() and allprojects eachDependency so 12.0.x and 12.1.x are never mixed (API incompatible).
     def jv = project.rootProject.ext.jettyVersion
