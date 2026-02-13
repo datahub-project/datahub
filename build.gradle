@@ -38,8 +38,8 @@ buildscript {
   ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.8.1'
   ext.versionGradle = '8.14.3'
-  ext.springVersion = '6.2.11'
-  ext.springBootVersion = '3.4.5'
+  ext.springVersion = '6.2.13'
+  ext.springBootVersion = '3.5.6'
   ext.springKafkaVersion = '3.3.8'
   ext.openTelemetryVersion = '1.56.0'
   ext.neo4jVersion = '5.20.0'
@@ -48,7 +48,7 @@ buildscript {
   ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
   ext.jacksonVersion = '2.18.4'
-  ext.jettyVersion = '12.0.21'
+  ext.jettyVersion = '12.0.32'
   // see also datahub-frontend/play.gradle
   ext.playVersion = '2.8.22'
   ext.playScalaVersion = '2.13'
@@ -451,12 +451,50 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
       select 'org.lz4:lz4-java:0'
     }
-    resolutionStrategy {
-      force "org.eclipse.jetty:jetty-security:${jettyVersion}"
-      force "org.eclipse.jetty:jetty-server:${jettyVersion}"
-      force "org.eclipse.jetty:jetty-ee10-servlet:${jettyVersion}"
-      force "org.eclipse.jetty:jetty-ee10-webapp:${jettyVersion}"
-      force "org.eclipse.jetty:jetty-xml:${jettyVersion}"
+    // Force all Jetty 12 modules to same version (overrides BOM and dependency lock). Single list used for
+    // both force() and allprojects eachDependency so 12.0.x and 12.1.x are never mixed (API incompatible).
+    def jv = project.rootProject.ext.jettyVersion
+    [
+      'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-client',
+      'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-common',
+      'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-server',
+      'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jetty-server',
+      'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-servlet',
+      'org.eclipse.jetty.ee10:jetty-ee10-annotations',
+      'org.eclipse.jetty.ee10:jetty-ee10-plus',
+      'org.eclipse.jetty.ee10:jetty-ee10-servlet',
+      'org.eclipse.jetty.ee10:jetty-ee10-servlets',
+      'org.eclipse.jetty.ee10:jetty-ee10-webapp',
+      'org.eclipse.jetty.websocket:jetty-websocket-core-client',
+      'org.eclipse.jetty.websocket:jetty-websocket-core-common',
+      'org.eclipse.jetty.websocket:jetty-websocket-core-server',
+      'org.eclipse.jetty.websocket:jetty-websocket-jetty-api',
+      'org.eclipse.jetty.websocket:jetty-websocket-jetty-common',
+      'org.eclipse.jetty:jetty-alpn-client',
+      'org.eclipse.jetty:jetty-client',
+      'org.eclipse.jetty:jetty-ee',
+      'org.eclipse.jetty:jetty-http',
+      'org.eclipse.jetty:jetty-io',
+      'org.eclipse.jetty:jetty-plus',
+      'org.eclipse.jetty:jetty-security',
+      'org.eclipse.jetty:jetty-server',
+      'org.eclipse.jetty:jetty-session',
+      'org.eclipse.jetty:jetty-xml',
+    ].each { resolutionStrategy.force "${it}:${jv}" }
+  }
+}
+
+// Also align any other Jetty 12 modules (e.g. future BOM additions). Exclude legacy Jetty 9.x websocket
+// artifacts (websocket-api, websocket-client, websocket-common) used by Hadoop etc.; no 12.x for those.
+allprojects {
+  if (project == rootProject) return
+  configurations.all {
+    resolutionStrategy.eachDependency { details ->
+      if (details.requested.group.startsWith('org.eclipse.jetty') &&
+          !details.requested.name in ['websocket-api', 'websocket-client', 'websocket-common']) {
+        details.useVersion(rootProject.ext.jettyVersion)
+        details.because("Align all Jetty modules to ${rootProject.ext.jettyVersion}")
+      }
     }
   }
 }
