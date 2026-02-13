@@ -24,11 +24,11 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
-# V$SQL DML query URNs that are volatile (may or may not be in cache)
-# These are from test setup INSERT operations (employee_backup, daily_revenue)
-VOLATILE_VSQL_QUERY_URNS = {
-    "urn:li:query:532ceadbf6076617af1a7ac10b50c4e76cab762e2265566dacc64aa25c2160b3",  # employee_backup INSERT
-    "urn:li:query:f822c94d494458a4a68fae9d4741d1bd451b1e0be68f54a7dc1bfffb103bb046",  # daily_revenue INSERT
+# Staging tables created in post_setup.sql that may have volatile V$SQL queries
+# These are populated by INSERT operations during test setup
+VOLATILE_STAGING_TABLES = {
+    "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_backup,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.daily_revenue,PROD)",
 }
 
 
@@ -42,17 +42,30 @@ def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
     - Memory pressure
     - Query execution timing
 
-    This function removes these volatile entities to make tests deterministic.
+    This function removes entities related to staging tables that are populated
+    by volatile INSERT queries, making tests deterministic regardless of cache state.
     """
     filtered = []
+    volatile_query_urns = set()
+
+    # First pass: collect query URNs that reference volatile staging tables
+    for entity in metadata_json:
+        if entity.get("entityType") == "query":
+            # Check if query references any volatile staging tables
+            aspect_json = entity.get("aspect", {}).get("json", {})
+            query_subjects = aspect_json.get("subjects", [])
+            if any(
+                subject.get("entity") in VOLATILE_STAGING_TABLES
+                for subject in query_subjects
+            ):
+                volatile_query_urns.add(entity.get("entityUrn", ""))
+
+    # Second pass: filter out volatile queries and their lineage
     for entity in metadata_json:
         entity_urn = entity.get("entityUrn", "")
 
-        # Skip query entities for volatile URNs
-        if (
-            entity.get("entityType") == "query"
-            and entity_urn in VOLATILE_VSQL_QUERY_URNS
-        ):
+        # Skip query entities that reference volatile staging tables
+        if entity.get("entityType") == "query" and entity_urn in volatile_query_urns:
             continue
 
         # Skip upstreamLineage that references volatile queries
@@ -63,9 +76,8 @@ def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
 
             # Check if this lineage references a volatile query
             has_volatile_query = any(
-                upstream.get("query") in VOLATILE_VSQL_QUERY_URNS
-                for upstream in upstreams
-            ) or any(fg.get("query") in VOLATILE_VSQL_QUERY_URNS for fg in fine_grained)
+                upstream.get("query") in volatile_query_urns for upstream in upstreams
+            ) or any(fg.get("query") in volatile_query_urns for fg in fine_grained)
 
             if has_volatile_query:
                 continue

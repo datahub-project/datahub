@@ -65,6 +65,7 @@ from datahub.ingestion.source.sql.sql_config import (
 from datahub.ingestion.source.sql.sql_utils import (
     gen_database_key,
     gen_schema_key,
+    get_domain_wu,
 )
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
@@ -139,6 +140,20 @@ class OracleErrorCode:
 
     TABLE_OR_VIEW_NOT_EXIST = 942  # ORA-00942: table or view does not exist
     INSUFFICIENT_PRIVILEGES = 1031  # ORA-01031: insufficient privileges
+
+
+class OracleSQLCommandType:
+    """Oracle V$SQL COMMAND_TYPE values for DML operations.
+
+    Reference: V$SQL.COMMAND_TYPE documentation
+    https://docs.oracle.com/en/database/oracle/oracle-database/19/refrn/V-SQL.html
+    """
+
+    INSERT = 2
+    SELECT = 3
+    UPDATE = 6
+    DELETE = 7
+    MERGE = 189
 
 
 class UpstreamTableInfo(BaseModel):
@@ -298,7 +313,17 @@ PROFILE_CANDIDATES_QUERY = """
 
 VSQL_PREREQUISITES_QUERY = "SELECT COUNT(*) FROM V$SQL WHERE ROWNUM = 1"
 
-VSQL_USAGE_QUERY = """
+# DML command types to extract from V$SQL for lineage and usage analysis
+VSQL_DML_COMMAND_TYPES = (
+    OracleSQLCommandType.INSERT,
+    OracleSQLCommandType.SELECT,
+    OracleSQLCommandType.UPDATE,
+    OracleSQLCommandType.DELETE,
+    OracleSQLCommandType.MERGE,
+)
+
+VSQL_USAGE_QUERY = (
+    """
     SELECT * FROM (
         SELECT 
             sql_id,
@@ -309,8 +334,12 @@ VSQL_USAGE_QUERY = """
             first_load_time
         FROM V$SQL
         WHERE parsing_schema_name IS NOT NULL
-            AND parsing_schema_name NOT IN ({system_schemas})
-            AND command_type IN (2, 3, 6, 7, 189)
+            AND parsing_schema_name NOT IN ("""
+    + _SYSTEM_SCHEMAS_SQL
+    + """)
+            AND command_type IN """
+    + str(VSQL_DML_COMMAND_TYPES)
+    + """
             AND sql_text NOT LIKE '%V$SQL%'
             AND elapsed_time IS NOT NULL
             AND executions IS NOT NULL
@@ -318,6 +347,7 @@ VSQL_USAGE_QUERY = """
     )
     WHERE ROWNUM <= :max_queries
 """
+)
 
 DB_NAME_QUERY = """
     SELECT sys_context('USERENV','DB_NAME') FROM dual
@@ -1960,14 +1990,14 @@ class OracleSource(SQLAlchemySource):
         self, engine: sqlalchemy.engine.Engine
     ) -> Iterable[ObservedQuery]:
         """Extract queries from V$SQL for usage statistics."""
-        system_schemas_str = ", ".join(f"'{s}'" for s in ORACLE_SYSTEM_SCHEMAS)
-        query_text = VSQL_USAGE_QUERY.format(system_schemas=system_schemas_str)
         params = {"max_queries": self.config.max_queries_to_extract}
 
         try:
             with engine.connect() as conn:
                 inspector = inspect(conn)
-                result = conn.execute(sql.text(query_text), params)
+                # Get database name once outside the loop since it doesn't change per row
+                db_name = self.get_db_name(inspector)
+                result = conn.execute(sql.text(VSQL_USAGE_QUERY), params)
 
                 for row in result:
                     sql_text = row["sql_text"]
@@ -1983,8 +2013,6 @@ class OracleSource(SQLAlchemySource):
                                 break
                         if should_exclude:
                             continue
-
-                    db_name = self.get_db_name(inspector)
 
                     timestamp = None
                     first_load_time = row["first_load_time"]
@@ -2063,18 +2091,30 @@ class OracleSource(SQLAlchemySource):
         finally:
             engine.dispose()
 
+    def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Override to prevent parent class from generating aggregator work units during schema extraction.
+
+        We handle aggregator generation manually after populating it with V$SQL query data.
+        """
+        # Do nothing - we'll call the parent implementation manually after populating the aggregator
+        return iter([])
+
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         """Override to add query extraction for usage statistics."""
         logger.info("Starting Oracle metadata extraction")
 
+        # Step 1: Schema extraction first (parent class will skip aggregator generation due to our override)
         with self.report.new_stage("Schema metadata extraction"):
             yield from super().get_workunits_internal()
             logger.info("Completed schema metadata extraction")
 
-        if self.config.include_query_usage or self.config.include_usage_stats:
-            self._populate_aggregator_from_queries()
+        # Step 2: Query extraction after schema extraction
+        # This allows lineage processing to have access to all discovered schema information
+        self._populate_aggregator_from_queries()
 
+        # Step 3: Generate aggregator workunits after populating with V$SQL queries
         with self.report.new_stage("Lineage and usage processing"):
+            # Call parent implementation directly to generate aggregator work units
             yield from super()._generate_aggregator_workunits()
             logger.info("Completed lineage and usage processing")
 
