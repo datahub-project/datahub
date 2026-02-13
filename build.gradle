@@ -54,6 +54,7 @@ buildscript {
   ext.playScalaVersion = '2.13'
   ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
   ext.commonsCompressVersion = '1.27.1' // CVE-2024-25710, CVE-2024-26308; min safe 1.26.0
+  ext.hiveLlapCommonVersion = '4.0.0' // LlapSignerImpl signature comparison; upgrade from 2.3.x
   ext.log4jVersion = '2.25.3'
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.5.21'
@@ -449,6 +450,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force 'org.apache.commons:commons-collections4:4.5.0'
     resolutionStrategy.force 'org.apache.commons:commons-lang3:3.18.0'
     resolutionStrategy.force "org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}"
+    resolutionStrategy.force "org.apache.hive:hive-llap-common:${rootProject.ext.hiveLlapCommonVersion}"
     resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.83'
     // Substitute org.lz4:lz4-java with at.yawk.lz4 fork 1.10.1 (CVE-2025-12183); lockfile then shows 1.10.1 not 1.8.x
     resolutionStrategy.eachDependency { details ->
