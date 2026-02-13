@@ -446,6 +446,7 @@ def _clickhouse_extract_dictget_tables(
         elif isinstance(first_arg, sqlglot.exp.Literal) and first_arg.is_string:
             # dictGet('schema.dict_name', ...) → Literal('schema.dict_name')
             parts = first_arg.this.split(".")
+            parts = [p for p in parts if p]  # guard against empty parts
             if len(parts) == 3:
                 result.add(
                     _TableName(database=parts[0], db_schema=parts[1], table=parts[2])
@@ -456,6 +457,10 @@ def _clickhouse_extract_dictget_tables(
                 )
             elif len(parts) == 1:
                 result.add(_TableName(database=None, db_schema=None, table=parts[0]))
+            else:
+                logger.warning(
+                    f"Unexpected dictGet literal with {len(parts)} parts: {first_arg.this}"
+                )
 
     return result
 
@@ -739,11 +744,10 @@ def _table_level_lineage(
             dialect,
         )
         | _clickhouse_extract_dictget_tables(statement, dialect)
-    ) - modified  # ignore references created in this query
+    ) - modified  # union first, then subtract outputs/CTAs from inputs
 
-    # Filter out CTE references. qualify_tables() leaves CTE refs unqualified
-    # (db=None, schema=None) while qualifying real tables, so we only filter
-    # unqualified name matches.
+    # Filter CTE refs (unqualified after qualify_tables) but keep qualified
+    # tables that share a CTE name. Case-insensitive for dialects that uppercase.
     cte_names = {
         cte.alias_or_name.lower() for cte in statement.find_all(sqlglot.exp.CTE)
     }
