@@ -109,6 +109,43 @@ class PlatformAdapter(ABC):
         return
 
     # =========================================================================
+    # Identifier Quoting
+    # =========================================================================
+
+    def quote_identifier(self, identifier: str) -> str:
+        """
+        Quote a SQL identifier using the platform's dialect.
+
+        This method handles both simple identifiers (my_table, my_column) and
+        multi-part identifiers (my_schema.my_table, my_db.my_schema.my_table).
+
+        Default implementation splits on dots and quotes each part separately,
+        which works for most platforms. Platforms with special requirements
+        (like BigQuery) can override this method.
+
+        Args:
+            identifier: The identifier to quote (table name, column name, etc.)
+
+        Returns:
+            Properly quoted identifier safe for use in SQL queries
+
+        Examples:
+            >>> adapter.quote_identifier("my_table")
+            '"my_table"'
+            >>> adapter.quote_identifier("my_schema.my_table")
+            '"my_schema"."my_table"'
+        """
+        preparer = self.base_engine.dialect.identifier_preparer
+        # Split on dots to handle multi-part identifiers (schema.table, etc.)
+        parts = identifier.split(".")
+        # Quote each part separately using SQLAlchemy's dialect-specific identifier preparer
+        # Use quoted_name to force quoting (quote() doesn't quote unless necessary)
+        quoted_parts = [
+            preparer.quote(sa.sql.quoted_name(part, True)) for part in parts
+        ]
+        return ".".join(quoted_parts)
+
+    # =========================================================================
     # SQL Expression Builders (used by query execution methods)
     # =========================================================================
 

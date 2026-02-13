@@ -55,12 +55,11 @@ class PostgresAdapter(PlatformAdapter):
         Returns:
             SQLAlchemy expression for PERCENTILE_CONT(0.5)
         """
-        # Use PERCENTILE_CONT which is supported in PostgreSQL
-        # Column name is from database schema (validated), not user input
+        quoted_column = self.quote_identifier(column)
         # IMPORTANT: label() is required whenever using literal_column()
         # Without label(), the column name would be the entire SQL string, which breaks query combiner result extraction
         return sa.literal_column(
-            f"PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {column})"
+            f"PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {quoted_column})"
         ).label("median")
 
     # =========================================================================
@@ -94,7 +93,7 @@ class PostgresAdapter(PlatformAdapter):
         """
         try:
             schema = table.schema or "public"
-            table_ref = f"{schema}.{table.name}"
+            table_ref = self.quote_identifier(f"{schema}.{table.name}")
 
             # Use parameterized query to prevent SQL injection
             query = sa.text(

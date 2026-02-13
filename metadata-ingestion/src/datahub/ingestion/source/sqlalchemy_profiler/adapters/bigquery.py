@@ -7,7 +7,6 @@ import google.cloud.bigquery.job.query
 import sqlalchemy as sa
 from google.cloud.bigquery.dbapi.cursor import Cursor as BigQueryCursor
 from sqlalchemy.engine import Connection
-from sqlalchemy_bigquery import BigQueryDialect
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -19,50 +18,6 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 
 logger = logging.getLogger(__name__)
 
-# Use SQLAlchemy's BigQuery dialect for proper identifier quoting
-_bigquery_dialect = BigQueryDialect()
-_bigquery_preparer = _bigquery_dialect.identifier_preparer
-
-
-def _quote_bigquery_identifier(identifier: str) -> str:
-    """
-    Safely quote a BigQuery identifier using SQLAlchemy's BigQuery dialect.
-
-    BigQuery supports 3-part identifiers (project.dataset.table), and each part
-    needs to be quoted separately. We cannot use preparer.quote() directly because
-    it treats dots as part of the identifier name, not as separators:
-        - preparer.quote("schema.table") → `schema.table` (wrong)
-        - Our approach → `schema`.`table` (correct)
-
-    We also cannot use preparer.format_table() because SQLAlchemy's Table model
-    only supports 2-part naming (schema.table), not BigQuery's 3-part naming
-    (project.dataset.table).
-
-    Note: This implementation does not escape backticks within identifiers.
-    BigQuery table names containing backticks are extremely rare and not recommended.
-    If needed, BigQuery uses backslash escaping (e.g., `table\\`name`), not double-backtick.
-
-    Args:
-        identifier: The identifier to quote (table name, column name, etc.)
-
-    Returns:
-        Properly quoted identifier safe for use in SQL queries
-
-    Examples:
-        >>> _quote_bigquery_identifier("my_table")
-        '`my_table`'
-        >>> _quote_bigquery_identifier("schema.table")
-        '`schema`.`table`'
-        >>> _quote_bigquery_identifier("project.dataset.table")
-        '`project`.`dataset`.`table`'
-    """
-    # Split on dots to handle BigQuery's multi-part identifiers
-    # (dataset.table or project.dataset.table)
-    parts = identifier.split(".")
-    # Quote each part separately using SQLAlchemy's BigQuery identifier preparer
-    quoted_parts = [_bigquery_preparer.quote(part) for part in parts]
-    return ".".join(quoted_parts)
-
 
 class BigQueryAdapter(PlatformAdapter):
     """
@@ -73,6 +28,7 @@ class BigQueryAdapter(PlatformAdapter):
     2. TABLESAMPLE SYSTEM for sampling large tables
     3. APPROX_COUNT_DISTINCT, approx_quantiles for fast statistics
     4. Special handling for LIMIT/OFFSET queries
+    5. Supports 3-part identifiers (project.dataset.table) via inherited quote_identifier()
     """
 
     def setup_profiling(
@@ -164,7 +120,7 @@ class BigQueryAdapter(PlatformAdapter):
             table_identifier = (
                 f"{context.schema}.{context.table}" if context.schema else context.table
             )
-            quoted_table = _quote_bigquery_identifier(table_identifier)
+            quoted_table = self.quote_identifier(table_identifier)
             bq_sql = f"SELECT * FROM {quoted_table}"
 
             # Validate and add LIMIT/OFFSET as integers to prevent SQL injection
@@ -303,7 +259,7 @@ class BigQueryAdapter(PlatformAdapter):
                     if context.schema
                     else context.table
                 )
-                quoted_table = _quote_bigquery_identifier(table_identifier)
+                quoted_table = self.quote_identifier(table_identifier)
                 query = sa.text(f"SELECT COUNT(*) FROM {quoted_table}")
 
             result = conn.execute(query).scalar()
@@ -350,7 +306,7 @@ class BigQueryAdapter(PlatformAdapter):
         table_identifier = (
             f"{context.schema}.{context.table}" if context.schema else context.table
         )
-        quoted_table = _quote_bigquery_identifier(table_identifier)
+        quoted_table = self.quote_identifier(table_identifier)
 
         # Build query with properly escaped identifiers and validated percentage
         sql = (

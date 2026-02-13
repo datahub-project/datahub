@@ -148,11 +148,10 @@ class AthenaAdapter(PlatformAdapter):
         """
         try:
             with self.base_engine.connect() as connection:
-                # Use SQLAlchemy's dialect-specific identifier preparer for proper quoting
-                preparer = self.base_engine.dialect.identifier_preparer
-                quoted_view = preparer.quote(view_name)
                 full_view_name = (
-                    f"{preparer.quote(schema)}.{quoted_view}" if schema else quoted_view
+                    self.quote_identifier(f"{schema}.{view_name}")
+                    if schema
+                    else self.quote_identifier(view_name)
                 )
                 connection.execute(sa.text(f"DROP VIEW IF EXISTS {full_view_name}"))
                 logger.debug(f"Dropped Athena temp view: {full_view_name}")
@@ -202,9 +201,10 @@ class AthenaAdapter(PlatformAdapter):
         Returns:
             SQLAlchemy expression for approx_percentile with array of quantiles
         """
+        quoted_column = self.quote_identifier(column)
         # Build ARRAY[0.05, 0.25, 0.5, 0.75, 0.95] string
         array_str = f"ARRAY[{', '.join(str(q) for q in quantiles)}]"
-        return sa.literal_column(f"approx_percentile({column}, {array_str})")
+        return sa.literal_column(f"approx_percentile({quoted_column}, {array_str})")
 
     def get_column_quantiles(
         self,
@@ -230,9 +230,12 @@ class AthenaAdapter(PlatformAdapter):
         if quantiles is None:
             quantiles = DEFAULT_QUANTILES
 
+        quoted_column = self.quote_identifier(column)
         # Athena/Trino: approx_percentile(col, ARRAY[0.05, 0.25, ...])
         array_str = f"ARRAY[{', '.join(str(q) for q in quantiles)}]"
-        athena_expr = sa.literal_column(f"approx_percentile({column}, {array_str})")
+        athena_expr = sa.literal_column(
+            f"approx_percentile({quoted_column}, {array_str})"
+        )
         query = sa.select([athena_expr]).select_from(table)
         result = conn.execute(query).scalar()
         logger.debug(

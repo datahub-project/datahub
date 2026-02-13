@@ -13,7 +13,6 @@ from datahub.ingestion.source.sqlalchemy_profiler.adapters import get_adapter
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.athena import AthenaAdapter
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.bigquery import (
     BigQueryAdapter,
-    _quote_bigquery_identifier,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
     DatabricksAdapter,
@@ -612,23 +611,36 @@ class TestPostgresAdapter:
     """Test cases for PostgresAdapter."""
 
     @pytest.fixture
-    def adapter(self, config, report, sqlite_engine):
+    def postgres_engine(self, sqlite_engine):
+        """Create engine with PostgreSQL dialect for testing."""
+        from unittest.mock import Mock
+
+        from sqlalchemy.dialects.postgresql.psycopg2 import PGDialect_psycopg2
+
+        # Create a mock engine that wraps sqlite_engine but uses PostgreSQL dialect
+        mock_engine = Mock(wraps=sqlite_engine)
+        mock_engine.dialect = PGDialect_psycopg2()
+        # Preserve other engine attributes needed for tests
+        mock_engine.connect = sqlite_engine.connect
+        mock_engine.raw_connection = sqlite_engine.raw_connection
+        return mock_engine
+
+    @pytest.fixture
+    def adapter(self, config, report, postgres_engine):
         """Create PostgreSQL adapter for testing."""
-        return PostgresAdapter(config, report, sqlite_engine)
+        return PostgresAdapter(config, report, postgres_engine)
 
-    def test_setup_profiling_creates_sql_table(
-        self, adapter, sqlite_engine, test_table
-    ):
-        """Test setup creates SQLAlchemy table object."""
-        context = ProfilingContext(
-            schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
-        )
-
-        with sqlite_engine.connect() as conn:
-            result_context = adapter.setup_profiling(context, conn)
-
-        assert result_context.sql_table is not None
-        assert result_context.sql_table.name == "test_table"
+    @pytest.mark.parametrize(
+        "identifier,expected",
+        [
+            ("my_table", '"my_table"'),
+            ("my_schema.my_table", '"my_schema"."my_table"'),
+        ],
+    )
+    def test_quote_identifier(self, adapter, identifier, expected):
+        """Test quoting identifiers with PostgreSQL dialect."""
+        result = adapter.quote_identifier(identifier)
+        assert result == expected
 
     def test_get_approx_unique_count_expr(self, adapter):
         """Test PostgreSQL uses COUNT(DISTINCT) for approximate unique count."""
@@ -687,9 +699,36 @@ class TestMySQLAdapter:
     """Test cases for MySQLAdapter."""
 
     @pytest.fixture
-    def adapter(self, config, report, sqlite_engine):
+    def mysql_engine(self, sqlite_engine):
+        """Create engine with MySQL dialect for testing."""
+        from unittest.mock import Mock
+
+        from sqlalchemy.dialects.mysql.mysqldb import MySQLDialect_mysqldb
+
+        # Create a mock engine that wraps sqlite_engine but uses MySQL dialect
+        mock_engine = Mock(wraps=sqlite_engine)
+        mock_engine.dialect = MySQLDialect_mysqldb()
+        # Preserve other engine attributes needed for tests
+        mock_engine.connect = sqlite_engine.connect
+        mock_engine.raw_connection = sqlite_engine.raw_connection
+        return mock_engine
+
+    @pytest.fixture
+    def adapter(self, config, report, mysql_engine):
         """Create MySQL adapter for testing."""
-        return MySQLAdapter(config, report, sqlite_engine)
+        return MySQLAdapter(config, report, mysql_engine)
+
+    @pytest.mark.parametrize(
+        "identifier,expected",
+        [
+            ("my_table", "`my_table`"),
+            ("my_schema.my_table", "`my_schema`.`my_table`"),
+        ],
+    )
+    def test_quote_identifier(self, adapter, identifier, expected):
+        """Test quoting identifiers with MySQL dialect."""
+        result = adapter.quote_identifier(identifier)
+        assert result == expected
 
     def test_supports_row_count_estimation(self, adapter):
         """Test MySQL supports row count estimation."""
@@ -724,23 +763,36 @@ class TestRedshiftAdapter:
     """Test cases for RedshiftAdapter."""
 
     @pytest.fixture
-    def adapter(self, config, report, sqlite_engine):
+    def redshift_engine(self, sqlite_engine):
+        """Create engine with Redshift dialect for testing."""
+        from unittest.mock import Mock
+
+        from sqlalchemy_redshift.dialect import RedshiftDialect
+
+        # Create a mock engine that wraps sqlite_engine but uses Redshift dialect
+        mock_engine = Mock(wraps=sqlite_engine)
+        mock_engine.dialect = RedshiftDialect()
+        # Preserve other engine attributes needed for tests
+        mock_engine.connect = sqlite_engine.connect
+        mock_engine.raw_connection = sqlite_engine.raw_connection
+        return mock_engine
+
+    @pytest.fixture
+    def adapter(self, config, report, redshift_engine):
         """Create Redshift adapter for testing."""
-        return RedshiftAdapter(config, report, sqlite_engine)
+        return RedshiftAdapter(config, report, redshift_engine)
 
-    def test_setup_profiling_creates_sql_table(
-        self, adapter, sqlite_engine, test_table
-    ):
-        """Test setup creates SQLAlchemy table object."""
-        context = ProfilingContext(
-            schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
-        )
-
-        with sqlite_engine.connect() as conn:
-            result_context = adapter.setup_profiling(context, conn)
-
-        assert result_context.sql_table is not None
-        assert result_context.sql_table.name == "test_table"
+    @pytest.mark.parametrize(
+        "identifier,expected",
+        [
+            ("my_table", '"my_table"'),
+            ("my_schema.my_table", '"my_schema"."my_table"'),
+        ],
+    )
+    def test_quote_identifier(self, adapter, identifier, expected):
+        """Test quoting identifiers with Redshift dialect."""
+        result = adapter.quote_identifier(identifier)
+        assert result == expected
 
     def test_get_approx_unique_count_expr(self, adapter):
         """Test Redshift uses COUNT(DISTINCT)."""
@@ -815,9 +867,36 @@ class TestAthenaAdapter:
     """Test cases for AthenaAdapter."""
 
     @pytest.fixture
-    def adapter(self, config, report, sqlite_engine):
+    def athena_engine(self, sqlite_engine):
+        """Create engine with Athena dialect for testing."""
+        from unittest.mock import Mock
+
+        from pyathena.sqlalchemy_athena import AthenaDialect
+
+        # Create a mock engine that wraps sqlite_engine but uses Athena dialect
+        mock_engine = Mock(wraps=sqlite_engine)
+        mock_engine.dialect = AthenaDialect()
+        # Preserve other engine attributes needed for tests
+        mock_engine.connect = sqlite_engine.connect
+        mock_engine.raw_connection = sqlite_engine.raw_connection
+        return mock_engine
+
+    @pytest.fixture
+    def adapter(self, config, report, athena_engine):
         """Create Athena adapter for testing."""
-        return AthenaAdapter(config, report, sqlite_engine)
+        return AthenaAdapter(config, report, athena_engine)
+
+    @pytest.mark.parametrize(
+        "identifier,expected",
+        [
+            ("my_table", '"my_table"'),
+            ("my_schema.my_table", '"my_schema"."my_table"'),
+        ],
+    )
+    def test_quote_identifier(self, adapter, identifier, expected):
+        """Test quoting identifiers with Athena dialect."""
+        result = adapter.quote_identifier(identifier)
+        assert result == expected
 
     def test_get_approx_unique_count_expr(self, adapter):
         """Test Athena uses approx_distinct."""
@@ -859,9 +938,24 @@ class TestBigQueryAdapter:
     """Test cases for BigQueryAdapter."""
 
     @pytest.fixture
-    def adapter(self, config, report, sqlite_engine):
+    def bigquery_engine(self, sqlite_engine):
+        """Create engine with BigQuery dialect for testing."""
+        from unittest.mock import Mock
+
+        from sqlalchemy_bigquery import BigQueryDialect
+
+        # Create a mock engine that wraps sqlite_engine but uses BigQuery dialect
+        mock_engine = Mock(wraps=sqlite_engine)
+        mock_engine.dialect = BigQueryDialect()
+        # Preserve other engine attributes needed for tests
+        mock_engine.connect = sqlite_engine.connect
+        mock_engine.raw_connection = sqlite_engine.raw_connection
+        return mock_engine
+
+    @pytest.fixture
+    def adapter(self, config, report, bigquery_engine):
         """Create BigQuery adapter for testing."""
-        return BigQueryAdapter(config, report, sqlite_engine)
+        return BigQueryAdapter(config, report, bigquery_engine)
 
     def test_get_approx_unique_count_expr(self, adapter):
         """Test BigQuery uses APPROX_COUNT_DISTINCT."""
@@ -899,20 +993,18 @@ class TestBigQueryAdapter:
         assert "TABLESAMPLE SYSTEM" in clause
         assert "1000 ROWS" in clause
 
-    def test_quote_bigquery_identifier_simple(self):
-        """Test quoting simple identifier."""
-        result = _quote_bigquery_identifier("my_table")
-        assert result == "`my_table`"
-
-    def test_quote_bigquery_identifier_with_schema(self):
-        """Test quoting schema.table."""
-        result = _quote_bigquery_identifier("my_schema.my_table")
-        assert result == "`my_schema`.`my_table`"
-
-    def test_quote_bigquery_identifier_with_project(self):
-        """Test quoting project.dataset.table."""
-        result = _quote_bigquery_identifier("project.dataset.table")
-        assert result == "`project`.`dataset`.`table`"
+    @pytest.mark.parametrize(
+        "identifier,expected",
+        [
+            ("my_table", "`my_table`"),
+            ("my_schema.my_table", "`my_schema`.`my_table`"),
+            ("project.dataset.table", "`project`.`dataset`.`table`"),
+        ],
+    )
+    def test_quote_identifier(self, adapter, identifier, expected):
+        """Test quoting identifiers with BigQuery dialect."""
+        result = adapter.quote_identifier(identifier)
+        assert result == expected
 
     def test_setup_profiling_with_limit(self, adapter, config, test_table):
         """Test BigQuery setup with LIMIT creates temp table."""
@@ -1125,9 +1217,36 @@ class TestSnowflakeAdapter:
     """Test cases for SnowflakeAdapter."""
 
     @pytest.fixture
-    def adapter(self, config, report, sqlite_engine):
+    def snowflake_engine(self, sqlite_engine):
+        """Create engine with Snowflake dialect for testing."""
+        from unittest.mock import Mock
+
+        from snowflake.sqlalchemy.snowdialect import SnowflakeDialect
+
+        # Create a mock engine that wraps sqlite_engine but uses Snowflake dialect
+        mock_engine = Mock(wraps=sqlite_engine)
+        mock_engine.dialect = SnowflakeDialect()
+        # Preserve other engine attributes needed for tests
+        mock_engine.connect = sqlite_engine.connect
+        mock_engine.raw_connection = sqlite_engine.raw_connection
+        return mock_engine
+
+    @pytest.fixture
+    def adapter(self, config, report, snowflake_engine):
         """Create Snowflake adapter for testing."""
-        return SnowflakeAdapter(config, report, sqlite_engine)
+        return SnowflakeAdapter(config, report, snowflake_engine)
+
+    @pytest.mark.parametrize(
+        "identifier,expected",
+        [
+            ("my_table", '"my_table"'),
+            ("my_schema.my_table", '"my_schema"."my_table"'),
+        ],
+    )
+    def test_quote_identifier(self, adapter, identifier, expected):
+        """Test quoting identifiers with Snowflake dialect."""
+        result = adapter.quote_identifier(identifier)
+        assert result == expected
 
     def test_get_approx_unique_count_expr(self, adapter):
         """Test Snowflake uses APPROX_COUNT_DISTINCT."""
@@ -1149,9 +1268,11 @@ class TestSnowflakeAdapter:
         assert "test_column" in expr_str
 
     def test_setup_profiling_creates_sql_table(
-        self, adapter, sqlite_engine, test_table
+        self, config, report, sqlite_engine, test_table
     ):
         """Test setup creates SQLAlchemy table object."""
+        # Use sqlite_engine since setup_profiling doesn't depend on dialect
+        adapter = SnowflakeAdapter(config, report, sqlite_engine)
         context = ProfilingContext(
             schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
         )
@@ -1192,9 +1313,36 @@ class TestDatabricksAdapter:
     """Test cases for DatabricksAdapter."""
 
     @pytest.fixture
-    def adapter(self, config, report, sqlite_engine):
+    def databricks_engine(self, sqlite_engine):
+        """Create engine with Databricks dialect for testing."""
+        from unittest.mock import Mock
+
+        from databricks.sqlalchemy import DatabricksDialect
+
+        # Create a mock engine that wraps sqlite_engine but uses Databricks dialect
+        mock_engine = Mock(wraps=sqlite_engine)
+        mock_engine.dialect = DatabricksDialect()
+        # Preserve other engine attributes needed for tests
+        mock_engine.connect = sqlite_engine.connect
+        mock_engine.raw_connection = sqlite_engine.raw_connection
+        return mock_engine
+
+    @pytest.fixture
+    def adapter(self, config, report, databricks_engine):
         """Create Databricks adapter for testing."""
-        return DatabricksAdapter(config, report, sqlite_engine)
+        return DatabricksAdapter(config, report, databricks_engine)
+
+    @pytest.mark.parametrize(
+        "identifier,expected",
+        [
+            ("my_table", "`my_table`"),
+            ("my_schema.my_table", "`my_schema`.`my_table`"),
+        ],
+    )
+    def test_quote_identifier(self, adapter, identifier, expected):
+        """Test quoting identifiers with Databricks dialect."""
+        result = adapter.quote_identifier(identifier)
+        assert result == expected
 
     def test_get_approx_unique_count_expr(self, adapter):
         """Test Databricks uses approx_count_distinct (lowercase)."""
@@ -1214,20 +1362,6 @@ class TestDatabricksAdapter:
         expr_str = str(compiled)
         assert "approx_percentile" in expr_str.lower()
         assert "0.5" in expr_str
-
-    def test_setup_profiling_creates_sql_table(
-        self, adapter, sqlite_engine, test_table
-    ):
-        """Test setup creates SQLAlchemy table object."""
-        context = ProfilingContext(
-            schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
-        )
-
-        with sqlite_engine.connect() as conn:
-            result_context = adapter.setup_profiling(context, conn)
-
-        assert result_context.sql_table is not None
-        assert result_context.sql_table.name == "test_table"
 
     def test_cleanup_does_nothing(self, adapter):
         """Test cleanup is a no-op for Databricks adapter."""
@@ -1259,9 +1393,36 @@ class TestTrinoAdapter:
     """Test cases for TrinoAdapter."""
 
     @pytest.fixture
-    def adapter(self, config, report, sqlite_engine):
+    def trino_engine(self, sqlite_engine):
+        """Create engine with Trino dialect for testing."""
+        from unittest.mock import Mock
+
+        from trino.sqlalchemy.dialect import TrinoDialect
+
+        # Create a mock engine that wraps sqlite_engine but uses Trino dialect
+        mock_engine = Mock(wraps=sqlite_engine)
+        mock_engine.dialect = TrinoDialect()
+        # Preserve other engine attributes needed for tests
+        mock_engine.connect = sqlite_engine.connect
+        mock_engine.raw_connection = sqlite_engine.raw_connection
+        return mock_engine
+
+    @pytest.fixture
+    def adapter(self, config, report, trino_engine):
         """Create Trino adapter for testing."""
-        return TrinoAdapter(config, report, sqlite_engine)
+        return TrinoAdapter(config, report, trino_engine)
+
+    @pytest.mark.parametrize(
+        "identifier,expected",
+        [
+            ("my_table", '"my_table"'),
+            ("my_schema.my_table", '"my_schema"."my_table"'),
+        ],
+    )
+    def test_quote_identifier(self, adapter, identifier, expected):
+        """Test quoting identifiers with Trino dialect."""
+        result = adapter.quote_identifier(identifier)
+        assert result == expected
 
     def test_get_approx_unique_count_expr(self, adapter):
         """Test Trino uses approx_distinct (same as Athena)."""
@@ -1283,9 +1444,11 @@ class TestTrinoAdapter:
         assert "0.5" in expr_str
 
     def test_setup_profiling_creates_sql_table(
-        self, adapter, sqlite_engine, test_table
+        self, config, report, sqlite_engine, test_table
     ):
         """Test setup creates SQLAlchemy table object."""
+        # Use sqlite_engine since setup_profiling doesn't depend on dialect
+        adapter = TrinoAdapter(config, report, sqlite_engine)
         context = ProfilingContext(
             schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
         )

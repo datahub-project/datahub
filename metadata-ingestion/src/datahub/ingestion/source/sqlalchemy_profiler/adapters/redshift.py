@@ -57,11 +57,12 @@ class RedshiftAdapter(PlatformAdapter):
         Returns:
             SQLAlchemy expression for PERCENTILE_CONT(0.5)
         """
+        quoted_column = self.quote_identifier(column)
         # Use literal_column with label() to preserve column metadata
         # which is needed for the query combiner to work correctly.
         # sa.text() doesn't provide column metadata, causing empty result rows.
         return sa.literal_column(
-            f"PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {column})"
+            f"PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {quoted_column})"
         ).label("median")
 
     def get_mean_expr(self, column: str) -> Any:
