@@ -1,6 +1,7 @@
 package utils;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,7 +20,10 @@ class CustomHttpClientFactoryTest {
   private static final String TRUSTSTORE_PASSWORD = "testpassword";
   private static final String TRUSTSTORE_TYPE = "PKCS12";
 
-  // Helper: Generate a temp PKCS12 truststore using keytool
+  /**
+   * Generate a temp PKCS12 truststore using keytool. Skips (assumeTrue) if keytool is unavailable
+   * or fails, so tests do not fail in environments where keytool is missing or broken.
+   */
   Path generateTempTruststore() throws IOException, InterruptedException {
     Path truststorePath = tempDir.resolve("test-truststore-" + System.nanoTime() + ".p12");
     String keytoolPath = System.getenv("KEYTOOL_PATH");
@@ -28,7 +32,7 @@ class CustomHttpClientFactoryTest {
     }
     File keytoolFile = new File(keytoolPath);
     if (!keytoolFile.exists()) {
-      keytoolPath = "keytool"; // fallback to system path
+      keytoolPath = "keytool";
     }
     List<String> command =
         List.of(
@@ -53,9 +57,8 @@ class CustomHttpClientFactoryTest {
     Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
     String output = new String(process.getInputStream().readAllBytes());
     int exitCode = process.waitFor();
-    if (exitCode != 0)
-      throw new RuntimeException(
-          "Could not generate truststore, exit code: " + exitCode + ", output: " + output);
+    assumeTrue(
+        exitCode == 0, "keytool failed or unavailable (exit " + exitCode + "). Output: " + output);
     return truststorePath;
   }
 
