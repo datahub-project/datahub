@@ -63,34 +63,6 @@ from datahub.utilities.sqlalchemy_query_combiner import (
 )
 
 
-def _quote_bigquery_identifier(identifier: str) -> str:
-    """
-    Safely quote a BigQuery identifier to prevent SQL injection.
-
-    BigQuery uses backticks for identifiers. To escape a backtick within
-    an identifier, double it (`` -> ````).
-
-    Args:
-        identifier: The identifier to quote (table name, column name, etc.)
-
-    Returns:
-        Properly quoted identifier safe for use in SQL queries
-
-    Examples:
-        >>> _quote_bigquery_identifier("my_table")
-        '`my_table`'
-        >>> _quote_bigquery_identifier("table`with`backticks")
-        '`table``with``backticks`'
-        >>> _quote_bigquery_identifier("schema.table")
-        '`schema`.`table`'
-    """
-    # Split on dots to handle schema.table notation
-    parts = identifier.split(".")
-    # Escape backticks in each part by doubling them, then wrap in backticks
-    quoted_parts = [f"`{part.replace('`', '``')}`" for part in parts]
-    return ".".join(quoted_parts)
-
-
 def _is_single_row_query_method(query: Any) -> bool:
     """
     Determine if a query method returns a single row.

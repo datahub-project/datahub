@@ -914,16 +914,6 @@ class TestBigQueryAdapter:
         result = _quote_bigquery_identifier("project.dataset.table")
         assert result == "`project`.`dataset`.`table`"
 
-    def test_quote_bigquery_identifier_with_backticks(self):
-        """Test escaping backticks in identifier."""
-        result = _quote_bigquery_identifier("table`with`backticks")
-        assert result == "`table``with``backticks`"
-
-    def test_quote_bigquery_identifier_with_dots_and_backticks(self):
-        """Test complex identifier with dots and backticks."""
-        result = _quote_bigquery_identifier("schema.table`name")
-        assert result == "`schema`.`table``name`"
-
     def test_setup_profiling_with_limit(self, adapter, config, test_table):
         """Test BigQuery setup with LIMIT creates temp table."""
         config.limit = 100

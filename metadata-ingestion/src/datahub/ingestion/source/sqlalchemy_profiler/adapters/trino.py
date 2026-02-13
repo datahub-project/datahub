@@ -154,8 +154,11 @@ class TrinoAdapter(PlatformAdapter):
         """
         try:
             with self.base_engine.connect() as connection:
+                # Use SQLAlchemy's dialect-specific identifier preparer for proper quoting
+                preparer = self.base_engine.dialect.identifier_preparer
+                quoted_view = preparer.quote(view_name)
                 full_view_name = (
-                    f'"{schema}"."{view_name}"' if schema else f'"{view_name}"'
+                    f"{preparer.quote(schema)}.{quoted_view}" if schema else quoted_view
                 )
                 connection.execute(sa.text(f"DROP VIEW IF EXISTS {full_view_name}"))
                 logger.debug(f"Dropped Trino temp view: {full_view_name}")
