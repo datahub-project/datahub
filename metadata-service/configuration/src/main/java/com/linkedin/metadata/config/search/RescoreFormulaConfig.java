@@ -56,8 +56,8 @@ public class RescoreFormulaConfig {
   /** Number of top results to rescore (default: 100) */
   @Builder.Default private int windowSize = 100;
 
-  /** Maximum number of results to fetch from ES for rescoring (default: 5000) */
-  @Builder.Default private int maxRescoreWindow = 5000;
+  /** Maximum number of results to fetch from ES for rescoring (default: 500) */
+  @Builder.Default private int maxRescoreWindow = 500;
 
   /** exp4j formula string for computing final score */
   private String formula;
@@ -65,8 +65,10 @@ public class RescoreFormulaConfig {
   /** List of signal definitions */
   @Builder.Default private List<SignalConfig> signals = new ArrayList<>();
 
-  /** Whether to include explanation in search results */
-  @Builder.Default private boolean includeExplain = true;
+  /**
+   * Whether to include explanation in search results (default: false, enable only for debugging)
+   */
+  @Builder.Default private boolean includeExplain = false;
 
   /**
    * Load rescore configuration from file.
@@ -235,9 +237,9 @@ public class RescoreFormulaConfig {
     public static class RescoreDetails {
       private boolean enabled = true;
       private int windowSize = 100;
-      private int maxRescoreWindow = 5000;
+      private int maxRescoreWindow = 500;
       private String formula;
-      private boolean includeExplain = true;
+      private boolean includeExplain = false;
       private List<Map<String, Object>> signals;
     }
   }

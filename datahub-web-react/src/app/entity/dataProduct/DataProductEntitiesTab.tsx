@@ -3,6 +3,7 @@ import React from 'react';
 import generateUseListDataProductAssets from '@app/entity/dataProduct/generateUseListDataProductAssets';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EmbeddedListSearchSection } from '@app/entity/shared/components/styled/search/EmbeddedListSearchSection';
+import generateUseDownloadListDataProductAssets from '@app/entityV2/dataProduct/generateUseDownloadListDataProductAssets';
 
 export function DataProductEntitiesTab() {
     const { urn } = useEntityData();
@@ -10,6 +11,7 @@ export function DataProductEntitiesTab() {
     return (
         <EmbeddedListSearchSection
             useGetSearchResults={generateUseListDataProductAssets({ urn })}
+            useGetDownloadSearchResults={generateUseDownloadListDataProductAssets({ urn })}
             emptySearchQuery="*"
             placeholderText="Filter assets..."
             applyView

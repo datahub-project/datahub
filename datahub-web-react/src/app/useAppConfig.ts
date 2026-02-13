@@ -1,7 +1,10 @@
 import { useContext } from 'react';
 
+import { HIDE_LINEAGE_IN_SEARCH_CARDS_KEY, SHOW_SEPARATE_SIBLINGS_KEY } from '@app/appConfig/UpdateGlobalFlags';
 import { loadFromLocalStorage, setInLocalStorage } from '@app/sharedV2/hooks/useFeatureFlag';
 import { AppConfigContext } from '@src/appConfigContext';
+
+import { AppConfig } from '@types';
 
 /**
  * Fetch an instance of AppConfig from the React context.
@@ -33,13 +36,6 @@ export function useIsAppConfigContextLoaded() {
 export function useIsEditableDatasetNameEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.editableDatasetNameEnabled;
-}
-
-export const showSeparateSiblingsRef = { current: { showSeparateSiblings: false } };
-
-export function useIsShowSeparateSiblingsEnabled() {
-    const appConfig = useAppConfig();
-    return appConfig.config.featureFlags.showSeparateSiblings;
 }
 
 export function useShowIntroducePage() {
@@ -87,11 +83,13 @@ export function useIsFreshnessAssertionTuningEnabled() {
     return appConfig.config.featureFlags.freshnessAssertionTuningEnabled;
 }
 
+export function useIsContextDocumentsEnabled(): boolean {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.contextDocumentsEnabled;
+}
+
 const FREE_TRIAL_INSTANCE_KEY = 'isFreeTrialInstance';
 
-/**
- * Check if the instance is configured for a free trial
- */
 export function useIsFreeTrialInstance() {
     const appConfig = useAppConfig();
     const isFreeTrial = appConfig.config.trialConfig.trialEnabled;
@@ -104,17 +102,24 @@ export function useIsFreeTrialInstance() {
     return loadFromLocalStorage(FREE_TRIAL_INSTANCE_KEY);
 }
 
-/**
- * Hook to check if Context Documents feature is enabled.
- */
-export function useIsContextDocumentsEnabled(): boolean {
-    const appConfig = useAppConfig();
-    return appConfig.config.featureFlags.contextDocumentsEnabled;
+function useFlagWithLocalStorageSync(key: string, f: (appConfig: AppConfig) => boolean) {
+    const { config, loaded } = useAppConfig();
+    const flagValue = f(config);
+
+    if (loaded) return flagValue;
+    return loadFromLocalStorage(key);
 }
 
-export const hideLineageInSearchCardsRef = { current: { hideLineageInSearchCards: false } };
-
 export function useHideLineageInSearchCards() {
-    const appConfig = useAppConfig();
-    return appConfig.config.featureFlags.hideLineageInSearchCards;
+    return useFlagWithLocalStorageSync(
+        HIDE_LINEAGE_IN_SEARCH_CARDS_KEY,
+        (config) => config.featureFlags.hideLineageInSearchCards,
+    );
+}
+
+export function useIsShowSeparateSiblingsEnabled() {
+    return useFlagWithLocalStorageSync(
+        SHOW_SEPARATE_SIBLINGS_KEY,
+        (config) => config.featureFlags.showSeparateSiblings,
+    );
 }

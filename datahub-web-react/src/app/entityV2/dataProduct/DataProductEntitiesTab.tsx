@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import generateUseDownloadListDataProductAssets from '@app/entityV2/dataProduct/generateUseDownloadListDataProductAssets';
 import generateUseListDataProductAssets from '@app/entityV2/dataProduct/generateUseListDataProductAssets';
 import { generateUseListDataProductAssetsCount } from '@app/entityV2/dataProduct/generateUseListDataProductAssetsCount';
 import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
@@ -14,6 +15,7 @@ export function DataProductEntitiesTab() {
             <EmbeddedListSearchSection
                 useGetSearchResults={generateUseListDataProductAssets({ urn })}
                 useGetSearchCountResult={generateUseListDataProductAssetsCount({ urn })}
+                useGetDownloadSearchResults={generateUseDownloadListDataProductAssets({ urn })}
                 emptySearchQuery="*"
                 placeholderText="Filter assets..."
                 skipCache

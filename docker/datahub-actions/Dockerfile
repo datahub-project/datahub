@@ -80,7 +80,7 @@ ARG PIP_EXTRA_INDEX_URL=""
 # Persist settings for subsequent build layers and for optional venv builds
 ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
 ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
-ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+ENV UV_DEFAULT_INDEX=${PIP_MIRROR_URL}
 # Also configure pip globally inside the image so tools without env still use the mirror
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
     if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
@@ -431,7 +431,7 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actio
   uv pip install -e '/datahub-actions/[all]'
 
 # Block network access to PyPI - locked variant only uses bundled venvs
-ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV UV_DEFAULT_INDEX=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
 ENTRYPOINT [ ]
@@ -496,7 +496,7 @@ RUN apk --no-cache add \
     && apk --no-cache add librdkafka-dev --repository=${ALPINE_REPO_URL}/edge/community
 
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
-ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+ENV UV_DEFAULT_INDEX=${PIP_MIRROR_URL}
 
 # clang required for python-build-standalone compatibility
 ENV CC=clang
@@ -637,7 +637,7 @@ COPY --from=venv-builder-locked-alpine --chown=datahub:datahub /home/datahub/.lo
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 
 # Block network access to PyPI
-ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV UV_DEFAULT_INDEX=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
 USER datahub

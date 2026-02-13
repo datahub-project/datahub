@@ -65,7 +65,7 @@ COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
-ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+ENV UV_DEFAULT_INDEX=${PIP_MIRROR_URL}
 
 USER datahub
 WORKDIR $HOME

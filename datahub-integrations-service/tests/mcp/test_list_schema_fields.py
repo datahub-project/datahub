@@ -355,6 +355,39 @@ class TestListSchemaFields:
                 assert result["totalFields"] == 0
                 assert result["remainingCount"] == 0  # No more fields
 
+    async def test_handles_entity_with_null_schema(self, mock_client):
+        """Test handling of entity where schemaMetadata is explicitly None.
+
+        This can happen when the entity exists but has no schema metadata ingested.
+        The key difference from 'missing' is that .get("schemaMetadata", {}) returns
+        None (not {}), so we need the `or {}` guard.
+        """
+        entity_with_null_schema = {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
+            "schemaMetadata": None,
+        }
+
+        with patch(
+            "datahub_integrations.mcp.mcp_server.get_datahub_client",
+            return_value=mock_client,
+        ):
+            mock_client._graph.exists.return_value = True
+
+            with patch(
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
+            ) as mock_gql:
+                mock_gql.return_value = {"entity": entity_with_null_schema}
+
+                from datahub_integrations.mcp.mcp_server import list_schema_fields
+
+                result = await async_background(list_schema_fields)(
+                    urn=entity_with_null_schema["urn"], keywords=["test"]
+                )
+
+                assert result["fields"] == []
+                assert result["totalFields"] == 0
+                assert result["remainingCount"] == 0
+
     async def test_case_insensitive_keyword_matching(
         self, mock_client, sample_dataset_with_schema
     ):

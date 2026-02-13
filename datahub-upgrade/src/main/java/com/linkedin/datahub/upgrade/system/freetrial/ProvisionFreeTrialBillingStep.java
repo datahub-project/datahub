@@ -7,15 +7,12 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.billing.BillingHandler;
-import com.linkedin.metadata.billing.contract.ContractFactory;
-import com.linkedin.metadata.billing.contract.ContractSpec;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.config.BillingConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collections;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Upgrade step to provision billing for free trial instances.
  *
- * <p>This step provisions a customer in the billing provider (Metronome) with a free trial
+ * <p>This step provisions a customer in the billing provider (Metronome) with a package-based
  * contract. It only runs once per instance and is idempotent - if the customer already exists, it
  * will skip provisioning.
  *
@@ -33,7 +30,7 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>Billing is not enabled
  *   <li>Instance is not configured as a free trial
  *   <li>Billing configuration is incomplete
- *   <li>Metronome API is unavailable
+ *   <li>Billing provider API is unavailable
  * </ul>
  *
  * <p>The step will succeed (and not run again) if:
@@ -86,39 +83,31 @@ public class ProvisionFreeTrialBillingStep implements UpgradeStep {
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
 
-        // Validate configuration and free trial instance
+        // Validate free trial instance
         if (!dataHubConfiguration.isFreeTrialInstance()) {
           log.info("Not a free trial instance, will retry on next upgrade");
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
 
+        // Validate billing configuration has a package alias
         BillingConfiguration billingConfig = dataHubConfiguration.getBilling();
         if (billingConfig == null
             || billingConfig.getMetronome() == null
-            || billingConfig.getMetronome().getContracts() == null) {
-          log.warn("Billing configuration is incomplete, will retry on next upgrade");
+            || billingConfig.getMetronome().getPackageAlias() == null
+            || billingConfig.getMetronome().getPackageAlias().trim().isEmpty()) {
+          log.warn("Billing package alias is not configured, will retry on next upgrade");
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
 
-        // Get free trial contract configuration
-        BillingConfiguration.MetronomeConfiguration.ContractConfiguration freeTrialConfig =
-            billingConfig.getMetronome().getContracts().get("freeTrial");
+        String packageAlias = billingConfig.getMetronome().getPackageAlias();
 
-        if (freeTrialConfig == null) {
-          log.warn("Free trial contract configuration not found, will retry on next upgrade");
-          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
-        }
-
-        // Create contract spec from configuration
-        ContractSpec freeTrialContract = ContractFactory.createFreeTrialContract(freeTrialConfig);
-
-        // Provision customer with free trial contract (idempotent)
-        billingHandler.provisionCustomer(Collections.singletonList(freeTrialContract));
+        // Provision customer with package (idempotent)
+        billingHandler.provisionCustomer(packageAlias);
 
         // Mark upgrade as complete
         BootstrapStep.setUpgradeResult(systemOpContext, UPGRADE_ID_URN, entityService);
 
-        log.info("Successfully provisioned billing customer");
+        log.info("Successfully provisioned billing customer with package '{}'", packageAlias);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
 
       } catch (Exception e) {

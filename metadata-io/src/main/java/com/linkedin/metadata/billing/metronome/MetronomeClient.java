@@ -5,8 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.billing.BillingException;
 import com.linkedin.metadata.billing.BillingProduct;
 import com.linkedin.metadata.billing.BillingProvider;
-import com.linkedin.metadata.billing.contract.ContractSpec;
-import com.linkedin.metadata.billing.contract.RecurringCreditSpec;
 import com.linkedin.metadata.config.BillingConfiguration;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -75,9 +73,18 @@ public class MetronomeClient implements BillingProvider {
     this.objectMapper = new ObjectMapper();
   }
 
-  @Override
+  /**
+   * Resolve the Metronome product ID for a given {@link BillingProduct}.
+   *
+   * <p>Maps the product enum to its Metronome-specific product ID using the configured product
+   * mappings.
+   *
+   * @param product The billing product to resolve
+   * @return The Metronome product ID
+   * @throws BillingException if no product ID is configured for the given product
+   */
   @Nonnull
-  public String resolveProductId(@Nonnull BillingProduct product) throws BillingException {
+  private String resolveProductId(@Nonnull BillingProduct product) throws BillingException {
     Objects.requireNonNull(product, "product must not be null");
 
     Map<String, String> products = config.getProducts();
@@ -98,17 +105,6 @@ public class MetronomeClient implements BillingProvider {
     return productId;
   }
 
-  /**
-   * Get Metronome customer ID by customer name (used as ingest alias).
-   *
-   * <p>Queries the Metronome API to find a customer by their ingest alias. The customer name
-   * (hostname) is used as the ingest alias during customer creation, allowing lookup without
-   * storing the Metronome customer ID.
-   *
-   * @param customerName The customer name (typically the hostname), used as ingest alias
-   * @return Metronome's internal customer ID, or null if not found
-   * @throws BillingException if the API call fails
-   */
   @Override
   @javax.annotation.Nullable
   public String getCustomerId(@Nonnull String customerName) throws BillingException {
@@ -125,7 +121,6 @@ public class MetronomeClient implements BillingProvider {
       JsonNode data = result.get("data");
 
       if (data != null && data.isArray() && data.size() > 0) {
-        // Get the first customer's ID
         JsonNode firstCustomer = data.get(0);
         if (firstCustomer.has("id")) {
           String customerId = firstCustomer.get("id").asText();
@@ -146,38 +141,28 @@ public class MetronomeClient implements BillingProvider {
 
   @Override
   @Nonnull
-  public String provisionCustomer(
-      @Nonnull String customerName, @Nonnull List<ContractSpec> contracts) throws BillingException {
+  public String provisionCustomer(@Nonnull String customerName, @Nonnull String packageAlias)
+      throws BillingException {
     Objects.requireNonNull(customerName, "customerName must not be null");
-    Objects.requireNonNull(contracts, "contracts must not be null");
+    Objects.requireNonNull(packageAlias, "packageAlias must not be null");
 
-    if (contracts.isEmpty()) {
-      throw new IllegalArgumentException("At least one contract must be provided");
-    }
-
-    log.info(
-        "Provisioning Metronome customer '{}' with {} contract(s)", customerName, contracts.size());
+    log.info("Provisioning Metronome customer '{}' with package '{}'", customerName, packageAlias);
 
     // Step 1: Check if customer already exists, create if not
     String metronomeCustomerId = getCustomerId(customerName);
 
     if (metronomeCustomerId != null) {
       log.info(
-          "Customer '{}' already exists with ID: {}, adding contracts",
+          "Customer '{}' already exists with ID: {}, adding contract",
           customerName,
           metronomeCustomerId);
     } else {
-      // Customer doesn't exist, create it
       log.info("Customer '{}' does not exist, creating new customer", customerName);
       metronomeCustomerId = createCustomer(customerName);
     }
 
-    // Step 2: Create each contract for the customer (whether just created or already existed)
-    for (int i = 0; i < contracts.size(); i++) {
-      ContractSpec contractSpec = contracts.get(i);
-      log.info("Creating contract {}/{}: {}", i + 1, contracts.size(), contractSpec.getName());
-      createContract(metronomeCustomerId, contractSpec);
-    }
+    // Step 2: Create contract from package
+    createContractFromPackage(metronomeCustomerId, packageAlias);
 
     return metronomeCustomerId;
   }
@@ -228,79 +213,53 @@ public class MetronomeClient implements BillingProvider {
   }
 
   /**
-   * Create a contract for a customer based on contract specification.
+   * Create a contract for a customer using a Metronome package alias.
    *
-   * <p>This method creates a contract in Metronome with recurring credits based on the provided
-   * specification. The contract can be for free trials, standard subscriptions, or custom
-   * agreements.
+   * <p>Packages in Metronome bundle rate cards, recurring credits, and other contract details into
+   * a reusable template.
    *
    * @param metronomeCustomerId Metronome's internal customer identifier
-   * @param contractSpec Contract specification with rate card, credits, and dates
+   * @param packageAlias The package alias identifying the billing package
    * @throws BillingException if contract creation fails
-   * @see <a href="https://docs.metronome.com/api-reference/contracts/create-a-contract">Metronome
-   *     API - Create a Contract</a>
    */
-  private void createContract(String metronomeCustomerId, ContractSpec contractSpec)
+  private void createContractFromPackage(String metronomeCustomerId, String packageAlias)
       throws BillingException {
     Objects.requireNonNull(metronomeCustomerId, "Customer ID must not be null");
-    Objects.requireNonNull(contractSpec, "Contract spec must not be null");
+    Objects.requireNonNull(packageAlias, "Package alias must not be null");
 
-    // Validate contract spec
-    contractSpec.validate();
-
-    // Convert LocalDate to Metronome's ISO format timestamp
-    String startingAt = formatDateForMetronome(contractSpec.getStartDate());
+    String startingAt = formatDateForMetronome(calculateStartDate());
 
     // Build contract request body
     Map<String, Object> body = new HashMap<>();
     body.put("customer_id", metronomeCustomerId);
     body.put("starting_at", startingAt);
-    body.put("name", contractSpec.getName());
-    body.put("rate_card_id", contractSpec.getRateCardId());
-
-    // Build list of recurring credits from contract spec
-    List<Map<String, Object>> recurringCreditsList = new ArrayList<>();
-    for (RecurringCreditSpec creditSpec : contractSpec.getRecurringCredits()) {
-      Map<String, Object> recurringCredit = new HashMap<>();
-      recurringCredit.put("product_id", creditSpec.getProductId());
-      recurringCredit.put("priority", creditSpec.getPriority());
-      recurringCredit.put("starting_at", startingAt);
-      recurringCredit.put("recurrence_frequency", "monthly");
-
-      // Define credit allocation
-      Map<String, Object> accessAmount = new HashMap<>();
-      accessAmount.put("unit_price", 1);
-      accessAmount.put("credit_type_id", creditSpec.getCreditTypeId());
-      accessAmount.put("quantity", creditSpec.getMonthlyCredits());
-      recurringCredit.put("access_amount", accessAmount);
-
-      // Set commit duration: 1 period = 1 month
-      Map<String, Object> commitDuration = new HashMap<>();
-      commitDuration.put("value", 1);
-      commitDuration.put("unit", "periods");
-      recurringCredit.put("commit_duration", commitDuration);
-
-      recurringCreditsList.add(recurringCredit);
-    }
-
-    body.put("recurring_credits", recurringCreditsList);
+    body.put("package_alias", packageAlias);
 
     try {
       post(CONTRACTS_ENDPOINT, body);
       log.info(
-          "Created contract '{}' for customer: {} with {} product(s) (start: {})",
-          contractSpec.getName(),
+          "Created contract for customer: {} with package '{}' (start: {})",
           metronomeCustomerId,
-          recurringCreditsList.size(),
+          packageAlias,
           startingAt);
     } catch (Exception e) {
       throw new BillingException(
-          "Failed to create contract '"
-              + contractSpec.getName()
+          "Failed to create contract with package '"
+              + packageAlias
               + "' for customer: "
               + metronomeCustomerId,
           e);
     }
+  }
+
+  /**
+   * Calculate contract start date as the first day of the current month (UTC).
+   *
+   * @return First day of current month
+   */
+  private LocalDate calculateStartDate() {
+    ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
+    return now.toLocalDate().withDayOfMonth(1);
   }
 
   /**
@@ -408,14 +367,14 @@ public class MetronomeClient implements BillingProvider {
   }
 
   @Override
-  public boolean hasRemainingCredits(@Nonnull String customerId, @Nonnull String productId)
+  public boolean hasRemainingCredits(@Nonnull String customerId, @Nonnull BillingProduct product)
       throws BillingException {
     Objects.requireNonNull(customerId, "customerId must not be null");
-    Objects.requireNonNull(productId, "productId must not be null");
+    Objects.requireNonNull(product, "product must not be null");
 
+    String productId = resolveProductId(product);
     int remaining = getRemainingBalance(customerId, productId);
-    boolean hasCredits = remaining > 0;
-    return hasCredits;
+    return remaining > 0;
   }
 
   /**
@@ -489,9 +448,8 @@ public class MetronomeClient implements BillingProvider {
    * @param customerId The billing provider's internal customer ID
    * @param eventType The type of event being reported (e.g., "ai_message", "data_export", etc.)
    * @param transactionId Unique identifier for this usage event (for idempotency)
-   * @param quantity Number of credits to deduct (typically 1 per AI chat answer)
-   * @param additionalProperties Additional properties to include with the usage event (e.g.,
-   *     conversation_id, user_id)
+   * @param quantity Number of credits to deduct
+   * @param additionalProperties Additional properties to include with the usage event
    * @throws BillingException if usage reporting fails
    */
   @Override
@@ -515,8 +473,7 @@ public class MetronomeClient implements BillingProvider {
 
     // Build properties with additional context
     Map<String, Object> properties = new HashMap<>();
-    properties.putAll(additionalProperties); // Add conversation_id, user_id, etc.
-
+    properties.putAll(additionalProperties);
     event.put("properties", properties);
 
     List<Map<String, Object>> events = new ArrayList<>();
