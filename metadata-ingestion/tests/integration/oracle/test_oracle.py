@@ -60,12 +60,19 @@ def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
             ):
                 volatile_query_urns.add(entity.get("entityUrn", ""))
 
-    # Second pass: filter out volatile queries and their lineage
+    # Second pass: filter out volatile queries, staging datasets, and their lineage
     for entity in metadata_json:
         entity_urn = entity.get("entityUrn", "")
 
         # Skip query entities that reference volatile staging tables
         if entity.get("entityType") == "query" and entity_urn in volatile_query_urns:
+            continue
+
+        # Skip all aspects of staging table datasets (they only exist due to volatile queries)
+        if (
+            entity.get("entityType") == "dataset"
+            and entity_urn in VOLATILE_STAGING_TABLES
+        ):
             continue
 
         # Skip upstreamLineage that references volatile queries
