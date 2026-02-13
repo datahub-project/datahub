@@ -23,14 +23,6 @@ source:
         - "^ANALYTICS_SCHEMA$"  # Has materialized views
         - "^SYSTEM$"            # Has test_mview
     
-    # Exclude staging tables created in post_setup.sql for DML lineage testing
-    table_pattern:
-      deny:
-        - ".*\\.EMPLOYEE_BACKUP$"
-        - ".*\\.HIGH_EARNERS$"
-        - ".*\\.ORDER_ANALYTICS$"
-        - ".*\\.DAILY_REVENUE$"
-    
     profiling:
       enabled: false
       

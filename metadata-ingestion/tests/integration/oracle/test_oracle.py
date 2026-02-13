@@ -24,11 +24,11 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
-# Staging tables created in post_setup.sql that may have volatile V$SQL queries
+# Staging tables in STAGING_SCHEMA that may have volatile V$SQL queries
 # These are populated by INSERT operations during test setup
 VOLATILE_STAGING_TABLES = {
-    "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_backup,PROD)",
-    "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.daily_revenue,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD)",
 }
 
 
