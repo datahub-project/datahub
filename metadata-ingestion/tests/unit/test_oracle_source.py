@@ -119,6 +119,142 @@ def test_oracle_config_data_dictionary_mode():
         OracleConfig.parse_obj({**base_config, "data_dictionary_mode": "INVALID"})
 
 
+def test_oracle_get_db_name_with_service_name():
+    """Test getting database name when using service_name with ALL mode."""
+
+    base_config = {
+        "username": "user",
+        "password": "password",
+        "host_port": "host:1521",
+        "service_name": "svc01",
+        "data_dictionary_mode": "ALL",
+    }
+
+    config = OracleConfig.parse_obj(base_config)
+    ctx = PipelineContext(run_id="test-oracle-service-name")
+
+    with patch("datahub.ingestion.source.sql.oracle.oracledb"):
+        source = OracleSource(config, ctx)
+
+        # Mock inspector with empty database in URL (simulating service_name usage)
+        mock_inspector = Mock()
+        mock_engine = Mock()
+        mock_url = Mock()
+        mock_url.database = None  # This is the case when using service_name
+        mock_engine.url = mock_url
+        mock_inspector.engine = mock_engine
+
+        # Mock bind and the database query result
+        mock_bind = Mock()
+        mock_result = Mock()
+        mock_result.scalar.return_value = "TESTDB"  # Oracle returns uppercase
+        mock_bind.execute.return_value = mock_result
+        mock_inspector.bind = mock_bind
+
+        # Mock dialect for normalization (Oracle normalizes to lowercase)
+        mock_dialect = Mock()
+        mock_dialect.normalize_name.return_value = "testdb"  # normalized to lowercase
+        mock_inspector.dialect = mock_dialect
+
+        # Test that get_db_name queries Oracle and normalizes the database name
+        db_name = source.get_db_name(mock_inspector)
+
+        assert db_name == "testdb"  # Should be normalized to lowercase
+        mock_bind.execute.assert_called_once()
+        call_args = mock_bind.execute.call_args
+        # Verify the exact SQL query is used
+        query_text = str(call_args[0][0]).upper()
+        assert "SYS_CONTEXT('USERENV','DB_NAME')" in query_text
+        assert "FROM DUAL" in query_text
+        mock_dialect.normalize_name.assert_called_once_with("TESTDB")
+
+
+def test_oracle_get_db_name_with_service_name_dba_mode():
+    """Test getting database name when using service_name with DBA mode."""
+
+    base_config = {
+        "username": "user",
+        "password": "password",
+        "host_port": "host:1521",
+        "service_name": "svc01",
+        "data_dictionary_mode": "DBA",
+    }
+
+    config = OracleConfig.parse_obj(base_config)
+    ctx = PipelineContext(run_id="test-oracle-service-name-dba")
+
+    with patch("datahub.ingestion.source.sql.oracle.oracledb"):
+        source = OracleSource(config, ctx)
+
+        # Mock OracleInspectorObjectWrapper with empty database in URL
+        mock_inspector = Mock(spec=OracleInspectorObjectWrapper)
+        mock_engine = Mock()
+        mock_url = Mock()
+        mock_url.database = None  # This is the case when using service_name
+        mock_engine.url = mock_url
+        mock_inspector.engine = mock_engine
+
+        # Mock the wrapper's get_db_name method (returns uppercase from Oracle)
+        mock_inspector.get_db_name.return_value = "TESTDB_DBA"
+
+        # Mock dialect for normalization
+        mock_dialect = Mock()
+        mock_dialect.normalize_name.return_value = "testdb_dba"  # normalized
+        mock_inspector.dialect = mock_dialect
+
+        # Test that get_db_name uses the wrapper's method and normalizes
+        db_name = source.get_db_name(mock_inspector)
+
+        assert db_name == "testdb_dba"  # Should be normalized
+        mock_inspector.get_db_name.assert_called_once()
+        mock_dialect.normalize_name.assert_called_once_with("TESTDB_DBA")
+
+
+def test_oracle_get_db_name_database_error():
+    """Test error handling when Oracle database query fails."""
+    base_config = {
+        "username": "user",
+        "password": "password",
+        "host_port": "host:1521",
+        "service_name": "svc01",
+        "data_dictionary_mode": "ALL",
+    }
+
+    config = OracleConfig.parse_obj(base_config)
+    ctx = PipelineContext(run_id="test-oracle-db-error")
+
+    with patch("datahub.ingestion.source.sql.oracle.oracledb"):
+        source = OracleSource(config, ctx)
+
+        # Mock inspector with empty database in URL
+        mock_inspector = Mock()
+        mock_engine = Mock()
+        mock_url = Mock()
+        mock_url.database = None
+        mock_engine.url = mock_url
+        mock_inspector.engine = mock_engine
+
+        # Mock bind to raise DatabaseError
+        mock_bind = Mock()
+        mock_bind.execute.side_effect = sqlalchemy.exc.DatabaseError(
+            "Connection failed", None, None
+        )
+        mock_inspector.bind = mock_bind
+
+        # Mock dialect (even though we won't reach normalization)
+        mock_dialect = Mock()
+        mock_inspector.dialect = mock_dialect
+
+        # Test that get_db_name handles the error gracefully
+        db_name = source.get_db_name(mock_inspector)
+
+        # Should return empty string when query fails
+        assert db_name == ""
+        mock_bind.execute.assert_called_once()
+        # Normalization should not be called since query failed
+        mock_dialect.normalize_name.assert_not_called()
+
+
 class TestOracleInspectorObjectWrapper:
     """Test cases for OracleInspectorObjectWrapper."""
 

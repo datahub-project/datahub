@@ -28,8 +28,8 @@ public class CustomHttpClientFactory {
       log.warn(
           "Failed to initialize Java HttpClient with custom truststore at '{}'. Falling back to default HttpClient. Reason: {}",
           path,
-          e.getMessage(),
-          e);
+          e.getMessage());
+      log.debug("Truststore load failure detail", e);
       return HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
     }
   }
@@ -47,8 +47,8 @@ public class CustomHttpClientFactory {
       log.warn(
           "Failed to initialize Apache HttpClient with custom truststore at '{}'. Falling back to default HttpClient. Reason: {}",
           path,
-          e.getMessage(),
-          e);
+          e.getMessage());
+      log.debug("Truststore load failure detail", e);
       return HttpClients.createDefault();
     }
   }
