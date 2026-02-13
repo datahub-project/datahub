@@ -11,8 +11,6 @@ from pydantic import Field, model_validator
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig, HiddenFromDocs
 from datahub.configuration.env_vars import (
     get_report_failure_sample_size,
-    get_report_log_failure_summaries_to_console,
-    get_report_log_warning_summaries_to_console,
     get_report_warning_sample_size,
 )
 from datahub.ingestion.graph.config import DatahubClientConfig
@@ -24,12 +22,6 @@ logger = logging.getLogger(__name__)
 # Report config defaults from environment variables
 _DEFAULT_REPORT_FAILURE_SAMPLE_SIZE = get_report_failure_sample_size()
 _DEFAULT_REPORT_WARNING_SAMPLE_SIZE = get_report_warning_sample_size()
-_DEFAULT_REPORT_LOG_FAILURE_SUMMARIES_TO_CONSOLE = (
-    get_report_log_failure_summaries_to_console()
-)
-_DEFAULT_REPORT_LOG_WARNING_SUMMARIES_TO_CONSOLE = (
-    get_report_log_warning_summaries_to_console()
-)
 
 # Sentinel value used to check if the run ID is the default value.
 DEFAULT_RUN_ID = "__DEFAULT_RUN_ID"
@@ -61,8 +53,6 @@ class ReportConfig(ConfigModel):
     All settings can be overridden via environment variables:
     - DATAHUB_REPORT_FAILURE_SAMPLE_SIZE
     - DATAHUB_REPORT_WARNING_SAMPLE_SIZE
-    - DATAHUB_REPORT_LOG_FAILURE_SUMMARIES_TO_CONSOLE
-    - DATAHUB_REPORT_LOG_WARNING_SUMMARIES_TO_CONSOLE
     """
 
     failure_sample_size: int = Field(
@@ -78,18 +68,6 @@ class ReportConfig(ConfigModel):
         "Uses reservoir sampling to fairly represent warnings when there are more than this limit. "
         "Can also be set via DATAHUB_REPORT_WARNING_SAMPLE_SIZE env var.",
         ge=1,
-    )
-    log_failure_summaries_to_console: Optional[bool] = Field(
-        default=_DEFAULT_REPORT_LOG_FAILURE_SUMMARIES_TO_CONSOLE,
-        description="Control failure summary logging to console: None (default) uses caller's choice, "
-        "True forces all failure summaries to log, False suppresses all logging. "
-        "Can also be set via DATAHUB_REPORT_LOG_FAILURE_SUMMARIES_TO_CONSOLE env var (true/false/unset).",
-    )
-    log_warning_summaries_to_console: Optional[bool] = Field(
-        default=_DEFAULT_REPORT_LOG_WARNING_SUMMARIES_TO_CONSOLE,
-        description="Control warning summary logging to console: None (default) uses caller's choice, "
-        "True forces all warning summaries to log, False suppresses all logging. "
-        "Can also be set via DATAHUB_REPORT_LOG_WARNING_SUMMARIES_TO_CONSOLE env var (true/false/unset).",
     )
 
 

@@ -149,38 +149,6 @@ def get_sentry_environment() -> str:
 # ============================================================================
 
 
-def get_report_log_failure_summaries_to_console() -> Optional[bool]:
-    """Control failure summary logging to console.
-
-    Returns:
-        None: Use caller's default (existing behavior - some log, some don't)
-        True: Force log ALL failure summaries to console
-        False: Suppress ALL failure summary logging
-    """
-    val = os.getenv("DATAHUB_REPORT_LOG_FAILURE_SUMMARIES_TO_CONSOLE", "").lower()
-    if val == "true":
-        return True
-    elif val == "false":
-        return False
-    return None
-
-
-def get_report_log_warning_summaries_to_console() -> Optional[bool]:
-    """Control warning summary logging to console.
-
-    Returns:
-        None: Use caller's default (existing behavior - some log, some don't)
-        True: Force log ALL warning summaries to console
-        False: Suppress ALL warning summary logging
-    """
-    val = os.getenv("DATAHUB_REPORT_LOG_WARNING_SUMMARIES_TO_CONSOLE", "").lower()
-    if val == "true":
-        return True
-    elif val == "false":
-        return False
-    return None
-
-
 def get_report_failure_sample_size() -> int:
     """Maximum number of failure entries to include in the report."""
     return int(os.getenv("DATAHUB_REPORT_FAILURE_SAMPLE_SIZE", "10"))

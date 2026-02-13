@@ -112,12 +112,9 @@ class StructuredLogEntry(Report):
 
 @dataclass
 class StructuredLogs(Report):
-    # Configuration for sample sizes and verbose logging.
+    # Configuration for sample sizes.
     failure_sample_size: int = 10
     warning_sample_size: int = 10
-    # None = use caller's log param, True = force log, False = suppress log
-    log_failure_summaries_to_console: Optional[bool] = None
-    log_warning_summaries_to_console: Optional[bool] = None
 
     # Underlying Lossy Dicts to Capture Errors, Warnings, and Infos.
     _entries: Dict[StructuredLogLevel, LossyDict[str, StructuredLogEntry]] = field(
@@ -165,24 +162,13 @@ class StructuredLogs(Report):
         if context and len(context) > _MAX_CONTEXT_STRING_LENGTH:
             context = f"{context[:_MAX_CONTEXT_STRING_LENGTH]} ..."
 
-        # Determine if we should log based on config and caller's log param.
-        # Config values: None = use caller's log param, True = force, False = suppress
-        config_value = (
-            self.log_failure_summaries_to_console
-            if level == StructuredLogLevel.ERROR
-            else self.log_warning_summaries_to_console
-            if level == StructuredLogLevel.WARN
-            else None
-        )
-        should_log = log if config_value is None else config_value
-
         log_content = f"{message} => {context}" if context else message
         if title:
             log_content = f"{title}: {log_content}"
         if exc:
             log_content += f"{log_content}: {exc}"
 
-            if should_log:
+            if log:
                 logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
                 logger.log(
                     level=logging.DEBUG,
@@ -196,7 +182,7 @@ class StructuredLogs(Report):
                 context = f"{context} {type(exc)}: {exc}"
             else:
                 context = f"{type(exc)}: {exc}"
-        elif should_log:
+        elif log:
             logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
 
         if log_key not in entries:
