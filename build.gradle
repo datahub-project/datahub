@@ -183,6 +183,7 @@ project.ext.externalDependency = [
     'jacksonJsr310': 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310',
     'jacksonDataFormatYaml': 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml',
     'woodstoxCore': 'com.fasterxml.woodstox:woodstox-core:6.4.0',
+    'xercesImpl': 'xerces:xercesImpl:2.12.0',
     'javatuples': 'org.javatuples:javatuples:1.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
     'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
@@ -440,6 +441,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
+    resolutionStrategy.force externalDependency.gson // Gson before 2.8.9: deserialization DoS; single version across all configs
     resolutionStrategy.force 'org.apache.mina:mina-core:2.2.4'
     resolutionStrategy.force 'org.mozilla:rhino:1.7.12'
     resolutionStrategy.force 'commons-beanutils:commons-beanutils:1.11.0'
@@ -597,6 +599,8 @@ subprojects {
         implementation('com.squareup.okhttp3:okhttp:4.12.0')
         implementation(externalDependency.commonsIo)
         implementation(externalDependency.protobuf)
+        implementation(externalDependency.xercesImpl) // Xerces CVEs (2 high, 1 medium)
+        implementation(externalDependency.gson) // Gson before 2.8.9: deserialization DoS (writeReplace)
       }
     }
 
