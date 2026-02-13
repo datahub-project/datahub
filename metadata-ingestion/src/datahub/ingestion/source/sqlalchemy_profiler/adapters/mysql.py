@@ -89,11 +89,20 @@ class MySQLAdapter(PlatformAdapter):
         try:
             schema = table.schema or "information_schema"
 
-            # Use parameterized query to prevent SQL injection
-            query = sa.text(
-                "SELECT table_rows FROM information_schema.tables "
-                "WHERE table_schema = :schema AND table_name = :table_name"
-            ).bindparams(schema=schema, table_name=table.name)
+            # Query information_schema.tables using SQLAlchemy query builder
+            info_schema_tables = sa.Table(
+                "tables",
+                sa.MetaData(),
+                sa.Column("table_schema", sa.String),
+                sa.Column("table_name", sa.String),
+                sa.Column("table_rows", sa.BigInteger),
+                schema="information_schema",
+            )
+            query = (
+                sa.select([info_schema_tables.c.table_rows])
+                .where(info_schema_tables.c.table_schema == schema)
+                .where(info_schema_tables.c.table_name == table.name)
+            )
 
             result = conn.execute(query).scalar()
             return int(result) if result is not None else None

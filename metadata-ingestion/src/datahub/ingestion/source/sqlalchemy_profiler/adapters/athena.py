@@ -204,7 +204,9 @@ class AthenaAdapter(PlatformAdapter):
         quoted_column = self.quote_identifier(column)
         # Build ARRAY[0.05, 0.25, 0.5, 0.75, 0.95] string
         array_str = f"ARRAY[{', '.join(str(q) for q in quantiles)}]"
-        return sa.literal_column(f"approx_percentile({quoted_column}, {array_str})")
+        return sa.literal_column(
+            f"approx_percentile({quoted_column}, {array_str})"
+        ).label("quantiles")
 
     def get_column_quantiles(
         self,
@@ -235,7 +237,7 @@ class AthenaAdapter(PlatformAdapter):
         array_str = f"ARRAY[{', '.join(str(q) for q in quantiles)}]"
         athena_expr = sa.literal_column(
             f"approx_percentile({quoted_column}, {array_str})"
-        )
+        ).label("quantiles")
         query = sa.select([athena_expr]).select_from(table)
         result = conn.execute(query).scalar()
         logger.debug(

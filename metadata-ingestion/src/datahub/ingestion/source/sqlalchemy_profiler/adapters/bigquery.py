@@ -251,16 +251,16 @@ class BigQueryAdapter(PlatformAdapter):
             if context.sql_table is not None:
                 query: Any = sa.select([sa.func.count()]).select_from(context.sql_table)
             else:
-                # Build quick count query
+                # Build quick count query using query builder
                 if not context.table:
                     return None
-                table_identifier = (
-                    f"{context.schema}.{context.table}"
-                    if context.schema
-                    else context.table
+                # Create SQLAlchemy Table object for query construction
+                table_obj = sa.Table(
+                    context.table,
+                    sa.MetaData(),
+                    schema=context.schema,
                 )
-                quoted_table = self.quote_identifier(table_identifier)
-                query = sa.text(f"SELECT COUNT(*) FROM {quoted_table}")
+                query = sa.select([sa.func.count()]).select_from(table_obj)
 
             result = conn.execute(query).scalar()
             return int(result) if result is not None else None

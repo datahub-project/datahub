@@ -93,13 +93,33 @@ class PostgresAdapter(PlatformAdapter):
         """
         try:
             schema = table.schema or "public"
-            table_ref = self.quote_identifier(f"{schema}.{table.name}")
 
-            # Use parameterized query to prevent SQL injection
-            query = sa.text(
-                "SELECT reltuples::bigint FROM pg_class "
-                "WHERE oid = :table_ref::regclass"
-            ).bindparams(table_ref=table_ref)
+            # Query pg_class and pg_namespace directly using SQLAlchemy query builder
+            pg_class = sa.Table(
+                "pg_class",
+                sa.MetaData(),
+                sa.Column("relname", sa.String),
+                sa.Column("relnamespace", sa.Integer),
+                sa.Column("reltuples", sa.Float),
+                schema="pg_catalog",
+            )
+            pg_namespace = sa.Table(
+                "pg_namespace",
+                sa.MetaData(),
+                sa.Column("oid", sa.Integer),
+                sa.Column("nspname", sa.String),
+                schema="pg_catalog",
+            )
+            query = (
+                sa.select([sa.cast(pg_class.c.reltuples, sa.BigInteger)])
+                .select_from(
+                    pg_class.join(
+                        pg_namespace, pg_class.c.relnamespace == pg_namespace.c.oid
+                    )
+                )
+                .where(pg_namespace.c.nspname == schema)
+                .where(pg_class.c.relname == table.name)
+            )
 
             result = conn.execute(query).scalar()
             return int(result) if result is not None else None

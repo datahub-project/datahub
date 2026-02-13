@@ -521,9 +521,12 @@ class PlatformAdapter(ABC):
         results = []
         for q in quantiles:
             try:
-                percentile_expr = sa.text(
-                    f"PERCENTILE_CONT({q}) WITHIN GROUP (ORDER BY {column})"
-                )
+                quoted_column = self.quote_identifier(column)
+                # Use literal_column with label() to preserve column metadata
+                # which is needed for the query combiner to work correctly.
+                percentile_expr = sa.literal_column(
+                    f"PERCENTILE_CONT({q}) WITHIN GROUP (ORDER BY {quoted_column})"
+                ).label("percentile")
                 query = sa.select([percentile_expr]).select_from(table)
                 result = conn.execute(query).scalar()
                 logger.debug(

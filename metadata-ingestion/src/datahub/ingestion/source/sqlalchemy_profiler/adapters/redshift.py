@@ -126,15 +126,20 @@ class RedshiftAdapter(PlatformAdapter):
             schema = table.schema or "public"
             table_name = table.name
 
-            # Use Redshift system tables for row count estimation
-            # STV_TBL_PERM contains row counts for permanent tables
-            query = sa.text(
-                """
-                SELECT tbl_rows
-                FROM svv_table_info
-                WHERE schema = :schema AND "table" = :table_name
-                """
-            ).bindparams(schema=schema, table_name=table_name)
+            # Query Redshift system view using SQLAlchemy query builder
+            # svv_table_info contains row counts for tables
+            svv_table_info = sa.Table(
+                "svv_table_info",
+                sa.MetaData(),
+                sa.Column("schema", sa.String),
+                sa.Column("table", sa.String),
+                sa.Column("tbl_rows", sa.BigInteger),
+            )
+            query = (
+                sa.select([svv_table_info.c.tbl_rows])
+                .where(svv_table_info.c.schema == schema)
+                .where(svv_table_info.c.table == table_name)
+            )
 
             result = conn.execute(query).scalar()
             return int(result) if result is not None else None
