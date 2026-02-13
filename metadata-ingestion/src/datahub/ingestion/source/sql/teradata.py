@@ -943,6 +943,72 @@ ORDER by DataBaseName, TableName;
         else:
             raise Exception("Unable to get database name from Sqlalchemy inspector")
 
+    def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
+        """Override parent class to handle Teradata's 2-tier naming (database.table).
+
+        Teradata has a 2-tier architecture: database.table (no separate schema concept).
+        The parent class assumes 3-tier naming (database.schema.table) which causes
+        incorrect parsing for Teradata views.
+
+        Args:
+            dataset_identifier: Full dataset identifier (e.g., 'wl_w.df_rcm_auwh_dly')
+
+        Returns:
+            Tuple of (database, schema) where:
+            - database: None (Teradata has no catalog)
+            - schema: The database name (which acts as the schema in Teradata)
+        """
+        parts = dataset_identifier.split(".")
+        if len(parts) == 2:
+            # Teradata 2-tier: database.table → return (None, database)
+            # The database IS the schema in Teradata
+            return None, parts[0]
+        elif len(parts) == 1:
+            # Unqualified table name → return (None, None)
+            return None, None
+        else:
+            # Shouldn't happen, but log a warning and fall back to parent
+            logger.warning(
+                f"Unexpected dataset_identifier format: {dataset_identifier} "
+                f"(expected 2 parts for Teradata, got {len(parts)})"
+            )
+            return super().get_db_schema(dataset_identifier)
+
+    def get_view_default_db_schema(
+        self, inspector: Inspector, dataset_identifier: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Override parent class to provide correct default_db and default_schema for Teradata views.
+
+        This is called when parsing view definitions to determine the default context
+        for unqualified table references within the view.
+
+        For Teradata's 2-tier architecture:
+        - default_db should be None (no catalog level)
+        - default_schema should be the database where the view lives
+
+        For example, for view 'wl_w.df_rcm_auwh_dly':
+        - default_db = None
+        - default_schema = 'wl_w'
+
+        This ensures that when the view definition contains 'wl_w.some_table',
+        sqlglot won't incorrectly double-apply the schema.
+
+        Args:
+            inspector: SQLAlchemy inspector
+            dataset_identifier: Full view identifier (e.g., 'wl_w.df_rcm_auwh_dly')
+
+        Returns:
+            Tuple of (default_db, default_schema) for view definition parsing
+        """
+        parts = dataset_identifier.split(".")
+        if len(parts) >= 2:
+            # For Teradata views, the database is the schema
+            database = parts[0]
+            return None, database  # default_db=None, default_schema='wl_w'
+
+        # Fallback: no defaults
+        return None, None
+
     def cached_loop_tables(
         self,
         inspector: Inspector,
@@ -1157,6 +1223,10 @@ ORDER by DataBaseName, TableName;
                                     pool_wait_time
                                 )
 
+                        # Set database context once per connection/thread
+                        # This allows HELP commands to work without requiring database in connection string
+                        conn.execute(text(f'DATABASE "{schema}"'))
+
                         # Measure view processing setup
                         processing_start = time.time()
                         thread_inspector = inspect(conn)
@@ -1256,6 +1326,11 @@ ORDER by DataBaseName, TableName;
         try:
             with engine.connect() as conn:
                 inspector = inspect(conn)
+
+                # Set database context once for all views in this schema
+                # This allows HELP commands to work without requiring database in connection string
+                conn.execute(text(f'DATABASE "{schema}"'))
+                logger.debug(f"Set database context to {schema} for view processing")
 
                 for view_name in view_names:
                     view_start_time = time.time()
