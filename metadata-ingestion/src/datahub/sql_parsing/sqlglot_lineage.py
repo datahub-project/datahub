@@ -416,11 +416,11 @@ def _clickhouse_extract_dictget_tables(
 ) -> OrderedSet[_TableName]:
     """Extract dictionary references from ClickHouse dictGet() function calls.
 
-    ClickHouse dictGet(dict_name, attr, key) references a dictionary backed by
-    a table. sqlglot parses the dict_name as a Column node (e.g.,
-    Column(this='dict_name', table='schema')), not a Table node. This
-    function finds those references and converts them to _TableName so they
-    appear in upstream lineage.
+    sqlglot parses dictGet(dict_name, ...) first arg as a Column node, not a
+    Table node. This extracts those references as _TableName for upstream lineage.
+
+    TODO: CLL is still wrong — dictionary name appears as a column on the FROM
+    table. Needs a post-processor to fix.
     """
     if not is_dialect_instance(dialect, "clickhouse"):
         return OrderedSet()
@@ -437,13 +437,20 @@ def _clickhouse_extract_dictget_tables(
         first_arg = func.expressions[0]
         if isinstance(first_arg, sqlglot.exp.Column):
             # dictGet(schema.dict_name, ...) → Column(table='schema', this='dict_name')
+            # dictGet(db.schema.dict_name, ...) → Column(catalog='db', table='schema', ...)
             table_name = first_arg.name
             schema = first_arg.table if first_arg.table else None
-            result.add(_TableName(database=None, db_schema=schema, table=table_name))
+            database = first_arg.args.get("catalog")
+            db_name = database.name if database else None
+            result.add(_TableName(database=db_name, db_schema=schema, table=table_name))
         elif isinstance(first_arg, sqlglot.exp.Literal) and first_arg.is_string:
             # dictGet('schema.dict_name', ...) → Literal('schema.dict_name')
             parts = first_arg.this.split(".")
-            if len(parts) == 2:
+            if len(parts) == 3:
+                result.add(
+                    _TableName(database=parts[0], db_schema=parts[1], table=parts[2])
+                )
+            elif len(parts) == 2:
                 result.add(
                     _TableName(database=None, db_schema=parts[0], table=parts[1])
                 )
@@ -731,8 +738,6 @@ def _table_level_lineage(
             ),
             dialect,
         )
-        # ClickHouse dictGet() references dictionaries backed by tables.
-        # sqlglot parses these as Column nodes, so extract them separately.
         | _clickhouse_extract_dictget_tables(statement, dialect)
         # ignore references created in this query
         - modified

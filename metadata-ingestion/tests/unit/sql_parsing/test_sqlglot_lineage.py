@@ -1648,11 +1648,7 @@ JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers".
 
 
 def test_clickhouse_dictget_lineage() -> None:
-    """Test that ClickHouse DICTGET dictionary references are included in table-level lineage.
-
-    DICTGET(dict_name, attr_name, key) takes a dictionary name as the first argument,
-    which sqlglot parses as a Column node. The dictionary is backed by a table, so it
-    should appear in upstream lineage.
+    """dictGet dictionary references should appear in upstream lineage.
 
     Expected lineage:
         db1.events    default.my_dict
@@ -1675,9 +1671,7 @@ FROM db1.events
 
 
 def test_clickhouse_dictget_with_multiple_tables() -> None:
-    """Test DICTGET with actual table joins.
-
-    Dictionary references are included alongside real table references.
+    """dictGet references are included alongside real table joins.
 
     Expected lineage:
         db1.events    db1.users    default.my_dict
@@ -1697,6 +1691,24 @@ JOIN db1.users u ON e.user_id = u.id
 """,
         dialect="clickhouse",
         expected_file=RESOURCE_DIR / "test_clickhouse_dictget_with_joins.json",
+    )
+
+
+def test_clickhouse_dictget_string_literal() -> None:
+    """Test dictGet with string literal dictionary name.
+
+    dictGet('schema.dict_name', ...) is parsed as a Literal node, not a Column.
+    The extraction should handle both forms.
+    """
+    assert_sql_result(
+        """\
+SELECT
+    col_id,
+    DICTGET('default.my_dict', 'type', col_id) AS dict_type
+FROM db1.events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget_string_literal.json",
     )
 
 
