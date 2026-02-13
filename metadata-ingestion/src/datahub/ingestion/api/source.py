@@ -237,9 +237,6 @@ class SourceReport(ExamplesReport, IngestionStageReport):
     # Configuration for report behavior - these get passed to StructuredLogs.
     failure_sample_size: int = 10
     warning_sample_size: int = 10
-    # None = use caller's log param, True = force log, False = suppress log
-    log_failure_summaries_to_console: Optional[bool] = None
-    log_warning_summaries_to_console: Optional[bool] = None
 
     _structured_logs: StructuredLogs = field(init=False)
 
@@ -406,34 +403,22 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         self._structured_logs = StructuredLogs(
             failure_sample_size=self.failure_sample_size,
             warning_sample_size=self.warning_sample_size,
-            log_failure_summaries_to_console=self.log_failure_summaries_to_console,
-            log_warning_summaries_to_console=self.log_warning_summaries_to_console,
         )
 
     def configure_report(
         self,
         failure_sample_size: int = 10,
         warning_sample_size: int = 10,
-        log_failure_summaries_to_console: Optional[bool] = None,
-        log_warning_summaries_to_console: Optional[bool] = None,
     ) -> None:
-        """Configure report settings.
+        """Configure report sample size settings.
 
-        Updates the logging settings in place without losing existing entries.
+        Updates the settings in place without losing existing entries.
         """
         self.failure_sample_size = failure_sample_size
         self.warning_sample_size = warning_sample_size
-        self.log_failure_summaries_to_console = log_failure_summaries_to_console
-        self.log_warning_summaries_to_console = log_warning_summaries_to_console
         # Update existing structured logs in place to preserve any entries
         self._structured_logs.failure_sample_size = failure_sample_size
         self._structured_logs.warning_sample_size = warning_sample_size
-        self._structured_logs.log_failure_summaries_to_console = (
-            log_failure_summaries_to_console
-        )
-        self._structured_logs.log_warning_summaries_to_console = (
-            log_warning_summaries_to_console
-        )
 
     def as_obj(self) -> dict:
         return {

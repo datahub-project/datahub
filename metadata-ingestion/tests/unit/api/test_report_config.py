@@ -1,4 +1,4 @@
-"""Tests for report configuration features: configurable sample sizes and verbose logging."""
+"""Tests for report configuration features: configurable sample sizes."""
 
 import logging
 
@@ -21,21 +21,15 @@ class TestReportConfig:
         config = ReportConfig()
         assert config.failure_sample_size == 10
         assert config.warning_sample_size == 10
-        assert config.log_failure_summaries_to_console is None
-        assert config.log_warning_summaries_to_console is None
 
     def test_report_config_custom_values(self):
         """Test that ReportConfig accepts custom values."""
         config = ReportConfig(
             failure_sample_size=50,
             warning_sample_size=25,
-            log_failure_summaries_to_console=True,
-            log_warning_summaries_to_console=True,
         )
         assert config.failure_sample_size == 50
         assert config.warning_sample_size == 25
-        assert config.log_failure_summaries_to_console is True
-        assert config.log_warning_summaries_to_console is True
 
     def test_report_config_minimum_sample_size(self):
         """Test that sample size must be at least 1."""
@@ -62,34 +56,26 @@ class TestReportConfig:
             report=ReportConfig(
                 failure_sample_size=100,
                 warning_sample_size=50,
-                log_failure_summaries_to_console=True,
-                log_warning_summaries_to_console=False,
             ),
         )
         assert config.report.failure_sample_size == 100
         assert config.report.warning_sample_size == 50
-        assert config.report.log_failure_summaries_to_console is True
-        assert config.report.log_warning_summaries_to_console is False
 
 
 class TestStructuredLogs:
-    """Tests for StructuredLogs configurable sample sizes and verbose logging."""
+    """Tests for StructuredLogs configurable sample sizes."""
 
     def test_structured_logs_default_sample_sizes(self):
         """Test that StructuredLogs uses default sample sizes."""
         logs = StructuredLogs()
         assert logs.failure_sample_size == 10
         assert logs.warning_sample_size == 10
-        assert logs.log_failure_summaries_to_console is None
-        assert logs.log_warning_summaries_to_console is None
 
     def test_structured_logs_custom_sample_sizes(self):
         """Test that StructuredLogs accepts custom sample sizes."""
         logs = StructuredLogs(
             failure_sample_size=50,
             warning_sample_size=25,
-            log_failure_summaries_to_console=True,
-            log_warning_summaries_to_console=True,
         )
         assert logs.failure_sample_size == 50
         assert logs.warning_sample_size == 25
@@ -130,36 +116,9 @@ class TestStructuredLogs:
         assert warnings.total_elements == 15
         assert warnings.sampled is True
 
-    def test_structured_logs_verbose_failure_logging(self, caplog):
-        """Test that log_failure_summaries_to_console logs every failure."""
-        logs = StructuredLogs(log_failure_summaries_to_console=True)
-
-        with caplog.at_level(logging.ERROR):
-            logs.report_log(
-                StructuredLogLevel.ERROR,
-                message="test failure",
-                context="test context",
-            )
-
-        assert "test failure" in caplog.text
-        assert "test context" in caplog.text
-
-    def test_structured_logs_verbose_warning_logging(self, caplog):
-        """Test that log_warning_summaries_to_console logs every warning."""
-        logs = StructuredLogs(log_warning_summaries_to_console=True)
-
-        with caplog.at_level(logging.WARNING):
-            logs.report_log(
-                StructuredLogLevel.WARN,
-                message="test warning",
-                context="test context",
-            )
-
-        assert "test warning" in caplog.text
-
-    def test_structured_logs_none_uses_caller_choice(self, caplog):
-        """Test that log_failure_summaries_to_console=None uses caller's log param."""
-        logs = StructuredLogs()  # log_failure_summaries_to_console=None by default
+    def test_structured_logs_log_param_controls_logging(self, caplog):
+        """Test that log parameter controls console logging."""
+        logs = StructuredLogs()
 
         with caplog.at_level(logging.ERROR):
             # log=False should not log
@@ -180,45 +139,15 @@ class TestStructuredLogs:
         assert "silent failure" not in caplog.text
         assert "logged failure" in caplog.text
 
-    def test_structured_logs_true_forces_logging(self, caplog):
-        """Test that log_failure_summaries_to_console=True forces logging even when log=False."""
-        logs = StructuredLogs(log_failure_summaries_to_console=True)
-
-        with caplog.at_level(logging.ERROR):
-            logs.report_log(
-                StructuredLogLevel.ERROR,
-                message="forced log failure",
-                context="context",
-                log=False,  # This should be overridden
-            )
-
-        assert "forced log failure" in caplog.text
-
-    def test_structured_logs_false_suppresses_logging(self, caplog):
-        """Test that log_failure_summaries_to_console=False suppresses logging even when log=True."""
-        logs = StructuredLogs(log_failure_summaries_to_console=False)
-
-        with caplog.at_level(logging.ERROR):
-            logs.report_log(
-                StructuredLogLevel.ERROR,
-                message="suppressed failure",
-                context="context",
-                log=True,  # This should be overridden/suppressed
-            )
-
-        assert "suppressed failure" not in caplog.text
-
 
 class TestSinkReport:
-    """Tests for SinkReport configurable sample sizes and verbose logging."""
+    """Tests for SinkReport configurable sample sizes."""
 
     def test_sink_report_default_sample_sizes(self):
         """Test that SinkReport uses default sample sizes."""
         report = SinkReport()
         assert report.failure_sample_size == 10
         assert report.warning_sample_size == 10
-        assert report.log_failure_summaries_to_console is None
-        assert report.log_warning_summaries_to_console is None
         # Verify LossyLists have correct max_elements
         assert report.failures.max_elements == 10
         assert report.warnings.max_elements == 10
@@ -229,13 +158,9 @@ class TestSinkReport:
         report.configure_report(
             failure_sample_size=50,
             warning_sample_size=25,
-            log_failure_summaries_to_console=True,
-            log_warning_summaries_to_console=True,
         )
         assert report.failure_sample_size == 50
         assert report.warning_sample_size == 25
-        assert report.log_failure_summaries_to_console is True
-        assert report.log_warning_summaries_to_console is True
         # Verify LossyLists were reinitialized
         assert report.failures.max_elements == 50
         assert report.warnings.max_elements == 25
@@ -264,77 +189,15 @@ class TestSinkReport:
         assert report.warnings.total_elements == 15
         assert report.warnings.sampled is True
 
-    def test_sink_report_verbose_failure_logging(self, caplog):
-        """Test that log_failure_summaries_to_console logs every failure."""
-        report = SinkReport()
-        report.configure_report(log_failure_summaries_to_console=True)
-
-        with caplog.at_level(logging.ERROR):
-            report.report_failure({"error": "test sink failure", "urn": "urn:li:test"})
-
-        assert "test sink failure" in caplog.text
-
-    def test_sink_report_verbose_warning_logging(self, caplog):
-        """Test that log_warning_summaries_to_console logs every warning."""
-        report = SinkReport()
-        report.configure_report(log_warning_summaries_to_console=True)
-
-        with caplog.at_level(logging.WARNING):
-            report.report_warning({"warning": "test sink warning"})
-
-        assert "test sink warning" in caplog.text
-
-    def test_sink_report_none_uses_caller_choice(self, caplog):
-        """Test that log_failure_summaries_to_console=None uses caller's log param."""
-        report = SinkReport()  # log_failure_summaries_to_console=None by default
-
-        with caplog.at_level(logging.ERROR):
-            report.report_failure({"error": "silent failure"}, log=False)
-            report.report_failure({"error": "logged failure"}, log=True)
-
-        assert "silent failure" not in caplog.text
-        assert "logged failure" in caplog.text
-
-    def test_sink_report_true_forces_logging(self, caplog):
-        """Test that log_failure_summaries_to_console=True forces logging even when log=False."""
-        report = SinkReport()
-        report.configure_report(log_failure_summaries_to_console=True)
-
-        with caplog.at_level(logging.ERROR):
-            report.report_failure({"error": "forced log"}, log=False)
-
-        assert "forced log" in caplog.text
-
-    def test_sink_report_false_suppresses_logging(self, caplog):
-        """Test that log_failure_summaries_to_console=False suppresses logging even when log=True."""
-        report = SinkReport()
-        report.configure_report(log_failure_summaries_to_console=False)
-
-        with caplog.at_level(logging.ERROR):
-            report.report_failure({"error": "suppressed failure"}, log=True)
-
-        assert "suppressed failure" not in caplog.text
-
-    def test_sink_report_warning_log_param(self, caplog):
-        """Test log parameter on report_warning."""
-        report = SinkReport()
-
-        with caplog.at_level(logging.WARNING):
-            report.report_warning({"warning": "explicit warning"}, log=True)
-
-        assert "explicit warning" in caplog.text
-
 
 class TestSourceReport:
-    """Tests for SourceReport configurable sample sizes and verbose logging."""
+    """Tests for SourceReport configurable sample sizes."""
 
     def test_source_report_default_sample_sizes(self):
         """Test that SourceReport uses default sample sizes."""
         report = SourceReport()
         assert report.failure_sample_size == 10
         assert report.warning_sample_size == 10
-        assert report.log_failure_summaries_to_console is None
-        assert report.log_warning_summaries_to_console is None
 
     def test_source_report_configure_report(self):
         """Test that configure_report updates settings correctly."""
@@ -342,18 +205,12 @@ class TestSourceReport:
         report.configure_report(
             failure_sample_size=100,
             warning_sample_size=50,
-            log_failure_summaries_to_console=True,
-            log_warning_summaries_to_console=True,
         )
         assert report.failure_sample_size == 100
         assert report.warning_sample_size == 50
-        assert report.log_failure_summaries_to_console is True
-        assert report.log_warning_summaries_to_console is True
-        # Verify StructuredLogs was reinitialized with correct settings
+        # Verify StructuredLogs was updated with correct settings
         assert report._structured_logs.failure_sample_size == 100
         assert report._structured_logs.warning_sample_size == 50
-        assert report._structured_logs.log_failure_summaries_to_console is True
-        assert report._structured_logs.log_warning_summaries_to_console is True
 
     def test_source_report_samples_failures_correctly(self):
         """Test that failures are sampled according to failure_sample_size."""
@@ -381,30 +238,14 @@ class TestSourceReport:
         assert warnings.total_elements == 15
         assert warnings.sampled is True
 
-    def test_source_report_verbose_failure_logging(self, caplog):
-        """Test that log_failure_summaries_to_console logs every failure through StructuredLogs."""
+    def test_source_report_failure_logs_by_default(self, caplog):
+        """Test that report_failure logs by default."""
         report = SourceReport()
-        report.configure_report(log_failure_summaries_to_console=True)
 
         with caplog.at_level(logging.ERROR):
-            # Use report_failure with log=False to test that verbose flag overrides
-            report.report_failure(
-                message="verbose test failure", context="test context"
-            )
+            report.report_failure(message="test failure", context="test context")
 
-        assert "verbose test failure" in caplog.text
-
-    def test_source_report_verbose_warning_logging(self, caplog):
-        """Test that log_warning_summaries_to_console logs every warning through StructuredLogs."""
-        report = SourceReport()
-        report.configure_report(log_warning_summaries_to_console=True)
-
-        with caplog.at_level(logging.WARNING):
-            report.report_warning(
-                message="verbose test warning", context="test context"
-            )
-
-        assert "verbose test warning" in caplog.text
+        assert "test failure" in caplog.text
 
 
 class TestReportConfigIntegration:
@@ -452,75 +293,23 @@ class TestReportConfigIntegration:
         assert report.failures.total_elements == 10
         assert report.failures.sampled is True
 
-    def test_verbose_logging_with_sampling(self, caplog):
-        """Test that verbose logging works even when sampling."""
-        report = SinkReport()
-        report.configure_report(
-            failure_sample_size=2, log_failure_summaries_to_console=True
-        )
+    def test_configure_report_preserves_existing_entries(self):
+        """Test that configure_report doesn't wipe out existing entries."""
+        report = SourceReport()
 
-        with caplog.at_level(logging.ERROR):
-            # Add more failures than sample size
-            for i in range(5):
-                report.report_failure({"error": f"failure_{i}"})
+        # Add some failures first
+        report.report_failure(message="early failure", context="early context")
 
-        # All failures should be logged even though only 2 are sampled
-        for i in range(5):
-            assert f"failure_{i}" in caplog.text
+        # Now configure
+        report.configure_report(failure_sample_size=50)
 
-        # But only 2 are in the report sample
-        assert report.failures.total_elements == 5
-        assert report.failures.sampled is True
+        # Verify the early failure is still there
+        assert report.failures.total_elements == 1
+        assert any("early failure" in str(f) for f in report.failures)
 
 
 class TestEnvVarFunctions:
     """Tests for environment variable getter functions."""
-
-    def test_get_report_log_failure_summaries_to_console_true(self, monkeypatch):
-        """Test get_report_log_failure_summaries_to_console returns True when env var is 'true'."""
-        from datahub.configuration import env_vars
-
-        monkeypatch.setenv("DATAHUB_REPORT_LOG_FAILURE_SUMMARIES_TO_CONSOLE", "true")
-        assert env_vars.get_report_log_failure_summaries_to_console() is True
-
-    def test_get_report_log_failure_summaries_to_console_false(self, monkeypatch):
-        """Test get_report_log_failure_summaries_to_console returns False when env var is 'false'."""
-        from datahub.configuration import env_vars
-
-        monkeypatch.setenv("DATAHUB_REPORT_LOG_FAILURE_SUMMARIES_TO_CONSOLE", "false")
-        assert env_vars.get_report_log_failure_summaries_to_console() is False
-
-    def test_get_report_log_failure_summaries_to_console_unset(self, monkeypatch):
-        """Test get_report_log_failure_summaries_to_console returns None when env var is unset."""
-        from datahub.configuration import env_vars
-
-        monkeypatch.delenv(
-            "DATAHUB_REPORT_LOG_FAILURE_SUMMARIES_TO_CONSOLE", raising=False
-        )
-        assert env_vars.get_report_log_failure_summaries_to_console() is None
-
-    def test_get_report_log_warning_summaries_to_console_true(self, monkeypatch):
-        """Test get_report_log_warning_summaries_to_console returns True when env var is 'true'."""
-        from datahub.configuration import env_vars
-
-        monkeypatch.setenv("DATAHUB_REPORT_LOG_WARNING_SUMMARIES_TO_CONSOLE", "true")
-        assert env_vars.get_report_log_warning_summaries_to_console() is True
-
-    def test_get_report_log_warning_summaries_to_console_false(self, monkeypatch):
-        """Test get_report_log_warning_summaries_to_console returns False when env var is 'false'."""
-        from datahub.configuration import env_vars
-
-        monkeypatch.setenv("DATAHUB_REPORT_LOG_WARNING_SUMMARIES_TO_CONSOLE", "false")
-        assert env_vars.get_report_log_warning_summaries_to_console() is False
-
-    def test_get_report_log_warning_summaries_to_console_unset(self, monkeypatch):
-        """Test get_report_log_warning_summaries_to_console returns None when env var is unset."""
-        from datahub.configuration import env_vars
-
-        monkeypatch.delenv(
-            "DATAHUB_REPORT_LOG_WARNING_SUMMARIES_TO_CONSOLE", raising=False
-        )
-        assert env_vars.get_report_log_warning_summaries_to_console() is None
 
     def test_get_report_failure_sample_size_default(self, monkeypatch):
         """Test get_report_failure_sample_size returns 10 when unset."""
