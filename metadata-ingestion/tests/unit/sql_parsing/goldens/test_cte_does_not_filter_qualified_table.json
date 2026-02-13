@@ -1,0 +1,93 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "48389dd86c0174c1bb2b8be3a44f51aff197b0cabc5b617f09d81dacfa1351be",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.raw_events,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.other_schema.events,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.raw_events,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"RAW_EVENTS\".\"ID\" AS \"ID\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.raw_events,PROD)",
+                    "column": "name"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"RAW_EVENTS\".\"NAME\" AS \"NAME\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "status",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.other_schema.events,PROD)",
+                    "column": "status"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"T\".\"STATUS\" AS \"STATUS\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.raw_events,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.other_schema.events,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.other_schema.events,PROD)"
+            ],
+            "on_clause": "\"E\".\"ID\" = \"T\".\"ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.raw_events,PROD)",
+                    "column": "ID"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.other_schema.events,PROD)",
+                    "column": "ID"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "WITH events AS (SELECT id, name FROM my_db.my_schema.raw_events) SELECT e.id, e.name, t.status FROM events AS e JOIN other_db.other_schema.events AS t ON e.id = t.id"
+    }
+}

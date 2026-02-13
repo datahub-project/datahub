@@ -739,9 +739,7 @@ def _table_level_lineage(
             dialect,
         )
         | _clickhouse_extract_dictget_tables(statement, dialect)
-        # ignore references created in this query
-        - modified
-    )
+    ) - modified  # ignore references created in this query
 
     # Filter out CTE references. qualify_tables() leaves CTE refs unqualified
     # (db=None, schema=None) while qualifying real tables, so we only filter
