@@ -73,6 +73,7 @@ export function ExpandLineageButton({ urn, type, direction, display, fetchStatus
                 onClick={(e) => onClickPreventSelect(e) && handleExpandOneLevel(e)}
                 onMouseEnter={(e) => e.stopPropagation()}
                 onMouseLeave={(e) => e.stopPropagation()}
+                data-testid={`expand-one-${urn}-button`}
             >
                 <KeyboardArrowRight viewBox="3 3 18 18" fontSize="inherit" />
             </Button>
@@ -83,6 +84,7 @@ export function ExpandLineageButton({ urn, type, direction, display, fetchStatus
                         onClick={(e) => onClickPreventSelect(e) && handleExpandAll(e)}
                         onMouseEnter={(e) => e.stopPropagation()}
                         onMouseLeave={(e) => e.stopPropagation()}
+                        data-testid={`expand-all-${urn}-button`}
                     >
                         <KeyboardDoubleArrowRight viewBox="3 3 18 18" fontSize="inherit" />
                     </Button>
