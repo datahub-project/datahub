@@ -492,6 +492,7 @@ plugins: Dict[str, Set[str]] = {
         "uvicorn<0.41.0",
     },
     # Integrations.
+    "airbyte": {"requests"},
     "airflow": {
         f"acryl-datahub-airflow-plugin{_self_pin}",
     },
@@ -837,6 +838,7 @@ base_dev_requirements = {
         dependency
         for plugin in [
             "abs",
+            "airbyte",
             "athena",
             "bigquery",
             "clickhouse",
@@ -959,6 +961,7 @@ entry_points = {
         "file = datahub.ingestion.source.file:GenericFileSource",
         "datahub = datahub.ingestion.source.datahub.datahub_source:DataHubSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
+        "airbyte = datahub.ingestion.source.airbyte.source:AirbyteSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
