@@ -22,6 +22,12 @@ apply from: "../gradle/versioning/versioning.gradle"
 apply from: "../gradle/coverage/python-coverage.gradle"
 apply from: '../gradle/docker/docker.gradle'
 
+configurations.all {
+  resolutionStrategy {
+    force 'com.fasterxml.jackson.core:jackson-databind:2.8.11.6'
+  }
+}
+
 ext {
   python_executable = 'python3'
   venv_name = 'venv'

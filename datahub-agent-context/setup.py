@@ -71,7 +71,7 @@ langchain_requirements = {
 
 snowflake_requirements = {
     "click>=8.0.0,<9.0.0",
-    "snowflake-connector-python>=3.0.0,<4.0.0",
+    "snowflake-connector-python>=4.0.0,<5.0.0",
 }
 
 dev_requirements = {

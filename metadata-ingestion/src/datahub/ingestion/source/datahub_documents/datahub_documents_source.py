@@ -1149,7 +1149,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 response = litellm.embedding(
                     model=self.embedding_model,
                     input=batch,
-                    api_key=self.config.embedding.api_key,  # Only used for Cohere
+                    api_key=self.config.embedding.api_key.get_secret_value()
+                    if self.config.embedding.api_key
+                    else None,  # Only used for Cohere
                     aws_region_name=self.config.embedding.aws_region,  # Only used for Bedrock
                 )
 

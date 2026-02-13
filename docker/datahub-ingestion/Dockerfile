@@ -211,7 +211,7 @@ ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 # =============================================================================
 
 # Alpine runtime base - minimal packages for running the application
-FROM alpine:3.22 AS alpine-base
+FROM alpine:3.23 AS alpine-base
 
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
