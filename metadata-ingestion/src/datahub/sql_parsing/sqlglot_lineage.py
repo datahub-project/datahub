@@ -732,33 +732,28 @@ def _table_level_lineage(
     )
 
     tables = (
-        _extract_table_names(
-            (
-                table
-                for table in statement.find_all(sqlglot.exp.Table)
-                if not isinstance(table.parent, sqlglot.exp.Drop)
-                and not _is_clickhouse_non_input(
-                    table, dialect, bool(clickhouse_to_tables)
-                )
-            ),
-            dialect,
+        (
+            _extract_table_names(
+                (
+                    table
+                    for table in statement.find_all(sqlglot.exp.Table)
+                    if not isinstance(table.parent, sqlglot.exp.Drop)
+                    and not _is_clickhouse_non_input(
+                        table, dialect, bool(clickhouse_to_tables)
+                    )
+                ),
+                dialect,
+            )
+            | _clickhouse_extract_dictget_tables(statement, dialect)
         )
-        | _clickhouse_extract_dictget_tables(statement, dialect)
-    ) - modified  # union first, then subtract outputs/CTAs from inputs
-
-    # Filter CTE refs (unqualified after qualify_tables) but keep qualified
-    # tables that share a CTE name. Case-insensitive for dialects that uppercase.
-    cte_names = {
-        cte.alias_or_name.lower() for cte in statement.find_all(sqlglot.exp.CTE)
-    }
-    if cte_names:
-        tables = {
-            t
-            for t in tables
-            if t.table.lower() not in cte_names
-            or t.database is not None
-            or t.db_schema is not None
+        # ignore references created in this query
+        - modified
+        # ignore CTEs created in this statement
+        - {
+            _TableName(database=None, db_schema=None, table=cte.alias_or_name)
+            for cte in statement.find_all(sqlglot.exp.CTE)
         }
+    )
     # TODO: If a CTAS has "LIMIT 0", it's not really lineage, just copying the schema.
 
     # TSQL-specific: Remove aliases from input tables to avoid phantom dependencies.

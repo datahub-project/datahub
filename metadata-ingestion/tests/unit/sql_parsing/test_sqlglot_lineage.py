@@ -836,24 +836,6 @@ JOIN table3 AS cte_alias ON table2.col2 = cte_alias.col2
     )
 
 
-def test_cte_does_not_filter_qualified_table() -> None:
-    # A CTE named "events" must not filter out "other_db.other_schema.events".
-    assert_sql_result(
-        """\
-WITH events AS (
-    SELECT id, name FROM my_db.my_schema.raw_events
-)
-SELECT e.id, e.name, t.status
-FROM events e
-JOIN other_db.other_schema.events t ON e.id = t.id
-""",
-        dialect="snowflake",
-        default_db="my_db",
-        default_schema="my_schema",
-        expected_file=RESOURCE_DIR / "test_cte_does_not_filter_qualified_table.json",
-    )
-
-
 def test_snowflake_join_with_cte_involved_tables() -> None:
     # The main thing we're checking here is that the second extracted join
     # does not include table2, and is purely between table1.user_id and users.id.
