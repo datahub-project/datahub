@@ -89,7 +89,13 @@ def get_resource_category_container_urn(source: VertexAISource, category: str) -
 def source() -> VertexAISource:
     return VertexAISource(
         ctx=PipelineContext(run_id="vertexai-source-test"),
-        config=VertexAIConfig(project_id=PROJECT_ID, region=REGION),
+        config=VertexAIConfig(
+            project_id=PROJECT_ID,
+            region=REGION,
+            training_job_lookback_days=None,
+            pipeline_lookback_days=None,
+            ml_metadata_execution_lookback_days=None,
+        ),
     )
 
 
