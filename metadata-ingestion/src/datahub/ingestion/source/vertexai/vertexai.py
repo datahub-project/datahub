@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from numbers import Real
 from typing import Dict, Iterable, List, Optional, TypeVar, Union
 
-from google.api_core.exceptions import GoogleAPICallError
+from google.api_core.exceptions import GoogleAPICallError, InvalidArgument
 from google.cloud import aiplatform, aiplatform_v1
 from google.cloud.aiplatform import (
     AutoMLForecastingTrainingJob,
@@ -393,11 +393,26 @@ class VertexAISource(StatefulIngestionSourceBase):
                 f"(since {cutoff_str})"
             )
 
-        # Apply time filter if configured
-        if filter_str:
-            pipeline_jobs = self.client.PipelineJob.list(filter=filter_str)
-        else:
-            pipeline_jobs = self.client.PipelineJob.list()
+        try:
+            if filter_str:
+                pipeline_jobs = list(self.client.PipelineJob.list(filter=filter_str))
+            else:
+                pipeline_jobs = list(self.client.PipelineJob.list())
+        except InvalidArgument:
+            logger.warning(
+                "PipelineJob does not support create_time filter. "
+                "Fetching all pipelines and filtering in memory."
+            )
+            pipeline_jobs = list(self.client.PipelineJob.list())
+            if self.config.pipeline_lookback_days:
+                cutoff_time = datetime.now(timezone.utc) - timedelta(
+                    days=self.config.pipeline_lookback_days
+                )
+                pipeline_jobs = [
+                    pipeline
+                    for pipeline in pipeline_jobs
+                    if pipeline.create_time and pipeline.create_time >= cutoff_time
+                ]
 
         for pipeline in pipeline_jobs:
             logger.info(f"fetching pipeline ({pipeline.name})")
@@ -1256,11 +1271,28 @@ class VertexAISource(StatefulIngestionSourceBase):
                 continue
             logger.info(f"Fetching a list of {class_name}s from VertexAI server")
 
-            # Apply time filter if configured
-            if filter_str:
-                jobs = list(getattr(self.client, class_name).list(filter=filter_str))
-            else:
+            try:
+                if filter_str:
+                    jobs = list(
+                        getattr(self.client, class_name).list(filter=filter_str)
+                    )
+                else:
+                    jobs = list(getattr(self.client, class_name).list())
+            except InvalidArgument:
+                logger.warning(
+                    f"{class_name} does not support create_time filter. "
+                    f"Fetching all jobs and filtering in memory."
+                )
                 jobs = list(getattr(self.client, class_name).list())
+                if self.config.training_job_lookback_days:
+                    cutoff_time = datetime.now(timezone.utc) - timedelta(
+                        days=self.config.training_job_lookback_days
+                    )
+                    jobs = [
+                        job
+                        for job in jobs
+                        if job.create_time and job.create_time >= cutoff_time
+                    ]
 
             if self.config.max_training_jobs_per_type is not None:
                 jobs = jobs[: self.config.max_training_jobs_per_type]
