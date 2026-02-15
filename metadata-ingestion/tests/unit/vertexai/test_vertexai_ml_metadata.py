@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, List
 from unittest.mock import Mock
 
 import pytest
@@ -475,3 +475,29 @@ class TestMLMetadataHelper:
         assert len(lineage.input_urns) > 0
         assert len(lineage.hyperparams) == 1
         assert len(lineage.metrics) == 1
+
+
+@pytest.mark.parametrize(
+    "max_limit,lookback_days,expected_limit,expected_days",
+    [
+        (None, None, MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS, 7),
+        (50, 30, 50, 30),
+        (None, None, MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS, None),
+    ],
+)
+def test_ml_metadata_config_execution_limits(
+    max_limit: int | None,
+    lookback_days: int | None,
+    expected_limit: int,
+    expected_days: int | None,
+) -> None:
+    """Test execution search limits and time filtering configuration"""
+    kwargs: dict[str, Any] = {"project_id": "test-project", "region": "us-central1"}
+    if max_limit is not None:
+        kwargs["max_execution_search_limit"] = max_limit
+    if lookback_days is not None or expected_days is None:
+        kwargs["execution_lookback_days"] = lookback_days
+
+    config = MLMetadataConfig(**kwargs)
+    assert config.max_execution_search_limit == expected_limit
+    assert config.execution_lookback_days == expected_days

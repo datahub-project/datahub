@@ -1766,15 +1766,7 @@
     "aspectName": "ownership",
     "aspect": {
         "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:datahub",
-                    "type": "DEVELOPER",
-                    "source": {
-                        "type": "SERVICE"
-                    }
-                }
-            ],
+            "owners": [],
             "ownerTypes": {},
             "lastModified": {
                 "time": 0,
@@ -1783,7 +1775,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770851522145,
+        "lastObserved": 1771185945581,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2081,15 +2073,7 @@
     "aspectName": "ownership",
     "aspect": {
         "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:datahub",
-                    "type": "DEVELOPER",
-                    "source": {
-                        "type": "SERVICE"
-                    }
-                }
-            ],
+            "owners": [],
             "ownerTypes": {},
             "lastModified": {
                 "time": 0,
@@ -2098,7 +2082,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1770888474990,
+        "lastObserved": 1771185945586,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }

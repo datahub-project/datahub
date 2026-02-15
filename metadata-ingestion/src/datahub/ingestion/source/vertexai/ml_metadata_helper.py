@@ -1,4 +1,6 @@
+import itertools
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Callable, List, Optional, Sequence, Tuple
 
 from google.cloud.aiplatform.base import VertexAiResourceNoun
@@ -73,6 +75,11 @@ class MLMetadataHelper:
 
             return lineage
 
+        except KeyboardInterrupt:
+            logger.warning(
+                f"Lineage extraction interrupted for job {job.display_name}. Skipping this job."
+            )
+            raise  # Re-raise to allow graceful pipeline shutdown
         except Exception as e:
             logger.warning(
                 f"Failed to extract lineage metadata for job {job.display_name}: {e}",
@@ -83,12 +90,10 @@ class MLMetadataHelper:
     def _find_executions_for_job(self, job: VertexAiResourceNoun) -> List[Execution]:
         parent = self.config.get_parent_path()
 
-        # Try display name first (fastest lookup)
         filter_str = f'display_name="{job.display_name}"'
         request = ListExecutionsRequest(parent=parent, filter=filter_str)
         executions = list(self.client.list_executions(request=request))
 
-        # Fallback to broader search if display name lookup fails
         if not executions:
             matching = self._find_executions_by_schema_and_name(
                 parent, job.name, job.display_name
@@ -112,23 +117,43 @@ class MLMetadataHelper:
             MLMetadataSchemas.CUSTOM_JOB,
         ]
 
-        filter_str = " OR ".join(
+        schema_filter = " OR ".join(
             [f'schema_title="{schema}"' for schema in schema_filters]
         )
+
+        filter_str = schema_filter
+        if self.config.execution_lookback_days:
+            cutoff_time = datetime.now(timezone.utc) - timedelta(
+                days=self.config.execution_lookback_days
+            )
+            # Format: "2024-01-15T00:00:00Z"
+            cutoff_str = cutoff_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+            filter_str = f"({schema_filter}) AND create_time >= {cutoff_str}"
+            logger.debug(
+                f"Filtering executions to last {self.config.execution_lookback_days} days "
+                f"(since {cutoff_str})"
+            )
+
+        # Use configured search limit (default 100) to prevent excessive API calls and timeouts
+        max_to_retrieve = self.config.max_execution_search_limit
 
         request = ListExecutionsRequest(
             parent=parent,
             filter=filter_str,
-            page_size=MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS,
+            page_size=min(
+                max_to_retrieve, MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS
+            ),
         )
+
+        paged_response = self.client.list_executions(request=request)
 
         all_executions: List[Execution] = list(
-            self.client.list_executions(request=request)
+            itertools.islice(paged_response, max_to_retrieve)
         )
 
-        if len(all_executions) >= MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS:
+        if len(all_executions) >= max_to_retrieve:
             logger.warning(
-                f"Retrieved maximum number of executions ({MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS}) "
+                f"Retrieved maximum number of executions ({max_to_retrieve}) "
                 f"while searching for job '{job_display_name}'. Results may be incomplete. "
                 f"Consider using more specific display names or reducing concurrent job volume."
             )

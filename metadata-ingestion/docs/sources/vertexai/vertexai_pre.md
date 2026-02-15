@@ -83,6 +83,8 @@ Ingestion Job extracts Models, Datasets, Training Jobs, Endpoints, Experiments, 
 
 The source supports ingesting across multiple GCP projects by specifying `project_ids`, `project_labels`, or `project_id_pattern`. The optional `platform_instance` configuration field can be used to distinguish between different Vertex AI environments (e.g., dev, staging, prod).
 
+**Performance optimization**: By default, only resources from the last 7 days are ingested. This significantly improves performance for projects with extensive historical data. Configure `training_job_lookback_days`, `pipeline_lookback_days`, and `ml_metadata_execution_lookback_days` to adjust the time window or set to `null` to ingest all historical data.
+
 For improved organization in the DataHub UI:
 
 - Model versions are organized under their respective model group folders
@@ -126,28 +128,31 @@ Vertex AI Concept Diagram:
 
 #### Lineage
 
-Lineage is emitted using Vertex AI API to capture the following relationships:
+The connector captures comprehensive lineage relationships including cross-platform lineage to external data sources:
 
-**AutoML Jobs** (existing functionality):
+**Core Vertex AI Lineage**:
 
-- A training job and a model (which training job produces a model)
-- A dataset and a training job (which dataset was consumed by a training job to train a model)
+- Training job → Model (AutoML and CustomJob)
+- Dataset → Training job (AutoML and ML Metadata-based)
+- Training job → Output models (ML Metadata Executions)
+- Model → Training datasets (direct upstream lineage via TrainingData aspect)
+- Experiment run → Model (outputs)
+- Model evaluation → Model and test datasets (inputs)
+- Pipeline task runs → Models and datasets (inputs/outputs via DataProcessInstance aspects)
 
-**CustomJob and other training jobs** (new ML Metadata-based lineage):
+**Cross-Platform Lineage** (external data sources):
 
-- Input datasets → training job (extracted from ML Metadata Executions)
-- Training job → output models (extracted from ML Metadata Executions)
-- Requires `use_ml_metadata_for_lineage: true` (default)
-- Training jobs must log to ML Metadata for lineage to be captured
+The connector links Vertex AI resources to external datasets when referenced in job configurations or ML Metadata artifacts. Supported platforms:
 
-**Other relationships**:
+- **Google Cloud Storage** (gs://...) → `gcs` platform
+- **BigQuery** (bq://project.dataset.table or projects/.../datasets/.../tables/...) → `bigquery` platform
+- **Amazon S3** (s3://..., s3a://...) → `s3` platform
+- **Azure Blob Storage** (wasbs://..., abfss://...) → `abs` platform
+- **Snowflake** (snowflake://...) → `snowflake` platform
 
-- Experiment runs and an experiment
-- Metadata execution and an experiment run
-- Model evaluations and models
-- Cross-platform lineage from Execution and Job artifacts to external sources when URIs are present:
-  - GCS artifacts (gs://...) are linked to `gcs` datasets
-  - BigQuery artifacts (bq://project.dataset.table or projects/.../datasets/.../tables/...) are linked to `bigquery` datasets
+Use `platform_to_instance_map` to configure platform instances and environments for external platforms, ensuring URNs match those from native connectors for proper lineage connectivity.
+
+**ML Metadata Requirements**: For CustomJob lineage, training scripts must log artifacts to Vertex AI ML Metadata. Enable with `use_ml_metadata_for_lineage: true` (default).
 
 **Note for CustomJob users**: To enable lineage tracking for CustomJob, ensure your training scripts log artifacts to Vertex AI ML Metadata using the Vertex AI SDK:
 
@@ -178,3 +183,38 @@ with aiplatform.start_execution(
     )
     execution.assign_output_artifacts([model_artifact])
 ```
+
+#### Cross-Platform Lineage Configuration
+
+To ensure external datasets are properly linked with correct platform instances and environments, configure `platform_to_instance_map`:
+
+```yaml
+source:
+  type: vertexai
+  config:
+    project_id: my-project
+    platform_to_instance_map:
+      gcs:
+        platform_instance: prod-gcs
+        env: PROD
+      bigquery:
+        platform_instance: prod-bq
+        env: PROD
+      s3:
+        platform_instance: prod-s3
+        env: PROD
+      snowflake:
+        platform_instance: prod-snowflake
+        env: PROD
+        convert_urns_to_lowercase: true # Required - Snowflake defaults to lowercase
+      abs:
+        platform_instance: prod-abs
+        env: PROD
+```
+
+**Platform-Specific Settings:**
+
+- **Snowflake**: Must set `convert_urns_to_lowercase: true` to match the Snowflake connector's default behavior
+- **All other platforms** (GCS, BigQuery, S3, ABS): Use default `convert_urns_to_lowercase: false`
+
+This configuration ensures Vertex AI lineage URNs exactly match those from native connectors, enabling complete end-to-end lineage visualization across platforms.

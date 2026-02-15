@@ -1,12 +1,13 @@
 from typing import Dict, List, Optional
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -14,7 +15,30 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-from datahub.ingestion.source.vertexai.vertexai_constants import IngestionLimits
+from datahub.ingestion.source.vertexai.vertexai_constants import (
+    IngestionLimits,
+    MLMetadataDefaults,
+)
+
+
+class PlatformDetail(ConfigModel):
+    """Platform instance configuration for external datasets referenced in Vertex AI lineage."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance for URN generation. If not set, no platform instance in URN.",
+    )
+    env: str = Field(
+        default=DEFAULT_ENV,
+        description="Environment for all assets from this platform",
+    )
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description="Convert dataset names to lowercase. Set to true for Snowflake (which defaults to lowercase URNs). "
+        "Leave false for GCS, BigQuery, S3, and ABS.",
+    )
 
 
 class VertexAIConfig(
@@ -107,6 +131,27 @@ class VertexAIConfig(
         description=f"Maximum evaluations per model. Default: {IngestionLimits.DEFAULT_MAX_EVALUATIONS_PER_MODEL}, "
         f"Max: {IngestionLimits.ABSOLUTE_MAX_EVALUATIONS_PER_MODEL}. Set to None for unlimited (not recommended).",
     )
+    training_job_lookback_days: Optional[int] = Field(
+        default=IngestionLimits.DEFAULT_TRAINING_JOB_LOOKBACK_DAYS,
+        description="Only ingest training jobs created/updated in the last N days. "
+        "Set to None to ingest all training jobs (max limits still apply for safety). Default: 7 days.",
+    )
+    pipeline_lookback_days: Optional[int] = Field(
+        default=IngestionLimits.DEFAULT_PIPELINE_LOOKBACK_DAYS,
+        description="Only ingest pipelines created/updated in the last N days. "
+        "Set to None to ingest all pipelines (max limits still apply for safety). Default: 7 days.",
+    )
+    ml_metadata_execution_lookback_days: Optional[int] = Field(
+        default=IngestionLimits.DEFAULT_ML_METADATA_EXECUTION_LOOKBACK_DAYS,
+        description="When searching ML Metadata for executions, only look at executions from the last N days. "
+        "This significantly improves performance for projects with many historical executions. "
+        "Set to None to search all executions (max_execution_search_limit still applies). Default: 7 days.",
+    )
+    ml_metadata_max_execution_search_limit: int = Field(
+        default=MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS,
+        description="Maximum number of ML Metadata executions to retrieve when searching for a training job. "
+        "Prevents excessive API calls and timeouts even when execution_lookback_days is None. Default: 100.",
+    )
     # Optional multi-project / filter support
     project_ids: List[str] = Field(
         default_factory=list,
@@ -142,6 +187,12 @@ class VertexAIConfig(
     vertexai_url: Optional[str] = Field(
         default="https://console.cloud.google.com/vertex-ai",
         description=("VertexUI URI"),
+    )
+
+    platform_to_instance_map: Dict[str, PlatformDetail] = Field(
+        default_factory=dict,
+        description="Map external platform names (gcs, bigquery, s3, azure_blob_storage, snowflake) "
+        "to their platform instance and env. Ensures URNs match native connectors for lineage connectivity.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(

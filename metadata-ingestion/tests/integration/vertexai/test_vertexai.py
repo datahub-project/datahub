@@ -6,6 +6,7 @@ from unittest.mock import patch
 from pytest import Config
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.vertexai.vertexai import VertexAISource
 from datahub.testing import mce_helpers
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
@@ -46,7 +47,6 @@ def get_pipeline_config(sink_file_path: str) -> Dict[str, Any]:
 
 def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None:
     with contextlib.ExitStack() as exit_stack:
-        # Mock the Vertex API with empty list
         for func_to_mock in [
             "google.cloud.aiplatform.init",
             "google.cloud.aiplatform.datasets.TextDataset.list",
@@ -65,7 +65,6 @@ def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None
             mock = exit_stack.enter_context(patch(func_to_mock))
             mock.return_value = []
 
-        # Mock the Vertex AI with Mock data list
         mock_models = exit_stack.enter_context(
             patch("google.cloud.aiplatform.Model.list")
         )
@@ -125,3 +124,121 @@ def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None
             output_path=sink_file_path,
             golden_path=golden_file_path,
         )
+
+
+def test_vertexai_time_based_filtering(pytestconfig: Config, tmp_path: Path) -> None:
+    """Test that time-based filtering configuration works correctly"""
+    config_dict = {
+        "run_id": "vertexai-time-filter-test",
+        "source": {
+            "type": "vertexai",
+            "config": {
+                "project_id": PROJECT_ID,
+                "region": REGION,
+                "training_job_lookback_days": 7,
+                "pipeline_lookback_days": 14,
+                "ml_metadata_execution_lookback_days": 30,
+                "ml_metadata_max_execution_search_limit": 50,
+            },
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": str(tmp_path / "vertexai_time_filter.json"),
+            },
+        },
+    }
+
+    with contextlib.ExitStack() as exit_stack:
+        for func_to_mock in [
+            "google.cloud.aiplatform.init",
+            "google.cloud.aiplatform.Model.list",
+            "google.cloud.aiplatform.CustomJob.list",
+            "google.cloud.aiplatform.CustomTrainingJob.list",
+            "google.cloud.aiplatform.CustomContainerTrainingJob.list",
+            "google.cloud.aiplatform.CustomPythonPackageTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLTabularTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLImageTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLTextTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLVideoTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLForecastingTrainingJob.list",
+            "google.cloud.aiplatform.TabularDataset.list",
+            "google.cloud.aiplatform.ImageDataset.list",
+            "google.cloud.aiplatform.TextDataset.list",
+            "google.cloud.aiplatform.VideoDataset.list",
+            "google.cloud.aiplatform.TimeSeriesDataset.list",
+            "google.cloud.aiplatform.Experiment.list",
+            "google.cloud.aiplatform.ExperimentRun.list",
+            "google.cloud.aiplatform.PipelineJob.list",
+        ]:
+            mock = exit_stack.enter_context(patch(func_to_mock))
+            mock.return_value = []
+
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        source = pipeline.source
+        assert isinstance(source, VertexAISource)
+        assert source.config.training_job_lookback_days == 7
+        assert source.config.pipeline_lookback_days == 14
+        assert source.config.ml_metadata_execution_lookback_days == 30
+        assert source.config.ml_metadata_max_execution_search_limit == 50
+
+
+def test_vertexai_platform_instance_config(
+    pytestconfig: Config, tmp_path: Path
+) -> None:
+    """Test that platform_instance configuration is properly propagated"""
+    config_dict = {
+        "run_id": "vertexai-platform-instance-test",
+        "source": {
+            "type": "vertexai",
+            "config": {
+                "project_id": PROJECT_ID,
+                "region": REGION,
+                "platform_instance": "prod-vertexai-us",
+            },
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": str(tmp_path / "vertexai_platform_instance.json"),
+            },
+        },
+    }
+
+    with contextlib.ExitStack() as exit_stack:
+        for func_to_mock in [
+            "google.cloud.aiplatform.init",
+            "google.cloud.aiplatform.Model.list",
+            "google.cloud.aiplatform.CustomJob.list",
+            "google.cloud.aiplatform.CustomTrainingJob.list",
+            "google.cloud.aiplatform.CustomContainerTrainingJob.list",
+            "google.cloud.aiplatform.CustomPythonPackageTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLTabularTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLImageTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLTextTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLVideoTrainingJob.list",
+            "google.cloud.aiplatform.AutoMLForecastingTrainingJob.list",
+            "google.cloud.aiplatform.TabularDataset.list",
+            "google.cloud.aiplatform.ImageDataset.list",
+            "google.cloud.aiplatform.TextDataset.list",
+            "google.cloud.aiplatform.VideoDataset.list",
+            "google.cloud.aiplatform.TimeSeriesDataset.list",
+            "google.cloud.aiplatform.Experiment.list",
+            "google.cloud.aiplatform.ExperimentRun.list",
+            "google.cloud.aiplatform.PipelineJob.list",
+        ]:
+            mock = exit_stack.enter_context(patch(func_to_mock))
+            mock.return_value = []
+
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        source = pipeline.source
+        assert isinstance(source, VertexAISource)
+        assert source.config.platform_instance == "prod-vertexai-us"
+        assert source.uri_parser.platform_instance == "prod-vertexai-us"
+        assert source.urn_builder.platform_instance == "prod-vertexai-us"

@@ -6,6 +6,26 @@ from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 DATAHUB_ACTOR = "urn:li:corpuser:datahub"
 
 
+class ExternalPlatforms:
+    """
+    Constants for external data platforms that may be referenced in Vertex AI lineage.
+    Used for platform_to_instance_map configuration.
+
+    Supported Platforms:
+    - GCS: Google Cloud Storage (gs:// URIs)
+    - BIGQUERY: BigQuery tables (bq:// or projects/.../datasets/.../tables/... URIs)
+    - S3: Amazon S3 (s3://, s3a:// URIs)
+    - AZURE_BLOB_STORAGE: Azure Blob Storage (wasbs://, abfss:// URIs)
+    - SNOWFLAKE: Snowflake tables (snowflake:// URIs or table references)
+    """
+
+    GCS = "gcs"
+    BIGQUERY = "bigquery"
+    S3 = "s3"
+    AZURE_BLOB_STORAGE = "abs"
+    SNOWFLAKE = "snowflake"
+
+
 class ResourceCategory:
     """Container categories for organizing Vertex AI resources."""
 
@@ -202,16 +222,44 @@ class MetricPatterns:
 
 
 class URIPatterns:
+    """
+    URI patterns for data sources referenced in Vertex AI.
+
+    Supported URI Formats:
+    - GCS: gs://bucket/path
+    - BigQuery: bq://project.dataset.table or projects/.../datasets/.../tables/...
+    - S3: s3://bucket/key or s3a://bucket/key
+    - Azure Blob: wasbs://container@account.blob.core.windows.net/path
+    - Azure Data Lake: abfss://container@account.dfs.core.windows.net/path
+    - Snowflake: snowflake://account/database/schema/table
+    """
+
+    # Cloud storage prefixes
     GCS_PREFIX = "gs://"
+    S3_PREFIX = "s3://"
+    S3A_PREFIX = "s3a://"
+    AZURE_WASB_PREFIX = "wasbs://"
+    AZURE_ABFS_PREFIX = "abfss://"
+
+    # Data warehouse prefixes
     BQ_PREFIX = "bq://"
+    SNOWFLAKE_PREFIX = "snowflake://"
+
+    # Path patterns for full URIs
     DATASET_PATH_PATTERN = "/datasets/"
     TABLE_PATH_PATTERN = "/tables/"
 
     @classmethod
     def looks_like_uri(cls, s: str) -> bool:
+        """Check if string looks like a supported URI pattern."""
         return (
             s.startswith(cls.GCS_PREFIX)
             or s.startswith(cls.BQ_PREFIX)
+            or s.startswith(cls.S3_PREFIX)
+            or s.startswith(cls.S3A_PREFIX)
+            or s.startswith(cls.AZURE_WASB_PREFIX)
+            or s.startswith(cls.AZURE_ABFS_PREFIX)
+            or s.startswith(cls.SNOWFLAKE_PREFIX)
             or cls.DATASET_PATH_PATTERN in s
         )
 
@@ -257,6 +305,11 @@ class IngestionLimits:
     ABSOLUTE_MAX_EXPERIMENTS = 10000
     ABSOLUTE_MAX_RUNS_PER_EXPERIMENT = 1000
     ABSOLUTE_MAX_EVALUATIONS_PER_MODEL = 100
+
+    # Lookback period defaults (in days)
+    DEFAULT_TRAINING_JOB_LOOKBACK_DAYS = 7
+    DEFAULT_PIPELINE_LOOKBACK_DAYS = 7
+    DEFAULT_ML_METADATA_EXECUTION_LOOKBACK_DAYS = 7
 
 
 # Duration formatting constants

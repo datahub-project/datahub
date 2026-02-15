@@ -1,5 +1,5 @@
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from numbers import Real
 from typing import Dict, Iterable, List, Optional, TypeVar, Union
 
@@ -124,6 +124,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    BaseDataClass,
     ContainerClass,
     DataPlatformInstanceClass,
     DataProcessInstanceInputClass,
@@ -144,6 +145,7 @@ from datahub.metadata.schema_classes import (
     RunResultTypeClass,
     SubTypesClass,
     TimeStampClass,
+    TrainingDataClass,
     VersionPropertiesClass,
     VersionTagClass,
 )
@@ -155,6 +157,7 @@ from datahub.metadata.urns import (
     VersionSetUrn,
 )
 from datahub.utilities.time import datetime_to_ts_millis
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 T = TypeVar("T")
 
@@ -230,11 +233,11 @@ class VertexAISource(StatefulIngestionSourceBase):
         self._metadata_client: Optional[MetadataServiceClient] = None
         self._ml_metadata_helper: Optional[MLMetadataHelper] = None
 
-        # Initialize builder utilities
         self.urn_builder = VertexAIUrnBuilder(
             platform=self.platform,
             env=self.config.env,
             project_id=self._get_project_id(),
+            platform_instance=self.config.platform_instance,
         )
         self.name_formatter = VertexAINameFormatter(project_id=self._get_project_id())
         self.url_builder = VertexAIExternalURLBuilder(
@@ -242,7 +245,12 @@ class VertexAISource(StatefulIngestionSourceBase):
             project_id=self._get_project_id(),
             region=self._get_region(),
         )
-        self.uri_parser = VertexAIURIParser(env=self.config.env)
+        self.uri_parser = VertexAIURIParser(
+            env=self.config.env,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            platform_to_instance_map=self.config.platform_to_instance_map,
+        )
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report
@@ -333,6 +341,8 @@ class VertexAISource(StatefulIngestionSourceBase):
                             metadata_store=MLMetadataDefaults.DEFAULT_METADATA_STORE,
                             enable_lineage_extraction=self.config.use_ml_metadata_for_lineage,
                             enable_metrics_extraction=self.config.extract_execution_metrics,
+                            execution_lookback_days=self.config.ml_metadata_execution_lookback_days,
+                            max_execution_search_limit=self.config.ml_metadata_max_execution_search_limit,
                         )
 
                         self._ml_metadata_helper = MLMetadataHelper(
@@ -350,26 +360,19 @@ class VertexAISource(StatefulIngestionSourceBase):
                 # Ingest Project
                 yield from self._gen_project_workunits()
 
-                # Fetch and Ingest Models, Model Versions from Model Registry
                 if self.config.include_models:
                     yield from auto_workunit(self._get_ml_models_mcps())
 
-                # Fetch and Ingest Training Jobs
                 if self.config.include_training_jobs:
                     yield from auto_workunit(self._get_training_jobs_mcps())
 
-                # Fetch and Ingest Experiments
                 if self.config.include_experiments:
                     yield from self._get_experiments_workunits()
-
-                    # Fetch and Ingest Experiment Runs
                     yield from auto_workunit(self._get_experiment_runs_mcps())
 
-                # Fetch Pipelines and Tasks
                 if self.config.include_pipelines:
                     yield from auto_workunit(self._get_pipelines_mcps())
 
-                # Fetch and Ingest Model Evaluations
                 if self.config.include_evaluations:
                     yield from auto_workunit(self._get_model_evaluations_mcps())
 
@@ -377,8 +380,24 @@ class VertexAISource(StatefulIngestionSourceBase):
         """
         Fetches pipelines from Vertex AI and generates corresponding mcps.
         """
+        filter_str = None
+        if self.config.pipeline_lookback_days:
+            cutoff_time = datetime.now(timezone.utc) - timedelta(
+                days=self.config.pipeline_lookback_days
+            )
+            # Format for Vertex AI filter: "create_time>2024-01-15T00:00:00Z"
+            cutoff_str = cutoff_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+            filter_str = f"create_time>{cutoff_str}"
+            logger.info(
+                f"Filtering pipelines to last {self.config.pipeline_lookback_days} days "
+                f"(since {cutoff_str})"
+            )
 
-        pipeline_jobs = self.client.PipelineJob.list()
+        # Apply time filter if configured
+        if filter_str:
+            pipeline_jobs = self.client.PipelineJob.list(filter=filter_str)
+        else:
+            pipeline_jobs = self.client.PipelineJob.list()
 
         for pipeline in pipeline_jobs:
             logger.info(f"fetching pipeline ({pipeline.name})")
@@ -537,6 +556,40 @@ class VertexAISource(StatefulIngestionSourceBase):
                 ),
             ).as_workunit()
 
+        input_edges = []
+        if task.input_dataset_urns:
+            input_edges.extend(
+                [EdgeClass(destinationUrn=urn) for urn in task.input_dataset_urns]
+            )
+
+        if input_edges:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dpi_urn,
+                aspect=DataProcessInstanceInputClass(
+                    inputs=[],
+                    inputEdges=input_edges,
+                ),
+            ).as_workunit()
+
+        output_edges = []
+        if task.output_dataset_urns:
+            output_edges.extend(
+                [EdgeClass(destinationUrn=urn) for urn in task.output_dataset_urns]
+            )
+        if task.output_model_urns:
+            output_edges.extend(
+                [EdgeClass(destinationUrn=urn) for urn in task.output_model_urns]
+            )
+
+        if output_edges:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dpi_urn,
+                aspect=DataProcessInstanceOutputClass(
+                    outputs=[],
+                    outputEdges=output_edges,
+                ),
+            ).as_workunit()
+
     def _gen_pipeline_task_mcps(
         self, pipeline: PipelineMetadata
     ) -> Iterable[MetadataWorkUnit]:
@@ -545,13 +598,28 @@ class VertexAISource(StatefulIngestionSourceBase):
         pipeline_container_urn = self._get_pipeline_container(pipeline).as_urn()
 
         for task in pipeline.tasks:
+            # DataJob inlets/outlets only support dataset URNs (not models)
+            inlets = (
+                [DatasetUrn.from_string(urn) for urn in task.input_dataset_urns]
+                if task.input_dataset_urns
+                else []
+            )
+            outlets = (
+                [DatasetUrn.from_string(urn) for urn in task.output_dataset_urns]
+                if task.output_dataset_urns
+                else []
+            )
+
+            owner = self._get_actor_from_labels(pipeline.labels)
             datajob = DataJob(
                 id=self.name_formatter.format_pipeline_task_id(task.name),
                 flow_urn=dataflow_urn,
                 name=task.name,
                 properties={},
-                owners={"urn:li:corpuser:datahub"},
+                owners={owner} if owner else set(),
                 upstream_urns=task.upstreams if task.upstreams else [],
+                inlets=inlets,
+                outlets=outlets,
                 url=self.url_builder.make_pipeline_url(pipeline.name),
                 platform_instance=self.config.platform_instance,
             )
@@ -642,6 +710,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             sub_types=[VertexAISubTypes.PIPELINE],
         )
 
+        owner = self._get_actor_from_labels(pipeline.labels)
         dataflow = DataFlow(
             orchestrator=self.platform,
             id=self.name_formatter.format_pipeline_id(pipeline.name),
@@ -649,7 +718,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             name=pipeline.name,
             platform_instance=self.config.platform_instance,
             properties=self._get_pipeline_properties(pipeline).to_custom_properties(),
-            owners={"urn:li:corpuser:datahub"},
+            owners={owner} if owner else set(),
             url=self.url_builder.make_pipeline_url(pipeline_name=pipeline.name),
         )
 
@@ -792,7 +861,6 @@ class VertexAISource(StatefulIngestionSourceBase):
             self.name_formatter.format_run_execution_name(execution.name)
         )
 
-        # Build cross-platform lineage from artifact URIs
         input_edges = []
         output_edges = []
         for input_art in execution.get_input_artifacts():
@@ -803,6 +871,9 @@ class VertexAISource(StatefulIngestionSourceBase):
                 output_art.uri
             ):
                 output_edges.append(EdgeClass(destinationUrn=ds_urn))
+            model_urn = self.uri_parser.model_urn_from_artifact_uri(output_art.uri)
+            if model_urn:
+                output_edges.append(EdgeClass(destinationUrn=model_urn))
 
         yield MetadataChangeProposalWrapper(
             entityUrn=execution_urn,
@@ -878,13 +949,11 @@ class VertexAISource(StatefulIngestionSourceBase):
         timestamps = self._get_run_timestamps(run)
         run_result_type = self._get_run_result_status(run.get_state())
 
-        # generating mcps for run execution
         for execution in run.get_executions():
             yield from self._gen_run_execution(
                 execution=execution, exp=experiment, run=run
             )
 
-        # generating mcps for run
         yield MetadataChangeProposalWrapper(
             entityUrn=run_urn,
             aspect=DataProcessInstancePropertiesClass(
@@ -957,11 +1026,9 @@ class VertexAISource(StatefulIngestionSourceBase):
         for model in registered_models:
             if not self.config.model_name_pattern.allowed(model.display_name or ""):
                 continue
-            # create mcp for Model Group (= Model in VertexAI)
             yield from self._gen_ml_group_mcps(model)
             model_versions = model.versioning_registry.list_versions()
             for model_version in model_versions:
-                # create mcp for Model (= Model Version in VertexAI)
                 logger.info(
                     f"Ingesting a model (name: {model.display_name} id:{model.name})"
                 )
@@ -985,7 +1052,6 @@ class VertexAISource(StatefulIngestionSourceBase):
             try:
                 evaluations = list(model.list_model_evaluations())
 
-                # Limit evaluations if configured
                 if self.config.max_evaluations_per_model is not None:
                     evaluations = evaluations[: self.config.max_evaluations_per_model]
 
@@ -1001,79 +1067,100 @@ class VertexAISource(StatefulIngestionSourceBase):
                 )
                 continue
 
+    def _extract_evaluation_metrics(
+        self, evaluation: ModelEvaluation
+    ) -> List[MLMetricClass]:
+        """Extract metrics from a model evaluation."""
+        metrics: List[MLMetricClass] = []
+        if not getattr(evaluation, "metrics", None):
+            return metrics
+
+        try:
+            # evaluation.metrics can be dict-like or have specific attributes
+            if isinstance(evaluation.metrics, dict):
+                for metric_name, metric_value in evaluation.metrics.items():
+                    try:
+                        if isinstance(metric_value, Real) and not isinstance(
+                            metric_value, bool
+                        ):
+                            metrics.append(
+                                MLMetricClass(name=metric_name, value=str(metric_value))
+                            )
+                        elif isinstance(metric_value, str):
+                            try:
+                                float(metric_value)
+                                metrics.append(
+                                    MLMetricClass(name=metric_name, value=metric_value)
+                                )
+                            except ValueError:
+                                pass
+                    except Exception as e:
+                        logger.debug(f"Skipping metric {metric_name}: {e}")
+            else:
+                for attr_name in dir(evaluation.metrics):
+                    if not attr_name.startswith("_"):
+                        try:
+                            attr_value = getattr(evaluation.metrics, attr_name)
+                            if isinstance(attr_value, Real) and not isinstance(
+                                attr_value, bool
+                            ):
+                                metrics.append(
+                                    MLMetricClass(name=attr_name, value=str(attr_value))
+                                )
+                        except Exception:
+                            pass
+        except Exception as e:
+            logger.warning(f"Failed to extract metrics from evaluation: {e}")
+
+        return metrics
+
+    def _get_evaluation_model_urn(self, model: Model) -> Optional[str]:
+        """Get the model URN for an evaluation."""
+        try:
+            model_versions = model.versioning_registry.list_versions()
+            if model_versions:
+                model_version = model_versions[0]
+                return self.urn_builder.make_ml_model_urn(
+                    model_version=model_version,
+                    model_name=self.name_formatter.format_model_name(model.name),
+                )
+        except Exception as e:
+            logger.warning(f"Failed to get model URN for evaluation lineage: {e}")
+        return None
+
+    def _extract_evaluation_dataset_urns(
+        self, evaluation: ModelEvaluation
+    ) -> List[str]:
+        """Extract evaluation dataset URNs from evaluation metadata."""
+        dataset_urns: List[str] = []
+        if not hasattr(evaluation, "metadata") or not evaluation.metadata:
+            return dataset_urns
+
+        try:
+            metadata_dict = dict(evaluation.metadata) if evaluation.metadata else {}
+            for key, value in metadata_dict.items():
+                if "dataset" in key.lower() or "test_data" in key.lower():
+                    value_str = str(value)
+                    dataset_urns.extend(
+                        self.uri_parser.dataset_urns_from_artifact_uri(value_str)
+                    )
+        except Exception as e:
+            logger.debug(f"Could not extract evaluation dataset from metadata: {e}")
+
+        return dataset_urns
+
     def _gen_model_evaluation_mcps(
         self, model: Model, evaluation: ModelEvaluation
     ) -> Iterable[MetadataWorkUnit]:
         """
         Generate MCPs for a model evaluation.
         """
-        # Create unique name for evaluation
         evaluation_id = self.name_formatter.format_evaluation_name(evaluation.name)
         evaluation_urn = builder.make_data_process_instance_urn(evaluation_id)
 
-        # Extract metrics from evaluation
-        metrics: List[MLMetricClass] = []
-        if getattr(evaluation, "metrics", None):
-            try:
-                # evaluation.metrics can be dict-like or have specific attributes
-                if isinstance(evaluation.metrics, dict):
-                    for metric_name, metric_value in evaluation.metrics.items():
-                        try:
-                            if isinstance(metric_value, Real) and not isinstance(
-                                metric_value, bool
-                            ):
-                                metrics.append(
-                                    MLMetricClass(
-                                        name=metric_name, value=str(metric_value)
-                                    )
-                                )
-                            elif isinstance(metric_value, str):
-                                try:
-                                    float(metric_value)
-                                    metrics.append(
-                                        MLMetricClass(
-                                            name=metric_name, value=metric_value
-                                        )
-                                    )
-                                except ValueError:
-                                    pass
-                        except Exception as e:
-                            logger.debug(f"Skipping metric {metric_name}: {e}")
-                else:
-                    for attr_name in dir(evaluation.metrics):
-                        if not attr_name.startswith("_"):
-                            try:
-                                attr_value = getattr(evaluation.metrics, attr_name)
-                                if isinstance(attr_value, Real) and not isinstance(
-                                    attr_value, bool
-                                ):
-                                    metrics.append(
-                                        MLMetricClass(
-                                            name=attr_name, value=str(attr_value)
-                                        )
-                                    )
-                            except Exception:
-                                pass
-            except Exception as e:
-                logger.warning(f"Failed to extract metrics from evaluation: {e}")
+        metrics = self._extract_evaluation_metrics(evaluation)
+        model_urn = self._get_evaluation_model_urn(model)
 
-        try:
-            # Try to get the model version from evaluation
-            model_versions = model.versioning_registry.list_versions()
-            if model_versions:
-                # Use the first/latest version as default
-                model_version = model_versions[0]
-                model_urn = self.urn_builder.make_ml_model_urn(
-                    model_version=model_version,
-                    model_name=self.name_formatter.format_model_name(model.name),
-                )
-            else:
-                model_urn = None
-        except Exception as e:
-            logger.warning(f"Failed to get model URN for evaluation lineage: {e}")
-            model_urn = None
-
-        # Create evaluation timestamp
         created_time = 0
         if getattr(evaluation, "create_time", None):
             created_time = datetime_to_ts_millis(evaluation.create_time)
@@ -1109,13 +1196,20 @@ class VertexAISource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
-        # Lineage: evaluation depends on model
+        # Lineage: evaluation depends on model and potentially test datasets
+        input_edges = []
         if model_urn:
+            input_edges.append(EdgeClass(destinationUrn=model_urn))
+
+        for ds_urn in self._extract_evaluation_dataset_urns(evaluation):
+            input_edges.append(EdgeClass(destinationUrn=ds_urn))
+
+        if input_edges:
             yield MetadataChangeProposalWrapper(
                 entityUrn=evaluation_urn,
                 aspect=DataProcessInstanceInputClass(
                     inputs=[],
-                    inputEdges=[EdgeClass(destinationUrn=model_urn)],
+                    inputEdges=input_edges,
                 ),
             ).as_workunit()
 
@@ -1143,12 +1237,31 @@ class VertexAISource(StatefulIngestionSourceBase):
         and AutoMLForecastingTrainingJob. For each job, it generates mcps containing metadata
         about the job, its inputs, and its outputs.
         """
+        filter_str = None
+        if self.config.training_job_lookback_days:
+            cutoff_time = datetime.now(timezone.utc) - timedelta(
+                days=self.config.training_job_lookback_days
+            )
+            # Format for Vertex AI filter: "create_time>2024-01-15T00:00:00Z"
+            cutoff_str = cutoff_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+            filter_str = f"create_time>{cutoff_str}"
+            logger.info(
+                f"Filtering training jobs to last {self.config.training_job_lookback_days} days "
+                f"(since {cutoff_str})"
+            )
+
         # Iterate over class names and call the list() function
         for class_name in TrainingJobTypes.all():
             if not self.config.training_job_type_pattern.allowed(class_name):
                 continue
             logger.info(f"Fetching a list of {class_name}s from VertexAI server")
-            jobs = list(getattr(self.client, class_name).list())
+
+            # Apply time filter if configured
+            if filter_str:
+                jobs = list(getattr(self.client, class_name).list(filter=filter_str))
+            else:
+                jobs = list(getattr(self.client, class_name).list())
+
             if self.config.max_training_jobs_per_type is not None:
                 jobs = jobs[: self.config.max_training_jobs_per_type]
             for job in jobs:
@@ -1162,9 +1275,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         job_meta.external_input_urns = external_urns.input_urns
         job_meta.external_output_urns = external_urns.output_urns
         yield from self._gen_training_job_mcps(job_meta)
-        # Create Dataset entity for Input Dataset of Training job
         yield from self._get_input_dataset_mcps(job_meta)
-        # Create ML Model entity for output ML model of this training job
         yield from self._gen_output_model_mcps(job_meta)
 
     def _gen_output_model_mcps(
@@ -1176,11 +1287,28 @@ class VertexAISource(StatefulIngestionSourceBase):
                 self.name_formatter.format_job_name(entity_id=job.name)
             )
 
+            training_data_urns = []
+            if job_meta.input_dataset:
+                dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=self.name_formatter.format_dataset_name(
+                        entity_id=job_meta.input_dataset.name
+                    ),
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
+                training_data_urns.append(dataset_urn)
+            if job_meta.external_input_urns:
+                training_data_urns.extend(job_meta.external_input_urns)
+
             yield from self._gen_ml_model_mcps(
                 ModelMetadata(
                     model=job_meta.output_model,
                     model_version=job_meta.output_model_version,
                     training_job_urn=job_urn,
+                    training_data_urns=training_data_urns
+                    if training_data_urns
+                    else None,
                 )
             )
 
@@ -1209,17 +1337,17 @@ class VertexAISource(StatefulIngestionSourceBase):
         duration = self._get_job_duration_millis(job)
 
         dataset_urn = (
-            builder.make_dataset_urn(
+            builder.make_dataset_urn_with_platform_instance(
                 platform=self.platform,
                 name=self.name_formatter.format_dataset_name(
                     entity_id=job_meta.input_dataset.name
                 ),
+                platform_instance=self.config.platform_instance,
                 env=self.config.env,
             )
             if job_meta.input_dataset
             else None
         )
-        # If Training Job has Output Model
         model_urn = (
             self.urn_builder.make_ml_model_urn(
                 model_version=job_meta.output_model_version,
@@ -1230,7 +1358,6 @@ class VertexAISource(StatefulIngestionSourceBase):
             if job_meta.output_model and job_meta.output_model_version
             else None
         )
-        # External lineage edges
         external_input_edges = [
             EdgeClass(destinationUrn=u) for u in (job_meta.external_input_urns or [])
         ]
@@ -1508,11 +1635,11 @@ class VertexAISource(StatefulIngestionSourceBase):
         ds = job_meta.input_dataset
 
         if ds:
-            # Create URN of Input Dataset for Training Job
             dataset_name = self.name_formatter.format_dataset_name(entity_id=ds.name)
-            dataset_urn = builder.make_dataset_urn(
+            dataset_urn = builder.make_dataset_urn_with_platform_instance(
                 platform=self.platform,
                 name=dataset_name,
+                platform_instance=self.config.platform_instance,
                 env=self.config.env,
             )
 
@@ -1549,7 +1676,6 @@ class VertexAISource(StatefulIngestionSourceBase):
         input dataset and output model information.
         """
         job_meta = TrainingJobMetadata(job=job)
-        # Check if the job is an AutoML job
         if self._is_automl_job(job):
             try:
                 job_config = AutoMLJobConfig(**job.to_dict())
@@ -1559,7 +1685,6 @@ class VertexAISource(StatefulIngestionSourceBase):
                 )
                 return job_meta
 
-            # Check if input dataset is present in the job configuration
             if job_config.inputDataConfig and job_config.inputDataConfig.datasetId:
                 dataset_id = job_config.inputDataConfig.datasetId
                 logger.info(
@@ -1573,7 +1698,6 @@ class VertexAISource(StatefulIngestionSourceBase):
                     )
                     job_meta.input_dataset = input_ds
 
-            # Check if output model is present in the job configuration
             if (
                 job_config.modelToUpload
                 and job_config.modelToUpload.name
@@ -1598,7 +1722,6 @@ class VertexAISource(StatefulIngestionSourceBase):
                         exc=e,
                     )
         else:
-            # For CustomJob: extract lineage from ML Metadata
             lineage = self._get_job_lineage_from_ml_metadata(job)
 
             if lineage:
@@ -1673,7 +1796,6 @@ class VertexAISource(StatefulIngestionSourceBase):
 
         logging.info(f"generating model mcp for {model.name}")
 
-        # Generate list of endpoint URL
         if endpoints:
             for endpoint in endpoints:
                 logger.info(
@@ -1689,7 +1811,6 @@ class VertexAISource(StatefulIngestionSourceBase):
                     )
                 )
 
-        # Create URN for Model and Model Version
         model_group_urn = self.urn_builder.make_ml_model_group_urn(model)
         model_name = self.name_formatter.format_model_name(entity_id=model.name)
         model_urn = self.urn_builder.make_ml_model_urn(
@@ -1773,6 +1894,17 @@ class VertexAISource(StatefulIngestionSourceBase):
                 aliases=None,
             ),
         ).as_workunit()
+
+        training_data_urns = ModelMetadata.training_data_urns
+        if training_data_urns:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=model_urn,
+                aspect=TrainingDataClass(
+                    trainingData=[
+                        BaseDataClass(dataset=ds_urn) for ds_urn in training_data_urns
+                    ]
+                ),
+            ).as_workunit()
 
     def _get_version_set_urn(self, model: Model) -> VersionSetUrn:
         guid_dict = {"platform": self.platform, "name": model.name}
@@ -1863,7 +1995,6 @@ class VertexAISource(StatefulIngestionSourceBase):
                 metadata_store=MLMetadataDefaults.DEFAULT_METADATA_STORE,
             )
 
-            # Try to find executions by display name
             filter_str = f'display_name="{job.display_name}"'
 
             request = ListExecutionsRequest(
@@ -1874,9 +2005,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             executions_response = self._metadata_client.list_executions(request=request)
             executions = list(executions_response)
 
-            # If no executions found by display name, try by schema title or other metadata
             if not executions:
-                # Try broader search with schema_title using constants
                 filter_str = f'schema_title="{MLMetadataSchemas.CONTAINER_EXECUTION}" OR schema_title="{MLMetadataSchemas.RUN}"'
                 request = ListExecutionsRequest(
                     parent=parent,
@@ -1887,10 +2016,8 @@ class VertexAISource(StatefulIngestionSourceBase):
                     self._metadata_client.list_executions(request=request)
                 )
 
-                # Filter by matching job name in metadata
                 for execution in all_executions:
                     if getattr(execution, "metadata", None):
-                        # Check if job name appears in execution metadata
                         metadata_str = str(execution.metadata)
                         if job.name in metadata_str or job.display_name in metadata_str:
                             executions.append(execution)
@@ -1923,12 +2050,10 @@ class VertexAISource(StatefulIngestionSourceBase):
             input_urns: List[str] = []
             output_urns: List[str] = []
 
-            # Build artifact name to event type map
             artifact_events: Dict[str, str] = {}
             for event in response.events:
                 artifact_events[event.artifact] = event.type_.name
 
-            # Process artifacts and their events
             for artifact in response.artifacts:
                 event_type = artifact_events.get(artifact.name, "")
 
@@ -1966,11 +2091,8 @@ class VertexAISource(StatefulIngestionSourceBase):
         if not getattr(execution, "metadata", None):
             return hyperparams
 
-        # Iterate through metadata fields
         for key in execution.metadata:
             value = execution.metadata[key]
-
-            # Use pattern matcher from constants
             is_hyperparam = HyperparameterPatterns.is_hyperparam(key)
 
             if is_hyperparam:
@@ -1990,11 +2112,8 @@ class VertexAISource(StatefulIngestionSourceBase):
         if not getattr(execution, "metadata", None):
             return metrics
 
-        # Iterate through metadata fields
         for key in execution.metadata:
             value = execution.metadata[key]
-
-            # Use pattern matcher from constants
             is_metric = MetricPatterns.is_metric(key)
 
             if is_metric:

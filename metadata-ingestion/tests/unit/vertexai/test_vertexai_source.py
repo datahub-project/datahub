@@ -13,11 +13,16 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.gcp_project_filter import GcpProject
 from datahub.ingestion.source.vertexai.vertexai import (
     ModelMetadata,
     TrainingJobMetadata,
     VertexAIConfig,
     VertexAISource,
+)
+from datahub.ingestion.source.vertexai.vertexai_builder import (
+    VertexAIExternalURLBuilder,
+    VertexAINameFormatter,
 )
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     ResourceCategory,
@@ -39,6 +44,7 @@ from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataPlatformInstanceClass,
     DataProcessInstanceInputClass,
+    DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
     DatasetPropertiesClass,
     EdgeClass,
@@ -46,6 +52,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
     TimeStampClass,
+    TrainingDataClass,
     VersionPropertiesClass,
     VersionTagClass,
 )
@@ -437,7 +444,6 @@ def test_get_input_dataset_mcps(source: VertexAISource) -> None:
     mock_job = gen_mock_training_custom_job()
     job_meta = TrainingJobMetadata(mock_job, input_dataset=mock_dataset)
 
-    # This function actually generates the dataset MCPs
     actual_mcps: List[MetadataWorkUnit] = list(
         source._get_dataset_workunits_from_job_metadata(job_meta)
     )
@@ -664,7 +670,6 @@ def test_get_pipeline_mcps(
         # Expected count: 5 (pipeline container) + 6 (dataflow) + 7 (datajob) + 5 (dpi) = 23
         assert len(actual_mcps) == 23, f"Expected 23 MCPs, got {len(actual_mcps)}"
 
-        # Pipeline DataFlow MCPs - verify DataFlowInfoClass exists and has correct values
         dataflow_info_mcps = [
             mcp
             for mcp in actual_mcps
@@ -692,7 +697,6 @@ def test_get_pipeline_mcps(
         assert "location" in actual_df_info.customProperties
         assert "labels" in actual_df_info.customProperties
 
-        # Verify other pipeline-related MCPs exist (basic sanity check)
         assert any(
             isinstance(mcp.metadata, MetadataChangeProposalWrapper)
             and isinstance(mcp.metadata.aspect, StatusClass)
@@ -716,20 +720,12 @@ def test_get_pipeline_mcps(
 
 
 def test_vertexai_multi_project_context_naming() -> None:
-    # Use single-project config to avoid invoking project resolution in __init__
     multi_source = VertexAISource(
         ctx=PipelineContext(run_id="vertexai-source-test"),
         config=VertexAIConfig(project_id="fallback", region="us-central1"),
     )
-    # Simulate iteration context
     multi_source._current_project_id = "p2"
     multi_source._current_region = "r2"
-
-    # Reinitialize formatters with new project context (as would happen in get_workunits)
-    from datahub.ingestion.source.vertexai.vertexai_builder import (
-        VertexAIExternalURLBuilder,
-        VertexAINameFormatter,
-    )
 
     multi_source.name_formatter = VertexAINameFormatter(project_id="p2")
     multi_source.url_builder = VertexAIExternalURLBuilder(
@@ -739,7 +735,6 @@ def test_vertexai_multi_project_context_naming() -> None:
         region="r2",
     )
 
-    # Names and URLs should use current context
     assert (
         multi_source.name_formatter.format_model_group_name("m") == "p2.model_group.m"
     )
@@ -748,7 +743,6 @@ def test_vertexai_multi_project_context_naming() -> None:
         multi_source.name_formatter.format_pipeline_task_id("t") == "p2.pipeline_task.t"
     )
 
-    # External URLs should embed current region and project
     assert (
         multi_source.url_builder.make_model_url("xyz")
         == f"{multi_source.config.vertexai_url}/models/locations/r2/models/xyz?project=p2"
@@ -780,8 +774,6 @@ def test_gen_run_execution_edges() -> None:
 
     class _Exec:
         def __init__(self):
-            from datetime import datetime, timedelta
-
             self.create_time = datetime.utcnow()
             self.update_time = self.create_time + timedelta(seconds=5)
             self.state = "COMPLETE"
@@ -855,10 +847,7 @@ def test_training_job_external_lineage_edges() -> None:
     )
 
     job = _Job()
-    # Generate mcps for job; we only need the DPI aspects for edges
-    # Cast is necessary as _Job is a test mock, not a real VertexAiResourceNoun
     job_meta = source._get_training_job_metadata(cast(Any, job))
-    # Attach extracted uris
     uris = source.uri_parser.extract_external_uris_from_job(cast(Any, job))
     job_meta.external_input_urns = uris.input_urns
     job_meta.external_output_urns = uris.output_urns
@@ -1040,8 +1029,6 @@ def test_multi_project_initialization_with_explicit_ids(
     mock_resolve: MagicMock,
 ) -> None:
     """Test initialization with explicit project_ids"""
-    from datahub.ingestion.source.common.gcp_project_filter import GcpProject
-
     mock_resolve.return_value = [
         GcpProject(id="project-1", name="Project 1"),
         GcpProject(id="project-2", name="Project 2"),
@@ -1063,8 +1050,6 @@ def test_multi_project_initialization_with_explicit_ids(
 @patch("datahub.ingestion.source.vertexai.vertexai.resolve_gcp_projects")
 def test_multi_project_initialization_with_labels(mock_resolve: MagicMock) -> None:
     """Test initialization with project labels"""
-    from datahub.ingestion.source.common.gcp_project_filter import GcpProject
-
     mock_resolve.return_value = [
         GcpProject(id="dev-project", name="Development"),
         GcpProject(id="prod-project", name="Production"),
@@ -1148,3 +1133,215 @@ def test_ml_metadata_helper_handles_init_errors(mock_client: MagicMock) -> None:
     source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
 
     assert source._ml_metadata_helper is None
+
+
+@pytest.mark.parametrize(
+    "config_overrides,expected_values",
+    [
+        (
+            {},
+            {
+                "training_job_lookback_days": 7,
+                "pipeline_lookback_days": 7,
+                "ml_metadata_execution_lookback_days": 7,
+                "ml_metadata_max_execution_search_limit": 100,
+            },
+        ),
+        (
+            {
+                "training_job_lookback_days": 30,
+                "ml_metadata_max_execution_search_limit": 200,
+            },
+            {
+                "training_job_lookback_days": 30,
+                "ml_metadata_max_execution_search_limit": 200,
+            },
+        ),
+        (
+            {"training_job_lookback_days": None},
+            {"training_job_lookback_days": None},
+        ),
+    ],
+)
+def test_time_based_filtering_config(
+    config_overrides: dict, expected_values: dict
+) -> None:
+    """Test time-based filtering configuration defaults and custom values"""
+    base_config = {"project_id": "test-project", "region": "us-central1"}
+    config = VertexAIConfig.model_validate({**base_config, **config_overrides})
+
+    for key, expected_value in expected_values.items():
+        assert getattr(config, key) == expected_value
+
+
+def test_model_training_data_lineage(source: VertexAISource) -> None:
+    """Test that models have TrainingDataClass aspect with dataset URNs"""
+
+    mock_model = gen_mock_model()
+    model_version = gen_mock_model_version(mock_model)
+    mock_dataset = gen_mock_dataset()
+
+    training_dataset_urn = builder.make_dataset_urn_with_platform_instance(
+        platform=source.platform,
+        name=source.name_formatter.format_dataset_name(entity_id=mock_dataset.name),
+        platform_instance=source.config.platform_instance,
+        env=source.config.env,
+    )
+
+    model_meta = ModelMetadata(
+        model=mock_model,
+        model_version=model_version,
+        training_data_urns=[training_dataset_urn],
+    )
+
+    actual_mcps = list(source._gen_ml_model_mcps(model_meta))
+
+    training_data_mcps = [
+        mcp
+        for mcp in actual_mcps
+        if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
+        and isinstance(mcp.metadata.aspect, TrainingDataClass)
+    ]
+
+    assert len(training_data_mcps) == 1
+    training_data_mcp = training_data_mcps[0].metadata
+    assert isinstance(training_data_mcp, MetadataChangeProposalWrapper)
+    training_data_aspect = training_data_mcp.aspect
+    assert isinstance(training_data_aspect, TrainingDataClass)
+    assert len(training_data_aspect.trainingData) == 1
+    assert training_data_aspect.trainingData[0].dataset == training_dataset_urn
+
+
+def test_dataset_urns_include_platform_instance() -> None:
+    """Test that dataset URNs include platform_instance when configured"""
+    config = VertexAIConfig.model_validate(
+        {
+            "project_id": "test-project",
+            "region": "us-central1",
+            "platform_instance": "prod-vertexai",
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+    dataset_name = "test-dataset"
+    dataset_urn = source.urn_builder.make_dataset_urn(dataset_name)
+
+    assert "prod-vertexai" in dataset_urn
+    assert dataset_urn.startswith("urn:li:dataset:")
+
+
+@pytest.mark.parametrize(
+    "artifact_uri,platform",
+    [
+        ("gs://bucket/path", "gcs"),
+        ("bq://proj.ds.tbl", "bigquery"),
+    ],
+)
+def test_uri_parser_includes_platform_instance(
+    artifact_uri: str, platform: str
+) -> None:
+    """Test that URI parser includes platform_instance in generated URNs for external platforms"""
+    config = VertexAIConfig.model_validate(
+        {
+            "project_id": "test-project",
+            "region": "us-central1",
+            "platform_to_instance_map": {
+                platform: {
+                    "platform_instance": "prod-instance",
+                    "env": "PROD",
+                }
+            },
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+    urns = source.uri_parser.dataset_urns_from_artifact_uri(artifact_uri)
+    assert len(urns) == 1
+    assert "prod-instance" in urns[0]
+
+
+@pytest.mark.parametrize(
+    "labels,expected_user",
+    [
+        ({"created_by": "john.doe"}, "john.doe"),
+        ({"creator": "jane.smith"}, "jane.smith"),
+        ({"owner": "team-lead"}, "team-lead"),
+        ({"env": "prod", "version": "1.0"}, None),
+        (None, None),
+    ],
+)
+def test_owner_extraction_from_labels(
+    source: VertexAISource, labels: Any, expected_user: str | None
+) -> None:
+    """Test owner extraction from various label keys"""
+    owner = source._get_actor_from_labels(labels)
+    if expected_user:
+        assert owner == builder.make_user_urn(expected_user)
+    else:
+        assert owner is None
+
+
+@pytest.mark.parametrize(
+    "uri,should_parse,expected_content",
+    [
+        (
+            "projects/test-project/locations/us-central1/models/123456",
+            True,
+            ["mlModel", "123456"],
+        ),
+        ("gs://bucket/path/file", False, None),
+        (None, False, None),
+    ],
+)
+def test_model_urn_from_artifact_uri(
+    uri: str | None, should_parse: bool, expected_content: list[str] | None
+) -> None:
+    """Test parsing model URNs from ML Metadata artifact URIs"""
+    config = VertexAIConfig.model_validate(
+        {
+            "project_id": "test-project",
+            "region": "us-central1",
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+    model_urn = source.uri_parser.model_urn_from_artifact_uri(uri)
+    if should_parse:
+        assert model_urn is not None
+        assert expected_content is not None
+        for content in expected_content:
+            assert content in model_urn
+    else:
+        assert model_urn is None
+
+
+def test_pipeline_task_run_lineage_edges() -> None:
+    """Test that DataProcessInstance aspects support both dataset and model URNs"""
+    # This is a structure verification test to ensure we're using the correct
+    # aspects for pipeline task run lineage.
+
+    # DataProcessInstanceInput and Output aspects support dataset and mlModel entity types
+    # This is verified in entity-registry.yml and the PDL definitions
+
+    dataset_edge = EdgeClass(
+        destinationUrn="urn:li:dataset:(urn:li:dataPlatform:bigquery,proj.ds.table,PROD)"
+    )
+    model_edge = EdgeClass(
+        destinationUrn="urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-model,PROD)"
+    )
+
+    input_aspect = DataProcessInstanceInputClass(
+        inputs=[],
+        inputEdges=[dataset_edge],
+    )
+    output_aspect = DataProcessInstanceOutputClass(
+        outputs=[],
+        outputEdges=[dataset_edge, model_edge],
+    )
+
+    assert input_aspect.inputEdges is not None
+    assert len(input_aspect.inputEdges) == 1
+    assert output_aspect.outputEdges is not None
+    assert len(output_aspect.outputEdges) == 2
+    assert "dataset" in output_aspect.outputEdges[0].destinationUrn
+    assert "mlModel" in output_aspect.outputEdges[1].destinationUrn

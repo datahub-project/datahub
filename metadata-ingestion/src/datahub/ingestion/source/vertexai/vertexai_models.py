@@ -74,6 +74,10 @@ class MLMetadataConfig:
     enable_lineage_extraction: bool = True
     enable_metrics_extraction: bool = True
     max_executions_per_job: Optional[int] = None
+    max_execution_search_limit: int = MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS
+    execution_lookback_days: Optional[int] = (
+        7  # Only search executions from last N days
+    )
 
     def get_parent_path(self) -> str:
         return MLMetadataDefaults.METADATA_STORE_PATH_TEMPLATE.format(
@@ -126,6 +130,7 @@ class ModelMetadata:
     model: Model
     model_version: VersionInfo
     training_job_urn: Optional[str] = None
+    training_data_urns: Optional[List[str]] = None
     endpoints: Optional[List[Endpoint]] = None
 
 
@@ -143,6 +148,9 @@ class PipelineTaskMetadata:
     end_time: Optional[timestamp_pb2.Timestamp] = None
     upstreams: Optional[List[DataJobUrn]] = None
     duration: Optional[int] = None
+    input_dataset_urns: Optional[List[str]] = None  # Dataset inputs
+    output_dataset_urns: Optional[List[str]] = None  # Dataset outputs
+    output_model_urns: Optional[List[str]] = None  # Model outputs
 
 
 @dataclasses.dataclass
