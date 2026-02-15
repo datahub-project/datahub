@@ -1,0 +1,70 @@
+{
+  "jobs": [
+    {
+      "jid": "d4b4a1234567890abcdef1234567890a",
+      "name": "fraud_detection",
+      "state": "RUNNING",
+      "start-time": 1707676800000,
+      "end-time": -1,
+      "duration": 86400000,
+      "last-modification": 1707676800000,
+      "tasks": {
+        "total": 3,
+        "created": 0,
+        "scheduled": 0,
+        "deploying": 0,
+        "running": 3,
+        "finished": 0,
+        "canceling": 0,
+        "canceled": 0,
+        "failed": 0,
+        "reconciling": 0,
+        "initializing": 0
+      }
+    },
+    {
+      "jid": "e5c5b2345678901bcdef2345678901b",
+      "name": "etl_pipeline",
+      "state": "FINISHED",
+      "start-time": 1707590400000,
+      "end-time": 1707594000000,
+      "duration": 3600000,
+      "last-modification": 1707594000000,
+      "tasks": {
+        "total": 2,
+        "created": 0,
+        "scheduled": 0,
+        "deploying": 0,
+        "running": 0,
+        "finished": 2,
+        "canceling": 0,
+        "canceled": 0,
+        "failed": 0,
+        "reconciling": 0,
+        "initializing": 0
+      }
+    },
+    {
+      "jid": "f6d6c3456789012cdef3456789012c",
+      "name": "test_job",
+      "state": "CANCELED",
+      "start-time": 1707504000000,
+      "end-time": 1707505000000,
+      "duration": 1000000,
+      "last-modification": 1707505000000,
+      "tasks": {
+        "total": 1,
+        "created": 0,
+        "scheduled": 0,
+        "deploying": 0,
+        "running": 0,
+        "finished": 0,
+        "canceling": 0,
+        "canceled": 1,
+        "failed": 0,
+        "reconciling": 0,
+        "initializing": 0
+      }
+    }
+  ]
+}

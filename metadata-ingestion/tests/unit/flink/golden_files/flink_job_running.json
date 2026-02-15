@@ -1,0 +1,86 @@
+{
+  "jid": "d4b4a1234567890abcdef1234567890a",
+  "name": "fraud_detection",
+  "isStoppable": false,
+  "state": "RUNNING",
+  "start-time": 1707676800000,
+  "end-time": -1,
+  "duration": 86400000,
+  "maxParallelism": 128,
+  "job-type": "STREAMING",
+  "now": 1707763200000,
+  "timestamps": {
+    "INITIALIZING": 1707676799000,
+    "CREATED": 1707676799500,
+    "RUNNING": 1707676800000,
+    "FAILING": 0,
+    "FAILED": 0,
+    "CANCELLING": 0,
+    "CANCELED": 0,
+    "FINISHED": 0,
+    "RESTARTING": 0,
+    "SUSPENDED": 0,
+    "RECONCILING": 0
+  },
+  "vertices": [],
+  "status-counts": {
+    "CREATED": 0,
+    "SCHEDULED": 0,
+    "DEPLOYING": 0,
+    "RUNNING": 3,
+    "FINISHED": 0,
+    "CANCELING": 0,
+    "CANCELED": 0,
+    "FAILED": 0,
+    "RECONCILING": 0,
+    "INITIALIZING": 0
+  },
+  "plan": {
+    "jid": "d4b4a1234567890abcdef1234567890a",
+    "name": "fraud_detection",
+    "type": "STREAMING",
+    "nodes": [
+      {
+        "id": "1",
+        "parallelism": 4,
+        "operator": "",
+        "operator_strategy": "",
+        "description": "Source: KafkaSource-transactions -> Filter",
+        "inputs": [],
+        "optimizer_properties": {}
+      },
+      {
+        "id": "2",
+        "parallelism": 4,
+        "operator": "",
+        "operator_strategy": "",
+        "description": "KeyBy -> Window(TumblingEventTimeWindows(5000)) -> Aggregate",
+        "inputs": [
+          {
+            "num": 0,
+            "id": "1",
+            "ship_strategy": "HASH",
+            "exchange": "pipelined_bounded"
+          }
+        ],
+        "optimizer_properties": {}
+      },
+      {
+        "id": "3",
+        "parallelism": 2,
+        "operator": "",
+        "operator_strategy": "",
+        "description": "Sink: KafkaSink-alerts",
+        "inputs": [
+          {
+            "num": 0,
+            "id": "2",
+            "ship_strategy": "FORWARD",
+            "exchange": "pipelined_bounded"
+          }
+        ],
+        "optimizer_properties": {}
+      }
+    ]
+  }
+}

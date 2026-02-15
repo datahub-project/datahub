@@ -1,0 +1,15 @@
+{
+  "mode": "exactly_once",
+  "interval": 60000,
+  "timeout": 600000,
+  "min_pause": 0,
+  "max_concurrent": 1,
+  "externalization": {
+    "enabled": true,
+    "delete_on_cancellation": false
+  },
+  "state_backend": "rocksdb",
+  "checkpoint_storage": "filesystem",
+  "unaligned_checkpoints": false,
+  "tolerable_failed_checkpoints": 0
+}
