@@ -3,6 +3,7 @@
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 aopalliance:aopalliance:1.0=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+at.yawk.lz4:lz4-java:1.10.1=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 ch.qos.logback:logback-classic:1.2.13=compileClasspath,testCompileClasspath
 ch.qos.logback:logback-classic:1.5.21=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 ch.qos.logback:logback-core:1.2.13=compileClasspath,testCompileClasspath
@@ -73,8 +74,7 @@ com.github.spullara.mustache.java:compiler:0.9.14=compileClasspath,productionRun
 com.google.android:annotations:4.1.1.4=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 com.google.api.grpc:proto-google-common-protos:2.59.2=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.google.code.findbugs:jsr305:3.0.2=compileClasspath,productionRuntimeClasspath,runtimeClasspath,spotless865458226,testCompileClasspath,testRuntimeClasspath
-com.google.code.gson:gson:2.12.0=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
-com.google.code.gson:gson:2.9.0=compileClasspath,testCompileClasspath
+com.google.code.gson:gson:2.12.0=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.google.errorprone:error_prone_annotations:2.21.1=spotless865458226
 com.google.errorprone:error_prone_annotations:2.36.0=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.google.googlejavaformat:google-java-format:1.18.1=spotless865458226
@@ -496,7 +496,6 @@ org.knowm.xchart:xchart:3.2.2=compileClasspath,productionRuntimeClasspath,runtim
 org.latencyutils:LatencyUtils:2.0.3=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 org.locationtech.jts:jts-core:1.15.0=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.locationtech.spatial4j:spatial4j:0.7=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-org.lz4:lz4-java:1.8.1=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 org.mariadb.jdbc:mariadb-java-client:2.7.12=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 org.mockito:mockito-core:5.17.0=testCompileClasspath,testRuntimeClasspath
 org.mockito:mockito-junit-jupiter:5.17.0=testCompileClasspath,testRuntimeClasspath
