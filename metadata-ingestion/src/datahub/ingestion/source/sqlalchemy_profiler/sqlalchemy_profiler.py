@@ -646,46 +646,63 @@ class SQLAlchemyProfiler:
                         exc=e,
                     )
 
-        # Non-batchable complex queries for numeric columns
+        # Non-batchable complex queries for numeric columns with sufficient cardinality
         if self.config.include_field_quantiles:
-            quantiles = runner.get_column_quantiles(
-                sql_table,
-                col_name,
-                [0.05, 0.25, 0.5, 0.75, 0.95],
-            )
-            logger.debug(
-                f"Quantiles for {col_name}: type={type(quantiles)}, "
-                f"len={len(quantiles) if quantiles else 0}, value={quantiles}"
-            )
-            column_profile.quantiles = [
-                QuantileClass(quantile=str(q), value=str(v))
-                for q, v in zip(
+            if cardinality and cardinality in {
+                Cardinality.FEW,
+                Cardinality.MANY,
+                Cardinality.VERY_MANY,
+            }:
+                quantiles = runner.get_column_quantiles(
+                    sql_table,
+                    col_name,
                     [0.05, 0.25, 0.5, 0.75, 0.95],
-                    quantiles,
-                    strict=False,
                 )
-                if v is not None
-            ]
+                logger.debug(
+                    f"Quantiles for {col_name}: type={type(quantiles)}, "
+                    f"len={len(quantiles) if quantiles else 0}, value={quantiles}"
+                )
+                column_profile.quantiles = [
+                    QuantileClass(quantile=str(q), value=str(v))
+                    for q, v in zip(
+                        [0.05, 0.25, 0.5, 0.75, 0.95],
+                        quantiles,
+                        strict=False,
+                    )
+                    if v is not None
+                ]
+            else:
+                logger.info(
+                    f"Skipping quantiles for {pretty_name}.{col_name}: "
+                    f"cardinality {cardinality.name if cardinality else 'None'} "
+                    f"is too low (requires FEW/MANY/VERY_MANY)"
+                )
 
         # Add histogram for numeric columns with high cardinality
-        if (
-            self.config.include_field_histogram
-            and cardinality
-            and cardinality
-            in {Cardinality.FEW, Cardinality.MANY, Cardinality.VERY_MANY}
-        ):
-            histogram = runner.get_column_histogram(sql_table, col_name)
-            if histogram:
-                # Convert to HistogramClass format
-                # boundaries: bucket boundaries (k+1 values for k buckets)
-                # heights: counts per bucket (k values)
-                boundaries = [str(start) for start, _, _ in histogram]
-                # Add the last bucket end as final boundary
+        if self.config.include_field_histogram:
+            if cardinality and cardinality in {
+                Cardinality.FEW,
+                Cardinality.MANY,
+                Cardinality.VERY_MANY,
+            }:
+                histogram = runner.get_column_histogram(sql_table, col_name)
                 if histogram:
-                    boundaries.append(str(histogram[-1][1]))
-                heights = [float(count) for _, _, count in histogram]
-                column_profile.histogram = HistogramClass(
-                    boundaries=boundaries, heights=heights
+                    # Convert to HistogramClass format
+                    # boundaries: bucket boundaries (k+1 values for k buckets)
+                    # heights: counts per bucket (k values)
+                    boundaries = [str(start) for start, _, _ in histogram]
+                    # Add the last bucket end as final boundary
+                    if histogram:
+                        boundaries.append(str(histogram[-1][1]))
+                    heights = [float(count) for _, _, count in histogram]
+                    column_profile.histogram = HistogramClass(
+                        boundaries=boundaries, heights=heights
+                    )
+            else:
+                logger.info(
+                    f"Skipping histogram for {pretty_name}.{col_name}: "
+                    f"cardinality {cardinality.name if cardinality else 'None'} "
+                    f"is too low (requires FEW/MANY/VERY_MANY)"
                 )
 
         # Add distinct value frequencies for low cardinality numeric columns

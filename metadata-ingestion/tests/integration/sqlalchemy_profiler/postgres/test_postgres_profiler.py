@@ -189,22 +189,10 @@ def test_quantiles_ordering(postgres_source):
         (fp for fp in profile.fieldProfiles if fp.fieldPath == "value_col"), None
     )
     assert value_col_profile is not None
-    assert value_col_profile.quantiles is not None
-
-    # Sort quantiles by quantile value
-    sorted_quantiles = sorted(value_col_profile.quantiles, key=lambda q: q.quantile)
-
-    # Verify ordering
-    for i in range(len(sorted_quantiles) - 1):
-        assert float(sorted_quantiles[i].value) <= float(sorted_quantiles[i + 1].value)
-
-    # Verify median (q_0.5) is approximately correct
-    median_quantile = next(
-        (q for q in sorted_quantiles if float(q.quantile) == 0.5), None
-    )
-    if median_quantile:
-        # For [10, 20, ..., 100], median should be around 55
-        assert 50 <= float(median_quantile.value) <= 60
+    # This table has 10 unique values out of 10 rows (pct_unique=1.0)
+    # which is UNIQUE cardinality, so quantiles are not calculated
+    # (quantiles aren't meaningful when every value is unique)
+    assert value_col_profile.quantiles is None or len(value_col_profile.quantiles) == 0
 
 
 @freeze_time(FROZEN_TIME)
@@ -328,10 +316,10 @@ def test_edge_case_single_row(postgres_source):
         assert float(value_col_profile.median) == pytest.approx(42.0, rel=1e-6)
         assert value_col_profile.stdev is None  # stddev of single value is None
         assert value_col_profile.uniqueCount == 1
-        assert value_col_profile.quantiles is not None
-        assert float(
-            next(q for q in value_col_profile.quantiles if q.quantile == "0.5").value
-        ) == pytest.approx(42.0, rel=1e-6)
+        # Single row has ONE cardinality, so quantiles are not calculated
+        assert (
+            value_col_profile.quantiles is None or len(value_col_profile.quantiles) == 0
+        )
         assert value_col_profile.sampleValues == ["42"]
 
 
@@ -395,3 +383,86 @@ def test_row_count_estimation(postgres_source):
     # Estimated count should be within reasonable range of actual (1000)
     # PostgreSQL estimates can vary, so allow 50% variance
     assert 500 <= profile.rowCount <= 1500
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_quantiles_cardinality_filtering(postgres_source):
+    """Test that quantiles are only calculated for columns with sufficient cardinality."""
+    # Low cardinality (TWO) - quantiles should NOT be calculated
+    low_card_profile = get_profile_for_table(
+        postgres_source, "public", "test_low_cardinality"
+    )
+
+    assert low_card_profile is not None
+    assert low_card_profile.fieldProfiles is not None
+    low_card_value_col = next(
+        (fp for fp in low_card_profile.fieldProfiles if fp.fieldPath == "value_col"),
+        None,
+    )
+    assert low_card_value_col is not None
+    # Should have 2 unique values (10 and 20)
+    assert low_card_value_col.uniqueCount == 2
+    # Quantiles should NOT be calculated for low cardinality (TWO)
+    assert (
+        low_card_value_col.quantiles is None or len(low_card_value_col.quantiles) == 0
+    )
+
+    # High cardinality (FEW) - quantiles SHOULD be calculated
+    high_card_profile = get_profile_for_table(
+        postgres_source, "public", "test_high_cardinality"
+    )
+
+    assert high_card_profile is not None
+    assert high_card_profile.fieldProfiles is not None
+    high_card_value_col = next(
+        (fp for fp in high_card_profile.fieldProfiles if fp.fieldPath == "value_col"),
+        None,
+    )
+    assert high_card_value_col is not None
+    # Should have 25 unique values out of 50 rows (pct_unique=0.5 -> FEW cardinality)
+    assert high_card_value_col.uniqueCount == 25
+    # Quantiles SHOULD be calculated for higher cardinality (FEW)
+    assert high_card_value_col.quantiles is not None
+    assert len(high_card_value_col.quantiles) > 0
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_histogram_cardinality_filtering(postgres_source):
+    """Test that histogram is only calculated for columns with sufficient cardinality."""
+    # Low cardinality (TWO) - histogram should NOT be calculated
+    low_card_profile = get_profile_for_table(
+        postgres_source, "public", "test_low_cardinality"
+    )
+
+    assert low_card_profile is not None
+    assert low_card_profile.fieldProfiles is not None
+    low_card_value_col = next(
+        (fp for fp in low_card_profile.fieldProfiles if fp.fieldPath == "value_col"),
+        None,
+    )
+    assert low_card_value_col is not None
+    # Should have 2 unique values (10 and 20)
+    assert low_card_value_col.uniqueCount == 2
+    # Histogram should NOT be calculated for low cardinality (TWO)
+    assert low_card_value_col.histogram is None
+
+    # High cardinality (FEW) - histogram SHOULD be calculated
+    high_card_profile = get_profile_for_table(
+        postgres_source, "public", "test_high_cardinality"
+    )
+
+    assert high_card_profile is not None
+    assert high_card_profile.fieldProfiles is not None
+    high_card_value_col = next(
+        (fp for fp in high_card_profile.fieldProfiles if fp.fieldPath == "value_col"),
+        None,
+    )
+    assert high_card_value_col is not None
+    # Should have 25 unique values out of 50 rows (pct_unique=0.5 -> FEW cardinality)
+    assert high_card_value_col.uniqueCount == 25
+    # Histogram SHOULD be calculated for higher cardinality (FEW)
+    assert high_card_value_col.histogram is not None
+    assert len(high_card_value_col.histogram.boundaries) > 0
+    assert len(high_card_value_col.histogram.heights) > 0

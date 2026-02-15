@@ -126,3 +126,26 @@ SELECT generate_series(1, 1000), (random() * 100)::INT;
 -- Update statistics for row count estimation (pg_class.reltuples)
 ANALYZE test_row_count_estimation;
 
+-- Table for testing cardinality filtering for quantiles
+-- Low cardinality (TWO) - quantiles should NOT be calculated
+CREATE TABLE test_low_cardinality (
+    id INT PRIMARY KEY,
+    value_col INT
+);
+
+INSERT INTO test_low_cardinality (id, value_col) VALUES
+    (1, 10), (2, 10), (3, 10), (4, 10), (5, 10),
+    (6, 20), (7, 20), (8, 20), (9, 20), (10, 20);
+
+-- Table for testing cardinality filtering for quantiles
+-- High cardinality (FEW) - quantiles SHOULD be calculated
+-- 25 unique values out of 50 rows -> pct_unique = 0.5 -> FEW cardinality
+CREATE TABLE test_high_cardinality (
+    id INT PRIMARY KEY,
+    value_col INT
+);
+
+INSERT INTO test_high_cardinality (id, value_col)
+SELECT i, (i % 25) + 1
+FROM generate_series(1, 50) AS i;
+
