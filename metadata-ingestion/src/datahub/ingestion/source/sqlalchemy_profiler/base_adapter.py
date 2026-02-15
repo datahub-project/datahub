@@ -292,6 +292,16 @@ class PlatformAdapter(ABC):
             sample_clause: Optional SQL suffix for sampling
             use_estimation: Use fast estimation if available
 
+        TODO: performance optimization: get from system tables
+        Current approach uses SELECT COUNT(*) or APPROX_COUNT(*) which may be slow on large tables.
+        Better approach would be to fetch from system tables, in those platforms that provide that. Eg BigQuery
+
+                SELECT row_count
+                FROM `project.dataset.INFORMATION_SCHEMA.TABLES`
+                WHERE table_name = 'table_name'
+
+        Even, we could fetch all row counts for a given dataset/schema and cache them!
+
         Returns:
             Row count
         """
