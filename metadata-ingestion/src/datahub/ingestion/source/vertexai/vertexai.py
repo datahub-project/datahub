@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from numbers import Real
 from typing import Dict, Iterable, List, Optional, TypeVar, Union
 
-from google.api_core.exceptions import GoogleAPICallError, InvalidArgument
+from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import aiplatform, aiplatform_v1
 from google.cloud.aiplatform import (
     AutoMLForecastingTrainingJob,
@@ -379,40 +379,28 @@ class VertexAISource(StatefulIngestionSourceBase):
     def _get_pipelines_mcps(self) -> Iterable[MetadataWorkUnit]:
         """
         Fetches pipelines from Vertex AI and generates corresponding mcps.
+
+        Note: Vertex AI PipelineJob list API doesn't support server-side time filtering,
+        so we filter in-memory after fetching.
         """
-        filter_str = None
+        cutoff_time = None
         if self.config.pipeline_lookback_days:
             cutoff_time = datetime.now(timezone.utc) - timedelta(
                 days=self.config.pipeline_lookback_days
             )
-            # Format for Vertex AI filter: "create_time>2024-01-15T00:00:00Z"
-            cutoff_str = cutoff_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-            filter_str = f"create_time>{cutoff_str}"
             logger.info(
-                f"Filtering pipelines to last {self.config.pipeline_lookback_days} days "
-                f"(since {cutoff_str})"
+                f"Will filter pipelines to last {self.config.pipeline_lookback_days} days "
+                f"(since {cutoff_time.strftime('%Y-%m-%dT%H:%M:%SZ')})"
             )
 
-        try:
-            if filter_str:
-                pipeline_jobs = list(self.client.PipelineJob.list(filter=filter_str))
-            else:
-                pipeline_jobs = list(self.client.PipelineJob.list())
-        except InvalidArgument:
-            logger.warning(
-                "PipelineJob does not support create_time filter. "
-                "Fetching all pipelines and filtering in memory."
-            )
-            pipeline_jobs = list(self.client.PipelineJob.list())
-            if self.config.pipeline_lookback_days:
-                cutoff_time = datetime.now(timezone.utc) - timedelta(
-                    days=self.config.pipeline_lookback_days
-                )
-                pipeline_jobs = [
-                    pipeline
-                    for pipeline in pipeline_jobs
-                    if pipeline.create_time and pipeline.create_time >= cutoff_time
-                ]
+        pipeline_jobs = list(self.client.PipelineJob.list())
+
+        if cutoff_time:
+            pipeline_jobs = [
+                pipeline
+                for pipeline in pipeline_jobs
+                if pipeline.create_time and pipeline.create_time >= cutoff_time
+            ]
 
         for pipeline in pipeline_jobs:
             logger.info(f"fetching pipeline ({pipeline.name})")
@@ -1251,48 +1239,33 @@ class VertexAISource(StatefulIngestionSourceBase):
         AutoMLTabularTrainingJob, AutoMLTextTrainingJob, AutoMLImageTrainingJob, AutoMLVideoTrainingJob,
         and AutoMLForecastingTrainingJob. For each job, it generates mcps containing metadata
         about the job, its inputs, and its outputs.
+
+        Note: Vertex AI job list APIs don't support server-side time filtering, so we filter
+        in-memory after fetching.
         """
-        filter_str = None
+        cutoff_time = None
         if self.config.training_job_lookback_days:
             cutoff_time = datetime.now(timezone.utc) - timedelta(
                 days=self.config.training_job_lookback_days
             )
-            # Format for Vertex AI filter: "create_time>2024-01-15T00:00:00Z"
-            cutoff_str = cutoff_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-            filter_str = f"create_time>{cutoff_str}"
             logger.info(
-                f"Filtering training jobs to last {self.config.training_job_lookback_days} days "
-                f"(since {cutoff_str})"
+                f"Will filter training jobs to last {self.config.training_job_lookback_days} days "
+                f"(since {cutoff_time.strftime('%Y-%m-%dT%H:%M:%SZ')})"
             )
 
-        # Iterate over class names and call the list() function
         for class_name in TrainingJobTypes.all():
             if not self.config.training_job_type_pattern.allowed(class_name):
                 continue
             logger.info(f"Fetching a list of {class_name}s from VertexAI server")
 
-            try:
-                if filter_str:
-                    jobs = list(
-                        getattr(self.client, class_name).list(filter=filter_str)
-                    )
-                else:
-                    jobs = list(getattr(self.client, class_name).list())
-            except InvalidArgument:
-                logger.warning(
-                    f"{class_name} does not support create_time filter. "
-                    f"Fetching all jobs and filtering in memory."
-                )
-                jobs = list(getattr(self.client, class_name).list())
-                if self.config.training_job_lookback_days:
-                    cutoff_time = datetime.now(timezone.utc) - timedelta(
-                        days=self.config.training_job_lookback_days
-                    )
-                    jobs = [
-                        job
-                        for job in jobs
-                        if job.create_time and job.create_time >= cutoff_time
-                    ]
+            jobs = list(getattr(self.client, class_name).list())
+
+            if cutoff_time:
+                jobs = [
+                    job
+                    for job in jobs
+                    if job.create_time and job.create_time >= cutoff_time
+                ]
 
             if self.config.max_training_jobs_per_type is not None:
                 jobs = jobs[: self.config.max_training_jobs_per_type]

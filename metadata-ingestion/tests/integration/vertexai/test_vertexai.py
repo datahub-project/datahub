@@ -34,6 +34,9 @@ def get_pipeline_config(sink_file_path: str) -> Dict[str, Any]:
             "config": {
                 "project_id": PROJECT_ID,
                 "region": REGION,
+                "training_job_lookback_days": None,
+                "pipeline_lookback_days": None,
+                "ml_metadata_execution_lookback_days": None,
             },
         },
         "sink": {

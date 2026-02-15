@@ -883,8 +883,8 @@ def test_pipeline_task_with_none_start_time(source: VertexAISource) -> None:
         "projects/123/locations/us-central1/pipelineJobs/789"
     )
     mock_pipeline_job.labels = {}
-    mock_pipeline_job.create_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
-    mock_pipeline_job.update_time = datetime.fromtimestamp(1647878500, tz=timezone.utc)
+    mock_pipeline_job.create_time = datetime.now(timezone.utc) - timedelta(days=3)
+    mock_pipeline_job.update_time = datetime.now(timezone.utc) - timedelta(days=2)
     mock_pipeline_job.location = "us-west2"
 
     gca_resource = MagicMock(spec=PipelineJobType)
@@ -895,8 +895,8 @@ def test_pipeline_task_with_none_start_time(source: VertexAISource) -> None:
     task_detail.task_id = 123
     task_detail.state = MagicMock()
     task_detail.start_time = None
-    task_detail.create_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
-    task_detail.end_time = datetime.fromtimestamp(1647878600, tz=timezone.utc)
+    task_detail.create_time = datetime.now(timezone.utc) - timedelta(days=3)
+    task_detail.end_time = datetime.now(timezone.utc) - timedelta(days=3, hours=1)
 
     mock_pipeline_job.task_details = [task_detail]
     gca_resource.pipeline_spec = {
@@ -939,8 +939,8 @@ def test_pipeline_task_with_none_end_time(source: VertexAISource) -> None:
         "projects/123/locations/us-central1/pipelineJobs/790"
     )
     mock_pipeline_job.labels = {}
-    mock_pipeline_job.create_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
-    mock_pipeline_job.update_time = datetime.fromtimestamp(1647878500, tz=timezone.utc)
+    mock_pipeline_job.create_time = datetime.now(timezone.utc) - timedelta(days=3)
+    mock_pipeline_job.update_time = datetime.now(timezone.utc) - timedelta(days=2)
     mock_pipeline_job.location = "us-west2"
 
     gca_resource = MagicMock(spec=PipelineJobType)
@@ -950,8 +950,8 @@ def test_pipeline_task_with_none_end_time(source: VertexAISource) -> None:
     task_detail.task_name = "running_task"
     task_detail.task_id = 124
     task_detail.state = MagicMock()
-    task_detail.start_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
-    task_detail.create_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
+    task_detail.start_time = datetime.now(timezone.utc) - timedelta(days=3)
+    task_detail.create_time = datetime.now(timezone.utc) - timedelta(days=3)
     task_detail.end_time = None
 
     mock_pipeline_job.task_details = [task_detail]

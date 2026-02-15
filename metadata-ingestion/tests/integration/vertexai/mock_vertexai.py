@@ -21,6 +21,11 @@ from google.cloud.aiplatform_v1.types import (
     PipelineJob as PipelineJobType,
 )
 
+MOCK_CREATE_TIME = datetime(2022, 3, 21, 16, 0, 0, tzinfo=timezone.utc)
+MOCK_UPDATE_TIME = datetime(2022, 3, 21, 16, 1, 40, tzinfo=timezone.utc)
+MOCK_TASK_START_TIME = datetime(2022, 3, 21, 16, 0, 0, tzinfo=timezone.utc)
+MOCK_TASK_END_TIME = datetime(2022, 3, 21, 16, 1, 40, tzinfo=timezone.utc)
+
 
 def gen_mock_model(
     num: int = 1,
@@ -32,8 +37,8 @@ def gen_mock_model(
     mock_model = MagicMock(spec=Model)
     mock_model.name = f"mock_prediction_model_{num}"
 
-    mock_model.create_time = datetime.fromtimestamp(1647878400)
-    mock_model.update_time = datetime.fromtimestamp(1647878500)
+    mock_model.create_time = MOCK_CREATE_TIME
+    mock_model.update_time = MOCK_UPDATE_TIME
     mock_model.version_id = f"{num}"
     mock_model.display_name = f"mock_prediction_model_{num}_display_name"
     mock_model.description = f"mock_prediction_model_{num}_description"
@@ -62,8 +67,8 @@ def gen_mock_models(num: int = 2) -> List[Model]:
 def gen_mock_training_custom_job(labels: Optional[Dict[str, str]] = None) -> CustomJob:
     mock_training_job = MagicMock(spec=CustomJob)
     mock_training_job.name = "mock_training_job"
-    mock_training_job.create_time = datetime.fromtimestamp(1647878400)
-    mock_training_job.update_time = datetime.fromtimestamp(1647878500)
+    mock_training_job.create_time = MOCK_CREATE_TIME
+    mock_training_job.update_time = MOCK_UPDATE_TIME
     mock_training_job.display_name = "mock_training_job_display_name"
     mock_training_job.description = "mock_training_job_description"
     # Configure labels property with PropertyMock if provided
@@ -77,8 +82,8 @@ def gen_mock_training_custom_job(labels: Optional[Dict[str, str]] = None) -> Cus
 def gen_mock_training_automl_job() -> AutoMLTabularTrainingJob:
     mock_automl_job = MagicMock(spec=AutoMLTabularTrainingJob)
     mock_automl_job.name = "mock_auto_automl_tabular_job"
-    mock_automl_job.create_time = datetime.fromtimestamp(1647878400)
-    mock_automl_job.update_time = datetime.fromtimestamp(1647878500)
+    mock_automl_job.create_time = MOCK_CREATE_TIME
+    mock_automl_job.update_time = MOCK_UPDATE_TIME
     mock_automl_job.display_name = "mock_auto_automl_tabular_job_display_name"
     mock_automl_job.description = "mock_auto_automl_tabular_job_display_name"
     mock_automl_job.to_dict.return_value = {
@@ -92,8 +97,8 @@ def gen_mock_model_version(mock_model: Model) -> VersionInfo:
     return VersionInfo(
         version_id=version,
         version_description="test",
-        version_create_time=datetime.fromtimestamp(1647878400),
-        version_update_time=datetime.fromtimestamp(1647878500),
+        version_create_time=MOCK_CREATE_TIME,
+        version_update_time=MOCK_UPDATE_TIME,
         model_display_name=mock_model.name,
         model_resource_name=mock_model.resource_name,
     )
@@ -102,8 +107,8 @@ def gen_mock_model_version(mock_model: Model) -> VersionInfo:
 def gen_mock_dataset() -> VertexAiResourceNoun:
     mock_dataset = MagicMock(spec=VertexAiResourceNoun)
     mock_dataset.name = "2562882439508656128"
-    mock_dataset.create_time = datetime.fromtimestamp(1647878400)
-    mock_dataset.update_time = datetime.fromtimestamp(1647878500)
+    mock_dataset.create_time = MOCK_CREATE_TIME
+    mock_dataset.update_time = MOCK_UPDATE_TIME
     mock_dataset.display_name = "mock_dataset_display_name"
     mock_dataset.description = "mock_dataset_description"
     mock_dataset.resource_name = "projects/123/locations/us-central1/datasets/456"
@@ -115,15 +120,15 @@ def gen_mock_endpoint() -> Endpoint:
     mock_endpoint.description = "test_endpoint_description"
     mock_endpoint.display_name = "test_endpoint_display_name"
     mock_endpoint.name = "test-endpoint"
-    mock_endpoint.create_time = datetime.fromtimestamp(1647878400)
+    mock_endpoint.create_time = MOCK_CREATE_TIME
     return mock_endpoint
 
 
 def gen_mock_experiment(num: int = 1) -> Experiment:
     mock_experiment = MagicMock(spec=Experiment)
     mock_experiment.name = f"mock_experiment_{num}"
-    mock_experiment.project = datetime.fromtimestamp(1647878400)
-    mock_experiment.update_time = datetime.fromtimestamp(1647878500)
+    mock_experiment.project = MOCK_CREATE_TIME
+    mock_experiment.update_time = MOCK_UPDATE_TIME
     mock_experiment.display_name = f"mock_experiment_{num}_display_name"
     mock_experiment.description = f"mock_experiment_{num}_description"
     mock_experiment.resource_name = (
@@ -136,10 +141,8 @@ def gen_mock_experiment(num: int = 1) -> Experiment:
 def gen_mock_experiment_run() -> ExperimentRun:
     mock_experiment_run = MagicMock(spec=ExperimentRun)
     mock_experiment_run.name = "mock_experiment_run"
-    mock_experiment_run.project = datetime.fromtimestamp(1647878400, tz=timezone.utc)
-    mock_experiment_run.update_time = datetime.fromtimestamp(
-        1647878500, tz=timezone.utc
-    )
+    mock_experiment_run.project = MOCK_CREATE_TIME
+    mock_experiment_run.update_time = MOCK_UPDATE_TIME
     mock_experiment_run.display_name = "mock_experiment_run_display_name"
     mock_experiment_run.description = "mock_experiment_run_description"
     return mock_experiment_run
@@ -152,8 +155,8 @@ def get_mock_pipeline_job() -> PipelineJob:
         "projects/123/locations/us-central1/pipelineJobs/456"
     )
     mock_pipeline_job.labels = {"key1": "value1"}
-    mock_pipeline_job.create_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
-    mock_pipeline_job.update_time = datetime.fromtimestamp(1647878500, tz=timezone.utc)
+    mock_pipeline_job.create_time = MOCK_CREATE_TIME
+    mock_pipeline_job.update_time = MOCK_UPDATE_TIME
     mock_pipeline_job.location = "us-west2"
     gca_resource = MagicMock(spec=PipelineJobType)
     mock_pipeline_job.gca_resource = gca_resource
@@ -161,9 +164,9 @@ def get_mock_pipeline_job() -> PipelineJob:
     task_detail.task_name = "mock_pipeline_task"
     task_detail.task_id = "dummy_task_id"
     task_detail.task_id = "dummy_state"
-    task_detail.start_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
-    task_detail.create_time = datetime.fromtimestamp(1647878500, tz=timezone.utc)
-    task_detail.end_time = datetime.fromtimestamp(1647878600, tz=timezone.utc)
+    task_detail.start_time = MOCK_TASK_START_TIME
+    task_detail.create_time = MOCK_CREATE_TIME
+    task_detail.end_time = MOCK_TASK_END_TIME
     mock_pipeline_job.task_details = [task_detail]
     gca_resource.pipeline_spec = {
         "root": {
@@ -203,7 +206,7 @@ def gen_mock_model_evaluation(
         type(mock_evaluation).display_name = PropertyMock(return_value=display_name)
     else:
         mock_evaluation.display_name = f"Evaluation {num}"
-    mock_evaluation.create_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
+    mock_evaluation.create_time = MOCK_CREATE_TIME
 
     mock_evaluation.to_dict.return_value = {
         "name": mock_evaluation.name,
