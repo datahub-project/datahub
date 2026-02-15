@@ -87,7 +87,8 @@ class MySQLAdapter(PlatformAdapter):
             Estimated row count, or None if query fails
         """
         try:
-            schema = table.schema or "information_schema"
+            schema = table.schema
+            table_name = table.name
 
             # Query information_schema.tables using SQLAlchemy query builder
             info_schema_tables = sa.Table(
@@ -101,7 +102,7 @@ class MySQLAdapter(PlatformAdapter):
             query = (
                 sa.select([info_schema_tables.c.table_rows])
                 .where(info_schema_tables.c.table_schema == schema)
-                .where(info_schema_tables.c.table_name == table.name)
+                .where(info_schema_tables.c.table_name == table_name)
             )
 
             result = conn.execute(query).scalar()

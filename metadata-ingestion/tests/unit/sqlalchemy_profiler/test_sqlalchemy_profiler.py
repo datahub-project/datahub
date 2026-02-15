@@ -186,7 +186,7 @@ class TestSQLAlchemyProfiler:
 
         request = ProfilerRequest(
             pretty_name="test_table",
-            batch_kwargs={"table": "test_table", "schema": None},
+            batch_kwargs={"table": "test_table", "schema": "test_schema"},
         )
 
         # Mock setup_profiling to raise PermissionError
@@ -227,7 +227,7 @@ class TestSQLAlchemyProfiler:
 
         request = ProfilerRequest(
             pretty_name="test_table",
-            batch_kwargs={"table": "test_table", "schema": None},
+            batch_kwargs={"table": "test_table", "schema": "test_schema"},
         )
 
         # Mock setup_profiling to raise PermissionError
@@ -257,7 +257,7 @@ class TestSQLAlchemyProfiler:
 
         request = ProfilerRequest(
             pretty_name="test_table",
-            batch_kwargs={"table": "test_table", "schema": None},
+            batch_kwargs={"table": "test_table", "schema": "test_schema"},
         )
 
         # Mock setup_profiling to raise SQLAlchemy error
@@ -297,7 +297,7 @@ class TestSQLAlchemyProfiler:
 
         request = ProfilerRequest(
             pretty_name="test_table",
-            batch_kwargs={"table": "test_table", "schema": None},
+            batch_kwargs={"table": "test_table", "schema": "test_schema"},
         )
 
         # Mock setup_profiling to raise SQLAlchemy error
@@ -327,7 +327,7 @@ class TestSQLAlchemyProfiler:
 
         request = ProfilerRequest(
             pretty_name="test_table",
-            batch_kwargs={"table": "test_table", "schema": None},
+            batch_kwargs={"table": "test_table", "schema": "test_schema"},
         )
 
         # Mock setup_profiling to raise ConnectionError
@@ -365,7 +365,7 @@ class TestSQLAlchemyProfiler:
 
         request = ProfilerRequest(
             pretty_name="test_table",
-            batch_kwargs={"table": "test_table", "schema": None},
+            batch_kwargs={"table": "test_table", "schema": "test_schema"},
         )
 
         # Mock setup_profiling to raise an unexpected error
@@ -401,7 +401,7 @@ class TestSQLAlchemyProfiler:
 
         request = ProfilerRequest(
             pretty_name="test_table",
-            batch_kwargs={"table": "test_table", "schema": None},
+            batch_kwargs={"table": "test_table", "schema": "test_schema"},
         )
 
         # Mock setup_profiling to raise an unexpected error
@@ -427,7 +427,7 @@ class TestSQLAlchemyProfiler:
 
         request = ProfilerRequest(
             pretty_name="test_table",
-            batch_kwargs={"table": "test_table", "schema": None},
+            batch_kwargs={"table": "test_table", "schema": "test_schema"},
         )
 
         # Mock setup_profiling to raise an error

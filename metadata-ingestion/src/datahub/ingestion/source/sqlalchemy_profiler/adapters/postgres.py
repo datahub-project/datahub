@@ -92,7 +92,8 @@ class PostgresAdapter(PlatformAdapter):
             Estimated row count, or None if query fails
         """
         try:
-            schema = table.schema or "public"
+            schema = table.schema
+            table_name = table.name
 
             # Query pg_class and pg_namespace directly using SQLAlchemy query builder
             pg_class = sa.Table(
@@ -118,7 +119,7 @@ class PostgresAdapter(PlatformAdapter):
                     )
                 )
                 .where(pg_namespace.c.nspname == schema)
-                .where(pg_class.c.relname == table.name)
+                .where(pg_class.c.relname == table_name)
             )
 
             result = conn.execute(query).scalar()

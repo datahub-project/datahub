@@ -14,6 +14,10 @@ class ProfilingContext:
     This context is passed through the profiling pipeline and modified
     by platform adapters to handle platform-specific setup (temp tables,
     sampling, etc.).
+
+    Either (schema + table) or custom_sql must be provided, validated in __post_init__.
+
+    TOOD: A better modelling would be done to avoid the validation in __post_init__.
     """
 
     # Input parameters
@@ -41,10 +45,18 @@ class ProfilingContext:
 
     def __post_init__(self) -> None:
         """Validate profiling context invariants."""
-        # Must have either table or custom_sql
-        if not self.table and not self.custom_sql:
+        # Must have either (table AND schema) or custom_sql, but not both
+        has_table_info = bool(self.table and self.schema)
+        has_custom_sql = self.custom_sql is not None
+
+        if has_table_info and has_custom_sql:
             raise ValueError(
-                "ProfilingContext requires either 'table' or 'custom_sql' to be specified"
+                "ProfilingContext cannot have both 'table' and 'custom_sql' specified"
+            )
+
+        if not has_table_info and not has_custom_sql:
+            raise ValueError(
+                "ProfilingContext requires either ('table' with 'schema') or 'custom_sql' to be specified"
             )
 
         # Sample percentage must be in range [0, 100]

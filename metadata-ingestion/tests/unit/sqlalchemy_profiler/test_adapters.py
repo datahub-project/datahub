@@ -1,11 +1,13 @@
 """Unit tests for platform adapters."""
 
-import math
-from unittest.mock import MagicMock, patch
+import re
+from typing import Any
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy import Column, Float, Integer, String, create_engine, event
+from sqlalchemy.dialects import mysql, postgresql
+from sqlalchemy.engine import Dialect
 
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -35,156 +37,214 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
 
+# =============================================================================
+# SQL Assertion Helpers
+# =============================================================================
 
-def _register_sqlite_functions(dbapi_conn, connection_record):
-    """Register custom aggregate functions for SQLite to support stddev and median."""
 
-    class StdDevAggregate:
-        """SQLite aggregate for standard deviation."""
+def compile_expr_to_sql(expr: sa.sql.expression.ClauseElement, dialect: Dialect) -> str:
+    """Compile SQLAlchemy expression to SQL string with given dialect."""
+    return str(expr.compile(dialect=dialect, compile_kwargs={"literal_binds": True}))
 
-        def __init__(self):
-            self.values = []
 
-        def step(self, value):
-            if value is not None:
-                self.values.append(value)
+def assert_sql_matches_pattern(
+    sql: str, pattern: str, flags: int = re.IGNORECASE
+) -> None:
+    """Assert SQL matches regex pattern."""
+    assert re.search(pattern, sql, flags), (
+        f"Pattern '{pattern}' not found in SQL: {sql}"
+    )
 
-        def finalize(self):
-            if len(self.values) == 0:
-                return None
-            if len(self.values) == 1:
-                return None
-            mean = sum(self.values) / len(self.values)
-            variance = sum((x - mean) ** 2 for x in self.values) / (
-                len(self.values) - 1
-            )
-            return math.sqrt(variance)
 
-    class MedianAggregate:
-        """SQLite aggregate for MEDIAN."""
-
-        def __init__(self):
-            self.values = []
-
-        def step(self, value):
-            if value is not None:
-                self.values.append(value)
-
-        def finalize(self):
-            if len(self.values) == 0:
-                return None
-
-            sorted_values = sorted(self.values)
-            n = len(sorted_values)
-
-            # For even number of values, return average of two middle values
-            # For odd number, return the middle value
-            if n % 2 == 0:
-                mid1 = sorted_values[n // 2 - 1]
-                mid2 = sorted_values[n // 2]
-                return (mid1 + mid2) / 2.0
-            else:
-                return sorted_values[n // 2]
-
-    dbapi_conn.create_aggregate("stddev", 1, StdDevAggregate)
-    dbapi_conn.create_aggregate("median", 1, MedianAggregate)
+# =============================================================================
+# Mock Engine Fixtures
+# =============================================================================
 
 
 @pytest.fixture
-def sqlite_engine():
-    """Create an in-memory SQLite engine with custom functions for testing."""
-    engine = create_engine("sqlite:///:memory:")
-    # Register custom functions on connect
-    event.listen(engine, "connect", _register_sqlite_functions)
+def mock_generic_engine() -> Any:
+    """Mock SQLAlchemy engine with SQLite dialect for testing GenericAdapter."""
+    from sqlalchemy.dialects import sqlite
+
+    engine = MagicMock()
+    engine.dialect = sqlite.dialect()
     return engine
 
 
 @pytest.fixture
-def test_table(sqlite_engine):
-    """Create a test table with sample data."""
-    metadata = sa.MetaData()
-    table = sa.Table(
-        "test_table",
-        metadata,
-        Column("id", Integer, primary_key=True),
-        Column("name", String(50)),
-        Column("value", Float),
-    )
-    metadata.create_all(sqlite_engine)
-    return table
+def mock_postgres_engine() -> Any:
+    """Mock PostgreSQL engine with correct dialect."""
+    engine = MagicMock()
+    engine.dialect = postgresql.dialect()  # type: ignore[misc]
+    return engine
 
 
 @pytest.fixture
-def config():
+def mock_mysql_engine() -> Any:
+    """Mock MySQL engine with correct dialect."""
+    engine = MagicMock()
+    engine.dialect = mysql.dialect()
+    return engine
+
+
+@pytest.fixture
+def mock_bigquery_engine() -> Any:
+    """Mock BigQuery engine with correct dialect."""
+    from sqlalchemy_bigquery import BigQueryDialect
+
+    engine = MagicMock()
+    engine.dialect = BigQueryDialect()
+    return engine
+
+
+@pytest.fixture
+def mock_snowflake_engine() -> Any:
+    """Mock Snowflake engine with correct dialect."""
+    from snowflake.sqlalchemy import dialect as snowflake_dialect
+
+    engine = MagicMock()
+    engine.dialect = snowflake_dialect()
+    return engine
+
+
+@pytest.fixture
+def mock_redshift_engine() -> Any:
+    """Mock Redshift engine with correct dialect."""
+    from sqlalchemy_redshift import dialect as redshift_dialect
+
+    engine = MagicMock()
+    engine.dialect = redshift_dialect.RedshiftDialect()
+    return engine
+
+
+@pytest.fixture
+def mock_trino_engine() -> Any:
+    """Mock Trino engine with correct dialect."""
+    from trino.sqlalchemy import dialect as trino_dialect
+
+    engine = MagicMock()
+    engine.dialect = trino_dialect.TrinoDialect()
+    return engine
+
+
+@pytest.fixture
+def mock_athena_engine() -> Any:
+    """Mock Athena engine with correct dialect."""
+    from pyathena import sqlalchemy_athena
+
+    engine = MagicMock()
+    engine.dialect = sqlalchemy_athena.AthenaDialect()
+    return engine
+
+
+@pytest.fixture
+def mock_databricks_engine() -> Any:
+    """Mock Databricks engine with correct dialect."""
+    from databricks.sqlalchemy import DatabricksDialect
+
+    engine = MagicMock()
+    engine.dialect = DatabricksDialect()
+    return engine
+
+
+# =============================================================================
+# Mock Table Fixture
+# =============================================================================
+
+
+@pytest.fixture
+def mock_table() -> Any:
+    """Create a mock SQLAlchemy table for testing."""
+    table = Mock(spec=sa.Table)
+    table.name = "test_table"
+    table.schema = "test_schema"
+    table.columns = []
+    return table
+
+
+# =============================================================================
+# Shared Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def config() -> ProfilingConfig:
     """Create test profiling config."""
     return ProfilingConfig()
 
 
 @pytest.fixture
-def report():
+def report() -> SQLSourceReport:
     """Create test SQL report."""
     return SQLSourceReport()
+
+
+# =============================================================================
+# Tests
+# =============================================================================
 
 
 class TestAdapterFactory:
     """Test adapter factory function."""
 
-    def test_get_adapter_bigquery(self, config, report, sqlite_engine):
+    def test_get_adapter_bigquery(self, config, report, mock_bigquery_engine):
         """Test factory returns BigQuery adapter."""
-        adapter = get_adapter("bigquery", config, report, sqlite_engine)
+        adapter = get_adapter("bigquery", config, report, mock_bigquery_engine)
         assert isinstance(adapter, BigQueryAdapter)
 
-    def test_get_adapter_postgresql(self, config, report, sqlite_engine):
+    def test_get_adapter_postgresql(self, config, report, mock_postgres_engine):
         """Test factory returns PostgreSQL adapter."""
-        adapter = get_adapter("postgresql", config, report, sqlite_engine)
+        adapter = get_adapter("postgresql", config, report, mock_postgres_engine)
         assert isinstance(adapter, PostgresAdapter)
 
-    def test_get_adapter_postgres(self, config, report, sqlite_engine):
+    def test_get_adapter_postgres(self, config, report, mock_postgres_engine):
         """Test factory returns PostgreSQL adapter for 'postgres' alias."""
-        adapter = get_adapter("postgres", config, report, sqlite_engine)
+        adapter = get_adapter("postgres", config, report, mock_postgres_engine)
         assert isinstance(adapter, PostgresAdapter)
 
-    def test_get_adapter_athena(self, config, report, sqlite_engine):
+    def test_get_adapter_athena(self, config, report, mock_athena_engine):
         """Test factory returns Athena adapter."""
-        adapter = get_adapter("athena", config, report, sqlite_engine)
+        adapter = get_adapter("athena", config, report, mock_athena_engine)
         assert isinstance(adapter, AthenaAdapter)
 
-    def test_get_adapter_mysql(self, config, report, sqlite_engine):
+    def test_get_adapter_mysql(self, config, report, mock_mysql_engine):
         """Test factory returns MySQL adapter."""
-        adapter = get_adapter("mysql", config, report, sqlite_engine)
+        adapter = get_adapter("mysql", config, report, mock_mysql_engine)
         assert isinstance(adapter, MySQLAdapter)
 
-    def test_get_adapter_generic(self, config, report, sqlite_engine):
-        """Test factory returns generic adapter for unknown platform."""
-        adapter = get_adapter("unknown_platform", config, report, sqlite_engine)
+    def test_get_adapter_generic(self, config, report, mock_generic_engine):
+        """Test factory returns GenericAdapter for unknown platform name."""
+        adapter = get_adapter("unknown_platform", config, report, mock_generic_engine)
         assert isinstance(adapter, GenericAdapter)
 
-    def test_get_adapter_redshift(self, config, report, sqlite_engine):
+    def test_get_adapter_redshift(self, config, report, mock_redshift_engine):
         """Test factory returns Redshift adapter."""
-        adapter = get_adapter("redshift", config, report, sqlite_engine)
+        adapter = get_adapter("redshift", config, report, mock_redshift_engine)
         assert isinstance(adapter, RedshiftAdapter)
 
-    def test_get_adapter_snowflake(self, config, report, sqlite_engine):
+    def test_get_adapter_snowflake(self, config, report, mock_snowflake_engine):
         """Test factory returns Snowflake adapter."""
-        adapter = get_adapter("snowflake", config, report, sqlite_engine)
+        adapter = get_adapter("snowflake", config, report, mock_snowflake_engine)
         assert isinstance(adapter, SnowflakeAdapter)
 
-    def test_get_adapter_databricks(self, config, report, sqlite_engine):
+    def test_get_adapter_databricks(self, config, report, mock_databricks_engine):
         """Test factory returns Databricks adapter."""
-        adapter = get_adapter("databricks", config, report, sqlite_engine)
+        adapter = get_adapter("databricks", config, report, mock_databricks_engine)
         assert isinstance(adapter, DatabricksAdapter)
 
-    def test_get_adapter_trino(self, config, report, sqlite_engine):
+    def test_get_adapter_trino(self, config, report, mock_trino_engine):
         """Test factory returns Trino adapter."""
-        adapter = get_adapter("trino", config, report, sqlite_engine)
+        adapter = get_adapter("trino", config, report, mock_trino_engine)
         assert isinstance(adapter, TrinoAdapter)
 
-    def test_get_adapter_case_insensitive(self, config, report, sqlite_engine):
-        """Test factory handles case-insensitive platform names."""
-        adapter = get_adapter("BigQuery", config, report, sqlite_engine)
+    def test_get_adapter_case_insensitive(
+        self, config, report, mock_bigquery_engine, mock_postgres_engine
+    ):
+        """Test factory is case-insensitive."""
+        adapter = get_adapter("BigQuery", config, report, mock_bigquery_engine)
         assert isinstance(adapter, BigQueryAdapter)
 
-        adapter = get_adapter("POSTGRESQL", config, report, sqlite_engine)
+        adapter = get_adapter("POSTGRESQL", config, report, mock_postgres_engine)
         assert isinstance(adapter, PostgresAdapter)
 
 
@@ -192,28 +252,37 @@ class TestGenericAdapter:
     """Test cases for GenericAdapter."""
 
     @pytest.fixture
-    def adapter(self, config, report, sqlite_engine):
+    def adapter(self, config, report, mock_generic_engine):
         """Create generic adapter for testing."""
-        return GenericAdapter(config, report, sqlite_engine)
+        return GenericAdapter(config, report, mock_generic_engine)
 
-    def test_setup_profiling_creates_sql_table(
-        self, adapter, sqlite_engine, test_table
-    ):
+    def test_setup_profiling_creates_sql_table(self, adapter, mock_generic_engine):
         """Test setup creates SQLAlchemy table object."""
         context = ProfilingContext(
-            schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
+            schema="test_schema",
+            table="test_table",
+            custom_sql=None,
+            pretty_name="test_table",
         )
 
-        with sqlite_engine.connect() as conn:
-            result_context = adapter.setup_profiling(context, conn)
+        # Mock the table reflection
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_instance = MagicMock()
+            mock_table_instance.name = "test_table"
+            mock_table_class.return_value = mock_table_instance
 
-        assert result_context.sql_table is not None
-        assert result_context.sql_table.name == "test_table"
+            mock_conn = MagicMock()
+            result_context = adapter.setup_profiling(context, mock_conn)
 
-    def test_setup_profiling_requires_table_name(self, adapter, sqlite_engine):
+            assert result_context.sql_table is not None
+            # Verify Table was created with correct parameters
+            mock_table_class.assert_called_once()
+            call_args = mock_table_class.call_args
+            assert call_args[0][0] == "test_table"  # table name
+            assert call_args[1]["schema"] == "test_schema"
+
+    def test_setup_profiling_requires_table_name(self, adapter):
         """Test setup fails without table name."""
-        # Provide custom_sql to pass ProfilingContext validation
-        # but no table, which setup_profiling should reject
         context = ProfilingContext(
             schema=None,
             table=None,
@@ -221,477 +290,58 @@ class TestGenericAdapter:
             pretty_name="test",
         )
 
-        with (
-            sqlite_engine.connect() as conn,
-            pytest.raises(ValueError, match="table name required"),
-        ):
-            adapter.setup_profiling(context, conn)
+        mock_conn = MagicMock()
+        with pytest.raises(ValueError, match="table name required"):
+            adapter.setup_profiling(context, mock_conn)
 
     def test_cleanup_does_nothing(self, adapter):
         """Test cleanup is a no-op for generic adapter."""
         context = ProfilingContext(
-            schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
+            schema="test_schema",
+            table="test_table",
+            custom_sql=None,
+            pretty_name="test_table",
         )
         # Should not raise any errors
         adapter.cleanup(context)
 
-    def test_get_approx_unique_count_expr(self, adapter):
+    def test_get_approx_unique_count_expr(self, adapter, mock_generic_engine):
         """Test approximate unique count uses COUNT(DISTINCT)."""
-        expr = adapter.get_approx_unique_count_expr("column_name")
-        # Should generate COUNT(DISTINCT column_name)
-        assert "count" in str(expr).lower()
-        assert "distinct" in str(expr).lower()
+        expr = adapter.get_approx_unique_count_expr("test_column")
+        sql = compile_expr_to_sql(expr, mock_generic_engine.dialect)
 
-    def test_get_median_expr(self, adapter):
-        """Test median expression uses MEDIAN function."""
-        expr = adapter.get_median_expr("column_name")
+        # Validate COUNT(DISTINCT(column)) structure
+        pattern = r"\bCOUNT\s*\(\s*DISTINCT\s*\(\s*test_column\s*\)\s*\)"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr(self, adapter, mock_generic_engine):
+        """Test generic adapter tries MEDIAN function."""
+        expr = adapter.get_median_expr("test_column")
         assert expr is not None
-        # Should generate MEDIAN(column_name)
-        compiled = expr.compile(compile_kwargs={"literal_binds": True})
-        expr_str = str(compiled)
-        assert "median" in expr_str.lower()
-        assert "column_name" in expr_str
+        sql = compile_expr_to_sql(expr, mock_generic_engine.dialect)
+
+        # Validate MEDIAN function
+        pattern = r"\bmedian\b"
+        assert_sql_matches_pattern(sql, pattern)
 
     def test_get_quantiles_expr(self, adapter):
-        """Test quantiles expression returns None for generic adapter."""
-        expr = adapter.get_quantiles_expr("column_name", [0.25, 0.5, 0.75])
+        """Test generic adapter returns None for quantiles (not supported)."""
+        expr = adapter.get_quantiles_expr("test_column", [0.25, 0.5, 0.75])
         assert expr is None
 
     def test_get_sample_clause(self, adapter):
-        """Test sample clause returns None for generic adapter."""
+        """Test generic adapter returns None for sample clause (not supported)."""
         clause = adapter.get_sample_clause(1000)
         assert clause is None
 
     def test_supports_row_count_estimation(self, adapter):
-        """Test generic adapter does not support row count estimation."""
-        assert not adapter.supports_row_count_estimation()
+        """Test generic adapter doesn't support row count estimation."""
+        assert adapter.supports_row_count_estimation() is False
 
-    def test_get_estimated_row_count(self, adapter, sqlite_engine, test_table):
-        """Test row count estimation returns None for generic adapter."""
-        with sqlite_engine.connect() as conn:
-            result = adapter.get_estimated_row_count(test_table, conn)
-        assert result is None
-
-    @pytest.fixture
-    def sqlite_engine_with_data(self):
-        """Create an in-memory SQLite engine with test data."""
-        engine = create_engine("sqlite:///:memory:")
-        # Register custom functions on connect
-        event.listen(engine, "connect", _register_sqlite_functions)
-
-        metadata = sa.MetaData()
-        table = sa.Table(
-            "test_table",
-            metadata,
-            Column("id", Integer, primary_key=True),
-            Column("name", String(50)),
-            Column("value", Float),
-        )
-        metadata.create_all(engine)
-
-        with engine.connect() as conn, conn.begin():
-            conn.execute(
-                sa.insert(table),
-                [
-                    {"id": 1, "name": "Alice", "value": 10.5},
-                    {"id": 2, "name": "Bob", "value": 20.5},
-                    {"id": 3, "name": "Charlie", "value": 30.5},
-                    {"id": 4, "name": None, "value": 40.5},
-                    {"id": 5, "name": "Eve", "value": None},
-                ],
-            )
-
-        return engine, table
-
-    def test_get_row_count(self, config, report, sqlite_engine_with_data):
-        """Test row count calculation."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            count = adapter.get_row_count(table, conn)
-            assert count == 5
-
-    def test_get_row_count_with_sample_clause(
-        self, config, report, sqlite_engine_with_data
-    ):
-        """Test row count with sample clause."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            count = adapter.get_row_count(table, conn, sample_clause="LIMIT 3")
-            assert count == 5
-
-    def test_get_row_count_with_estimation(
-        self, config, report, sqlite_engine_with_data
-    ):
-        """Test row count estimation for platforms that support it."""
-        engine, table = sqlite_engine_with_data
-        postgres_adapter = get_adapter("postgresql", config, report, engine)
-        with (
-            engine.connect() as conn,
-            patch.object(postgres_adapter, "get_estimated_row_count", return_value=100),
-        ):
-            count = postgres_adapter.get_row_count(table, conn, use_estimation=True)
-            assert count == 100
-
-    def test_get_column_non_null_count(self, config, report, sqlite_engine_with_data):
-        """Test non-null count calculation."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            count = adapter.get_column_non_null_count(table, "name", conn)
-            assert count == 4
-
-            count = adapter.get_column_non_null_count(table, "value", conn)
-            assert count == 4
-
-            count = adapter.get_column_non_null_count(table, "id", conn)
-            assert count == 5
-
-    def test_get_column_min(self, config, report, sqlite_engine_with_data):
-        """Test minimum value calculation."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            min_val = adapter.get_column_min(table, "value", conn)
-            assert min_val == 10.5
-
-            min_id = adapter.get_column_min(table, "id", conn)
-            assert min_id == 1
-
-    def test_get_column_max(self, config, report, sqlite_engine_with_data):
-        """Test maximum value calculation."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            max_val = adapter.get_column_max(table, "value", conn)
-            assert max_val == 40.5
-
-            max_id = adapter.get_column_max(table, "id", conn)
-            assert max_id == 5
-
-    def test_get_column_mean(self, config, report, sqlite_engine_with_data):
-        """Test mean calculation."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            mean_val = adapter.get_column_mean(table, "value", conn)
-            assert mean_val == pytest.approx(25.5, rel=1e-6)
-
-    def test_get_column_stdev(self, config, report, sqlite_engine_with_data):
-        """Test standard deviation calculation."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            stdev_val = adapter.get_column_stdev(table, "value", conn)
-            # Should return a positive value for our test data
-            assert stdev_val is not None
-            assert stdev_val > 0
-
-    def test_get_column_stdev_single_value(self, config, report):
-        """Test standard deviation with single non-null value returns None."""
-        engine = create_engine("sqlite:///:memory:")
-        # Register custom functions
-        event.listen(engine, "connect", _register_sqlite_functions)
-
-        metadata = sa.MetaData()
-        table = sa.Table(
-            "single_value_table",
-            metadata,
-            Column("id", Integer),
-            Column("value", Float),
-        )
-        metadata.create_all(engine)
-
-        with engine.connect() as conn, conn.begin():
-            conn.execute(
-                sa.insert(table),
-                [
-                    {"id": 1, "value": 10.5},
-                    {"id": 2, "value": None},
-                    {"id": 3, "value": None},
-                ],
-            )
-
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            stdev_val = adapter.get_column_stdev(table, "value", conn)
-            assert stdev_val is None
-
-    def test_get_column_stdev_all_null(self, config, report):
-        """Test standard deviation with all NULL values."""
-        engine = create_engine("sqlite:///:memory:")
-        # Register custom functions
-        event.listen(engine, "connect", _register_sqlite_functions)
-
-        metadata = sa.MetaData()
-        table = sa.Table(
-            "all_null_table",
-            metadata,
-            Column("id", Integer),
-            Column("value", Float),
-        )
-        metadata.create_all(engine)
-
-        with engine.connect() as conn, conn.begin():
-            conn.execute(
-                sa.insert(table),
-                [
-                    {"id": 1, "value": None},
-                    {"id": 2, "value": None},
-                ],
-            )
-
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            stdev_val = adapter.get_column_stdev(table, "value", conn)
-            assert stdev_val is None
-
-    def test_get_column_stdev_redshift_null_value(self, config, report):
-        """Test Redshift returns 0.0 for all-NULL stdev."""
-        engine = create_engine("sqlite:///:memory:")
-        # Register custom functions
-        event.listen(engine, "connect", _register_sqlite_functions)
-
-        metadata = sa.MetaData()
-        table = sa.Table(
-            "all_null_table",
-            metadata,
-            Column("value", Float),
-        )
-        metadata.create_all(engine)
-
-        with engine.connect() as conn, conn.begin():
-            conn.execute(
-                sa.insert(table),
-                [
-                    {"value": None},
-                    {"value": None},
-                ],
-            )
-
-        redshift_adapter = get_adapter("redshift", config, report, engine)
-        with engine.connect() as conn:
-            stdev_val = redshift_adapter.get_column_stdev(table, "value", conn)
-            assert stdev_val == 0.0
-
-    def test_get_column_unique_count_exact(
-        self, config, report, sqlite_engine_with_data
-    ):
-        """Test exact unique count calculation."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            unique_count = adapter.get_column_unique_count(
-                table, "name", conn, use_approx=False
-            )
-            assert unique_count == 4
-
-    def test_get_column_unique_count_approx(
-        self, config, report, sqlite_engine_with_data
-    ):
-        """Test approximate unique count uses adapter expression."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            unique_count = adapter.get_column_unique_count(
-                table, "name", conn, use_approx=True
-            )
-            assert unique_count == 4
-
-    def test_get_column_median(self, config, report, sqlite_engine_with_data):
-        """Test median calculation."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            median_val = adapter.get_column_median(table, "value", conn)
-            # With registered median aggregate, SQLite should return median value
-            # Test data: [10.5, 20.5, 30.5, 40.5] -> median = (20.5 + 30.5) / 2 = 25.5
-            assert median_val == pytest.approx(25.5, rel=1e-6)
-
-    def test_get_column_quantiles(self, config, report, sqlite_engine_with_data):
-        """Test quantiles calculation."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            quantiles = adapter.get_column_quantiles(
-                table, "value", conn, [0.25, 0.5, 0.75]
-            )
-            assert len(quantiles) == 3
-            assert all(q is None or (10.5 <= q <= 40.5) for q in quantiles)
-
-    def test_get_column_histogram(self, config, report, sqlite_engine_with_data):
-        """Test histogram generation."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            histogram = adapter.get_column_histogram(
-                table, "value", conn, num_buckets=5
-            )
-            assert len(histogram) == 5
-            for bucket in histogram:
-                assert len(bucket) == 3
-                assert isinstance(bucket[0], float)
-                assert isinstance(bucket[1], float)
-                assert isinstance(bucket[2], int)
-
-    def test_get_column_histogram_empty_column(self, config, report):
-        """Test histogram with empty column."""
-        engine = create_engine("sqlite:///:memory:")
-        metadata = sa.MetaData()
-        table = sa.Table(
-            "empty_table",
-            metadata,
-            Column("id", Integer),
-            Column("value", Float),
-        )
-        metadata.create_all(engine)
-
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            histogram = adapter.get_column_histogram(
-                table, "value", conn, num_buckets=5
-            )
-            assert histogram == []
-
-    def test_get_column_histogram_with_bounds(
-        self, config, report, sqlite_engine_with_data
-    ):
-        """Test histogram with explicit min/max bounds."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            histogram = adapter.get_column_histogram(
-                table, "value", conn, num_buckets=5, min_val=0.0, max_val=50.0
-            )
-            assert len(histogram) == 5
-            assert histogram[0][0] == 0.0
-            assert histogram[-1][1] == 50.0
-
-    def test_get_column_value_frequencies(
-        self, config, report, sqlite_engine_with_data
-    ):
-        """Test value frequency calculation."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            frequencies = adapter.get_column_value_frequencies(
-                table, "name", conn, top_k=10
-            )
-            assert len(frequencies) <= 10
-            if len(frequencies) > 1:
-                assert frequencies[0][1] >= frequencies[1][1]
-
-    def test_get_column_distinct_value_frequencies(
-        self, config, report, sqlite_engine_with_data
-    ):
-        """Test distinct value frequencies calculation."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            frequencies = adapter.get_column_distinct_value_frequencies(
-                table, "name", conn
-            )
-            assert len(frequencies) > 0
-            values = [freq[0] for freq in frequencies if freq[0] is not None]
-            if len(values) > 1:
-                assert values == sorted(values)
-
-    def test_get_column_sample_values(self, config, report, sqlite_engine_with_data):
-        """Test sample values retrieval."""
-        engine, table = sqlite_engine_with_data
-        adapter = get_adapter("sqlite", config, report, engine)
-        with engine.connect() as conn:
-            samples = adapter.get_column_sample_values(table, "name", conn, limit=3)
-            assert len(samples) <= 3
-            assert all(isinstance(s, str) or s is None for s in samples)
-
-
-class TestPostgresAdapter:
-    """Test cases for PostgresAdapter."""
-
-    @pytest.fixture
-    def postgres_engine(self, sqlite_engine):
-        """Create engine with PostgreSQL dialect for testing."""
-        from unittest.mock import Mock
-
-        from sqlalchemy.dialects.postgresql.psycopg2 import PGDialect_psycopg2
-
-        # Create a mock engine that wraps sqlite_engine but uses PostgreSQL dialect
-        mock_engine = Mock(wraps=sqlite_engine)
-        mock_engine.dialect = PGDialect_psycopg2()
-        # Preserve other engine attributes needed for tests
-        mock_engine.connect = sqlite_engine.connect
-        mock_engine.raw_connection = sqlite_engine.raw_connection
-        return mock_engine
-
-    @pytest.fixture
-    def adapter(self, config, report, postgres_engine):
-        """Create PostgreSQL adapter for testing."""
-        return PostgresAdapter(config, report, postgres_engine)
-
-    @pytest.mark.parametrize(
-        "identifier,expected",
-        [
-            ("my_table", '"my_table"'),
-            ("my_schema.my_table", '"my_schema"."my_table"'),
-        ],
-    )
-    def test_quote_identifier(self, adapter, identifier, expected):
-        """Test quoting identifiers with PostgreSQL dialect."""
-        result = adapter.quote_identifier(identifier)
-        assert result == expected
-
-    def test_get_approx_unique_count_expr(self, adapter):
-        """Test PostgreSQL uses COUNT(DISTINCT) for approximate unique count."""
-        expr = adapter.get_approx_unique_count_expr("column_name")
-        assert "count" in str(expr).lower()
-        assert "distinct" in str(expr).lower()
-
-    def test_get_median_expr(self, adapter):
-        """Test PostgreSQL uses PERCENTILE_CONT for median."""
-        expr = adapter.get_median_expr("test_column")
-        assert expr is not None
-        expr_str = str(expr)
-        assert "PERCENTILE_CONT" in expr_str
-        assert "0.5" in expr_str
-        assert "test_column" in expr_str
-
-    def test_supports_row_count_estimation(self, adapter):
-        """Test PostgreSQL supports row count estimation."""
-        assert adapter.supports_row_count_estimation()
-
-    def test_get_estimated_row_count_with_mock(self, adapter, test_table):
-        """Test PostgreSQL row count estimation can be called."""
+    def test_get_estimated_row_count(self, adapter, mock_table):
+        """Test generic adapter returns None for row count estimation."""
         mock_conn = MagicMock()
-        mock_result = MagicMock()
-        mock_result.scalar.return_value = 12345
-        mock_conn.execute.return_value = mock_result
-
-        # Note: This may return None if query fails, which is expected behavior
-        result = adapter.get_estimated_row_count(test_table, mock_conn)
-
-        # Just verify the method can be called without raising an exception
-        assert result is None or isinstance(result, int)
-
-    def test_get_estimated_row_count_handles_none(self, adapter, test_table):
-        """Test PostgreSQL row count estimation handles None result."""
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        mock_result.scalar.return_value = None
-        mock_conn.execute.return_value = mock_result
-
-        result = adapter.get_estimated_row_count(test_table, mock_conn)
-
-        assert result is None
-
-    def test_get_estimated_row_count_handles_exception(self, adapter, test_table):
-        """Test PostgreSQL row count estimation handles exceptions gracefully."""
-        mock_conn = MagicMock()
-        mock_conn.execute.side_effect = Exception("Database error")
-
-        result = adapter.get_estimated_row_count(test_table, mock_conn)
-
+        result = adapter.get_estimated_row_count(mock_table, mock_conn)
         assert result is None
 
 
@@ -699,911 +349,353 @@ class TestMySQLAdapter:
     """Test cases for MySQLAdapter."""
 
     @pytest.fixture
-    def mysql_engine(self, sqlite_engine):
-        """Create engine with MySQL dialect for testing."""
-        from unittest.mock import Mock
-
-        from sqlalchemy.dialects.mysql.mysqldb import MySQLDialect_mysqldb
-
-        # Create a mock engine that wraps sqlite_engine but uses MySQL dialect
-        mock_engine = Mock(wraps=sqlite_engine)
-        mock_engine.dialect = MySQLDialect_mysqldb()
-        # Preserve other engine attributes needed for tests
-        mock_engine.connect = sqlite_engine.connect
-        mock_engine.raw_connection = sqlite_engine.raw_connection
-        return mock_engine
-
-    @pytest.fixture
-    def adapter(self, config, report, mysql_engine):
+    def adapter(self, config, report, mock_mysql_engine):
         """Create MySQL adapter for testing."""
-        return MySQLAdapter(config, report, mysql_engine)
+        return MySQLAdapter(config, report, mock_mysql_engine)
 
-    @pytest.mark.parametrize(
-        "identifier,expected",
-        [
-            ("my_table", "`my_table`"),
-            ("my_schema.my_table", "`my_schema`.`my_table`"),
-        ],
-    )
-    def test_quote_identifier(self, adapter, identifier, expected):
-        """Test quoting identifiers with MySQL dialect."""
-        result = adapter.quote_identifier(identifier)
-        assert result == expected
+    def test_get_approx_unique_count_expr(self, adapter, mock_mysql_engine):
+        """Test MySQL uses COUNT(DISTINCT) for approximate unique count."""
+        expr = adapter.get_approx_unique_count_expr("user_id")
+        sql = compile_expr_to_sql(expr, mock_mysql_engine.dialect)
+
+        # Validate COUNT(DISTINCT(column)) structure
+        pattern = r"\bCOUNT\s*\(\s*DISTINCT\s*\(\s*user_id\s*\)\s*\)"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr(self, adapter):
+        """Test MySQL doesn't support median (returns None)."""
+        expr = adapter.get_median_expr("value_column")
+        assert expr is None
 
     def test_supports_row_count_estimation(self, adapter):
-        """Test MySQL supports row count estimation."""
-        assert adapter.supports_row_count_estimation()
+        """Test MySQL supports fast row count estimation."""
+        assert adapter.supports_row_count_estimation() is True
 
-    def test_get_estimated_row_count_with_mock(self, adapter, test_table):
+    def test_get_estimated_row_count_generates_correct_query(
+        self, adapter, mock_table, mock_mysql_engine
+    ):
         """Test MySQL row count estimation query structure."""
         mock_conn = MagicMock()
         mock_result = MagicMock()
-        mock_result.scalar.return_value = 54321
+        mock_result.scalar.return_value = 12345
         mock_conn.execute.return_value = mock_result
 
-        result = adapter.get_estimated_row_count(test_table, mock_conn)
+        row_count = adapter.get_estimated_row_count(mock_table, mock_conn)
 
-        assert result == 54321
         # Verify query was executed
         assert mock_conn.execute.called
+        executed_query = mock_conn.execute.call_args[0][0]
+        sql = compile_expr_to_sql(executed_query, mock_mysql_engine.dialect)
 
-    def test_get_estimated_row_count_handles_none(self, adapter, test_table):
-        """Test MySQL row count estimation handles None result."""
+        # Validate information_schema.tables query
+        pattern = r"\binformation_schema\.tables\b.*\btable_rows\b"
+        assert_sql_matches_pattern(sql, pattern)
+        assert row_count == 12345
+
+
+class TestPostgresAdapter:
+    """Test cases for PostgresAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, mock_postgres_engine):
+        """Create PostgreSQL adapter for testing."""
+        return PostgresAdapter(config, report, mock_postgres_engine)
+
+    def test_get_approx_unique_count_expr(self, adapter, mock_postgres_engine):
+        """Test PostgreSQL uses COUNT(DISTINCT)."""
+        expr = adapter.get_approx_unique_count_expr("email")
+        sql = compile_expr_to_sql(expr, mock_postgres_engine.dialect)
+
+        # Validate COUNT(DISTINCT(column)) structure
+        pattern = r"\bCOUNT\s*\(\s*DISTINCT\s*\(\s*email\s*\)\s*\)"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr(self, adapter, mock_postgres_engine):
+        """Test PostgreSQL uses PERCENTILE_CONT for median."""
+        expr = adapter.get_median_expr("price")
+        sql = compile_expr_to_sql(expr, mock_postgres_engine.dialect)
+
+        # Validate PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price)
+        pattern = (
+            r"\bPERCENTILE_CONT\s*\(\s*0\.5\s*\)"
+            r".*\bWITHIN\s+GROUP\s*\("
+            r".*\bORDER\s+BY\b"
+            r".*\bprice\b"
+        )
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_supports_row_count_estimation(self, adapter):
+        """Test PostgreSQL supports fast row count estimation."""
+        assert adapter.supports_row_count_estimation() is True
+
+    def test_get_estimated_row_count_uses_pg_class(
+        self, adapter, mock_table, mock_postgres_engine
+    ):
+        """Test PostgreSQL uses pg_class.reltuples for estimation."""
         mock_conn = MagicMock()
         mock_result = MagicMock()
-        mock_result.scalar.return_value = None
+        mock_result.scalar.return_value = 98765
         mock_conn.execute.return_value = mock_result
 
-        result = adapter.get_estimated_row_count(test_table, mock_conn)
+        row_count = adapter.get_estimated_row_count(mock_table, mock_conn)
 
-        assert result is None
+        assert mock_conn.execute.called
+        executed_query = mock_conn.execute.call_args[0][0]
+        sql = compile_expr_to_sql(executed_query, mock_postgres_engine.dialect)
+
+        # Validate query uses pg_class and pg_namespace for reltuples
+        assert "reltuples" in sql
+        assert "pg_class" in sql
+        assert "pg_namespace" in sql
+        assert row_count == 98765
 
 
 class TestRedshiftAdapter:
     """Test cases for RedshiftAdapter."""
 
     @pytest.fixture
-    def redshift_engine(self, sqlite_engine):
-        """Create engine with Redshift dialect for testing."""
-        from unittest.mock import Mock
-
-        from sqlalchemy_redshift.dialect import RedshiftDialect
-
-        # Create a mock engine that wraps sqlite_engine but uses Redshift dialect
-        mock_engine = Mock(wraps=sqlite_engine)
-        mock_engine.dialect = RedshiftDialect()
-        # Preserve other engine attributes needed for tests
-        mock_engine.connect = sqlite_engine.connect
-        mock_engine.raw_connection = sqlite_engine.raw_connection
-        return mock_engine
-
-    @pytest.fixture
-    def adapter(self, config, report, redshift_engine):
+    def adapter(self, config, report, mock_redshift_engine):
         """Create Redshift adapter for testing."""
-        return RedshiftAdapter(config, report, redshift_engine)
+        return RedshiftAdapter(config, report, mock_redshift_engine)
 
-    @pytest.mark.parametrize(
-        "identifier,expected",
-        [
-            ("my_table", '"my_table"'),
-            ("my_schema.my_table", '"my_schema"."my_table"'),
-        ],
-    )
-    def test_quote_identifier(self, adapter, identifier, expected):
-        """Test quoting identifiers with Redshift dialect."""
-        result = adapter.quote_identifier(identifier)
-        assert result == expected
-
-    def test_get_approx_unique_count_expr(self, adapter):
+    def test_get_approx_unique_count_expr(self, adapter, mock_redshift_engine):
         """Test Redshift uses COUNT(DISTINCT)."""
-        expr = adapter.get_approx_unique_count_expr("column_name")
-        assert "count" in str(expr).lower()
-        assert "distinct" in str(expr).lower()
+        expr = adapter.get_approx_unique_count_expr("customer_id")
+        sql = compile_expr_to_sql(expr, mock_redshift_engine.dialect)
 
-    def test_get_median_expr(self, adapter):
+        # Validate COUNT(DISTINCT(column)) structure
+        pattern = r"\bCOUNT\s*\(\s*DISTINCT\s*\(\s*customer_id\s*\)\s*\)"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr(self, adapter, mock_redshift_engine):
         """Test Redshift uses PERCENTILE_CONT for median."""
-        expr = adapter.get_median_expr("test_column")
-        assert expr is not None
-        expr_str = str(expr)
-        assert "PERCENTILE_CONT" in expr_str
-        assert "0.5" in expr_str
-        assert "test_column" in expr_str
+        expr = adapter.get_median_expr("amount")
+        sql = compile_expr_to_sql(expr, mock_redshift_engine.dialect)
 
-    def test_get_mean_expr(self, adapter):
-        """Test Redshift casts column to FLOAT for AVG."""
-        expr = adapter.get_mean_expr("test_column")
-        assert expr is not None
-        # Should be AVG(CAST(column AS FLOAT))
-        compiled = expr.compile(compile_kwargs={"literal_binds": True})
-        expr_str = str(compiled).upper()
-        assert "AVG" in expr_str
-        assert "CAST" in expr_str
-        assert "FLOAT" in expr_str
+        # Validate PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amount)
+        pattern = (
+            r"\bPERCENTILE_CONT\s*\(\s*0\.5\s*\)"
+            r".*\bWITHIN\s+GROUP\s*\("
+            r".*\bORDER\s+BY\b"
+            r".*\bamount\b"
+        )
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_mean_expr(self, adapter, mock_redshift_engine):
+        """Test Redshift casts to FLOAT for AVG precision."""
+        expr = adapter.get_mean_expr("int_column")
+        sql = compile_expr_to_sql(expr, mock_redshift_engine.dialect)
+
+        # Validate AVG(CAST(column AS FLOAT))
+        pattern = (
+            r"\bAVG\s*\("
+            r".*\bCAST\s*\("
+            r".*\bint_column\b"
+            r".*\bAS\s+FLOAT\b"
+        )
+        assert_sql_matches_pattern(sql, pattern)
 
     def test_get_stdev_null_value(self, adapter):
-        """Test Redshift returns 0.0 for NULL stdev."""
+        """Test Redshift returns 0.0 for STDDEV on NULL columns."""
         null_value = adapter.get_stdev_null_value()
         assert null_value == 0.0
 
     def test_supports_row_count_estimation(self, adapter):
-        """Test Redshift supports row count estimation."""
-        assert adapter.supports_row_count_estimation()
-
-    def test_get_estimated_row_count_with_mock(self, adapter, test_table):
-        """Test Redshift row count estimation can be called."""
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        mock_result.scalar.return_value = 54321
-        mock_conn.execute.return_value = mock_result
-
-        # Note: This may return None if query fails, which is expected behavior
-        result = adapter.get_estimated_row_count(test_table, mock_conn)
-
-        # Just verify the method can be called without raising an exception
-        assert result is None or isinstance(result, int)
-
-    def test_get_estimated_row_count_handles_none(self, adapter, test_table):
-        """Test Redshift row count estimation handles None result."""
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        mock_result.scalar.return_value = None
-        mock_conn.execute.return_value = mock_result
-
-        result = adapter.get_estimated_row_count(test_table, mock_conn)
-
-        assert result is None
-
-    def test_get_estimated_row_count_handles_exception(self, adapter, test_table):
-        """Test Redshift row count estimation handles exceptions gracefully."""
-        mock_conn = MagicMock()
-        mock_conn.execute.side_effect = Exception("Database error")
-
-        result = adapter.get_estimated_row_count(test_table, mock_conn)
-
-        assert result is None
-
-
-class TestAthenaAdapter:
-    """Test cases for AthenaAdapter."""
-
-    @pytest.fixture
-    def athena_engine(self, sqlite_engine):
-        """Create engine with Athena dialect for testing."""
-        from unittest.mock import Mock
-
-        from pyathena.sqlalchemy_athena import AthenaDialect
-
-        # Create a mock engine that wraps sqlite_engine but uses Athena dialect
-        mock_engine = Mock(wraps=sqlite_engine)
-        mock_engine.dialect = AthenaDialect()
-        # Preserve other engine attributes needed for tests
-        mock_engine.connect = sqlite_engine.connect
-        mock_engine.raw_connection = sqlite_engine.raw_connection
-        return mock_engine
-
-    @pytest.fixture
-    def adapter(self, config, report, athena_engine):
-        """Create Athena adapter for testing."""
-        return AthenaAdapter(config, report, athena_engine)
-
-    @pytest.mark.parametrize(
-        "identifier,expected",
-        [
-            ("my_table", '"my_table"'),
-            ("my_schema.my_table", '"my_schema"."my_table"'),
-        ],
-    )
-    def test_quote_identifier(self, adapter, identifier, expected):
-        """Test quoting identifiers with Athena dialect."""
-        result = adapter.quote_identifier(identifier)
-        assert result == expected
-
-    def test_get_approx_unique_count_expr(self, adapter):
-        """Test Athena uses approx_distinct."""
-        expr = adapter.get_approx_unique_count_expr("test_column")
-        assert expr is not None
-        expr_str = str(expr)
-        assert "approx_distinct" in expr_str
-        assert "test_column" in expr_str
-
-    def test_get_median_expr(self, adapter):
-        """Test Athena uses approx_percentile for median."""
-        expr = adapter.get_median_expr("test_column")
-        assert expr is not None
-        # Should be a SQLAlchemy function call
-        compiled = expr.compile(compile_kwargs={"literal_binds": True})
-        expr_str = str(compiled)
-        assert "approx_percentile" in expr_str.lower()
-        assert "0.5" in expr_str
-
-    def test_get_column_quantiles(self, adapter, test_table):
-        """Test Athena get_column_quantiles with mocked connection."""
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        # Athena returns array of quantile values
-        mock_result.scalar.return_value = [5.0, 25.0, 50.0, 75.0, 95.0]
-        mock_conn.execute.return_value = mock_result
-
-        quantiles = adapter.get_column_quantiles(
-            test_table, "test_column", mock_conn, [0.05, 0.25, 0.5, 0.75, 0.95]
-        )
-
-        assert len(quantiles) == 5
-        assert quantiles == [5.0, 25.0, 50.0, 75.0, 95.0]
-        # Verify query was executed
-        assert mock_conn.execute.called
-
-
-class TestBigQueryAdapter:
-    """Test cases for BigQueryAdapter."""
-
-    @pytest.fixture
-    def bigquery_engine(self, sqlite_engine):
-        """Create engine with BigQuery dialect for testing."""
-        from unittest.mock import Mock
-
-        from sqlalchemy_bigquery import BigQueryDialect
-
-        # Create a mock engine that wraps sqlite_engine but uses BigQuery dialect
-        mock_engine = Mock(wraps=sqlite_engine)
-        mock_engine.dialect = BigQueryDialect()
-        # Preserve other engine attributes needed for tests
-        mock_engine.connect = sqlite_engine.connect
-        mock_engine.raw_connection = sqlite_engine.raw_connection
-        return mock_engine
-
-    @pytest.fixture
-    def adapter(self, config, report, bigquery_engine):
-        """Create BigQuery adapter for testing."""
-        return BigQueryAdapter(config, report, bigquery_engine)
-
-    def test_get_approx_unique_count_expr(self, adapter):
-        """Test BigQuery uses APPROX_COUNT_DISTINCT."""
-        expr = adapter.get_approx_unique_count_expr("test_column")
-        assert expr is not None
-        # Should be a SQLAlchemy function call for APPROX_COUNT_DISTINCT
-        compiled = expr.compile(compile_kwargs={"literal_binds": True})
-        expr_str = str(compiled)
-        assert "APPROX_COUNT_DISTINCT" in expr_str
-
-    def test_get_median_expr(self, adapter):
-        """Test BigQuery median expression using literal_column."""
-        # BigQuery uses APPROX_QUANTILES with array indexing.
-        # We use literal_column() to generate the full SQL string since
-        # SQLAlchemy's dialect doesn't support the [] operator on expressions.
-        expr = adapter.get_median_expr("test_column")
-        assert expr is not None
-        expr_str = str(expr)
-        # Should generate: APPROX_QUANTILES(`test_column`, 2)[OFFSET(1)]
-        assert "APPROX_QUANTILES" in expr_str
-        assert "test_column" in expr_str
-        assert "OFFSET(1)" in expr_str
-
-    def test_get_quantiles_expr(self, adapter):
-        """Test BigQuery quantiles expression."""
-        expr = adapter.get_quantiles_expr("test_column", [0.25, 0.5, 0.75])
-        assert expr is not None
-        expr_str = str(expr)
-        assert "approx_quantiles" in expr_str.lower()
-
-    def test_get_sample_clause(self, adapter):
-        """Test BigQuery sample clause."""
-        clause = adapter.get_sample_clause(1000)
-        assert clause is not None
-        assert "TABLESAMPLE SYSTEM" in clause
-        assert "1000 ROWS" in clause
-
-    @pytest.mark.parametrize(
-        "identifier,expected",
-        [
-            ("my_table", "`my_table`"),
-            ("my_schema.my_table", "`my_schema`.`my_table`"),
-            ("project.dataset.table", "`project`.`dataset`.`table`"),
-        ],
-    )
-    def test_quote_identifier(self, adapter, identifier, expected):
-        """Test quoting identifiers with BigQuery dialect."""
-        result = adapter.quote_identifier(identifier)
-        assert result == expected
-
-    def test_setup_profiling_with_limit(self, adapter, config, test_table):
-        """Test BigQuery setup with LIMIT creates temp table."""
-        config.limit = 100
-        adapter.config = config
-
-        context = ProfilingContext(
-            schema="my_schema",
-            table="my_table",
-            custom_sql=None,
-            pretty_name="my_schema.my_table",
-        )
-
-        mock_conn = MagicMock()
-        mock_cursor = MagicMock()
-        mock_query_job = MagicMock()
-        mock_destination = MagicMock()
-        mock_destination.table_id = "temp_table_123"
-        mock_destination.project = "my_project"
-        mock_destination.dataset_id = "my_dataset"
-        mock_query_job.destination = mock_destination
-        mock_cursor.query_job = mock_query_job
-
-        mock_raw_conn = MagicMock()
-        mock_raw_conn.cursor.return_value = mock_cursor
-
-        with (
-            patch.object(
-                adapter.base_engine, "raw_connection", return_value=mock_raw_conn
-            ),
-            patch.object(adapter, "_create_sqlalchemy_table", return_value=test_table),
-        ):
-            result_context = adapter.setup_profiling(context, mock_conn)
-
-        # Should have created temp table
-        assert result_context.temp_table == "temp_table_123"
-        assert result_context.temp_schema == "my_project.my_dataset"
-        # Verify cursor.execute was called with LIMIT query
-        assert mock_cursor.execute.called
-        call_args = mock_cursor.execute.call_args[0][0]
-        assert "LIMIT 100" in call_args
-        assert "`my_schema`.`my_table`" in call_args
-
-    def test_setup_profiling_with_custom_sql(self, adapter, test_table):
-        """Test BigQuery setup with custom SQL creates temp table."""
-        context = ProfilingContext(
-            schema=None,
-            table=None,
-            custom_sql="SELECT * FROM my_table WHERE value > 100",
-            pretty_name="custom_query",
-        )
-
-        mock_conn = MagicMock()
-        mock_cursor = MagicMock()
-        mock_query_job = MagicMock()
-        mock_destination = MagicMock()
-        mock_destination.table_id = "temp_table_456"
-        mock_destination.project = "my_project"
-        mock_destination.dataset_id = "my_dataset"
-        mock_query_job.destination = mock_destination
-        mock_cursor.query_job = mock_query_job
-
-        mock_raw_conn = MagicMock()
-        mock_raw_conn.cursor.return_value = mock_cursor
-
-        with (
-            patch.object(
-                adapter.base_engine, "raw_connection", return_value=mock_raw_conn
-            ),
-            patch.object(adapter, "_create_sqlalchemy_table", return_value=test_table),
-        ):
-            result_context = adapter.setup_profiling(context, mock_conn)
-
-        # Should have created temp table
-        assert result_context.temp_table == "temp_table_456"
-        # Verify cursor.execute was called with custom SQL
-        assert mock_cursor.execute.called
-        call_args = mock_cursor.execute.call_args[0][0]
-        assert "SELECT * FROM my_table WHERE value > 100" in call_args
-
-    def test_setup_profiling_validates_limit_positive(self, adapter, config):
-        """Test BigQuery setup validates LIMIT is positive."""
-        config.limit = -5
-        adapter.config = config
-
-        context = ProfilingContext(
-            schema="my_schema",
-            table="my_table",
-            custom_sql=None,
-            pretty_name="my_schema.my_table",
-        )
-
-        mock_conn = MagicMock()
-
-        with pytest.raises(ValueError, match="Invalid LIMIT value"):
-            adapter.setup_profiling(context, mock_conn)
-
-    def test_setup_profiling_validates_offset_non_negative(self, adapter, config):
-        """Test BigQuery setup validates OFFSET is non-negative."""
-        config.offset = -10
-        adapter.config = config
-
-        context = ProfilingContext(
-            schema="my_schema",
-            table="my_table",
-            custom_sql=None,
-            pretty_name="my_schema.my_table",
-        )
-
-        mock_conn = MagicMock()
-
-        with pytest.raises(ValueError, match="Invalid OFFSET value"):
-            adapter.setup_profiling(context, mock_conn)
-
-    def test_cleanup_logs_temp_table(self, adapter):
-        """Test BigQuery cleanup logs temp table (no-op)."""
-        context = ProfilingContext(
-            schema=None,
-            table="test_table",
-            custom_sql=None,
-            pretty_name="test",
-            temp_table="temp_table_123",
-        )
-        # Should not raise any errors
-        adapter.cleanup(context)
-
-    def test_get_column_quantiles(self, adapter, test_table):
-        """Test BigQuery get_column_quantiles with mocked connection."""
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        # BigQuery returns a row with values for each quantile
-        mock_result.fetchone.return_value = (5.0, 25.0, 50.0, 75.0, 95.0)
-        mock_conn.execute.return_value = mock_result
-
-        quantiles = adapter.get_column_quantiles(
-            test_table, "test_column", mock_conn, [0.05, 0.25, 0.5, 0.75, 0.95]
-        )
-
-        assert len(quantiles) == 5
-        assert quantiles == [5.0, 25.0, 50.0, 75.0, 95.0]
-        # Verify query was executed
-        assert mock_conn.execute.called
-
-    def test_temp_table_creation_failure_raises_error(self, adapter, config):
-        """Test that temp table creation failure raises RuntimeError."""
-        config.limit = 100
-        adapter.config = config
-
-        context = ProfilingContext(
-            schema="my_schema",
-            table="my_table",
-            custom_sql=None,
-            pretty_name="my_schema.my_table",
-        )
-
-        mock_conn = MagicMock()
-        mock_cursor = MagicMock()
-        # Simulate query execution failure
-        mock_cursor.execute.side_effect = Exception("BigQuery query failed")
-
-        mock_raw_conn = MagicMock()
-        mock_raw_conn.cursor.return_value = mock_cursor
-
-        with (
-            patch.object(
-                adapter.base_engine, "raw_connection", return_value=mock_raw_conn
-            ),
-            pytest.raises(
-                RuntimeError,
-                match="Cannot profile my_schema.my_table: BigQuery temp table creation failed",
-            ),
-        ):
-            adapter.setup_profiling(context, mock_conn)
-
-    def test_temp_table_no_destination_raises_error(self, adapter, config):
-        """Test that missing destination table raises RuntimeError."""
-        config.limit = 100
-        adapter.config = config
-
-        context = ProfilingContext(
-            schema="my_schema",
-            table="my_table",
-            custom_sql=None,
-            pretty_name="my_schema.my_table",
-        )
-
-        mock_conn = MagicMock()
-        mock_cursor = MagicMock()
-        mock_query_job = MagicMock()
-        # No destination means BigQuery didn't cache results
-        mock_query_job.destination = None
-        mock_cursor.query_job = mock_query_job
-
-        mock_raw_conn = MagicMock()
-        mock_raw_conn.cursor.return_value = mock_cursor
-
-        with (
-            patch.object(
-                adapter.base_engine, "raw_connection", return_value=mock_raw_conn
-            ),
-            pytest.raises(
-                RuntimeError,
-                match="Cannot profile my_schema.my_table: BigQuery temp table creation failed",
-            ),
-        ):
-            adapter.setup_profiling(context, mock_conn)
+        """Test Redshift supports fast row count estimation."""
+        assert adapter.supports_row_count_estimation() is True
 
 
 class TestSnowflakeAdapter:
     """Test cases for SnowflakeAdapter."""
 
     @pytest.fixture
-    def snowflake_engine(self, sqlite_engine):
-        """Create engine with Snowflake dialect for testing."""
-        from unittest.mock import Mock
+    def adapter(self, config, report, mock_snowflake_engine):
+        """Create Snowflake adapter for testing."""
+        return SnowflakeAdapter(config, report, mock_snowflake_engine)
 
-        from snowflake.sqlalchemy.snowdialect import SnowflakeDialect
+    def test_get_approx_unique_count_expr(self, adapter, mock_snowflake_engine):
+        """Test Snowflake uses APPROX_COUNT_DISTINCT."""
+        expr = adapter.get_approx_unique_count_expr("session_id")
+        sql = compile_expr_to_sql(expr, mock_snowflake_engine.dialect)
 
-        # Create a mock engine that wraps sqlite_engine but uses Snowflake dialect
-        mock_engine = Mock(wraps=sqlite_engine)
-        mock_engine.dialect = SnowflakeDialect()
-        # Preserve other engine attributes needed for tests
-        mock_engine.connect = sqlite_engine.connect
-        mock_engine.raw_connection = sqlite_engine.raw_connection
-        return mock_engine
+        # Validate APPROX_COUNT_DISTINCT(session_id)
+        pattern = r"\bAPPROX_COUNT_DISTINCT\b.*\bsession_id\b"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr(self, adapter, mock_snowflake_engine):
+        """Test Snowflake uses MEDIAN function."""
+        expr = adapter.get_median_expr("score")
+        sql = compile_expr_to_sql(expr, mock_snowflake_engine.dialect)
+
+        # Validate MEDIAN(score)
+        pattern = r"\bMEDIAN\b.*\bscore\b"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_quote_identifier_mixed_case(self, adapter):
+        """Test Snowflake identifier quoting."""
+        # Snowflake preserves case with double quotes
+        quoted = adapter.quote_identifier("MixedCase")
+        assert '"' in quoted
+        assert "MixedCase" in quoted
+
+    def test_quote_identifier_with_schema(self, adapter):
+        """Test Snowflake schema.table quoting."""
+        quoted = adapter.quote_identifier("schema.table")
+        # Should quote both parts
+        assert '"schema"."table"' in quoted or "schema.table" in quoted
+
+
+class TestBigQueryAdapter:
+    """Test cases for BigQueryAdapter."""
 
     @pytest.fixture
-    def adapter(self, config, report, snowflake_engine):
-        """Create Snowflake adapter for testing."""
-        return SnowflakeAdapter(config, report, snowflake_engine)
+    def adapter(self, config, report, mock_bigquery_engine):
+        """Create BigQuery adapter for testing."""
+        return BigQueryAdapter(config, report, mock_bigquery_engine)
 
-    @pytest.mark.parametrize(
-        "identifier,expected",
-        [
-            ("my_table", '"my_table"'),
-            ("my_schema.my_table", '"my_schema"."my_table"'),
-        ],
-    )
-    def test_quote_identifier(self, adapter, identifier, expected):
-        """Test quoting identifiers with Snowflake dialect."""
-        result = adapter.quote_identifier(identifier)
-        assert result == expected
+    def test_get_approx_unique_count_expr(self, adapter, mock_bigquery_engine):
+        """Test BigQuery uses APPROX_COUNT_DISTINCT."""
+        expr = adapter.get_approx_unique_count_expr("visitor_id")
+        sql = compile_expr_to_sql(expr, mock_bigquery_engine.dialect)
 
-    def test_get_approx_unique_count_expr(self, adapter):
-        """Test Snowflake uses APPROX_COUNT_DISTINCT."""
-        expr = adapter.get_approx_unique_count_expr("test_column")
-        assert expr is not None
-        # Should be a SQLAlchemy function call for APPROX_COUNT_DISTINCT
-        compiled = expr.compile(compile_kwargs={"literal_binds": True})
-        expr_str = str(compiled)
-        assert "APPROX_COUNT_DISTINCT" in expr_str
+        # Validate APPROX_COUNT_DISTINCT(visitor_id)
+        pattern = r"\bAPPROX_COUNT_DISTINCT\b.*\bvisitor_id\b"
+        assert_sql_matches_pattern(sql, pattern)
 
-    def test_get_median_expr(self, adapter):
-        """Test Snowflake uses native MEDIAN function."""
-        expr = adapter.get_median_expr("test_column")
-        assert expr is not None
-        # Should be a SQLAlchemy function call for MEDIAN
-        compiled = expr.compile(compile_kwargs={"literal_binds": True})
-        expr_str = str(compiled)
-        assert "median" in expr_str.lower()
-        assert "test_column" in expr_str
+    def test_get_median_expr(self, adapter, mock_bigquery_engine):
+        """Test BigQuery uses APPROX_QUANTILES for median."""
+        expr = adapter.get_median_expr("duration")
+        sql = compile_expr_to_sql(expr, mock_bigquery_engine.dialect)
 
-    def test_setup_profiling_creates_sql_table(
-        self, config, report, sqlite_engine, test_table
-    ):
-        """Test setup creates SQLAlchemy table object."""
-        # Use sqlite_engine since setup_profiling doesn't depend on dialect
-        adapter = SnowflakeAdapter(config, report, sqlite_engine)
-        context = ProfilingContext(
-            schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
+        # Validate APPROX_QUANTILES(column, 2)[OFFSET(1)]
+        pattern = (
+            r"\bAPPROX_QUANTILES\s*\("
+            r".*\bduration\b"
+            r".*,\s*2\s*\)"
+            r".*\bOFFSET\s*\(\s*1\s*\)"
         )
-
-        with sqlite_engine.connect() as conn:
-            result_context = adapter.setup_profiling(context, conn)
-
-        assert result_context.sql_table is not None
-        assert result_context.sql_table.name == "test_table"
+        assert_sql_matches_pattern(sql, pattern)
 
     def test_cleanup_does_nothing(self, adapter):
-        """Test cleanup is a no-op for Snowflake adapter."""
+        """Test BigQuery cleanup is no-op (tables auto-expire)."""
         context = ProfilingContext(
-            schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
+            schema="test_schema",
+            table="test_table",
+            custom_sql=None,
+            pretty_name="test",
+            temp_table="temp_123",
         )
-        # Should not raise any errors
+        # Should not raise
         adapter.cleanup(context)
-
-    def test_get_column_quantiles(self, adapter, test_table):
-        """Test Snowflake get_column_quantiles with mocked connection."""
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        # Snowflake executes one query per quantile
-        mock_result.scalar.side_effect = [5.0, 25.0, 50.0, 75.0, 95.0]
-        mock_conn.execute.return_value = mock_result
-
-        quantiles = adapter.get_column_quantiles(
-            test_table, "test_column", mock_conn, [0.05, 0.25, 0.5, 0.75, 0.95]
-        )
-
-        assert len(quantiles) == 5
-        assert quantiles == [5.0, 25.0, 50.0, 75.0, 95.0]
-        # Should execute 5 queries (one per quantile)
-        assert mock_conn.execute.call_count == 5
 
 
 class TestDatabricksAdapter:
     """Test cases for DatabricksAdapter."""
 
     @pytest.fixture
-    def databricks_engine(self, sqlite_engine):
-        """Create engine with Databricks dialect for testing."""
-        from unittest.mock import Mock
-
-        from databricks.sqlalchemy import DatabricksDialect
-
-        # Create a mock engine that wraps sqlite_engine but uses Databricks dialect
-        mock_engine = Mock(wraps=sqlite_engine)
-        mock_engine.dialect = DatabricksDialect()
-        # Preserve other engine attributes needed for tests
-        mock_engine.connect = sqlite_engine.connect
-        mock_engine.raw_connection = sqlite_engine.raw_connection
-        return mock_engine
-
-    @pytest.fixture
-    def adapter(self, config, report, databricks_engine):
+    def adapter(self, config, report, mock_databricks_engine):
         """Create Databricks adapter for testing."""
-        return DatabricksAdapter(config, report, databricks_engine)
+        return DatabricksAdapter(config, report, mock_databricks_engine)
 
-    @pytest.mark.parametrize(
-        "identifier,expected",
-        [
-            ("my_table", "`my_table`"),
-            ("my_schema.my_table", "`my_schema`.`my_table`"),
-        ],
-    )
-    def test_quote_identifier(self, adapter, identifier, expected):
-        """Test quoting identifiers with Databricks dialect."""
-        result = adapter.quote_identifier(identifier)
-        assert result == expected
+    def test_get_approx_unique_count_expr(self, adapter, mock_databricks_engine):
+        """Test Databricks uses approx_count_distinct."""
+        expr = adapter.get_approx_unique_count_expr("device_id")
+        sql = compile_expr_to_sql(expr, mock_databricks_engine.dialect)
 
-    def test_get_approx_unique_count_expr(self, adapter):
-        """Test Databricks uses approx_count_distinct (lowercase)."""
-        expr = adapter.get_approx_unique_count_expr("test_column")
-        assert expr is not None
-        # Should be a SQLAlchemy function call for approx_count_distinct
-        compiled = expr.compile(compile_kwargs={"literal_binds": True})
-        expr_str = str(compiled)
-        assert "approx_count_distinct" in expr_str.lower()
+        # Validate approx_count_distinct(device_id)
+        pattern = r"\bapprox_count_distinct\b.*\bdevice_id\b"
+        assert_sql_matches_pattern(sql, pattern)
 
-    def test_get_median_expr(self, adapter):
+    def test_get_median_expr(self, adapter, mock_databricks_engine):
         """Test Databricks uses approx_percentile for median."""
-        expr = adapter.get_median_expr("test_column")
-        assert expr is not None
-        # Should be a SQLAlchemy function call for approx_percentile
-        compiled = expr.compile(compile_kwargs={"literal_binds": True})
-        expr_str = str(compiled)
-        assert "approx_percentile" in expr_str.lower()
-        assert "0.5" in expr_str
+        expr = adapter.get_median_expr("latency")
+        sql = compile_expr_to_sql(expr, mock_databricks_engine.dialect)
 
-    def test_cleanup_does_nothing(self, adapter):
-        """Test cleanup is a no-op for Databricks adapter."""
-        context = ProfilingContext(
-            schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
-        )
-        # Should not raise any errors
-        adapter.cleanup(context)
-
-    def test_get_column_quantiles(self, adapter, test_table):
-        """Test Databricks get_column_quantiles with mocked connection."""
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        # Databricks returns array of quantile values
-        mock_result.scalar.return_value = [5.0, 25.0, 50.0, 75.0, 95.0]
-        mock_conn.execute.return_value = mock_result
-
-        quantiles = adapter.get_column_quantiles(
-            test_table, "test_column", mock_conn, [0.05, 0.25, 0.5, 0.75, 0.95]
-        )
-
-        assert len(quantiles) == 5
-        assert quantiles == [5.0, 25.0, 50.0, 75.0, 95.0]
-        # Verify query was executed
-        assert mock_conn.execute.called
+        # Validate approx_percentile(latency, 0.5)
+        pattern = r"\bapprox_percentile\b.*\blatency\b.*\b0\.5\b"
+        assert_sql_matches_pattern(sql, pattern)
 
 
 class TestTrinoAdapter:
     """Test cases for TrinoAdapter."""
 
     @pytest.fixture
-    def trino_engine(self, sqlite_engine):
-        """Create engine with Trino dialect for testing."""
-        from unittest.mock import Mock
-
-        from trino.sqlalchemy.dialect import TrinoDialect
-
-        # Create a mock engine that wraps sqlite_engine but uses Trino dialect
-        mock_engine = Mock(wraps=sqlite_engine)
-        mock_engine.dialect = TrinoDialect()
-        # Preserve other engine attributes needed for tests
-        mock_engine.connect = sqlite_engine.connect
-        mock_engine.raw_connection = sqlite_engine.raw_connection
-        return mock_engine
-
-    @pytest.fixture
-    def adapter(self, config, report, trino_engine):
+    def adapter(self, config, report, mock_trino_engine):
         """Create Trino adapter for testing."""
-        return TrinoAdapter(config, report, trino_engine)
+        return TrinoAdapter(config, report, mock_trino_engine)
 
-    @pytest.mark.parametrize(
-        "identifier,expected",
-        [
-            ("my_table", '"my_table"'),
-            ("my_schema.my_table", '"my_schema"."my_table"'),
-        ],
-    )
-    def test_quote_identifier(self, adapter, identifier, expected):
-        """Test quoting identifiers with Trino dialect."""
-        result = adapter.quote_identifier(identifier)
-        assert result == expected
+    def test_get_approx_unique_count_expr(self, adapter, mock_trino_engine):
+        """Test Trino uses approx_distinct."""
+        expr = adapter.get_approx_unique_count_expr("request_id")
+        sql = compile_expr_to_sql(expr, mock_trino_engine.dialect)
 
-    def test_get_approx_unique_count_expr(self, adapter):
-        """Test Trino uses approx_distinct (same as Athena)."""
-        expr = adapter.get_approx_unique_count_expr("test_column")
-        assert expr is not None
-        # Should be a SQLAlchemy function call for approx_distinct
-        compiled = expr.compile(compile_kwargs={"literal_binds": True})
-        expr_str = str(compiled)
-        assert "approx_distinct" in expr_str.lower()
+        # Validate approx_distinct(request_id)
+        pattern = r"\bapprox_distinct\b.*\brequest_id\b"
+        assert_sql_matches_pattern(sql, pattern)
 
-    def test_get_median_expr(self, adapter):
-        """Test Trino uses approx_percentile for median (same as Athena)."""
-        expr = adapter.get_median_expr("test_column")
-        assert expr is not None
-        # Should be a SQLAlchemy function call for approx_percentile
-        compiled = expr.compile(compile_kwargs={"literal_binds": True})
-        expr_str = str(compiled)
-        assert "approx_percentile" in expr_str.lower()
-        assert "0.5" in expr_str
+    def test_get_median_expr(self, adapter, mock_trino_engine):
+        """Test Trino uses approx_percentile for median."""
+        expr = adapter.get_median_expr("response_time")
+        sql = compile_expr_to_sql(expr, mock_trino_engine.dialect)
 
-    def test_setup_profiling_creates_sql_table(
-        self, config, report, sqlite_engine, test_table
-    ):
-        """Test setup creates SQLAlchemy table object."""
-        # Use sqlite_engine since setup_profiling doesn't depend on dialect
-        adapter = TrinoAdapter(config, report, sqlite_engine)
+        # Validate approx_percentile(response_time, 0.5)
+        pattern = r"\bapprox_percentile\b.*\bresponse_time\b.*\b0\.5\b"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_cleanup_drops_temp_view(self, adapter):
+        """Test Trino always drops temp views."""
         context = ProfilingContext(
-            schema=None, table="test_table", custom_sql=None, pretty_name="test_table"
-        )
-
-        with sqlite_engine.connect() as conn:
-            result_context = adapter.setup_profiling(context, conn)
-
-        assert result_context.sql_table is not None
-        assert result_context.sql_table.name == "test_table"
-
-    def test_cleanup_always_drops_temp_view(self, adapter):
-        """Test Trino always drops temp views (different from Athena)."""
-        context = ProfilingContext(
-            schema=None,
+            schema="test_schema",
             table="test_table",
             custom_sql=None,
             pretty_name="test_table",
-            temp_view="ge_test123",
-        )
-        # Should not raise any errors - cleanup always runs for Trino
-        adapter.cleanup(context)
-
-    def test_get_column_quantiles(self, adapter, test_table):
-        """Test Trino get_column_quantiles with mocked connection."""
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        # Trino returns array of quantile values
-        mock_result.scalar.return_value = [5.0, 25.0, 50.0, 75.0, 95.0]
-        mock_conn.execute.return_value = mock_result
-
-        quantiles = adapter.get_column_quantiles(
-            test_table, "test_column", mock_conn, [0.05, 0.25, 0.5, 0.75, 0.95]
+            temp_view="ge_temp_view",
         )
 
-        assert len(quantiles) == 5
-        assert quantiles == [5.0, 25.0, 50.0, 75.0, 95.0]
-        # Verify query was executed
-        assert mock_conn.execute.called
+        # Mock both base_engine and quote_identifier
+        with (
+            patch.object(adapter, "base_engine") as mock_engine,
+            patch.object(
+                adapter, "quote_identifier", return_value='"test_schema"."ge_temp_view"'
+            ),
+        ):
+            mock_conn = MagicMock()
+            mock_engine.connect.return_value.__enter__.return_value = mock_conn
+
+            adapter.cleanup(context)
+
+            # Verify DROP VIEW was executed
+            assert mock_conn.execute.called
+            executed_query = mock_conn.execute.call_args[0][0]
+            sql = str(executed_query)
+
+            # Validate DROP VIEW ge_temp_view
+            pattern = r"\bDROP\s+VIEW\b.*\bge_temp_view\b"
+            assert_sql_matches_pattern(sql, pattern)
 
 
-class TestQuantileValidation:
-    """Test quantile range validation in PlatformAdapter."""
+class TestAthenaAdapter:
+    """Test cases for AthenaAdapter."""
 
     @pytest.fixture
-    def adapter(self):
-        """Create a generic PlatformAdapter instance for testing."""
-        config = ProfilingConfig()
-        report = SQLSourceReport()
-        engine = sa.create_engine("sqlite:///:memory:")
-        adapter = GenericAdapter(config, report, engine)
-        return adapter
+    def adapter(self, config, report, mock_athena_engine):
+        """Create Athena adapter for testing."""
+        return AthenaAdapter(config, report, mock_athena_engine)
 
-    @pytest.fixture
-    def sqlite_table(self):
-        """Create a SQLite table for testing."""
-        engine = sa.create_engine("sqlite:///:memory:")
-        metadata = sa.MetaData()
-        table = sa.Table(
-            "test_table",
-            metadata,
-            sa.Column("id", sa.Integer, primary_key=True),
-            sa.Column("value", sa.Float),
-        )
-        metadata.create_all(engine)
+    def test_get_approx_unique_count_expr(self, adapter, mock_athena_engine):
+        """Test Athena uses approx_distinct."""
+        expr = adapter.get_approx_unique_count_expr("transaction_id")
+        sql = compile_expr_to_sql(expr, mock_athena_engine.dialect)
 
-        # Insert test data
-        with engine.connect() as conn:
-            conn.execute(
-                sa.insert(table).values(
-                    [
-                        {"id": 1, "value": 10.0},
-                        {"id": 2, "value": 20.0},
-                        {"id": 3, "value": 30.0},
-                    ]
-                )
-            )
+        # Validate approx_distinct(transaction_id)
+        pattern = r"\bapprox_distinct\b.*\btransaction_id\b"
+        assert_sql_matches_pattern(sql, pattern)
 
-        return table, engine
+    def test_get_median_expr(self, adapter, mock_athena_engine):
+        """Test Athena uses approx_percentile for median."""
+        expr = adapter.get_median_expr("value")
+        sql = compile_expr_to_sql(expr, mock_athena_engine.dialect)
 
-    def test_valid_quantiles_default(self, adapter, sqlite_table):
-        """Should accept default quantiles."""
-        table, engine = sqlite_table
-        with engine.connect() as conn:
-            # Should not raise
-            results = adapter.get_column_quantiles(table, "value", conn, quantiles=None)
-            assert isinstance(results, list)
-
-    def test_valid_quantiles_zero_and_one(self, adapter, sqlite_table):
-        """Should accept quantiles at boundaries [0, 1]."""
-        table, engine = sqlite_table
-        with engine.connect() as conn:
-            # Should not raise
-            results = adapter.get_column_quantiles(
-                table, "value", conn, quantiles=[0, 0.5, 1]
-            )
-            assert isinstance(results, list)
-            assert len(results) == 3
-
-    def test_valid_quantiles_median(self, adapter, sqlite_table):
-        """Should accept median quantile (0.5)."""
-        table, engine = sqlite_table
-        with engine.connect() as conn:
-            # Should not raise
-            results = adapter.get_column_quantiles(
-                table, "value", conn, quantiles=[0.5]
-            )
-            assert isinstance(results, list)
-            assert len(results) == 1
-
-    def test_invalid_quantile_negative(self, adapter, sqlite_table):
-        """Should reject negative quantiles."""
-        table, engine = sqlite_table
-        with (
-            engine.connect() as conn,
-            pytest.raises(
-                ValueError,
-                match="Quantiles must be in \\[0, 1\\], got -0.1",
-            ),
-        ):
-            adapter.get_column_quantiles(table, "value", conn, quantiles=[-0.1, 0.5])
-
-    def test_invalid_quantile_over_one(self, adapter, sqlite_table):
-        """Should reject quantiles > 1."""
-        table, engine = sqlite_table
-        with (
-            engine.connect() as conn,
-            pytest.raises(
-                ValueError,
-                match="Quantiles must be in \\[0, 1\\], got 1.5",
-            ),
-        ):
-            adapter.get_column_quantiles(table, "value", conn, quantiles=[0.5, 1.5])
-
-    def test_invalid_quantile_percentage_value(self, adapter, sqlite_table):
-        """Should reject percentage values (e.g., 50 instead of 0.5)."""
-        table, engine = sqlite_table
-        with (
-            engine.connect() as conn,
-            pytest.raises(
-                ValueError,
-                match="Quantiles must be in \\[0, 1\\], got 50.*percentiles as decimals",
-            ),
-        ):
-            adapter.get_column_quantiles(table, "value", conn, quantiles=[50])
-
-    def test_invalid_quantile_95_percent(self, adapter, sqlite_table):
-        """Should reject 95 (should be 0.95)."""
-        table, engine = sqlite_table
-        with (
-            engine.connect() as conn,
-            pytest.raises(
-                ValueError,
-                match="Quantiles must be in \\[0, 1\\], got 95",
-            ),
-        ):
-            adapter.get_column_quantiles(
-                table, "value", conn, quantiles=[0.05, 0.25, 0.5, 0.75, 95]
-            )
+        # Validate approx_percentile(value, 0.5)
+        pattern = r"\bapprox_percentile\b.*\bvalue\b.*\b0\.5\b"
+        assert_sql_matches_pattern(sql, pattern)

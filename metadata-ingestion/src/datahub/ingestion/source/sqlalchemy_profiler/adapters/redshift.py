@@ -123,7 +123,7 @@ class RedshiftAdapter(PlatformAdapter):
             Estimated row count, or None if query fails
         """
         try:
-            schema = table.schema or "public"
+            schema = table.schema
             table_name = table.name
 
             # Query Redshift system view using SQLAlchemy query builder
