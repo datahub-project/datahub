@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 from freezegun import freeze_time
-from tableauserverclient import Server
+from tableauserverclient import Server, SiteItem
 
 import datahub.ingestion.source.tableau.tableau_constant as c
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
@@ -956,3 +956,78 @@ def test_custom_sql_datasource_naming_scenarios(
     else:
         assert dataset_properties is not None
         assert dataset_properties.name == expected_name
+
+
+@pytest.mark.parametrize(
+    "extract_table_lineage_without_columns,expected_upstream_count,expected_processed_count,expected_skipped_count",
+    [
+        (True, 1, 1, 0),  # Flag enabled: create lineage, increment processed counter
+        (False, 0, 0, 1),  # Flag disabled: skip table, increment skipped counter
+    ],
+)
+def test_extract_table_lineage_without_columns_flag(
+    extract_table_lineage_without_columns,
+    expected_upstream_count,
+    expected_processed_count,
+    expected_skipped_count,
+):
+    """Test extract_table_lineage_without_columns flag behavior"""
+    config = TableauConfig(
+        connect_uri="http://test",
+        username="test",
+        password="test",
+        extract_table_lineage_without_columns=extract_table_lineage_without_columns,
+        site="test",
+    )
+
+    ctx = PipelineContext(run_id="test")
+    site = SiteItem(name="test-site", content_url="test")
+    site._id = "test-site-id"
+    report = TableauSourceReport()
+
+    with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
+        source = TableauSiteSource(
+            config=config,
+            ctx=ctx,
+            site=site,
+            report=report,
+            server=mock.MagicMock(),
+            platform="tableau",
+        )
+
+        with mock.patch.object(
+            TableauUpstreamReference,
+            "create",
+            return_value=mock.MagicMock(
+                make_dataset_urn=mock.MagicMock(
+                    return_value="urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table,PROD)"
+                )
+            ),
+        ):
+            tables = [
+                {
+                    c.ID: "table-123",
+                    c.NAME: "my_table",
+                    c.COLUMNS_CONNECTION: {"totalCount": 0},  # NO COLUMNS
+                    c.DATABASE: {"name": "test_db"},
+                    c.SCHEMA: "test_schema",
+                    c.CONNECTION_TYPE: "snowflake",
+                }
+            ]
+
+            upstream_tables, table_id_to_urn = source.get_upstream_tables(
+                tables=tables,
+                datasource_name="test_datasource",
+                browse_path="/test",
+                is_custom_sql=False,
+            )
+
+            assert len(upstream_tables) == expected_upstream_count
+            assert len(table_id_to_urn) == expected_upstream_count
+            assert (
+                report.num_upstream_table_processed_without_columns
+                == expected_processed_count
+            )
+            assert (
+                report.num_upstream_table_skipped_no_columns == expected_skipped_count
+            )
