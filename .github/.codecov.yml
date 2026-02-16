@@ -36,6 +36,9 @@ flag_management:
     - name: datahub-actions
       paths:
         - "datahub-actions/**"
+    - name: datahub-agent-context
+      paths:
+        - "datahub-agent-context/**"
     - name: metadata-io
       paths:
         - "metadata-io/**"
