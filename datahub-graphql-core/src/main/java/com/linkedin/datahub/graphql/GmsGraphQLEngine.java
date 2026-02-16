@@ -602,7 +602,7 @@ public class GmsGraphQLEngine {
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
     this.semanticSearchConfiguration = args.semanticSearchConfiguration;
 
-    this.datasetType = new DatasetType(entityClient);
+    this.datasetType = new DatasetType(entityClient, featureFlags);
     this.roleType = new RoleType(entityClient);
     this.corpUserType = new CorpUserType(entityClient, featureFlags);
     this.corpGroupType = new CorpGroupType(entityClient);
@@ -1299,16 +1299,19 @@ public class GmsGraphQLEngine {
                   "moveDomain", new MoveDomainResolver(this.entityService, this.entityClient))
               .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
               .dataFetcher(
-                  "setDomain", new SetDomainResolver(this.entityClient, this.entityService))
+                  "setDomain",
+                  new SetDomainResolver(this.entityClient, this.entityService, this.featureFlags))
               .dataFetcher(
-                  "batchSetDomain", new BatchSetDomainResolver(this.entityService, entityClient))
+                  "batchSetDomain",
+                  new BatchSetDomainResolver(this.entityService, entityClient, this.featureFlags))
               .dataFetcher(
                   "updateDeprecation",
                   new UpdateDeprecationResolver(this.entityClient, this.entityService))
               .dataFetcher(
                   "batchUpdateDeprecation", new BatchUpdateDeprecationResolver(entityService))
               .dataFetcher(
-                  "unsetDomain", new UnsetDomainResolver(this.entityClient, this.entityService))
+                  "unsetDomain",
+                  new UnsetDomainResolver(this.entityClient, this.entityService, this.featureFlags))
               .dataFetcher(
                   "createSecret", new CreateSecretResolver(this.entityClient, this.secretService))
               .dataFetcher("deleteSecret", new DeleteSecretResolver(this.entityClient))
@@ -1376,7 +1379,8 @@ public class GmsGraphQLEngine {
                   "createNativeUserResetToken",
                   new CreateNativeUserResetTokenResolver(this.nativeUserService))
               .dataFetcher(
-                  "batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
+                  "batchUpdateSoftDeleted",
+                  new BatchUpdateSoftDeletedResolver(this.entityService, this.entityClient))
               .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
               .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
               .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))

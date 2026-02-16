@@ -1,5 +1,6 @@
 package io.datahubproject.metadata.context;
 
+import com.datahub.authorization.AuthorizationSession;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
@@ -7,6 +8,7 @@ import com.linkedin.metadata.entity.SearchRetriever;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -19,6 +21,7 @@ public class RetrieverContext
   @Nonnull private final AspectRetriever aspectRetriever;
   @Nonnull private final CachingAspectRetriever cachingAspectRetriever;
   @Nonnull private final SearchRetriever searchRetriever;
+  @Nullable private final AuthorizationSession authorizationSession;
 
   @Override
   public Optional<Integer> getCacheKeyComponent() {
@@ -40,7 +43,8 @@ public class RetrieverContext
           this.graphRetriever,
           Objects.requireNonNull(this.aspectRetriever),
           Objects.requireNonNull(this.cachingAspectRetriever),
-          this.searchRetriever);
+          this.searchRetriever,
+          this.authorizationSession);
     }
   }
 

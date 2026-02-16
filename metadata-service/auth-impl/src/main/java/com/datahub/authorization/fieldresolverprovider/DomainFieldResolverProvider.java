@@ -80,8 +80,43 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
     return parentUrns;
   }
 
+  /**
+   * Helper method to build domain field value from a Domains aspect. Includes the domain and all
+   * parent domains.
+   */
+  private FieldResolver.FieldValue buildDomainFieldValue(
+      @Nonnull OperationContext opContext, Domains domains) {
+    final Set<Urn> domainUrns = new HashSet<>(domains.getDomains());
+    Set<Urn> batchedParentUrns = getBatchedParentDomains(opContext, domainUrns);
+    batchedParentUrns.removeAll(domainUrns);
+
+    while (!batchedParentUrns.isEmpty()) {
+      domainUrns.addAll(batchedParentUrns);
+      batchedParentUrns = getBatchedParentDomains(opContext, batchedParentUrns);
+      batchedParentUrns.removeAll(domainUrns);
+    }
+
+    return FieldResolver.FieldValue.builder()
+        .values(domainUrns.stream().map(Object::toString).collect(Collectors.toSet()))
+        .build();
+  }
+
   private FieldResolver.FieldValue getDomains(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+
+    // Check for proposed domains aspect first (used during authorization of domain changes)
+    if (entitySpec.getProposedAspects() != null
+        && entitySpec.getProposedAspects().containsKey(DOMAINS_ASPECT_NAME)) {
+      try {
+        Domains proposedDomains =
+            (Domains) entitySpec.getProposedAspects().get(DOMAINS_ASPECT_NAME);
+        return buildDomainFieldValue(opContext, proposedDomains);
+      } catch (Exception e) {
+        log.error(
+            "Error while processing proposed domains aspect for entitySpec {}", entitySpec, e);
+        return FieldResolver.emptyFieldValue();
+      }
+    }
 
     final EnvelopedAspect domainsAspect;
     try {
@@ -113,24 +148,7 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
       return FieldResolver.emptyFieldValue();
     }
 
-    /*
-     * Build up a set of all directly referenced domains and any of the domains' parent domains.
-     * To avoid cycles we remove any parents we've already visited to prevent an infinite loop cycle.
-     */
-
-    final Set<Urn> domainUrns =
-        new HashSet<>(new Domains(domainsAspect.getValue().data()).getDomains());
-    Set<Urn> batchedParentUrns = getBatchedParentDomains(opContext, domainUrns);
-    batchedParentUrns.removeAll(domainUrns);
-
-    while (!batchedParentUrns.isEmpty()) {
-      domainUrns.addAll(batchedParentUrns);
-      batchedParentUrns = getBatchedParentDomains(opContext, batchedParentUrns);
-      batchedParentUrns.removeAll(domainUrns);
-    }
-
-    return FieldResolver.FieldValue.builder()
-        .values(domainUrns.stream().map(Object::toString).collect(Collectors.toSet()))
-        .build();
+    // Build domain field value from database aspect (includes parent domains)
+    return buildDomainFieldValue(opContext, new Domains(domainsAspect.getValue().data()));
   }
 }

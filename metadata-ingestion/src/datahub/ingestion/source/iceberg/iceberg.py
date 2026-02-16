@@ -495,6 +495,12 @@ class IcebergSource(StatefulIngestionSourceBase):
             yield self._create_browse_paths_aspect(dpi.instance, str(namespace_urn))
             yield ContainerClass(container=str(namespace_urn))
 
+            # Support for default_domain config option
+            if self.config.default_domain:
+                from datahub.metadata.schema_classes import DomainsClass
+
+                yield DomainsClass(domains=[self.config.default_domain])
+
         self.report.report_table_processing_time(
             timer.elapsed_seconds(), dataset_name, table.metadata_location
         )
@@ -686,6 +692,12 @@ class IcebergSource(StatefulIngestionSourceBase):
         dpi = self._get_dataplatform_instance_aspect()
         yield dpi
         yield self._create_browse_paths_aspect(dpi.instance)
+
+        # Support for default_domain config option for containers
+        if self.config.default_domain:
+            from datahub.metadata.schema_classes import DomainsClass
+
+            yield DomainsClass(domains=[self.config.default_domain])
 
 
 class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):

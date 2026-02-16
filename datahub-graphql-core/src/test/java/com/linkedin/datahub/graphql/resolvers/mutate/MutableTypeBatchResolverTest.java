@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.BatchDatasetUpdateInput;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetDeprecationUpdate;
@@ -72,12 +73,18 @@ public class MutableTypeBatchResolverTest {
     }
   }
 
+  private FeatureFlags getMockFeatureFlags() {
+    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
+    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(false);
+    return mockFlags;
+  }
+
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     BatchMutableType<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> batchMutableType =
-        new DatasetType(mockClient);
+        new DatasetType(mockClient, getMockFeatureFlags());
 
     MutableTypeBatchResolver<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> resolver =
         new MutableTypeBatchResolver<>(batchMutableType);
@@ -171,7 +178,7 @@ public class MutableTypeBatchResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     BatchMutableType<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> batchMutableType =
-        new DatasetType(mockClient);
+        new DatasetType(mockClient, getMockFeatureFlags());
 
     MutableTypeBatchResolver<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> resolver =
         new MutableTypeBatchResolver<>(batchMutableType);

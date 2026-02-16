@@ -7,6 +7,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.DomainAuthorizationHelper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -14,6 +15,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
@@ -22,6 +24,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -82,12 +85,44 @@ public class DomainUtils {
       @Nullable Urn domainUrn,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService<?> entityService)
+      EntityService<?> entityService,
+      boolean isDomainBasedAuthorizationEnabled)
       throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
       changes.add(buildSetDomainProposal(opContext, domainUrn, resource, actor, entityService));
     }
+
+    // Only perform domain-based authorization if enabled
+    // When disabled, authorization is handled by caller (e.g., BatchSetDomainResolver)
+    if (isDomainBasedAuthorizationEnabled) {
+      // Extract NEW domains from MCPs (no database reads)
+      Map<Urn, Set<Urn>> newDomainsByEntity =
+          DomainExtractionUtils.extractNewDomainsFromMCPs(changes);
+
+      // Authorize with DomainAuthorizationHelper (handles 3-step bulk flow automatically)
+      // Step 1: Check proposed domains individually
+      // Step 2: Batch existence check
+      // Step 3: Bulk authorize existing URNs (FieldResolver fetches existing domains)
+      Map<MetadataChangeProposal, Boolean> authResults =
+          DomainAuthorizationHelper.authorizeWithDomains(
+              opContext,
+              opContext.getEntityRegistry(),
+              changes,
+              newDomainsByEntity,
+              opContext.getAspectRetriever());
+
+      // Check authorization results and throw if any MCP is unauthorized
+      authResults.forEach(
+          (mcp, authorized) -> {
+            if (!authorized) {
+              throw new AuthorizationException(
+                  String.format(
+                      "Unauthorized to update domains for entity %s", mcp.getEntityUrn()));
+            }
+          });
+    }
+
     EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
 

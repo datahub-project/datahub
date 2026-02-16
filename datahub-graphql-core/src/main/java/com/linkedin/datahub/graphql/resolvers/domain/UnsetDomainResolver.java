@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
@@ -33,6 +34,7 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
   private final EntityClient _entityClient;
   private final EntityService<?>
       _entityService; // TODO: Remove this when 'exists' added to EntityClient
+  private final FeatureFlags _featureFlags;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -42,10 +44,12 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(
-              environment.getContext(), entityUrn, _entityClient)) {
-            throw new AuthorizationException(
-                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          if (!_featureFlags.isDomainBasedAuthorizationEnabled()) {
+            if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(
+                environment.getContext(), entityUrn, _entityClient)) {
+              throw new AuthorizationException(
+                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
+            }
           }
 
           validateUnsetDomainInput(context.getOperationContext(), entityUrn, _entityService);

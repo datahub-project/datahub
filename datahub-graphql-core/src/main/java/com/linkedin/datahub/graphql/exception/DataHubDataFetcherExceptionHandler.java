@@ -1,11 +1,15 @@
 package com.linkedin.datahub.graphql.exception;
 
+import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import graphql.PublicApi;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
 import graphql.language.SourceLocation;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,14 +29,6 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     DataHubGraphQLErrorCode errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
     String message = DEFAULT_ERROR_MESSAGE;
 
-    IllegalArgumentException illException =
-        findFirstThrowableCauseOfClass(exception, IllegalArgumentException.class);
-    if (illException != null) {
-      log.error("Failed to execute", illException);
-      errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
-      message = extractErrorMessage(illException);
-    }
-
     DataHubGraphQLException graphQLException =
         findFirstThrowableCauseOfClass(exception, DataHubGraphQLException.class);
     if (graphQLException != null) {
@@ -41,12 +37,40 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       message = extractErrorMessage(graphQLException);
     }
 
-    ValidationException validationException =
+    ValidationException entityServiceValidationException =
         findFirstThrowableCauseOfClass(exception, ValidationException.class);
-    if (validationException != null) {
+    if (entityServiceValidationException != null
+        && entityServiceValidationException.getValidationExceptionCollection() != null
+        && entityServiceValidationException
+            .getValidationExceptionCollection()
+            .getSubTypes()
+            .contains(ValidationSubType.AUTHORIZATION)) {
+      log.error("Failed to execute - authorization denied", entityServiceValidationException);
+      errorCode = DataHubGraphQLErrorCode.UNAUTHORIZED;
+      message = extractErrorMessage(entityServiceValidationException);
+    }
+
+    if (entityServiceValidationException != null && message.equals(DEFAULT_ERROR_MESSAGE)) {
+      log.error("Failed to execute - validation error", entityServiceValidationException);
+      errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
+      message = extractErrorMessage(entityServiceValidationException);
+    }
+
+    com.linkedin.datahub.graphql.exception.ValidationException validationException =
+        findFirstThrowableCauseOfClass(
+            exception, com.linkedin.datahub.graphql.exception.ValidationException.class);
+    if (validationException != null && message.equals(DEFAULT_ERROR_MESSAGE)) {
       log.error("Failed to execute", validationException);
       errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
       message = extractErrorMessage(validationException);
+    }
+
+    IllegalArgumentException illException =
+        findFirstThrowableCauseOfClass(exception, IllegalArgumentException.class);
+    if (illException != null && message.equals(DEFAULT_ERROR_MESSAGE)) {
+      log.error("Failed to execute", illException);
+      errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
+      message = extractErrorMessage(illException);
     }
 
     IllegalStateException illegalStateException =
@@ -67,6 +91,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
 
     if (illException == null
         && graphQLException == null
+        && entityServiceValidationException == null
         && validationException == null
         && illegalStateException == null
         && runtimeException == null) {
@@ -106,7 +131,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
 
     // Walk the exception chain to find root causes
     Throwable cause = exception.getCause();
-    java.util.List<String> causeMessages = new java.util.ArrayList<>();
+    List<String> causeMessages = new ArrayList<>();
 
     while (cause != null && cause != cause.getCause()) {
       String causeMessage = cause.getMessage();

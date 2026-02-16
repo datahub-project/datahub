@@ -239,6 +239,23 @@ public class OperationContext implements AuthorizationSession {
   @Builder.Default @Nonnull
   private final List<Object> pendingDeletions = new java.util.ArrayList<>();
 
+  /** Override Lombok-generated getter to inject authorization session into RetrieverContext */
+  public RetrieverContext getRetrieverContext() {
+    // If the retrieverContext already has a session, return it as-is
+    if (retrieverContext.getAuthorizationSession() != null) {
+      return retrieverContext;
+    }
+
+    // Otherwise, rebuild with this OperationContext as the authorization session
+    return io.datahubproject.metadata.context.RetrieverContext.builder()
+        .graphRetriever(retrieverContext.getGraphRetriever())
+        .aspectRetriever(retrieverContext.getAspectRetriever())
+        .cachingAspectRetriever(retrieverContext.getCachingAspectRetriever())
+        .searchRetriever(retrieverContext.getSearchRetriever())
+        .authorizationSession(this) // Inject the OperationContext as the authorization session
+        .build();
+  }
+
   public OperationContext withSearchFlags(
       @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
     return OperationContext.withSearchFlags(this, flagDefaults);
