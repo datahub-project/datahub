@@ -65,7 +65,7 @@ jobs:
         if: (!cancelled())
         uses: ./.github/actions/report-test-results
         with:
-          artifact-name: ingestion-gx-plugin-test-results
+          artifact-name: ingestion-gx-plugin-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}-test-results
           test-results-path: "metadata-ingestion-modules/gx-plugin/test-results/**"
           junit-file-glob: "metadata-ingestion-modules/gx-plugin/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag

@@ -65,7 +65,7 @@ jobs:
         if: (!cancelled())
         uses: ./.github/actions/report-test-results
         with:
-          artifact-name: ingestion-dagster-test-results
+          artifact-name: ingestion-dagster-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}-test-results
           test-results-path: "metadata-ingestion/dagster-plugin/test-results/**"
           junit-file-glob: "metadata-ingestion/dagster-plugin/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag

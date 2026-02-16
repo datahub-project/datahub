@@ -60,7 +60,7 @@ jobs:
         if: (!cancelled())
         uses: ./.github/actions/report-test-results
         with:
-          artifact-name: ingestion-prefect-test-results
+          artifact-name: ingestion-prefect-${{ matrix.python-version }}-test-results
           test-results-path: "metadata-ingestion-modules/prefect-plugin/test-results/**"
           junit-file-glob: "metadata-ingestion-modules/prefect-plugin/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag
