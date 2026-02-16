@@ -51,6 +51,12 @@ dependencies {
     implementation(externalDependency.snappy) {
       because 'CVE-2023-34453: snappy-java integer overflow in BitShuffle'
     }
+    provided(externalDependency.gson) {
+      because 'Gson before 2.8.9: deserialization DoS (writeReplace)'
+    }
+    implementation(externalDependency.gson) {
+      because 'Gson before 2.8.9: deserialization DoS (writeReplace)'
+    }
   }
 
   provided 'org.scala-lang:scala-library:2.12.18'
