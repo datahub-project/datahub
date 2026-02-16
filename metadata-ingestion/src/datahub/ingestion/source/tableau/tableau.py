@@ -604,6 +604,13 @@ class TableauConfig(
         description="[Experimental] Force extraction of lineage from Custom SQL queries using DataHub's SQL parser, even when the Tableau Catalog API returns lineage already.",
     )
 
+    extract_table_lineage_without_columns: bool = Field(
+        default=True,
+        description="Create table-level lineage for upstream tables even when the Tableau Metadata API doesn't return column metadata. "
+        "When enabled (default), tables without column information will still appear in lineage graphs with table-level relationships. "
+        "When disabled, mimics the legacy behavior of skipping these tables entirely.",
+    )
+
     sql_parsing_disable_schema_awareness: bool = Field(
         default=False,
         description="[Experimental] Ignore pre ingested tables schemas during parsing of SQL queries "
@@ -1940,18 +1947,31 @@ class TableauSiteSource:
         # Same table urn can be used when setting fine grained lineage,
         table_id_to_urn: Dict[str, str] = {}
         for table in tables:
-            # skip upstream tables when there is no column info when retrieving datasource
-            # Lineage and Schema details for these will be taken care in self.emit_custom_sql_datasources()
+            # Extract column count if available
             num_tbl_cols: Optional[int] = table.get(c.COLUMNS_CONNECTION) and table[
                 c.COLUMNS_CONNECTION
             ].get("totalCount")
+
+            # Check if we should skip tables without column metadata
             if not is_custom_sql and not num_tbl_cols:
-                self.report.num_upstream_table_skipped_no_columns += 1
-                logger.warning(
-                    f"Skipping upstream table with id {table[c.ID]}, no columns: {table}"
-                )
-                continue
-            elif table[c.NAME] is None:
+                if not self.config.extract_table_lineage_without_columns:
+                    # Legacy behavior: skip entirely
+                    self.report.num_upstream_table_skipped_no_columns += 1
+                    logger.warning(
+                        f"Skipping upstream table with id {table[c.ID]}, no columns: {table}"
+                    )
+                    continue
+                else:
+                    # New behavior: log warning but proceed to create table-level lineage
+                    self.report.num_upstream_table_skipped_no_columns += 1
+                    logger.warning(
+                        f"Table {table[c.ID]} has no column metadata from Tableau API. "
+                        f"Creating table-level lineage only (column-level lineage will be skipped). "
+                        f"Table details: {table}"
+                    )
+                    # Continue processing to create table-level lineage below
+
+            if table[c.NAME] is None:
                 self.report.num_upstream_table_skipped_no_name += 1
                 logger.warning(
                     f"Skipping upstream table {table[c.ID]} from lineage since its name is none: {table}"
