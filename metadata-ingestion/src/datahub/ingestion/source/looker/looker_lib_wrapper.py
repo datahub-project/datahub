@@ -91,11 +91,7 @@ class LookerAPI:
         os.environ["LOOKERSDK_CLIENT_SECRET"] = config.client_secret.get_secret_value()
         os.environ["LOOKERSDK_BASE_URL"] = config.base_url
 
-        try:
-            self.client = looker_sdk.init40()
-        finally:
-            # Always clear secret from environment, even if init40() throws
-            os.environ.pop("LOOKERSDK_CLIENT_SECRET", None)
+        self.client = looker_sdk.init40()
 
         # Somewhat hacky mechanism for enabling retries on the Looker SDK.
         # Unfortunately, it doesn't expose a cleaner way to do this.
