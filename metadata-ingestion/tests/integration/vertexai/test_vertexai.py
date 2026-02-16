@@ -47,6 +47,11 @@ def get_pipeline_config(sink_file_path: str) -> Dict[str, Any]:
 
 def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None:
     with contextlib.ExitStack() as exit_stack:
+        # Mock Google auth to prevent auto-discovery of credentials
+        exit_stack.enter_context(
+            patch("google.auth.default", return_value=(None, None))
+        )
+
         for func_to_mock in [
             "google.cloud.aiplatform.init",
             "google.cloud.aiplatform.datasets.TextDataset.list",
@@ -154,6 +159,11 @@ def test_vertexai_platform_instance_config(
     }
 
     with contextlib.ExitStack() as exit_stack:
+        # Mock Google auth to prevent auto-discovery of credentials
+        exit_stack.enter_context(
+            patch("google.auth.default", return_value=(None, None))
+        )
+
         for func_to_mock in [
             "google.cloud.aiplatform.init",
             "google.cloud.aiplatform.Model.list",
