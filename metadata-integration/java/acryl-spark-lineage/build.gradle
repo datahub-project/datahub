@@ -32,6 +32,12 @@ dependencies {
     provided(externalDependency.commonsIo) {
       because 'required for org.apache.commons.io.Charsets that is used internally'
     }
+    provided(externalDependency.snappy) {
+      because 'CVE-2023-34453: snappy-java integer overflow in BitShuffle'
+    }
+    implementation(externalDependency.snappy) {
+      because 'CVE-2023-34453: snappy-java integer overflow in BitShuffle'
+    }
   }
 
   provided(externalDependency.sparkSql)

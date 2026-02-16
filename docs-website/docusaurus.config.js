@@ -100,7 +100,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-3",
       content:
-        '<div class="shimmer-banner"><p>January Town Hall</p><a href="https://events.datahub.com/january-townhall-2026/?utm_term=docs" target="_blank" class="button"><div>Watch on Demand<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><span>February Town Hall 2/26</span><a href="https://luma.com/zp3h4ex8?utm_term=docs" target="_blank" class="button"><div>Register Here<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
