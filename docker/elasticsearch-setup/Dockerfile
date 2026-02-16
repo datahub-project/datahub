@@ -6,7 +6,7 @@ ARG APP_ENV=prod
 # Defining custom repo urls for use in enterprise environments. Re-used between stages below.
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 
-FROM alpine:3.22 AS base
+FROM alpine:3.23 AS base
 
 ARG ALPINE_REPO_URL
 

@@ -56,6 +56,7 @@ from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    FlowContainerSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
@@ -1569,30 +1570,62 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
     ) -> Iterable[MetadataWorkUnit]:
         if procedures:
-            yield from generate_procedure_container_workunits(
-                database_key=gen_database_key(
-                    database=db_name,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
-                schema_key=gen_schema_key(
-                    db_name=db_name,
-                    schema=schema,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
+            database_key = gen_database_key(
+                database=db_name,
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
             )
+            schema_key = gen_schema_key(
+                db_name=db_name,
+                schema=schema,
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            # Create a single stored_procedures container for all procedures and functions
+            # Individual procedures/functions will have their own subtype (FUNCTION or STORED_PROCEDURE)
+            yield from generate_procedure_container_workunits(
+                database_key=database_key,
+                schema_key=schema_key,
+                subtype=FlowContainerSubTypes.PROCEDURE_CONTAINER,
+            )
+
+        # Build procedure registry for resolving procedure-to-procedure lineage
+        # Maps "schema.procedure_name" -> full identifier (with hash if overloaded)
+        # This registry includes ALL procedures/functions regardless of subtype
+        procedure_registry: Dict[str, str] = {}
+        for proc in procedures:
+            registry_key = f"{schema.lower()}.{proc.name.lower()}"
+            procedure_registry[registry_key] = proc.get_procedure_identifier()
+
         for procedure in procedures:
-            yield from self._process_procedure(procedure, schema, db_name)
+            yield from self._process_procedure(
+                procedure, schema, db_name, procedure_registry
+            )
 
     def _process_procedure(
         self,
         procedure: BaseProcedure,
         schema: str,
         db_name: str,
+        procedure_registry: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        """
+        Process a single stored procedure.
+
+        Override this method in subclasses to add source-specific logic like
+        procedure-to-procedure lineage from system metadata.
+
+        Args:
+            procedure: Stored procedure metadata
+            schema: Schema name containing the procedure
+            db_name: Database name
+            procedure_registry: Map of "schema.procedure_name" -> full DataJob identifier
+                               (with hash suffix if overloaded). Used for resolving
+                               procedure-to-procedure lineage dependencies.
+        """
         try:
             yield from generate_procedure_workunits(
                 procedure=procedure,

@@ -3915,3 +3915,67 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **0f5ac546e4** - Bump version (#16181)
   *by Ben Blazke <benjiaming@users.noreply.github.com> on 2026-02-11*
+
+## Upstream Merge Session - 2026-02-13 12:19:48
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 17
+- **Strategy**: stacked
+- **Started**: 2026-02-13 12:19:48
+
+### Commits Included in This Merge
+
+- **95bbec7e35** - chore(build): Rename pipIndexUrl to pipIndexUrls (#16177)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-02-12*
+
+- **a08c0b374c** - Add contributor name to avoid community contribution label (#16175)
+  *by Govind Mishra <govind.mishra@datahub.com> on 2026-02-12*
+
+- **9556371588** - fix(kafka): Unpack MCE records into MCPs in Kafka sink (#16062)
+  *by Max Margalith <max.margalith@datahub.com> on 2026-02-12*
+
+- **738ad62fd4** - feat(ingest/fivetran): make ingestion limits configurable (#15457)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-02-12*
+
+- **4791452ea3** - fix(cypress) Fix flakiness of v2_glossaryTerm.js test (#16186)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-02-12*
+
+- **7f45c44db5** - chore(docker): bump Alpine base image to 3.23 (#16189)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-12*
+
+- **b9778d3771** - docs(features): small typo fix and added missing word (#16039)
+  *by Brett Randall <brett.randall@datahub.com> on 2026-02-13*
+
+- **4da82d5bba** - fix(redirect): fix open redirect filter (#16178)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-12*
+
+- **fe530e9c82** - chore(): Upgrade testcontainers (#16196)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-12*
+
+- **fe6423e676** - fix(cypress): fix cypress tests after updating feature flags (#16102)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-02-13*
+
+- **ef55e85d4a** - fix(ingestion): prevent changing of source type for existing ingestion sources (#16152)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-02-13*
+
+- **e42f4a3d18** - tests(cypress): add lineage filtering tests (#16021)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-02-13*
+
+- **c4f4edca7f** - dockerignore - Exclude Git Objects to speed up the builds (#16199)
+  *by ani-malgari <anirudh.malgari@datahub.com> on 2026-02-12*
+
+- **37a34de6cf** - feat(description update): allow updating top level description via th… (#16192)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-02-12*
+
+- **528cfe17c0** - feat(ingestion/stored-proc): Add stored procedure lineage with improved pl/sql parsing and function support (#16067)
+  *by Jonny Dixon <45681293+acrylJonny@users.noreply.github.com> on 2026-02-13*
+
+- **d96a7c023a** - fix(ci): remove labeled trigger (#16202)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-02-13*
+
+- **038b5f7ce5** - fix(ingestion/oracle): retrieve database name when using service_name with ALL mode (#16142)
+  *by Jonny Dixon <45681293+acrylJonny@users.noreply.github.com> on 2026-02-13*

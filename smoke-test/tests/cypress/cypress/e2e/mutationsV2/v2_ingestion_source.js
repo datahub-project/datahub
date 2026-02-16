@@ -8,11 +8,13 @@ const ingestion_source_name = `ingestion source ${number}`;
 
 describe("ingestion source creation flow", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
+    cy.setFeatureFlags(true, (res) => {
+      res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
+    });
   });
   it("create a ingestion source using ui, verify ingestion source details saved correctly, remove ingestion source", () => {
     // Go to ingestion page, create a snowflake source
-    cy.loginWithCredentials();
+    cy.login();
     cy.skipIntroducePage();
     cy.goToIngestionPage();
     cy.get('[data-node-key="Sources"]').click();

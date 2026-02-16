@@ -6,7 +6,7 @@ ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 
-FROM alpine:3.22 AS base
+FROM alpine:3.23 AS base
 
 # Re-declaring args from above to make them available in this stage (will inherit default values)
 ARG ALPINE_REPO_URL
