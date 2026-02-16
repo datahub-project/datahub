@@ -98,6 +98,11 @@ By default (when `extract_table_lineage_without_columns: true`), DataHub will st
 
 To revert to the legacy behavior of skipping these tables entirely, set `extract_table_lineage_without_columns: false` in your ingestion recipe.
 
+**Observability**: The ingestion report tracks these tables separately:
+
+- `num_upstream_table_processed_without_columns` - Tables processed with table-level lineage despite missing column metadata (new behavior)
+- `num_upstream_table_skipped_no_columns` - Tables completely skipped due to missing column metadata (legacy behavior)
+
 #### Caveats
 
 - Tableau metadata API might return incorrect schema name for tables for some databases, leading to incorrect metadata in DataHub. This source attempts to extract correct schema from databaseTable's fully qualified name, wherever possible. Read [Using the databaseTable object in query](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute) for caveats in using schema attribute.

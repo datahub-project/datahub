@@ -838,6 +838,7 @@ class TableauSourceReport(
     num_upstream_fine_grained_lineage: int = 0
     num_upstream_table_skipped_no_name: int = 0
     num_upstream_table_skipped_no_columns: int = 0
+    num_upstream_table_processed_without_columns: int = 0
     num_upstream_table_failed_generate_reference: int = 0
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
@@ -1963,7 +1964,7 @@ class TableauSiteSource:
                     continue
                 else:
                     # New behavior: log warning but proceed to create table-level lineage
-                    self.report.num_upstream_table_skipped_no_columns += 1
+                    self.report.num_upstream_table_processed_without_columns += 1
                     logger.warning(
                         f"Table {table[c.ID]} has no column metadata from Tableau API. "
                         f"Creating table-level lineage only (column-level lineage will be skipped). "
