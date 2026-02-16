@@ -55,6 +55,8 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           #handle_no_reports_found: true
           fail_ci_if_error: false
+          disable_search: true
+          files: ./datahub-actions/.coverage
           name: datahub-actions
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
