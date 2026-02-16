@@ -109,22 +109,27 @@ class BigQueryAdapter(PlatformAdapter):
             Updated context with temp_table populated
         """
         if context.custom_sql:
+            # User-provided SQL - pass through as-is
             bq_sql = context.custom_sql
         else:
+            # Build query using SQLAlchemy query builder to prevent SQL injection
             # Table must be present if we're not using custom_sql
             if not context.table:
                 raise ValueError(
                     f"Cannot profile {context.pretty_name}: table name is required"
                 )
 
-            # Safely quote table identifier to prevent SQL injection
-            table_identifier = (
-                f"{context.schema}.{context.table}" if context.schema else context.table
+            # Create SQLAlchemy Table object for safe query construction
+            table_obj = sa.Table(
+                context.table,
+                sa.MetaData(),
+                schema=context.schema,
             )
-            quoted_table = self.quote_identifier(table_identifier)
-            bq_sql = f"SELECT * FROM {quoted_table}"
 
-            # Validate and add LIMIT/OFFSET as integers to prevent SQL injection
+            # Build SELECT * query using query builder
+            query = sa.select(sa.text("*")).select_from(table_obj)
+
+            # Add LIMIT if configured
             if self.config.limit:
                 # Pydantic validates this is an int, but ensure it's positive
                 limit_val = int(self.config.limit)
@@ -132,8 +137,9 @@ class BigQueryAdapter(PlatformAdapter):
                     raise ValueError(
                         f"Invalid LIMIT value: {limit_val}. Must be positive."
                     )
-                bq_sql += f" LIMIT {limit_val}"
+                query = query.limit(limit_val)
 
+            # Add OFFSET if configured
             if self.config.offset:
                 # Pydantic validates this is an int, but ensure it's non-negative
                 offset_val = int(self.config.offset)
@@ -141,7 +147,15 @@ class BigQueryAdapter(PlatformAdapter):
                     raise ValueError(
                         f"Invalid OFFSET value: {offset_val}. Must be non-negative."
                     )
-                bq_sql += f" OFFSET {offset_val}"
+                query = query.offset(offset_val)
+
+            # Compile query to SQL string for DBAPI execution
+            bq_sql = str(
+                query.compile(
+                    dialect=self.base_engine.dialect,
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
 
         # Execute query to create cached temp table
         try:
@@ -310,8 +324,12 @@ class BigQueryAdapter(PlatformAdapter):
         quoted_table = self.quote_identifier(table_identifier)
 
         # Build query with properly escaped identifiers and validated percentage
+        # SQL Injection Safety: quoted_table uses quote_identifier() (properly quoted),
+        # not user input. sample_pc is a validated float (0-100), not user input.
+        # We use f-string here because SQLAlchemy's tablesample() doesn't generate correct
+        # BigQuery syntax (PERCENT keyword required but not emitted).
         sql = (
-            f"SELECT * FROM {quoted_table} TABLESAMPLE SYSTEM ({sample_pc:.8f} percent)"
+            f"SELECT * FROM {quoted_table} TABLESAMPLE SYSTEM ({sample_pc:.8f} PERCENT)"
         )
 
         logger.debug(

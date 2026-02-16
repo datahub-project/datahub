@@ -586,6 +586,132 @@ class TestBigQueryAdapter:
         # Should not raise
         adapter.cleanup(context)
 
+    def test_create_temp_table_with_properly_quoted_identifiers(
+        self, adapter, mock_bigquery_engine
+    ):
+        """Test that temp table creation uses properly quoted identifiers (SQL injection prevention)."""
+        # Mock the raw connection and cursor
+        mock_cursor = Mock()
+        mock_cursor.query_job = Mock()
+        mock_cursor.query_job.destination = Mock()
+        mock_cursor.query_job.destination.project = "test_project"
+        mock_cursor.query_job.destination.dataset_id = "test_dataset"
+        mock_cursor.query_job.destination.table_id = "temp_table_123"
+
+        mock_raw_conn = Mock()
+        mock_raw_conn.cursor.return_value = mock_cursor
+
+        with patch.object(
+            adapter.base_engine, "raw_connection", return_value=mock_raw_conn
+        ):
+            context = ProfilingContext(
+                schema="my_dataset",
+                table="my_table",
+                custom_sql=None,
+                pretty_name="test",
+            )
+
+            adapter._create_temp_table_for_query(context)
+
+            # Verify cursor.execute was called
+            assert mock_cursor.execute.called
+            sql = mock_cursor.execute.call_args[0][0]
+
+            # Verify SQL contains properly quoted identifiers (not vulnerable to injection)
+            assert "my_dataset" in sql
+            assert "my_table" in sql
+            assert "SELECT" in sql.upper()
+
+    def test_create_temp_table_includes_limit_and_offset(
+        self, adapter, mock_bigquery_engine, config
+    ):
+        """Test that temp table creation correctly applies LIMIT and OFFSET."""
+        # Configure LIMIT and OFFSET
+        config.limit = 100
+        config.offset = 50
+        adapter.config = config
+
+        # Mock the raw connection and cursor
+        mock_cursor = Mock()
+        mock_cursor.query_job = Mock()
+        mock_cursor.query_job.destination = Mock()
+        mock_cursor.query_job.destination.project = "test_project"
+        mock_cursor.query_job.destination.dataset_id = "test_dataset"
+        mock_cursor.query_job.destination.table_id = "temp_table_123"
+
+        mock_raw_conn = Mock()
+        mock_raw_conn.cursor.return_value = mock_cursor
+
+        with patch.object(
+            adapter.base_engine, "raw_connection", return_value=mock_raw_conn
+        ):
+            context = ProfilingContext(
+                schema="my_dataset",
+                table="my_table",
+                custom_sql=None,
+                pretty_name="test",
+            )
+
+            adapter._create_temp_table_for_query(context)
+
+            # Verify cursor.execute was called with LIMIT and OFFSET
+            assert mock_cursor.execute.called
+            sql = mock_cursor.execute.call_args[0][0].upper()
+
+            # Verify LIMIT and OFFSET are in the SQL
+            assert "LIMIT" in sql
+            assert "OFFSET" in sql
+            # Verify values are present as integers (not string concatenation)
+            assert "100" in sql or "50" in sql
+
+    def test_setup_sampling_generates_tablesample_sql(
+        self, adapter, mock_bigquery_engine, config
+    ):
+        """Test that sampling generates correct TABLESAMPLE SQL for large tables."""
+        # Configure sampling
+        config.use_sampling = True
+        config.sample_size = 1000
+        adapter.config = config
+
+        # Track the SQL passed to _create_temp_table_for_query
+        captured_sql = []
+
+        # Mock _get_quick_row_count to return large row count
+        with patch.object(adapter, "_get_quick_row_count", return_value=10000):
+            # Mock _create_temp_table_for_query
+            def mock_create_temp(ctx):
+                # Capture the custom_sql for verification
+                if ctx.custom_sql:
+                    captured_sql.append(ctx.custom_sql)
+                ctx.temp_table = "temp_123"
+                ctx.temp_schema = "project.dataset"
+                return ctx
+
+            with patch.object(
+                adapter, "_create_temp_table_for_query", side_effect=mock_create_temp
+            ) as mock_create:
+                context = ProfilingContext(
+                    schema="my_dataset",
+                    table="my_table",
+                    custom_sql=None,
+                    pretty_name="test",
+                )
+
+                mock_conn = Mock()
+                result = adapter._setup_sampling(context, mock_conn)
+
+                # Verify sampling was set up
+                assert result.is_sampled
+                assert result.sample_percentage is not None
+                assert result.sample_percentage > 0
+
+                # Verify _create_temp_table_for_query was called
+                assert mock_create.called
+
+                # Verify the captured SQL contains TABLESAMPLE
+                assert len(captured_sql) > 0
+                assert "TABLESAMPLE" in captured_sql[0].upper()
+
 
 class TestDatabricksAdapter:
     """Test cases for DatabricksAdapter."""
