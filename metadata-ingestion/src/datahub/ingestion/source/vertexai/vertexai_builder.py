@@ -7,7 +7,9 @@ from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import VersionInfo
 
 from datahub.emitter import mce_builder as builder
+from datahub.ingestion.source.aws.s3_util import S3_PREFIXES, strip_s3_prefix
 from datahub.ingestion.source.azure.abs_utils import strip_abs_prefix
+from datahub.ingestion.source.gcs.gcs_utils import GCS_PREFIX, strip_gcs_prefix
 from datahub.ingestion.source.vertexai.vertexai_config import PlatformDetail
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     ExternalPlatforms,
@@ -356,12 +358,13 @@ class VertexAIURIParser:
         normalized_uri = self._strip_partition_segments(uri)
 
         try:
-            if uri.startswith("gs://"):
+            if uri.startswith(GCS_PREFIX):
+                name = strip_gcs_prefix(normalized_uri)
                 platform_detail = self._get_platform_details(ExternalPlatforms.GCS)
                 urns.append(
                     self._make_external_dataset_urn(
                         platform=ExternalPlatforms.GCS,
-                        name=normalized_uri,
+                        name=name,
                         platform_detail=platform_detail,
                     )
                 )
@@ -375,12 +378,13 @@ class VertexAIURIParser:
                         platform_detail=platform_detail,
                     )
                 )
-            elif uri.startswith("s3://") or uri.startswith("s3a://"):
+            elif any(uri.startswith(prefix) for prefix in S3_PREFIXES):
+                name = strip_s3_prefix(normalized_uri)
                 platform_detail = self._get_platform_details(ExternalPlatforms.S3)
                 urns.append(
                     self._make_external_dataset_urn(
                         platform=ExternalPlatforms.S3,
-                        name=normalized_uri,
+                        name=name,
                         platform_detail=platform_detail,
                     )
                 )
