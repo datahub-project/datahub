@@ -160,10 +160,29 @@ class TestDorisSourceMethods:
 
         from unittest.mock import patch
 
-        with patch(
-            "datahub.ingestion.source.sql.doris.doris_source.create_engine"
-        ) as mock_create:
-            mock_create.side_effect = Exception("Connection failed")
+        with (
+            patch(
+                "datahub.ingestion.source.sql.doris.doris_source.create_engine"
+            ) as mock_create,
+            patch(
+                "datahub.ingestion.source.sql.doris.doris_source.inspect"
+            ) as mock_inspect,
+        ):
+            mock_main_engine = MagicMock()
+            mock_main_conn = MagicMock()
+            mock_main_engine.connect.return_value.__enter__.return_value = (
+                mock_main_conn
+            )
+
+            mock_main_inspector = MagicMock(spec=Inspector)
+            mock_main_inspector.get_schema_names.return_value = ["db1"]
+
+            mock_inspect.return_value = mock_main_inspector
+
+            mock_create.side_effect = [
+                mock_main_engine,
+                Exception("Connection failed"),
+            ]
 
             inspectors = list(source.get_inspectors())
 
