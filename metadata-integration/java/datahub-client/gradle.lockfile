@@ -2,6 +2,7 @@
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+at.yawk.lz4:lz4-java:1.10.1=runtimeClasspath,testRuntimeClasspath
 ch.qos.logback:logback-classic:1.5.21=testRuntimeClasspath
 ch.qos.logback:logback-core:1.5.21=testRuntimeClasspath
 com.beust:jcommander:1.82=testCompileClasspath,testRuntimeClasspath
@@ -135,7 +136,6 @@ org.jacoco:org.jacoco.core:0.8.12=jacocoAnt
 org.jacoco:org.jacoco.report:0.8.12=jacocoAnt
 org.javassist:javassist:3.26.0-GA=runtimeClasspath,testRuntimeClasspath
 org.jetbrains:annotations:17.0.0=testCompileClasspath,testRuntimeClasspath
-org.lz4:lz4-java:1.8.1=runtimeClasspath,testRuntimeClasspath
 org.mock-server:mockserver-client-java:5.11.2=testCompileClasspath,testRuntimeClasspath
 org.mock-server:mockserver-core:5.11.2=testCompileClasspath,testRuntimeClasspath
 org.mock-server:mockserver-netty:5.11.2=testCompileClasspath,testRuntimeClasspath
@@ -152,7 +152,7 @@ org.reflections:reflections:0.9.12=runtimeClasspath,testRuntimeClasspath
 org.rnorth.duct-tape:duct-tape:1.0.8=testCompileClasspath,testRuntimeClasspath
 org.slf4j:slf4j-api:1.7.36=compileClasspath,runtimeClasspath,testCompileClasspath
 org.slf4j:slf4j-api:2.0.17=testRuntimeClasspath
-org.testcontainers:testcontainers:1.21.1=testCompileClasspath,testRuntimeClasspath
+org.testcontainers:testcontainers:1.21.4=testCompileClasspath,testRuntimeClasspath
 org.testng:testng:7.8.0=testCompileClasspath,testRuntimeClasspath
 org.webjars:jquery:3.6.1=testRuntimeClasspath
 org.xerial.snappy:snappy-java:1.1.10.5=runtimeClasspath,testRuntimeClasspath

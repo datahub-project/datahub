@@ -315,7 +315,8 @@ public interface HasTags<T extends Entity & HasTags<T>> {
           // Extract tag URN from path (encoded in path after /tags/)
           String encodedTagUrn = path.substring("/tags/".length());
           // The tag URN is URL-encoded in the path, decode it
-          String tagUrnString = java.net.URLDecoder.decode(encodedTagUrn, StandardCharsets.UTF_8);
+          String tagUrnString =
+              java.net.URLDecoder.decode(encodedTagUrn, StandardCharsets.UTF_8.name());
 
           try {
             TagUrn tagUrn = TagUrn.createFromString(tagUrnString);

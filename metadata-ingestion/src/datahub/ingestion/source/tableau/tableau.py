@@ -48,6 +48,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     ConfigurationError,
+    TransparentSecretStr,
 )
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
@@ -219,7 +220,7 @@ class TableauConnectionConfig(ConfigModel):
         default=None,
         description="Tableau username, must be set if authenticating using username/password.",
     )
-    password: Optional[str] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None,
         description="Tableau password, must be set if authenticating using username/password.",
     )
@@ -227,7 +228,7 @@ class TableauConnectionConfig(ConfigModel):
         default=None,
         description="Tableau token name, must be set if authenticating using a personal access token.",
     )
-    token_value: Optional[str] = Field(
+    token_value: Optional[TransparentSecretStr] = Field(
         default=None,
         description="Tableau token value, must be set if authenticating using a personal access token.",
     )
@@ -270,12 +271,12 @@ class TableauConnectionConfig(ConfigModel):
         if self.username and self.password:
             authentication = TableauAuth(
                 username=self.username,
-                password=self.password,
+                password=self.password.get_secret_value(),
                 site_id=site,
             )
         elif self.token_name and self.token_value:
             authentication = PersonalAccessTokenAuth(
-                self.token_name, self.token_value, site
+                self.token_name, self.token_value.get_secret_value(), site
             )
         else:
             raise ConfigurationError(
@@ -1842,6 +1843,18 @@ class TableauSiteSource:
                 for table_urn in table_id_to_urn.values()
             ]
 
+            # If still no upstream tables after fallback attempt, report a warning
+            if not upstream_tables:
+                self.report.warning(
+                    title="No upstream table lineage found",
+                    message=(
+                        "No upstream tables lineage found for this datasource."
+                        "If lineage is expected, this may be due to known limitations in the Tableau Metadata API not returning complete information;"
+                        "else, this warning can be ignored."
+                    ),
+                    context=f"{datasource.get(c.NAME)} (ID: {datasource.get(c.ID)})",
+                )
+
         if datasource.get(c.FIELDS):
             if self.config.extract_column_level_lineage:
                 # Find fine grained lineage for datasource column to datasource column edge,
@@ -2199,8 +2212,9 @@ class TableauSiteSource:
             )
             logger.debug(f"Processing custom sql = {csql}")
 
-            datasource_name = None
-            project = None
+            datasource_name: Optional[str] = None
+            browse_path_name: Optional[str] = None
+            project: Optional[str] = None
             columns: List[Dict[Any, Any]] = []
             if len(csql[c.DATA_SOURCES]) > 0:
                 # CustomSQLTable id owned by exactly one tableau data source
@@ -2210,17 +2224,18 @@ class TableauSiteSource:
 
                 datasource = csql[c.DATA_SOURCES][0]
                 datasource_name = datasource.get(c.NAME)
+                browse_path_name = datasource_name
                 if datasource.get(
                     c.TYPE_NAME
                 ) == c.EMBEDDED_DATA_SOURCE and datasource.get(c.WORKBOOK):
                     workbook = datasource.get(c.WORKBOOK)
-                    datasource_name = (
+                    browse_path_name = (
                         f"{workbook.get(c.NAME)}/{datasource_name}"
                         if datasource_name and workbook.get(c.NAME)
                         else None
                     )
                     logger.debug(
-                        f"Adding datasource {datasource_name}({datasource.get('id')}) to workbook container"
+                        f"Adding datasource {browse_path_name}({datasource.get('id')}) to workbook container"
                     )
                     yield from add_entity_to_container(
                         self.gen_workbook_key(workbook[c.ID]),
@@ -2282,26 +2297,27 @@ class TableauSiteSource:
                         csql_urn, tableau_table_list, datasource
                     )
 
-            #  Schema Metadata
             schema_metadata = self.get_schema_metadata_for_custom_sql(columns)
             if schema_metadata is not None:
                 dataset_snapshot.aspects.append(schema_metadata)
 
-            # Browse path
-            if project and datasource_name:
-                browse_paths = BrowsePathsClass(
-                    paths=[f"{self.dataset_browse_prefix}/{project}/{datasource_name}"]
+            if not (project and browse_path_name and datasource_name):
+                logger.debug(
+                    f"Skipping Custom SQL table {csql_id}: "
+                    f"project={project}, browse_path={browse_path_name}, datasource_name={datasource_name}"
                 )
-                dataset_snapshot.aspects.append(browse_paths)
-            else:
-                logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
                 logger.warning(
-                    f"Skipping Custom SQL table {csql_id} due to filtered downstream"
+                    f"Skipping Custom SQL table {csql_id} due to missing project, browse path, or datasource name"
                 )
                 continue
 
+            browse_paths = BrowsePathsClass(
+                paths=[f"{self.dataset_browse_prefix}/{project}/{browse_path_name}"]
+            )
+            dataset_snapshot.aspects.append(browse_paths)
+
             dataset_properties = DatasetPropertiesClass(
-                name=csql.get(c.NAME),
+                name=datasource_name,
                 description=csql.get(c.DESCRIPTION),
             )
 

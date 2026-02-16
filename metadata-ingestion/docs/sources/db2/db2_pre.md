@@ -19,6 +19,10 @@ uri_args:
   Security: SSL
 ```
 
+### Architecture Support
+
+The Db2 source is available on Linux x86_64, macOS x86_64, and macOS ARM. It is not available on Linux ARM, and attempting to execute the source will result in an error.
+
 ### Db2 Platform Support
 
 This source has been tested against:

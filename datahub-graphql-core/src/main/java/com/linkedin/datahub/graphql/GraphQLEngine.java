@@ -120,9 +120,13 @@ public class GraphQLEngine {
             .variables(variables)
             .dataLoaderRegistry(register)
             .context(context)
-            // https://www.graphql-java.com/documentation/upgrade-notes/#how-to-use-the-inputinterceptor-to-use-the-legacy-parsevalue-behaviour-prior-to-v220
             .graphQLContext(
-                Map.of(InputInterceptor.class, LegacyCoercingInputInterceptor.migratesValues()))
+                Map.of(
+                    // https://www.graphql-java.com/documentation/upgrade-notes/#how-to-use-the-inputinterceptor-to-use-the-legacy-parsevalue-behaviour-prior-to-v220
+                    InputInterceptor.class,
+                    LegacyCoercingInputInterceptor.migratesValues(),
+                    QueryContext.class,
+                    context))
             .build();
 
     /*

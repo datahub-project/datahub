@@ -297,7 +297,13 @@ Cypress.Commands.add("clickOptionInScrollView", (text, selector) => {
 
 Cypress.Commands.add("deleteFromDropdown", () => {
   cy.openThreeDotDropdown();
+  cy.waitTextVisible("Delete");
+  // Wait for button is enabled
+  cy.getWithTestId("entity-menu-delete-button")
+    .closest("li")
+    .should("have.attr", "aria-disabled", "false");
   cy.clickOptionWithText("Delete");
+  cy.waitTextVisible("Yes");
   cy.clickOptionWithText("Yes");
 });
 
@@ -624,6 +630,33 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
     }
   });
 });
+
+Cypress.Commands.add(
+  "setFeatureFlags",
+  (itThemeV2Enabled, updateFeatureFlags) => {
+    cy.intercept("POST", "/api/v2/graphql", (req) => {
+      if (hasOperationName(req, "appConfig")) {
+        req.alias = "gqlappConfigQuery";
+
+        req.on("response", (res) => {
+          res.body.data.appConfig.featureFlags.themeV2Enabled =
+            itThemeV2Enabled;
+          res.body.data.appConfig.featureFlags.themeV2Default =
+            itThemeV2Enabled;
+          res.body.data.appConfig.featureFlags.showNavBarRedesign =
+            itThemeV2Enabled;
+          updateFeatureFlags(res);
+        });
+      } else if (hasOperationName(req, "getMe")) {
+        req.alias = "gqlgetMeQuery";
+        req.on("response", (res) => {
+          res.body.data.me.corpUser.settings.appearance.showThemeV2 =
+            itThemeV2Enabled;
+        });
+      }
+    });
+  },
+);
 
 Cypress.Commands.add("interceptGraphQLOperation", (operationName) => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {

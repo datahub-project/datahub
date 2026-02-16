@@ -43,6 +43,13 @@ class DatasetSubTypes(StrEnum):
     NOTEBOOK = "Notebook"
 
 
+class GenericContainerSubTypes(StrEnum):
+    """Generic container subtypes that are not specific to datasets, BI, flows, or jobs."""
+
+    # Microsoft Fabric
+    FABRIC_WORKSPACE = "Fabric Workspace"
+
+
 class DatasetContainerSubTypes(StrEnum):
     # Generic SubTypes
     DATABASE = "Database"
@@ -60,6 +67,10 @@ class DatasetContainerSubTypes(StrEnum):
     NAMESPACE = "Namespace"  # Iceberg
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
+    # Microsoft Fabric
+    FABRIC_LAKEHOUSE = "Fabric Lakehouse"
+    FABRIC_WAREHOUSE = "Fabric Warehouse"
+    FABRIC_SCHEMA = "Fabric Schema"
 
 
 class BIContainerSubTypes(StrEnum):
@@ -83,7 +94,7 @@ class BIContainerSubTypes(StrEnum):
 
 class FlowContainerSubTypes(StrEnum):
     MSSQL_JOB = "Job"
-    MSSQL_PROCEDURE_CONTAINER = "Procedures Container"
+    PROCEDURE_CONTAINER = "Procedures Container"
     ADF_DATA_FACTORY = "Data Factory"
 
 
@@ -91,6 +102,7 @@ class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
     MSSQL_JOBSTEP = "Job Step"
     STORED_PROCEDURE = "Stored Procedure"
+    FUNCTION = "Function"
 
 
 class BIAssetSubTypes(StrEnum):
@@ -189,6 +201,7 @@ def create_source_capability_modifier_enum():
     all_values: Dict[str, Any] = {}
     source_enums = [
         DatasetSubTypes,
+        GenericContainerSubTypes,
         DatasetContainerSubTypes,
         BIContainerSubTypes,
         FlowContainerSubTypes,

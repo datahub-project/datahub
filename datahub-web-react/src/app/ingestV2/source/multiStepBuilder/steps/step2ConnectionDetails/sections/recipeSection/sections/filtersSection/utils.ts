@@ -5,21 +5,16 @@ import { FieldType, FilterRecipeField } from '@app/ingestV2/source/builder/Recip
 import { getValuesFromRecipe } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/utils';
 import { Filter } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/types';
 
-export function getEmptyFilter(defaults?: Partial<Filter>): Filter {
+export function getEmptyFilter(): Filter {
     return {
         key: uuidv4(),
         rule: undefined,
         subtype: undefined,
         value: '',
-        ...(defaults || {}),
     };
 }
 
-export function getInitialFilters(
-    fields: FilterRecipeField[],
-    recipe: string,
-    defaultsForEmptyFilter?: Partial<Filter>,
-) {
+export function getInitialFilters(fields: FilterRecipeField[], recipe: string) {
     const filters: Filter[] = [];
 
     let valuesFromRecipe = {};
@@ -43,7 +38,7 @@ export function getInitialFilters(
     });
 
     if (filters.length === 0) {
-        filters.push(getEmptyFilter(defaultsForEmptyFilter));
+        filters.push(getEmptyFilter());
     }
 
     return filters;

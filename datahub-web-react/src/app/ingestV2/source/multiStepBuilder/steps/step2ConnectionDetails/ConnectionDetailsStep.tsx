@@ -9,8 +9,11 @@ import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
 import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
-import { INGESTION_TYPE_ERROR } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/constants';
-import { AdvancedSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/AdvansedSection';
+import {
+    INGESTION_TYPE_CHANGED_ERROR,
+    INGESTION_TYPE_EMPTY_ERROR,
+} from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/constants';
+import { AdvancedSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/AdvancedSection';
 import { NameAndOwnersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/NameAndOwnersSection';
 import { RecipeSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/RecipeSection';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
@@ -37,7 +40,6 @@ export function ConnectionDetailsStep() {
     const isEditing = !!state.isEditing;
     const sourceConfigs = getSourceConfigs(ingestionSources, type as string);
     const placeholderRecipe = getPlaceholderRecipe(ingestionSources, type);
-    const [isRecipeValid, setIsRecipeValid] = useState<boolean>(isEditing || !!state.isConnectionDetailsValid);
     const [initialRecipeYml] = useState(existingRecipeFromStateYaml || existingRecipeYaml);
     const [stagedRecipeYml, setStagedRecipeYml] = useState(initialRecipeYml || placeholderRecipe);
 
@@ -50,8 +52,14 @@ export function ConnectionDetailsStep() {
                 throw Error('Invalid YAML');
             }
 
-            if (!JSON.parse(recipeJson).source?.type) {
-                throw Error(INGESTION_TYPE_ERROR);
+            const sourceType = JSON.parse(recipeJson).source?.type;
+
+            if (!sourceType) {
+                throw Error(INGESTION_TYPE_EMPTY_ERROR);
+            }
+
+            if (!!state.ingestionSource && sourceType !== state.ingestionSource.type) {
+                throw Error(INGESTION_TYPE_CHANGED_ERROR);
             }
 
             const newState = {
@@ -60,7 +68,7 @@ export function ConnectionDetailsStep() {
                     ...state.config,
                     recipe: recipeJson,
                 },
-                type: JSON.parse(recipeJson).source.type,
+                type: sourceType,
                 ...(shouldSetIsRecipeValid ? { isRecipeValid: true } : {}),
             };
             updateState(newState);
@@ -91,14 +99,14 @@ export function ConnectionDetailsStep() {
     const displayRecipe = stagedRecipeYml || placeholderRecipe;
 
     useEffect(() => {
-        if (isRecipeValid && state.name && stagedRecipeYml && stagedRecipeYml.length > 0) {
+        if (state.name) {
             setCurrentStepCompleted();
             updateState({ isConnectionDetailsValid: true });
         } else {
             setCurrentStepUncompleted();
             updateState({ isConnectionDetailsValid: false });
         }
-    }, [isRecipeValid, updateState, stagedRecipeYml, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
+    }, [updateState, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
 
     useEffect(() => {
         if (analyticsRef.current) return;
@@ -127,9 +135,14 @@ export function ConnectionDetailsStep() {
             updateRecipe(stagedRecipeYml, true);
         } catch (e: unknown) {
             if (e instanceof Error) {
-                if (e.message === INGESTION_TYPE_ERROR) {
+                if (e.message === INGESTION_TYPE_EMPTY_ERROR) {
                     message.warning({
-                        content: `Please add valid ingestion type`,
+                        content: 'Please add valid ingestion type',
+                        duration: 3,
+                    });
+                } else if (e.message === INGESTION_TYPE_CHANGED_ERROR) {
+                    message.warning({
+                        content: "It's not possible to change source type for existing ingestion source",
                         duration: 3,
                     });
                 }
@@ -162,7 +175,6 @@ export function ConnectionDetailsStep() {
                     displayRecipe={displayRecipe}
                     sourceConfigs={sourceConfigs}
                     setStagedRecipe={updateStagedRecipeAndState}
-                    setIsRecipeValid={setIsRecipeValid}
                 />
 
                 <AdvancedSection state={state} updateState={updateState} />

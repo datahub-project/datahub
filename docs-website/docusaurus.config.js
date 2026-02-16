@@ -100,7 +100,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-3",
       content:
-        '<div class="shimmer-banner"><p>January Town Hall 1/29</p><a href="https://events.datahub.com/january-townhall-2026/?utm_term=docs" target="_blank" class="button"><div>Register<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><span>February Town Hall 2/26</span><a href="https://luma.com/zp3h4ex8?utm_term=docs" target="_blank" class="button"><div>Register Here<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
@@ -377,7 +377,7 @@ module.exports = {
           containerId: 'GTM-5M8T9HNN',
         },
         gtag: {
-          trackingID: "G-PKGVLETT4C",
+          trackingID: "G-H5QDNJNMHY",
         },
       },
     ],

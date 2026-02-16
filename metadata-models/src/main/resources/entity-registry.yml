@@ -347,6 +347,8 @@ entities:
       - globalTags
       - glossaryTerms
       - semanticContent
+      - institutionalMemory
+      - documentation
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
