@@ -2993,7 +2993,6 @@ class TableauSiteSource:
             c.ID_WITH_IN: list(tableau_database_table_id_to_urn_map.keys())
         }
 
-        # Track emitted URNs to catch tables that fall through the cracks
         emitted_urns: Set[str] = set()
 
         # Phase 1: Emitting tables that came from Tableau metadata
@@ -3040,8 +3039,7 @@ class TableauSiteSource:
             yield from self.emit_table(database_table, None)
             emitted_urns.add(database_table.urn)
 
-        # Phase 3: Emit tables that have IDs but weren't returned by Tableau re-query
-        # (likely tables without column metadata that Tableau filters out)
+        # Phase 3: Catch tables that weren't emitted in Phase 1 or 2
         if self.config.ingest_tables_external:
             for database_table in self.database_tables.values():
                 if database_table.urn not in emitted_urns:
@@ -3074,11 +3072,10 @@ class TableauSiteSource:
             )
             dataset_snapshot.aspects.append(browse_paths)
         else:
-            # External upstream tables may not have browse paths - that's OK
             logger.debug(
                 f"Table {database_table.urn} has no browse path (likely external upstream table)"
             )
-            # Continue to emit entity with other aspects (don't return early)
+            # Continue to emit entity with other aspects
 
         schema_metadata = self.get_schema_metadata_for_table(
             tableau_columns, database_table.parsed_columns

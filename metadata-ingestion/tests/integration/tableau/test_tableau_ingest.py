@@ -673,10 +673,8 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
     )
 
-    # 37 instead of 35 because:
-    # - Added 2 bigquery tables (order_items, sellers) that now get emitted properly
-    # - Phase 3 now emits 3 postgres tables (customer, staff, payment) that have lineage but no columns
-    # These 3 postgres tables are emitted in checkpoint1, not in checkpoint2, so marked as deleted
+    # Phase 3 now emits 5 additional tables in checkpoint1 (37 vs 35):
+    # 2 bigquery + 3 postgres tables (customer, payment, staff)
     assert len(difference_dataset_urns) == 37
     deleted_dataset_urns = [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.order_items,PROD)",
