@@ -126,7 +126,7 @@ class MLMetadataHelper:
         request = ListExecutionsRequest(
             parent=parent,
             filter=filter_str,
-            order_by="create_time desc",
+            order_by="LAST_UPDATE_TIME desc",
             page_size=min(
                 max_to_retrieve, MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS
             ),

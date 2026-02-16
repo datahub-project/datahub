@@ -103,29 +103,29 @@ class VertexAIConfig(
     max_models: Optional[int] = Field(
         default=IngestionLimits.DEFAULT_MAX_MODELS,
         le=IngestionLimits.ABSOLUTE_MAX_MODELS,
-        description=f"Maximum number of models to ingest. Models are ordered by create_time descending "
-        f"(most recent first). Default: {IngestionLimits.DEFAULT_MAX_MODELS}, "
+        description=f"Maximum number of models to ingest. Models are ordered by update_time descending "
+        f"(most recently updated first). Default: {IngestionLimits.DEFAULT_MAX_MODELS}, "
         f"Max: {IngestionLimits.ABSOLUTE_MAX_MODELS}. Set to None for unlimited (not recommended).",
     )
     max_training_jobs_per_type: Optional[int] = Field(
         default=IngestionLimits.DEFAULT_MAX_TRAINING_JOBS_PER_TYPE,
         le=IngestionLimits.ABSOLUTE_MAX_TRAINING_JOBS_PER_TYPE,
-        description=f"Maximum training jobs per type (CustomJob, AutoML, etc.). Jobs are ordered by create_time "
-        f"descending (most recent first). Default: {IngestionLimits.DEFAULT_MAX_TRAINING_JOBS_PER_TYPE}, "
+        description=f"Maximum training jobs per type (CustomJob, AutoML, etc.). Jobs are ordered by update_time "
+        f"descending (most recently updated first). Default: {IngestionLimits.DEFAULT_MAX_TRAINING_JOBS_PER_TYPE}, "
         f"Max: {IngestionLimits.ABSOLUTE_MAX_TRAINING_JOBS_PER_TYPE}. Set to None for unlimited (not recommended).",
     )
     max_experiments: Optional[int] = Field(
         default=IngestionLimits.DEFAULT_MAX_EXPERIMENTS,
         le=IngestionLimits.ABSOLUTE_MAX_EXPERIMENTS,
-        description=f"Maximum number of experiments to ingest. Experiments are ordered by create_time descending "
-        f"(most recent first). Default: {IngestionLimits.DEFAULT_MAX_EXPERIMENTS}, "
+        description=f"Maximum number of experiments to ingest. Experiments are ordered by update_time descending "
+        f"(most recently updated first). Default: {IngestionLimits.DEFAULT_MAX_EXPERIMENTS}, "
         f"Max: {IngestionLimits.ABSOLUTE_MAX_EXPERIMENTS}. Set to None for unlimited (not recommended).",
     )
     max_runs_per_experiment: Optional[int] = Field(
         default=IngestionLimits.DEFAULT_MAX_RUNS_PER_EXPERIMENT,
         le=IngestionLimits.ABSOLUTE_MAX_RUNS_PER_EXPERIMENT,
-        description=f"Maximum experiment runs per experiment. Runs are ordered by create_time descending "
-        f"(most recent first). Default: {IngestionLimits.DEFAULT_MAX_RUNS_PER_EXPERIMENT}, "
+        description=f"Maximum experiment runs per experiment. Runs are ordered by update_time descending "
+        f"(most recently updated first). Default: {IngestionLimits.DEFAULT_MAX_RUNS_PER_EXPERIMENT}, "
         f"Max: {IngestionLimits.ABSOLUTE_MAX_RUNS_PER_EXPERIMENT}. Set to None for unlimited (not recommended).",
     )
     max_evaluations_per_model: Optional[int] = Field(
@@ -137,8 +137,8 @@ class VertexAIConfig(
     ml_metadata_max_execution_search_limit: int = Field(
         default=MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS,
         description="Maximum number of ML Metadata executions to retrieve when searching for a training job. "
-        "Executions are ordered by create_time descending (most recent first), so if the limit is reached, "
-        "you'll get the most recent executions. Prevents excessive API calls and timeouts. Default: 100.",
+        "Executions are ordered by LAST_UPDATE_TIME descending (most recently updated first), so if the limit is reached, "
+        "you'll get the most recently completed/updated executions. Prevents excessive API calls and timeouts. Default: 100.",
     )
     # Optional multi-project / filter support
     project_ids: List[str] = Field(

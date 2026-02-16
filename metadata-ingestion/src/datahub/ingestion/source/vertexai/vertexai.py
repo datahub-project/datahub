@@ -377,7 +377,7 @@ class VertexAISource(StatefulIngestionSourceBase):
 
     def _get_pipelines_mcps(self) -> Iterable[MetadataWorkUnit]:
         """Fetches pipelines from Vertex AI and generates corresponding mcps."""
-        pipeline_jobs = list(self.client.PipelineJob.list(order_by="create_time desc"))
+        pipeline_jobs = list(self.client.PipelineJob.list(order_by="update_time desc"))
 
         for pipeline in pipeline_jobs:
             logger.info(f"fetching pipeline ({pipeline.name})")
@@ -717,7 +717,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         filtered = [
             e for e in exps if self.config.experiment_name_pattern.allowed(e.name)
         ]
-        filtered.sort(key=lambda x: x.create_time, reverse=True)  # type: ignore[attr-defined]
+        filtered.sort(key=lambda x: x.update_time, reverse=True)  # type: ignore[attr-defined]
         if self.config.max_experiments is not None:
             filtered = filtered[: self.config.max_experiments]
         self.experiments = filtered
@@ -733,14 +733,14 @@ class VertexAISource(StatefulIngestionSourceBase):
                 for e in aiplatform.Experiment.list()
                 if self.config.experiment_name_pattern.allowed(e.name)
             ]
-            exps.sort(key=lambda x: x.create_time, reverse=True)  # type: ignore[attr-defined]
+            exps.sort(key=lambda x: x.update_time, reverse=True)  # type: ignore[attr-defined]
             self.experiments = exps
         for experiment in self.experiments:
             logger.info(f"Fetching experiment runs for experiment {experiment.name}")
             experiment_runs = list(
                 aiplatform.ExperimentRun.list(experiment=experiment.name)
             )
-            experiment_runs.sort(key=lambda x: x.create_time, reverse=True)  # type: ignore[attr-defined]
+            experiment_runs.sort(key=lambda x: x.update_time, reverse=True)  # type: ignore[attr-defined]
             if self.config.max_runs_per_experiment is not None:
                 experiment_runs = experiment_runs[: self.config.max_runs_per_experiment]
             for run in experiment_runs:
@@ -1007,7 +1007,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         """
         Fetch List of Models in Model Registry and generate a corresponding mcp.
         """
-        registered_models = self.client.Model.list(order_by="create_time desc")
+        registered_models = self.client.Model.list(order_by="update_time desc")
         count = 0
         for model in registered_models:
             if not self.config.model_name_pattern.allowed(model.display_name or ""):
@@ -1029,7 +1029,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         """
         Fetch model evaluations from Vertex AI and generate corresponding mcps.
         """
-        registered_models = self.client.Model.list(order_by="create_time desc")
+        registered_models = self.client.Model.list(order_by="update_time desc")
 
         for model in registered_models:
             if not self.config.model_name_pattern.allowed(model.display_name or ""):
@@ -1229,7 +1229,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             logger.info(f"Fetching a list of {class_name}s from VertexAI server")
 
             jobs = list(
-                getattr(self.client, class_name).list(order_by="create_time desc")
+                getattr(self.client, class_name).list(order_by="update_time desc")
             )
 
             if self.config.max_training_jobs_per_type is not None:
