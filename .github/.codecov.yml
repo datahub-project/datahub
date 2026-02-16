@@ -33,6 +33,9 @@ flag_management:
         - "metadata-utils/**"
         - "metadata-operation-context/**"
         - "datahub-graphql-core/**"
+    - name: datahub-actions
+      paths:
+        - "datahub-actions/**"
     - name: metadata-io
       paths:
         - "metadata-io/**"
