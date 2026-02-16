@@ -167,6 +167,8 @@ def get_mock_pipeline_job() -> PipelineJob:
     task_detail.start_time = MOCK_TASK_START_TIME
     task_detail.create_time = MOCK_CREATE_TIME
     task_detail.end_time = MOCK_TASK_END_TIME
+    task_detail.inputs = {}
+    task_detail.outputs = {}
     mock_pipeline_job.task_details = [task_detail]
     gca_resource.pipeline_spec = {
         "root": {

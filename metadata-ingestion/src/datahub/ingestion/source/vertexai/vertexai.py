@@ -103,6 +103,7 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     PipelineKey,
     PipelineMetadata,
     PipelineProperties,
+    PipelineTaskArtifacts,
     PipelineTaskMetadata,
     PipelineTaskProperties,
     RunTimestamps,
@@ -385,6 +386,76 @@ class VertexAISource(StatefulIngestionSourceBase):
             yield from self._get_pipeline_mcps(pipeline_meta)
             yield from self._gen_pipeline_task_mcps(pipeline_meta)
 
+    def _extract_pipeline_task_inputs(
+        self, task_detail: PipelineTaskDetail, task_name: str
+    ) -> Optional[List[str]]:
+        """Extract input dataset URNs from pipeline task artifacts."""
+        if not task_detail.inputs:
+            return None
+
+        input_urns = []
+        try:
+            for input_entry in task_detail.inputs.values():
+                if input_entry.artifacts:
+                    for artifact in input_entry.artifacts:
+                        if artifact.uri:
+                            input_urns.extend(
+                                self.uri_parser.dataset_urns_from_artifact_uri(
+                                    artifact.uri
+                                )
+                            )
+            return input_urns if input_urns else None
+        except Exception as e:
+            logger.debug(
+                f"Failed to extract input artifacts for task {task_name}: {e}",
+                exc_info=True,
+            )
+            return None
+
+    def _extract_pipeline_task_outputs(
+        self, task_detail: PipelineTaskDetail, task_name: str
+    ) -> PipelineTaskArtifacts:
+        """Extract output dataset and model URNs from pipeline task artifacts.
+
+        Returns:
+            PipelineTaskArtifacts with output_dataset_urns and output_model_urns populated
+        """
+        if not task_detail.outputs:
+            return PipelineTaskArtifacts()
+
+        output_dataset_urns = []
+        output_model_urns = []
+        try:
+            for output_entry in task_detail.outputs.values():
+                if output_entry.artifacts:
+                    for artifact in output_entry.artifacts:
+                        if artifact.uri:
+                            # Try to extract as model first
+                            model_urn = self.uri_parser.model_urn_from_artifact_uri(
+                                artifact.uri
+                            )
+                            if model_urn:
+                                output_model_urns.append(model_urn)
+                            else:
+                                # If not a model, try as dataset
+                                output_dataset_urns.extend(
+                                    self.uri_parser.dataset_urns_from_artifact_uri(
+                                        artifact.uri
+                                    )
+                                )
+            return PipelineTaskArtifacts(
+                output_dataset_urns=output_dataset_urns
+                if output_dataset_urns
+                else None,
+                output_model_urns=output_model_urns if output_model_urns else None,
+            )
+        except Exception as e:
+            logger.debug(
+                f"Failed to extract output artifacts for task {task_name}: {e}",
+                exc_info=True,
+            )
+            return PipelineTaskArtifacts()
+
     def _get_pipeline_tasks_metadata(
         self, pipeline: PipelineJob, pipeline_urn: DataFlowUrn
     ) -> List[PipelineTaskMetadata]:
@@ -438,6 +509,16 @@ class VertexAISource(StatefulIngestionSourceBase):
                                 )
                                 * 1000
                             )
+
+                    # Extract input and output artifacts
+                    task_meta.input_dataset_urns = self._extract_pipeline_task_inputs(
+                        task_detail, task_name
+                    )
+                    outputs = self._extract_pipeline_task_outputs(
+                        task_detail, task_name
+                    )
+                    task_meta.output_dataset_urns = outputs.output_dataset_urns
+                    task_meta.output_model_urns = outputs.output_model_urns
 
                 tasks.append(task_meta)
         return tasks

@@ -132,6 +132,15 @@ class ModelMetadata:
 
 
 @dataclasses.dataclass
+class PipelineTaskArtifacts:
+    """Artifacts (datasets and models) for a pipeline task."""
+
+    input_dataset_urns: Optional[List[str]] = None
+    output_dataset_urns: Optional[List[str]] = None
+    output_model_urns: Optional[List[str]] = None
+
+
+@dataclasses.dataclass
 class PipelineTaskMetadata:
     """Metadata for a Vertex AI pipeline task."""
 

@@ -897,6 +897,8 @@ def test_pipeline_task_with_none_start_time(source: VertexAISource) -> None:
     task_detail.start_time = None
     task_detail.create_time = datetime.now(timezone.utc) - timedelta(days=3)
     task_detail.end_time = datetime.now(timezone.utc) - timedelta(days=3, hours=1)
+    task_detail.inputs = {}
+    task_detail.outputs = {}
 
     mock_pipeline_job.task_details = [task_detail]
     gca_resource.pipeline_spec = {
@@ -953,6 +955,8 @@ def test_pipeline_task_with_none_end_time(source: VertexAISource) -> None:
     task_detail.start_time = datetime.now(timezone.utc) - timedelta(days=3)
     task_detail.create_time = datetime.now(timezone.utc) - timedelta(days=3)
     task_detail.end_time = None
+    task_detail.inputs = {}
+    task_detail.outputs = {}
 
     mock_pipeline_job.task_details = [task_detail]
     gca_resource.pipeline_spec = {
