@@ -2,9 +2,6 @@ from typing import Set
 
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 
-# Default actor for metadata operations when no user information is available
-DATAHUB_ACTOR = "urn:li:corpuser:datahub"
-
 
 class ExternalPlatforms:
     """

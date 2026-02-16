@@ -74,7 +74,6 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 )
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
-    DATAHUB_ACTOR,
     DatasetTypes,
     DateTimeFormat,
     DurationUnit,
@@ -607,7 +606,8 @@ class VertexAISource(StatefulIngestionSourceBase):
                         if task.create_time
                         else 0
                     ),
-                    actor=self._get_actor_from_labels(pipeline.labels) or DATAHUB_ACTOR,
+                    actor=self._get_actor_from_labels(pipeline.labels)
+                    or builder.UNKNOWN_USER,
                 ),
                 externalUrl=self.url_builder.make_pipeline_url(pipeline.name),
                 customProperties={},
@@ -980,7 +980,10 @@ class VertexAISource(StatefulIngestionSourceBase):
                 name=execution.name,
                 created=AuditStampClass(
                     time=datetime_to_ts_millis(create_time) if create_time else 0,
-                    actor=DATAHUB_ACTOR,
+                    actor=self._get_actor_from_labels(
+                        getattr(execution, "labels", None)
+                    )
+                    or builder.UNKNOWN_USER,
                 ),
                 externalUrl=self.url_builder.make_artifact_url(experiment=exp, run=run),
                 customProperties=self._make_custom_properties_for_execution(execution),
@@ -1061,7 +1064,8 @@ class VertexAISource(StatefulIngestionSourceBase):
                     time=timestamps.created_time_ms
                     if timestamps.created_time_ms
                     else 0,
-                    actor=DATAHUB_ACTOR,
+                    actor=self._get_actor_from_labels(getattr(run, "labels", None))
+                    or builder.UNKNOWN_USER,
                 ),
                 externalUrl=self.url_builder.make_experiment_run_url(experiment, run),
                 customProperties=self._make_custom_properties_for_run(experiment, run),
@@ -1295,7 +1299,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                 created=AuditStampClass(
                     time=created_time,
                     actor=self._get_actor_from_labels(getattr(model, "labels", None))
-                    or DATAHUB_ACTOR,
+                    or builder.UNKNOWN_USER,
                 ),
                 customProperties=ModelEvaluationCustomProperties(
                     evaluation_id=evaluation.name,
@@ -1507,7 +1511,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                 created=AuditStampClass(
                     time=created_time,
                     actor=self._get_actor_from_labels(getattr(job, "labels", None))
-                    or DATAHUB_ACTOR,
+                    or builder.UNKNOWN_USER,
                 ),
                 externalUrl=self.url_builder.make_job_url(job.name),
                 customProperties=TrainingJobCustomProperties(
@@ -1600,8 +1604,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                         time=datetime_to_ts_millis(model.create_time),
                         actor=self._get_actor_from_labels(
                             getattr(model, "labels", None)
-                        )
-                        or DATAHUB_ACTOR,
+                        ),
                     )
                     if model.create_time
                     else None
@@ -1609,7 +1612,9 @@ class VertexAISource(StatefulIngestionSourceBase):
                 lastModified=(
                     TimeStampClass(
                         time=datetime_to_ts_millis(model.update_time),
-                        actor=DATAHUB_ACTOR,
+                        actor=self._get_actor_from_labels(
+                            getattr(model, "labels", None)
+                        ),
                     )
                     if model.update_time
                     else None
@@ -1939,8 +1944,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                         time=datetime_to_ts_millis(model_version.version_create_time),
                         actor=self._get_actor_from_labels(
                             getattr(model, "labels", None)
-                        )
-                        or DATAHUB_ACTOR,
+                        ),
                     )
                     if model_version.version_create_time
                     else None
@@ -1948,7 +1952,9 @@ class VertexAISource(StatefulIngestionSourceBase):
                 lastModified=(
                     TimeStampClass(
                         time=datetime_to_ts_millis(model_version.version_update_time),
-                        actor=DATAHUB_ACTOR,
+                        actor=self._get_actor_from_labels(
+                            getattr(model, "labels", None)
+                        ),
                     )
                     if model_version.version_update_time
                     else None
@@ -1990,7 +1996,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                             actor=self._get_actor_from_labels(
                                 getattr(model, "labels", None)
                             )
-                            or DATAHUB_ACTOR,
+                            or builder.UNKNOWN_USER,
                         )
                         if model_version.version_create_time
                         else None

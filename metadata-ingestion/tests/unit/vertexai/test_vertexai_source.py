@@ -115,11 +115,11 @@ def test_get_ml_model_mcps(source: VertexAISource) -> None:
                 description=mock_model.description,
                 created=TimeStampClass(
                     time=datetime_to_ts_millis(mock_model.create_time),
-                    actor=builder.make_user_urn("datahub"),
+                    actor=None,
                 ),
                 lastModified=TimeStampClass(
                     time=datetime_to_ts_millis(mock_model.update_time),
-                    actor=builder.make_user_urn("datahub"),
+                    actor=None,
                 ),
                 externalUrl=source.url_builder.make_model_url(mock_model.name),
             ),
@@ -169,11 +169,11 @@ def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
             description=model_version.version_description,
             created=TimeStampClass(
                 time=datetime_to_ts_millis(mock_model.create_time),
-                actor=builder.make_user_urn("datahub"),
+                actor=None,
             ),
             lastModified=TimeStampClass(
                 time=datetime_to_ts_millis(mock_model.update_time),
-                actor=builder.make_user_urn("datahub"),
+                actor=None,
             ),
             customProperties={
                 "versionId": model_version.version_id,
@@ -322,7 +322,7 @@ def test_get_training_jobs_mcps(
                 customProperties={"jobType": "CustomJob"},
                 created=AuditStampClass(
                     time=datetime_to_ts_millis(mock_training_job.create_time),
-                    actor="urn:li:corpuser:datahub",
+                    actor="urn:li:corpuser:unknown",
                 ),
             ),
         )
@@ -391,7 +391,7 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
             customProperties={"jobType": "CustomJob"},
             created=AuditStampClass(
                 time=datetime_to_ts_millis(mock_training_job.create_time),
-                actor="urn:li:corpuser:datahub",
+                actor="urn:li:corpuser:unknown",
             ),
         ),
     )
@@ -599,7 +599,7 @@ def test_gen_experiment_run_mcps(
                     mock_exp, mock_exp_run
                 )
             },
-            created=AuditStampClass(time=0, actor="urn:li:corpuser:datahub"),
+            created=AuditStampClass(time=0, actor="urn:li:corpuser:unknown"),
         ),
     )
 
