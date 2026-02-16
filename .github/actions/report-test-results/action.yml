@@ -29,4 +29,4 @@ runs:
       uses: test-summary/action@v2
       with:
         paths: ${{ inputs.junit-file-glob }}
-        show: failed
+        show: fail

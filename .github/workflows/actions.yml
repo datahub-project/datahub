@@ -43,6 +43,7 @@ jobs:
           ./gradlew :datahub-actions:build
 
       - name: Report test results
+        if: (!cancelled())
         uses: ./.github/actions/report-test-results
         with:
           artifact-name: datahub-actions-test-results
