@@ -86,8 +86,11 @@ if [[ $EXTRACT_JAR_ENABLED == true ]]; then
   EXTRACTION_COMPLETE="${WORK_DIR}/.extraction-complete"
 
   # Idempotent extraction with validation: reuse if valid, cleanup if incomplete
+  EXTRACTION_SUCCESS=false
+
   if [[ -d "$WORK_DIR/BOOT-INF/classes" ]]; then
     echo "[STARTUP] Reusing valid previous extraction from $WORK_DIR"
+    EXTRACTION_SUCCESS=true
   else
     # Directory missing or extraction incomplete - cleanup and re-extract
     if [[ -d "$WORK_DIR" ]]; then
@@ -99,51 +102,63 @@ if [[ $EXTRACT_JAR_ENABLED == true ]]; then
     START_EXTRACT=$(date +%s%3N)
 
     mkdir -p "$WORK_DIR"
-    unzip -q -o -d "$WORK_DIR" "$JAR_PATH"
 
-    END_EXTRACT=$(date +%s%3N)
-    EXTRACT_TIME=$((END_EXTRACT - START_EXTRACT))
-    echo "[STARTUP] WAR extracted in ${EXTRACT_TIME}ms"
+    # Extract WAR with fallback to normal startup if extraction fails
+    if unzip -q -o -d "$WORK_DIR" "$JAR_PATH" 2>/dev/null; then
+      END_EXTRACT=$(date +%s%3N)
+      EXTRACT_TIME=$((END_EXTRACT - START_EXTRACT))
+      echo "[STARTUP] WAR extracted in ${EXTRACT_TIME}ms"
 
-    # Mark extraction as complete only after successful unzip
-    touch "$EXTRACTION_COMPLETE" || { echo "[ERROR] Failed to mark extraction complete"; exit 1; }
+      # Mark extraction as complete only after successful unzip
+      touch "$EXTRACTION_COMPLETE" || { echo "[ERROR] Failed to mark extraction complete"; exit 1; }
+
+      EXTRACTION_SUCCESS=true
+    else
+      echo "[WARN] WAR extraction failed. Falling back to normal startup (slower)..."
+      rm -rf "$WORK_DIR" || true
+      # Disable extraction optimization, use normal WAR startup
+      JAR_EXTRACTION_OPTS="-jar /datahub/datahub-gms/bin/war.war"
+    fi
   fi
 
-  echo "[STARTUP] Generating deterministic classpath from BOOT-INF/classpath.idx"
+  # Process classpath only if extraction succeeded
+  if [[ "$EXTRACTION_SUCCESS" == true ]]; then
+    echo "[STARTUP] Generating deterministic classpath from BOOT-INF/classpath.idx"
 
-  IDX="$WORK_DIR/BOOT-INF/classpath.idx"
-  if [[ ! -f "$IDX" ]]; then
-    echo "[ERROR] Missing $IDX (this WAR may not be a Spring Boot executable archive)"
-    exit 1
-  fi
+    IDX="$WORK_DIR/BOOT-INF/classpath.idx"
+    if [[ ! -f "$IDX" ]]; then
+      echo "[ERROR] Missing $IDX (this WAR may not be a Spring Boot executable archive)"
+      exit 1
+    fi
 
-  # 1) Convert classpath.idx to absolute paths (one per line)
-  #    Format: - "BOOT-INF/lib/foo.jar" → /tmp/gms-work/BOOT-INF/lib/foo.jar
-  sed -E 's|^- "([^"]+)"$|'"$WORK_DIR"'/\1|' "$IDX" > "$WORK_DIR/classpath.paths"
+    # 1) Convert classpath.idx to absolute paths (one per line)
+    #    Format: - "BOOT-INF/lib/foo.jar" → /tmp/gms-work/BOOT-INF/lib/foo.jar
+    sed -E 's|^- "([^"]+)"$|'"$WORK_DIR"'/\1|' "$IDX" > "$WORK_DIR/classpath.paths"
 
-  # 2) Prepend application classes (must come before library JARs)
-  {
-    printf "%s\n" "$WORK_DIR/BOOT-INF/classes"
-    cat "$WORK_DIR/classpath.paths"
-  } > "$WORK_DIR/classpath.all"
+    # 2) Prepend application classes (must come before library JARs)
+    {
+      printf "%s\n" "$WORK_DIR/BOOT-INF/classes"
+      cat "$WORK_DIR/classpath.paths"
+    } > "$WORK_DIR/classpath.all"
 
-  # 3) Join into single classpath string (colon-separated) - write to file to avoid shell variable limits
-  paste -sd: "$WORK_DIR/classpath.all" > "$WORK_DIR/classpath.joined"
+    # 3) Join into single classpath string (colon-separated) - write to file to avoid shell variable limits
+    paste -sd: "$WORK_DIR/classpath.all" > "$WORK_DIR/classpath.joined"
 
-  # 4) Create Java argfile (argfiles are for launcher args, not -cp values)
-  ARGS_FILE="$WORK_DIR/java.args"
-  cat > "$ARGS_FILE" <<EOF
+    # 4) Create Java argfile (argfiles are for launcher args, not -cp values)
+    ARGS_FILE="$WORK_DIR/java.args"
+    cat > "$ARGS_FILE" <<EOF
 -cp
 $(cat "$WORK_DIR/classpath.joined")
 com.linkedin.gms.GMSApplication
 EOF
 
-  ENTRY_COUNT=$(wc -l < "$WORK_DIR/classpath.all")
-  echo "[STARTUP] Deterministic classpath: $ENTRY_COUNT entries (from classpath.idx)"
-  echo "[STARTUP] This fixes class loading order but not version conflicts - ensure build uses consistent dependency versions"
+    ENTRY_COUNT=$(wc -l < "$WORK_DIR/classpath.all")
+    echo "[STARTUP] Deterministic classpath: $ENTRY_COUNT entries (from classpath.idx)"
+    echo "[STARTUP] This fixes class loading order but not version conflicts - ensure build uses consistent dependency versions"
 
-  # Run with Java argfile (deterministic order, not filesystem-dependent)
-  JAR_EXTRACTION_OPTS="@$ARGS_FILE"
+    # Run with Java argfile (deterministic order, not filesystem-dependent)
+    JAR_EXTRACTION_OPTS="@$ARGS_FILE"
+  fi
 else
   # Traditional WAR execution (nested JAR reads - slower)
   JAR_EXTRACTION_OPTS="-jar /datahub/datahub-gms/bin/war.war"
