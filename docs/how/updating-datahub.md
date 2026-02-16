@@ -37,6 +37,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - Spark integration upgraded from 3.0.3 to 3.3.4 (minimum version required for Java 17 support)
   - Hadoop upgraded from 2.7.2 to 3.3.6 (addresses Hadoop CVEs, bundled with Spark 3.3+)
   - Note: If you're a self-hosted user still running Java 11, you must upgrade to Java 17 before deploying this release. Spark lineage users must upgrade to Spark 3.3.0+.
+- (Frontend) CustomHttpClientFactory now restricts TLS to 1.2 and 1.3 only when using a custom truststore; TLS 1.0 and 1.1 are disabled for security. If the frontend uses a custom truststore to reach GMS or an IdP that only supports TLS 1.0/1.1, those connections will fail until the server is upgraded to support at least TLS 1.2.
 
 ### Known Issues
 
@@ -45,6 +46,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Deprecations
 
 ### Other Notable Changes
+
+- #16142: Oracle ingestion: Fixed database container naming when using `service_name` instead of `database` configuration. Previously, Oracle containers had no name (only an ID) when using `service_name` with `data_dictionary_mode: ALL` (the default). Container URNs will change for affected users as the database name is now properly populated in the container GUID. If stateful ingestion is enabled, running ingestion with the latest CLI version will automatically clean up the old containers and create properly named ones. This fix also ensures database names are normalized consistently with schema and table names.
 
 ## v1.4.0
 
@@ -65,6 +68,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - In `Dashboard` entitiy and `dashboardInfo` aspect, `charts` property (deprecated) is replaced with `chartEdges`
   - Only emits MCPs
 - #16023: In PowerBI, Container URNs change for users with `platform_instance` configured, as this PR now passes `platform_instance` to dataset containers (affects GUID generation). The `env` parameter addition is harmless as it's excluded from GUID calculation. Stateful ingestion will soft-delete old containers and create new ones on the next run. Dataset entities and their lineage are unaffected.
+- #16067: Oracle stored procedure URN format has been corrected to match table URN format. For most users (using `service_name` or `database` without `add_database_name_to_urn: true`), stored procedure DataJob URNs will change from `database.schema.stored_procedures` to `schema.stored_procedures`. This fixes a URN mismatch that prevented stored procedure lineage from working. Stateful ingestion will soft-delete old stored procedure entities and create new ones with correct lineage on the next run. Users with `database` config parameter and `add_database_name_to_urn: true` are unaffected.
 
 ### Deprecations
 
@@ -77,6 +81,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.
 - #14968: Added an ingestion source for IBM Db2 databases.
 - #15824: The Databricks ingestion source now additionally supports authentication via M2M OAuth or Databricks unified authentication. The Azure authentication method now supports profiling as well as ingesting lineage from system tables.
+- #16067: Oracle ingestion source improvements: Added procedure-to-procedure lineage support, improved PL/SQL parsing for control flow keywords (WHILE, LOOP, EXCEPTION, etc.), fixed overloaded procedure handling, and added distinct subtypes for functions vs procedures. Stored procedures and functions now have proper container hierarchy (Database → Schema → Flow) matching tables and views. Both functions and procedures are organized in the same `{schema}.stored_procedures` container (consistent with PostgreSQL, MySQL, and Snowflake), with individual subtypes to distinguish them.
 
 ## 1.3.0
 

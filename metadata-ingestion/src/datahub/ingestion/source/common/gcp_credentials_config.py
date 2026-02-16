@@ -5,6 +5,7 @@ from typing import Dict, Optional
 from pydantic import Field, model_validator
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.common import TransparentSecretStr
 from datahub.configuration.validate_multiline_string import pydantic_multiline_string
 
 
@@ -13,7 +14,7 @@ class GCPCredential(ConfigModel):
         None, description="Project id to set the credentials"
     )
     private_key_id: str = Field(description="Private key id")
-    private_key: str = Field(
+    private_key: TransparentSecretStr = Field(
         description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'"
     )
     client_email: str = Field(description="Client email")
@@ -45,17 +46,19 @@ class GCPCredential(ConfigModel):
             )
         return self
 
-    def create_credential_temp_file(self, project_id: Optional[str] = None) -> str:
+    def _dump_with_secrets(self, project_id: Optional[str] = None) -> Dict[str, str]:
         configs = self.model_dump()
+        configs["private_key"] = self.private_key.get_secret_value()
         if project_id:
             configs["project_id"] = project_id
+        return configs
+
+    def create_credential_temp_file(self, project_id: Optional[str] = None) -> str:
+        configs = self._dump_with_secrets(project_id)
         with tempfile.NamedTemporaryFile(delete=False) as fp:
             cred_json = json.dumps(configs, indent=4, separators=(",", ": "))
             fp.write(cred_json.encode())
             return fp.name
 
     def to_dict(self, project_id: Optional[str] = None) -> Dict[str, str]:
-        configs = self.model_dump()
-        if project_id:
-            configs["project_id"] = project_id
-        return configs
+        return self._dump_with_secrets(project_id)

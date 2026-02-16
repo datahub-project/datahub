@@ -109,7 +109,8 @@ class TestConfigurationValidation:
         )
 
         assert config.kafka_api_key == "test-key"
-        assert config.kafka_api_secret == "test-secret"
+        assert config.kafka_api_secret is not None
+        assert config.kafka_api_secret.get_secret_value() == "test-secret"
 
     def test_environment_id_without_cluster_id_raises_error(self):
         """Test that confluent_cloud_environment_id without cluster_id raises error."""
@@ -299,7 +300,8 @@ class TestConfigurationValidation:
         assert config.confluent_cloud_environment_id == "env-123"
         assert config.confluent_cloud_cluster_id == "lkc-456"
         assert config.kafka_api_key == "api-key"
-        assert config.kafka_api_secret == "api-secret"
+        assert config.kafka_api_secret is not None
+        assert config.kafka_api_secret.get_secret_value() == "api-secret"
         assert config.use_schema_resolver is True
         assert config.schema_resolver_expand_patterns is True
         assert config.schema_resolver_finegrained_lineage is True

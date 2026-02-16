@@ -14,6 +14,7 @@ from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 from pydantic import model_validator
 from pydantic.fields import Field
 
+from datahub.configuration.common import TransparentSecretStr
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -60,7 +61,7 @@ class OktaConfig(StatefulIngestionConfigBase):
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
     )
     # Required: An API token generated from Okta.
-    okta_api_token: str = Field(
+    okta_api_token: TransparentSecretStr = Field(
         description="An API token generated for the DataHub application inside your Okta Developer Console. e.g. 00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00",
     )
 
@@ -431,7 +432,7 @@ class OktaSource(StatefulIngestionSourceBase):
     def _create_okta_client(self):
         config = {
             "orgUrl": f"https://{self.config.okta_domain}",
-            "token": f"{self.config.okta_api_token}",
+            "token": self.config.okta_api_token.get_secret_value(),
             "raiseException": True,
         }
         return OktaClient(config)
