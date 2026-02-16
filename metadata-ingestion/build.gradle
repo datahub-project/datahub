@@ -169,7 +169,7 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
   def cvg_arg = get_coverage_args("quick")
   commandLine 'bash', '-c',
     venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} tests/unit ${pytest_default_args} --random-order -m 'not integration' --junit-xml=test-results/junit.quick.xml --junit-suite-name=metadata-ingestion-testQuick"
+    "${pytest_default_env} pytest ${cvg_arg} tests/unit ${pytest_default_args} --random-order -m 'not integration' --junit-xml=test-results/junit.quick.xml"
 }
 
 task installDocs(type: Exec, dependsOn: [install]) {
@@ -214,7 +214,6 @@ integrationBatchIds.each { batchId ->
     def markerName = "integration_batch_${batchId.toLowerCase()}"
     def taskName = "testIntegrationBatch${batchId}"
     def junitXml = "test-results/junit.integrationbatch${batchId.toLowerCase()}.xml"
-    def junitSuiteName = "metadata-ingestion-testIntegrationBatch${batchId}"
     def cvgArg = get_coverage_args("intBatch${batchId}")
 
     tasks.register(taskName, Exec) {
@@ -226,7 +225,7 @@ integrationBatchIds.each { batchId ->
         inputs.file file("setup.py")
         commandLine 'bash', '-c',
             venv_activate_command +
-            "${pytest_default_env} pytest ${cvgArg} ${pytest_default_args} -m '${markerName}' --junit-xml=${junitXml} --junit-suite-name=${junitSuiteName}"
+            "${pytest_default_env} pytest ${cvgArg} ${pytest_default_args} -m '${markerName}' --junit-xml=${junitXml}"
     }
 }
 

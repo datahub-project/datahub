@@ -116,7 +116,7 @@ jobs:
         if: (!cancelled())
         uses: ./.github/actions/report-test-results
         with:
-          artifact-name: metadata-ingestion-test-results ${{ matrix.python-version }} ${{ matrix.command }}
+          artifact-name: metadata-ingestion-${{ matrix.python-version }}-${{ matrix.command }}-test-results
           test-results-path: "metadata-ingestion/test-results/**"
           junit-file-glob: "metadata-ingestion/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag
