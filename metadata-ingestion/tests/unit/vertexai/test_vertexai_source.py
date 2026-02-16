@@ -155,7 +155,7 @@ def test_get_ml_model_mcps(source: VertexAISource) -> None:
 def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
     mock_model = gen_mock_model()
     model_version = gen_mock_model_version(mock_model)
-    model_meta = ModelMetadata(mock_model, model_version)
+    model_meta = ModelMetadata(model=mock_model, model_version=model_version)
 
     actual_mcps = list(source._gen_ml_model_mcps(model_meta))
     expected_urn = source.urn_builder.make_ml_model_urn(
@@ -366,7 +366,7 @@ def test_get_training_jobs_mcps(
 def test_gen_training_job_mcps(source: VertexAISource) -> None:
     mock_training_job = gen_mock_training_custom_job()
     mock_dataset = gen_mock_dataset()
-    job_meta = TrainingJobMetadata(mock_training_job, input_dataset=mock_dataset)
+    job_meta = TrainingJobMetadata(job=mock_training_job, input_dataset=mock_dataset)
 
     actual_mcps = [mcp for mcp in source._gen_training_job_mcps(job_meta)]
 
@@ -443,7 +443,7 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
 def test_get_input_dataset_mcps(source: VertexAISource) -> None:
     mock_dataset = gen_mock_dataset()
     mock_job = gen_mock_training_custom_job()
-    job_meta = TrainingJobMetadata(mock_job, input_dataset=mock_dataset)
+    job_meta = TrainingJobMetadata(job=mock_job, input_dataset=mock_dataset)
 
     actual_mcps: List[MetadataWorkUnit] = list(
         source._get_dataset_workunits_from_job_metadata(job_meta)
@@ -666,58 +666,80 @@ def test_get_pipeline_mcps(
             )
         )
 
-        dpi_urn = "urn:li:dataProcessInstance:acryl-poc.pipeline_task_run.reverse"
+    dpi_urn = "urn:li:dataProcessInstance:acryl-poc.pipeline_task_run.reverse"
 
-        # Expected count: 5 (pipeline container) + 6 (dataflow) + 7 (datajob) + 5 (dpi) = 23
-        assert len(actual_mcps) == 23, f"Expected 23 MCPs, got {len(actual_mcps)}"
+    # Expected count: 6 (dataflow) + 1 (datajob container) + 7 (datajob) + 3 (dpi) = 17
+    # DataFlow gets container → "Pipelines" folder
+    # DataJob gets container → parent DataFlow
+    assert len(actual_mcps) == 17, f"Expected 17 MCPs, got {len(actual_mcps)}"
 
-        dataflow_info_mcps = [
-            mcp
-            for mcp in actual_mcps
-            if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
-            and isinstance(mcp.metadata.aspect, DataFlowInfoClass)
-            and mcp.metadata.entityUrn == expected_pipeline_urn
-        ]
-        assert len(dataflow_info_mcps) == 1, "Expected exactly one DataFlowInfoClass"
+    dataflow_info_mcps = [
+        mcp
+        for mcp in actual_mcps
+        if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
+        and isinstance(mcp.metadata.aspect, DataFlowInfoClass)
+        and mcp.metadata.entityUrn == expected_pipeline_urn
+    ]
+    assert len(dataflow_info_mcps) == 1, "Expected exactly one DataFlowInfoClass"
 
-        # Type narrow for mypy
-        dataflow_wu = dataflow_info_mcps[0]
-        assert isinstance(dataflow_wu.metadata, MetadataChangeProposalWrapper)
-        actual_df_info = dataflow_wu.metadata.aspect
-        assert isinstance(actual_df_info, DataFlowInfoClass)
+    # Type narrow for mypy
+    dataflow_wu = dataflow_info_mcps[0]
+    assert isinstance(dataflow_wu.metadata, MetadataChangeProposalWrapper)
+    actual_df_info = dataflow_wu.metadata.aspect
+    assert isinstance(actual_df_info, DataFlowInfoClass)
 
-        assert actual_df_info.name == mock_pipeline.name
-        assert actual_df_info.env == source.config.env
-        assert actual_df_info.externalUrl == source.url_builder.make_pipeline_url(
-            mock_pipeline.name
-        )
-        assert "resource_name" in actual_df_info.customProperties
-        assert "create_time" in actual_df_info.customProperties
-        assert "update_time" in actual_df_info.customProperties
-        assert "duration" in actual_df_info.customProperties
-        assert "location" in actual_df_info.customProperties
-        assert "labels" in actual_df_info.customProperties
+    assert actual_df_info.name == mock_pipeline.name
+    assert actual_df_info.env == source.config.env
+    assert actual_df_info.externalUrl == source.url_builder.make_pipeline_url(
+        mock_pipeline.name
+    )
+    assert "resource_name" in actual_df_info.customProperties
+    assert "create_time" in actual_df_info.customProperties
+    assert "update_time" in actual_df_info.customProperties
+    assert "duration" in actual_df_info.customProperties
+    assert "location" in actual_df_info.customProperties
+    assert "labels" in actual_df_info.customProperties
 
-        assert any(
-            isinstance(mcp.metadata, MetadataChangeProposalWrapper)
-            and isinstance(mcp.metadata.aspect, StatusClass)
-            and mcp.metadata.entityUrn == expected_pipeline_urn
-            for mcp in actual_mcps
-        ), "DataFlow StatusClass not found"
+    assert any(
+        isinstance(mcp.metadata, MetadataChangeProposalWrapper)
+        and isinstance(mcp.metadata.aspect, StatusClass)
+        and mcp.metadata.entityUrn == expected_pipeline_urn
+        for mcp in actual_mcps
+    ), "DataFlow StatusClass not found"
 
-        assert any(
-            isinstance(mcp.metadata, MetadataChangeProposalWrapper)
-            and isinstance(mcp.metadata.aspect, DataJobInfoClass)
-            and mcp.metadata.entityUrn == expected_task_urn
-            for mcp in actual_mcps
-        ), "DataJob DataJobInfoClass not found"
+    assert any(
+        isinstance(mcp.metadata, MetadataChangeProposalWrapper)
+        and isinstance(mcp.metadata.aspect, DataJobInfoClass)
+        and mcp.metadata.entityUrn == expected_task_urn
+        for mcp in actual_mcps
+    ), "DataJob DataJobInfoClass not found"
 
-        assert any(
-            isinstance(mcp.metadata, MetadataChangeProposalWrapper)
-            and isinstance(mcp.metadata.aspect, DataProcessInstancePropertiesClass)
-            and mcp.metadata.entityUrn == dpi_urn
-            for mcp in actual_mcps
-        ), "DPI PropertiesClass not found"
+    # Verify DataJob has container pointing to parent DataFlow
+    datajob_container_mcps = [
+        mcp
+        for mcp in actual_mcps
+        if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
+        and isinstance(mcp.metadata.aspect, ContainerClass)
+        and mcp.metadata.entityUrn == expected_task_urn
+    ]
+    assert len(datajob_container_mcps) == 1, "Expected DataJob to have container aspect"
+
+    # Type narrow for mypy
+    datajob_container_wu = datajob_container_mcps[0]
+    assert isinstance(datajob_container_wu.metadata, MetadataChangeProposalWrapper)
+    datajob_container = datajob_container_wu.metadata.aspect
+    assert isinstance(datajob_container, ContainerClass)
+    assert datajob_container.container == expected_pipeline_urn, (
+        f"DataJob container should point to parent DataFlow. "
+        f"Expected {expected_pipeline_urn}, got {datajob_container.container}"
+    )
+
+    assert any(
+        isinstance(mcp.metadata, MetadataChangeProposalWrapper)
+        and isinstance(mcp.metadata.aspect, DataProcessInstancePropertiesClass)
+        and mcp.metadata.entityUrn == dpi_urn
+        for mcp in actual_mcps
+    ), "DPI PropertiesClass not found"
 
 
 def test_vertexai_multi_project_context_naming() -> None:

@@ -1,13 +1,12 @@
-import dataclasses
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Annotated, Dict, List, Optional
 
 from google.cloud.aiplatform import Endpoint, Model
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import VersionInfo
 from google.cloud.aiplatform_v1.types import PipelineTaskDetail
 from google.protobuf import timestamp_pb2
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation, model_validator
 
 from datahub.emitter.mcp_builder import ProjectIdKey
 from datahub.ingestion.source.vertexai.vertexai_constants import MLMetadataDefaults
@@ -27,28 +26,36 @@ class ModelGroupKey(ProjectIdKey):
     model_group_name: str
 
 
-class PipelineKey(ProjectIdKey):
-    """Container key for a Vertex AI pipeline."""
+class ExecutionMetadata(BaseModel):
+    """Metadata for an execution."""
 
-    pipeline_name: str
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-
-@dataclasses.dataclass
-class ExecutionMetadata:
     execution_name: str
-    hyperparams: List[MLHyperParamClass] = dataclasses.field(default_factory=list)
-    metrics: List[MLMetricClass] = dataclasses.field(default_factory=list)
-    input_artifact_urns: List[str] = dataclasses.field(default_factory=list)
-    output_artifact_urns: List[str] = dataclasses.field(default_factory=list)
-    custom_properties: Dict[str, str] = dataclasses.field(default_factory=dict)
+    hyperparams: List[MLHyperParamClass] = Field(default_factory=list)
+    metrics: List[MLMetricClass] = Field(default_factory=list)
+    input_artifact_urns: List[str] = Field(
+        default_factory=list
+    )  # Can be DatasetUrn or MlModelUrn
+    output_artifact_urns: List[str] = Field(
+        default_factory=list
+    )  # Can be DatasetUrn or MlModelUrn
+    custom_properties: Dict[str, str] = Field(default_factory=dict)
 
 
-@dataclasses.dataclass
-class LineageMetadata:
-    input_urns: List[str] = dataclasses.field(default_factory=list)
-    output_urns: List[str] = dataclasses.field(default_factory=list)
-    hyperparams: List[MLHyperParamClass] = dataclasses.field(default_factory=list)
-    metrics: List[MLMetricClass] = dataclasses.field(default_factory=list)
+class LineageMetadata(BaseModel):
+    """Metadata for lineage tracking."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    input_urns: List[str] = Field(
+        default_factory=list
+    )  # Can be DatasetUrn or MlModelUrn
+    output_urns: List[str] = Field(
+        default_factory=list
+    )  # Can be DatasetUrn or MlModelUrn
+    hyperparams: List[MLHyperParamClass] = Field(default_factory=list)
+    metrics: List[MLMetricClass] = Field(default_factory=list)
 
     def merge(self, other: "LineageMetadata") -> None:
         self.input_urns.extend(other.input_urns)
@@ -59,15 +66,15 @@ class LineageMetadata:
     def deduplicate(self) -> None:
         self.input_urns = list(set(self.input_urns))
         self.output_urns = list(set(self.output_urns))
-        # Deduplicate by name (keep last)
         hyperparam_dict = {hp.name: hp for hp in self.hyperparams}
         self.hyperparams = list(hyperparam_dict.values())
         metric_dict = {m.name: m for m in self.metrics}
         self.metrics = list(metric_dict.values())
 
 
-@dataclasses.dataclass
-class MLMetadataConfig:
+class MLMetadataConfig(BaseModel):
+    """Configuration for ML Metadata service."""
+
     project_id: str
     region: str
     metadata_store: str = "default"
@@ -84,55 +91,70 @@ class MLMetadataConfig:
         )
 
 
-@dataclasses.dataclass
-class ArtifactInfo:
-    name: str
-    uri: Optional[str]
-    schema_title: Optional[str]
-    display_name: Optional[str]
+class ArtifactInfo(BaseModel):
+    """Information about an artifact."""
 
-    def __post_init__(self) -> None:
+    name: str
+    uri: Optional[str] = None
+    schema_title: Optional[str] = None
+    display_name: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_name(self) -> "ArtifactInfo":
         if not self.name:
             raise ValueError("Artifact name cannot be empty")
+        return self
 
 
-@dataclasses.dataclass
-class ExecutionInfo:
+class ExecutionInfo(BaseModel):
+    """Information about an execution."""
+
     name: str
-    display_name: Optional[str]
-    schema_title: Optional[str]
+    display_name: Optional[str] = None
+    schema_title: Optional[str] = None
     metadata: Optional[Dict] = None
 
-    def __post_init__(self) -> None:
+    @model_validator(mode="after")
+    def validate_name(self) -> "ExecutionInfo":
         if not self.name:
             raise ValueError("Execution name cannot be empty")
+        return self
 
 
-@dataclasses.dataclass
-class TrainingJobMetadata:
-    """Metadata for a Vertex AI training job."""
+class TrainingJobMetadata(BaseModel):
+    """Metadata for a Vertex AI training job.
 
-    job: VertexAiResourceNoun
-    input_dataset: Optional[VertexAiResourceNoun] = None
-    output_model: Optional[Model] = None
-    output_model_version: Optional[VersionInfo] = None
+    Note: Google Cloud SDK types use SkipValidation to allow both real objects
+    and test mocks while preserving type hints for IDE support.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+
+    job: Annotated[VertexAiResourceNoun, SkipValidation()]
+    input_dataset: Optional[Annotated[VertexAiResourceNoun, SkipValidation()]] = None
+    output_model: Optional[Annotated[Model, SkipValidation()]] = None
+    output_model_version: Optional[Annotated[VersionInfo, SkipValidation()]] = None
     external_input_urns: Optional[List[str]] = None
     external_output_urns: Optional[List[str]] = None
 
 
-@dataclasses.dataclass
-class ModelMetadata:
-    """Metadata for a Vertex AI model."""
+class ModelMetadata(BaseModel):
+    """Metadata for a Vertex AI model.
 
-    model: Model
-    model_version: VersionInfo
+    Note: Google Cloud SDK types use SkipValidation to allow both real objects
+    and test mocks while preserving type hints for IDE support.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+
+    model: Annotated[Model, SkipValidation()]
+    model_version: Annotated[VersionInfo, SkipValidation()]
     training_job_urn: Optional[str] = None
     training_data_urns: Optional[List[str]] = None
-    endpoints: Optional[List[Endpoint]] = None
+    endpoints: Optional[List[Annotated[Endpoint, SkipValidation()]]] = None
 
 
-@dataclasses.dataclass
-class PipelineTaskArtifacts:
+class PipelineTaskArtifacts(BaseModel):
     """Artifacts (datasets and models) for a pipeline task."""
 
     input_dataset_urns: Optional[List[str]] = None
@@ -140,9 +162,10 @@ class PipelineTaskArtifacts:
     output_model_urns: Optional[List[str]] = None
 
 
-@dataclasses.dataclass
-class PipelineTaskMetadata:
+class PipelineTaskMetadata(BaseModel):
     """Metadata for a Vertex AI pipeline task."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: str
     urn: DataJobUrn
@@ -154,14 +177,15 @@ class PipelineTaskMetadata:
     end_time: Optional[timestamp_pb2.Timestamp] = None
     upstreams: Optional[List[DataJobUrn]] = None
     duration: Optional[int] = None
-    input_dataset_urns: Optional[List[str]] = None  # Dataset inputs
-    output_dataset_urns: Optional[List[str]] = None  # Dataset outputs
-    output_model_urns: Optional[List[str]] = None  # Model outputs
+    input_dataset_urns: Optional[List[str]] = None
+    output_dataset_urns: Optional[List[str]] = None
+    output_model_urns: Optional[List[str]] = None
 
 
-@dataclasses.dataclass
-class PipelineMetadata:
+class PipelineMetadata(BaseModel):
     """Metadata for a Vertex AI pipeline."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: str
     resource_name: str
@@ -212,9 +236,9 @@ class PipelineTaskProperties(BaseModel):
 class ModelEvaluationCustomProperties(BaseModel):
     """Custom properties for model evaluation."""
 
-    evaluation_id: str = Field(..., alias="evaluationId")
-    model_name: str = Field(..., alias="modelName")
-    model_resource_name: str = Field(..., alias="modelResourceName")
+    evaluation_id: str = Field(alias="evaluationId")
+    model_name: str = Field(alias="modelName")
+    model_resource_name: str = Field(alias="modelResourceName")
 
     class Config:
         populate_by_name = True
@@ -231,7 +255,7 @@ class ModelEvaluationCustomProperties(BaseModel):
 class TrainingJobCustomProperties(BaseModel):
     """Custom properties for training jobs."""
 
-    job_type: str = Field(..., alias="jobType")
+    job_type: str = Field(alias="jobType")
 
     class Config:
         populate_by_name = True
@@ -244,7 +268,7 @@ class TrainingJobCustomProperties(BaseModel):
 class DatasetCustomProperties(BaseModel):
     """Custom properties for datasets."""
 
-    resource_name: str = Field(..., alias="resourceName")
+    resource_name: str = Field(alias="resourceName")
 
     class Config:
         populate_by_name = True
@@ -257,7 +281,7 @@ class DatasetCustomProperties(BaseModel):
 class EndpointDeploymentCustomProperties(BaseModel):
     """Custom properties for endpoint deployments."""
 
-    display_name: str = Field(..., alias="displayName")
+    display_name: str = Field(alias="displayName")
 
     class Config:
         populate_by_name = True
@@ -270,8 +294,8 @@ class EndpointDeploymentCustomProperties(BaseModel):
 class MLModelCustomProperties(BaseModel):
     """Custom properties for ML models."""
 
-    version_id: str = Field(..., alias="versionId")
-    resource_name: str = Field(..., alias="resourceName")
+    version_id: str = Field(alias="versionId")
+    resource_name: str = Field(alias="resourceName")
 
     class Config:
         populate_by_name = True

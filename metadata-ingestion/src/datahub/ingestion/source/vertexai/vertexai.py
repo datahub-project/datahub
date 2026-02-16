@@ -100,7 +100,6 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     ModelEvaluationCustomProperties,
     ModelGroupKey,
     ModelMetadata,
-    PipelineKey,
     PipelineMetadata,
     PipelineProperties,
     PipelineTaskArtifacts,
@@ -165,6 +164,16 @@ T = TypeVar("T")
 logger = logging.getLogger(__name__)
 
 
+def log_progress(
+    current: int, total: Optional[int], item_type: str, interval: int = 100
+) -> None:
+    """Log progress for large collections at regular intervals."""
+    if current % interval == 0:
+        logger.info(f"Processed {current} {item_type} from VertexAI server")
+    if total and current == total:
+        logger.info(f"Finished processing {total} {item_type} from VertexAI server")
+
+
 @platform_name("Vertex AI", id="vertexai")
 @config_class(VertexAIConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -179,7 +188,6 @@ class VertexAISource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report: StaleEntityRemovalSourceReport = StaleEntityRemovalSourceReport()
-        # Track which jobs/tasks use which models (for downstream lineage)
         self._model_to_downstream_jobs: Dict[str, List[str]] = {}
 
         creds = self.config.get_credentials()
@@ -265,6 +273,13 @@ class VertexAISource(StatefulIngestionSourceBase):
                 self, self.config, self.ctx
             ).workunit_processor,
         ]
+
+    def _track_model_usage(self, model_urn: str, job_urn: str) -> None:
+        """Track that a job uses a model as input, for downstream lineage."""
+        if model_urn not in self._model_to_downstream_jobs:
+            self._model_to_downstream_jobs[model_urn] = []
+        if job_urn not in self._model_to_downstream_jobs[model_urn]:
+            self._model_to_downstream_jobs[model_urn].append(job_urn)
 
     def _yield_common_aspects(
         self,
@@ -385,18 +400,13 @@ class VertexAISource(StatefulIngestionSourceBase):
         """Fetches pipelines from Vertex AI and generates corresponding mcps."""
         pipeline_jobs = list(self.client.PipelineJob.list(order_by="update_time desc"))
 
+        total = len(pipeline_jobs)
         for i, pipeline in enumerate(pipeline_jobs, start=1):
-            if i % 100 == 0:
-                logger.info(f"Processed {i} pipelines from VertexAI server")
+            log_progress(i, total, "pipelines")
             logger.debug(f"Fetching pipeline ({pipeline.name})")
             pipeline_meta = self._get_pipeline_metadata(pipeline)
             yield from self._get_pipeline_mcps(pipeline_meta)
             yield from self._gen_pipeline_task_mcps(pipeline_meta)
-
-        if pipeline_jobs:
-            logger.info(
-                f"Finished processing {len(pipeline_jobs)} pipelines from VertexAI server"
-            )
 
     def _extract_pipeline_task_inputs(
         self, task_detail: PipelineTaskDetail, task_name: str, task_urn: str
@@ -417,12 +427,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                             )
                             if model_urn:
                                 input_urns.append(model_urn)
-                                # Record that this task uses this model
-                                if model_urn not in self._model_to_downstream_jobs:
-                                    self._model_to_downstream_jobs[model_urn] = []
-                                self._model_to_downstream_jobs[model_urn].append(
-                                    task_urn
-                                )
+                                self._track_model_usage(model_urn, task_urn)
                             else:
                                 # If not a model, try as dataset
                                 input_urns.extend(
@@ -609,13 +614,6 @@ class VertexAISource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dpi_urn,
-            aspect=ContainerClass(
-                container=self._get_pipeline_container(pipeline).as_urn()
-            ),
-        ).as_workunit()
-
         yield from self._yield_common_aspects(
             entity_urn=dpi_urn,
             subtype=VertexAISubTypes.PIPELINE_TASK_RUN,
@@ -686,8 +684,6 @@ class VertexAISource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         dataflow_urn = pipeline.urn
 
-        pipeline_container_urn = self._get_pipeline_container(pipeline).as_urn()
-
         for task in pipeline.tasks:
             # DataJob inlets/outlets only support dataset URNs (not models)
             inlets = (
@@ -723,9 +719,10 @@ class VertexAISource(StatefulIngestionSourceBase):
                 platform_instance=self.config.platform_instance,
             )
 
+            # DataJobs get container pointing to their parent DataFlow
             yield MetadataChangeProposalWrapper(
                 entityUrn=datajob.urn.urn(),
-                aspect=ContainerClass(container=pipeline_container_urn),
+                aspect=ContainerClass(container=str(dataflow_urn)),
             ).as_workunit()
 
             yield from self._yield_common_aspects(
@@ -798,17 +795,6 @@ class VertexAISource(StatefulIngestionSourceBase):
     def _get_pipeline_mcps(
         self, pipeline: PipelineMetadata
     ) -> Iterable[MetadataWorkUnit]:
-        pipeline_container_key = self._get_pipeline_container(pipeline)
-
-        yield from gen_containers(
-            parent_container_key=self._get_resource_category_container(
-                ResourceCategory.PIPELINES
-            ),
-            container_key=pipeline_container_key,
-            name=pipeline.name,
-            sub_types=[VertexAISubTypes.PIPELINE],
-        )
-
         owner = self._get_actor_from_labels(pipeline.labels)
         dataflow = DataFlow(
             orchestrator=self.platform,
@@ -842,15 +828,10 @@ class VertexAISource(StatefulIngestionSourceBase):
         self.experiments = filtered
 
         logger.info("Fetching experiments from VertexAI server")
+        total = len(self.experiments)
         for i, experiment in enumerate(self.experiments, start=1):
-            if i % 100 == 0:
-                logger.info(f"Processed {i} experiments from VertexAI server")
+            log_progress(i, total, "experiments")
             yield from self._gen_experiment_workunits(experiment)
-
-        if self.experiments:
-            logger.info(
-                f"Finished processing {len(self.experiments)} experiments from VertexAI server"
-            )
 
     def _get_experiment_runs_mcps(self) -> Iterable[MetadataWorkUnit]:
         if self.experiments is None:
@@ -870,8 +851,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             if self.config.max_runs_per_experiment is not None:
                 experiment_runs = experiment_runs[: self.config.max_runs_per_experiment]
             for i, run in enumerate(experiment_runs, start=1):
-                if i % 100 == 0:
-                    logger.info(f"Processed {i} runs for experiment {experiment.name}")
+                log_progress(i, None, f"runs for experiment {experiment.name}")
                 yield from self._gen_experiment_run_mcps(experiment, run)
 
     def _gen_experiment_workunits(
@@ -984,10 +964,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             model_urn = self.uri_parser.model_urn_from_artifact_uri(input_art.uri)
             if model_urn:
                 input_edges.append(EdgeClass(destinationUrn=model_urn))
-                # Record that this execution uses this model
-                if model_urn not in self._model_to_downstream_jobs:
-                    self._model_to_downstream_jobs[model_urn] = []
-                self._model_to_downstream_jobs[model_urn].append(execution_urn)
+                self._track_model_usage(model_urn, execution_urn)
         for output_art in execution.get_output_artifacts():
             for ds_urn in self.uri_parser.dataset_urns_from_artifact_uri(
                 output_art.uri
@@ -1674,15 +1651,6 @@ class VertexAISource(StatefulIngestionSourceBase):
             instance=self.config.platform_instance,
             env=self.config.env,
             model_group_name=self.name_formatter.format_model_group_name(model.name),
-        )
-
-    def _get_pipeline_container(self, pipeline: PipelineMetadata) -> PipelineKey:
-        return PipelineKey(
-            project_id=self._get_project_id(),
-            platform=self.platform,
-            instance=self.config.platform_instance,
-            env=self.config.env,
-            pipeline_name=self.name_formatter.format_pipeline_id(pipeline.name),
         )
 
     def _generate_resource_category_containers(self) -> Iterable[MetadataWorkUnit]:
