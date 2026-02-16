@@ -3058,8 +3058,11 @@ class TableauSiteSource:
             )
             dataset_snapshot.aspects.append(browse_paths)
         else:
-            logger.debug(f"Browse path not set for table {database_table.urn}")
-            return
+            # External upstream tables may not have browse paths - that's OK
+            logger.debug(
+                f"Table {database_table.urn} has no browse path (likely external upstream table)"
+            )
+            # Continue to emit entity with other aspects (don't return early)
 
         schema_metadata = self.get_schema_metadata_for_table(
             tableau_columns, database_table.parsed_columns

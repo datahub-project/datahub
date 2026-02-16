@@ -673,10 +673,12 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
     )
 
-    # 32 instead of 35 because extract_table_lineage_without_columns now creates
-    # lineage for 3 postgres tables (customer, staff, payment) that previously had no columns
-    assert len(difference_dataset_urns) == 32
+    # 34 instead of 37 because extract_table_lineage_without_columns now creates
+    # lineage for 3 postgres tables (customer, staff, payment) that previously were not emitted
+    assert len(difference_dataset_urns) == 34
     deleted_dataset_urns = [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.order_items,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.sellers,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,d00f4ba6-707e-4684-20af-69eb47587cc2,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,4fb670d5-3e19-9656-e684-74aa9729cf18,PROD)",
