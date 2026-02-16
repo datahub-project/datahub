@@ -2993,7 +2993,10 @@ class TableauSiteSource:
             c.ID_WITH_IN: list(tableau_database_table_id_to_urn_map.keys())
         }
 
-        # Emitting tables that came from Tableau metadata
+        # Track emitted URNs to catch tables that fall through the cracks
+        emitted_urns: Set[str] = set()
+
+        # Phase 1: Emitting tables that came from Tableau metadata
         for tableau_table in self.get_connection_objects(
             query=database_tables_graphql_query,
             connection_type=c.DATABASE_TABLES_CONNECTION,
@@ -3017,8 +3020,9 @@ class TableauSiteSource:
                 continue
 
             yield from self.emit_table(database_table, tableau_columns)
+            emitted_urns.add(database_table.urn)
 
-        # Emitting tables that were purely parsed from SQL queries
+        # Phase 2: Emitting tables that were purely parsed from SQL queries
         for database_table in self.database_tables.values():
             # Only tables purely parsed from SQL queries don't have ID
             if database_table.id:
@@ -3034,6 +3038,18 @@ class TableauSiteSource:
                 continue
 
             yield from self.emit_table(database_table, None)
+            emitted_urns.add(database_table.urn)
+
+        # Phase 3: Emit tables that have IDs but weren't returned by Tableau re-query
+        # (likely tables without column metadata that Tableau filters out)
+        if self.config.ingest_tables_external:
+            for database_table in self.database_tables.values():
+                if database_table.urn not in emitted_urns:
+                    logger.debug(
+                        f"Table {database_table.urn} not returned by Tableau re-query (likely no columns). Emitting anyway."
+                    )
+                    yield from self.emit_table(database_table, None)
+                    emitted_urns.add(database_table.urn)
 
     def emit_table(
         self,
