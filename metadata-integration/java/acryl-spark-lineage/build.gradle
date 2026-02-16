@@ -35,7 +35,10 @@ dependencies {
   }
 
   provided(externalDependency.sparkSql)
-  provided(externalDependency.sparkHive)
+  provided(externalDependency.sparkHive) {
+    exclude group: 'org.apache.velocity', module: 'velocity'
+  }
+  implementation 'org.apache.velocity:velocity-engine-core:2.3'
   implementation 'org.slf4j:slf4j-log4j12:2.0.7'
   implementation externalDependency.httpClient
   implementation externalDependency.typesafeConfig
