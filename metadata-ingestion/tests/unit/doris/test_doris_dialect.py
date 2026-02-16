@@ -3,6 +3,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import sqltypes
 
 from datahub.ingestion.source.sql.doris.doris_dialect import (
@@ -172,8 +173,6 @@ class TestDorisDialect:
     @patch("datahub.ingestion.source.sql.doris.doris_dialect.logger")
     def test_get_columns_sqlalchemy_error(self, mock_logger):
         """Test get_columns() handles SQLAlchemyError gracefully."""
-        from sqlalchemy.exc import SQLAlchemyError
-
         dialect = DorisDialect()
 
         mock_connection = Mock()
