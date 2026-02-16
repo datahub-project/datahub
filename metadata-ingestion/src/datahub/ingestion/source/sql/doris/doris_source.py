@@ -2,7 +2,7 @@ import logging
 import re
 from typing import Any, Dict, Iterable, List
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
@@ -58,12 +58,13 @@ register_custom_type(DORIS_JSONB, RecordTypeClass)
 class DorisConfig(MySQLConfig):
     scheme: HiddenFromDocs[str] = Field(default="doris+pymysql")
 
-    @model_validator(mode="after")
-    def _ensure_doris_scheme(self) -> "DorisConfig":
+    @field_validator("scheme", mode="before")
+    @classmethod
+    def _ensure_doris_scheme(cls, v: str) -> str:
         """Ensure scheme is always doris+pymysql, overriding parent MySQL's mysql+pymysql."""
-        if self.scheme == "mysql+pymysql":
-            object.__setattr__(self, "scheme", "doris+pymysql")
-        return self
+        if v == "mysql+pymysql":
+            return "doris+pymysql"
+        return v
 
     host_port: str = Field(
         default=f"localhost:{DORIS_DEFAULT_PORT}",
@@ -105,7 +106,7 @@ class DorisSource(MySQLSource):
         return cls(config, ctx)
 
     def _get_database_list(self, inspector: Inspector) -> List[str]:
-        if self.config.database and self.config.database != "":
+        if self.config.database:
             return [self.config.database]
         return inspector.get_schema_names()
 
@@ -121,6 +122,7 @@ class DorisSource(MySQLSource):
 
             for db in databases:
                 if self.config.database_pattern.allowed(db):
+                    db_engine = None
                     try:
                         db_url = self.config.get_sql_alchemy_url(current_db=db)
                         db_engine = create_engine(db_url, **self.config.options)
@@ -134,6 +136,9 @@ class DorisSource(MySQLSource):
                             context=db,
                             exc=e,
                         )
+                    finally:
+                        if db_engine is not None:
+                            db_engine.dispose()
 
     def get_platform(self) -> str:
         return "doris"
