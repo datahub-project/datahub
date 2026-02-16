@@ -75,9 +75,6 @@ class MLMetadataConfig:
     enable_metrics_extraction: bool = True
     max_executions_per_job: Optional[int] = None
     max_execution_search_limit: int = MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS
-    execution_lookback_days: Optional[int] = (
-        7  # Only search executions from last N days
-    )
 
     def get_parent_path(self) -> str:
         return MLMetadataDefaults.METADATA_STORE_PATH_TEMPLATE.format(

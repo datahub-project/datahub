@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from numbers import Real
 from typing import Dict, Iterable, List, Optional, TypeVar, Union
 
@@ -341,7 +341,6 @@ class VertexAISource(StatefulIngestionSourceBase):
                             metadata_store=MLMetadataDefaults.DEFAULT_METADATA_STORE,
                             enable_lineage_extraction=self.config.use_ml_metadata_for_lineage,
                             enable_metrics_extraction=self.config.extract_execution_metrics,
-                            execution_lookback_days=self.config.ml_metadata_execution_lookback_days,
                             max_execution_search_limit=self.config.ml_metadata_max_execution_search_limit,
                         )
 
@@ -377,30 +376,8 @@ class VertexAISource(StatefulIngestionSourceBase):
                     yield from auto_workunit(self._get_model_evaluations_mcps())
 
     def _get_pipelines_mcps(self) -> Iterable[MetadataWorkUnit]:
-        """
-        Fetches pipelines from Vertex AI and generates corresponding mcps.
-
-        Note: Vertex AI PipelineJob list API doesn't support server-side time filtering,
-        so we filter in-memory after fetching.
-        """
-        cutoff_time = None
-        if self.config.pipeline_lookback_days:
-            cutoff_time = datetime.now(timezone.utc) - timedelta(
-                days=self.config.pipeline_lookback_days
-            )
-            logger.info(
-                f"Will filter pipelines to last {self.config.pipeline_lookback_days} days "
-                f"(since {cutoff_time.strftime('%Y-%m-%dT%H:%M:%SZ')})"
-            )
-
-        pipeline_jobs = list(self.client.PipelineJob.list())
-
-        if cutoff_time:
-            pipeline_jobs = [
-                pipeline
-                for pipeline in pipeline_jobs
-                if pipeline.create_time and pipeline.create_time >= cutoff_time
-            ]
+        """Fetches pipelines from Vertex AI and generates corresponding mcps."""
+        pipeline_jobs = list(self.client.PipelineJob.list(order_by="create_time desc"))
 
         for pipeline in pipeline_jobs:
             logger.info(f"fetching pipeline ({pipeline.name})")
@@ -740,6 +717,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         filtered = [
             e for e in exps if self.config.experiment_name_pattern.allowed(e.name)
         ]
+        filtered.sort(key=lambda x: x.create_time, reverse=True)  # type: ignore[attr-defined]
         if self.config.max_experiments is not None:
             filtered = filtered[: self.config.max_experiments]
         self.experiments = filtered
@@ -750,14 +728,19 @@ class VertexAISource(StatefulIngestionSourceBase):
 
     def _get_experiment_runs_mcps(self) -> Iterable[MetadataWorkUnit]:
         if self.experiments is None:
-            self.experiments = [
+            exps = [
                 e
                 for e in aiplatform.Experiment.list()
                 if self.config.experiment_name_pattern.allowed(e.name)
             ]
+            exps.sort(key=lambda x: x.create_time, reverse=True)  # type: ignore[attr-defined]
+            self.experiments = exps
         for experiment in self.experiments:
             logger.info(f"Fetching experiment runs for experiment {experiment.name}")
-            experiment_runs = aiplatform.ExperimentRun.list(experiment=experiment.name)
+            experiment_runs = list(
+                aiplatform.ExperimentRun.list(experiment=experiment.name)
+            )
+            experiment_runs.sort(key=lambda x: x.create_time, reverse=True)  # type: ignore[attr-defined]
             if self.config.max_runs_per_experiment is not None:
                 experiment_runs = experiment_runs[: self.config.max_runs_per_experiment]
             for run in experiment_runs:
@@ -1024,7 +1007,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         """
         Fetch List of Models in Model Registry and generate a corresponding mcp.
         """
-        registered_models = self.client.Model.list()
+        registered_models = self.client.Model.list(order_by="create_time desc")
         count = 0
         for model in registered_models:
             if not self.config.model_name_pattern.allowed(model.display_name or ""):
@@ -1046,7 +1029,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         """
         Fetch model evaluations from Vertex AI and generate corresponding mcps.
         """
-        registered_models = self.client.Model.list()
+        registered_models = self.client.Model.list(order_by="create_time desc")
 
         for model in registered_models:
             if not self.config.model_name_pattern.allowed(model.display_name or ""):
@@ -1239,33 +1222,15 @@ class VertexAISource(StatefulIngestionSourceBase):
         AutoMLTabularTrainingJob, AutoMLTextTrainingJob, AutoMLImageTrainingJob, AutoMLVideoTrainingJob,
         and AutoMLForecastingTrainingJob. For each job, it generates mcps containing metadata
         about the job, its inputs, and its outputs.
-
-        Note: Vertex AI job list APIs don't support server-side time filtering, so we filter
-        in-memory after fetching.
         """
-        cutoff_time = None
-        if self.config.training_job_lookback_days:
-            cutoff_time = datetime.now(timezone.utc) - timedelta(
-                days=self.config.training_job_lookback_days
-            )
-            logger.info(
-                f"Will filter training jobs to last {self.config.training_job_lookback_days} days "
-                f"(since {cutoff_time.strftime('%Y-%m-%dT%H:%M:%SZ')})"
-            )
-
         for class_name in TrainingJobTypes.all():
             if not self.config.training_job_type_pattern.allowed(class_name):
                 continue
             logger.info(f"Fetching a list of {class_name}s from VertexAI server")
 
-            jobs = list(getattr(self.client, class_name).list())
-
-            if cutoff_time:
-                jobs = [
-                    job
-                    for job in jobs
-                    if job.create_time and job.create_time >= cutoff_time
-                ]
+            jobs = list(
+                getattr(self.client, class_name).list(order_by="create_time desc")
+            )
 
             if self.config.max_training_jobs_per_type is not None:
                 jobs = jobs[: self.config.max_training_jobs_per_type]

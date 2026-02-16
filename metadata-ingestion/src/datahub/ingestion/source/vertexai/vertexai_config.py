@@ -103,26 +103,29 @@ class VertexAIConfig(
     max_models: Optional[int] = Field(
         default=IngestionLimits.DEFAULT_MAX_MODELS,
         le=IngestionLimits.ABSOLUTE_MAX_MODELS,
-        description=f"Maximum number of models to ingest. Default: {IngestionLimits.DEFAULT_MAX_MODELS}, "
+        description=f"Maximum number of models to ingest. Models are ordered by create_time descending "
+        f"(most recent first). Default: {IngestionLimits.DEFAULT_MAX_MODELS}, "
         f"Max: {IngestionLimits.ABSOLUTE_MAX_MODELS}. Set to None for unlimited (not recommended).",
     )
     max_training_jobs_per_type: Optional[int] = Field(
         default=IngestionLimits.DEFAULT_MAX_TRAINING_JOBS_PER_TYPE,
         le=IngestionLimits.ABSOLUTE_MAX_TRAINING_JOBS_PER_TYPE,
-        description=f"Maximum training jobs per type (CustomJob, AutoML, etc.). "
-        f"Default: {IngestionLimits.DEFAULT_MAX_TRAINING_JOBS_PER_TYPE}, "
+        description=f"Maximum training jobs per type (CustomJob, AutoML, etc.). Jobs are ordered by create_time "
+        f"descending (most recent first). Default: {IngestionLimits.DEFAULT_MAX_TRAINING_JOBS_PER_TYPE}, "
         f"Max: {IngestionLimits.ABSOLUTE_MAX_TRAINING_JOBS_PER_TYPE}. Set to None for unlimited (not recommended).",
     )
     max_experiments: Optional[int] = Field(
         default=IngestionLimits.DEFAULT_MAX_EXPERIMENTS,
         le=IngestionLimits.ABSOLUTE_MAX_EXPERIMENTS,
-        description=f"Maximum number of experiments to ingest. Default: {IngestionLimits.DEFAULT_MAX_EXPERIMENTS}, "
+        description=f"Maximum number of experiments to ingest. Experiments are ordered by create_time descending "
+        f"(most recent first). Default: {IngestionLimits.DEFAULT_MAX_EXPERIMENTS}, "
         f"Max: {IngestionLimits.ABSOLUTE_MAX_EXPERIMENTS}. Set to None for unlimited (not recommended).",
     )
     max_runs_per_experiment: Optional[int] = Field(
         default=IngestionLimits.DEFAULT_MAX_RUNS_PER_EXPERIMENT,
         le=IngestionLimits.ABSOLUTE_MAX_RUNS_PER_EXPERIMENT,
-        description=f"Maximum experiment runs per experiment. Default: {IngestionLimits.DEFAULT_MAX_RUNS_PER_EXPERIMENT}, "
+        description=f"Maximum experiment runs per experiment. Runs are ordered by create_time descending "
+        f"(most recent first). Default: {IngestionLimits.DEFAULT_MAX_RUNS_PER_EXPERIMENT}, "
         f"Max: {IngestionLimits.ABSOLUTE_MAX_RUNS_PER_EXPERIMENT}. Set to None for unlimited (not recommended).",
     )
     max_evaluations_per_model: Optional[int] = Field(
@@ -131,26 +134,11 @@ class VertexAIConfig(
         description=f"Maximum evaluations per model. Default: {IngestionLimits.DEFAULT_MAX_EVALUATIONS_PER_MODEL}, "
         f"Max: {IngestionLimits.ABSOLUTE_MAX_EVALUATIONS_PER_MODEL}. Set to None for unlimited (not recommended).",
     )
-    training_job_lookback_days: Optional[int] = Field(
-        default=IngestionLimits.DEFAULT_TRAINING_JOB_LOOKBACK_DAYS,
-        description="Only ingest training jobs created/updated in the last N days. "
-        "Set to None to ingest all training jobs (max limits still apply for safety). Default: 7 days.",
-    )
-    pipeline_lookback_days: Optional[int] = Field(
-        default=IngestionLimits.DEFAULT_PIPELINE_LOOKBACK_DAYS,
-        description="Only ingest pipelines created/updated in the last N days. "
-        "Set to None to ingest all pipelines (max limits still apply for safety). Default: 7 days.",
-    )
-    ml_metadata_execution_lookback_days: Optional[int] = Field(
-        default=IngestionLimits.DEFAULT_ML_METADATA_EXECUTION_LOOKBACK_DAYS,
-        description="When searching ML Metadata for executions, only look at executions from the last N days. "
-        "This significantly improves performance for projects with many historical executions. "
-        "Set to None to search all executions (max_execution_search_limit still applies). Default: 7 days.",
-    )
     ml_metadata_max_execution_search_limit: int = Field(
         default=MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS,
         description="Maximum number of ML Metadata executions to retrieve when searching for a training job. "
-        "Prevents excessive API calls and timeouts even when execution_lookback_days is None. Default: 100.",
+        "Executions are ordered by create_time descending (most recent first), so if the limit is reached, "
+        "you'll get the most recent executions. Prevents excessive API calls and timeouts. Default: 100.",
     )
     # Optional multi-project / filter support
     project_ids: List[str] = Field(

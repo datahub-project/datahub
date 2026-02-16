@@ -1,6 +1,5 @@
 import itertools
 import logging
-from datetime import datetime, timedelta, timezone
 from typing import Callable, List, Optional, Sequence, Tuple
 
 from google.cloud.aiplatform.base import VertexAiResourceNoun
@@ -117,22 +116,9 @@ class MLMetadataHelper:
             MLMetadataSchemas.CUSTOM_JOB,
         ]
 
-        schema_filter = " OR ".join(
+        filter_str = " OR ".join(
             [f'schema_title="{schema}"' for schema in schema_filters]
         )
-
-        filter_str = schema_filter
-        if self.config.execution_lookback_days:
-            cutoff_time = datetime.now(timezone.utc) - timedelta(
-                days=self.config.execution_lookback_days
-            )
-            # Format: "2024-01-15T00:00:00Z"
-            cutoff_str = cutoff_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-            filter_str = f"({schema_filter}) AND create_time >= {cutoff_str}"
-            logger.debug(
-                f"Filtering executions to last {self.config.execution_lookback_days} days "
-                f"(since {cutoff_str})"
-            )
 
         # Use configured search limit (default 100) to prevent excessive API calls and timeouts
         max_to_retrieve = self.config.max_execution_search_limit
@@ -140,6 +126,7 @@ class MLMetadataHelper:
         request = ListExecutionsRequest(
             parent=parent,
             filter=filter_str,
+            order_by="create_time desc",
             page_size=min(
                 max_to_retrieve, MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS
             ),

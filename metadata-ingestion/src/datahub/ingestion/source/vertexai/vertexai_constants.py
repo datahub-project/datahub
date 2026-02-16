@@ -306,11 +306,6 @@ class IngestionLimits:
     ABSOLUTE_MAX_RUNS_PER_EXPERIMENT = 1000
     ABSOLUTE_MAX_EVALUATIONS_PER_MODEL = 100
 
-    # Lookback period defaults (in days)
-    DEFAULT_TRAINING_JOB_LOOKBACK_DAYS = 7
-    DEFAULT_PIPELINE_LOOKBACK_DAYS = 7
-    DEFAULT_ML_METADATA_EXECUTION_LOOKBACK_DAYS = 7
-
 
 # Duration formatting constants
 class DurationUnit:

@@ -83,7 +83,7 @@ Ingestion Job extracts Models, Datasets, Training Jobs, Endpoints, Experiments, 
 
 The source supports ingesting across multiple GCP projects by specifying `project_ids`, `project_labels`, or `project_id_pattern`. The optional `platform_instance` configuration field can be used to distinguish between different Vertex AI environments (e.g., dev, staging, prod).
 
-**Performance optimization**: By default, only resources from the last 7 days are ingested. This significantly improves performance for projects with extensive historical data. Configure `training_job_lookback_days`, `pipeline_lookback_days`, and `ml_metadata_execution_lookback_days` to adjust the time window or set to `null` to ingest all historical data.
+**Performance optimization**: With stateful ingestion enabled (recommended), only new or changed resources are processed on subsequent runs, significantly improving performance. The first ingestion run processes historical resources (ordered by creation time, most recent first), but subsequent runs are much faster. Limits like `max_training_jobs_per_type` control which resources are processed and sent to DataHub - for example, setting `max_training_jobs_per_type: 1000` will ingest only the 1000 most recent training jobs of each type. Note: The Vertex AI API may still fetch all resources, but only the specified number of most recent items will be processed and ingested into DataHub.
 
 For improved organization in the DataHub UI:
 

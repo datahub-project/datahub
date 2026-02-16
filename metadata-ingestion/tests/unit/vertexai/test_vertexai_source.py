@@ -89,13 +89,7 @@ def get_resource_category_container_urn(source: VertexAISource, category: str) -
 def source() -> VertexAISource:
     return VertexAISource(
         ctx=PipelineContext(run_id="vertexai-source-test"),
-        config=VertexAIConfig(
-            project_id=PROJECT_ID,
-            region=REGION,
-            training_job_lookback_days=None,
-            pipeline_lookback_days=None,
-            ml_metadata_execution_lookback_days=None,
-        ),
+        config=VertexAIConfig(project_id=PROJECT_ID, region=REGION),
     )
 
 
@@ -1000,6 +994,7 @@ def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
 
     mock_exp_run = MagicMock(spec=ExperimentRun)
     mock_exp_run.name = "test_run_none_timestamps"
+    mock_exp_run.create_time = datetime(2022, 3, 21, 10, 0, 0, tzinfo=timezone.utc)
     mock_exp_run.get_state.return_value = "COMPLETE"
     mock_exp_run.get_params.return_value = {}
     mock_exp_run.get_metrics.return_value = {}
@@ -1139,45 +1134,6 @@ def test_ml_metadata_helper_handles_init_errors(mock_client: MagicMock) -> None:
     source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
 
     assert source._ml_metadata_helper is None
-
-
-@pytest.mark.parametrize(
-    "config_overrides,expected_values",
-    [
-        (
-            {},
-            {
-                "training_job_lookback_days": 7,
-                "pipeline_lookback_days": 7,
-                "ml_metadata_execution_lookback_days": 7,
-                "ml_metadata_max_execution_search_limit": 100,
-            },
-        ),
-        (
-            {
-                "training_job_lookback_days": 30,
-                "ml_metadata_max_execution_search_limit": 200,
-            },
-            {
-                "training_job_lookback_days": 30,
-                "ml_metadata_max_execution_search_limit": 200,
-            },
-        ),
-        (
-            {"training_job_lookback_days": None},
-            {"training_job_lookback_days": None},
-        ),
-    ],
-)
-def test_time_based_filtering_config(
-    config_overrides: dict, expected_values: dict
-) -> None:
-    """Test time-based filtering configuration defaults and custom values"""
-    base_config = {"project_id": "test-project", "region": "us-central1"}
-    config = VertexAIConfig.model_validate({**base_config, **config_overrides})
-
-    for key, expected_value in expected_values.items():
-        assert getattr(config, key) == expected_value
 
 
 def test_model_training_data_lineage(source: VertexAISource) -> None:
