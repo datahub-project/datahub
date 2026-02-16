@@ -148,7 +148,9 @@ def _get_column_types_to_ignore(dialect_name: str) -> list[str]:
         # GEOGRAPHY doesn't support aggregate functions like APPROX_COUNT_DISTINCT
         return ["ARRAY", "STRUCT", "GEOGRAPHY", "JSON", "INTERVAL"]
     elif dialect_lower == "snowflake":
-        # GEOGRAPHY was also skipped in GE profiler by registering as NullType
-        return ["GEOGRAPHY"]
+        # GEOGRAPHY and GEOMETRY were skipped in GE profiler by registering as NullType
+        # OBJECT and ARRAY are complex types that don't support standard profiling operations
+        # (same behavior as GE profiler which maps OBJECT to NullType and ARRAY to ArrayType)
+        return ["GEOGRAPHY", "GEOMETRY", "OBJECT", "ARRAY"]
 
     return []

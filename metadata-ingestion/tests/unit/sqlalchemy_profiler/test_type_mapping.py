@@ -142,6 +142,13 @@ class TestTypeMapping:
         assert "GEOGRAPHY" in ignored
         assert "JSON" in ignored
 
+        # Snowflake
+        ignored = _get_column_types_to_ignore("snowflake")
+        assert "GEOGRAPHY" in ignored
+        assert "GEOMETRY" in ignored
+        assert "OBJECT" in ignored
+        assert "ARRAY" in ignored
+
         # Other databases
         ignored = _get_column_types_to_ignore("mysql")
         # May be empty or contain some types
