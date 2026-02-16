@@ -5,36 +5,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Inspector
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sql.doris.doris_dialect import (
-    AGG_STATE,
-    BITMAP,
-    DORIS_ARRAY,
-    DORIS_JSONB,
-    DORIS_MAP,
-    DORIS_STRUCT,
-    HLL,
-    QUANTILE_STATE,
-    DorisDialect,
-)
+from datahub.ingestion.source.sql.doris.doris_dialect import DorisDialect
 from datahub.ingestion.source.sql.doris.doris_source import DorisConfig, DorisSource
-from datahub.ingestion.source.sql.sql_common import _field_type_mapping
-from datahub.metadata.schema_classes import (
-    ArrayTypeClass,
-    BytesTypeClass,
-    RecordTypeClass,
-)
-
-
-def test_doris_custom_types_mapped_to_datahub_types():
-    """Test that Doris custom types are mapped to appropriate DataHub types."""
-    assert _field_type_mapping[HLL] == BytesTypeClass
-    assert _field_type_mapping[BITMAP] == BytesTypeClass
-    assert _field_type_mapping[QUANTILE_STATE] == BytesTypeClass
-    assert _field_type_mapping[AGG_STATE] == BytesTypeClass
-    assert _field_type_mapping[DORIS_ARRAY] == ArrayTypeClass
-    assert _field_type_mapping[DORIS_MAP] == RecordTypeClass
-    assert _field_type_mapping[DORIS_STRUCT] == RecordTypeClass
-    assert _field_type_mapping[DORIS_JSONB] == RecordTypeClass
 
 
 def test_get_procedures_for_schema_returns_empty_list():

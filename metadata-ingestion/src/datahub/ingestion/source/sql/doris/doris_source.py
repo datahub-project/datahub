@@ -145,7 +145,7 @@ class DorisSource(MySQLSource):
         if not self.config.include_stored_procedures:
             return []
 
-        self.report.report_warning(
+        self.report.warning(
             title="Stored procedures not supported",
             message="Doris information_schema.ROUTINES is always empty. Stored procedure extraction is not available.",
             context=db_name + "." + schema,
@@ -153,14 +153,7 @@ class DorisSource(MySQLSource):
         return []
 
     def _get_view_definition(self, inspector: Inspector, schema: str, view: str) -> str:
-        """
-        Strip Doris's `internal` catalog prefix from view definitions.
-
-        Doris adds `internal.` to table references, but table URNs don't include it.
-        Stripping ensures correct lineage matching and shows SQL as users wrote it.
-
-        See docs/sources/doris/README.md for details.
-        """
+        """Strip `internal.` catalog prefix from view definitions for correct lineage."""
         view_definition = super()._get_view_definition(inspector, schema, view)
         if not view_definition:
             return view_definition

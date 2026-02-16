@@ -16,10 +16,7 @@ DORIS_PORT = 9030  # Doris MySQL protocol port
 
 # Note: Doris FE 3.0.8 uses Java 17 which has cgroup v2 incompatibility issues in CI
 # Workaround: JAVA_OPTS=-XX:-UseContainerSupport is explicitly exported in entrypoint scripts
-pytestmark = [
-    pytest.mark.integration_batch_4,
-    pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning"),
-]
+pytestmark = pytest.mark.integration_batch_4
 
 
 @pytest.fixture(scope="module")

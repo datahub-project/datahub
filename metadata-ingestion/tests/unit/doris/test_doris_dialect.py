@@ -195,8 +195,7 @@ class TestDorisDialect:
 
         # Verify debug log was created (SQLAlchemyError is expected, so debug level)
         mock_logger.debug.assert_called_once()
-        assert "DESCRIBE query failed" in str(mock_logger.debug.call_args)
-        assert "Doris <1.0" in str(mock_logger.debug.call_args)
+        assert "DESCRIBE failed" in str(mock_logger.debug.call_args)
 
     @patch("datahub.ingestion.source.sql.doris.doris_dialect.logger")
     def test_get_columns_unexpected_error(self, mock_logger):
@@ -222,7 +221,7 @@ class TestDorisDialect:
 
         # Verify warning was logged
         mock_logger.warning.assert_called_once()
-        assert "Unexpected error during DESCRIBE" in str(mock_logger.warning.call_args)
+        assert "Unexpected error in DESCRIBE" in str(mock_logger.warning.call_args)
         assert "Falling back" in str(mock_logger.warning.call_args)
 
     def test_get_columns_no_schema(self):

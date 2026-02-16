@@ -1,11 +1,12 @@
 import logging
 import re
+import warnings
 from typing import Any, Dict, List, Optional  # noqa: F401 (used in type comments)
 
 from sqlalchemy import text
 from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql
 from sqlalchemy.engine import Connection, reflection
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SAWarning, SQLAlchemyError
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
 
@@ -102,7 +103,19 @@ class DorisDialect(MySQLDialect_pymysql):
         Type hints are in comment form because @reflection.cache doesn't support
         modern Python type annotations in function signatures.
         """
-        columns = super().get_columns(connection, table_name, schema, **kw)
+        # Suppress Doris DDL warnings (AGGREGATE KEY, DISTRIBUTED BY, array<T>, etc.)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=r"Unknown schema content.*",
+                category=SAWarning,
+            )
+            warnings.filterwarnings(
+                "ignore",
+                message=r"Incomplete reflection of column definition.*",
+                category=SAWarning,
+            )
+            columns = super().get_columns(connection, table_name, schema, **kw)
 
         current_schema = schema or connection.engine.url.database
         if not current_schema:
@@ -125,13 +138,12 @@ class DorisDialect(MySQLDialect_pymysql):
 
         except SQLAlchemyError as e:
             logger.debug(
-                f"DESCRIBE query failed for {current_schema}.{table_name}: {e}. "
-                f"This is expected for Doris <1.0, insufficient permissions, or connectivity issues. "
+                f"DESCRIBE failed for {current_schema}.{table_name}: {e}. "
                 f"Falling back to MySQL type reflection."
             )
         except Exception as e:
             logger.warning(
-                f"Unexpected error during DESCRIBE for {current_schema}.{table_name}: {e}. "
+                f"Unexpected error in DESCRIBE for {current_schema}.{table_name}: {e}. "
                 f"Falling back to MySQL type reflection."
             )
 
