@@ -179,6 +179,8 @@ class VertexAISource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report: StaleEntityRemovalSourceReport = StaleEntityRemovalSourceReport()
+        # Track which jobs/tasks use which models (for downstream lineage)
+        self._model_to_downstream_jobs: Dict[str, List[str]] = {}
 
         creds = self.config.get_credentials()
         credentials = (
@@ -360,9 +362,8 @@ class VertexAISource(StatefulIngestionSourceBase):
                 # Ingest Project
                 yield from self._gen_project_workunits()
 
-                if self.config.include_models:
-                    yield from auto_workunit(self._get_ml_models_mcps())
-
+                # Process jobs/pipelines/experiments FIRST to track model usage
+                # (for downstream lineage)
                 if self.config.include_training_jobs:
                     yield from auto_workunit(self._get_training_jobs_mcps())
 
@@ -373,6 +374,10 @@ class VertexAISource(StatefulIngestionSourceBase):
                 if self.config.include_pipelines:
                     yield from auto_workunit(self._get_pipelines_mcps())
 
+                # Process models AFTER jobs so we can add downstream lineage
+                if self.config.include_models:
+                    yield from auto_workunit(self._get_ml_models_mcps())
+
                 if self.config.include_evaluations:
                     yield from auto_workunit(self._get_model_evaluations_mcps())
 
@@ -380,16 +385,23 @@ class VertexAISource(StatefulIngestionSourceBase):
         """Fetches pipelines from Vertex AI and generates corresponding mcps."""
         pipeline_jobs = list(self.client.PipelineJob.list(order_by="update_time desc"))
 
-        for pipeline in pipeline_jobs:
-            logger.info(f"fetching pipeline ({pipeline.name})")
+        for i, pipeline in enumerate(pipeline_jobs, start=1):
+            if i % 100 == 0:
+                logger.info(f"Processed {i} pipelines from VertexAI server")
+            logger.debug(f"Fetching pipeline ({pipeline.name})")
             pipeline_meta = self._get_pipeline_metadata(pipeline)
             yield from self._get_pipeline_mcps(pipeline_meta)
             yield from self._gen_pipeline_task_mcps(pipeline_meta)
 
+        if pipeline_jobs:
+            logger.info(
+                f"Finished processing {len(pipeline_jobs)} pipelines from VertexAI server"
+            )
+
     def _extract_pipeline_task_inputs(
-        self, task_detail: PipelineTaskDetail, task_name: str
+        self, task_detail: PipelineTaskDetail, task_name: str, task_urn: str
     ) -> Optional[List[str]]:
-        """Extract input dataset URNs from pipeline task artifacts."""
+        """Extract input dataset and model URNs from pipeline task artifacts."""
         if not task_detail.inputs:
             return None
 
@@ -399,11 +411,25 @@ class VertexAISource(StatefulIngestionSourceBase):
                 if input_entry.artifacts:
                     for artifact in input_entry.artifacts:
                         if artifact.uri:
-                            input_urns.extend(
-                                self.uri_parser.dataset_urns_from_artifact_uri(
-                                    artifact.uri
-                                )
+                            # Try to extract as model first
+                            model_urn = self.uri_parser.model_urn_from_artifact_uri(
+                                artifact.uri
                             )
+                            if model_urn:
+                                input_urns.append(model_urn)
+                                # Record that this task uses this model
+                                if model_urn not in self._model_to_downstream_jobs:
+                                    self._model_to_downstream_jobs[model_urn] = []
+                                self._model_to_downstream_jobs[model_urn].append(
+                                    task_urn
+                                )
+                            else:
+                                # If not a model, try as dataset
+                                input_urns.extend(
+                                    self.uri_parser.dataset_urns_from_artifact_uri(
+                                        artifact.uri
+                                    )
+                                )
             return input_urns if input_urns else None
         except Exception as e:
             logger.debug(
@@ -475,6 +501,11 @@ class VertexAISource(StatefulIngestionSourceBase):
                     job_id=self.name_formatter.format_pipeline_task_id(task_name),
                 )
                 task_meta = PipelineTaskMetadata(name=task_name, urn=task_urn)
+
+                # Create DPI URN for downstream tracking (same as used in _gen_pipeline_task_run_mcps)
+                dpi_urn = builder.make_data_process_instance_urn(
+                    self.name_formatter.format_pipeline_task_run_id(entity_id=task_name)
+                )
                 if (
                     "dependentTasks"
                     in resource.pipeline_spec["root"]["dag"]["tasks"][task_name]
@@ -510,9 +541,8 @@ class VertexAISource(StatefulIngestionSourceBase):
                                 * 1000
                             )
 
-                    # Extract input and output artifacts
                     task_meta.input_dataset_urns = self._extract_pipeline_task_inputs(
-                        task_detail, task_name
+                        task_detail, task_name, dpi_urn
                     )
                     outputs = self._extract_pipeline_task_outputs(
                         task_detail, task_name
@@ -661,12 +691,20 @@ class VertexAISource(StatefulIngestionSourceBase):
         for task in pipeline.tasks:
             # DataJob inlets/outlets only support dataset URNs (not models)
             inlets = (
-                [DatasetUrn.from_string(urn) for urn in task.input_dataset_urns]
+                [
+                    DatasetUrn.from_string(urn)
+                    for urn in task.input_dataset_urns
+                    if ":dataset:" in urn
+                ]
                 if task.input_dataset_urns
                 else []
             )
             outlets = (
-                [DatasetUrn.from_string(urn) for urn in task.output_dataset_urns]
+                [
+                    DatasetUrn.from_string(urn)
+                    for urn in task.output_dataset_urns
+                    if ":dataset:" in urn
+                ]
                 if task.output_dataset_urns
                 else []
             )
@@ -804,8 +842,15 @@ class VertexAISource(StatefulIngestionSourceBase):
         self.experiments = filtered
 
         logger.info("Fetching experiments from VertexAI server")
-        for experiment in self.experiments:
+        for i, experiment in enumerate(self.experiments, start=1):
+            if i % 100 == 0:
+                logger.info(f"Processed {i} experiments from VertexAI server")
             yield from self._gen_experiment_workunits(experiment)
+
+        if self.experiments:
+            logger.info(
+                f"Finished processing {len(self.experiments)} experiments from VertexAI server"
+            )
 
     def _get_experiment_runs_mcps(self) -> Iterable[MetadataWorkUnit]:
         if self.experiments is None:
@@ -824,7 +869,9 @@ class VertexAISource(StatefulIngestionSourceBase):
             experiment_runs.sort(key=lambda x: x.update_time, reverse=True)  # type: ignore[attr-defined]
             if self.config.max_runs_per_experiment is not None:
                 experiment_runs = experiment_runs[: self.config.max_runs_per_experiment]
-            for run in experiment_runs:
+            for i, run in enumerate(experiment_runs, start=1):
+                if i % 100 == 0:
+                    logger.info(f"Processed {i} runs for experiment {experiment.name}")
                 yield from self._gen_experiment_run_mcps(experiment, run)
 
     def _gen_experiment_workunits(
@@ -933,6 +980,14 @@ class VertexAISource(StatefulIngestionSourceBase):
         for input_art in execution.get_input_artifacts():
             for ds_urn in self.uri_parser.dataset_urns_from_artifact_uri(input_art.uri):
                 input_edges.append(EdgeClass(destinationUrn=ds_urn))
+            # Track model inputs for downstream lineage
+            model_urn = self.uri_parser.model_urn_from_artifact_uri(input_art.uri)
+            if model_urn:
+                input_edges.append(EdgeClass(destinationUrn=model_urn))
+                # Record that this execution uses this model
+                if model_urn not in self._model_to_downstream_jobs:
+                    self._model_to_downstream_jobs[model_urn] = []
+                self._model_to_downstream_jobs[model_urn].append(execution_urn)
         for output_art in execution.get_output_artifacts():
             for ds_urn in self.uri_parser.dataset_urns_from_artifact_uri(
                 output_art.uri
@@ -1089,28 +1144,42 @@ class VertexAISource(StatefulIngestionSourceBase):
         Fetch List of Models in Model Registry and generate a corresponding mcp.
         """
         registered_models = self.client.Model.list(order_by="update_time desc")
-        count = 0
-        for model in registered_models:
+        total_versions = 0
+        for model_idx, model in enumerate(registered_models, start=1):
             if not self.config.model_name_pattern.allowed(model.display_name or ""):
                 continue
             yield from self._gen_ml_group_mcps(model)
             model_versions = model.versioning_registry.list_versions()
             for model_version in model_versions:
-                logger.info(
+                total_versions += 1
+                if total_versions % 100 == 0:
+                    logger.info(
+                        f"Processed {total_versions} model versions from VertexAI server"
+                    )
+                logger.debug(
                     f"Ingesting model version (name: {model.display_name} id:{model.name} version:{model_version.version_id})"
                 )
                 yield from self._get_ml_model_mcps(
                     model=model, model_version=model_version
                 )
-            count += 1
-            if self.config.max_models is not None and count >= self.config.max_models:
+
+            if (
+                self.config.max_models is not None
+                and model_idx >= self.config.max_models
+            ):
                 break
+
+        if total_versions > 0:
+            logger.info(
+                f"Finished processing {total_versions} model versions from VertexAI server"
+            )
 
     def _get_model_evaluations_mcps(self) -> Iterable[MetadataWorkUnit]:
         """
         Fetch model evaluations from Vertex AI and generate corresponding mcps.
         """
         registered_models = self.client.Model.list(order_by="update_time desc")
+        total_evaluations = 0
 
         for model in registered_models:
             if not self.config.model_name_pattern.allowed(model.display_name or ""):
@@ -1123,7 +1192,12 @@ class VertexAISource(StatefulIngestionSourceBase):
                     evaluations = evaluations[: self.config.max_evaluations_per_model]
 
                 for evaluation in evaluations:
-                    logger.info(
+                    total_evaluations += 1
+                    if total_evaluations % 100 == 0:
+                        logger.info(
+                            f"Processed {total_evaluations} model evaluations from VertexAI server"
+                        )
+                    logger.debug(
                         f"Ingesting evaluation for model {model.display_name}: {evaluation.name}"
                     )
                     yield from self._gen_model_evaluation_mcps(model, evaluation)
@@ -1133,6 +1207,11 @@ class VertexAISource(StatefulIngestionSourceBase):
                     f"Failed to fetch evaluations for model {model.display_name}: {e}"
                 )
                 continue
+
+        if total_evaluations > 0:
+            logger.info(
+                f"Finished processing {total_evaluations} model evaluations from VertexAI server"
+            )
 
     def _extract_evaluation_metrics(
         self, evaluation: ModelEvaluation
@@ -1315,8 +1394,16 @@ class VertexAISource(StatefulIngestionSourceBase):
 
             if self.config.max_training_jobs_per_type is not None:
                 jobs = jobs[: self.config.max_training_jobs_per_type]
-            for job in jobs:
+
+            for i, job in enumerate(jobs, start=1):
+                if i % 100 == 0:
+                    logger.info(f"Processed {i} {class_name}s from VertexAI server")
                 yield from self._get_training_job_mcps(job)
+
+            if jobs:
+                logger.info(
+                    f"Finished processing {len(jobs)} {class_name}s from VertexAI server"
+                )
 
     def _get_training_job_mcps(
         self, job: VertexAiResourceNoun
@@ -1868,6 +1955,8 @@ class VertexAISource(StatefulIngestionSourceBase):
             model_version, model_name=model_name
         )
 
+        downstream_job_urns = self._model_to_downstream_jobs.get(model_urn, [])
+
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn,
             aspect=MLModelPropertiesClass(
@@ -1897,10 +1986,9 @@ class VertexAISource(StatefulIngestionSourceBase):
                     else None
                 ),
                 version=VersionTagClass(versionTag=str(model_version.version_id)),
-                groups=[model_group_urn],  # link model version to model group
-                trainingJobs=(
-                    [training_job_urn] if training_job_urn else None
-                ),  # link to training job
+                groups=[model_group_urn],
+                trainingJobs=([training_job_urn] if training_job_urn else None),
+                downstreamJobs=(downstream_job_urns if downstream_job_urns else None),
                 deployments=endpoint_urns,
                 externalUrl=self.url_builder.make_model_version_url(
                     model.name, model.version_id

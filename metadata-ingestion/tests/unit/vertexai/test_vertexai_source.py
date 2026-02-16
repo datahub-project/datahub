@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from google.cloud.aiplatform import Experiment, ExperimentRun, PipelineJob
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
-from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
+from google.cloud.aiplatform_v1.types import Execution, PipelineJob as PipelineJobType
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -49,6 +49,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     EdgeClass,
     MLModelDeploymentPropertiesClass,
+    MLModelPropertiesClass,
     StatusClass,
     SubTypesClass,
     TimeStampClass,
@@ -875,10 +876,26 @@ def test_training_job_external_lineage_edges() -> None:
     assert has_ext_inputs and has_ext_outputs
 
 
-def test_pipeline_task_with_none_start_time(source: VertexAISource) -> None:
-    """Test that pipeline tasks with None start_time don't crash the ingestion."""
+@pytest.mark.parametrize(
+    "start_time,end_time,task_name",
+    [
+        (
+            None,
+            datetime.now(timezone.utc) - timedelta(days=3, hours=1),
+            "incomplete_task",
+        ),
+        (datetime.now(timezone.utc) - timedelta(days=3), None, "running_task"),
+    ],
+)
+def test_pipeline_task_with_none_timestamps(
+    source: VertexAISource,
+    start_time: datetime | None,
+    end_time: datetime | None,
+    task_name: str,
+) -> None:
+    """Test that pipeline tasks with None start_time or end_time don't crash the ingestion."""
     mock_pipeline_job = MagicMock(spec=PipelineJob)
-    mock_pipeline_job.name = "test_pipeline_none_timestamps"
+    mock_pipeline_job.name = f"test_pipeline_{task_name}"
     mock_pipeline_job.resource_name = (
         "projects/123/locations/us-central1/pipelineJobs/789"
     )
@@ -891,12 +908,12 @@ def test_pipeline_task_with_none_start_time(source: VertexAISource) -> None:
     mock_pipeline_job.gca_resource = gca_resource
 
     task_detail = MagicMock(spec=PipelineTaskDetail)
-    task_detail.task_name = "incomplete_task"
+    task_detail.task_name = task_name
     task_detail.task_id = 123
     task_detail.state = MagicMock()
-    task_detail.start_time = None
+    task_detail.start_time = start_time
     task_detail.create_time = datetime.now(timezone.utc) - timedelta(days=3)
-    task_detail.end_time = datetime.now(timezone.utc) - timedelta(days=3, hours=1)
+    task_detail.end_time = end_time
     task_detail.inputs = {}
     task_detail.outputs = {}
 
@@ -905,9 +922,9 @@ def test_pipeline_task_with_none_start_time(source: VertexAISource) -> None:
         "root": {
             "dag": {
                 "tasks": {
-                    "incomplete_task": {
-                        "componentRef": {"name": "comp-incomplete"},
-                        "taskInfo": {"name": "incomplete_task"},
+                    task_name: {
+                        "componentRef": {"name": f"comp-{task_name}"},
+                        "taskInfo": {"name": task_name},
                     }
                 }
             }
@@ -927,65 +944,7 @@ def test_pipeline_task_with_none_start_time(source: VertexAISource) -> None:
             for mcp in actual_mcps
             if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
             and isinstance(mcp.metadata.aspect, DataProcessInstancePropertiesClass)
-            and "incomplete_task" in mcp.metadata.aspect.name
-        ]
-
-        assert len(task_run_mcps) > 0
-
-
-def test_pipeline_task_with_none_end_time(source: VertexAISource) -> None:
-    """Test that pipeline tasks with None end_time don't crash the ingestion."""
-    mock_pipeline_job = MagicMock(spec=PipelineJob)
-    mock_pipeline_job.name = "test_pipeline_no_end_time"
-    mock_pipeline_job.resource_name = (
-        "projects/123/locations/us-central1/pipelineJobs/790"
-    )
-    mock_pipeline_job.labels = {}
-    mock_pipeline_job.create_time = datetime.now(timezone.utc) - timedelta(days=3)
-    mock_pipeline_job.update_time = datetime.now(timezone.utc) - timedelta(days=2)
-    mock_pipeline_job.location = "us-west2"
-
-    gca_resource = MagicMock(spec=PipelineJobType)
-    mock_pipeline_job.gca_resource = gca_resource
-
-    task_detail = MagicMock(spec=PipelineTaskDetail)
-    task_detail.task_name = "running_task"
-    task_detail.task_id = 124
-    task_detail.state = MagicMock()
-    task_detail.start_time = datetime.now(timezone.utc) - timedelta(days=3)
-    task_detail.create_time = datetime.now(timezone.utc) - timedelta(days=3)
-    task_detail.end_time = None
-    task_detail.inputs = {}
-    task_detail.outputs = {}
-
-    mock_pipeline_job.task_details = [task_detail]
-    gca_resource.pipeline_spec = {
-        "root": {
-            "dag": {
-                "tasks": {
-                    "running_task": {
-                        "componentRef": {"name": "comp-running"},
-                        "taskInfo": {"name": "running_task"},
-                    }
-                }
-            }
-        }
-    }
-
-    with contextlib.ExitStack() as exit_stack:
-        mock = exit_stack.enter_context(
-            patch("google.cloud.aiplatform.PipelineJob.list")
-        )
-        mock.return_value = [mock_pipeline_job]
-
-        actual_mcps = list(source._get_pipelines_mcps())
-
-        task_run_mcps = [
-            mcp
-            for mcp in actual_mcps
-            if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
-            and isinstance(mcp.metadata.aspect, DataProcessInstancePropertiesClass)
-            and "running_task" in mcp.metadata.aspect.name
+            and task_name in mcp.metadata.aspect.name
         ]
 
         assert len(task_run_mcps) > 0
@@ -1312,3 +1271,132 @@ def test_pipeline_task_run_lineage_edges() -> None:
     assert len(output_aspect.outputEdges) == 2
     assert "dataset" in output_aspect.outputEdges[0].destinationUrn
     assert "mlModel" in output_aspect.outputEdges[1].destinationUrn
+
+
+def test_model_downstream_lineage_from_pipeline_tasks(source: VertexAISource) -> None:
+    """Test that pipeline tasks using models as inputs create downstream lineage."""
+    mock_pipeline = MagicMock(spec=PipelineJob)
+    mock_pipeline.name = "test_pipeline_with_model_input"
+    mock_pipeline.resource_name = "projects/123/locations/us-central1/pipelineJobs/999"
+    mock_pipeline.labels = {}
+    mock_pipeline.create_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    mock_pipeline.update_time = datetime(2024, 1, 2, tzinfo=timezone.utc)
+    mock_pipeline.location = "us-central1"
+
+    gca_resource = MagicMock(spec=PipelineJobType)
+    mock_pipeline.gca_resource = gca_resource
+
+    task_detail = MagicMock(spec=PipelineTaskDetail)
+    task_detail.task_name = "prediction_task"
+    task_detail.task_id = 1
+    task_detail.state = MagicMock()
+    task_detail.start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    task_detail.create_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    task_detail.end_time = datetime(2024, 1, 1, 1, 0, 0, tzinfo=timezone.utc)
+
+    model_artifact = MagicMock()
+    model_artifact.uri = "projects/test-project/locations/us-central1/models/123456"
+
+    model_input = MagicMock()
+    model_input.artifacts = [model_artifact]
+
+    task_detail.inputs = {"model": model_input}
+    task_detail.outputs = {}
+
+    mock_pipeline.task_details = [task_detail]
+    gca_resource.pipeline_spec = {
+        "root": {
+            "dag": {
+                "tasks": {
+                    "prediction_task": {
+                        "componentRef": {"name": "comp-prediction"},
+                    }
+                }
+            }
+        }
+    }
+
+    with patch("google.cloud.aiplatform.PipelineJob.list") as mock_list:
+        mock_list.return_value = [mock_pipeline]
+        list(source._get_pipelines_mcps())
+
+    expected_model_urn = "urn:li:mlModel:(urn:li:dataPlatform:vertexai,123456,PROD)"
+
+    assert expected_model_urn in source._model_to_downstream_jobs
+    assert len(source._model_to_downstream_jobs[expected_model_urn]) == 1
+
+    downstream_urns = source._model_to_downstream_jobs[expected_model_urn]
+    assert any("prediction_task" in urn for urn in downstream_urns)
+
+
+def test_model_downstream_lineage_from_experiment_executions(
+    source: VertexAISource,
+) -> None:
+    """Test that experiment executions using models as inputs create downstream lineage."""
+    mock_experiment = gen_mock_experiment()
+    mock_run = gen_mock_experiment_run()
+
+    mock_execution = MagicMock(spec=Execution)
+    mock_execution.name = "test_execution_with_model"
+    mock_execution.state = MagicMock()
+    mock_execution.state.name = "COMPLETE"
+    mock_execution.create_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    mock_execution.update_time = datetime(2024, 1, 1, 1, 0, 0, tzinfo=timezone.utc)
+
+    model_artifact = MagicMock()
+    model_artifact.uri = "projects/test-project/locations/us-central1/models/789"
+
+    dataset_artifact = MagicMock()
+    dataset_artifact.uri = "bq://project.dataset.table"
+
+    mock_execution.get_input_artifacts = MagicMock(
+        return_value=[model_artifact, dataset_artifact]
+    )
+    mock_execution.get_output_artifacts = MagicMock(return_value=[])
+
+    with patch.object(mock_run, "get_executions", return_value=[mock_execution]):
+        list(source._gen_experiment_run_mcps(mock_experiment, mock_run))
+
+    expected_model_urn = "urn:li:mlModel:(urn:li:dataPlatform:vertexai,789,PROD)"
+    assert expected_model_urn in source._model_to_downstream_jobs
+    assert len(source._model_to_downstream_jobs[expected_model_urn]) == 1
+
+
+def test_model_includes_downstream_jobs_in_properties(source: VertexAISource) -> None:
+    """Test that models include downstream jobs in their properties."""
+    mock_model = gen_mock_model()
+    mock_version = MagicMock()
+    mock_version.version_id = "1"
+    mock_version.version_description = "Test version"
+    mock_version.version_create_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    mock_version.version_update_time = datetime(2024, 1, 2, tzinfo=timezone.utc)
+
+    model_name = source.name_formatter.format_model_name(mock_model.name)
+    model_urn = source.urn_builder.make_ml_model_urn(mock_version, model_name)
+
+    downstream_job_urn = "urn:li:dataProcessInstance:test_job"
+    source._model_to_downstream_jobs[model_urn] = [downstream_job_urn]
+
+    model_metadata = ModelMetadata(
+        model=mock_model, model_version=mock_version, endpoints=[]
+    )
+
+    mcps = list(source._gen_ml_model_mcps(model_metadata))
+
+    model_props_mcp = next(
+        (
+            mcp
+            for mcp in mcps
+            if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
+            and isinstance(mcp.metadata.aspect, MLModelPropertiesClass)
+        ),
+        None,
+    )
+
+    assert model_props_mcp is not None
+    assert isinstance(model_props_mcp.metadata, MetadataChangeProposalWrapper)
+    assert isinstance(model_props_mcp.metadata.aspect, MLModelPropertiesClass)
+
+    assert model_props_mcp.metadata.aspect.downstreamJobs is not None
+    assert len(model_props_mcp.metadata.aspect.downstreamJobs) > 0
+    assert downstream_job_urn in model_props_mcp.metadata.aspect.downstreamJobs
