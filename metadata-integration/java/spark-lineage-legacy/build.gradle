@@ -20,6 +20,19 @@ configurations {
     implementation.extendsFrom provided
 }
 
+configurations.all {
+  resolutionStrategy.eachDependency { details ->
+    if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
+      details.useTarget("at.yawk.lz4:lz4-java:1.10.1")
+      details.because("CVE-2025-12183, upgrade to 1.10.1")
+    }
+  }
+  resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
+  resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
+    select(candidates.find { it.id.group == 'at.yawk.lz4' } ?: candidates.first())
+  }
+}
+
 dependencies {
 
   constraints {
