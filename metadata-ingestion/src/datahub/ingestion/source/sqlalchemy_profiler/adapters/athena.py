@@ -7,6 +7,7 @@ from typing import Any, List, Optional
 import sqlalchemy as sa
 from pyathena.cursor import Cursor
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import SQLAlchemyError
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -118,7 +119,7 @@ class AthenaAdapter(PlatformAdapter):
 
             logger.debug(f"Created Athena temp view: {temp_view}")
 
-        except Exception as e:
+        except SQLAlchemyError as e:
             error_msg = (
                 f"Cannot profile {context.pretty_name}: Athena temp view creation failed. "
                 f"Temp view is required for custom SQL queries. "
@@ -155,7 +156,7 @@ class AthenaAdapter(PlatformAdapter):
                 )
                 connection.execute(sa.text(f"DROP VIEW IF EXISTS {full_view_name}"))
                 logger.debug(f"Dropped Athena temp view: {full_view_name}")
-        except Exception as e:
+        except SQLAlchemyError as e:
             logger.warning(
                 f"Unable to drop Athena temp view {view_name}: {type(e).__name__}: {str(e)}"
             )

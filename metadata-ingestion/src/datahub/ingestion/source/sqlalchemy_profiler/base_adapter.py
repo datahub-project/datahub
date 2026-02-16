@@ -6,6 +6,7 @@ from typing import Any, List, Optional, Tuple
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.exc import SQLAlchemyError
 
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -543,7 +544,7 @@ class PlatformAdapter(ABC):
                     f"Quantile {q} for {column}: result type={type(result)}, value={result}"
                 )
                 results.append(float(result) if result is not None else None)
-            except Exception as e:
+            except SQLAlchemyError as e:
                 logger.warning(
                     f"Failed to compute quantile {q} for {column}: {type(e).__name__}: {str(e)}",
                 )

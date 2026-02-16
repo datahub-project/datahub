@@ -5,6 +5,7 @@ from typing import Any, List, Optional
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import SQLAlchemyError
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -124,7 +125,7 @@ class SnowflakeAdapter(PlatformAdapter):
                     quote=True,
                     quote_schema=bool(schema),
                 )
-            except Exception as e:
+            except SQLAlchemyError as e:
                 logger.debug(
                     f"Failed to reflect {schema}.{table} with quoting, "
                     f"trying without quotes: {type(e).__name__}: {str(e)}"
@@ -140,7 +141,7 @@ class SnowflakeAdapter(PlatformAdapter):
                 quote=False,
                 quote_schema=False,
             )
-        except Exception as e:
+        except SQLAlchemyError as e:
             # If unquoted failed and we haven't tried quoted yet, try it now
             if not (has_lowercase or has_lowercase_schema):
                 logger.debug(
@@ -224,7 +225,7 @@ class SnowflakeAdapter(PlatformAdapter):
                 query = sa.select([snowflake_expr]).select_from(table)
                 result = conn.execute(query).scalar()
                 results.append(float(result) if result is not None else None)
-            except Exception as e:
+            except SQLAlchemyError as e:
                 logger.warning(
                     f"Failed to compute quantile {q} for {column}: {type(e).__name__}: {str(e)}"
                 )

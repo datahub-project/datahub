@@ -6,6 +6,7 @@ from typing import Any, List, Optional
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import SQLAlchemyError
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -124,7 +125,7 @@ class TrinoAdapter(PlatformAdapter):
 
             logger.debug(f"Created Trino temp view: {temp_view}")
 
-        except Exception as e:
+        except SQLAlchemyError as e:
             error_msg = (
                 f"Cannot profile {context.pretty_name}: Trino temp view creation failed. "
                 f"Temp view is required for custom SQL queries. "
@@ -161,7 +162,7 @@ class TrinoAdapter(PlatformAdapter):
                 )
                 connection.execute(sa.text(f"DROP VIEW IF EXISTS {full_view_name}"))
                 logger.debug(f"Dropped Trino temp view: {full_view_name}")
-        except Exception as e:
+        except SQLAlchemyError as e:
             logger.warning(
                 f"Unable to drop Trino temp view {view_name}: {type(e).__name__}: {str(e)}"
             )

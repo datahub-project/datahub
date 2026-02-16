@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import SQLAlchemyError
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
 
@@ -108,7 +109,7 @@ class MySQLAdapter(PlatformAdapter):
             result = conn.execute(query).scalar()
             return int(result) if result is not None else None
 
-        except Exception as e:
+        except SQLAlchemyError as e:
             logger.debug(
                 f"Failed to get MySQL row count estimate: {type(e).__name__}: {str(e)}"
             )
