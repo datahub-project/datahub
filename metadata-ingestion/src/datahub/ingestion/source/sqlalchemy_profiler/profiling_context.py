@@ -15,16 +15,22 @@ class ProfilingContext:
     by platform adapters to handle platform-specific setup (temp tables,
     sampling, etc.).
 
-    Either (schema + table) or custom_sql must be provided, validated in __post_init__.
+    Requirements:
+    - table: Always required, non-empty string (also when using custom_sql for context/naming)
+    - schema: Optional (None for two-tier databases like MySQL/SQLite/Athena)
+    - custom_sql: Optional profiling query override
 
-    TOOD: A better modelling would be done to avoid the validation in __post_init__.
+    When both table and custom_sql are provided:
+    - table provides the original table context for naming and logging
+    - custom_sql takes precedence for actual profiling
+    - Adapters create temp views/tables from custom_sql and use those for profiling
     """
 
     # Input parameters
-    schema: Optional[str]
-    table: Optional[str]
-    custom_sql: Optional[str]
     pretty_name: str
+    table: str
+    schema: Optional[str] = None
+    custom_sql: Optional[str] = None
     partition: Optional[str] = None
 
     # Working state (populated during profiling)
@@ -45,21 +51,11 @@ class ProfilingContext:
 
     def __post_init__(self) -> None:
         """Validate profiling context invariants."""
-        # Must have either (table AND schema) or custom_sql, but not both
-        has_table_info = bool(self.table and self.schema)
-        has_custom_sql = self.custom_sql is not None
+        # Table must be non-empty string (min_length=1 equivalent)
+        if not self.table:
+            raise ValueError(f"table must be a non-empty string, got: {self.table!r}")
 
-        if has_table_info and has_custom_sql:
-            raise ValueError(
-                "ProfilingContext cannot have both 'table' and 'custom_sql' specified"
-            )
-
-        if not has_table_info and not has_custom_sql:
-            raise ValueError(
-                "ProfilingContext requires either ('table' with 'schema') or 'custom_sql' to be specified"
-            )
-
-        # Sample percentage must be in range [0, 100]
+        # Sample percentage must be in range [0, 100] (ge=0, le=100 equivalent)
         if self.sample_percentage is not None:
             if not (0 <= self.sample_percentage <= 100):
                 raise ValueError(
@@ -83,7 +79,4 @@ class ProfilingContext:
             # Use temp view if created
             return f"{self.schema}.{self.temp_view}" if self.schema else self.temp_view
         else:
-            # Use original table
-            if not self.table:
-                raise ValueError(f"No table specified for {self.pretty_name}")
             return f"{self.schema}.{self.table}" if self.schema else self.table

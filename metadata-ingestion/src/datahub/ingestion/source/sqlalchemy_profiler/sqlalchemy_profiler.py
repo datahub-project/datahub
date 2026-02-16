@@ -1046,6 +1046,12 @@ class SQLAlchemyProfiler:
         )
         platform = platform or self.platform
 
+        # Validate table parameter
+        if not table:
+            raise ValueError(
+                f"Cannot profile {pretty_name}: table parameter is required"
+            )
+
         # Create profiling context to track state
         context = ProfilingContext(
             schema=schema,

@@ -282,17 +282,15 @@ class TestGenericAdapter:
             assert call_args[1]["schema"] == "test_schema"
 
     def test_setup_profiling_requires_table_name(self, adapter):
-        """Test setup fails without table name."""
-        context = ProfilingContext(
-            schema=None,
-            table=None,
-            custom_sql="SELECT * FROM users",
-            pretty_name="test",
-        )
-
-        mock_conn = MagicMock()
-        with pytest.raises(ValueError, match="table name required"):
-            adapter.setup_profiling(context, mock_conn)
+        """Test ProfilingContext creation fails with empty table name."""
+        # Validation happens in __post_init__, not in setup_profiling
+        with pytest.raises(ValueError, match="table must be a non-empty string"):
+            ProfilingContext(
+                pretty_name="test",
+                table="",
+                schema=None,
+                custom_sql="SELECT * FROM users",
+            )
 
     def test_cleanup_does_nothing(self, adapter):
         """Test cleanup is a no-op for generic adapter."""
