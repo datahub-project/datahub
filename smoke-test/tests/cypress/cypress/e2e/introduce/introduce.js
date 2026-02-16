@@ -1,6 +1,8 @@
 describe("login", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
+    cy.setFeatureFlags(true, (res) => {
+      res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
+    });
   });
 
   it("logs in and fills out the introduce page", () => {
