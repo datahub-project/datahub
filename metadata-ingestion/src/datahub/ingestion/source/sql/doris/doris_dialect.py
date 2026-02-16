@@ -103,7 +103,10 @@ class DorisDialect(MySQLDialect_pymysql):
         Type hints are in comment form because @reflection.cache doesn't support
         modern Python type annotations in function signatures.
         """
-        # Suppress Doris DDL warnings (AGGREGATE KEY, DISTRIBUTED BY, array<T>, etc.)
+        # Suppress expected warnings from Doris-specific DDL syntax that SQLAlchemy's
+        # MySQL parser doesn't recognize: AGGREGATE KEY, DUPLICATE KEY, DISTRIBUTED BY,
+        # PROPERTIES, array<T> column definitions, etc.
+        # These warnings are non-actionable and would otherwise appear in every ingestion run.
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 "ignore",
