@@ -47,9 +47,9 @@ jobs:
         if: (!cancelled())
         uses: ./.github/actions/report-test-results
         with:
-          artifact-name: datahub-agents-context-test-results
-          test-results-path: "datahub-agents-context/test-results/**"
-          junit-file-glob: "datahub-agents-context/test-results/*.xml"
+          artifact-name: datahub-agent-context-test-results
+          test-results-path: "datahub-agent-context/test-results/**"
+          junit-file-glob: "datahub-agent-context/test-results/*.xml"
       - name: Upload datahub-agent-context coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
