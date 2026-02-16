@@ -263,8 +263,8 @@ class TestMLMetadataConfig:
         assert config.project_id == "test-project"
         assert config.region == "us-west1"
         assert config.metadata_store == "default"
-        assert config.enable_lineage_extraction is True
-        assert config.enable_metrics_extraction is True
+        assert config.enable_lineage_extraction
+        assert config.enable_metrics_extraction
 
     def test_get_parent_path(self):
         config = MLMetadataConfig(project_id="test-project", region="us-west1")

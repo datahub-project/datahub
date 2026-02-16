@@ -99,11 +99,10 @@ class MLMetadataHelper:
             )
             executions = list(matching)
 
-        if (
-            self.config.max_executions_per_job
-            and len(executions) > self.config.max_executions_per_job
-        ):
-            executions = executions[: self.config.max_executions_per_job]
+        if self.config.max_executions_per_job:
+            executions = list(
+                itertools.islice(executions, self.config.max_executions_per_job)
+            )
 
         return executions
 

@@ -25,7 +25,7 @@ Default GCP Role which contains these permissions [roles/aiplatform.viewer](http
 | `aiplatform.customJobs.list`        | Allows a user to view and list all custom jobs in a project          |
 | `aiplatform.customJobs.get`         | Allows a user to view details of a specific custom job               |
 | `aiplatform.experiments.list`       | Allows a user to view and list all experiments in a project          |
-| `laiplatform.experiments.get`       | Allows a user to view details of a specific experiment in a project  |
+| `aiplatform.experiments.get`        | Allows a user to view details of a specific experiment in a project  |
 | `aiplatform.metadataStores.list`    | allows a user to view and list all metadata store in a project       |
 | `aiplatform.metadataStores.get`     | allows a user to view details of a specific metadata store           |
 | `aiplatform.executions.list`        | allows a user to view and list all executions in a project           |
