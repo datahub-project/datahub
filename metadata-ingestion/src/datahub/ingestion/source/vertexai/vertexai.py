@@ -1097,7 +1097,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             model_versions = model.versioning_registry.list_versions()
             for model_version in model_versions:
                 logger.info(
-                    f"Ingesting a model (name: {model.display_name} id:{model.name})"
+                    f"Ingesting model version (name: {model.display_name} id:{model.name} version:{model_version.version_id})"
                 )
                 yield from self._get_ml_model_mcps(
                     model=model, model_version=model_version
