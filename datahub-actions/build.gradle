@@ -91,6 +91,9 @@ task lintFix(type: Exec, dependsOn: installDev) {
 task installDevTest(type: Exec, dependsOn: [installDev]) {
   def sentinel_file = "${venv_name}/.build_install_dev_test_sentinel"
   inputs.file file('setup.py')
+  inputs.file("pyproject.toml")
+  inputs.file("setup.cfg")
+  inputs.file("setup.py")
   outputs.dir("${venv_name}")
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
