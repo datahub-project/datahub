@@ -224,25 +224,25 @@ class VertexAITrainingExtractor:
             output_edges=output_edges,
         )
 
-    def _extract_hyperparams_and_metrics(self, job: VertexAiResourceNoun) -> MLMetrics:
+    def _extract_hyperparams_and_metrics(
+        self, job_meta: TrainingJobMetadata
+    ) -> MLMetrics:
         """Extract hyperparameters and metrics from ML Metadata if enabled."""
         hyperparams: List[MLHyperParamClass] = []
         metrics: List[MLMetricClass] = []
 
-        if self.config.extract_execution_metrics:
-            lineage = self._get_job_lineage_from_ml_metadata(job)
-            if lineage:
-                hyperparams = lineage.hyperparams
-                metrics = lineage.metrics
+        if self.config.extract_execution_metrics and job_meta.lineage:
+            hyperparams = job_meta.lineage.hyperparams
+            metrics = job_meta.lineage.metrics
 
-                if hyperparams:
-                    logger.info(
-                        f"Extracted {len(hyperparams)} hyperparameters from ML Metadata for job {job.display_name}"
-                    )
-                if metrics:
-                    logger.info(
-                        f"Extracted {len(metrics)} metrics from ML Metadata for job {job.display_name}"
-                    )
+            if hyperparams:
+                logger.info(
+                    f"Extracted {len(hyperparams)} hyperparameters from ML Metadata for job {job_meta.job.display_name}"
+                )
+            if metrics:
+                logger.info(
+                    f"Extracted {len(metrics)} metrics from ML Metadata for job {job_meta.job.display_name}"
+                )
 
         return MLMetrics(hyperparams=hyperparams, metrics=metrics)
 
@@ -264,7 +264,7 @@ class VertexAITrainingExtractor:
         external_output_edges = urns_and_edges.output_edges
 
         result_type = get_job_result_status(job)
-        ml_metrics = self._extract_hyperparams_and_metrics(job)
+        ml_metrics = self._extract_hyperparams_and_metrics(job_meta)
         hyperparams = ml_metrics.hyperparams
         metrics = ml_metrics.metrics
 
@@ -423,6 +423,14 @@ class VertexAITrainingExtractor:
     ) -> TrainingJobMetadata:
         """Retrieve metadata for a Vertex AI training job."""
         job_meta = TrainingJobMetadata(job=job)
+
+        # Fetch lineage once if ML Metadata is enabled (for metrics or lineage extraction)
+        if (
+            self.config.extract_execution_metrics
+            or self.config.use_ml_metadata_for_lineage
+        ):
+            job_meta.lineage = self._get_job_lineage_from_ml_metadata(job)
+
         if self._is_automl_job(job):
             try:
                 job_config = AutoMLJobConfig(**job.to_dict())
@@ -491,19 +499,18 @@ class VertexAITrainingExtractor:
                         exc=e,
                     )
         else:
-            lineage = self._get_job_lineage_from_ml_metadata(job)
-
-            if lineage:
-                if lineage.input_urns:
-                    job_meta.external_input_urns = lineage.input_urns
+            # Use cached lineage for non-AutoML jobs
+            if job_meta.lineage:
+                if job_meta.lineage.input_urns:
+                    job_meta.external_input_urns = job_meta.lineage.input_urns
                     logger.info(
-                        f"Extracted {len(lineage.input_urns)} input URNs from ML Metadata for job {job.display_name}"
+                        f"Extracted {len(job_meta.lineage.input_urns)} input URNs from ML Metadata for job {job.display_name}"
                     )
 
-                if lineage.output_urns:
-                    job_meta.external_output_urns = lineage.output_urns
+                if job_meta.lineage.output_urns:
+                    job_meta.external_output_urns = job_meta.lineage.output_urns
                     logger.info(
-                        f"Extracted {len(lineage.output_urns)} output URNs from ML Metadata for job {job.display_name}"
+                        f"Extracted {len(job_meta.lineage.output_urns)} output URNs from ML Metadata for job {job.display_name}"
                     )
             elif self.config.use_ml_metadata_for_lineage:
                 logger.debug(

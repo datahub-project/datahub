@@ -136,6 +136,7 @@ class TrainingJobMetadata(BaseModel):
     output_model_version: Optional[Annotated[VersionInfo, SkipValidation()]] = None
     external_input_urns: Optional[List[str]] = None
     external_output_urns: Optional[List[str]] = None
+    lineage: Optional[LineageMetadata] = None
 
 
 class ModelMetadata(BaseModel):
