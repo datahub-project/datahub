@@ -668,13 +668,12 @@ class PlatformAdapter(ABC):
         logger.debug(
             f"get_column_value_frequencies for {column}: got {len(result)} rows"
         )
-        if result and len(result) > 0:
-            if len(result[0]) < 2:
-                logger.error(
-                    f"Invalid result row structure for {column} in value_frequencies: "
-                    f"row has {len(result[0])} columns, expected at least 2. "
-                    f"First row: {result[0]}"
-                )
+        # Assertion: SQL query selects exactly 2 columns (value, count)
+        # This should always be true given our query construction above
+        assert all(len(row) == 2 for row in result), (
+            f"Expected 2 columns from value_frequencies query for {column}. "
+            f"This indicates a bug in query construction."
+        )
         return [(row[0], int(row[1])) for row in result]
 
     def get_column_distinct_value_frequencies(
@@ -706,13 +705,12 @@ class PlatformAdapter(ABC):
         logger.debug(
             f"get_column_distinct_value_frequencies for {column}: got {len(result)} rows"
         )
-        if result and len(result) > 0:
-            if len(result[0]) < 2:
-                logger.error(
-                    f"Invalid result row structure for {column} in distinct_value_frequencies: "
-                    f"row has {len(result[0])} columns, expected at least 2. "
-                    f"First row: {result[0]}"
-                )
+        # Assertion: SQL query selects exactly 2 columns (value, count)
+        # This should always be true given our query construction above
+        assert all(len(row) == 2 for row in result), (
+            f"Expected 2 columns from distinct_value_frequencies query for {column}. "
+            f"This indicates a bug in query construction."
+        )
         return [(row[0], int(row[1])) for row in result]
 
     def get_column_sample_values(
