@@ -223,9 +223,11 @@ jobs:
           echo "$PAYLOAD" | jq .
           echo "::endgroup::"
 
-          gh api "/repos/acryldata/connector-tests/dispatches" \
-            -f event_type=oss-pr-connector-tests \
-            --raw-field "client_payload=$PAYLOAD"
+          jq -nc \
+            --arg event "oss-pr-connector-tests" \
+            --argjson payload "$PAYLOAD" \
+            '{event_type: $event, client_payload: $payload}' \
+          | gh api "/repos/acryldata/connector-tests/dispatches" --input -
 
           echo "Dispatch sent successfully to acryldata/connector-tests"
 
