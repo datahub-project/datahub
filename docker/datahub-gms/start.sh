@@ -83,16 +83,31 @@ if [[ $EXTRACT_JAR_ENABLED == true ]]; then
     echo "[WARN] Low available RAM (${AVAILABLE_RAM}MB). Extraction may fail or trigger swap"
   fi
 
-  echo "[STARTUP] Extracting WAR to tmpfs: $WORK_DIR"
-  START_EXTRACT=$(date +%s%3N)
+  EXTRACTION_COMPLETE="${WORK_DIR}/.extraction-complete"
 
-  rm -rf "$WORK_DIR"
-  mkdir -p "$WORK_DIR"
-  unzip -q -o -d "$WORK_DIR" "$JAR_PATH"
+  # Idempotent extraction with validation: reuse if valid, cleanup if incomplete
+  if [[ -d "$WORK_DIR/BOOT-INF/classes" ]]; then
+    echo "[STARTUP] Reusing valid previous extraction from $WORK_DIR"
+  else
+    # Directory missing or extraction incomplete - cleanup and re-extract
+    if [[ -d "$WORK_DIR" ]]; then
+      echo "[WARN] Incomplete extraction detected (missing BOOT-INF/classes). Cleaning up..."
+      rm -rf "$WORK_DIR" || true
+    fi
 
-  END_EXTRACT=$(date +%s%3N)
-  EXTRACT_TIME=$((END_EXTRACT - START_EXTRACT))
-  echo "[STARTUP] WAR extracted in ${EXTRACT_TIME}ms"
+    echo "[STARTUP] Extracting WAR to tmpfs: $WORK_DIR"
+    START_EXTRACT=$(date +%s%3N)
+
+    mkdir -p "$WORK_DIR"
+    unzip -q -o -d "$WORK_DIR" "$JAR_PATH"
+
+    END_EXTRACT=$(date +%s%3N)
+    EXTRACT_TIME=$((END_EXTRACT - START_EXTRACT))
+    echo "[STARTUP] WAR extracted in ${EXTRACT_TIME}ms"
+
+    # Mark extraction as complete only after successful unzip
+    touch "$EXTRACTION_COMPLETE" || { echo "[ERROR] Failed to mark extraction complete"; exit 1; }
+  fi
 
   echo "[STARTUP] Generating deterministic classpath from BOOT-INF/classpath.idx"
 
