@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock, Mock, PropertyMock
 
 from google.cloud.aiplatform import (
     AutoMLTabularTrainingJob,
@@ -32,8 +32,6 @@ def gen_mock_model(
     labels: Optional[Dict[str, str]] = None,
     list_model_evaluations_return: Optional[List] = None,
 ) -> Model:
-    from unittest.mock import Mock
-
     mock_model = MagicMock(spec=Model)
     mock_model.name = f"mock_prediction_model_{num}"
 
@@ -56,6 +54,20 @@ def gen_mock_model(
         mock_model.list_model_evaluations = Mock(
             return_value=iter(list_model_evaluations_return)
         )
+
+    mock_version = Mock()
+    mock_version.version_id = f"{num}"
+    mock_version.version_description = "test version"
+    mock_version.version_create_time = MOCK_CREATE_TIME
+    mock_version.version_update_time = MOCK_UPDATE_TIME
+
+    # Replace the versioning_registry attribute entirely with a mock
+    # that has list_versions configured
+    mock_versioning_registry = Mock()
+    mock_versioning_registry.list_versions.return_value = [mock_version]
+
+    # Use object.__setattr__ to bypass any property descriptors
+    object.__setattr__(mock_model, "versioning_registry", mock_versioning_registry)
 
     return mock_model
 
@@ -151,6 +163,7 @@ def gen_mock_experiment_run() -> ExperimentRun:
 def get_mock_pipeline_job() -> PipelineJob:
     mock_pipeline_job = MagicMock(spec=PipelineJob)
     mock_pipeline_job.name = "mock_pipeline_job"
+    mock_pipeline_job.display_name = "Mock Pipeline"
     mock_pipeline_job.resource_name = (
         "projects/123/locations/us-central1/pipelineJobs/456"
     )

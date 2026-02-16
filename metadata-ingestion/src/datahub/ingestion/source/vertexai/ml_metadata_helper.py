@@ -1,7 +1,16 @@
 import itertools
 import logging
-from typing import Callable, List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence
 
+from google.api_core.exceptions import (
+    DeadlineExceeded,
+    GoogleAPICallError,
+    NotFound,
+    PermissionDenied,
+    ResourceExhausted,
+    ServiceUnavailable,
+    Unauthenticated,
+)
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform_v1 import MetadataServiceClient
 from google.cloud.aiplatform_v1.types import (
@@ -14,13 +23,16 @@ from datahub.ingestion.source.vertexai.protobuf_utils import (
     extract_numeric_value,
     extract_protobuf_value,
 )
+from datahub.ingestion.source.vertexai.vertexai_builder import VertexAIURIParser
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     HyperparameterPatterns,
     MetricPatterns,
     MLMetadataDefaults,
+    MLMetadataEventTypes,
     MLMetadataSchemas,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
+    ArtifactURNs,
     ExecutionMetadata,
     LineageMetadata,
     MLMetadataConfig,
@@ -37,11 +49,11 @@ class MLMetadataHelper:
         self,
         metadata_client: MetadataServiceClient,
         config: MLMetadataConfig,
-        dataset_urn_converter: Callable[[str], List[str]],
+        uri_parser: VertexAIURIParser,
     ):
         self.client = metadata_client
         self.config = config
-        self._dataset_urn_converter = dataset_urn_converter
+        self.uri_parser = uri_parser
 
     def get_job_lineage_metadata(
         self, job: VertexAiResourceNoun
@@ -74,14 +86,38 @@ class MLMetadataHelper:
 
             return lineage
 
-        except KeyboardInterrupt:
+        except (PermissionDenied, Unauthenticated) as e:
             logger.warning(
-                f"Lineage extraction interrupted for job {job.display_name}. Skipping this job."
+                f"Failed to extract lineage metadata for job {job.display_name} due to permission issue | resource_type=training_job | resource_name={job.name} | cause={type(e).__name__}: {e}",
+                exc_info=True,
             )
-            raise  # Re-raise to allow graceful pipeline shutdown
-        except Exception as e:
+            return None
+        except ResourceExhausted as e:
             logger.warning(
-                f"Failed to extract lineage metadata for job {job.display_name}: {e}",
+                f"Failed to extract lineage metadata for job {job.display_name} due to quota exceeded | resource_type=training_job | resource_name={job.name} | cause={type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            return None
+        except (DeadlineExceeded, ServiceUnavailable) as e:
+            logger.warning(
+                f"Failed to extract lineage metadata for job {job.display_name} due to timeout or service unavailable | resource_type=training_job | resource_name={job.name} | cause={type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            return None
+        except NotFound as e:
+            logger.debug(
+                f"ML Metadata not found for job {job.display_name} | resource_type=training_job | resource_name={job.name} | cause={type(e).__name__}: {e}"
+            )
+            return None
+        except AttributeError as e:
+            logger.debug(
+                f"Failed to extract lineage metadata for job {job.display_name} due to missing attribute | resource_type=training_job | resource_name={job.name} | cause={type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            return None
+        except GoogleAPICallError as e:
+            logger.warning(
+                f"Failed to extract lineage metadata for job {job.display_name} | resource_type=training_job | resource_name={job.name} | cause={type(e).__name__}: {e}",
                 exc_info=True,
             )
             return None
@@ -91,7 +127,7 @@ class MLMetadataHelper:
 
         filter_str = f'display_name="{job.display_name}"'
         request = ListExecutionsRequest(parent=parent, filter=filter_str)
-        executions = list(self.client.list_executions(request=request))
+        executions: List[Execution] = list(self.client.list_executions(request=request))
 
         if not executions:
             matching = self._find_executions_by_schema_and_name(
@@ -170,9 +206,9 @@ class MLMetadataHelper:
             exec_metadata.metrics = self._extract_metrics(execution)
 
         if self.config.enable_lineage_extraction:
-            input_urns, output_urns = self._extract_artifact_lineage(execution.name)
-            exec_metadata.input_artifact_urns = input_urns
-            exec_metadata.output_artifact_urns = output_urns
+            artifact_urns = self._extract_artifact_lineage(execution.name)
+            exec_metadata.input_artifact_urns = artifact_urns.input_urns
+            exec_metadata.output_artifact_urns = artifact_urns.output_urns
 
         return exec_metadata
 
@@ -208,9 +244,7 @@ class MLMetadataHelper:
 
         return metrics
 
-    def _extract_artifact_lineage(
-        self, execution_name: str
-    ) -> Tuple[List[str], List[str]]:
+    def _extract_artifact_lineage(self, execution_name: str) -> ArtifactURNs:
         try:
             request = QueryExecutionInputsAndOutputsRequest(execution=execution_name)
             response = self.client.query_execution_inputs_and_outputs(request=request)
@@ -227,17 +261,44 @@ class MLMetadataHelper:
                     continue
 
                 event_type = artifact_events.get(artifact.name, "")
-                dataset_urns = self._dataset_urn_converter(artifact.uri)
+                dataset_urns = self.uri_parser.dataset_urns_from_artifact_uri(
+                    artifact.uri
+                )
 
-                if event_type == "INPUT":
+                if event_type == MLMetadataEventTypes.INPUT:
                     input_urns.extend(dataset_urns)
-                elif event_type == "OUTPUT":
+                elif event_type == MLMetadataEventTypes.OUTPUT:
                     output_urns.extend(dataset_urns)
 
-            return input_urns, output_urns
+            return ArtifactURNs(input_urns=input_urns, output_urns=output_urns)
 
-        except Exception as e:
+        except (PermissionDenied, Unauthenticated) as e:
             logger.warning(
-                f"Failed to extract artifact lineage for execution {execution_name}: {e}"
+                f"Failed to extract artifact lineage for execution {execution_name} due to permission issue | resource_type=execution | resource_name={execution_name} | cause={type(e).__name__}: {e}"
             )
-            return [], []
+            return ArtifactURNs()
+        except ResourceExhausted as e:
+            logger.warning(
+                f"Failed to extract artifact lineage for execution {execution_name} due to quota exceeded | resource_type=execution | resource_name={execution_name} | cause={type(e).__name__}: {e}"
+            )
+            return ArtifactURNs()
+        except (DeadlineExceeded, ServiceUnavailable) as e:
+            logger.warning(
+                f"Failed to extract artifact lineage for execution {execution_name} due to timeout or service unavailable | resource_type=execution | resource_name={execution_name} | cause={type(e).__name__}: {e}"
+            )
+            return ArtifactURNs()
+        except NotFound as e:
+            logger.debug(
+                f"Artifact lineage not found for execution {execution_name} | resource_type=execution | resource_name={execution_name} | cause={type(e).__name__}: {e}"
+            )
+            return ArtifactURNs()
+        except AttributeError as e:
+            logger.debug(
+                f"Failed to extract artifact lineage for execution {execution_name} due to missing attribute | resource_type=execution | resource_name={execution_name} | cause={type(e).__name__}: {e}"
+            )
+            return ArtifactURNs()
+        except GoogleAPICallError as e:
+            logger.warning(
+                f"Failed to extract artifact lineage for execution {execution_name} | resource_type=execution | resource_name={execution_name} | cause={type(e).__name__}: {e}"
+            )
+            return ArtifactURNs()

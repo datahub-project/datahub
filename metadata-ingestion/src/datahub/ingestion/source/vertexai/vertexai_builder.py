@@ -1,5 +1,6 @@
 import logging
-from typing import Dict, List, Optional
+import re
+from typing import Dict, List, Optional, Pattern
 
 from google.cloud.aiplatform import Experiment, ExperimentRun, Model
 from google.cloud.aiplatform.base import VertexAiResourceNoun
@@ -103,6 +104,10 @@ class VertexAINameFormatter:
     def format_pipeline_id(self, entity_id: Optional[str]) -> str:
         return f"{self.project_id}.pipeline.{entity_id}"
 
+    def format_pipeline_run_id(self, entity_id: Optional[str]) -> str:
+        """Format ID for a pipeline run (execution instance)."""
+        return f"{self.project_id}.pipeline_run.{entity_id}"
+
     def format_pipeline_task_id(self, entity_id: Optional[str]) -> str:
         return f"{self.project_id}.pipeline_task.{entity_id}"
 
@@ -184,15 +189,89 @@ class VertexAIURIParser:
         platform: str = "vertexai",
         platform_instance: Optional[str] = None,
         platform_to_instance_map: Optional[Dict[str, PlatformDetail]] = None,
+        normalize_paths: bool = False,
+        partition_patterns: Optional[List[str]] = None,
     ):
         self.env = env
         self.platform = platform
         self.platform_instance = platform_instance
         self.platform_to_instance_map = platform_to_instance_map or {}
+        self.normalize_paths = normalize_paths
+
+        # Pre-compile regex patterns for efficiency
+        self.compiled_partition_patterns: List[Pattern[str]] = []
+        for pattern_str in partition_patterns or []:
+            try:
+                self.compiled_partition_patterns.append(re.compile(pattern_str))
+            except re.error as e:
+                logger.warning(
+                    f"Invalid partition pattern '{pattern_str}': {e}. Skipping pattern."
+                )
 
     def _get_platform_details(self, platform: str) -> Optional[PlatformDetail]:
         """Get platform details for the given platform from the map."""
         return self.platform_to_instance_map.get(platform)
+
+    def _strip_partition_segments(self, path: str) -> str:
+        """
+        Strip partition segments from a path to create stable dataset identifiers.
+
+        Applies pre-compiled regex patterns to identify and remove partition-specific
+        path segments, enabling lineage aggregation across partitions.
+
+        Args:
+            path: Original path (e.g., gs://bucket/data/year=2024/month=01/file.parquet)
+
+        Returns:
+            Normalized path (e.g., gs://bucket/data/)
+
+        Examples:
+            gs://bucket/data/year=2024/month=01/ → gs://bucket/data/
+            s3://bucket/data/dt=2024-01-15/ → s3://bucket/data/
+            gs://bucket/logs/2024/01/15/ → gs://bucket/logs/
+        """
+        if not self.normalize_paths or not self.compiled_partition_patterns:
+            return path
+
+        # Split path into scheme+bucket and path components
+        if "://" in path:
+            scheme_part, path_part = path.split("://", 1)
+            if "/" in path_part:
+                bucket, rest = path_part.split("/", 1)
+                base = f"{scheme_part}://{bucket}/"
+                path_to_normalize = rest
+            else:
+                # Just bucket, no path
+                return path
+        else:
+            base = ""
+            path_to_normalize = path
+
+        # Apply pre-compiled patterns to remove partition segments
+        normalized_path = path_to_normalize
+        for compiled_pattern in self.compiled_partition_patterns:
+            normalized_path = compiled_pattern.sub("", normalized_path)
+
+        # Clean up path
+        while "//" in normalized_path:
+            normalized_path = normalized_path.replace("//", "/")
+
+        # Remove trailing slashes
+        normalized_path = normalized_path.rstrip("/")
+
+        # Strip filename if present (datasets are typically directories, not files)
+        if normalized_path and "/" in normalized_path:
+            last_segment = normalized_path.rsplit("/", 1)[-1]
+            if "." in last_segment:
+                normalized_path = normalized_path.rsplit("/", 1)[0]
+
+        # Reconstruct full path
+        result = base + normalized_path + "/" if normalized_path else base
+
+        if result != path:
+            logger.debug(f"Normalized path: {path} → {result}")
+
+        return result
 
     def _convert_azure_uri_to_https(self, uri: str) -> str:
         """
@@ -273,13 +352,16 @@ class VertexAIURIParser:
         if not uri:
             return urns
 
+        # Strip partition segments if normalization is enabled
+        normalized_uri = self._strip_partition_segments(uri)
+
         try:
             if uri.startswith("gs://"):
                 platform_detail = self._get_platform_details(ExternalPlatforms.GCS)
                 urns.append(
                     self._make_external_dataset_urn(
                         platform=ExternalPlatforms.GCS,
-                        name=uri,
+                        name=normalized_uri,
                         platform_detail=platform_detail,
                     )
                 )
@@ -298,12 +380,12 @@ class VertexAIURIParser:
                 urns.append(
                     self._make_external_dataset_urn(
                         platform=ExternalPlatforms.S3,
-                        name=uri,
+                        name=normalized_uri,
                         platform_detail=platform_detail,
                     )
                 )
             elif uri.startswith("wasbs://") or uri.startswith("abfss://"):
-                https_uri = self._convert_azure_uri_to_https(uri)
+                https_uri = self._convert_azure_uri_to_https(normalized_uri)
                 name = strip_abs_prefix(https_uri)
                 platform_detail = self._get_platform_details(
                     ExternalPlatforms.AZURE_BLOB_STORAGE
@@ -341,7 +423,7 @@ class VertexAIURIParser:
                         platform_detail=platform_detail,
                     )
                 )
-        except Exception:
+        except (ValueError, IndexError, AttributeError, KeyError):
             logger.debug(
                 f"Could not parse artifact uri for lineage: {uri}", exc_info=True
             )
@@ -371,7 +453,7 @@ class VertexAIURIParser:
                             model_name=model_id,
                             env=self.env,
                         )
-        except Exception:
+        except (ValueError, IndexError):
             logger.debug(
                 f"Could not parse model uri from artifact: {uri}", exc_info=True
             )
@@ -425,7 +507,7 @@ class VertexAIURIParser:
         try:
             job_conf = job.to_dict()
             walk(job_conf, [])
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             logger.debug(
                 "Failed to parse training job config for external URIs", exc_info=True
             )

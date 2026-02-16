@@ -8,6 +8,9 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -42,8 +45,34 @@ class PlatformDetail(ConfigModel):
 
 
 class VertexAIConfig(
-    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
+    StatefulIngestionConfigBase,
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+    IncrementalLineageConfigMixin,
 ):
+    incremental_lineage: bool = Field(
+        default=True,
+        description="When enabled, emits stable DataFlow/DataJob entities with incremental lineage. When disabled, creates new entities for each pipeline run (legacy behavior).",
+    )
+
+    normalize_external_dataset_paths: bool = Field(
+        default=False,
+        description="Strip partition segments from external dataset paths (GCS/S3/ABS) to create stable dataset URNs. "
+        "When enabled, 'gs://bucket/data/year=2024/month=01/' becomes 'gs://bucket/data/'. "
+        "Partition-level information is captured via DataProcessInstance. "
+        "Default is False for backward compatibility. Will default to True in a future major version.",
+    )
+
+    partition_pattern_rules: List[str] = Field(
+        default=[
+            r"/[^/]+=([^/]+)",  # Hive-style: /year=2024/month=01/
+            r"/dt=\d{4}-\d{2}-\d{2}",  # Date partitions: /dt=2024-01-15/
+            r"/\d{4}/\d{2}/\d{2}",  # Date hierarchy: /2024/01/15/
+        ],
+        description="Regex patterns to identify and strip partition segments from paths. "
+        "Applied when normalize_external_dataset_paths is enabled. Patterns are applied in order.",
+    )
+
     credential: Optional[GCPCredential] = Field(
         default=None, description="GCP credential information"
     )

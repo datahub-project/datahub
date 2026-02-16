@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, SkipValidation, model_validat
 
 from datahub.emitter.mcp_builder import ProjectIdKey
 from datahub.ingestion.source.vertexai.vertexai_constants import MLMetadataDefaults
-from datahub.metadata.schema_classes import MLHyperParamClass, MLMetricClass
+from datahub.metadata.schema_classes import EdgeClass, MLHyperParamClass, MLMetricClass
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 
 
@@ -240,8 +240,7 @@ class ModelEvaluationCustomProperties(BaseModel):
     model_name: str = Field(alias="modelName")
     model_resource_name: str = Field(alias="modelResourceName")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     def to_custom_properties(self) -> Dict[str, str]:
         """Convert to custom properties dict using camelCase keys."""
@@ -257,8 +256,7 @@ class TrainingJobCustomProperties(BaseModel):
 
     job_type: str = Field(alias="jobType")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     def to_custom_properties(self) -> Dict[str, str]:
         """Convert to custom properties dict."""
@@ -270,8 +268,7 @@ class DatasetCustomProperties(BaseModel):
 
     resource_name: str = Field(alias="resourceName")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     def to_custom_properties(self) -> Dict[str, str]:
         """Convert to custom properties dict."""
@@ -283,8 +280,7 @@ class EndpointDeploymentCustomProperties(BaseModel):
 
     display_name: str = Field(alias="displayName")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     def to_custom_properties(self) -> Dict[str, str]:
         """Convert to custom properties dict."""
@@ -297,8 +293,7 @@ class MLModelCustomProperties(BaseModel):
     version_id: str = Field(alias="versionId")
     resource_name: str = Field(alias="resourceName")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     def to_custom_properties(self) -> Dict[str, str]:
         """Convert to custom properties dict."""
@@ -315,13 +310,32 @@ class ArtifactURNs(BaseModel):
     output_urns: List[str] = Field(default_factory=list)
 
 
+class TrainingJobURNsAndEdges(BaseModel):
+    """URNs and edges for training job inputs and outputs."""
+
+    dataset_urn: Optional[str] = None
+    model_urn: Optional[str] = None
+    input_edges: List[EdgeClass] = Field(default_factory=list)
+    output_edges: List[EdgeClass] = Field(default_factory=list)
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
+class MLMetrics(BaseModel):
+    """Hyperparameters and metrics extracted from ML Metadata."""
+
+    hyperparams: List[MLHyperParamClass] = Field(default_factory=list)
+    metrics: List[MLMetricClass] = Field(default_factory=list)
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
 class InputDataConfig(BaseModel):
     """Input data configuration for AutoML training jobs."""
 
     datasetId: Optional[str] = Field(None, alias="datasetId")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ModelToUpload(BaseModel):
@@ -330,8 +344,7 @@ class ModelToUpload(BaseModel):
     name: Optional[str] = None
     versionId: Optional[str] = None
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AutoMLJobConfig(BaseModel):
@@ -340,6 +353,4 @@ class AutoMLJobConfig(BaseModel):
     inputDataConfig: Optional[InputDataConfig] = None
     modelToUpload: Optional[ModelToUpload] = None
 
-    class Config:
-        populate_by_name = True
-        extra = "ignore"
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")

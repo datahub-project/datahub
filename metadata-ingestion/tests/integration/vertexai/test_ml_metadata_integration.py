@@ -11,8 +11,11 @@ from datahub.ingestion.source.vertexai.vertexai import (
     VertexAIConfig,
     VertexAISource,
 )
+from datahub.ingestion.source.vertexai.vertexai_models import TrainingJobMetadata
+from datahub.ingestion.source.vertexai.vertexai_utils import get_actor_from_labels
 from datahub.metadata.schema_classes import (
     DataProcessInstancePropertiesClass,
+    MLModelDeploymentPropertiesClass,
 )
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_model,
@@ -43,50 +46,43 @@ class TestActorExtraction:
     """Test actor extraction from resource labels."""
 
     def test_actor_from_created_by_label(self, source_with_ml_metadata):
-        source = source_with_ml_metadata
         labels = {"created_by": "data-scientist-1", "team": "ml-team"}
 
-        actor = source._get_actor_from_labels(labels)
+        actor = get_actor_from_labels(labels)
 
         assert actor == builder.make_user_urn("data-scientist-1")
 
     def test_actor_from_creator_label(self, source_with_ml_metadata):
-        source = source_with_ml_metadata
         labels = {"creator": "john-doe", "env": "prod"}
 
-        actor = source._get_actor_from_labels(labels)
+        actor = get_actor_from_labels(labels)
 
         assert actor == builder.make_user_urn("john-doe")
 
     def test_actor_from_owner_label(self, source_with_ml_metadata):
-        source = source_with_ml_metadata
         labels = {"owner": "ml-ops-team"}
 
-        actor = source._get_actor_from_labels(labels)
+        actor = get_actor_from_labels(labels)
 
         assert actor == builder.make_user_urn("ml-ops-team")
 
     def test_no_actor_when_no_labels(self, source_with_ml_metadata):
-        source = source_with_ml_metadata
-
-        assert source._get_actor_from_labels(None) is None
-        assert source._get_actor_from_labels({}) is None
+        assert get_actor_from_labels(None) is None
+        assert get_actor_from_labels({}) is None
 
     def test_no_actor_when_no_matching_keys(self, source_with_ml_metadata):
-        source = source_with_ml_metadata
         labels = {"team": "ml-team", "env": "prod"}
 
-        assert source._get_actor_from_labels(labels) is None
+        assert get_actor_from_labels(labels) is None
 
     def test_priority_order(self, source_with_ml_metadata):
-        source = source_with_ml_metadata
         labels = {
             "created_by": "user1",
             "creator": "user2",
             "owner": "user3",
         }
 
-        actor = source._get_actor_from_labels(labels)
+        actor = get_actor_from_labels(labels)
 
         assert actor == builder.make_user_urn("user1")
 
@@ -101,23 +97,30 @@ class TestModelEvaluationIngestion:
 
         mock_evaluation = gen_mock_model_evaluation()
 
-        mcps = list(source._gen_model_evaluation_mcps(mock_model, mock_evaluation))
+        mcps = list(
+            source.model_extractor._gen_model_evaluation_mcps(
+                mock_model, mock_evaluation
+            )
+        )
 
         assert len(mcps) > 0
 
-        dpi_props_mcps = [
+        deployment_props_mcps = [
             mcp
             for mcp in mcps
             if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
-            and isinstance(mcp.metadata.aspect, DataProcessInstancePropertiesClass)
+            and isinstance(mcp.metadata.aspect, MLModelDeploymentPropertiesClass)
         ]
-        assert len(dpi_props_mcps) > 0
+        assert len(deployment_props_mcps) > 0
 
-        assert isinstance(dpi_props_mcps[0].metadata, MetadataChangeProposalWrapper)
-        dpi_props = dpi_props_mcps[0].metadata.aspect
-        assert isinstance(dpi_props, DataProcessInstancePropertiesClass)
-        assert "Evaluation" in dpi_props.name
-        assert dpi_props.created is not None
+        assert isinstance(
+            deployment_props_mcps[0].metadata, MetadataChangeProposalWrapper
+        )
+        deployment_props = deployment_props_mcps[0].metadata.aspect
+        assert isinstance(deployment_props, MLModelDeploymentPropertiesClass)
+        assert deployment_props.description is not None
+        assert "Evaluation" in deployment_props.description
+        assert deployment_props.createdAt is not None
 
     def test_model_evaluations_filtering(self, source_with_ml_metadata):
         """Test that max_evaluations_per_model limit is applied."""
@@ -131,15 +134,15 @@ class TestModelEvaluationIngestion:
         with patch("google.cloud.aiplatform.Model.list") as mock_list:
             mock_list.return_value = [mock_model]
 
-            mcps = list(source._get_model_evaluations_mcps())
+            mcps = list(source.model_extractor.get_evaluation_workunits())
 
-            dpi_mcps = [
+            deployment_mcps = [
                 mcp
                 for mcp in mcps
                 if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
-                and isinstance(mcp.metadata.aspect, DataProcessInstancePropertiesClass)
+                and isinstance(mcp.metadata.aspect, MLModelDeploymentPropertiesClass)
             ]
-            assert len(dpi_mcps) == 2
+            assert len(deployment_mcps) == 2
 
 
 class TestMLMetadataIntegration:
@@ -172,7 +175,8 @@ class TestMLMetadataIntegration:
             labels={"created_by": "data-scientist", "team": "research"}
         )
 
-        mcps = list(source._get_training_job_mcps(mock_job))
+        job_metadata = TrainingJobMetadata(job=mock_job)
+        mcps = list(source.training_extractor._gen_training_job_mcps(job_metadata))
 
         assert len(mcps) > 0
 
@@ -203,7 +207,11 @@ class TestMLMetadataIntegration:
             display_name="Production Validation"
         )
 
-        mcps = list(source._gen_model_evaluation_mcps(mock_model, mock_evaluation))
+        mcps = list(
+            source.model_extractor._gen_model_evaluation_mcps(
+                mock_model, mock_evaluation
+            )
+        )
 
         assert len(mcps) > 0
 
@@ -211,16 +219,16 @@ class TestMLMetadataIntegration:
             mcp
             for mcp in mcps
             if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
-            and isinstance(mcp.metadata.aspect, DataProcessInstancePropertiesClass)
+            and isinstance(mcp.metadata.aspect, MLModelDeploymentPropertiesClass)
         ]
         assert len(props_mcps) > 0
 
         assert isinstance(props_mcps[0].metadata, MetadataChangeProposalWrapper)
         props = props_mcps[0].metadata.aspect
-        assert isinstance(props, DataProcessInstancePropertiesClass)
-        assert "Evaluation" in props.name
-        assert props.created is not None
-        assert props.created.actor == builder.make_user_urn("ml-engineer")
+        assert isinstance(props, MLModelDeploymentPropertiesClass)
+        assert props.description is not None
+        assert "Evaluation" in props.description
+        assert props.createdAt is not None
 
     def test_ml_metadata_disabled(self):
         """Test that ML Metadata is not used when disabled in config."""
@@ -239,60 +247,6 @@ class TestMLMetadataIntegration:
         lineage = source._get_job_lineage_from_ml_metadata(mock_job)
 
         assert lineage is None
-
-    def test_hyperparameter_extraction_patterns(self, source_with_ml_metadata):
-        """Test various hyperparam naming patterns are recognized."""
-        source = source_with_ml_metadata
-
-        mock_execution = Mock()
-        mock_execution.name = "test-execution"
-        mock_execution.metadata = {
-            "learning_rate": Mock(string_value="0.001"),
-            "param_custom_hp": Mock(string_value="custom_value"),
-            "hp_dropout": Mock(number_value=0.2),
-            "hyperparameter_momentum": Mock(number_value=0.9),
-            "random_field": Mock(string_value="ignored"),
-        }
-
-        hyperparams = source._get_execution_hyperparams(mock_execution)
-
-        assert len(hyperparams) == 4
-
-        param_names = {hp.name for hp in hyperparams}
-        assert "learning_rate" in param_names
-        assert "param_custom_hp" in param_names
-        assert "hp_dropout" in param_names
-        assert "hyperparameter_momentum" in param_names
-        assert "random_field" not in param_names
-
-    def test_metric_extraction_patterns(self, source_with_ml_metadata):
-        """Test various metric naming patterns are recognized."""
-        source = source_with_ml_metadata
-
-        mock_execution = Mock()
-        mock_execution.name = "test-execution"
-        mock_execution.metadata = {
-            "accuracy": Mock(number_value=0.95),
-            "metric_custom": Mock(number_value=0.8),
-            "eval_precision": Mock(number_value=0.93),
-            "custom_score": Mock(number_value=0.9),
-            "val_loss": Mock(number_value=0.1),
-            "train_auc": Mock(number_value=0.92),
-            "random_field": Mock(string_value="ignored"),
-        }
-
-        metrics = source._get_execution_metrics(mock_execution)
-
-        assert len(metrics) == 6
-
-        metric_names = {m.name for m in metrics}
-        assert "accuracy" in metric_names
-        assert "metric_custom" in metric_names
-        assert "eval_precision" in metric_names
-        assert "custom_score" in metric_names
-        assert "val_loss" in metric_names
-        assert "train_auc" in metric_names
-        assert "random_field" not in metric_names
 
     def test_execution_matching(self, source_with_ml_metadata):
         """Test execution to job matching logic using direct method calls."""

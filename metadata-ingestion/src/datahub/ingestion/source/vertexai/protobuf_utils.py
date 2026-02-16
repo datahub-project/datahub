@@ -1,5 +1,3 @@
-"""Utility functions for extracting values from protobuf structures."""
-
 import logging
 from typing import Any, Optional
 
@@ -28,7 +26,7 @@ def extract_protobuf_value(value: Any) -> Optional[str]:
             return str(value.bool_value)
         else:
             return str(value)
-    except Exception as e:
+    except (AttributeError, TypeError) as e:
         logger.debug(f"Failed to extract protobuf value: {e}")
         return None
 
@@ -67,6 +65,6 @@ def extract_numeric_value(value: Any) -> Optional[str]:
                 return val_str
             except ValueError:
                 return None
-    except Exception as e:
+    except (AttributeError, TypeError) as e:
         logger.debug(f"Failed to extract numeric value: {e}")
         return None

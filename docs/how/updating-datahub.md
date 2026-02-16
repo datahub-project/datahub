@@ -38,6 +38,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - Hadoop upgraded from 2.7.2 to 3.3.6 (addresses Hadoop CVEs, bundled with Spark 3.3+)
   - Note: If you're a self-hosted user still running Java 11, you must upgrade to Java 17 before deploying this release. Spark lineage users must upgrade to Spark 3.3.0+.
 - (Frontend) CustomHttpClientFactory now restricts TLS to 1.2 and 1.3 only when using a custom truststore; TLS 1.0 and 1.1 are disabled for security. If the frontend uses a custom truststore to reach GMS or an IdP that only supports TLS 1.0/1.1, those connections will fail until the server is upgraded to support at least TLS 1.2.
+- #16176: Vertex AI Source - Pipeline URN structure changed. Previously, each pipeline run created a new DataFlow entity. Now, Vertex AI pipelines are modeled as stable DataFlow entities (one per pipeline template), with DataJobs for tasks and DataProcessInstances for individual runs. This enables proper incremental lineage aggregation. Pipeline URNs now use `display_name` as the stable identifier instead of the resource name. After upgrading, existing pipeline entities will appear as separate entities from new ingestion runs. To clean up old entities, enable stateful ingestion with stale entity removal.
 
 ### Known Issues
 
@@ -46,6 +47,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Deprecations
 
 - #16176: Vertex AI Source - The `region` configuration field is deprecated in favor of `regions` (list type). The `region` field continues to work for backward compatibility.
+- #16176: Vertex AI Source - Partition handling behavior will change in a future major version. Currently, `normalize_external_dataset_paths` defaults to `false`, meaning partitioned paths like `gs://bucket/data/year=2024/month=01/` create separate dataset entities. In the next major version, this will default to `true`, normalizing paths to `gs://bucket/data/` for stable dataset URNs with lineage aggregation across partitions. To opt-in to the new behavior now, set `normalize_external_dataset_paths: true` in your configuration.
 
 ### Other Notable Changes
 

@@ -1,5 +1,5 @@
-from typing import Any, List
-from unittest.mock import Mock
+from typing import Any
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
@@ -304,20 +304,21 @@ class TestMLMetadataHelper:
         return MLMetadataConfig(project_id="test-project", region="us-west1")
 
     @pytest.fixture
-    def mock_dataset_converter(self):
-        def converter(uri: str) -> List[str]:
-            if uri.startswith("gs://"):
-                return [f"urn:li:dataset:(urn:li:dataPlatform:gcs,{uri},PROD)"]
-            return []
-
-        return converter
+    def mock_uri_parser(self):
+        mock_parser = MagicMock()
+        mock_parser.dataset_urns_from_artifact_uri.side_effect = lambda uri: (
+            [f"urn:li:dataset:(urn:li:dataPlatform:gcs,{uri},PROD)"]
+            if uri.startswith("gs://")
+            else []
+        )
+        return mock_parser
 
     @pytest.fixture
-    def helper(self, mock_metadata_client, ml_metadata_config, mock_dataset_converter):
+    def helper(self, mock_metadata_client, ml_metadata_config, mock_uri_parser):
         return MLMetadataHelper(
             metadata_client=mock_metadata_client,
             config=ml_metadata_config,
-            dataset_urn_converter=mock_dataset_converter,
+            uri_parser=mock_uri_parser,
         )
 
     def test_initialization(self, helper, mock_metadata_client, ml_metadata_config):
@@ -371,7 +372,7 @@ class TestMLMetadataHelper:
         assert "loss" in metric_names
 
     def test_extract_artifact_lineage(
-        self, helper, mock_metadata_client, mock_dataset_converter
+        self, helper, mock_metadata_client, mock_uri_parser
     ):
         execution_name = "test-execution"
 
@@ -402,13 +403,13 @@ class TestMLMetadataHelper:
             mock_query_side_effect
         )
 
-        input_urns, output_urns = helper._extract_artifact_lineage(execution_name)
+        artifact_urns = helper._extract_artifact_lineage(execution_name)
 
-        assert len(input_urns) == 1
-        assert "gs://bucket/input/data" in input_urns[0]
+        assert len(artifact_urns.input_urns) == 1
+        assert "gs://bucket/input/data" in artifact_urns.input_urns[0]
 
-        assert len(output_urns) == 1
-        assert "gs://bucket/output/model" in output_urns[0]
+        assert len(artifact_urns.output_urns) == 1
+        assert "gs://bucket/output/model" in artifact_urns.output_urns[0]
 
     def test_execution_matches_job(self, helper):
         mock_execution = Mock()

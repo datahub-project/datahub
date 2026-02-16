@@ -14,12 +14,7 @@ from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.gcp_project_filter import GcpProject
-from datahub.ingestion.source.vertexai.vertexai import (
-    ModelMetadata,
-    TrainingJobMetadata,
-    VertexAIConfig,
-    VertexAISource,
-)
+from datahub.ingestion.source.vertexai.vertexai import VertexAIConfig, VertexAISource
 from datahub.ingestion.source.vertexai.vertexai_builder import (
     VertexAIExternalURLBuilder,
     VertexAINameFormatter,
@@ -29,8 +24,11 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     VertexAISubTypes,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
+    ModelMetadata,
+    TrainingJobMetadata,
     VertexAIResourceCategoryKey,
 )
+from datahub.ingestion.source.vertexai.vertexai_utils import get_actor_from_labels
 from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
     MLModelGroupProperties,
     MLModelProperties,
@@ -59,7 +57,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DataPlatformUrn
 from datahub.utilities.time import datetime_to_ts_millis
-from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
@@ -97,10 +94,17 @@ def source() -> VertexAISource:
 def test_get_ml_model_mcps(source: VertexAISource) -> None:
     mock_model = gen_mock_model()
     with contextlib.ExitStack() as exit_stack:
-        mock = exit_stack.enter_context(patch("google.cloud.aiplatform.Model.list"))
-        mock.return_value = [mock_model]
+        mock_model_list = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.Model.list")
+        )
+        mock_model_list.return_value = [mock_model]
 
-        actual_mcps = [mcp for mcp in source._get_ml_models_mcps()]
+        mock_endpoint_list = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.Endpoint.list")
+        )
+        mock_endpoint_list.return_value = []
+
+        actual_mcps = [mcp for mcp in source.model_extractor.get_model_workunits()]
 
         expected_urn = builder.make_ml_model_group_urn(
             platform=source.platform,
@@ -145,7 +149,7 @@ def test_get_ml_model_mcps(source: VertexAISource) -> None:
             ),
         )
 
-        assert len(actual_mcps) == 9
+        assert len(actual_mcps) == 14
         assert any(mcp_mlgroup_container == mcp.metadata for mcp in actual_mcps)
         assert any(mcp_subtype == mcp.metadata for mcp in actual_mcps)
         assert any(mcp_mlgroup == mcp.metadata for mcp in actual_mcps)
@@ -157,7 +161,7 @@ def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
     model_version = gen_mock_model_version(mock_model)
     model_meta = ModelMetadata(model=mock_model, model_version=model_version)
 
-    actual_mcps = list(source._gen_ml_model_mcps(model_meta))
+    actual_mcps = list(source.model_extractor._gen_ml_model_mcps(model_meta))
     expected_urn = source.urn_builder.make_ml_model_urn(
         model_version, source.name_formatter.format_model_name(mock_model.name)
     )
@@ -191,7 +195,9 @@ def test_get_ml_model_properties_mcps(source: VertexAISource) -> None:
         ),
     )
 
-    model_group_container_urn = source._get_model_group_container(mock_model).as_urn()
+    model_group_container_urn = source.model_extractor._get_model_group_container(
+        mock_model
+    ).as_urn()
     mcp_container = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
         aspect=ContainerClass(container=model_group_container_urn),
@@ -237,7 +243,7 @@ def test_get_endpoint_mcps(
         model=mock_model, model_version=model_version, endpoints=[mock_endpoint]
     )
 
-    actual_mcps = list(source._gen_endpoints_mcps(model_meta))
+    actual_mcps = list(source.model_extractor._gen_endpoints_mcps(model_meta))
     expected_urn = builder.make_ml_model_deployment_urn(
         platform=source.platform,
         deployment_name=source.name_formatter.format_endpoint_name(
@@ -308,7 +314,7 @@ def test_get_training_jobs_mcps(
             else:
                 mock.return_value = []
 
-        actual_mcps = [mcp for mcp in source._get_training_jobs_mcps()]
+        actual_mcps = [mcp for mcp in source.training_extractor.get_workunits()]
 
         expected_urn = builder.make_data_process_instance_urn(
             source.name_formatter.format_job_name(mock_training_job.name)
@@ -368,7 +374,9 @@ def test_gen_training_job_mcps(source: VertexAISource) -> None:
     mock_dataset = gen_mock_dataset()
     job_meta = TrainingJobMetadata(job=mock_training_job, input_dataset=mock_dataset)
 
-    actual_mcps = [mcp for mcp in source._gen_training_job_mcps(job_meta)]
+    actual_mcps = [
+        mcp for mcp in source.training_extractor._gen_training_job_mcps(job_meta)
+    ]
 
     dataset_name = source.name_formatter.format_dataset_name(
         entity_id=mock_dataset.name
@@ -446,7 +454,7 @@ def test_get_input_dataset_mcps(source: VertexAISource) -> None:
     job_meta = TrainingJobMetadata(job=mock_job, input_dataset=mock_dataset)
 
     actual_mcps: List[MetadataWorkUnit] = list(
-        source._get_dataset_workunits_from_job_metadata(job_meta)
+        source.training_extractor._get_dataset_workunits_from_job_metadata(job_meta)
     )
 
     assert job_meta.input_dataset is not None
@@ -504,7 +512,9 @@ def test_get_experiment_mcps(
     mock_experiment = gen_mock_experiment()
     assert hasattr(mock_list, "return_value")
     mock_list.return_value = [mock_experiment]
-    actual_wus: List[MetadataWorkUnit] = list(source._get_experiments_workunits())
+    actual_wus: List[MetadataWorkUnit] = list(
+        source.experiment_extractor.get_experiment_workunits()
+    )
     actual_mcps = [
         mcp.metadata
         for mcp in actual_wus
@@ -572,7 +582,7 @@ def test_gen_experiment_run_mcps(
     mock_list: List[ExperimentRun], source: VertexAISource
 ) -> None:
     mock_exp = gen_mock_experiment()
-    source.experiments = [mock_exp]
+    source.experiment_extractor.experiments = [mock_exp]
     mock_exp_run = gen_mock_experiment_run()
     assert hasattr(mock_list, "return_value")
     mock_list.return_value = [mock_exp_run]
@@ -585,7 +595,9 @@ def test_gen_experiment_run_mcps(
     ).as_urn()
 
     expected_urn = source.urn_builder.make_experiment_run_urn(mock_exp, mock_exp_run)
-    actual_mcps: List[MetadataWorkUnit] = list(source._get_experiment_runs_mcps())
+    actual_mcps: List[MetadataWorkUnit] = list(
+        source.experiment_extractor.get_experiment_run_workunits()
+    )
 
     mcp_dpi = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
@@ -649,16 +661,14 @@ def test_get_pipeline_mcps(
         )
         mock.return_value = [mock_pipeline]
 
-        actual_mcps = [mcp for mcp in source._get_pipelines_mcps()]
+        actual_mcps = [mcp for mcp in source.pipeline_extractor.get_workunits()]
 
-        expected_pipeline_urn = str(
-            DataFlowUrn.create_from_ids(
-                orchestrator=source.platform,
-                env=source.config.env,
-                flow_id=source.name_formatter.format_pipeline_id(mock_pipeline.name),
-                platform_instance=source.config.platform_instance,
-            )
+        # Get the actual pipeline URN from the metadata
+        mock_pipeline_obj = get_mock_pipeline_job()
+        pipeline_meta = source.pipeline_extractor._get_pipeline_metadata(
+            mock_pipeline_obj
         )
+        expected_pipeline_urn = str(pipeline_meta.urn)
         expected_task_urn = str(
             DataJobUrn.create_from_ids(
                 data_flow_urn=expected_pipeline_urn,
@@ -668,10 +678,9 @@ def test_get_pipeline_mcps(
 
     dpi_urn = "urn:li:dataProcessInstance:acryl-poc.pipeline_task_run.reverse"
 
-    # Expected count: 6 (dataflow) + 1 (datajob container) + 7 (datajob) + 3 (dpi) = 17
-    # DataFlow gets container → "Pipelines" folder
-    # DataJob gets container → parent DataFlow
-    assert len(actual_mcps) == 17, f"Expected 17 MCPs, got {len(actual_mcps)}"
+    # With incremental lineage: 6 (dataflow) + 4 (pipeline run DPI) + 5 (datajob with info) +
+    # 5 (task run DPI) + 2 (patch MCPs) = 22
+    assert len(actual_mcps) == 22, f"Expected 22 MCPs, got {len(actual_mcps)}"
 
     dataflow_info_mcps = [
         mcp
@@ -825,7 +834,7 @@ def test_gen_run_execution_edges() -> None:
     )
 
     mcps = list(
-        source._gen_run_execution(
+        source.experiment_extractor._gen_run_execution(
             cast(Any, _Exec()), cast(Any, _Run()), cast(Any, _Exp())
         )
     )
@@ -848,8 +857,6 @@ def test_gen_run_execution_edges() -> None:
 def test_training_job_external_lineage_edges() -> None:
     class _Job:
         def __init__(self):
-            from datetime import datetime, timedelta
-
             self.name = "jobs/123"
             self.display_name = "my-job"
             self.create_time = datetime.utcnow()
@@ -870,11 +877,11 @@ def test_training_job_external_lineage_edges() -> None:
     )
 
     job = _Job()
-    job_meta = source._get_training_job_metadata(cast(Any, job))
+    job_meta = source.training_extractor._get_training_job_metadata(cast(Any, job))
     uris = source.uri_parser.extract_external_uris_from_job(cast(Any, job))
     job_meta.external_input_urns = uris.input_urns
     job_meta.external_output_urns = uris.output_urns
-    mcps = list(source._gen_training_job_mcps(job_meta))
+    mcps = list(source.training_extractor._gen_training_job_mcps(job_meta))
     has_ext_inputs = any(
         getattr(m.metadata.aspect, "inputEdges", None)
         and any(
@@ -959,7 +966,7 @@ def test_pipeline_task_with_none_timestamps(
         )
         mock.return_value = [mock_pipeline_job]
 
-        actual_mcps = list(source._get_pipelines_mcps())
+        actual_mcps = list(source.pipeline_extractor.get_workunits())
 
         task_run_mcps = [
             mcp
@@ -975,7 +982,7 @@ def test_pipeline_task_with_none_timestamps(
 def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
     """Test that experiment runs with None create_time/update_time don't crash."""
     mock_exp = gen_mock_experiment()
-    source.experiments = [mock_exp]
+    source.experiment_extractor.experiments = [mock_exp]
 
     mock_exp_run = MagicMock(spec=ExperimentRun)
     mock_exp_run.name = "test_run_none_timestamps"
@@ -998,7 +1005,7 @@ def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
     with patch("google.cloud.aiplatform.ExperimentRun.list") as mock_list:
         mock_list.return_value = [mock_exp_run]
 
-        actual_mcps = list(source._get_experiment_runs_mcps())
+        actual_mcps = list(source.experiment_extractor.get_experiment_run_workunits())
 
         run_mcps = [
             mcp
@@ -1087,7 +1094,7 @@ def test_format_pipeline_duration(
     source: VertexAISource, duration: timedelta, expected: str
 ) -> None:
     """Test various duration formatting scenarios"""
-    formatted = source._format_pipeline_duration(duration)
+    formatted = source.pipeline_extractor._format_pipeline_duration(duration)
     assert formatted == expected
 
 
@@ -1222,7 +1229,7 @@ def test_owner_extraction_from_labels(
     source: VertexAISource, labels: Any, expected_user: str | None
 ) -> None:
     """Test owner extraction from various label keys"""
-    owner = source._get_actor_from_labels(labels)
+    owner = get_actor_from_labels(labels)
     if expected_user:
         assert owner == builder.make_user_urn(expected_user)
     else:
@@ -1340,14 +1347,12 @@ def test_model_downstream_lineage_from_pipeline_tasks(source: VertexAISource) ->
 
     with patch("google.cloud.aiplatform.PipelineJob.list") as mock_list:
         mock_list.return_value = [mock_pipeline]
-        list(source._get_pipelines_mcps())
+        list(source.pipeline_extractor.get_workunits())
 
     expected_model_urn = "urn:li:mlModel:(urn:li:dataPlatform:vertexai,123456,PROD)"
 
-    assert expected_model_urn in source._model_to_downstream_jobs
-    assert len(source._model_to_downstream_jobs[expected_model_urn]) == 1
-
-    downstream_urns = source._model_to_downstream_jobs[expected_model_urn]
+    downstream_urns = source.model_usage_tracker.get_downstream_jobs(expected_model_urn)
+    assert len(downstream_urns) == 1
     assert any("prediction_task" in urn for urn in downstream_urns)
 
 
@@ -1377,11 +1382,15 @@ def test_model_downstream_lineage_from_experiment_executions(
     mock_execution.get_output_artifacts = MagicMock(return_value=[])
 
     with patch.object(mock_run, "get_executions", return_value=[mock_execution]):
-        list(source._gen_experiment_run_mcps(mock_experiment, mock_run))
+        list(
+            source.experiment_extractor._gen_experiment_run_mcps(
+                mock_experiment, mock_run
+            )
+        )
 
     expected_model_urn = "urn:li:mlModel:(urn:li:dataPlatform:vertexai,789,PROD)"
-    assert expected_model_urn in source._model_to_downstream_jobs
-    assert len(source._model_to_downstream_jobs[expected_model_urn]) == 1
+    downstream_urns = source.model_usage_tracker.get_downstream_jobs(expected_model_urn)
+    assert len(downstream_urns) == 1
 
 
 def test_model_includes_downstream_jobs_in_properties(source: VertexAISource) -> None:
@@ -1397,7 +1406,7 @@ def test_model_includes_downstream_jobs_in_properties(source: VertexAISource) ->
     model_urn = source.urn_builder.make_ml_model_urn(mock_version, model_name)
 
     downstream_job_urn = "urn:li:dataProcessInstance:test_job"
-    source._model_to_downstream_jobs[model_urn] = [downstream_job_urn]
+    source.model_usage_tracker.track_usage(model_urn, downstream_job_urn)
 
     model_metadata = ModelMetadata(
         model=mock_model, model_version=mock_version, endpoints=[]

@@ -105,6 +105,11 @@ def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None
         )
         mock.return_value = [get_mock_pipeline_job()]
 
+        mock_endpoints = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.Endpoint.list")
+        )
+        mock_endpoints.return_value = []
+
         golden_file_path = (
             pytestconfig.rootpath
             / "tests/integration/vertexai/vertexai_mcps_golden.json"
