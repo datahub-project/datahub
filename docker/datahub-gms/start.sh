@@ -70,6 +70,19 @@ if [[ $EXTRACT_JAR_ENABLED == true ]]; then
   WORK_DIR="/tmp/gms-work"
   JAR_PATH="/datahub/datahub-gms/bin/war.war"
 
+  # Log WAR size and available resources
+  WAR_SIZE_MB=$(du -m "$JAR_PATH" | awk '{print $1}')
+  AVAILABLE_RAM=$(free -m | awk '/^Mem:/ {print $7}')
+  echo "[STARTUP] JAR extraction enabled. WAR size: ${WAR_SIZE_MB}MB, Available RAM: ${AVAILABLE_RAM}MB"
+
+  if [[ $WAR_SIZE_MB -gt 1000 ]]; then
+    echo "[WARN] WAR size (${WAR_SIZE_MB}MB) exceeds tmpfs limit (1Gi). Extraction may fail"
+  fi
+
+  if [[ $AVAILABLE_RAM -lt 500 ]]; then
+    echo "[WARN] Low available RAM (${AVAILABLE_RAM}MB). Extraction may fail or trigger swap"
+  fi
+
   echo "[STARTUP] Extracting WAR to tmpfs: $WORK_DIR"
   START_EXTRACT=$(date +%s%3N)
 
