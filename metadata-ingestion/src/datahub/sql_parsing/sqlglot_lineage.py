@@ -2249,6 +2249,7 @@ def create_lineage_from_sql_statements(
     """
     from datahub.sql_parsing.sql_parsing_aggregator import (
         ObservedQuery,
+        QueryMetadata,
         SqlParsingAggregator,
     )
 
@@ -2285,7 +2286,6 @@ def create_lineage_from_sql_statements(
 
         try:
             session_id = str(uuid.uuid4())
-
             for query in queries:
                 query = query.strip()
                 if not query:
@@ -2299,77 +2299,78 @@ def create_lineage_from_sql_statements(
                     )
                 )
 
-            # Extract resolved lineage directly from aggregator internals.
+            resolved_by_id: Dict[str, QueryMetadata] = {}
+            for query_id, query_meta in aggregator._query_map.items():
+                resolved_by_id[query_id] = aggregator._resolve_query_with_temp_tables(
+                    query_meta
+                )
+
+            # Invert _lineage_map (downstream → query_ids) so we can look up
+            # each query's target table during the single-pass aggregation below.
+            query_to_downstream: Dict[str, str] = {}
+            for downstream_urn in aggregator._lineage_map:
+                for query_id in aggregator._lineage_map[downstream_urn]:
+                    query_to_downstream[query_id] = downstream_urn
+
+            # Temp table creators produce CLL like "staging.id <- source.id"
+            # where staging is a temp table. We must exclude these because
+            # _resolve_query_with_temp_tables already traced downstream queries
+            # through the temp tables to produce "target.id <- source.id".
+            # Including both would create phantom CLL entries referencing temp
+            # tables that don't appear in out_tables.
+            temp_creator_ids: Set[str] = set()
+            session_temp_data = aggregator._temp_lineage_map.get(session_id)
+            if session_temp_data:
+                for creator_ids in session_temp_data.values():
+                    temp_creator_ids.update(creator_ids)
+
+            # _lineage_map only tracks non-temp outputs, so its keys are
+            # already the correct set of real downstream tables.
+            all_out_tables: List[str] = list(aggregator._lineage_map.keys())
             in_tables: OrderedSet[str] = OrderedSet()
-            all_out_tables: List[str] = []
-            # Merge CLL by (downstream_table, downstream_column) to avoid duplicates
-            # when multiple queries write to the same column.
-            cll_by_downstream: Dict[Tuple[str, str], ColumnLineageInfo] = {}
             min_confidence = 1.0
             has_resolved_queries = False
+            cll_by_key: Dict[Tuple[Optional[str], str], ColumnLineageInfo] = {}
 
-            for downstream_urn in aggregator._lineage_map:
-                all_out_tables.append(downstream_urn)
-                query_ids = aggregator._lineage_map[downstream_urn]
+            for query_id, resolved in resolved_by_id.items():
+                if query_id in temp_creator_ids:
+                    continue
 
-                for query_id in query_ids:
-                    query_meta = aggregator._query_map.get(query_id)
-                    if query_meta is None:
+                has_resolved_queries = True
+
+                for upstream in resolved.upstreams:
+                    in_tables.add(upstream)
+                min_confidence = min(min_confidence, resolved.confidence_score)
+
+                # downstream_urn is None for SELECT-only queries (no output table).
+                downstream_urn = query_to_downstream.get(query_id)
+                for col_lineage in resolved.column_lineage:
+                    key = (downstream_urn, col_lineage.downstream.column)
+                    existing = cll_by_key.get(key)
+                    if existing is None:
+                        cll_by_key[key] = col_lineage
                         continue
 
-                    has_resolved_queries = True
-                    temp_resolved_query = aggregator._resolve_query_with_temp_tables(
-                        query_meta
+                    # Multiple queries can INSERT into the same target column
+                    # (e.g. two INSERTs to the same table). Merge their upstream
+                    # sources so none are lost.
+                    existing_upstream_set = {
+                        (u.table, u.column) for u in existing.upstreams
+                    }
+                    merged_upstreams = list(existing.upstreams)
+                    for u in col_lineage.upstreams:
+                        if (u.table, u.column) not in existing_upstream_set:
+                            merged_upstreams.append(u)
+                    cll_by_key[key] = ColumnLineageInfo(
+                        downstream=existing.downstream,
+                        upstreams=merged_upstreams,
+                        logic=existing.logic,
                     )
-
-                    for upstream in temp_resolved_query.upstreams:
-                        in_tables.add(upstream)
-
-                    min_confidence = min(
-                        min_confidence, temp_resolved_query.confidence_score
-                    )
-
-                    for col_lineage in temp_resolved_query.column_lineage:
-                        # The aggregator stores raw parser CLL which doesn't
-                        # set downstream.table — normalize it to the
-                        # downstream_urn from _lineage_map.
-                        normalized_cll = ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=downstream_urn,
-                                column=col_lineage.downstream.column,
-                                column_type=col_lineage.downstream.column_type,
-                                native_column_type=col_lineage.downstream.native_column_type,
-                            ),
-                            upstreams=col_lineage.upstreams,
-                            logic=col_lineage.logic,
-                        )
-
-                        key = (downstream_urn, normalized_cll.downstream.column)
-                        existing = cll_by_downstream.get(key)
-                        if existing is not None:
-                            # Merge upstreams when multiple queries write to the same column.
-                            existing_upstream_set = {
-                                (u.table, u.column) for u in existing.upstreams
-                            }
-                            merged_upstreams = list(existing.upstreams)
-                            for u in normalized_cll.upstreams:
-                                if (
-                                    u.table,
-                                    u.column,
-                                ) not in existing_upstream_set:
-                                    merged_upstreams.append(u)
-                            cll_by_downstream[key] = ColumnLineageInfo(
-                                downstream=existing.downstream,
-                                upstreams=merged_upstreams,
-                                logic=existing.logic,
-                            )
-                        else:
-                            cll_by_downstream[key] = normalized_cll
         finally:
             aggregator.close()
 
         all_in_tables = list(in_tables)
-        all_column_lineage = list(cll_by_downstream.values())
+        all_column_lineage = list(cll_by_key.values())
 
         if not all_in_tables and not all_out_tables:
             return SqlParsingResult(

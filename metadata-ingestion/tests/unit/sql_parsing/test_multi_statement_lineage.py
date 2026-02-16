@@ -187,8 +187,8 @@ class TestTempTableColumnLineage:
             ]
         )
         cll = _cll_map(result)
-        assert "source.id" in cll["target"]["id"]
-        assert "source.name" in cll["target"]["name"]
+        assert set(cll["target"]["id"]) == {"source.id"}
+        assert set(cll["target"]["name"]) == {"source.name"}
 
     def test_expression_transform_resolves_to_source_column(self) -> None:
         """target.doubled <- staging(temp).doubled <- 2*source.val  =>  target.doubled <- source.val"""
@@ -199,8 +199,8 @@ class TestTempTableColumnLineage:
             ]
         )
         cll = _cll_map(result)
-        assert "source.val" in cll["target"]["doubled"]
-        assert "source.id" in cll["target"]["id"]
+        assert set(cll["target"]["doubled"]) == {"source.val"}
+        assert set(cll["target"]["id"]) == {"source.id"}
 
     def test_aggregation_count_resolves_to_source_column(self) -> None:
         """target.cnt <- agg(temp).cnt <- COUNT(source.id)  =>  target.cnt <- source.id"""
@@ -211,8 +211,8 @@ class TestTempTableColumnLineage:
             ]
         )
         cll = _cll_map(result)
-        assert "source.category" in cll["target"]["category"]
-        assert "source.id" in cll["target"]["cnt"]
+        assert set(cll["target"]["category"]) == {"source.category"}
+        assert set(cll["target"]["cnt"]) == {"source.id"}
 
     def test_join_of_two_temps_resolves_each_to_its_source(self) -> None:
         """target.id <- t_left(temp).id <- source1.id
@@ -225,8 +225,8 @@ class TestTempTableColumnLineage:
             ]
         )
         cll = _cll_map(result)
-        assert "source1.id" in cll["target"]["id"]
-        assert "source2.val" in cll["target"]["val"]
+        assert set(cll["target"]["id"]) == {"source1.id"}
+        assert set(cll["target"]["val"]) == {"source2.val"}
 
     def test_temp_from_join_resolves_columns_to_both_sources(self) -> None:
         """staging(temp) created from JOIN of source1 + source2.
@@ -239,8 +239,8 @@ class TestTempTableColumnLineage:
             ]
         )
         cll = _cll_map(result)
-        assert "source1.id" in cll["target"]["id"]
-        assert "source2.val" in cll["target"]["val"]
+        assert set(cll["target"]["id"]) == {"source1.id"}
+        assert set(cll["target"]["val"]) == {"source2.val"}
 
     def test_cte_inside_temp_resolves_correctly(self) -> None:
         """CTE within CREATE TEMP TABLE — both CTE and temp are transparent.
@@ -252,8 +252,8 @@ class TestTempTableColumnLineage:
             ]
         )
         cll = _cll_map(result)
-        assert "source.id" in cll["target"]["id"]
-        assert "source.name" in cll["target"]["name"]
+        assert set(cll["target"]["id"]) == {"source.id"}
+        assert set(cll["target"]["name"]) == {"source.name"}
 
     def test_multi_hop_temp_chain_column_resolves_to_original(self) -> None:
         """source -> t1(temp) -> t2(temp) -> target
@@ -266,7 +266,7 @@ class TestTempTableColumnLineage:
             ]
         )
         cll = _cll_map(result)
-        assert "source.id" in cll["target"]["id"]
+        assert set(cll["target"]["id"]) == {"source.id"}
 
     def test_column_rename_in_temp_tracks_original_source(self) -> None:
         """Column renamed in temp: source.id -> staging.user_id -> target.user_id
@@ -278,7 +278,7 @@ class TestTempTableColumnLineage:
             ]
         )
         cll = _cll_map(result)
-        assert "source.id" in cll["target"]["user_id"]
+        assert set(cll["target"]["user_id"]) == {"source.id"}
 
     def test_temp_joined_with_real_table_column_lineage(self) -> None:
         """Temp columns resolve to source; real table columns stay as-is.
@@ -291,9 +291,9 @@ class TestTempTableColumnLineage:
             ]
         )
         cll = _cll_map(result)
-        assert "source.id" in cll["target"]["id"]
-        assert "source.amount" in cll["target"]["amount"]
-        assert "dimensions.label" in cll["target"]["label"]
+        assert set(cll["target"]["id"]) == {"source.id"}
+        assert set(cll["target"]["amount"]) == {"source.amount"}
+        assert set(cll["target"]["label"]) == {"dimensions.label"}
 
     def test_multiple_expressions_in_temp_all_resolve(self) -> None:
         """Multiple transformed columns in one temp table all resolve correctly.
@@ -326,8 +326,8 @@ class TestTempTableColumnLineage:
             ]
         )
         cll = _cll_map(result)
-        assert "source.id" in cll["target1"]["id"]
-        assert "source.id" in cll["target2"]["id"]
+        assert set(cll["target1"]["id"]) == {"source.id"}
+        assert set(cll["target2"]["id"]) == {"source.id"}
 
 
 class TestPersistentTableLineage:
@@ -412,11 +412,11 @@ class TestPersistentTableColumnLineage:
         )
         cll = _cll_map(result)
         # First hop: staging <- source
-        assert "source.id" in cll["staging"]["id"]
-        assert "source.name" in cll["staging"]["name"]
+        assert set(cll["staging"]["id"]) == {"source.id"}
+        assert set(cll["staging"]["name"]) == {"source.name"}
         # Second hop: target <- staging (NOT collapsed to source)
-        assert "staging.id" in cll["target"]["id"]
-        assert "staging.name" in cll["target"]["name"]
+        assert set(cll["target"]["id"]) == {"staging.id"}
+        assert set(cll["target"]["name"]) == {"staging.name"}
 
     def test_join_sourced_intermediate_preserves_column_origins(self) -> None:
         """staging.id <- source1.id, staging.val <- source2.val
@@ -429,11 +429,11 @@ class TestPersistentTableColumnLineage:
         )
         cll = _cll_map(result)
         # staging columns trace to their respective sources
-        assert "source1.id" in cll["staging"]["id"]
-        assert "source2.val" in cll["staging"]["val"]
+        assert set(cll["staging"]["id"]) == {"source1.id"}
+        assert set(cll["staging"]["val"]) == {"source2.val"}
         # target traces one hop to staging
-        assert "staging.id" in cll["target"]["id"]
-        assert "staging.val" in cll["target"]["val"]
+        assert set(cll["target"]["id"]) == {"staging.id"}
+        assert set(cll["target"]["val"]) == {"staging.val"}
 
     def test_aggregation_in_intermediate_preserves_per_hop(self) -> None:
         """agg.cnt <- COUNT(source.id)  AND  target.cnt <- agg.cnt (NOT source.id)"""
@@ -445,11 +445,130 @@ class TestPersistentTableColumnLineage:
         )
         cll = _cll_map(result)
         # agg columns trace to source
-        assert "source.id" in cll["agg"]["cnt"]
-        assert "source.category" in cll["agg"]["category"]
+        assert set(cll["agg"]["cnt"]) == {"source.id"}
+        assert set(cll["agg"]["category"]) == {"source.category"}
         # target traces to agg, not collapsed to source
-        assert "agg.cnt" in cll["target"]["cnt"]
-        assert "agg.category" in cll["target"]["category"]
+        assert set(cll["target"]["cnt"]) == {"agg.cnt"}
+        assert set(cll["target"]["category"]) == {"agg.category"}
+
+
+class TestSelectOnlyQueries:
+    """SELECT-only queries (no downstream tables) should return lineage showing
+    which tables were read, even though there's no output table.
+    """
+
+    def test_single_select_returns_input_tables(self) -> None:
+        """SELECT query should capture upstream tables even without output."""
+        result = _parse(["SELECT id, name FROM source"])
+        assert _table_short_names(result.in_tables) == {"source"}
+        assert result.out_tables == []
+
+    def test_select_with_join_captures_all_inputs(self) -> None:
+        """SELECT with JOIN should capture all source tables."""
+        result = _parse(
+            ["SELECT s1.id, s2.name FROM source1 s1 JOIN source2 s2 ON s1.id = s2.id"]
+        )
+        assert _table_short_names(result.in_tables) == {"source1", "source2"}
+        assert result.out_tables == []
+
+    def test_multiple_selects_aggregate_inputs(self) -> None:
+        """Multiple SELECT queries should aggregate all input tables."""
+        result = _parse(
+            [
+                "SELECT id FROM source1",
+                "SELECT name FROM source2",
+                "SELECT amount FROM source3",
+            ]
+        )
+        assert _table_short_names(result.in_tables) == {
+            "source1",
+            "source2",
+            "source3",
+        }
+        assert result.out_tables == []
+
+    def test_select_with_temp_table_resolves_to_source(self) -> None:
+        """SELECT from temp table should resolve to original source."""
+        result = _parse(
+            [
+                "CREATE TEMP TABLE staging AS SELECT id FROM source",
+                "SELECT id FROM staging",
+            ]
+        )
+        assert _table_short_names(result.in_tables) == {"source"}
+        assert result.out_tables == []
+
+    def test_mixed_select_and_insert_captures_both(self) -> None:
+        """Mix of SELECT and INSERT should capture inputs from both."""
+        result = _parse(
+            [
+                "SELECT id FROM source1",
+                "INSERT INTO target SELECT name FROM source2",
+            ]
+        )
+        assert _table_short_names(result.in_tables) == {"source1", "source2"}
+        assert _table_short_names(result.out_tables) == {"target"}
+
+    def test_select_column_lineage_with_no_downstream_table(self) -> None:
+        """SELECT query should capture column lineage with downstream.table=None."""
+        result = _parse(["SELECT id, name FROM source"])
+        assert result.column_lineage is not None
+        assert len(result.column_lineage) == 2
+
+        # Check that column lineage has None as downstream table
+        for cll in result.column_lineage:
+            assert cll.downstream.table is None
+            assert cll.downstream.column in ["id", "name"]
+
+        # Extract upstream columns
+        cll_map = {}
+        for cll in result.column_lineage:
+            cll_map[cll.downstream.column] = [
+                f"{_urn_to_table_name(str(u.table))}.{u.column}" for u in cll.upstreams
+            ]
+
+        assert "source.id" in cll_map["id"]
+        assert "source.name" in cll_map["name"]
+
+    def test_select_join_column_lineage_resolves_correctly(self) -> None:
+        """SELECT with JOIN should show which columns come from which table."""
+        result = _parse(
+            ["SELECT s1.id, s2.name FROM source1 s1 JOIN source2 s2 ON s1.id = s2.id"]
+        )
+        assert result.column_lineage is not None
+
+        # Extract column lineage
+        cll_map = {}
+        for cll in result.column_lineage:
+            assert cll.downstream.table is None
+            cll_map[cll.downstream.column] = [
+                f"{_urn_to_table_name(str(u.table))}.{u.column}" for u in cll.upstreams
+            ]
+
+        assert "source1.id" in cll_map["id"]
+        assert "source2.name" in cll_map["name"]
+
+    def test_select_from_temp_resolves_column_lineage_to_source(self) -> None:
+        """SELECT from temp table should resolve column lineage to original source."""
+        result = _parse(
+            [
+                "CREATE TEMP TABLE staging AS SELECT id, name FROM source",
+                "SELECT id, name FROM staging",
+            ]
+        )
+        assert result.column_lineage is not None
+
+        # Extract column lineage
+        cll_map = {}
+        for cll in result.column_lineage:
+            assert cll.downstream.table is None
+            cll_map[cll.downstream.column] = [
+                f"{_urn_to_table_name(str(u.table))}.{u.column}" for u in cll.upstreams
+            ]
+
+        # Temp table resolved: columns trace back to source
+        assert "source.id" in cll_map["id"]
+        assert "source.name" in cll_map["name"]
 
 
 class TestMixed_TempAndPersistentLineage:
@@ -488,7 +607,184 @@ class TestMixed_TempAndPersistentLineage:
         )
         cll = _cll_map(result)
         # Persistent intermediate: target traces to staging (not collapsed)
-        assert "staging.id" in cll["target"]["id"]
-        assert "staging.amount" in cll["target"]["amount"]
+        assert set(cll["target"]["id"]) == {"staging.id"}
+        assert set(cll["target"]["amount"]) == {"staging.amount"}
         # Temp resolved: target.label traces through tmp to source2
-        assert "source2.label" in cll["target"]["label"]
+        assert set(cll["target"]["label"]) == {"source2.label"}
+
+
+class TestNoPhantomTempTableLineage:
+    """Temp table creation queries must NOT leak phantom CLL entries into the
+    final result. Only real downstream tables should appear in column lineage."""
+
+    def test_no_phantom_cll_from_temp_creation(self) -> None:
+        """CLL downstream tables should only be real tables, never temp tables."""
+        result = _parse(
+            [
+                "CREATE TEMP TABLE staging AS SELECT id, name FROM source",
+                "INSERT INTO target SELECT id, name FROM staging",
+            ]
+        )
+        assert result.column_lineage is not None
+        for cll in result.column_lineage:
+            if cll.downstream.table is not None:
+                table_name = _urn_to_table_name(str(cll.downstream.table))
+                assert table_name != "staging", (
+                    f"Phantom CLL: temp table 'staging' should not appear as downstream, "
+                    f"got {cll.downstream}"
+                )
+
+    def test_unused_temp_table_produces_no_lineage(self) -> None:
+        """Temp table created but never consumed should produce empty lineage."""
+        result = _parse(
+            [
+                "CREATE TEMP TABLE unused AS SELECT id FROM source",
+            ]
+        )
+        assert result.in_tables == []
+        assert result.out_tables == []
+
+    def test_cll_count_matches_target_columns_not_temp_columns(self) -> None:
+        """Number of CLL entries should match target columns, not include
+        temp table creation columns."""
+        result = _parse(
+            [
+                "CREATE TEMP TABLE staging AS SELECT id, name, age FROM source",
+                "INSERT INTO target SELECT id, name FROM staging",
+            ]
+        )
+        assert result.column_lineage is not None
+        # Only 2 CLL entries (id, name for target), not 5 (3 for staging + 2 for target)
+        target_cll = [
+            c
+            for c in result.column_lineage
+            if c.downstream.table is not None
+            and _urn_to_table_name(str(c.downstream.table)) == "target"
+        ]
+        assert len(target_cll) == 2
+
+    def test_select_from_temp_has_no_phantom_temp_downstream(self) -> None:
+        """SELECT from temp should have CLL with downstream.table=None,
+        not the temp table URN."""
+        result = _parse(
+            [
+                "CREATE TEMP TABLE staging AS SELECT id, name FROM source",
+                "SELECT id, name FROM staging",
+            ]
+        )
+        assert result.column_lineage is not None
+        for cll in result.column_lineage:
+            assert cll.downstream.table is None, (
+                f"SELECT query CLL should have downstream.table=None, "
+                f"got {cll.downstream.table}"
+            )
+
+
+class TestEdgeCasePatterns:
+    """Additional edge cases: UNION sources, diamond patterns, subqueries,
+    multiple inserts to same target, and cross-pattern combinations."""
+
+    def test_union_in_temp_resolves_all_sources(self) -> None:
+        """Temp from UNION ALL should resolve to all unioned source tables."""
+        result = _parse(
+            [
+                "CREATE TEMP TABLE staging AS SELECT id FROM source1 UNION ALL SELECT id FROM source2",
+                "INSERT INTO target SELECT id FROM staging",
+            ]
+        )
+        assert _table_short_names(result.in_tables) == {"source1", "source2"}
+        assert _table_short_names(result.out_tables) == {"target"}
+
+    def test_diamond_pattern_two_temps_from_same_source(self) -> None:
+        """source -> t1(temp) + t2(temp) -> target  (diamond pattern).
+        Both temps resolve to the same source."""
+        result = _parse(
+            [
+                "CREATE TEMP TABLE t1 AS SELECT id FROM source",
+                "CREATE TEMP TABLE t2 AS SELECT id, name FROM source",
+                "INSERT INTO target SELECT t1.id, t2.name FROM t1 JOIN t2 ON t1.id = t2.id",
+            ]
+        )
+        assert _table_short_names(result.in_tables) == {"source"}
+        assert _table_short_names(result.out_tables) == {"target"}
+        cll = _cll_map(result)
+        assert set(cll["target"]["id"]) == {"source.id"}
+        assert set(cll["target"]["name"]) == {"source.name"}
+
+    def test_multiple_inserts_to_same_target_merge_lineage(self) -> None:
+        """Multiple INSERTs to same target should merge upstream sources."""
+        result = _parse(
+            [
+                "INSERT INTO target SELECT id FROM source1",
+                "INSERT INTO target SELECT name FROM source2",
+            ]
+        )
+        assert _table_short_names(result.in_tables) == {"source1", "source2"}
+        assert _table_short_names(result.out_tables) == {"target"}
+
+    def test_subquery_in_insert(self) -> None:
+        """INSERT with inline subquery should capture lineage from inner query."""
+        result = _parse(
+            [
+                "INSERT INTO target SELECT id FROM (SELECT id FROM source) sub",
+            ]
+        )
+        assert _table_short_names(result.in_tables) == {"source"}
+        assert _table_short_names(result.out_tables) == {"target"}
+
+    def test_temp_with_where_clause_preserves_source(self) -> None:
+        """Temp table with WHERE filter still traces to source."""
+        result = _parse(
+            [
+                "CREATE TEMP TABLE staging AS SELECT id, status FROM source WHERE status = 'active'",
+                "INSERT INTO target SELECT id FROM staging",
+            ]
+        )
+        assert _table_short_names(result.in_tables) == {"source"}
+        assert _table_short_names(result.out_tables) == {"target"}
+        cll = _cll_map(result)
+        assert set(cll["target"]["id"]) == {"source.id"}
+
+    def test_temp_with_window_function(self) -> None:
+        """Temp table with window function resolves column lineage correctly."""
+        result = _parse(
+            [
+                "CREATE TEMP TABLE staging AS SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM source",
+                "INSERT INTO target SELECT id, rn FROM staging",
+            ]
+        )
+        assert _table_short_names(result.in_tables) == {"source"}
+        assert _table_short_names(result.out_tables) == {"target"}
+        cll = _cll_map(result)
+        assert set(cll["target"]["id"]) == {"source.id"}
+
+    def test_three_independent_temp_to_target_chains(self) -> None:
+        """Three independent source->temp->target chains in one batch."""
+        result = _parse(
+            [
+                "CREATE TEMP TABLE t1 AS SELECT id FROM source1",
+                "CREATE TEMP TABLE t2 AS SELECT name FROM source2",
+                "CREATE TEMP TABLE t3 AS SELECT amount FROM source3",
+                "INSERT INTO target SELECT t1.id, t2.name, t3.amount FROM t1, t2, t3",
+            ]
+        )
+        assert _table_short_names(result.in_tables) == {
+            "source1",
+            "source2",
+            "source3",
+        }
+        assert _table_short_names(result.out_tables) == {"target"}
+
+    def test_temp_overwritten_by_second_create(self) -> None:
+        """If a temp table name is reused, the latest definition should apply."""
+        result = _parse(
+            [
+                "CREATE TEMP TABLE staging AS SELECT id FROM source1",
+                "CREATE TEMP TABLE staging AS SELECT id FROM source2",
+                "INSERT INTO target SELECT id FROM staging",
+            ]
+        )
+        # The second CREATE should overwrite the first
+        assert _table_short_names(result.out_tables) == {"target"}
+        # source2 should be the upstream (latest definition)
+        assert "source2" in {_urn_to_table_name(u) for u in result.in_tables}
