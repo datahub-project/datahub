@@ -162,11 +162,14 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
   // We can't enforce the coverage requirements if we run a subset of the tests.
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
   outputs.dir("${venv_name}")
   def cvg_arg = get_coverage_args("quick")
   commandLine 'bash', '-c',
     venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} tests/unit ${pytest_default_args} --random-order -m 'not integration' --junit-xml=junit.quick.xml"
+    "${pytest_default_env} pytest ${cvg_arg} tests/unit ${pytest_default_args} --random-order -m 'not integration' --junit-xml=test-results/junit.quick.xml"
 }
 
 task installDocs(type: Exec, dependsOn: [install]) {
@@ -210,11 +213,16 @@ def integrationBatchIds = ["0", "1", "2", "3", "4", "5", "Recording"]
 integrationBatchIds.each { batchId ->
     def markerName = "integration_batch_${batchId.toLowerCase()}"
     def taskName = "testIntegrationBatch${batchId}"
-    def junitXml = "junit.integrationbatch${batchId.toLowerCase()}.xml"
+    def junitXml = "test-results/junit.integrationbatch${batchId.toLowerCase()}.xml"
     def cvgArg = get_coverage_args("intBatch${batchId}")
-    
+
     tasks.register(taskName, Exec) {
         dependsOn installDevTest
+        inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+        inputs.files(project.fileTree(dir: "tests/"))
+        inputs.file file("pyproject.toml")
+        inputs.file file("setup.cfg")
+        inputs.file file("setup.py")
         commandLine 'bash', '-c',
             venv_activate_command +
             "${pytest_default_env} pytest ${cvgArg} ${pytest_default_args} -m '${markerName}' --junit-xml=${junitXml}"
@@ -222,9 +230,14 @@ integrationBatchIds.each { batchId ->
 }
 
 task testFull(type: Exec, dependsOn: [installDevTest]) {
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
   commandLine 'bash', '-c',
     venv_activate_command +
-    "${pytest_default_env} pytest ${pytest_default_args} --junit-xml=junit.full.xml"
+    "${pytest_default_env} pytest ${get_coverage_args('full')} ${pytest_default_args}"
 }
 
 task specGen(type: Exec, dependsOn: [codegen, installDocs]) {
