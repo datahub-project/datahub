@@ -32,12 +32,14 @@ export function getCheckboxColor(
 ) {
     if (disabled) {
         return mode === 'background'
-            ? themeColors?.bgDisabled ?? checkboxBackgroundDefault.disabled
-            : themeColors?.border ?? colors.gray[100];
+            ? (themeColors?.bgDisabled ?? checkboxBackgroundDefault.disabled)
+            : (themeColors?.border ?? colors.gray[100]);
     }
     if (error) return themeColors?.textError ?? checkboxBackgroundDefault.error;
     if (checked) return themeColors?.iconBrand ?? checkboxBackgroundDefault.checked;
-    return mode === 'background' ? themeColors?.bg ?? checkboxBackgroundDefault.default : themeColors?.textTertiary ?? colors.gray[1800];
+    return mode === 'background'
+        ? (themeColors?.bg ?? checkboxBackgroundDefault.default)
+        : (themeColors?.textTertiary ?? colors.gray[1800]);
 }
 
 export function getCheckboxHoverBackgroundColor(

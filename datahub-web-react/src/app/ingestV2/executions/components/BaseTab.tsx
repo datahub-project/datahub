@@ -1,7 +1,6 @@
 import { Typography } from 'antd';
 import styled from 'styled-components';
 
-
 export const SectionBase = styled.div`
     padding: 16px 20px 16px 0;
 `;

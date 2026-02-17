@@ -107,12 +107,7 @@ export default function EditHomePageSettingsButton() {
                         trigger={['click']}
                         dropdownRender={(menuNode) => <DropdownContainer>{menuNode}</DropdownContainer>}
                     >
-                        <StyledIcon
-                            icon="Gear"
-                            source="phosphor"
-                            size="4xl"
-                            data-testid="edit-home-page-settings"
-                        />
+                        <StyledIcon icon="Gear" source="phosphor" size="4xl" data-testid="edit-home-page-settings" />
                     </Dropdown>
                 </ButtonWrapper>,
                 document.body,

@@ -64,7 +64,12 @@ function DataProductContent({ dataProduct, name, closable, onClose, tagStyle, fo
     return (
         <StyledTag style={tagStyle} fontSize={fontSize}>
             <IconWrapper>
-                {entityRegistry.getIcon(EntityType.DataProduct, fontSize || 10, IconStyleType.ACCENT, theme.colors.textSecondary)}
+                {entityRegistry.getIcon(
+                    EntityType.DataProduct,
+                    fontSize || 10,
+                    IconStyleType.ACCENT,
+                    theme.colors.textSecondary,
+                )}
             </IconWrapper>
             {displayName}
             {closable && (

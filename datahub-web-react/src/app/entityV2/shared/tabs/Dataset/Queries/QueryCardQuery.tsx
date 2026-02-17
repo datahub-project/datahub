@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
+
 const Statement = styled.div<{ fullHeight?: boolean; isCompact?: boolean }>`
     background-color: ${(props) => props.theme.colors.bgSurface};
     height: ${(props) => (props.fullHeight && '378px') || '240px'};

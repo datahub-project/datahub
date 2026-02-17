@@ -166,7 +166,8 @@ export const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     display: flex;
     flex-direction: column;
-    background-color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.bg : props.theme.colors.bgSurface)};
+    background-color: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.colors.bg : props.theme.colors.bgSurface};
     padding: 1rem;
 `;
 

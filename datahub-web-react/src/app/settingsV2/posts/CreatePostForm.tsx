@@ -11,6 +11,7 @@ import {
     TITLE_FIELD_NAME,
     TYPE_FIELD_NAME,
 } from '@app/settingsV2/posts/constants';
+
 import { PostContentType } from '@types';
 
 const TopFormItem = styled(Form.Item)`

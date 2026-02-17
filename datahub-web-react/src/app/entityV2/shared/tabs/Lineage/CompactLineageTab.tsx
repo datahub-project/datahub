@@ -63,7 +63,8 @@ const LevelFilter = styled.div<{ $isSelected: boolean }>`
     margin-right: 12px;
     border-radius: 8px;
     color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
-    border: 1px solid ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
+    border: 1px solid
+        ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
     &:hover {
         opacity: 0.8;
         cursor: pointer;

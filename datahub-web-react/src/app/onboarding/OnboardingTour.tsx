@@ -2,6 +2,7 @@ import { Button } from 'antd';
 import React, { useContext, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Tour from 'reactour';
+import { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
@@ -9,7 +10,6 @@ import useShouldSkipOnboardingTour from '@app/onboarding/useShouldSkipOnboarding
 import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from '@app/onboarding/utils';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { EducationStepsContext } from '@providers/EducationStepsContext';
-import { useTheme } from 'styled-components';
 
 import { useBatchUpdateStepStatesMutation } from '@graphql/step.generated';
 import { StepStateResult } from '@types';

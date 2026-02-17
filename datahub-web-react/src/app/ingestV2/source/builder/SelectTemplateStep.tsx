@@ -2,6 +2,7 @@ import { FormOutlined, SearchOutlined } from '@ant-design/icons';
 import { Input, InputRef } from 'antd';
 import React, { useState } from 'react';
 import styled, { useTheme } from 'styled-components';
+
 import { DataPlatformCard } from '@app/ingestV2/source/builder/DataPlatformCard';
 import { CUSTOM } from '@app/ingestV2/source/builder/constants';
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';

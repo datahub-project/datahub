@@ -70,7 +70,12 @@ export const DataProductsSection = () => {
             <SummaryTabHeaderWrapper>
                 <SummaryHeaderButtonGroup>
                     <SummaryTabHeaderTitle
-                        icon={entityRegistry.getIcon(EntityType.DataProduct, 16, IconStyleType.ACCENT, theme.colors.textSecondary)}
+                        icon={entityRegistry.getIcon(
+                            EntityType.DataProduct,
+                            16,
+                            IconStyleType.ACCENT,
+                            theme.colors.textSecondary,
+                        )}
                         title={`Data Products (${numDataProducts})`}
                     />
                     <SectionActionButton

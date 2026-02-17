@@ -22,6 +22,7 @@ import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission
 import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Menu, Popover, Tooltip } from '@src/alchemy-components';
+
 import { InstitutionalMemoryMetadata } from '@types';
 
 const SectionContainer = styled.div`

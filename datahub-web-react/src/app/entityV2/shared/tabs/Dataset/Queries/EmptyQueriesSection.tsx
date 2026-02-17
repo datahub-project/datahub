@@ -4,6 +4,7 @@ import { Empty, Typography } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
 import styled from 'styled-components';
+
 import AddButton from '@app/entityV2/shared/tabs/Dataset/Queries/AddButton';
 
 import NoDocs from '@images/no-docs.svg';

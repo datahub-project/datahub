@@ -5,10 +5,10 @@ import { scaleUtc } from '@visx/scale';
 import { Bar } from '@visx/shape';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { useMemo } from 'react';
+import { useTheme } from 'styled-components';
 
 import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
 
-import { useTheme } from 'styled-components';
 import { LinkWrapper } from '@app/shared/LinkWrapper';
 
 import { AssertionResultType } from '@types';

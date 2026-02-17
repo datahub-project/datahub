@@ -4,7 +4,6 @@ import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import { useDataHubMentions } from '@components/components/Editor/extensions/mentions/useDataHubMentions';
-import { colors } from '@components/theme';
 
 import AutoCompleteItem from '@src/app/searchV2/autoComplete/AutoCompleteItem';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';

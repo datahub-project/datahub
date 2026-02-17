@@ -3,7 +3,6 @@ import styled from 'styled-components';
 
 import { TooltipHeaderProps } from '@components/components/StructuredPopover/types';
 
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const Container = styled.div`
     display: flex;

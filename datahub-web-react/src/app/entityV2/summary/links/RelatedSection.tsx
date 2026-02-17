@@ -23,6 +23,7 @@ import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Menu, Popover, Text, Tooltip } from '@src/alchemy-components';
+
 import { InstitutionalMemoryMetadata } from '@types';
 
 const SectionHeader = styled.div`

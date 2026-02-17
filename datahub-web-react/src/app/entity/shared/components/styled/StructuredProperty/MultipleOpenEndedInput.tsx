@@ -3,7 +3,6 @@ import { Button, Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-
 const MultiStringWrapper = styled.div``;
 
 const StyledInput = styled(Input)`

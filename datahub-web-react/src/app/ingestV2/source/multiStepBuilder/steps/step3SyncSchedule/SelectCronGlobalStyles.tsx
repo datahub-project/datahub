@@ -1,6 +1,5 @@
 import { createGlobalStyle } from 'styled-components';
 
-
 export const SelectCronGlobalStyles = createGlobalStyle`
 
     .react-js-cron-select-dropdown {

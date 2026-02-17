@@ -2,7 +2,6 @@ import { Button, Popover, Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-
 const ButtonsContainer = styled.div`
     display: flex;
     align-items: center;

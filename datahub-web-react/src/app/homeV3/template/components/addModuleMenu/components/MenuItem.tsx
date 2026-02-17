@@ -59,9 +59,7 @@ export default function MenuItem({ icon, title, description, hasChildren, isDisa
             </IconWrapper>
 
             <Container>
-                <Text weight="semiBold">
-                    {title}
-                </Text>
+                <Text weight="semiBold">{title}</Text>
                 {description && (
                     <DescriptionText $isDisabled={isDisabled} size="sm">
                         {description}

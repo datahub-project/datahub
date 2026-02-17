@@ -3,7 +3,6 @@ import { Tooltip } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-
 interface CopyUrnMenuItemProps {
     urn: string;
     type: string;

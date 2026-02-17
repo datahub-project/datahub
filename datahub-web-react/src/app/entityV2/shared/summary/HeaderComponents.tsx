@@ -2,7 +2,6 @@ import { BookOpen } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
 
-
 export const SUMMARY_TAB_ICON = BookOpen;
 
 export const SummaryTabWrapper = styled.div`

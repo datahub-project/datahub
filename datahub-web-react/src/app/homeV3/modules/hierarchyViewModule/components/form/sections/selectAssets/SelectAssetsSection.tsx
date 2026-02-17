@@ -61,9 +61,7 @@ export default function SelectAssetsSection() {
 
     return (
         <Wrapper>
-            <Text weight="bold">
-                Search and Select Assets
-            </Text>
+            <Text weight="bold">Search and Select Assets</Text>
             <FormItem name={FORM_FIELD_ASSET_TYPE}>
                 <ButtonTabs tabs={tabs} onTabClick={onTabClick} defaultKey={assetType ?? defaultAssetsType} />
             </FormItem>

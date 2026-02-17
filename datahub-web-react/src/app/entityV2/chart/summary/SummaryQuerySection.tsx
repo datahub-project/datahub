@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components/macro';
 
-
 const PreviewSyntax = styled(SyntaxHighlighter)`
     max-height: 68px;
     overflow: hidden !important;

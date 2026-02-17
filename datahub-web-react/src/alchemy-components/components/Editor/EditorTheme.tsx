@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import {
     extensionBlockquoteStyledCss,
     extensionCalloutStyledCss,
@@ -15,7 +14,6 @@ import {
 import { defaultRemirrorTheme } from '@remirror/theme';
 import type { RemirrorThemeType } from '@remirror/theme';
 import styled from 'styled-components';
-
 
 export const EditorTheme: RemirrorThemeType = {
     ...defaultRemirrorTheme,

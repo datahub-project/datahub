@@ -3,7 +3,6 @@ import { Button, Card, Divider, Switch, Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-
 const Title = styled(Typography.Title)`
     && {
         margin-bottom: 8px;
@@ -65,7 +64,6 @@ const LearnMoreLink = styled.a`
     font-size: 12px;
     cursor: pointer;
 `;
-
 
 const NewTag = styled.div`
     padding: 4px 8px;

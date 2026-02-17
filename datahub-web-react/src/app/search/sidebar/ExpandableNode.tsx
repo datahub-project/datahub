@@ -38,7 +38,8 @@ ExpandableNode.Header = styled.div<{ isOpen: boolean; isSelected?: boolean; show
     padding-top: 2px;
     padding-bottom: 2px;
     padding-right: 2px;
-    border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : props.theme.colors.bgSurface)};
+    border-bottom: 1px solid
+        ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : props.theme.colors.bgSurface)};
 `;
 
 ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ isSelected: boolean }>`

@@ -8,13 +8,13 @@ import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entity/view/utils';
 import { useListGlobalViewsQuery, useListMyViewsQuery } from '@graphql/view.generated';
 import { DataHubViewType } from '@types';
 
+const StyledMatchingViewsLabel = styled.div`
+    color: ${(props) => props.theme.colors.textSecondary};
+`;
+
 const MatchingViewsLabel = () => {
     const userContext = useUserContext();
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
-
-    const StyledMatchingViewsLabel = styled.div`
-        color: ${(props) => props.theme.colors.textSecondary};
-    `;
 
     /**
      * Fetch all personal/private views using listMyViews

@@ -3,7 +3,6 @@ import styled from 'styled-components';
 
 import { getColor } from '@components/theme/utils';
 
-
 export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
     font-size: 14px;
     font-weight: 700;

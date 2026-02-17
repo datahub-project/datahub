@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { Button } from '@src/alchemy-components';
 import radius from '@src/alchemy-components/theme/foundations/radius';
 import spacing from '@src/alchemy-components/theme/foundations/spacing';
+
 export const StyledTableContainer = styled.div`
     table tr.acryl-selected-table-row {
         background-color: ${(props) => props.theme.colors.bgHover};

@@ -2,7 +2,6 @@ import { Badge } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-
 type Props = {
     count: number;
 };

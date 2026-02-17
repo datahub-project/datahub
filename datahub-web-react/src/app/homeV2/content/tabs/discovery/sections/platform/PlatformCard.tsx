@@ -9,7 +9,6 @@ import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { DataPlatform, EntityType } from '@types';
@@ -19,7 +18,8 @@ const Card = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 16px;
     min-width: 180px;
-    border: ${(props) => (props.$isShowNavBarRedesign ? `1px solid ${props.theme.colors.border}` : '2px solid transparent')};
+    border: ${(props) =>
+        props.$isShowNavBarRedesign ? `1px solid ${props.theme.colors.border}` : '2px solid transparent'};
     ${(props) => props.$isShowNavBarRedesign && 'border-radius: 8px;'}
     :hover {
         border: ${(props) => (props.$isShowNavBarRedesign ? '1px' : '2px')} solid ${SEARCH_COLORS.LINK_BLUE};

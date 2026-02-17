@@ -3,6 +3,7 @@ import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useUpdateDocumentTitleMutation } from '@app/document/hooks/useDocumentTreeMutations';
+
 const TitleContainer = styled.div`
     width: 100%;
     min-width: 0;

@@ -249,13 +249,7 @@ export default function AutoCompleteEntityItem({
 
             {!hideType && (
                 <TypeContainer>
-                    {customDetailsRenderer ? (
-                        customDetailsRenderer(entity)
-                    ) : (
-                        <Text size="sm">
-                            {displayType}
-                        </Text>
-                    )}
+                    {customDetailsRenderer ? customDetailsRenderer(entity) : <Text size="sm">{displayType}</Text>}
                 </TypeContainer>
             )}
         </Container>

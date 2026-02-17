@@ -3,7 +3,6 @@ import { Button, Image, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-
 import { Post } from '@types';
 
 const CardContainer = styled(Button)`

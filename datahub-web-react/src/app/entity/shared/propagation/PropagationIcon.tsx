@@ -1,7 +1,6 @@
 import { ThunderboltFilled } from '@ant-design/icons';
 import styled from 'styled-components';
 
-
 export const PropagateThunderbolt = styled(ThunderboltFilled)`
     && {
         color: #a7c7fa;

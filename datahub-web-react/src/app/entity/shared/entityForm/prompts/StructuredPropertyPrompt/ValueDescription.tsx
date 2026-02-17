@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-
 const DescriptionText = styled.span`
     color: ${(props) => props.theme.colors.textSecondary};
 `;

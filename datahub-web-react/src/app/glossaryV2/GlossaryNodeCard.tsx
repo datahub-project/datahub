@@ -12,7 +12,6 @@ interface GlossaryItemCardHeaderProps {
     color: string;
 }
 
-
 const GlossaryItemCardHeader = styled.div<GlossaryItemCardHeaderProps>`
     display: flex;
     padding: 20px 20px 20px 30px;

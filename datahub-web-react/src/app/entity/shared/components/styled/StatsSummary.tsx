@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-
 type Props = {
     stats: Array<React.ReactNode>;
     shouldWrap?: boolean;

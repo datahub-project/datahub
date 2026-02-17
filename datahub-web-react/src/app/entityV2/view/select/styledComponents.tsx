@@ -76,7 +76,8 @@ export const ViewIcon = styled.div<{ $selected?: boolean }>`
 `;
 
 export const ViewIconNavBarRedesign = styled.div<{ $selected?: boolean }>`
-    background-color: ${(props) => (props.$selected ? props.theme.colors.bgSurfaceBrand : props.theme.colors.bgSurface)};
+    background-color: ${(props) =>
+        props.$selected ? props.theme.colors.bgSurfaceBrand : props.theme.colors.bgSurface};
     border-radius: 200px;
     height: 32px;
     width: 32px;

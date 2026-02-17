@@ -8,7 +8,8 @@ const Pill = styled.div<{ selected: boolean }>`
     align-items: center;
     border-radius: 20px;
     padding: 4px 12px;
-    background-color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : props.theme.colors.bgSurface)};
+    background-color: ${(props) =>
+        props.selected ? props.theme.styles['primary-color'] : props.theme.colors.bgSurface};
     color: ${(props) => (props.selected ? '#fff' : props.theme.colors.text)};
     :hover {
         opacity: 0.6;

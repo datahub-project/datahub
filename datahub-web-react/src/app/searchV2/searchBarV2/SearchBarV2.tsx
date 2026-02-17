@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
 
 import ViewSelectContextProvider from '@app/entityV2/view/select/ViewSelectContext';
@@ -26,7 +27,6 @@ import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfi
 import { radius, spacing } from '@src/alchemy-components';
 import { AutoComplete } from '@src/alchemy-components/components/AutoComplete';
 import { SearchBarApi } from '@src/types.generated';
-import { useTheme } from 'styled-components';
 
 const Wrapper = styled.div``;
 

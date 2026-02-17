@@ -122,9 +122,7 @@ describe('filter utils - getFilterIconAndLabel', () => {
     it('should get the correct icon and label for entity filters', () => {
         const { icon, label } = getFilterIconAndLabel('entity', EntityType.Dataset, mockEntityRegistry, dataset1);
 
-        expect(icon).toMatchObject(
-            mockEntityRegistry.getIcon(EntityType.Dataset, 12, IconStyleType.ACCENT, '#434343'),
-        );
+        expect(icon).toMatchObject(mockEntityRegistry.getIcon(EntityType.Dataset, 12, IconStyleType.ACCENT, '#434343'));
         expect(label).toBe(mockEntityRegistry.getCollectionName(EntityType.Dataset));
     });
 

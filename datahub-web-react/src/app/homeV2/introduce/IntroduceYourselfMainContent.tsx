@@ -17,7 +17,6 @@ import { PERSONA_TYPE_TO_VIEW_URN, PersonaType, ROLE_TO_PERSONA_TYPE } from '@ap
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import Loading from '@app/shared/Loading';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
-
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useListGlobalViewsQuery } from '@src/graphql/view.generated';
 

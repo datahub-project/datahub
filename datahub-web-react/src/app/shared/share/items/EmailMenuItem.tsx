@@ -4,7 +4,6 @@ import qs from 'query-string';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-
 interface EmailMenuItemProps {
     urn: string;
     name: string;

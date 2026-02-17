@@ -2,7 +2,6 @@ import { PlusOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
 
-
 const DomainInfoContainer = styled.div`
     display: flex;
     flex-direction: column;

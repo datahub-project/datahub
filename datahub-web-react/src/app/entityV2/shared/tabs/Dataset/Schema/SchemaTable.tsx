@@ -28,7 +28,6 @@ import { useGetTableColumnProperties } from '@app/entityV2/shared/tabs/Dataset/S
 import useTagsAndTermsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useTagsAndTermsRenderer';
 import useUsageStatsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useUsageStatsRenderer';
 import { useBusinessAttributesFlag } from '@app/useAppConfig';
-import { colors } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 
 import { EditableSchemaMetadata, SchemaField, SchemaMetadata, UsageQueryResult } from '@types';

@@ -10,6 +10,7 @@ import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
 import { notEmpty } from '@app/entity/shared/utils';
 import { TimestampPopover } from '@app/sharedV2/TimestampPopover';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import { GetMlModelQuery } from '@graphql/mlModel.generated';
 import { EntityType, MlHyperParam, MlMetric } from '@types';
 

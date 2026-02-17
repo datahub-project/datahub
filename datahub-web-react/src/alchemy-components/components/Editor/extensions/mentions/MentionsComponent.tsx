@@ -10,6 +10,7 @@ import styled from 'styled-components';
 import { MentionsDropdown } from '@components/components/Editor/extensions/mentions/MentionsDropdown';
 import { useDataHubMentions } from '@components/components/Editor/extensions/mentions/useDataHubMentions';
 import { calculateMentionsPlacement } from '@components/components/Editor/extensions/mentions/utils';
+
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
 

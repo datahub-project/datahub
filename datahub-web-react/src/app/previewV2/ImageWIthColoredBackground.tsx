@@ -1,6 +1,7 @@
 import ColorThief from 'colorthief';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
+
 import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
 
 type Props = {

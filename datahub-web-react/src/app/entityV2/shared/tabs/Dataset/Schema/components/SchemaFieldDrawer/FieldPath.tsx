@@ -4,7 +4,6 @@ import { Divider, Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
-
 import RowIcon from '@images/row-icon.svg?react';
 
 const FieldPathWrapper = styled.div`
@@ -100,7 +99,11 @@ export default function FieldPath({ displayName, setExpandedDrawerFieldPath }: P
             <Popover
                 content={content}
                 overlayStyle={{ borderRadius: 10, minWidth: 200 }}
-                overlayInnerStyle={{ borderRadius: 10, border: `1px solid ${theme.colors.border}`, background: theme.colors.bgSurface }}
+                overlayInnerStyle={{
+                    borderRadius: 10,
+                    border: `1px solid ${theme.colors.border}`,
+                    background: theme.colors.bgSurface,
+                }}
             >
                 <RowIconContainer className="row-icon">
                     <RowIcon height={16} width={16} />

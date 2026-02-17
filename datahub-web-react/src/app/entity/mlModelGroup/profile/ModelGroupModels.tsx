@@ -9,6 +9,7 @@ import { notEmpty } from '@app/entity/shared/utils';
 import { TimestampPopover } from '@app/sharedV2/TimestampPopover';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Pill } from '@src/alchemy-components/components/Pills';
+
 import { GetMlModelGroupQuery } from '@graphql/mlModelGroup.generated';
 import { EntityType } from '@types';
 

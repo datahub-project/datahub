@@ -16,6 +16,7 @@ import {
     SocialInfo,
     TitleRole,
 } from '@app/entityV2/shared/SidebarStyledComponents';
+
 type Props = {
     name: string | undefined;
     dataHubRoleName: string;

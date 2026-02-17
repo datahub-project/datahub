@@ -1,4 +1,5 @@
 import { lineColors } from '@app/analyticsDashboard/components/lineColors';
+
 export function hashString(str: string) {
     let hash = 0;
     if (str.length === 0) {

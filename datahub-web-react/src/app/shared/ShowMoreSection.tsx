@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-
 export const ShowMoreButton = styled.div`
     padding: 4px;
     color: ${(props) => props.theme.colors.textSecondary};

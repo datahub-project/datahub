@@ -7,7 +7,7 @@ import {
     inputPlaceholderTextStyles,
     inputValueTextStyles,
 } from '@components/components/commonStyles';
-import theme, { borders, colors, radius, sizes, spacing, typography } from '@components/theme';
+import theme, { borders, radius, sizes, spacing, typography } from '@components/theme';
 import { getStatusColors } from '@components/theme/utils';
 
 const minHeight = '100px';

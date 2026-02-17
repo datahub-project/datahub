@@ -50,10 +50,7 @@ const SyncedOrSharedTooltip = ({ type }: Props) => {
                 <ColoredContainer backgroundColor={theme.colors.bgSurfaceSuccess} textColor={theme.colors.textSuccess}>
                     {action} within the <BoldText>past week </BoldText>
                 </ColoredContainer>
-                <ColoredContainer
-                    backgroundColor={theme.colors.bgSurfaceWarning}
-                    textColor={theme.colors.textError}
-                >
+                <ColoredContainer backgroundColor={theme.colors.bgSurfaceWarning} textColor={theme.colors.textError}>
                     {action} within the <BoldText>past month</BoldText>
                 </ColoredContainer>
                 <ColoredContainer backgroundColor={theme.colors.bgSurfaceError} textColor={theme.colors.textError}>

@@ -1,7 +1,7 @@
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { DefaultViewIcon } from '@app/entity/view/shared/DefaultViewIcon';
-import { useTheme } from 'styled-components';
 
 type Props = {
     title?: React.ReactNode;

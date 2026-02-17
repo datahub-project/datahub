@@ -2,6 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components/macro';
+
 import { SearchBar } from '@app/searchV2/SearchBar';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';

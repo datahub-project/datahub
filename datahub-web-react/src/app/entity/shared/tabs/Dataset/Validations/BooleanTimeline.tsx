@@ -4,7 +4,6 @@ import { scaleUtc } from '@visx/scale';
 import { Bar } from '@visx/shape';
 import { Popover } from 'antd';
 import React, { useMemo } from 'react';
-
 import { useTheme } from 'styled-components';
 
 export type BooleanResult = {

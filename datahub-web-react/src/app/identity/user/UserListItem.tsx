@@ -2,7 +2,7 @@ import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons'
 import { Dropdown, List, Tag, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
@@ -11,8 +11,6 @@ import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
 import { USERS_ASSIGN_ROLE_ID } from '@app/onboarding/config/UsersOnboardingConfig';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useTheme } from 'styled-components/macro';
 
 import { CorpUser, CorpUserStatus, DataHubRole, EntityType } from '@types';
 

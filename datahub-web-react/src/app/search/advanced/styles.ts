@@ -1,6 +1,5 @@
 import styled from 'styled-components';
 
-
 export const FilterContainer = styled.div<{ isCompact: boolean; isDisabled?: boolean }>`
     box-shadow: 0px 0px 4px 0px #00000010;
     border-radius: 10px;

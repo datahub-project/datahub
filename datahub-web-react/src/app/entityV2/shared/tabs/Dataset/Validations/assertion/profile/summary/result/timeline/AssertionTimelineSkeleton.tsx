@@ -2,7 +2,6 @@ import { Col, Row, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-
 const SKELETON_MARGIN_BOTTOM_PX = 12;
 const Body = styled.div`
     padding-bottom: ${SKELETON_MARGIN_BOTTOM_PX}px;

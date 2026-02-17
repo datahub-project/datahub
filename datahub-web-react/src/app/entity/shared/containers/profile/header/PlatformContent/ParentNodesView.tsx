@@ -3,7 +3,6 @@ import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
-
 import useContentTruncation from '@app/shared/useContentTruncation';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

@@ -4,10 +4,9 @@ import { Group } from '@visx/group';
 import { scaleUtc } from '@visx/scale';
 import { Bar } from '@visx/shape';
 import React, { useMemo } from 'react';
+import { useTheme } from 'styled-components';
 
 import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
-
-import { useTheme } from 'styled-components';
 
 export type BooleanResult = {
     isSuccess: boolean;

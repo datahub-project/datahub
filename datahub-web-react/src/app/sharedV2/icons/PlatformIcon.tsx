@@ -66,7 +66,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
             setBackground(theme.colors.bgSurface);
         }
         onError?.();
-    }, [onError, setBackground]);
+    }, [onError, setBackground, theme.colors.bgSurface]);
 
     return (
         <IconContainer background={background} styles={styles} title={title} className={className}>

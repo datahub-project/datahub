@@ -28,11 +28,7 @@ export default function useShowToast() {
                     {title}
                 </InfoText>
             ),
-            description: (
-                <InfoText lineHeight="sm">
-                    {description}
-                </InfoText>
-            ),
+            description: <InfoText lineHeight="sm">{description}</InfoText>,
             placement: 'bottomRight',
             duration: 0,
             icon: <Icon icon="Info" weight="fill" source="phosphor" color="blue" />,

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components/macro';
 import { useTheme } from 'styled-components';
+import styled from 'styled-components/macro';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';

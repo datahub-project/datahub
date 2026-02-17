@@ -1,6 +1,7 @@
 import { Progress } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
+
 import useGetPromptInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
 
 const StyledProgress = styled(Progress)`

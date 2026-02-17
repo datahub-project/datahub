@@ -7,7 +7,7 @@ import {
     inputPlaceholderTextStyles,
     inputValueTextStyles,
 } from '@components/components/commonStyles';
-import theme, { borders, colors, radius, spacing, typography } from '@components/theme';
+import theme, { borders, radius, spacing, typography } from '@components/theme';
 import { getStatusColors } from '@components/theme/utils';
 
 const defaultFlexStyles = {

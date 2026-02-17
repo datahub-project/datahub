@@ -7,6 +7,7 @@ import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
+
 import { InstitutionalMemoryMetadata } from '@types';
 
 const LinkButtonsContainer = styled.div`

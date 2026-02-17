@@ -2,6 +2,7 @@ import { CheckCircleFilled, StopOutlined, WarningFilled } from '@ant-design/icon
 import { Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
+
 import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
 
 const SummaryHeader = styled.div`

@@ -9,6 +9,7 @@ import { IconStyleType } from '@app/entity/Entity';
 import EntityRegistry from '@app/entity/EntityRegistry';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import ParentEntities from '@app/search/filters/ParentEntities';
+
 import { Domain, Entity, EntityType } from '@types';
 
 type Props = {

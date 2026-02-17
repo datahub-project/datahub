@@ -6,7 +6,6 @@ import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { DataProduct, Domain, EntityType } from '@types';
@@ -15,7 +14,8 @@ const Card = styled(Link)<{ $isShowNavBarRedesign?: boolean }>`
     border-radius: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '10px')};
     background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 10px 16px;
-    border: ${(props) => (props.$isShowNavBarRedesign ? `1px solid ${props.theme.colors.border}` : '2px solid transparent')};
+    border: ${(props) =>
+        props.$isShowNavBarRedesign ? `1px solid ${props.theme.colors.border}` : '2px solid transparent'};
 
     :hover {
         border: ${(props) => (props.$isShowNavBarRedesign ? '1px' : '2px')} solid ${SEARCH_COLORS.LINK_BLUE};

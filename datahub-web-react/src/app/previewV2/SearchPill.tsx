@@ -52,7 +52,8 @@ export const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; i
 
     :hover {
         color: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.textDisabled)};
-        background-color: ${({ enabled, theme }) => (enabled ? `${theme.styles['primary-color']}` : theme.colors.bgSurface)};
+        background-color: ${({ enabled, theme }) =>
+            enabled ? `${theme.styles['primary-color']}` : theme.colors.bgSurface};
 
         svg {
             color: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.textDisabled)};

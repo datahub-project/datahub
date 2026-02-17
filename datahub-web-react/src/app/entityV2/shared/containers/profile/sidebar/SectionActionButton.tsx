@@ -2,7 +2,6 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-
 export const ActionButton = styled.div<{ privilege: boolean }>`
     color: ${(props) =>
         props.privilege ? `${props.theme.styles['primary-color']}` : `${props.theme.colors.textTertiary}`};

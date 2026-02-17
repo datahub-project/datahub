@@ -195,8 +195,12 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                     aria-label={isExpanded ? 'Collapse' : 'Expand'}
                 >
                     {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
-                    {!isLoading && isExpanded && <CaretDown color={theme.colors.textTertiary} size={16} weight="bold" />}
-                    {!isLoading && !isExpanded && <CaretRight color={theme.colors.textTertiary} size={16} weight="bold" />}
+                    {!isLoading && isExpanded && (
+                        <CaretDown color={theme.colors.textTertiary} size={16} weight="bold" />
+                    )}
+                    {!isLoading && !isExpanded && (
+                        <CaretRight color={theme.colors.textTertiary} size={16} weight="bold" />
+                    )}
                 </ExpandButton>
             );
         }

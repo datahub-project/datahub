@@ -25,7 +25,8 @@ const Wrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         gap: 1rem;
         align-items: center;
         .select-view-icon {
-            color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textTertiary : props.theme.colors.text)};
+            color: ${(props) =>
+                props.$isShowNavBarRedesign ? props.theme.colors.textTertiary : props.theme.colors.text};
             display: flex;
             gap: 0.5rem;
             background: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.bg : props.theme.colors.bg)};

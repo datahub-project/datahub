@@ -8,7 +8,8 @@ import { LineageDisplayContext, LineageTableEdgeData } from '@app/lineageV3/comm
 export const LINEAGE_TABLE_EDGE_NAME = 'table-table';
 
 const StyledPath = styled.path<{ isHighlighted: boolean; isColumnSelected: boolean; isManual?: boolean }>`
-    ${({ isHighlighted, theme }) => (isHighlighted ? `stroke: ${theme.colors.chartsBrandLow}; stroke-width: 2px;` : '')};
+    ${({ isHighlighted, theme }) =>
+        isHighlighted ? `stroke: ${theme.colors.chartsBrandLow}; stroke-width: 2px;` : ''};
     stroke-opacity: ${({ isColumnSelected }) => (isColumnSelected ? 0.5 : 1)};
     stroke-dasharray: ${({ isManual }) => (isManual ? '5,2' : 'none')};
 `;

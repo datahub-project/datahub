@@ -1,6 +1,5 @@
 import styled from 'styled-components';
 
-
 export const SuggestionText = styled.div`
     margin-left: 12px;
     margin-top: 2px;

@@ -4,7 +4,6 @@ import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-
 const CapabilityWrapper = styled.div`
     align-items: center;
     display: flex;

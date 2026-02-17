@@ -1,8 +1,8 @@
 import { ClockCircleOutlined, ConsoleSqlOutlined, HddOutlined, TableOutlined, TeamOutlined } from '@ant-design/icons';
 import { Popover } from 'antd';
 import React from 'react';
-import styled from 'styled-components/macro';
 import { useTheme } from 'styled-components';
+import styled from 'styled-components/macro';
 
 import ExpandingStat from '@app/entity/dataset/shared/ExpandingStat';
 import { FormattedBytesStat } from '@app/entity/dataset/shared/FormattedBytesStat';

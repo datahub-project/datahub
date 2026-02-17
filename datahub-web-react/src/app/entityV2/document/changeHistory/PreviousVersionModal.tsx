@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { Button, Editor } from '@src/alchemy-components';
+
 import { useUpdateDocumentContentsMutation } from '@graphql/document.generated';
 
 const ModalContent = styled.div`

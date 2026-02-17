@@ -45,7 +45,8 @@ export const TermLink = styled(Link)<TermLinkProps>`
     ${nameStyles}
 
     ${(props) => props.$isChildNode && `opacity: 1;`}
-    ${(props) => props.$areChildrenVisible && `color: ${props.theme.colors.borderBrandFocused}; font-weight: 500; opacity: 1;`}
+    ${(props) =>
+        props.$areChildrenVisible && `color: ${props.theme.colors.borderBrandFocused}; font-weight: 500; opacity: 1;`}
     ${(props) => props.$isSelected && `color: ${props.theme.colors.buttonFillBrand}; font-weight: 700; opacity: 1;`}
 `;
 

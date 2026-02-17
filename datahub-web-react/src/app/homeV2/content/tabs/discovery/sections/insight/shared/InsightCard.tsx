@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 
-
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const Card = styled.div<{
@@ -14,7 +13,8 @@ const Card = styled.div<{
     border-radius: 10px;
     background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 16px;
-    border: ${(props) => (props.$isShowNavBarRedesign ? `1px solid ${props.theme.colors.border}` : '2px solid transparent')};
+    border: ${(props) =>
+        props.$isShowNavBarRedesign ? `1px solid ${props.theme.colors.border}` : '2px solid transparent'};
     ${(props) => props.$isShowNavBarRedesign && 'border-radius: 8px;'}
     max-width: ${(props) => props.maxWidth}px;
     min-width: ${(props) => props.minWidth}px;

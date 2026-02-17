@@ -98,9 +98,7 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
 
     return (
         <SelectedAssetsContainer>
-            <Text weight="bold">
-                Selected Assets
-            </Text>
+            <Text weight="bold">Selected Assets</Text>
             <VerticalDragAndDrop items={orderedUrns} onChange={onChangeOrder}>
                 <ResultsContainer data-testid="selected-assets-list">{content}</ResultsContainer>
             </VerticalDragAndDrop>

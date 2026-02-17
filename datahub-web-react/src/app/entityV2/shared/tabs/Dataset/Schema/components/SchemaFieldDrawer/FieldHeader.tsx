@@ -14,6 +14,7 @@ import FieldPath from '@app/entityV2/shared/tabs/Dataset/Schema/components/Schem
 import TypeLabel from '@app/entityV2/shared/tabs/Dataset/Schema/components/TypeLabel';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import { SchemaField } from '@types';
 
 const FieldHeaderWrapper = styled.div`

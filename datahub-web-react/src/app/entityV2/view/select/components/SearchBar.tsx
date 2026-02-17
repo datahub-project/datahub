@@ -8,8 +8,7 @@ import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean; $minWidth?: string; $fullWidth?: boolean }>`
     ${(props) => !props.$isShowNavBarRedesign && 'max-width: 330px;'}
-    background-color: ${(props) =>
-        props.$isShowNavBarRedesign ? props.theme.colors.bg : '#404053'};
+    background-color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.bg : '#404053')};
     border-radius: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '7px')};
 
     ${(props) => !props.$isShowNavBarRedesign && 'border: unset;'}
@@ -63,7 +62,8 @@ const Wrapper = styled.div<{ $isShowNavBarRedesign?: boolean; $fullWidth?: boole
         gap: 1rem;
         align-items: center;
         .manage {
-            color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textSecondary : props.theme.colors.iconBrand)};
+            color: ${(props) =>
+                props.$isShowNavBarRedesign ? props.theme.colors.textSecondary : props.theme.colors.iconBrand};
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;

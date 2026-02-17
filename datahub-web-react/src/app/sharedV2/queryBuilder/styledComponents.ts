@@ -2,6 +2,7 @@ import { Collapse, Select } from 'antd';
 import styled from 'styled-components/macro';
 
 import { Button } from '@src/alchemy-components';
+
 export const ConditionContainer = styled.div<{ depth: number }>`
     display: flex;
     align-items: center;

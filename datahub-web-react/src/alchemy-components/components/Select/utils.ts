@@ -10,10 +10,12 @@ export const getOptionLabelStyle = (
     themeColors?: { text: string; textSecondary: string; bgSurfaceBrand: string; bgHover: string },
 ) => {
     const color = isSelected
-        ? themeColors?.text ?? colors.gray[600]
-        : themeColors?.textSecondary ?? colors.gray[500];
+        ? (themeColors?.text ?? colors.gray[600])
+        : (themeColors?.textSecondary ?? colors.gray[500]);
     const backgroundColor =
-        !isDisabled && !isMultiSelect && isSelected ? themeColors?.bgSurfaceBrand ?? colors.gray[1000] : 'transparent';
+        !isDisabled && !isMultiSelect && isSelected
+            ? (themeColors?.bgSurfaceBrand ?? colors.gray[1000])
+            : 'transparent';
 
     return {
         cursor: isDisabled ? 'not-allowed' : 'pointer',
@@ -29,8 +31,8 @@ export const getOptionLabelStyle = (
         width: applyHoverWidth ? '100%' : 'auto',
         '&:hover': {
             backgroundColor: isSelected
-                ? themeColors?.bgSurfaceBrand ?? colors.violet[0]
-                : themeColors?.bgHover ?? colors.gray[1500],
+                ? (themeColors?.bgSurfaceBrand ?? colors.violet[0])
+                : (themeColors?.bgHover ?? colors.gray[1500]),
         },
     };
 };
@@ -128,8 +130,8 @@ export const getSelectStyle = (
         borderRadius: radius.md,
         border: `1px solid ${themeColors?.border ?? colors.gray[100]}`,
         fontFamily: typography.fonts.body,
-        backgroundColor: isDisabled ? themeColors?.bgSurface ?? colors.gray[1500] : themeColors?.bg ?? colors.white,
-        color: isDisabled ? themeColors?.textDisabled ?? colors.gray[300] : themeColors?.text ?? colors.gray[600],
+        backgroundColor: isDisabled ? (themeColors?.bgSurface ?? colors.gray[1500]) : (themeColors?.bg ?? colors.white),
+        color: isDisabled ? (themeColors?.textDisabled ?? colors.gray[300]) : (themeColors?.text ?? colors.gray[600]),
         cursor: isDisabled || isReadOnly ? 'not-allowed' : 'pointer',
         boxShadow: '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
         textWrap: 'nowrap',

@@ -15,7 +15,8 @@ const ViewHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         gap: 1rem;
         align-items: center;
         .select-view-icon {
-            color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textTertiary : props.theme.colors.text)};
+            color: ${(props) =>
+                props.$isShowNavBarRedesign ? props.theme.colors.textTertiary : props.theme.colors.text};
             display: flex;
             gap: 0.5rem;
             background: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.bg : props.theme.colors.bg)};
@@ -43,7 +44,8 @@ const ViewHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         gap: 1rem;
         align-items: center;
         .manage {
-            color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textSecondary : props.theme.colors.iconBrand)};
+            color: ${(props) =>
+                props.$isShowNavBarRedesign ? props.theme.colors.textSecondary : props.theme.colors.iconBrand};
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;

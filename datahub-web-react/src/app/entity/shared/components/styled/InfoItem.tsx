@@ -2,7 +2,6 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-
 const HeaderInfoItem = styled.div<{ onClick?: () => void; width?: string }>`
     display: inline-block;
     text-align: left;

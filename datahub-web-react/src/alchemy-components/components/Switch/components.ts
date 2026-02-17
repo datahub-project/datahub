@@ -110,18 +110,16 @@ export const StyledInput = styled.input<{
     }
 `;
 
-export const StyledIcon = styled(Icon)<{ checked?: boolean; size: SizeOptions }>(
-    ({ checked, size, theme }) => ({
-        left: getIconTransformPositionLeft(size, checked || false),
-        top: getIconTransformPositionTop(size),
-        color: checked ? theme.colors.iconBrand : theme.colors.textSecondary,
-        transition: `${transition.duration.normal} all`,
-        position: 'absolute',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-    }),
-);
+export const StyledIcon = styled(Icon)<{ checked?: boolean; size: SizeOptions }>(({ checked, size, theme }) => ({
+    left: getIconTransformPositionLeft(size, checked || false),
+    top: getIconTransformPositionTop(size),
+    color: checked ? theme.colors.iconBrand : theme.colors.textSecondary,
+    transition: `${transition.duration.normal} all`,
+    position: 'absolute',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+}));
 
 export const IconContainer = styled.div({
     position: 'relative',

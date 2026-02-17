@@ -116,7 +116,8 @@ const ViewsContainer = styled.div`
 `;
 
 const Pill = styled.div<{ selected?: boolean }>`
-    border: 1px solid ${(props) => (props.selected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
+    border: 1px solid
+        ${(props) => (props.selected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
     white-space: nowrap;
     border-radius: 20px;
     padding: 5px 16px;
@@ -129,7 +130,8 @@ const Pill = styled.div<{ selected?: boolean }>`
 `;
 
 const Count = styled.div<{ selected: boolean }>`
-    background-color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
+    background-color: ${(props) =>
+        props.selected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary};
     color: ${(props) => props.theme.colors.bg};
     border-radius: 20px;
     min-width: 25px;

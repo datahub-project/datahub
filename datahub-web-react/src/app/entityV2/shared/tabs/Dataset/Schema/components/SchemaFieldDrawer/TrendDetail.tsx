@@ -3,6 +3,7 @@ import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
+
 import { decimalToPercentStr } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
 
 interface TrendDetailProps {

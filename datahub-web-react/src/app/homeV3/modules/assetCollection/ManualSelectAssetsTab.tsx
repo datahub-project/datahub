@@ -82,9 +82,7 @@ const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
 
         return (
             <ItemDetailsContainer>
-                <Text size="sm">
-                    {displayType}
-                </Text>
+                <Text size="sm">{displayType}</Text>
                 <Checkbox
                     size="xs"
                     isChecked={selectedAssetUrns?.includes(entity.urn)}
@@ -120,9 +118,7 @@ const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     return (
         <Container>
             <LeftSection>
-                <SearchHeader weight="bold">
-                    Search and Select Assets
-                </SearchHeader>
+                <SearchHeader weight="bold">Search and Select Assets</SearchHeader>
                 <SearchBar value={searchQuery} onChange={handleSearchChange} />
                 <AssetFilters
                     searchQuery={searchQuery}

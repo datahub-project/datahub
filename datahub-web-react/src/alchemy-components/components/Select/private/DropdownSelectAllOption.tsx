@@ -4,15 +4,17 @@ import styled from 'styled-components';
 import { LabelContainer, StyledCheckbox } from '@components/components/Select/components';
 import { spacing, typography } from '@components/theme';
 
-const SelectAllOption = styled.div<{ isSelected: boolean; isDisabled?: boolean }>(({ isSelected, isDisabled, theme }) => ({
-    cursor: isDisabled ? 'not-allowed' : 'pointer',
-    padding: spacing.xsm,
-    color: isSelected ? theme.colors.buttonFillBrand : theme.colors.textSecondary,
-    fontWeight: typography.fontWeights.semiBold,
-    fontSize: typography.fontSizes.md,
-    display: 'flex',
-    alignItems: 'center',
-}));
+const SelectAllOption = styled.div<{ isSelected: boolean; isDisabled?: boolean }>(
+    ({ isSelected, isDisabled, theme }) => ({
+        cursor: isDisabled ? 'not-allowed' : 'pointer',
+        padding: spacing.xsm,
+        color: isSelected ? theme.colors.buttonFillBrand : theme.colors.textSecondary,
+        fontWeight: typography.fontWeights.semiBold,
+        fontSize: typography.fontSizes.md,
+        display: 'flex',
+        alignItems: 'center',
+    }),
+);
 
 interface Props {
     label?: string;

@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { AssertionListTableRow } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+
 const GroupContainer = styled.div`
     background: ${(props) => props.theme.colors.bgSurface};
     &&& .acryl-selected-assertions-table-row {

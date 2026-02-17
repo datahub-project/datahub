@@ -94,7 +94,8 @@ const LegendItem = styled.div<{ $isSelected?: boolean }>`
     border: 1px solid ${(props) => (props.$isSelected ? props.theme.colors.borderBrandFocused : 'transparent')};
 
     &:hover {
-        background-color: ${(props) => (props.$isSelected ? props.theme.colors.bgSurfaceBrandHover : props.theme.colors.bgHover)};
+        background-color: ${(props) =>
+            props.$isSelected ? props.theme.colors.bgSurfaceBrandHover : props.theme.colors.bgHover};
     }
 `;
 

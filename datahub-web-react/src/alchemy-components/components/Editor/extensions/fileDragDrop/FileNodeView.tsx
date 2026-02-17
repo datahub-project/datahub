@@ -14,6 +14,7 @@ import {
     handleFileDownload,
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { FileNode } from '@components/components/FileNode/FileNode';
+
 const FileContainer = styled.div<{ $isInline?: boolean }>`
     display: inline-block;
 

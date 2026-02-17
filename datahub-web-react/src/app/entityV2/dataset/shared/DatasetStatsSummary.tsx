@@ -1,7 +1,7 @@
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components/macro';
 import { useTheme } from 'styled-components';
+import styled from 'styled-components/macro';
 
 import ExpandingStat from '@app/entityV2/dataset/shared/ExpandingStat';
 import { StatsSummary } from '@app/entityV2/shared/components/styled/StatsSummary';

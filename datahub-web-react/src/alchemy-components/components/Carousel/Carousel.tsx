@@ -51,7 +51,8 @@ const StyledCarousel = styled(AntCarousel)<{ $animateDot?: boolean; $dotDuration
             }
 
             &.slick-active button {
-                background: ${({ $animateDot, theme }) => ($animateDot ? theme.colors.textDisabled : theme.colors.textBrand)};
+                background: ${({ $animateDot, theme }) =>
+                    $animateDot ? theme.colors.textDisabled : theme.colors.textBrand};
                 opacity: 1;
                 position: relative;
 

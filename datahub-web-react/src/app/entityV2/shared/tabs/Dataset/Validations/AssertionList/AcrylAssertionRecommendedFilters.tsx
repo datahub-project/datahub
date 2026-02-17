@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-
 interface FilterItem {
     name: string;
     displayName: string;
@@ -34,8 +33,7 @@ const FilterItemRow = styled.div<{ selected: boolean }>`
     min-width: fit-content;
     cursor: pointer;
     color: ${({ selected, theme }) => (selected ? theme.colors.bg : theme.colors.textSecondary)};
-    background-color: ${({ selected, theme }) =>
-        selected ? theme.colors.buttonFillBrand : theme.colors.border};
+    background-color: ${({ selected, theme }) => (selected ? theme.colors.buttonFillBrand : theme.colors.border)};
 
     &:hover {
         background-color: ${(props) => props.theme.colors.buttonFillBrand};

@@ -25,7 +25,6 @@ import { ErrorSection } from '@app/shared/error/ErrorSection';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
-
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '@graphql/user.generated';

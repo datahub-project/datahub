@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 
-import { colors, spacing } from '@src/alchemy-components/theme';
+import { spacing } from '@src/alchemy-components/theme';
 
 export const PaginationContainer = styled.div`
     display: flex;

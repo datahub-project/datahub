@@ -3,8 +3,8 @@ import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
-import styled from 'styled-components/macro';
 import { useTheme } from 'styled-components';
+import styled from 'styled-components/macro';
 
 import { EntityContext } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';

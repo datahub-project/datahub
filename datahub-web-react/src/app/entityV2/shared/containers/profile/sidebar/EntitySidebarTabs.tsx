@@ -155,7 +155,8 @@ const TabText = styled.span<{ $isSelected?: boolean }>`
     text-overflow: ellipsis;
     white-space: nowrap;
     /* Override any Ant Design styling that could cause blue text */
-    color: ${(props) => (props.$isSelected ? 'transparent !important' : `${props.theme.colors.textTertiary} !important`)};
+    color: ${(props) =>
+        props.$isSelected ? 'transparent !important' : `${props.theme.colors.textTertiary} !important`};
     ${(props) =>
         props.$isSelected &&
         `
@@ -199,7 +200,10 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
 
     /* For Phosphor icons */
     && svg {
-        ${(props) => (props.$isSelected ? 'fill: url(#menu-item-selected-gradient) #533fd1;' : `color: ${props.theme.colors.textTertiary};`)}
+        ${(props) =>
+            props.$isSelected
+                ? 'fill: url(#menu-item-selected-gradient) #533fd1;'
+                : `color: ${props.theme.colors.textTertiary};`}
         width: 20px !important;
         height: 20px !important;
         min-width: 20px !important;
@@ -216,7 +220,10 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        ${(props) => (props.$isSelected ? 'color: url(#menu-item-selected-gradient) #533fd1;' : `color: ${props.theme.colors.textTertiary};`)}
+        ${(props) =>
+            props.$isSelected
+                ? 'color: url(#menu-item-selected-gradient) #533fd1;'
+                : `color: ${props.theme.colors.textTertiary};`}
         width: 20px !important;
         height: 20px !important;
 

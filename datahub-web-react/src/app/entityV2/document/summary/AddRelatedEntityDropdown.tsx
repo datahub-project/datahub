@@ -4,6 +4,7 @@ import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
 import { EntitySearchDropdown } from '@app/entityV2/shared/EntitySearchSelect/EntitySearchDropdown';
+
 import { AndFilterInput, EntityType } from '@types';
 
 const ActionsContainer = styled.div`

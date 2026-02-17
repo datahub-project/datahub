@@ -1,6 +1,6 @@
 import React from 'react';
-import { useTheme } from 'styled-components';
 import { Link } from 'react-router-dom';
+import { useTheme } from 'styled-components';
 
 import {
     ActivityStatusText,

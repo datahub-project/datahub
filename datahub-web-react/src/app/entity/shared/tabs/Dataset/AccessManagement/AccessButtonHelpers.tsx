@@ -2,7 +2,6 @@ import { Button, Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-
 /**
  * Tooltip message for when user already has access
  */

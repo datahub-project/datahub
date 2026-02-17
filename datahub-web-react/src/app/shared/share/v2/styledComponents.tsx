@@ -2,7 +2,6 @@ import { Modal } from '@components';
 import { Button, Checkbox, Form, Menu, Typography } from 'antd';
 import styled from 'styled-components';
 
-
 export const StyledMenuItem = styled(Menu.Item)`
     min-width: 120px;
     background-color: ${(props) => props.theme.colors.bgSurface} !important;

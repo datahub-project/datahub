@@ -2,7 +2,6 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-
 import RowIcon from '@images/row-icon.svg?react';
 
 const RowIconContainer = styled.div`

@@ -1,7 +1,6 @@
 import { Button } from 'antd';
 import styled from 'styled-components';
 
-
 export const HomePageButton = styled(Button)`
     margin-right: 12px;
     margin-left: 12px;

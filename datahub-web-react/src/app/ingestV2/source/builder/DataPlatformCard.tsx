@@ -2,7 +2,6 @@ import { Button, Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-
 const Container = styled(Button)`
     padding: 32px;
     height: 200px;

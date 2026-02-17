@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-
 const Container = styled.div`
     color: ${(props) => props.theme.colors.textDisabled};
     background-color: ${(props) => props.theme.colors.bgSurface};

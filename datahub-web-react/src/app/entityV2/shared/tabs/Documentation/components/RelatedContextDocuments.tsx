@@ -6,6 +6,7 @@ import { useRelatedDocuments } from '@app/document/hooks/useRelatedDocuments';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import { EntityType } from '@types';
 
 const SectionContainer = styled.div`

@@ -1,6 +1,5 @@
 import styled from 'styled-components';
 
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 export const Title = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};

@@ -7,6 +7,7 @@ import { decimalToPercentStr } from '@app/entityV2/shared/tabs/Dataset/Schema/ut
 import SampleValueTag from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/SampleValueTag';
 import { extractChartValuesFromFieldProfiles } from '@app/entityV2/shared/utils';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+
 import { DatasetFieldProfile, SchemaField } from '@types';
 
 import NoStatsAvailble from '@images/no-stats-available.svg?react';

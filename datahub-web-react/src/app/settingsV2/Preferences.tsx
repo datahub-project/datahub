@@ -224,9 +224,12 @@ export const Preferences = () => {
                         </UserSettingRow>
                     </StyledCard>
                 )}
-                {!isThemeV2 && !showSimplifiedHomepageSetting && !isThemeV2Toggleable && !canManageApplicationAppearance && (
-                    <div style={{ color: theme.colors.textSecondary }}>No appearance settings found.</div>
-                )}
+                {!isThemeV2 &&
+                    !showSimplifiedHomepageSetting &&
+                    !isThemeV2Toggleable &&
+                    !canManageApplicationAppearance && (
+                        <div style={{ color: theme.colors.textSecondary }}>No appearance settings found.</div>
+                    )}
             </SourceContainer>
         </Page>
     );

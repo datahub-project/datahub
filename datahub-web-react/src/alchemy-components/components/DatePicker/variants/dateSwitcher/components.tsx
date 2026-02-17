@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import { CaretLeft, CaretRight } from 'phosphor-react';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';

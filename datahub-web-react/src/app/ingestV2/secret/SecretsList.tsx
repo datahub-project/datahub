@@ -249,7 +249,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             title: 'Name',
             key: 'name',
             render: (record: TableDataType) => (
-                    <TextContainer
+                <TextContainer
                     ellipsis={{
                         tooltip: {
                             title: record.name,

@@ -51,7 +51,7 @@ export default function ImageColoredBackground({ children, className }: Props): 
                 setBackground(`rgb(${r}, ${g}, ${b}, .1)`);
             }
         },
-        [background],
+        [background, theme.colors.bgSurface],
     );
 
     return (

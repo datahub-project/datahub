@@ -11,6 +11,7 @@ import { useRefetch } from '@app/entity/shared/EntityContext';
 import { RelatedSection } from '@app/entityV2/document/summary/RelatedSection';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
+
 import { DocumentRelatedAsset, DocumentRelatedDocument, UploadDownloadScenario } from '@types';
 
 const ContentWrapper = styled.div`

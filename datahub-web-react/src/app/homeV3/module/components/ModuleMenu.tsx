@@ -81,14 +81,10 @@ export default function ModuleMenu({ module, position }: Props) {
                     <>
                         {!canEdit ? (
                             <Tooltip title="Default modules are not editable">
-                                <DisabledText>
-                                    Edit
-                                </DisabledText>
+                                <DisabledText>Edit</DisabledText>
                             </Tooltip>
                         ) : (
-                            <Text>
-                                Edit
-                            </Text>
+                            <Text>Edit</Text>
                         )}
                     </>
                 ),

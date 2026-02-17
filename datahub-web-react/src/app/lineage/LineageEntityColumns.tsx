@@ -79,7 +79,13 @@ export default function LineageEntityColumns({ node, onHover }: Props) {
 
     return (
         <>
-            <rect x={iconX - 21} y={centerY + 55 + titleHeight} width={width - 2} height="0.25" stroke={theme.colors.textDisabled} />
+            <rect
+                x={iconX - 21}
+                y={centerY + 55 + titleHeight}
+                width={width - 2}
+                height="0.25"
+                stroke={theme.colors.textDisabled}
+            />
             <NodeColumnsHeader node={node} filterText={filterText} setFilterText={setFilterText} />
             {!areColumnsCollapsed && (
                 <Group>

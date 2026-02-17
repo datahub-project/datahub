@@ -59,8 +59,7 @@ const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean; $variant
     align-items: center;
     display: flex;
     width: 100%;
-    border-bottom: ${(props) =>
-        props.$variant === 'select' ? 'none' : `1px solid ${props.theme.colors.border}`};
+    border-bottom: ${(props) => (props.$variant === 'select' ? 'none' : `1px solid ${props.theme.colors.border}`)};
     padding: ${({ $variant }) => ($variant === 'select' ? '6px' : '12px')};
     ${(props) => props.isOpen && `background-color: ${props.theme.colors.bgSurface};`}
     ${(props) => props.$isSelected && `background-color: ${props.theme.colors.bgSurfaceBrand};`}

@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { ChartContainer } from '@app/analyticsDashboard/components/ChartContainer';
 import { TimeSeriesChart } from '@app/analyticsDashboard/components/TimeSeriesChart';
+
 import { DateInterval, DateRange } from '@types';
 
 const ChartTitle = styled(Typography.Text)`

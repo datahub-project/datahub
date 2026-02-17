@@ -7,6 +7,7 @@ import { ALLOWED_RELATED_ASSET_TYPES } from '@app/document/utils/documentUtils';
 import { AddRelatedEntityDropdown } from '@app/entityV2/document/summary/AddRelatedEntityDropdown';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import { AndFilterInput, DocumentRelatedAsset, DocumentRelatedDocument, EntityType, FilterOperator } from '@types';
 
 const Section = styled.div`

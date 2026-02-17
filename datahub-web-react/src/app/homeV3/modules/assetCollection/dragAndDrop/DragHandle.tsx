@@ -13,13 +13,5 @@ type Props = {
 };
 
 export default function DragHandle({ isDragging, listeners }: Props) {
-    return (
-        <DragIcon
-            {...listeners}
-            size="lg"
-            icon="DotsSixVertical"
-            source="phosphor"
-            $isDragging={isDragging}
-        />
-    );
+    return <DragIcon {...listeners} size="lg" icon="DotsSixVertical" source="phosphor" $isDragging={isDragging} />;
 }

@@ -3,7 +3,6 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-
 import GreenCircleIcon from '@images/greenCircleTwoTone.svg?react';
 
 const PadIcon = styled.div`

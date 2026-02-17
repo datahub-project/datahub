@@ -257,7 +257,9 @@ export default function SchemaHeader({
                             type="text"
                             data-testid="schema-blame-button"
                             onClick={() => setShowSchemaAuditView(!showSchemaAuditView)}
-                            style={{ color: showSchemaAuditView ? theme.colors.textInformation : theme.colors.textTertiary }}
+                            style={{
+                                color: showSchemaAuditView ? theme.colors.textInformation : theme.colors.textTertiary,
+                            }}
                         >
                             <AuditOutlined />
                         </SchemaAuditButton>

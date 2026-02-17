@@ -41,7 +41,8 @@ export default function StatsHeader({ viewType, setViewType, reportedAt, lookbac
         </Button>
     );
 
-    const historicalButtonColor = viewType === ViewType.HISTORICAL ? theme.colors.textInformation : theme.colors.textSecondary;
+    const historicalButtonColor =
+        viewType === ViewType.HISTORICAL ? theme.colors.textInformation : theme.colors.textSecondary;
     const historicalButton = (
         <Button type="text" onClick={() => setViewType(ViewType.HISTORICAL)}>
             <ClockCircleOutlined style={{ color: historicalButtonColor }} />

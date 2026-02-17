@@ -2,7 +2,6 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-
 const TitleContainer = styled.span`
     display: flex;
     align-items: center;

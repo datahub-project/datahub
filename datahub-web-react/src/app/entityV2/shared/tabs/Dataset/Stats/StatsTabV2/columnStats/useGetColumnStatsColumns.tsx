@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { percentStrToDecimal } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
 import { getItemKeySet } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
-import { Button, colors } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 

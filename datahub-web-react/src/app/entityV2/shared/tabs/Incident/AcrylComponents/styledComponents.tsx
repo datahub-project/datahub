@@ -2,6 +2,7 @@ import { Form, Table } from 'antd';
 import styled, { keyframes } from 'styled-components';
 
 import { Button } from '@src/alchemy-components';
+
 export const IncidentListStyledTable = styled(Table)`
     max-width: none;
     &&& .ant-table-thead .ant-table-cell {

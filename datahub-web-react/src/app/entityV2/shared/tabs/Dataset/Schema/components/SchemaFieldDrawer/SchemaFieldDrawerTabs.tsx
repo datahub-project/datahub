@@ -175,7 +175,10 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
 
     /* For Phosphor icons */
     svg {
-        ${(props) => (props.$isSelected ? 'fill: url(#menu-item-selected-gradient) #533fd1;' : `color: ${props.theme.colors.textTertiary};`)}
+        ${(props) =>
+            props.$isSelected
+                ? 'fill: url(#menu-item-selected-gradient) #533fd1;'
+                : `color: ${props.theme.colors.textTertiary};`}
         width: 20px;
         height: 20px;
         min-width: 20px;
@@ -192,7 +195,10 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
         display: flex;
         align-items: center;
         justify-content: center;
-        ${(props) => (props.$isSelected ? 'color: url(#menu-item-selected-gradient) #533fd1;' : `color: ${props.theme.colors.textTertiary};`)}
+        ${(props) =>
+            props.$isSelected
+                ? 'color: url(#menu-item-selected-gradient) #533fd1;'
+                : `color: ${props.theme.colors.textTertiary};`}
         width: 20px;
         height: 20px;
 

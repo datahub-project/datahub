@@ -33,7 +33,9 @@ const Count = styled(Typography.Text)<{ $isPlatformBrowse: boolean; isOpen: bool
     padding: 2px 8px;
     margin-left: 8px;
     ${(props) => props.$isPlatformBrowse && `border-radius: 8px;`}
-    ${(props) => props.$isPlatformBrowse && `background-color: ${props.isOpen ? props.theme.colors.bg : props.theme.colors.bgSurface};`}
+    ${(props) =>
+        props.$isPlatformBrowse &&
+        `background-color: ${props.isOpen ? props.theme.colors.bg : props.theme.colors.bgSurface};`}
 `;
 
 type Props = {
