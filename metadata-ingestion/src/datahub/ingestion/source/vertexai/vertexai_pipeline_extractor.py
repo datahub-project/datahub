@@ -670,7 +670,7 @@ class VertexAIPipelineExtractor:
                 display_name=task.name,
                 flow_urn=str(dataflow_urn),
                 custom_properties={},
-                owners=[CorpUserUrn(owner)] if owner else None,
+                owners=[CorpUserUrn.from_string(owner)] if owner else None,
                 inlets=cast(
                     Optional[List[Union[str, DatasetUrn]]], inlets if inlets else None
                 ),
@@ -776,7 +776,7 @@ class VertexAIPipelineExtractor:
             custom_properties=self._get_pipeline_properties(
                 pipeline
             ).to_custom_properties(),
-            owners=[CorpUserUrn(owner)] if owner else None,
+            owners=[CorpUserUrn.from_string(owner)] if owner else None,
             external_url=self.url_builder.make_pipeline_url(
                 pipeline_name=pipeline.name
             ),
