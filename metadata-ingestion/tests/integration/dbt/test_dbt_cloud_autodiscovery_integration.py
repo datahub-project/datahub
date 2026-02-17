@@ -177,8 +177,8 @@ class TestAutoDiscoveryEndToEnd:
         nodes, additional_metadata = source.load_nodes()
 
         # Assertions
-        # Should have called GraphQL for both jobs (models, sources, seeds, snapshots, tests, exposures = 6 calls per job)
-        assert mock_graphql.call_count == 12  # 2 jobs * 6 node types
+        # Should have called GraphQL for both jobs (models, sources, seeds, snapshots, tests, exposures, semanticModels = 7 calls per job)
+        assert mock_graphql.call_count == 14  # 2 jobs * 7 node types
 
         # Verify both job IDs were queried
         job_ids_queried = {
