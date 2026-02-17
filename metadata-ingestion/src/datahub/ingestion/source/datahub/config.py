@@ -60,8 +60,10 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
     exclude_aspects: Set[str] = Field(
         default=DEFAULT_EXCLUDE_ASPECTS,
         description=(
-            "Aspect names to exclude. Warning: Excluding key aspects of entities while keeping others"
-            "creates invalid entities. Use 'urn_pattern' to exclude entire entity types safely."
+            "Aspect names to exclude from entities that are being ingested. "
+            "Note: This only makes sense for entities you want to ingest but without certain aspects. "
+            "To completely exclude entity types, use 'urn_pattern.deny' instead. "
+            "Warning: Excluding key aspects while keeping others can create invalid entities."
         ),
     )
 
@@ -126,7 +128,7 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
 
     structured_properties_template_cache_invalidation_interval: HiddenFromDocs[int] = (
         Field(
-            default=60,
+            default=1,
             description="Interval in seconds to invalidate the structured properties template cache.",
         )
     )
@@ -140,6 +142,8 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         default=True, description="Copy system metadata from the source system"
     )
 
+    _urn_pattern_was_set: bool = False
+
     @model_validator(mode="after")
     def check_ingesting_data(self):
         if (
@@ -151,6 +155,11 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
                 "Your current config will not ingest any data."
                 " Please specify at least one of `database_connection` or `kafka_connection`, ideally both."
             )
+
+        # Track if user explicitly set urn_pattern
+        if "urn_pattern" in self.model_fields_set:
+            self._urn_pattern_was_set = True
+
         return self
 
     @pydantic.field_validator("database_connection")
