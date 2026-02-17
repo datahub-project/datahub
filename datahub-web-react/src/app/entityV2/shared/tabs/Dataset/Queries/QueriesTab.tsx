@@ -35,6 +35,7 @@ export default function QueriesTab() {
     const isSeparateSiblings = useIsSeparateSiblingsMode();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const entityUrn = baseEntity?.dataset?.urn;
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? true; // Default to true for backward compatibility
     const canEditQueries = baseEntity?.dataset?.privileges?.canEditQueries || false;
     const siblingUrn = isSeparateSiblings
         ? undefined
@@ -117,7 +118,14 @@ export default function QueriesTab() {
         <>
             <Content $backgroundColor={showLoading || showEmptyView ? 'white' : REDESIGN_COLORS.BACKGROUND}>
                 {showLoading && <Loading />}
-                {!showLoading && (
+                {!showLoading && !canViewQueries && (
+                    <EmptyQueriesSection
+                        sectionName="Queries"
+                        emptyText="You don't have permission to view queries for this dataset."
+                        showButton={false}
+                    />
+                )}
+                {!showLoading && canViewQueries && (
                     <>
                         {(highlightedQueries.length > 0 || highlightedQueriesLoading) && (
                             <QueriesListSection

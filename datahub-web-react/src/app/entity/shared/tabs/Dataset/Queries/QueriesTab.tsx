@@ -34,6 +34,7 @@ const Content = styled.div`
 export default function QueriesTab() {
     const appConfig = useAppConfig();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? true; // Default to true for backward compatibility
     const canEditQueries = baseEntity?.dataset?.privileges?.canEditQueries || false;
 
     const [showQueryBuilder, setShowQueryBuilder] = useState(false);
@@ -100,16 +101,25 @@ export default function QueriesTab() {
 
     return (
         <>
-            <QueriesTabToolbar
-                addQueryDisabled={!canEditQueries}
-                onAddQuery={() => setShowQueryBuilder(true)}
-                onChangeSearch={debouncedSetFilterText}
-            />
+            {canViewQueries && (
+                <QueriesTabToolbar
+                    addQueryDisabled={!canEditQueries}
+                    onAddQuery={() => setShowQueryBuilder(true)}
+                    onChangeSearch={debouncedSetFilterText}
+                />
+            )}
             <Content>
-                {showEmptyView && (
+                {!canViewQueries && (
+                    <EmptyQueries
+                        readOnly
+                        emptyText="You don't have permission to view queries for this dataset."
+                        hideButton
+                    />
+                )}
+                {canViewQueries && showEmptyView && (
                     <EmptyQueries readOnly={!canEditQueries} onClickAddQuery={() => setShowQueryBuilder(true)} />
                 )}
-                {highlightedQueries.length > 0 && (
+                {canViewQueries && highlightedQueries.length > 0 && (
                     <QueriesListSection
                         title="Highlighted Queries"
                         tooltip="Shared queries relevant to this dataset"
@@ -120,7 +130,7 @@ export default function QueriesTab() {
                         onEdited={onQueryEdited}
                     />
                 )}
-                {recentQueries.length > 0 && (
+                {canViewQueries && recentQueries.length > 0 && (
                     <QueriesListSection
                         title="Recent Queries"
                         tooltip="Queries that have been recently run against this dataset"

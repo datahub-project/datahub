@@ -469,6 +469,12 @@ public class PoliciesConfig {
           "Edit Dataset Queries",
           "The ability to edit the Queries for a Dataset.");
 
+  public static final Privilege VIEW_ENTITY_QUERIES_PRIVILEGE =
+      Privilege.of(
+          "VIEW_ENTITY_QUERIES",
+          "View Entity Queries",
+          "The ability to view Queries for a Dataset, Chart, or Data Job.");
+
   public static final Privilege EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE =
       Privilege.of(
           "EDIT_ENTITY_DATA_CONTRACT",
@@ -651,6 +657,7 @@ public class PoliciesConfig {
                       EDIT_LINEAGE_PRIVILEGE,
                       EDIT_ENTITY_EMBED_PRIVILEGE,
                       EDIT_QUERIES_PRIVILEGE,
+                      VIEW_ENTITY_QUERIES_PRIVILEGE,
                       // CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE, TODO: Remove this once confirmed
                       // safe.
                       DATA_READ_ONLY_PRIVILEGE,
@@ -667,7 +674,11 @@ public class PoliciesConfig {
           "Charts indexed by DataHub",
           Stream.concat(
                   COMMON_ENTITY_PRIVILEGES.stream(),
-                  ImmutableList.of(EDIT_LINEAGE_PRIVILEGE, EDIT_ENTITY_EMBED_PRIVILEGE).stream())
+                  ImmutableList.of(
+                      EDIT_LINEAGE_PRIVILEGE,
+                      EDIT_ENTITY_EMBED_PRIVILEGE,
+                      VIEW_ENTITY_QUERIES_PRIVILEGE)
+                      .stream())
               .collect(Collectors.toList()));
 
   // Dashboard Privileges
@@ -702,7 +713,7 @@ public class PoliciesConfig {
           "Data Tasks indexed by DataHub",
           Stream.concat(
                   COMMON_ENTITY_PRIVILEGES.stream(),
-                  ImmutableList.of(EDIT_LINEAGE_PRIVILEGE).stream())
+                  ImmutableList.of(EDIT_LINEAGE_PRIVILEGE, VIEW_ENTITY_QUERIES_PRIVILEGE).stream())
               .collect(Collectors.toList()));
 
   // Data Process Instance Privileges

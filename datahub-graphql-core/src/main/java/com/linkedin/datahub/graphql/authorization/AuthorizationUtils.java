@@ -195,6 +195,23 @@ public class AuthorizationUtils {
                     context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups));
   }
 
+  public static boolean canViewEntityQueries(
+      @Nonnull List<Urn> entityUrns, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.VIEW_ENTITY_QUERIES_PRIVILEGE.getType())),
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType()))));
+    return entityUrns.stream()
+        .allMatch(
+            entityUrn ->
+                isAuthorized(
+                    context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups));
+  }
+
   public static boolean canCreateQuery(
       @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
     // Currently - you only need permission to edit an entity's queries to create a query.

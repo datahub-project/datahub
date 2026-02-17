@@ -41,6 +41,7 @@ export function ChartQueryTab() {
     const baseEntity = useBaseEntity<GetChartQuery>();
     const query = baseEntity?.chart?.query?.rawQuery || 'UNKNOWN';
     const type = baseEntity?.chart?.query?.type || 'UNKNOWN';
+    const canViewQueries = baseEntity?.chart?.privileges?.canViewQueries ?? true; // Default to true for backward compatibility
 
     return (
         <>
@@ -52,12 +53,21 @@ export function ChartQueryTab() {
                     </InfoItem>
                 </InfoItemContainer>
             </InfoSection>
-            <InfoSection>
-                <Typography.Title level={5}>Query</Typography.Title>
-                <QueryText>
-                    <NestedSyntax language="sql">{query}</NestedSyntax>
-                </QueryText>
-            </InfoSection>
+            {canViewQueries ? (
+                <InfoSection>
+                    <Typography.Title level={5}>Query</Typography.Title>
+                    <QueryText>
+                        <NestedSyntax language="sql">{query}</NestedSyntax>
+                    </QueryText>
+                </InfoSection>
+            ) : (
+                <InfoSection>
+                    <Typography.Title level={5}>Query</Typography.Title>
+                    <Typography.Text type="secondary">
+                        You don&apos;t have permission to view the query for this chart.
+                    </Typography.Text>
+                </InfoSection>
+            )}
         </>
     );
 }

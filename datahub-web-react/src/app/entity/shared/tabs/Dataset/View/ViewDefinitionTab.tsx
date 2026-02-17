@@ -47,6 +47,7 @@ export default function ViewDefinitionTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const logic = baseEntity?.dataset?.viewProperties?.logic || 'UNKNOWN';
     const formattedLogic = baseEntity?.dataset?.viewProperties?.formattedLogic;
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? true; // Default to true for backward compatibility
     const materialized = (baseEntity?.dataset?.viewProperties?.materialized && true) || false;
     const language = baseEntity?.dataset?.viewProperties?.language || 'UNKNOWN';
 
@@ -69,25 +70,34 @@ export default function ViewDefinitionTab() {
                     </InfoItem>
                 </InfoItemContainer>
             </InfoSection>
-            <InfoSection>
-                <Typography.Title level={5}>Logic</Typography.Title>
-                {canShowFormatted && (
-                    <FormattingSelector>
-                        <Radio.Group
-                            options={[
-                                { label: formatOptions[0], value: false },
-                                { label: formatOptions[1], value: true },
-                            ]}
-                            onChange={(e) => setShowFormatted(e.target.value)}
-                            value={showFormatted}
-                            optionType="button"
-                        />
-                    </FormattingSelector>
-                )}
-                <QueryText>
-                    <NestedSyntax language="sql">{showFormatted ? formattedLogic : logic}</NestedSyntax>
-                </QueryText>
-            </InfoSection>
+            {canViewQueries ? (
+                <InfoSection>
+                    <Typography.Title level={5}>Logic</Typography.Title>
+                    {canShowFormatted && (
+                        <FormattingSelector>
+                            <Radio.Group
+                                options={[
+                                    { label: formatOptions[0], value: false },
+                                    { label: formatOptions[1], value: true },
+                                ]}
+                                onChange={(e) => setShowFormatted(e.target.value)}
+                                value={showFormatted}
+                                optionType="button"
+                            />
+                        </FormattingSelector>
+                    )}
+                    <QueryText>
+                        <NestedSyntax language="sql">{showFormatted ? formattedLogic : logic}</NestedSyntax>
+                    </QueryText>
+                </InfoSection>
+            ) : (
+                <InfoSection>
+                    <Typography.Title level={5}>Logic</Typography.Title>
+                    <Typography.Text type="secondary">
+                        You don&apos;t have permission to view the SQL logic for this view.
+                    </Typography.Text>
+                </InfoSection>
+            )}
         </>
     );
 }
