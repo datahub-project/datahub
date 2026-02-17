@@ -294,7 +294,13 @@ class VertexAISource(StatefulIngestionSourceBase):
         - Training Jobs
         """
         for project_id in self._projects:
+            self._current_project_id = project_id
+
+            yield from self._gen_project_workunits()
+
             regions = self._project_to_regions.get(project_id, [self._get_region()])
+            # Experiments are project-scoped, so extract them only for the first region
+            first_region = True
             for region in regions:
                 logger.info(
                     f"Initializing Vertex AI client for project={project_id} region={region}"
@@ -304,7 +310,6 @@ class VertexAISource(StatefulIngestionSourceBase):
                     location=region,
                     credentials=self._credentials,
                 )
-                self._current_project_id = project_id
                 self._current_region = region
                 self.endpoints = None
                 self.datasets = None
@@ -367,15 +372,13 @@ class VertexAISource(StatefulIngestionSourceBase):
                         self._metadata_client = None
                         self._ml_metadata_helper = None
 
-                # Ingest Project
-                yield from self._gen_project_workunits()
-
                 # Process jobs/pipelines/experiments FIRST to track model usage
                 # (for downstream lineage)
                 if self.config.include_training_jobs:
                     yield from auto_workunit(self.training_extractor.get_workunits())
 
-                if self.config.include_experiments:
+                # Experiments are project-scoped, not region-scoped, so only extract once
+                if first_region and self.config.include_experiments:
                     yield from self.experiment_extractor.get_experiment_workunits()
                     yield from auto_workunit(
                         self.experiment_extractor.get_experiment_run_workunits()
@@ -392,6 +395,9 @@ class VertexAISource(StatefulIngestionSourceBase):
                     yield from auto_workunit(
                         self.model_extractor.get_evaluation_workunits()
                     )
+
+                # Mark that we've processed the first region
+                first_region = False
 
     def _gen_project_workunits(self) -> Iterable[MetadataWorkUnit]:
         yield from gen_containers(
