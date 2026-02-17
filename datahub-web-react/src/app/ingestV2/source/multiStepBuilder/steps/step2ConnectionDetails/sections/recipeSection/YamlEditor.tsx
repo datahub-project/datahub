@@ -2,7 +2,7 @@ import { Button, Icon, Text, borders, radius, spacing, typography } from '@compo
 import Editor, { loader } from '@monaco-editor/react';
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
@@ -65,6 +65,7 @@ type Props = {
 };
 
 export function YamlEditor({ value, onChange }: Props) {
+    const theme = useTheme();
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
     const editorRef = useRef<any>(null);
     const editorWrapperRef = useRef<HTMLDivElement>(null);
@@ -117,7 +118,7 @@ export function YamlEditor({ value, onChange }: Props) {
     return (
         <Container ref={containerRef}>
             <Header>
-                <Text weight="semiBold" color="gray" colorLevel={600}>
+                <Text weight="semiBold" style={{ color: theme.colors.text }}>
                     YAML
                 </Text>
                 <Spacer />

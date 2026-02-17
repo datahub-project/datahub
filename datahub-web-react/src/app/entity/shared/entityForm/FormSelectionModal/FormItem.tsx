@@ -29,7 +29,7 @@ const FormName = styled.div`
 
 const FormAssigner = styled.div`
     font-size: 14px;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     margin-top: -4px;
     margin-bottom: 4px;
 `;
@@ -46,7 +46,7 @@ const CompleteWrapper = styled.div`
 
 const FormInfoWrapper = styled.div`
     font-size: 12px;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-weight: 600;
 `;
 

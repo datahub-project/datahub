@@ -68,7 +68,7 @@ const EditedLabel = styled(Typography.Text)`
     position: absolute;
     right: -10px;
     top: -15px;
-    color: rgba(150, 150, 150, 0.5);
+    color: ${(props) => props.theme.colors.textDisabled};
     font-style: italic;
 `;
 

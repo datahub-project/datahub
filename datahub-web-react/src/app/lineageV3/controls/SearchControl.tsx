@@ -24,8 +24,15 @@ const StyledInput = styled(Input)<{ width: number }>`
 
     font-size: 14px;
 
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    color: ${(props) => props.theme.colors.text};
     border-color: ${(props) => props.theme.colors.border} !important;
     box-shadow: none !important;
+
+    .ant-input {
+        background-color: transparent;
+        color: ${(props) => props.theme.colors.text};
+    }
 `;
 
 const ClosedSearchIcon = styled(SearchOutlined)`

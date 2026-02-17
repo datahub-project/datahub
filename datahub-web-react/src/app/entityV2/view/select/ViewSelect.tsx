@@ -75,16 +75,7 @@ const getOverlayInnerStyle = (isShowNavBarRedesign?: boolean, themeObj?: any) =>
     return overlayInnerStyle;
 };
 
-const overlayStyle = {
-    left: '0px',
-    backgroundColor: '#171723',
-    backdropFilter: 'blur(5px)',
-    opacity: 0.97,
-    zIndex: 13,
-    'transform-origin': '0',
-};
-
-const getOverlayStyle = (isShowNavBarRedesign?: boolean) => {
+const getOverlayStyle = (isShowNavBarRedesign?: boolean, themeObj?: any) => {
     if (isShowNavBarRedesign)
         return {
             left: '0px',
@@ -94,7 +85,14 @@ const getOverlayStyle = (isShowNavBarRedesign?: boolean) => {
             width: '100%',
         };
 
-    return overlayStyle;
+    return {
+        left: '0px',
+        backgroundColor: themeObj?.colors?.bg,
+        backdropFilter: 'blur(5px)',
+        opacity: 0.97,
+        zIndex: 13,
+        'transform-origin': '0',
+    };
 };
 
 const Blur = styled.div<{ $isOpen?: boolean }>`
@@ -208,7 +206,7 @@ export const ViewSelect = () => {
                     trigger="click"
                     overlayClassName="view-select-popover"
                     overlayInnerStyle={getOverlayInnerStyle(isShowNavBarRedesign, theme)}
-                    overlayStyle={getOverlayStyle(isShowNavBarRedesign)}
+                    overlayStyle={getOverlayStyle(isShowNavBarRedesign, theme)}
                     showArrow={false}
                     popupVisible={false}
                     ref={selectRef}

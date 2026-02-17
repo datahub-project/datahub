@@ -14,7 +14,7 @@ const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
     border-radius: 16px;
     box-shadow: none;
     font-weight: 400;
-    color: black;
+    color: ${(props) => props.theme.colors.text};
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -23,7 +23,7 @@ const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
     margin: 4px;
 
     &:hover {
-        color: black;
+        color: ${(props) => props.theme.colors.text};
     }
 
     ${(props) =>

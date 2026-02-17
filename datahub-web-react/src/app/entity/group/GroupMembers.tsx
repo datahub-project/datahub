@@ -41,7 +41,7 @@ const AddMemberText = styled(Typography.Text)`
 const MemberNameSection = styled.div`
     font-size: 20px;
     line-height: 28px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     align-items: center;
     justify-content: start;
@@ -71,7 +71,7 @@ const Name = styled.span`
     font-weight: bold;
     font-size: 14px;
     line-height: 22px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     margin-left: 8px;
 `;
 

@@ -1,7 +1,7 @@
 import { Button, Text } from '@components';
 import React from 'react';
 import { useHistory } from 'react-router';
-import styled, { css } from 'styled-components';
+import styled, { css, useTheme } from 'styled-components';
 
 type ErrorFallbackProps = {
     variant?: ErrorVariant;
@@ -55,6 +55,7 @@ const TextContainer = styled.div`
 
 const ErrorFallback: React.FC<ErrorFallbackProps> = ({ variant, actionMessage = DEFAULT_MESSAGE }) => {
     const history = useHistory();
+    const theme = useTheme();
     return (
         <Container variant={variant}>
             <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -65,14 +66,14 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({ variant, actionMessage = 
                 />
             </svg>
             <TextContainer>
-                <Text color="gray" weight="bold" size="xl">
+                <Text weight="bold" size="xl" style={{ color: theme.colors.textSecondary }}>
                     Whoops!
                 </Text>
                 <TextContainer>
-                    <Text color="gray" size="lg">
+                    <Text size="lg" style={{ color: theme.colors.textSecondary }}>
                         Something didn&apos;t go as planned.
                     </Text>
-                    <Text color="gray" size="lg">
+                    <Text size="lg" style={{ color: theme.colors.textSecondary }}>
                         {actionMessage}
                     </Text>
                 </TextContainer>

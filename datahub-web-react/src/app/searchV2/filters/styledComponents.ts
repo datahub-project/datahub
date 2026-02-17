@@ -17,7 +17,7 @@ export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
         `
         background-color: ${props.theme.styles['primary-color']};
         border: 1px solid ${getColor('primary', 0, props.theme)};
-        color: white;
+        color: ${props.theme.colors.textOnFillBrand};
     `}
 `;
 

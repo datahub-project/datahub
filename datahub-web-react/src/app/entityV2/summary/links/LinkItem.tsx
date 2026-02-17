@@ -1,6 +1,6 @@
 import { Icon, Text, Tooltip } from '@components';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
 
@@ -51,6 +51,7 @@ type Props = {
 };
 
 export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, setShowEditLinkModal }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
     const hasLinkPermissions = useLinkPermission();
 
@@ -78,7 +79,7 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                     </Text>
                 </LeftSection>
                 <RightSection>
-                    <Text color="gray" size="sm">
+                    <Text size="sm" style={{ color: theme.colors.textSecondary }}>
                         Added{' '}
                         <Tooltip title={formatDateString(link.created.time)}>
                             <span>{toRelativeTimeString(link.created.time) || 'recently'}</span>

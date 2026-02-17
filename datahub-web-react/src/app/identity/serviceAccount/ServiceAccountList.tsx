@@ -1,5 +1,5 @@
 import React from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import CreateServiceAccountModal from '@app/identity/serviceAccount/CreateServiceAccountModal';
 import { ModalFooter, ServiceAccountTable } from '@app/identity/serviceAccount/ServiceAccountList.components';
@@ -39,6 +39,7 @@ export const ServiceAccountList = ({
     isCreatingServiceAccount: externalIsCreating,
     setIsCreatingServiceAccount: externalSetIsCreating,
 }: ServiceAccountListProps) => {
+    const theme = useTheme();
     const {
         query,
         setQuery,
@@ -98,7 +99,7 @@ export const ServiceAccountList = ({
                 <Text size="lg" weight="semiBold">
                     Access Denied
                 </Text>
-                <Text size="md" color="gray">
+                <Text size="md" style={{ color: theme.colors.textSecondary }}>
                     You do not have permission to manage service accounts.
                 </Text>
             </NoPermissionContainer>

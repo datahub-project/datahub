@@ -51,7 +51,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                     <p>Let&apos;s get started! 🚀</p>
                     <div
                         style={{
-                            backgroundColor: '#F0F0F0',
+                            backgroundColor: 'var(--theme-bgSurface, #F0F0F0)',
                             opacity: '0.7',
                             borderRadius: '4px',
                             height: '40px',

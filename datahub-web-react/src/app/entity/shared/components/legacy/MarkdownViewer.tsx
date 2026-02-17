@@ -31,7 +31,7 @@ const MarkdownContainer = styled.div<{ editable?: string }>`
 
 const CustomButton = styled(Button)`
     padding: 0;
-    color: #6a737d;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const MarkdownViewContainer = styled.div<{
@@ -54,7 +54,7 @@ const MarkdownViewContainer = styled.div<{
             `
             &::after {
                 content: '...';
-                color: #6a737d;
+                color: ${(props) => props.theme.colors.textSecondary};
                 position: absolute;
                 bottom: 2rem;
             }

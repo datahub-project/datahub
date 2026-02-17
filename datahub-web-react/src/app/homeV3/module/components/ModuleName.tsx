@@ -13,7 +13,6 @@ export default function ModuleName({ text }: Props) {
         <NameContainer
             ellipsis={{
                 tooltip: {
-                    color: 'white',
                     overlayInnerStyle: { color: theme.colors.textSecondary },
                     showArrow: false,
                 },

@@ -1,10 +1,10 @@
 import React from 'react';
 import { useHistory } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import {
-    ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS,
     ASSERTION_TYPE_TO_HEADER_SUBTITLE,
+    getAssertionSummaryCardHeaderByStatus,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListConstants';
 import {
     AcrylAssertionProgressBar,
@@ -99,10 +99,13 @@ type Props = {
 
 export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
     const history = useHistory();
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
     const name = getAssertionGroupName(group.name);
     const icon = ASSERTION_TYPE_TO_ICON_MAP[group.type];
+
+    const headerByStatus = getAssertionSummaryCardHeaderByStatus(theme.colors);
 
     const visibleStatuses: string[] = ['passing', 'failing', 'erroring'].filter((status) => group.summary?.[status]);
     // add No running state if there is no running state assertions
@@ -111,7 +114,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
     }
 
     const status = ASSERTION_SUMMARY_CARD_STATUSES.find((key) => group.summary[key]) || NO_RUNNING_STATE;
-    const headerTitle = status ? ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS[status].headerComponent : null;
+    const headerTitle = status ? headerByStatus[status].headerComponent : null;
     const headerSubtitle = group.type ? ASSERTION_TYPE_TO_HEADER_SUBTITLE[group.type] : null;
 
     const handleCardClick = (type: AssertionType, event: React.MouseEvent) => {

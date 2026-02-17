@@ -61,7 +61,7 @@ export const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; i
         }
 
         >div: last-child {
-            color: white;
+            color: ${({ theme }) => theme.colors.textOnFillBrand};
             background-color: rgba(255, 255, 255, 0.2);
         }
     }

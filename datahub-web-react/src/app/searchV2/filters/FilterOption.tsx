@@ -194,7 +194,6 @@ export default function FilterOption({
                                         tooltip: {
                                             title: label,
                                             showArrow: false,
-                                            color: 'white',
                                             overlayInnerStyle: { color: theme.colors.textSecondary },
                                         },
                                     }}

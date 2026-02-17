@@ -11,7 +11,7 @@ const StyledButton = styled(Button)`
     width: 100%;
     text-align: center;
     background-color: ${(p) => p.theme.styles['primary-color']};
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     border-radius: 0;
 `;
 

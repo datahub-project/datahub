@@ -21,6 +21,12 @@ export default interface ColorTheme {
     textTertiary: string;
     textBrand: string;
     textBrandOnBgFill: string;
+    textOnFillBrand: string;
+    textOnFillSuccess: string;
+    textOnFillError: string;
+    textOnFillWarning: string;
+    textOnFillInfo: string;
+    textOnFillDefault: string;
     textDisabled: string;
     textError: string;
     textInformation: string;

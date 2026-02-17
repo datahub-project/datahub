@@ -13,7 +13,7 @@ export type Props = {
 };
 
 const AvatarStyled = styled(Avatar)<{ backgroundColor: string }>`
-    color: #fff;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     background-color: ${(props) => props.backgroundColor};
 `;
 

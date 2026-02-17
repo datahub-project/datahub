@@ -37,7 +37,7 @@ const UserProfileWrapper = styled.div`
 `;
 
 const Content = styled.div`
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     height: calc(100vh - 60px);
 
     &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
@@ -48,7 +48,7 @@ const Content = styled.div`
 export const EmptyValue = styled.div`
     &:after {
         content: 'None';
-        color: #b7b7b7;
+        color: ${(props) => props.theme.colors.textDisabled};
         font-style: italic;
         font-weight: 100;
     }

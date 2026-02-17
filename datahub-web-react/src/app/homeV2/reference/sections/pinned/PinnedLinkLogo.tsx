@@ -6,7 +6,7 @@ import getAvatarColor from '@app/shared/avatar/getAvatarColor';
 import { PostContent } from '@types';
 
 const PreviewImage = styled.img`
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     height: 40px;
     width: 40px;
     border-radius: 11px;
@@ -19,7 +19,7 @@ const PreviewImage = styled.img`
 const PreviewLetter = styled.div<{ color: string }>`
     background-color: ${(props) => props.color};
     font-size: 18px;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     height: 40px;
     width: 40px;
     border-radius: 11px;

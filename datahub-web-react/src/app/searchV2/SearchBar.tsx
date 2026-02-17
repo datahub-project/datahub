@@ -2,7 +2,7 @@ import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import { AutoComplete, Input } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import analytics, { Event, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
@@ -194,6 +194,7 @@ export const SearchBar = ({
     placeholderColor,
     isShowNavBarRedesign,
 }: SearchBarProps) => {
+    const theme = useTheme();
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string | undefined>(initialQuery);
     const [selected, setSelected] = useState<string>();
@@ -464,7 +465,7 @@ export const SearchBar = ({
                                     getFiltersWithQuickFilter(selectedQuickFilter),
                                 );
                             }}
-                            style={{ ...inputStyle, color: '#fff' }}
+                            style={{ ...inputStyle, color: theme.colors.textOnFillDefault }}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             data-testid="search-input"

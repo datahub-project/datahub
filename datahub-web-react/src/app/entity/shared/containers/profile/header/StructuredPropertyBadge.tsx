@@ -1,9 +1,9 @@
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { filterForAssetBadge } from '@app/entity/shared/containers/profile/header/utils';
 import { mapStructuredPropertyToPropertyRow } from '@app/entity/shared/tabs/Properties/useStructuredProperties';
-import { Pill, Text, Tooltip, colors } from '@src/alchemy-components';
+import { Pill, Text, Tooltip } from '@src/alchemy-components';
 import { getStructuredPropertyValue } from '@src/app/entity/shared/utils';
 import { getDisplayName } from '@src/app/govern/structuredProperties/utils';
 import { StructuredProperties } from '@src/types.generated';
@@ -36,6 +36,7 @@ interface Props {
 }
 
 const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
+    const theme = useTheme();
     const badgeStructuredProperty = structuredProperties?.properties?.find(filterForAssetBadge);
 
     const propRow = badgeStructuredProperty ? mapStructuredPropertyToPropertyRow(badgeStructuredProperty) : undefined;
@@ -50,21 +51,21 @@ const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
     const BadgeTooltip = () => {
         return (
             <TooltipContainer>
-                <Text color="gray" weight="semiBold">
+                <Text weight="semiBold" style={{ color: theme.colors.textSecondary }}>
                     {getDisplayName(badgeStructuredProperty.structuredProperty)}
                 </Text>
                 <ValueContainer>
-                    <Text color="gray" size="sm" weight="bold">
+                    <Text size="sm" weight="bold" style={{ color: theme.colors.textSecondary }}>
                         Value
                     </Text>
-                    <Text color="gray">{propRow?.values[0]?.value}</Text>
+                    <Text style={{ color: theme.colors.textSecondary }}>{propRow?.values[0]?.value}</Text>
                 </ValueContainer>
                 {relatedDescription && (
                     <ValueContainer>
-                        <Text color="gray" size="sm" weight="bold">
+                        <Text size="sm" weight="bold" style={{ color: theme.colors.textSecondary }}>
                             Description
                         </Text>
-                        <Text color="gray">{relatedDescription}</Text>
+                        <Text style={{ color: theme.colors.textSecondary }}>{relatedDescription}</Text>
                     </ValueContainer>
                 )}
             </TooltipContainer>
@@ -72,12 +73,7 @@ const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
     };
 
     return (
-        <StyledTooltip
-            showArrow={false}
-            title={<BadgeTooltip />}
-            color={colors.white}
-            overlayInnerStyle={{ width: 250, padding: 16 }}
-        >
+        <StyledTooltip showArrow={false} title={<BadgeTooltip />} overlayInnerStyle={{ width: 250, padding: 16 }}>
             <BadgeContainer>
                 <Pill label={propRow?.values[0]?.value?.toString() || ''} size="sm" color="violet" clickable={false} />
             </BadgeContainer>

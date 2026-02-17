@@ -43,6 +43,14 @@ const StyledExpandContractButton = styled(Button)`
     justify-content: center;
     align-items: center;
     display: flex;
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    color: ${(props) => props.theme.colors.text};
+    border-color: ${(props) => props.theme.colors.border};
+
+    &:hover {
+        color: ${(props) => props.theme.colors.textBrand};
+        border-color: ${(props) => props.theme.colors.borderBrand};
+    }
 `;
 
 const StyledDivider = styled(Divider)`

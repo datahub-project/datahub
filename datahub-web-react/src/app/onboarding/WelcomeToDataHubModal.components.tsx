@@ -13,6 +13,28 @@ export const SlideContainer = styled.div`
 `;
 
 /**
+ * Theme-aware slide title (replaces Heading with raw alchemy gray)
+ */
+export const SlideTitle = styled.h2`
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 0 0 4px;
+    color: ${(props) => props.theme.colors.text};
+`;
+
+/**
+ * Theme-aware slide description (replaces Heading with raw alchemy gray)
+ */
+export const SlideDescription = styled.h3`
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.4;
+    margin: 0;
+    color: ${(props) => props.theme.colors.textSecondary};
+`;
+
+/**
  * Container for video elements with centered alignment
  */
 export const VideoContainer = styled.div`

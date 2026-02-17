@@ -3,7 +3,7 @@ import { Button, Empty, Pagination, Select, Tag, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
@@ -88,6 +88,7 @@ export enum StatusType {
 
 // TODO: Cleanup the styling.
 export const ManagePolicies = () => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -222,7 +223,7 @@ export const ManagePolicies = () => {
                 return (
                     <PolicyName
                         onClick={() => onViewPolicy(record.policy)}
-                        style={{ color: record?.editable ? '#000000' : '#8C8C8C' }}
+                        style={{ color: record?.editable ? theme.colors.text : theme.colors.textTertiary }}
                     >
                         {record?.name}
                     </PolicyName>
@@ -293,7 +294,10 @@ export const ManagePolicies = () => {
                                     policyUrn: record?.policy?.urn,
                                 });
                             }}
-                            style={{ color: record?.editable ? 'red' : '#BFBFBF', width: 100 }}
+                            style={{
+                                color: record?.editable ? theme.colors.textError : theme.colors.textDisabled,
+                                width: 100,
+                            }}
                         >
                             DEACTIVATE
                         </Button>
@@ -307,7 +311,10 @@ export const ManagePolicies = () => {
                                     policyUrn: record?.policy?.urn,
                                 });
                             }}
-                            style={{ color: record?.editable ? 'green' : '#BFBFBF', width: 100 }}
+                            style={{
+                                color: record?.editable ? theme.colors.textSuccess : theme.colors.textDisabled,
+                                width: 100,
+                            }}
                         >
                             ACTIVATE
                         </Button>

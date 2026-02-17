@@ -21,7 +21,7 @@ import { AutoCompleteResultForEntity } from '@types';
 const getStyles = ($isShowNavBarRedesign?: boolean, themeColors?: { bg: string }) => {
     return {
         input: {
-            backgroundColor: $isShowNavBarRedesign ? (themeColors?.bg ?? 'transparent') : '#343444',
+            backgroundColor: themeColors?.bg ?? 'transparent',
         },
         searchBox: {
             maxWidth: $isShowNavBarRedesign ? '100%' : 620,

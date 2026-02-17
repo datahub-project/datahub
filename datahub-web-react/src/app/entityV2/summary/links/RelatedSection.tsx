@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useRelatedDocuments } from '@app/document/hooks/useRelatedDocuments';
@@ -57,6 +57,7 @@ interface RelatedSectionProps {
 }
 
 export default function RelatedSection({ hideLinksButton }: RelatedSectionProps) {
+    const theme = useTheme();
     const { urn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const [isAddLinkModalVisible, setIsAddLinkModalVisible] = useState(false);
@@ -169,7 +170,7 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
     return (
         <>
             <SectionHeader>
-                <SectionTitle weight="bold" color="gray" colorLevel={600} size="sm">
+                <SectionTitle weight="bold" size="sm" style={{ color: theme.colors.text }}>
                     Resources
                 </SectionTitle>
                 {supportsRelatedDocuments && !hideLinksButton && menuItems.length > 0 && (

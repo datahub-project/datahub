@@ -1,6 +1,6 @@
 import { Col, message } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { GroupBasicInfoSection } from '@app/entityV2/group/GroupBasicInfoSection';
@@ -32,12 +32,11 @@ export type SidebarData = {
     urn: string;
 };
 
-const AVATAR_STYLE = {
+const BASE_AVATAR_STYLE = {
     borderRadius: '9px',
     zIndex: '2',
     height: '36px',
     width: '36px',
-    backgroundColor: '#ffffff66',
 };
 
 const AvatarWithTitleContainer = styled.div`
@@ -53,6 +52,8 @@ type Props = {
 };
 
 export const GroupProfileInfoCard = ({ sidebarData, refetch }: Props) => {
+    const themeConfig = useTheme();
+    const avatarStyle = { ...BASE_AVATAR_STYLE, backgroundColor: `${themeConfig.colors.bg}66` };
     const {
         avatarName,
         name,
@@ -105,7 +106,7 @@ export const GroupProfileInfoCard = ({ sidebarData, refetch }: Props) => {
                                 size={36}
                                 photoUrl={photoUrl}
                                 name={avatarName}
-                                style={AVATAR_STYLE}
+                                style={avatarStyle}
                             />
                         </Col>
                         <Col xxl={20} xl={18} lg={16} md={16} sm={19} xs={19}>

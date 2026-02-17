@@ -12,7 +12,7 @@ const Badge = styled.div<{ color: string }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #ffffff;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     margin-left: -4px;
     margin-top: -12px;
     border: 1px solid ${(props) => props.theme.colors.bg};

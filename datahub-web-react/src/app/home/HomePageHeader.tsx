@@ -48,7 +48,7 @@ const styles = {
     searchContainer: { width: '100%', marginTop: '40px' },
     logoImage: { width: 140 },
     searchBox: { width: '50vw', minWidth: 400, margin: '40px 0px', marginBottom: '12px', maxWidth: '650px' },
-    subtitle: { marginTop: '28px', color: '#FFFFFF', fontSize: 12 },
+    subtitle: { marginTop: '28px', fontSize: 12 },
 };
 
 const HeaderContainer = styled.div`
@@ -265,7 +265,9 @@ export const HomePageHeader = () => {
                     style={styles.logoImage}
                 />
                 {!!themeConfig.content.subtitle && (
-                    <Typography.Text style={styles.subtitle}>{themeConfig.content.subtitle}</Typography.Text>
+                    <Typography.Text style={{ ...styles.subtitle, color: themeConfig.colors.textOnFillDefault }}>
+                        {themeConfig.content.subtitle}
+                    </Typography.Text>
                 )}
                 <SearchBarContainer id={HOME_PAGE_SEARCH_BAR_ID}>
                     <SearchBar

@@ -27,7 +27,7 @@ const PromptsRemainingText = styled.span`
 
 const PromptsCompletedText = styled.span`
     font-size: 14px;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-weight: 600;
 `;
 

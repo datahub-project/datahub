@@ -116,7 +116,7 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
     &&& .ant-tabs-content-holder {
         display: none;
     }
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: transparent;
 `;
 
 const Tab = styled(Tabs.TabPane)`

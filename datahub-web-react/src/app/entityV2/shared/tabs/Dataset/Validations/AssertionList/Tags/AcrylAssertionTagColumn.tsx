@@ -33,7 +33,7 @@ const StyledPill = styled.div<{ color?: string; backgroundColor?: string }>`
     border-radius: 100px;
     transition: all 0.2s;
     &:hover {
-        color: black;
+        color: ${(props) => props.theme.colors.text};
         background-color: ${getColor('gray', 100)};
     }
 `;

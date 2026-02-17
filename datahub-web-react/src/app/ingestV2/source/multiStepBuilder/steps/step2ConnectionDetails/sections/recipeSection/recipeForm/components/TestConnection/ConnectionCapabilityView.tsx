@@ -21,7 +21,7 @@ const CapabilityInfo = styled.div`
 `;
 
 const StyledQuestion = styled(QuestionCircleOutlined)`
-    color: rgba(0, 0, 0, 0.45);
+    color: ${(props) => props.theme.colors.icon};
     margin-left: 4px;
 `;
 

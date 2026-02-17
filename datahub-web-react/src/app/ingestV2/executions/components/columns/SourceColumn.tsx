@@ -26,7 +26,6 @@ export default function SourceColumn({ record, navigateToSource }: Props) {
             ellipsis={{
                 tooltip: {
                     title: record.name,
-                    color: 'white',
                     overlayInnerStyle: { color: theme.colors.textSecondary },
                     showArrow: false,
                 },

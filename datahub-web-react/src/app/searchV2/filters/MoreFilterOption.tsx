@@ -79,7 +79,6 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
                             tooltip: {
                                 title: displayName,
                                 showArrow: false,
-                                color: 'white',
                                 overlayInnerStyle: { color: theme.colors.textSecondary },
                                 placement: 'left',
                             },

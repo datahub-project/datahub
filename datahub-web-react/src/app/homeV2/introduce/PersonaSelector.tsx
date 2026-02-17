@@ -48,7 +48,7 @@ const Content = styled.div`
 `;
 
 const Text = styled.div`
-    color: rgb(129, 135, 159);
+    color: ${(props) => props.theme.colors.textTertiary};
     line-height: 16px;
     font-size: 12px;
     margin-bottom: 4px;

@@ -1,7 +1,7 @@
 import { Input, Switch, Text } from '@components';
 import React, { useState } from 'react';
 import Cron from 'react-js-cron';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/constants';
 
@@ -64,6 +64,7 @@ interface Props {
 }
 
 export default function CronField({ scheduleCronInterval, setScheduleCronInterval, cronAsText }: Props) {
+    const theme = useTheme();
     const [advancedCronCheck, setAdvancedCronCheck] = useState(false);
 
     return (
@@ -97,7 +98,7 @@ export default function CronField({ scheduleCronInterval, setScheduleCronInterva
             </Schedule>
             <CronText>
                 {cronAsText.error && (
-                    <Text color="red" size="sm">
+                    <Text size="sm" style={{ color: theme.colors.textError }}>
                         Invalid cron schedule. Cron must be of UNIX form:
                     </Text>
                 )}
@@ -107,7 +108,7 @@ export default function CronField({ scheduleCronInterval, setScheduleCronInterva
                     </CronFormat>
                 )}
                 {cronAsText.text && (
-                    <Text color="gray" size="sm">
+                    <Text size="sm" style={{ color: theme.colors.textSecondary }}>
                         {cronAsText.text}
                     </Text>
                 )}

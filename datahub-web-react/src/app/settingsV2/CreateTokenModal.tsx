@@ -59,7 +59,7 @@ const ExpirationContainer = styled.div`
 `;
 
 const ExpirationText = styled(Text)<{ $isWarning?: boolean }>`
-    ${(props) => props.$isWarning && `color: ${red[5]};`}
+    color: ${(props) => (props.$isWarning ? red[5] : props.theme.colors.textSecondary)};
 `;
 
 const ModalFooter = styled.div`
@@ -228,9 +228,7 @@ export default function CreateTokenModal({
                             <FormLabel size="md" weight="semiBold">
                                 Token Name
                             </FormLabel>
-                            <FormDescription size="sm" color="gray">
-                                Give this token a name to identify it.
-                            </FormDescription>
+                            <FormDescription size="sm">Give this token a name to identify it.</FormDescription>
                             <Input
                                 value={tokenName}
                                 setValue={setTokenName}
@@ -244,9 +242,7 @@ export default function CreateTokenModal({
                             <FormLabel size="md" weight="semiBold">
                                 Description
                             </FormLabel>
-                            <FormDescription size="sm" color="gray">
-                                An optional description for this token.
-                            </FormDescription>
+                            <FormDescription size="sm">An optional description for this token.</FormDescription>
                             <Input
                                 value={tokenDescription}
                                 setValue={setTokenDescription}
@@ -272,7 +268,7 @@ export default function CreateTokenModal({
                                 isDisabled={forRemoteExecutor}
                                 dataTestId="create-token-duration"
                             />
-                            <ExpirationText size="sm" color="gray" $isWarning={hasSelectedNoExpiration}>
+                            <ExpirationText size="sm" $isWarning={hasSelectedNoExpiration}>
                                 {getTokenExpireDate(selectedDuration)}
                             </ExpirationText>
                         </ExpirationContainer>

@@ -89,14 +89,14 @@ const DescriptionLabel = styled(Typography.Text)`
         font-weight: bold;
         font-size: 14px;
         line-height: 28px;
-        color: rgb(38, 38, 38);
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
 export const EmptyValue = styled.div`
     &:after {
         content: 'None';
-        color: #b7b7b7;
+        color: ${(props) => props.theme.colors.textDisabled};
         font-style: italic;
         font-weight: 100;
     }

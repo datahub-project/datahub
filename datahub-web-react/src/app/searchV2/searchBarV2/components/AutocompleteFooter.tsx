@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowElbowDownLeft, ArrowUp } from 'phosphor-react';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import KeyIcon from '@app/searchV2/searchBarV2/components/KeyIcon';
 import { Text } from '@src/alchemy-components';
@@ -37,19 +37,20 @@ interface Props {
 }
 
 export default function AutocompleteFooter({ isSomethingSelected }: Props) {
+    const theme = useTheme();
     return (
         <Container>
             <KeySuggestion>
                 <KeyIcon icon={ArrowUp} />
                 <KeyIcon icon={ArrowDown} />
-                <Text color="gray" size="sm" weight="semiBold">
+                <Text size="sm" weight="semiBold" style={{ color: theme.colors.textSecondary }}>
                     Navigate
                 </Text>
             </KeySuggestion>
 
             <KeySuggestion>
                 <KeyIcon icon={ArrowElbowDownLeft} />
-                <Text color="gray" size="sm" weight="semiBold">
+                <Text size="sm" weight="semiBold" style={{ color: theme.colors.textSecondary }}>
                     {isSomethingSelected ? 'Select' : 'Search All'}
                 </Text>
             </KeySuggestion>

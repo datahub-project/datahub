@@ -58,7 +58,7 @@ export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
 const MenuItem = styled.div`
     font-size: 12px;
     padding: 0 4px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const StyledMenuItem = styled(Menu.Item)<{ disabled: boolean }>`

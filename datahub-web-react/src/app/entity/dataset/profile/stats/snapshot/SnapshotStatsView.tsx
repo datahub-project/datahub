@@ -1,7 +1,7 @@
 import { Row, Table, Tag, Typography } from 'antd';
 import { ColumnType, ColumnsType } from 'antd/lib/table';
 import React, { useMemo } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { Highlight } from '@app/analyticsDashboard/components/Highlight';
 import StatsSection from '@app/entity/dataset/profile/stats/StatsSection';
@@ -25,6 +25,7 @@ export type Props = {
 };
 
 export default function DataProfileView({ profile }: Props) {
+    const theme = useTheme();
     const columnStatsTableData = useMemo(
         () =>
             profile.fieldProfiles?.map((doc) => ({
@@ -47,7 +48,7 @@ export default function DataProfileView({ profile }: Props) {
      * Returns a placeholder value to show in the column data table when data is null.
      */
     const unknownValue = () => {
-        return <Typography.Text style={{ color: '#B8B8B8' }}>unknown</Typography.Text>;
+        return <Typography.Text style={{ color: theme.colors.textDisabled }}>unknown</Typography.Text>;
     };
 
     /**

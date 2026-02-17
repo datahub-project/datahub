@@ -7,7 +7,7 @@ const SummaryButton = styled.div<{ maxWidth: number }>`
     border: 1px solid ${(props) => props.theme.colors.borderSuccess};
     border-radius: 4px;
     background: #328980;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillSuccess};
     display: flex;
     max-width: ${(props) => props.maxWidth}px;
     padding: 6px;

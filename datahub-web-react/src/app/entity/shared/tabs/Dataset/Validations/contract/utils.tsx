@@ -17,12 +17,16 @@ import {
 
 import { Assertion, AssertionType, DataContract, DataContractState } from '@types';
 
-export const getContractSummaryIcon = (state: DataContractState, summary: AssertionStatusSummary) => {
+export const getContractSummaryIcon = (
+    state: DataContractState,
+    summary: AssertionStatusSummary,
+    disabledColor = '#BFBFBF',
+) => {
     if (state === DataContractState.Pending) {
-        return <ClockCircleOutlined style={{ color: '#BFBFBF', fontSize: 28 }} />;
+        return <ClockCircleOutlined style={{ color: disabledColor, fontSize: 28 }} />;
     }
     if (summary.total === 0) {
-        return <StopOutlined style={{ color: '#BFBFBF', fontSize: 28 }} />;
+        return <StopOutlined style={{ color: disabledColor, fontSize: 28 }} />;
     }
     if (summary.passing === summary.total) {
         return <CheckOutlined style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;
@@ -33,7 +37,7 @@ export const getContractSummaryIcon = (state: DataContractState, summary: Assert
     if (summary.erroring > 0) {
         return <ExclamationCircleFilled style={{ color: WARNING_COLOR_HEX, fontSize: 28 }} />;
     }
-    return <StopOutlined style={{ color: '#BFBFBF', fontSize: 28 }} />;
+    return <StopOutlined style={{ color: disabledColor, fontSize: 28 }} />;
 };
 
 export const getContractSummaryTitle = (state: DataContractState, summary: AssertionStatusSummary) => {

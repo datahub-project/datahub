@@ -1,7 +1,7 @@
 import { ArrowRightOutlined } from '@ant-design/icons';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import DomainIcon from '@app/domain/DomainIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
@@ -37,6 +37,7 @@ type Props = {
 
 export const DomainSearchList = ({ content, onClick }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
 
     const domainsWithCounts: Array<{ domain: Domain; count?: number }> = content
         .map((cnt) => ({ domain: cnt.entity, count: cnt.params?.contentParams?.count }))
@@ -60,7 +61,7 @@ export const DomainSearchList = ({ content, onClick }: Props) => {
                                 <DomainIcon
                                     style={{
                                         fontSize: 16,
-                                        color: '#BFBFBF',
+                                        color: theme.colors.textDisabled,
                                     }}
                                 />
                             }

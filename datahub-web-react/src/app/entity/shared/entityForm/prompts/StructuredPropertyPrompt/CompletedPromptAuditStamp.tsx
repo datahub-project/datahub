@@ -18,7 +18,7 @@ const CompletedPromptContainer = styled.div`
 `;
 
 const AuditStamp = styled.div`
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     font-family: Manrope;
     font-weight: 600;

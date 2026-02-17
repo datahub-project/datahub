@@ -5,7 +5,7 @@ import getAvatarColor from '@app/shared/avatar/getAvatarColor';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const PreviewImage = styled.img<{ $isShowNavBarRedesign?: boolean }>`
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     width: 100%;
     min-height: 240px;
     max-height: 260px;
@@ -22,7 +22,7 @@ const PreviewImage = styled.img<{ $isShowNavBarRedesign?: boolean }>`
 const PreviewLetter = styled.div<{ color: string; $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => props.color};
     font-size: 52px;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     width: 100%;
     display: flex;
     align-items: center;

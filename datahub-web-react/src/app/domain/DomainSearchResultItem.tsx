@@ -2,7 +2,7 @@
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import DomainIcon from '@app/domain/DomainIcon';
 import { getParentDomains } from '@app/domain/utils';
@@ -42,6 +42,7 @@ const highlightMatchStyle = {
 };
 
 function DomainSearchResultItem({ entity, entityRegistry, query, onResultClick }: Props) {
+    const theme = useTheme();
     return (
         <SearchResult to={entityRegistry.getEntityUrl(entity.type, entity.urn)} onClick={onResultClick}>
             <IconWrapper>
@@ -49,7 +50,7 @@ function DomainSearchResultItem({ entity, entityRegistry, query, onResultClick }
                     <DomainIcon
                         style={{
                             fontSize: 16,
-                            color: '#BFBFBF',
+                            color: theme.colors.textDisabled,
                         }}
                     />
                 ) : (

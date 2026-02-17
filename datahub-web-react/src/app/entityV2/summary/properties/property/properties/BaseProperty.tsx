@@ -1,7 +1,7 @@
 import { Menu, Pill, Popover, Text } from '@components';
 import { Skeleton } from 'antd';
 import React, { useCallback, useMemo } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import usePropertyMenuItems from '@app/entityV2/summary/properties/menuProperty/usePropertyMenuItems';
 import { filterCurrentItemInReplaceMenu } from '@app/entityV2/summary/properties/property/properties/utils';
@@ -80,6 +80,7 @@ export default function BaseProperty<T>({
     restItemsPillBorderType = 'none',
     loading,
 }: Props<T>) {
+    const theme = useTheme();
     const { isTemplateEditable } = usePageTemplateContext();
 
     const menuItems = usePropertyMenuItems(position, property.type);
@@ -108,9 +109,7 @@ export default function BaseProperty<T>({
             <Popover content={popoverContent}>
                 <PillWrapper>
                     {(restItemsPillBorderType === 'none' || restItemsPillBorderType === undefined) && (
-                        <Text color="gray" colorLevel={1800}>
-                            {restItemsPillText}
-                        </Text>
+                        <Text style={{ color: theme.colors.textTertiary }}>{restItemsPillText}</Text>
                     )}
                     {restItemsPillBorderType === 'rounded' && (
                         <Pill label={restItemsPillText} variant="outline" size="sm" />
@@ -121,16 +120,15 @@ export default function BaseProperty<T>({
                 </PillWrapper>
             </Popover>
         );
-    }, [valuesToShowInPopover, renderValueInTooltip, restItemsPillBorderType, renderValue]);
+    }, [valuesToShowInPopover, renderValueInTooltip, restItemsPillBorderType, renderValue, theme.colors.textTertiary]);
 
     return (
         <PropertyWrapper data-testid={`property-${property.type}`}>
             <Menu items={filteredItems} trigger={['click']} disabled={!isTemplateEditable}>
                 <Title
                     weight="bold"
-                    color="gray"
                     size="sm"
-                    colorLevel={600}
+                    style={{ color: theme.colors.text }}
                     $clickable={isTemplateEditable}
                     type="div"
                     data-testid="property-title"
@@ -144,7 +142,7 @@ export default function BaseProperty<T>({
                         <Skeleton.Button active />
                     ) : (
                         <>
-                            {valuesToShow.length === 0 && <Text color="gray">-</Text>}
+                            {valuesToShow.length === 0 && <Text style={{ color: theme.colors.textSecondary }}>-</Text>}
                             {valuesToShow.map((item) => renderValue(item))}
                             {renderRestOfValues()}
                         </>

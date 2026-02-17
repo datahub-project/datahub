@@ -51,7 +51,7 @@ export const SideBarSubSection = styled.div`
 export const EmptyValue = styled.div`
     &:after {
         content: 'None';
-        color: #b7b7b7;
+        color: ${(props) => props.theme.colors.textDisabled};
         font-style: italic;
         font-weight: 100;
     }
@@ -60,7 +60,7 @@ export const EmptyValue = styled.div`
 export const Name = styled.div`
     font-size: 20px;
     line-height: 28px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     margin: 13px 0 7px 0;
 `;
 
@@ -75,7 +75,7 @@ export const UserDetails = styled.div`
 export const TitleRole = styled.div`
     font-size: 14px;
     line-height: 22px;
-    color: #595959;
+    color: ${(props) => props.theme.colors.textSecondary};
     margin-bottom: 7px;
 `;
 
@@ -84,13 +84,13 @@ export const Team = styled.div`
     line-height: 20px;
     font-weight: 400;
     padding-bottom: 10px;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 export const SocialDetails = styled.div`
     font-size: 12px;
     line-height: 20px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     text-align: left;
     margin: 6px 0;
 `;
@@ -109,7 +109,7 @@ export const EditButton = styled.div`
         width: 100%;
         font-size: 12px;
         line-height: 20px;
-        color: #262626;
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
@@ -118,7 +118,7 @@ export const AboutSection = styled.div`
     font-weight: bold;
     font-size: 14px;
     line-height: 22px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const LocationSection = styled.div`
@@ -126,7 +126,7 @@ export const LocationSection = styled.div`
     font-weight: bold;
     font-size: 14px;
     line-height: 26px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const LocationSectionText = styled.div`
@@ -135,7 +135,7 @@ export const LocationSectionText = styled.div`
     font-size: 14px;
     line-height: 26px;
     margin-bottom: -10px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const AboutSectionText = styled.div`
@@ -158,7 +158,7 @@ export const GroupsSection = styled.div`
     font-weight: bold;
     font-size: 14px;
     line-height: 22px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const TagsSection = styled.div`
@@ -168,7 +168,7 @@ export const TagsSection = styled.div`
 
 export const NoDataFound = styled.span`
     font-size: 12px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     font-weight: 100;
 `;
 
@@ -180,7 +180,7 @@ export const GroupsSeeMoreText = styled.span`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: #1890ff;
+    color: ${(props) => props.theme.colors.hyperlinks};
     cursor: pointer;
 `;
 
@@ -190,7 +190,7 @@ export const DisplayCount = styled.span`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 export const GroupSectionTitle = styled.span`

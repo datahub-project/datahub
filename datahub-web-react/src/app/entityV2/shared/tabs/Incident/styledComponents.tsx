@@ -161,7 +161,7 @@ export const SiblingSelectionDropdownLink = styled.div`
     display: flex;
     flex-direction: row;
     align-items: center;
-    color: black;
+    color: ${(props) => props.theme.colors.text};
     border-radius: 8px;
     &:disabled {
         opacity: 0.6;

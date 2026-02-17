@@ -71,7 +71,7 @@ const Title = styled(Typography.Title)`
 const StyledArrowOutlined = styled(ArrowRightOutlined)`
     align-self: center;
     flex: 1;
-    color: black;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 type Props = {

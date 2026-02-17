@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 const CloseSpan = styled.span`
     :hover {
-        color: black;
+        color: ${(props) => props.theme.colors.text};
         cursor: pointer;
     }
 `;

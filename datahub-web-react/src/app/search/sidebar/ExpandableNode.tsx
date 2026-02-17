@@ -2,7 +2,7 @@ import { UpCircleOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React, { MouseEventHandler, ReactNode } from 'react';
 import { VscTriangleRight } from 'react-icons/vsc';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { BaseButton, BodyContainer, BodyGridExpander, RotatingButton } from '@app/shared/components';
 
@@ -67,7 +67,7 @@ ExpandableNode.StaticButton = ({ icon, onClick }: { icon: JSX.Element; onClick?:
     return <BaseButton ghost size="small" type="ghost" icon={icon} onClick={onClickButton} />;
 };
 
-ExpandableNode.TriangleButton = ({
+const TriangleButton = ({
     isOpen,
     isVisible,
     onClick,
@@ -78,6 +78,7 @@ ExpandableNode.TriangleButton = ({
     onClick?: () => void;
     dataTestId?: string;
 }) => {
+    const theme = useTheme();
     const onClickButton: MouseEventHandler = (e) => {
         e.stopPropagation();
         onClick?.();
@@ -88,12 +89,15 @@ ExpandableNode.TriangleButton = ({
             size="small"
             type="ghost"
             deg={isOpen ? 90 : 0}
-            icon={<VscTriangleRight style={{ color: '#000', visibility: isVisible ? 'visible' : 'hidden' }} />}
+            icon={
+                <VscTriangleRight style={{ color: theme.colors.text, visibility: isVisible ? 'visible' : 'hidden' }} />
+            }
             onClick={onClickButton}
             data-testid={dataTestId}
         />
     );
 };
+ExpandableNode.TriangleButton = TriangleButton;
 
 ExpandableNode.CircleButton = ({ isOpen, color }: { isOpen: boolean; color: string }) => {
     return (

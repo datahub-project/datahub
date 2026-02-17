@@ -1,7 +1,7 @@
 import { EditFilled } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import {
     getContractSummaryIcon,
@@ -56,7 +56,7 @@ const CreateButton = styled(Button)`
     color: ${(props) => props.theme.styles['primary-color']};
     letter-spacing: 2px;
     &&:hover {
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillBrand};
         background-color: ${(props) => props.theme.styles['primary-color']};
         border-color: ${(props) => props.theme.styles['primary-color']};
     }
@@ -75,7 +75,8 @@ type Props = {
 };
 
 export const DataContractSummary = ({ state, summary, showContractBuilder }: Props) => {
-    const summaryIcon = getContractSummaryIcon(state, summary);
+    const theme = useTheme();
+    const summaryIcon = getContractSummaryIcon(state, summary, theme.colors.textDisabled);
     const summaryTitle = getContractSummaryTitle(state, summary);
     const summaryMessage = getContractSummaryMessage(state, summary);
     return (

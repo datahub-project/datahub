@@ -60,7 +60,6 @@ export function SourceNameColumn({ type, record }: TypeColumnProps) {
                     ellipsis={{
                         tooltip: {
                             title: record.name,
-                            color: 'white',
                             overlayInnerStyle: { color: theme.colors.textSecondary },
                             showArrow: false,
                         },
@@ -68,7 +67,9 @@ export function SourceNameColumn({ type, record }: TypeColumnProps) {
                 >
                     {record.name || ''}
                 </TextContainer>
-                {!iconUrl && typeDisplayName && <TruncatedText color="gray">{typeDisplayName}</TruncatedText>}
+                {!iconUrl && typeDisplayName && (
+                    <TruncatedText style={{ color: theme.colors.textSecondary }}>{typeDisplayName}</TruncatedText>
+                )}
             </DisplayNameContainer>
             {record.cliIngestion && (
                 <Tooltip title="This source is ingested from the command-line interface (CLI)">

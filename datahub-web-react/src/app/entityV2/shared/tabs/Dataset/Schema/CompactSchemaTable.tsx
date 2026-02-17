@@ -38,18 +38,24 @@ export type Props = {
 const TableContainer = styled.div<{ fullHeight?: boolean }>`
     margin-top: ${(props) => (props.fullHeight ? '0px' : '5px')};
     margin-left: ${(props) => (props.fullHeight ? '12px' : '0px')};
+    .ant-table {
+        background: transparent;
+    }
     .ant-table-thead > tr > th {
         background-color: transparent;
         font-weight: 600;
         color: ${(props) => props.theme.colors.text};
         font-weight: 700;
     }
+    .ant-table-tbody > tr > td {
+        background: transparent;
+    }
     &&& .ant-table-cell:first-of-type {
         ${(props) => !props.fullHeight && 'padding: 8px 8px 8px 0px'};
     }
 
     &&& .selected-row * {
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillBrand};
         background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     }
 

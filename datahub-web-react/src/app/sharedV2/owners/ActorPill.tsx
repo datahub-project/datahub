@@ -1,7 +1,7 @@
 import { Icon, Text } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { CustomAvatar } from '@app/shared/avatar';
@@ -36,6 +36,7 @@ interface Props {
 }
 
 export default function ActorPill({ actor, isProposed, onClose, hideLink, propagationDetails }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
     const name = actor && entityRegistry.getDisplayName(actor.type, actor);
     const avatarUrl = actor?.editableProperties?.pictureLink || undefined;
@@ -52,7 +53,7 @@ export default function ActorPill({ actor, isProposed, onClose, hideLink, propag
             >
                 <ContentWrapper $isProposed={isProposed} data-testid={`${isProposed ? 'proposed-' : ''}owner-${name}`}>
                     <CustomAvatar size={20} name={name} photoUrl={avatarUrl} hideTooltip />
-                    <Text color="gray" size="sm" data-testid="owner-name">
+                    <Text size="sm" style={{ color: theme.colors.textSecondary }} data-testid="owner-name">
                         {name}
                     </Text>
                     {!isProposed && onClose && (

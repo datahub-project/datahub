@@ -46,7 +46,7 @@ const TagContainer = styled.div`
     margin-top: 3px;
     flex-wrap: wrap;
     margin-right: 8px;
-    backgroundcolor: white;
+    background-color: ${(props) => props.theme.colors.bg};
     gap: 5px;
 `;
 

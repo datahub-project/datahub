@@ -37,7 +37,7 @@ const DescriptionLabel = styled(Typography.Text)`
         font-weight: bold;
         font-size: 14px;
         line-height: 28px;
-        color: rgb(38, 38, 38);
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 

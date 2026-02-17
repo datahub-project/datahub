@@ -32,9 +32,9 @@ const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        color: #1890ff;
+        color: ${props.theme.colors.hyperlinks};
         &:focus {
-            color: #1890ff;
+            color: ${props.theme.colors.hyperlinks};
         }    
     `}
 `;

@@ -15,7 +15,7 @@ const Tab = styled.div<{ selected: boolean; disabled: boolean }>`
     ${(props) => !props.selected && `color: ${props.theme.colors.text};`}
     ${(props) => props.disabled && `color: ${props.theme.colors.textDisabled};`}
     ${(props) => props.selected && `background-color: ${props.theme.styles['primary-color']};`}
-    ${(props) => props.selected && 'color: #ffffff;'}
+    ${(props) => props.selected && `color: ${props.theme.colors.textOnFillBrand};`}
     ${(props) =>
         !props.disabled &&
         `:hover {

@@ -157,9 +157,7 @@ export default function CreateServiceAccountModal({ visible, onClose, onCreateSe
                     <FormLabel size="md" weight="semiBold">
                         Name
                     </FormLabel>
-                    <FormDescription size="sm" color="gray">
-                        A name for the service account
-                    </FormDescription>
+                    <FormDescription size="sm">A name for the service account</FormDescription>
                     <Input
                         value={displayName}
                         setValue={setDisplayName}
@@ -173,9 +171,7 @@ export default function CreateServiceAccountModal({ visible, onClose, onCreateSe
                     <FormLabel size="md" weight="semiBold">
                         Description
                     </FormLabel>
-                    <FormDescription size="sm" color="gray">
-                        An optional description for the service account
-                    </FormDescription>
+                    <FormDescription size="sm">An optional description for the service account</FormDescription>
                     <TextArea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}

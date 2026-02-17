@@ -1,7 +1,7 @@
 import { Pill, Text } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
@@ -55,6 +55,7 @@ interface Props {
 }
 
 export default function VersionsPreview({ versionSet }: Props) {
+    const theme = useTheme();
     const { urn, entityType, setDrawer } = useEntityContext();
 
     const count = versionSet?.versionsSearch?.count;
@@ -74,8 +75,8 @@ export default function VersionsPreview({ versionSet }: Props) {
                 <Footer>
                     <ShowAllButton
                         size="md"
-                        color="gray"
                         weight="bold"
+                        style={{ color: theme.colors.textSecondary }}
                         onClick={() => {
                             analytics.event({
                                 type: EventType.ShowAllVersionsEvent,
@@ -119,6 +120,7 @@ interface VersionPreviewRowProps {
 }
 
 function VersionPreviewRow({ entity }: VersionPreviewRowProps) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { urn: entityProfileUrn } = useEntityData();
 
@@ -133,13 +135,13 @@ function VersionPreviewRow({ entity }: VersionPreviewRowProps) {
                     isLatest={versionProperties?.isLatest}
                 />
                 {!!versionProperties?.isLatest && (
-                    <Text size="md" color="gray">
+                    <Text size="md" style={{ color: theme.colors.textSecondary }}>
                         Latest
                     </Text>
                 )}
             </VersionPreviewHeader>
             {isViewing && (
-                <Text size="md" color="gray" colorLevel={1800} weight="semiBold">
+                <Text size="md" weight="semiBold" style={{ color: theme.colors.textTertiary }}>
                     Viewing
                 </Text>
             )}

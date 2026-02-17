@@ -19,7 +19,7 @@ export const BulkNavigationWrapper = styled.div<{ $hideBackground?: boolean }>`
 
 export const NavigationWrapper = styled.div<{ isHidden: boolean }>`
     font-size: 20px;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     display: flex;
     flex-wrap: nowrap;
     ${(props) => props.isHidden && 'opacity: 0;'}

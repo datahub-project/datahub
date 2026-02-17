@@ -46,7 +46,7 @@ const CreateButton = styled(Button)`
     color: ${(props) => props.theme.styles['primary-color']};
     letter-spacing: 2px;
     &&:hover {
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillBrand};
         background-color: ${(props) => props.theme.styles['primary-color']};
         border-color: ${(props) => props.theme.styles['primary-color']};
     }

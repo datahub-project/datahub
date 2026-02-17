@@ -139,7 +139,6 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                 {showTooltip ? (
                     <Tooltip
                         title={record.name}
-                        color="white"
                         overlayInnerStyle={{ color: theme.colors.textSecondary }}
                         showArrow={false}
                     >
@@ -148,7 +147,9 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                 ) : (
                     textElement
                 )}
-                {!iconUrl && typeDisplayName && <SourceTypeText color="gray">{typeDisplayName}</SourceTypeText>}
+                {!iconUrl && typeDisplayName && (
+                    <SourceTypeText style={{ color: theme.colors.textSecondary }}>{typeDisplayName}</SourceTypeText>
+                )}
             </DisplayNameContainer>
             {record.cliIngestion && (
                 <Tooltip title="This source is ingested from the command-line interface (CLI)">
@@ -179,7 +180,6 @@ export function ScheduleColumn({ schedule, timezone }: { schedule: string; timez
             ellipsis={{
                 tooltip: {
                     title: scheduleText,
-                    color: 'white',
                     overlayInnerStyle: { color: theme.colors.textSecondary },
                     showArrow: false,
                 },
@@ -267,6 +267,7 @@ export function ActionsColumn({
     onDelete,
     navigateToRunHistory,
 }: ActionsColumnProps) {
+    const theme = useTheme();
     const items: MenuOption[] = [];
 
     if (!record.cliIngestion)
@@ -356,7 +357,7 @@ export function ActionsColumn({
                     onDelete(record.urn);
                 }}
             >
-                <Text color="red">Delete </Text>
+                <Text style={{ color: theme.colors.textError }}>Delete </Text>
             </MenuItem>
         ),
     });

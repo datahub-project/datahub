@@ -30,9 +30,9 @@ export default function ViewAllResults({ searchText, dataTestId }: Props) {
         <Container data-testid={dataTestId}>
             <LeftInternalContainer>
                 <MagnifyingGlass size={16} color={theme.colors.textSecondary} />
-                <Text color="gray">
+                <Text style={{ color: theme.colors.textSecondary }}>
                     View all results for&nbsp;
-                    <Text type="span" color="gray" weight="semiBold">
+                    <Text type="span" weight="semiBold" style={{ color: theme.colors.textSecondary }}>
                         {searchText}
                     </Text>
                 </Text>

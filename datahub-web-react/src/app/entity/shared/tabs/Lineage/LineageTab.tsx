@@ -11,7 +11,7 @@ import { Button, Select, Tooltip, Typography } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { downgradeV2FieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -75,6 +75,7 @@ export const LineageTab = ({
     const history = useHistory();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(properties.defaultDirection);
     const [selectedColumn, setSelectedColumn] = useState<string | undefined>(params?.column as string);
@@ -158,7 +159,7 @@ export const LineageTab = ({
                         value={lineageDirection}
                         options={directionOptions}
                         onChange={(value) => setLineageDirection(value as LineageDirection)}
-                        suffixIcon={<CaretDownOutlined style={{ color: 'black' }} />}
+                        suffixIcon={<CaretDownOutlined style={{ color: theme.colors.text }} />}
                         data-testid="lineage-tab-direction-select"
                     />
                     <ColumnsLineageSelect

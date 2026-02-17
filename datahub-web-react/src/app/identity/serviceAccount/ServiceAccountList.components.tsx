@@ -1,7 +1,7 @@
 import { message } from 'antd';
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import CreateTokenModal from '@app/settingsV2/CreateTokenModal';
@@ -120,8 +120,9 @@ type ServiceAccountDescriptionCellProps = {
 };
 
 export const ServiceAccountDescriptionCell = ({ serviceAccount }: ServiceAccountDescriptionCellProps) => {
+    const theme = useTheme();
     return (
-        <Text color="gray" size="md">
+        <Text size="md" style={{ color: theme.colors.textSecondary }}>
             {serviceAccount.description || '-'}
         </Text>
     );
@@ -313,6 +314,7 @@ export const ServiceAccountTable = ({
     onRoleChange,
     refetch,
 }: ServiceAccountTableProps) => {
+    const theme = useTheme();
     const columns = [
         {
             title: 'Name',
@@ -371,7 +373,7 @@ export const ServiceAccountTable = ({
                             allowClear
                         />
                         {query.length > 0 && query.length < 3 && (
-                            <Text size="xs" color="gray" style={{ marginTop: '4px' }}>
+                            <Text size="xs" style={{ marginTop: '4px', color: theme.colors.textSecondary }}>
                                 Enter at least 3 characters to search
                             </Text>
                         )}
@@ -395,16 +397,16 @@ export const ServiceAccountTable = ({
                 ) : (
                     <EmptyStateContainer>
                         {loading ? (
-                            <Text size="md" color="gray">
+                            <Text size="md" style={{ color: theme.colors.textSecondary }}>
                                 Loading service accounts...
                             </Text>
                         ) : (
                             <>
                                 <Icon icon="Robot" source="phosphor" size="4xl" color="gray" />
-                                <Text size="md" color="gray">
+                                <Text size="md" style={{ color: theme.colors.textSecondary }}>
                                     No service accounts found
                                 </Text>
-                                <Text size="sm" color="gray">
+                                <Text size="sm" style={{ color: theme.colors.textSecondary }}>
                                     Create a service account to enable programmatic access to DataHub APIs
                                 </Text>
                             </>

@@ -1,7 +1,7 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { message } from 'antd';
 import React from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { Button, Modal, Text } from '@src/alchemy-components';
 import { IconNames } from '@src/alchemy-components/components/Icon/types';
@@ -101,6 +101,7 @@ type Props = {
 };
 
 export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText }: Props) => {
+    const theme = useTheme();
     const baseUrl = window.location.origin;
     const accessTokenCurl = `curl -X POST '${baseUrl}${resolveRuntimePath('/api/graphql')}' \\
 --header 'Authorization: Bearer ${accessToken}' \\
@@ -161,7 +162,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                     <Text size="md" weight="semiBold">
                         Usage
                     </Text>
-                    <Text size="sm" color="gray">
+                    <Text size="sm" style={{ color: theme.colors.textSecondary }}>
                         To use the token, provide it as a <Kbd>Bearer</Kbd> token in the <Kbd>Authorization</Kbd> header
                         when making API requests:
                     </Text>
@@ -183,7 +184,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                     <Text size="md" weight="semiBold">
                         Learn More
                     </Text>
-                    <Text size="sm" color="gray">
+                    <Text size="sm" style={{ color: theme.colors.textSecondary }}>
                         To learn more about the DataHub APIs, check out the{' '}
                         <Link href="https://www.datahubproject.io/docs/" target="_blank" rel="noopener noreferrer">
                             DataHub Docs

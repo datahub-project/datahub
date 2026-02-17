@@ -7,7 +7,7 @@ import { Button, Select, message } from 'antd';
 import { orderBy } from 'lodash';
 import React, { useContext, useState } from 'react';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
@@ -76,7 +76,7 @@ const DoneButton = styled(Button)`
     height: 45px;
     flex-shrink: 0;
     background-color: #3f54d1;
-    color: #fff;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     margin-top: 12px;
 `;
 
@@ -92,7 +92,7 @@ const PsuedoCheckBox = styled.div<{ checked?: boolean }>`
     border-radius: 4px;
     border: 1px solid ${(props) => props.theme.colors.border};
     background: ${(props) => props.theme.colors.bgSurface};
-    color: #fff;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
 
     ${(props) =>
         props.checked &&
@@ -121,7 +121,7 @@ const SelectWrapper = styled.div`
         position: absolute;
         left: 10px;
         z-index: 99;
-        fill: #a9adbd;
+        fill: ${(props) => props.theme.colors.textTertiary};
     }
 
     .ant-select-arrow {
@@ -259,6 +259,7 @@ const DEFAULT_PERSONA = PersonaType.TECHNICAL_USER;
 
 // TODO: Make section ordering dynamic based on populated data.
 export const IntroduceYourselfMainContent = () => {
+    const themeConfig = useTheme();
     const userContext = useUserContext();
     const { refetchUser, user } = userContext;
     const defaultDataPlatforms = useGetDataPlatforms();
@@ -434,7 +435,7 @@ export const IntroduceYourselfMainContent = () => {
     const selectStyles = {
         width: 290,
         borderRadius: '8px',
-        borderColor: '#5F6685',
+        borderColor: themeConfig.colors.border,
         color: '#81879f',
     };
 

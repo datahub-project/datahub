@@ -79,7 +79,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
             ? {
                   key: 'version',
                   label: (
-                      <MenuItemStyle key="version" disabled style={{ color: '#8C8C8C' }}>
+                      <MenuItemStyle key="version" disabled style={{ color: themeConfig.colors.textTertiary }}>
                           {version}
                       </MenuItemStyle>
                   ),

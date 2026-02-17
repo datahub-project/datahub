@@ -2,7 +2,7 @@ import { CheckCircleFilled, CloseCircleFilled, ExclamationCircleFilled, StopOutl
 import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
 
@@ -42,9 +42,9 @@ type Props = {
     summary: AssertionsSummary;
 };
 
-const getSummaryIcon = (summary: AssertionsSummary) => {
+const getSummaryIcon = (summary: AssertionsSummary, disabledColor: string) => {
     if (summary.totalRuns === 0) {
-        return <StopOutlined style={{ color: '#BFBFBF', fontSize: 28 }} />;
+        return <StopOutlined style={{ color: disabledColor, fontSize: 28 }} />;
     }
     if (summary.succeededRuns === summary.totalRuns) {
         return <CheckCircleFilled style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;
@@ -72,7 +72,8 @@ const getSummaryMessage = (summary: AssertionsSummary) => {
 };
 
 export const DatasetAssertionsSummary = ({ summary }: Props) => {
-    const summaryIcon = getSummaryIcon(summary);
+    const theme = useTheme();
+    const summaryIcon = getSummaryIcon(summary, theme.colors.textDisabled);
     const summaryMessage = getSummaryMessage(summary);
     const errorMessage = summary.erroredRuns
         ? `, ${summary.erroredRuns} error${summary.erroredRuns > 1 ? 's' : ''}`

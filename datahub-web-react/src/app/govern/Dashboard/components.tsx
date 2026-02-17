@@ -234,6 +234,6 @@ export const ChartPerformanceItem = styled.div`
 
 export const StyledSelect = styled(Select)`
     .ant-select-arrow {
-        color: black;
+        color: ${(props) => props.theme.colors.text};
     }
 `;

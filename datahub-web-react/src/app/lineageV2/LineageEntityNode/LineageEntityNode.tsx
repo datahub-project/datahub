@@ -24,7 +24,7 @@ const HomeNodeBubble = styled.div`
     align-items: center;
     background-color: ${(p) => p.theme.styles['primary-color']};
     border-radius: 10px;
-    color: white;
+    color: ${(p) => p.theme.colors.textOnFillBrand};
     display: flex;
     font-size: 10px;
     font-weight: 600;

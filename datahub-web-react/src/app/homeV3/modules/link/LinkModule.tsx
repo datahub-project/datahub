@@ -57,7 +57,6 @@ export default function LinkModule(props: ModuleProps) {
                         <NameContainer
                             ellipsis={{
                                 tooltip: {
-                                    color: 'white',
                                     overlayInnerStyle: { color: theme.colors.textSecondary },
                                     showArrow: false,
                                 },
@@ -69,7 +68,6 @@ export default function LinkModule(props: ModuleProps) {
                             <DescriptionContainer
                                 ellipsis={{
                                     tooltip: {
-                                        color: 'white',
                                         overlayInnerStyle: { color: theme.colors.textSecondary },
                                         showArrow: false,
                                     },

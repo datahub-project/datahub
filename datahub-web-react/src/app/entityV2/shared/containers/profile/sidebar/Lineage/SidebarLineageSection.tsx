@@ -68,7 +68,7 @@ const DirectionHeader = styled.div`
 const StyledPartitionOutlined = styled(PartitionOutlined)`
     color: ${(p) => p.theme.styles['primary-color']};
     &:hover {
-        color: white;
+        color: ${(p) => p.theme.colors.textBrand};
     }
 `;
 

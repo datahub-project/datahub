@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
 import RequiredPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/RequiredPromptsRemaining';
@@ -37,10 +37,14 @@ export default function IncompleteView({
     isUserAssigned,
     openFormModal,
 }: Props) {
+    const themeConfig = useTheme();
     const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <CTAWrapper backgroundColor="#FEF9ED" borderColor="#F4C449">
+        <CTAWrapper
+            backgroundColor={themeConfig.colors.bgSurfaceWarning}
+            borderColor={themeConfig.colors.borderWarning}
+        >
             <FlexWrapper>
                 <Content>
                     <TitleWrapper

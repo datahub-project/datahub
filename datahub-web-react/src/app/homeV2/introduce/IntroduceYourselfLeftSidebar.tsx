@@ -32,7 +32,7 @@ const AcrylTitle = styled.div`
     align-items: center;
     justify-content: start;
     font: 700 14px Mulish;
-    color: #fff;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     letter-spacing: 1px;
 `;
 

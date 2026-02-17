@@ -37,7 +37,7 @@ const DeleteButtonContainer = styled.div`
         width: 28px;
         height: 28px;
         padding: 4px;
-        color: #595959;
+        color: ${(props) => props.theme.colors.textSecondary};
         display: flex;
         align-items: center;
         justify-content: center;
@@ -49,9 +49,9 @@ const DeleteButtonContainer = styled.div`
         }
 
         &.delete-action {
-            color: #ff4d4f;
+            color: ${(props) => props.theme.colors.textError};
             :hover {
-                color: #cf1322;
+                color: ${(props) => props.theme.colors.textError};
                 border-color: ${(props) => props.theme.colors.text};
             }
         }

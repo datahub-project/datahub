@@ -1,6 +1,6 @@
 import { Icon, Text, Tooltip } from '@components';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
 
@@ -43,6 +43,7 @@ type Props = {
 };
 
 export default function DocumentItem({ document, onClick }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
     const title = document.info?.title || 'Untitled Document';
     const lastModified = document.info?.lastModified;
@@ -75,7 +76,7 @@ export default function DocumentItem({ document, onClick }: Props) {
             <RightSection>
                 {lastModified?.time && (
                     <>
-                        <Text color="gray" size="sm">
+                        <Text size="sm" style={{ color: theme.colors.textSecondary }}>
                             Edited{' '}
                             <Tooltip title={formatDateString(lastModified.time)}>
                                 <span>{toRelativeTimeString(lastModified.time) || 'recently'}</span>

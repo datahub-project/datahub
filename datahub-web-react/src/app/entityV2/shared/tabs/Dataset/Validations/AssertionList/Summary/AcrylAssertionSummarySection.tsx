@@ -3,7 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
-import { ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListConstants';
+import { getAssertionSummaryCardHeaderByStatus } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListConstants';
 import { buildAssertionUrlSearch } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
 import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
@@ -42,11 +42,12 @@ export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ gr
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
+    const headerByStatus = getAssertionSummaryCardHeaderByStatus(theme.colors);
 
     return (
         <SummarySection>
             {visibleStatus.map((key) => {
-                const status = ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS[key];
+                const status = headerByStatus[key];
                 const url = `${entityRegistry.getEntityUrl(
                     EntityType.Dataset,
                     entityData.urn,

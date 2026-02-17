@@ -57,7 +57,7 @@ const MarkAsDeprecatedButtonContainer = styled.div`
 `;
 
 const DetailLabel = styled(Typography.Text)`
-    color: rgb(55, 64, 102);
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     font-weight: 600;
     line-height: 16px;

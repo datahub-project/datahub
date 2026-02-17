@@ -33,7 +33,7 @@ const LogoContainer = styled.div`
 
 const Title = styled.div`
     word-break: break-word;
-    color: #464646;
+    color: ${(props) => props.theme.colors.text};
     font-weight: bold;
     font-size: 16px;
     margin-bottom: 8px;
@@ -42,7 +42,7 @@ const Title = styled.div`
 const Description = styled.div`
     word-break: break-word;
     text-align: left;
-    color: #7c7c7c;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type Props = {

@@ -1,7 +1,7 @@
 import { Modal, PageTitle, Pill, Text, spacing } from '@components';
 import { Typography } from 'antd';
 import React, { useCallback } from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import {
     CapabilityReport,
@@ -68,6 +68,7 @@ function TestConnectionModal({
     testConnectionResult,
     hideModal,
 }: Props) {
+    const theme = useTheme();
     const logoUrl = useGetSourceLogoUrl(sourceConfig?.name || '');
 
     const renderTitlePill = useCallback(() => {
@@ -89,7 +90,9 @@ function TestConnectionModal({
                     <SourceIcon alt="source logo" src={logoUrl} />
                     <HeaderText>
                         {sourceConfig?.displayName} Connection Test
-                        <Text color="gray">Here&apos;s what DataHub can access with your provided credentials</Text>
+                        <Text style={{ color: theme.colors.textSecondary }}>
+                            Here&apos;s what DataHub can access with your provided credentials
+                        </Text>
                     </HeaderText>
                 </ModalHeader>
             }

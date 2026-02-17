@@ -72,7 +72,7 @@ const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; sho
 `;
 
 const PropagateThunderbolt = styled(ThunderboltOutlined)`
-    color: rgba(0, 143, 100, 0.95);
+    color: ${(props) => props.theme.colors.textSuccess};
     margin-right: -4px;
     font-weight: bold;
 `;
@@ -94,7 +94,7 @@ const CloseButtonContainer = styled.div`
 
 const CloseIconStyle = styled(CloseIcon)`
     font-size: 10px !important;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
 `;
 
 export const TermRibbon = styled.span<{ color: string; opacity?: number }>`

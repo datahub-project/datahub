@@ -25,16 +25,16 @@ const FormInput = styled(Input)`
         border: 1px solid ${(props) => props.theme.colors.border};
         border-radius: 5px;
         background-color: transparent;
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillDefault};
         line-height: 1.5715;
     }
     > .ant-input {
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillDefault};
         font-size: 14px;
         background-color: transparent;
     }
     > .ant-input:hover {
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillDefault};
         font-size: 14px;
         background-color: transparent;
     }
@@ -125,14 +125,14 @@ export const LogIn: React.VFC<LogInProps> = () => {
                         <Form.Item
                             name="username"
                             // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: 'white' }}>Username</label>}
+                            label={<label style={{ color: themeConfig.colors.textOnFillDefault }}>Username</label>}
                         >
                             <FormInput prefix={<UserOutlined />} data-testid="username" />
                         </Form.Item>
                         <Form.Item
                             name="password"
                             // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: 'white' }}>Password</label>}
+                            label={<label style={{ color: themeConfig.colors.textOnFillDefault }}>Password</label>}
                         >
                             <FormInput prefix={<LockOutlined />} type="password" data-testid="password" />
                         </Form.Item>

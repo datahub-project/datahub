@@ -161,7 +161,7 @@ function EntityName(props: Props) {
             }}
             $showEntityLink={showEntityLink}
             ellipsis={{
-                tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: theme.colors.textSecondary } },
+                tooltip: { showArrow: false, overlayInnerStyle: { color: theme.colors.textSecondary } },
             }}
             key={`${updatedName}-${key}`}
         >
@@ -171,7 +171,7 @@ function EntityName(props: Props) {
         <EntityTitle
             $showEntityLink={showEntityLink}
             ellipsis={{
-                tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: theme.colors.textSecondary } },
+                tooltip: { showArrow: false, overlayInnerStyle: { color: theme.colors.textSecondary } },
             }}
             key={`${entityName}-${key}`}
         >

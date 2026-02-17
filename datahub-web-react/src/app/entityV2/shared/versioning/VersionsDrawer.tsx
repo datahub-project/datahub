@@ -6,7 +6,7 @@ import moment from 'moment';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDebounce } from 'react-use';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { StructuredPopover } from '@components/components/StructuredPopover';
 
@@ -100,6 +100,7 @@ interface Props {
 }
 
 export default function VersionsDrawer({ versionSetUrn, open }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { setDrawer } = useEntityContext();
 
@@ -195,7 +196,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
     return (
         <Drawer
             title={
-                <Title size="xl" color="gray" colorLevel={600} weight="semiBold">
+                <Title size="xl" weight="semiBold" style={{ color: theme.colors.text }}>
                     Versions
                     <CloseIcon onClick={() => setDrawer?.(undefined)}>
                         <CloseOutlined />

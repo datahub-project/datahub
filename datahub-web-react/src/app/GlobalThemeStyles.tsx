@@ -12,6 +12,10 @@ import { Theme } from '@conf/theme/types';
  */
 const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     /* ── Base ─────────────────────────────────────────────── */
+    :root {
+        --theme-bgSurface: ${(props) => props.theme.colors.bgSurface};
+    }
+
     body {
         background-color: ${(props) => props.theme.colors.bgSurfaceNewNav};
         color: ${(props) => props.theme.colors.text};
@@ -24,24 +28,49 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
 
     /* ── Modals ───────────────────────────────────────────── */
     .ant-modal-content {
-        background-color: ${(props) => props.theme.colors.bg};
-        color: ${(props) => props.theme.colors.text};
+        background-color: ${(props) => props.theme.colors.bg} !important;
+        color: ${(props) => props.theme.colors.text} !important;
     }
     .ant-modal-header {
-        background-color: ${(props) => props.theme.colors.bg};
+        background-color: ${(props) => props.theme.colors.bg} !important;
         border-bottom-color: ${(props) => props.theme.colors.border};
     }
     .ant-modal-header .ant-modal-title {
-        color: ${(props) => props.theme.colors.text};
+        color: ${(props) => props.theme.colors.text} !important;
     }
     .ant-modal-footer {
         border-top-color: ${(props) => props.theme.colors.border};
     }
     .ant-modal-body {
-        background-color: ${(props) => props.theme.colors.bg};
+        background-color: ${(props) => props.theme.colors.bg} !important;
     }
     .ant-modal-close-x {
-        color: ${(props) => props.theme.colors.icon};
+        color: ${(props) => props.theme.colors.icon} !important;
+    }
+
+    /* ── Reactour (Product Tour) ────────────────────────── */
+    .reactour__helper {
+        background-color: ${(props) => props.theme.colors.bg} !important;
+        color: ${(props) => props.theme.colors.text} !important;
+    }
+    .reactour__helper h1,
+    .reactour__helper h2,
+    .reactour__helper h3,
+    .reactour__helper h4,
+    .reactour__helper h5,
+    .reactour__helper h6 {
+        color: ${(props) => props.theme.colors.text} !important;
+    }
+    .reactour__helper p,
+    .reactour__helper span,
+    .reactour__helper div.ant-typography {
+        color: ${(props) => props.theme.colors.text} !important;
+    }
+    .reactour__helper a {
+        color: ${(props) => props.theme.colors.hyperlinks} !important;
+    }
+    .reactour__close {
+        color: ${(props) => props.theme.colors.icon} !important;
     }
 
     /* ── Dropdowns ────────────────────────────────────────── */
@@ -165,6 +194,9 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-typography {
         color: ${(props) => props.theme.colors.text};
     }
+    .ant-typography.ant-typography-secondary {
+        color: ${(props) => props.theme.colors.textSecondary};
+    }
 
     /* ── Tag ──────────────────────────────────────────────── */
     .ant-tag {
@@ -260,6 +292,9 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         border-color: ${(props) => props.theme.colors.border};
         color: ${(props) => props.theme.colors.text};
     }
+    .ant-collapse-ghost {
+        background-color: transparent;
+    }
     .ant-collapse > .ant-collapse-item {
         border-bottom-color: ${(props) => props.theme.colors.border};
     }
@@ -270,6 +305,9 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         background-color: ${(props) => props.theme.colors.bg};
         border-top-color: ${(props) => props.theme.colors.border};
         color: ${(props) => props.theme.colors.text};
+    }
+    .ant-collapse-ghost > .ant-collapse-item > .ant-collapse-content {
+        background-color: transparent;
     }
 
     /* ── Steps ────────────────────────────────────────────── */

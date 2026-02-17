@@ -9,7 +9,7 @@ const Header = styled.div`
     font-size: 24px;
     display: flex;
     align-items: center;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     justify-content: space-between;
 `;
 

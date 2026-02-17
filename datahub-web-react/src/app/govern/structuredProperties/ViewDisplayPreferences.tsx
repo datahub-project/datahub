@@ -34,7 +34,7 @@ const ViewDisplayPreferences = ({ propEntity }: Props) => {
                     key={1}
                     header={
                         <CollapseHeader>
-                            <Text weight="bold" color="gray">
+                            <Text weight="bold" style={{ color: theme.colors.textSecondary }}>
                                 Display Preferences
                             </Text>
                         </CollapseHeader>

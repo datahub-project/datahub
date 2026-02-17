@@ -3,7 +3,6 @@ import styled from 'styled-components';
 
 import { TooltipHeaderProps } from '@components/components/StructuredPopover/types';
 
-
 const Container = styled.div`
     display: flex;
     align-items: center;

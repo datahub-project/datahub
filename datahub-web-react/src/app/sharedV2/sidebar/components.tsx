@@ -1,6 +1,6 @@
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { RotatingButton } from '@app/shared/components';
 
@@ -29,13 +29,14 @@ export function RotatingTriangle({
     onClick?: () => void;
     dataTestId?: string;
 }) {
+    const theme = useTheme();
     return (
         <RotatingButton
             ghost
             size="small"
             type="ghost"
             deg={isOpen ? 90 : 0}
-            icon={<ChevronRightIcon style={{ color: 'black' }} />}
+            icon={<ChevronRightIcon style={{ color: theme.colors.text }} />}
             onClick={onClick}
             data-testid={dataTestId}
         />

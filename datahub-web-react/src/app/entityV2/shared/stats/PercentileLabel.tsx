@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { percentileToColor, percentileToLabel } from '@app/entityV2/shared/stats/statsUtils';
 
 const Description = styled.div`
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     font-size: 14px;
 `;
 

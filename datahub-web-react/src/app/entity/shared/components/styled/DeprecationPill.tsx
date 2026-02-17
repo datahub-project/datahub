@@ -60,7 +60,7 @@ const UndeprecatedIcon = styled(InfoCircleOutlined)`
 
 const IconGroup = styled.div`
     font-size: 12px;
-    color: 'black';
+    color: ${(props) => props.theme.colors.text};
     &:hover {
         color: ${blue[4]};
         cursor: pointer;

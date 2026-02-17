@@ -253,7 +253,6 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                     ellipsis={{
                         tooltip: {
                             title: record.name,
-                            color: 'white',
                             overlayInnerStyle: { color: theme.colors.textSecondary },
                             showArrow: false,
                         },
@@ -273,7 +272,6 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                         ellipsis={{
                             tooltip: {
                                 title: record.description,
-                                color: 'white',
                                 overlayInnerStyle: { color: theme.colors.textSecondary },
                                 showArrow: false,
                             },

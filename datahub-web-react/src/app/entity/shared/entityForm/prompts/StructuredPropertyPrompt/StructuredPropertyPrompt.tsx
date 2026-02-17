@@ -14,7 +14,7 @@ const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;
     justify-content: space-between;
     height: min-content;
-    ${(props) => props.displayBulkStyles && `color: white;`}
+    ${(props) => props.displayBulkStyles && `color: ${props.theme.colors.textOnFillDefault};`}
 `;
 
 const PromptTitle = styled.div<{ displayBulkStyles?: boolean }>`
@@ -27,11 +27,11 @@ const PromptTitle = styled.div<{ displayBulkStyles?: boolean }>`
 const RequiredText = styled.span<{ displayBulkStyles?: boolean }>`
     font-size: 12px;
     margin-left: 4px;
-    color: #a8071a;
+    color: ${(props) => props.theme.colors.textError};
     ${(props) =>
         props.displayBulkStyles &&
         `
-        color: #FFCCC7;
+        color: ${props.theme.colors.textError};
         margin-left: 8px;
     `}
 `;

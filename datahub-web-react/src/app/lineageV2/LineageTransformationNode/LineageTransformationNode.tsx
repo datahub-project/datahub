@@ -29,7 +29,7 @@ const HomeNodeBubble = styled.div`
     align-items: center;
     background-color: ${LINEAGE_COLORS.PURPLE_3};
     border-radius: 10px;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     display: flex;
     font-size: 10px;
     font-weight: 600;
