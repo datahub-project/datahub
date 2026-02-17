@@ -119,14 +119,14 @@ def test_dataset_urn_generation_with_normalization() -> None:
         "gs://bucket/data/year=2024/month=01/file.parquet"
     )
     assert len(urns) == 1
-    assert urns[0] == "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://bucket/data/,PROD)"
+    assert urns[0] == "urn:li:dataset:(urn:li:dataPlatform:gcs,bucket/data/,PROD)"
 
     # S3 partitioned path
     urns = parser.dataset_urns_from_artifact_uri(
         "s3://bucket/data/year=2024/month=01/file.parquet"
     )
     assert len(urns) == 1
-    assert urns[0] == "urn:li:dataset:(urn:li:dataPlatform:s3,s3://bucket/data/,PROD)"
+    assert urns[0] == "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/data/,PROD)"
 
 
 def test_dataset_urn_generation_without_normalization() -> None:
@@ -143,5 +143,5 @@ def test_dataset_urn_generation_without_normalization() -> None:
     assert len(urns) == 1
     assert (
         urns[0]
-        == "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://bucket/data/year=2024/month=01/file.parquet,PROD)"
+        == "urn:li:dataset:(urn:li:dataPlatform:gcs,bucket/data/year=2024/month=01/file.parquet,PROD)"
     )
