@@ -67,7 +67,7 @@ fi
 # JAR extraction optimization - extract to tmpfs for faster class loading
 JAR_EXTRACTION_OPTS=""
 if [[ $EXTRACT_JAR_ENABLED == true ]]; then
-  WORK_DIR="/tmp/gms-work"
+  WORK_DIR="/tmp/gms/extractio"
   JAR_PATH="/datahub/datahub-gms/bin/war.war"
 
   # Log WAR size and available resources
