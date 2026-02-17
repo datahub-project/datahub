@@ -77,6 +77,7 @@ os.environ["KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX"] = "test"
 os.environ["OTEL_OTLP_ENABLED"] = "false"
 os.environ["OTEL_TRACING_ENABLED"] = "false"
 os.environ["OTEL_SYSTEM_METRICS_ENABLED"] = "false"
+os.environ["SKIP_KAFKA_CONNECTIVITY_CHECK"] = "true"
 
 
 # Integration test marker for tests requiring external services
