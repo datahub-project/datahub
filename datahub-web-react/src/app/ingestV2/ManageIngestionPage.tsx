@@ -245,7 +245,7 @@ export const ManageIngestionPage = () => {
                                     icon={{ icon: 'Plus', source: 'phosphor' }}
                                     disabled={!canManageIngestion}
                                 >
-                                    Create source
+                                    Create Source
                                 </Button>
                             </div>
                         </Tooltip>
