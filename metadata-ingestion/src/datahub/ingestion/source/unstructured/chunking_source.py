@@ -122,7 +122,9 @@ class DocumentChunkingSource(Source):
             # Standalone mode: create our own graph client
             graph_config = DatahubClientConfig(
                 server=self.config.datahub.server,
-                token=self.config.datahub.token,
+                token=self.config.datahub.token.get_secret_value()
+                if self.config.datahub.token
+                else None,
             )
             self.graph = DataHubGraph(config=graph_config)
         else:
@@ -730,7 +732,9 @@ class DocumentChunkingSource(Source):
                 response = litellm.embedding(
                     model=self.embedding_model,
                     input=batch,
-                    api_key=self.config.embedding.api_key,  # Only used for Cohere
+                    api_key=self.config.embedding.api_key.get_secret_value()
+                    if self.config.embedding.api_key
+                    else None,  # Only used for Cohere
                     aws_region_name=self.config.embedding.aws_region,  # Only used for Bedrock
                 )
 
@@ -1143,7 +1147,9 @@ class DocumentChunkingSource(Source):
                 response = litellm.embedding(
                     model=embedding_model,
                     input=[test_text],
-                    api_key=embedding_config.api_key,
+                    api_key=embedding_config.api_key.get_secret_value()
+                    if embedding_config.api_key
+                    else None,
                     aws_region_name=embedding_config.aws_region,
                 )
 

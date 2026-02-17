@@ -220,6 +220,11 @@ shadowJar {
   relocate 'org.apache.hc', 'io.acryl.shaded.org.apache.hc'
   relocate 'org.reactivestreams', 'io.acryl.shaded.org.reactivestreams'
   relocate 'software.amazon.eventstream', 'io.acryl.shaded.software.amazon.eventstream'
+  relocate 'at.yawk.lz4', 'io.acryl.shaded.at.yawk.lz4'
+}
+
+checkShadowJar {
+  dependsOn shadowJar
 }
 
 assemble {

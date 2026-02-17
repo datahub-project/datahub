@@ -506,7 +506,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             if self.config.kafka_api_key and self.config.kafka_api_secret:
                 # Use Kafka-specific API credentials with Basic auth
                 headers["Authorization"] = self._create_basic_auth_header(
-                    self.config.kafka_api_key, self.config.kafka_api_secret
+                    self.config.kafka_api_key,
+                    self.config.kafka_api_secret.get_secret_value(),
                 )
                 logger.debug("Using dedicated Kafka API credentials for authentication")
 

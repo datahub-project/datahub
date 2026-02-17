@@ -20,6 +20,32 @@ configurations {
     implementation.extendsFrom provided
 }
 
+configurations.all {
+  exclude group: 'log4j', module: 'log4j'  // Log4j 1.x EOL; CVE-2019-17571, CVE-2022-23305, CVE-2022-23307, CVE-2022-23302, CVE-2021-4104
+  resolutionStrategy.eachDependency { details ->
+    if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
+      details.useTarget("at.yawk.lz4:lz4-java:1.10.1")
+      details.because("CVE-2025-12183, upgrade to 1.10.1")
+    }
+  }
+  resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
+  resolutionStrategy.force "org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}"
+  resolutionStrategy.force "org.apache.hive:hive-llap-common:${rootProject.ext.hiveLlapCommonVersion}"
+  def lv = rootProject.ext.log4jVersion
+  resolutionStrategy.force "org.apache.logging.log4j:log4j-api:${lv}"
+  resolutionStrategy.force "org.apache.logging.log4j:log4j-core:${lv}"
+  resolutionStrategy.force "org.apache.logging.log4j:log4j-1.2-api:${lv}"
+  resolutionStrategy.force "org.apache.logging.log4j:log4j-slf4j-impl:${lv}"
+  // dnsjava, jettison, nimbus-jose-jwt, commons-configuration2, jetty-servlet/util-ajax/webapp forced in root (spark-lineage configure block)
+  def jetty94 = rootProject.ext.sparkLineageJetty94Version
+  ['jetty-http', 'jetty-io', 'jetty-security', 'jetty-server', 'jetty-util', 'jetty-xml'].each {
+    resolutionStrategy.force "org.eclipse.jetty:${it}:${jetty94}"
+  }
+  resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
+    select(candidates.find { it.id.group == 'at.yawk.lz4' } ?: candidates.first())
+  }
+}
+
 dependencies {
 
   constraints {
@@ -31,6 +57,18 @@ dependencies {
     }
     provided(externalDependency.commonsIo) {
       because 'required for org.apache.commons.io.Charsets that is used internally'
+    }
+    provided(externalDependency.snappy) {
+      because 'CVE-2023-34453: snappy-java integer overflow in BitShuffle'
+    }
+    implementation(externalDependency.snappy) {
+      because 'CVE-2023-34453: snappy-java integer overflow in BitShuffle'
+    }
+    provided(externalDependency.gson) {
+      because 'Gson before 2.8.9: deserialization DoS (writeReplace)'
+    }
+    implementation(externalDependency.gson) {
+      because 'Gson before 2.8.9: deserialization DoS (writeReplace)'
     }
   }
 

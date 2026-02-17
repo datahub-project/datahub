@@ -3979,3 +3979,79 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **038b5f7ce5** - fix(ingestion/oracle): retrieve database name when using service_name with ALL mode (#16142)
   *by Jonny Dixon <45681293+acrylJonny@users.noreply.github.com> on 2026-02-13*
+
+## Upstream Merge Session - 2026-02-16 13:42:04
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 21
+- **Strategy**: stacked
+- **Started**: 2026-02-16 13:42:04
+
+### Commits Included in This Merge
+
+- **2ed1146cb0** - fix(ingestion/airflow): disable setproctitle on macOS to prevent SIGSEGV (#16197)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **f516de5dd8** - feat(ingestion/oracle): implement standard stored procedure lineage pattern (#16147)
+  *by Jonny Dixon <45681293+acrylJonny@users.noreply.github.com> on 2026-02-13*
+
+- **6cbb0a725c** - build: upgrade Spring Boot 3.5.6, Spring 6.2.13, Jetty 12.0.32 (#16198)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **636d76ebd5** - fix(deps): pin cryptography>=46.0.5 for CVE-2026-26007 (#16188)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **e7193ce761** - feat(security): add TransparentSecretStr for safe credential serialization for ingestions (#16163)
+  *by Esteban Gutierrez <esteban.gutierrez@acryl.io> on 2026-02-13*
+
+- **719c06b815** - [dockerignore] Exclude Git directory (#16200)
+  *by ani-malgari <anirudh.malgari@datahub.com> on 2026-02-13*
+
+- **3c17675e2f** - fix(ui/ingestion): fix custom source name used in ingestion form (#16203)
+  *by Purnima Garg <139125209+purnimagarg1@users.noreply.github.com> on 2026-02-13*
+
+- **aaa58f0b37** - docs(remote-executor): add network connectivity prerequisites for RE (#16150)
+  *by Max Margalith <max.margalith@datahub.com> on 2026-02-13*
+
+- **744c6580f0** - Update townhalls-Feb.md (#16201)
+  *by jatherley <jen.atherley@acryl.io> on 2026-02-13*
+
+- **fa488303f4** - fix(deps): bump lz4-java 1.8.1 => 1.10.1 via at.yawk.lz4 fork (#16194)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **1646202b7a** - fix(deps): upgrade jackson-databind 2.8.11.4 => 2.8.11.6 in datahub-a… (#16191)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **1f4ca5a955** - fix(security): upgrade Velocity 1.5 to 2.3+ in acryl-spark-lineage (C… (#16193)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **844b4f0658** - docs: update shimmer banner for February Town Hall (#16209)
+  *by Gray Ayer <grayayer@gmail.com> on 2026-02-13*
+
+- **87512b2e6d** - fix(spark-lineage): upgrade snappy-java for CVE-2023-34453 (#16210)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **1c04c12429** - chore(bump):  upgrade gson xerces actions/spark (#16211)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **247a2a9619** - fix(deps): pin commons-compress to 1.27.1 for CVE-2024-25710, CVE-202… (#16212)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **73e3292c22** - fix(deps): upgrade Jackson to 2.18.4 in datahub-actions for CWE-20 (J… (#16214)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **9647747b41** - fix(deps): pin hive-llap-common to 4.0.0 for LlapSignerImpl signature… (#16213)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **8e84f3152d** - fix(frontend): use root akkaVersion for Play, document CVE-2023-45865… (#16216)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **1efa36666b** - fix(frontend): restrict TLS to 1.2+ in CustomHttpClientFactory (#16215)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-14*
+
+- **1acb7d69c1** - chore(git-ignore): add a few more patterns (#16219)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-02-15*

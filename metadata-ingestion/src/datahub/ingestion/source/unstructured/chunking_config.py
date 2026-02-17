@@ -4,7 +4,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import Field, field_validator
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, TransparentSecretStr
 
 
 class ServerEmbeddingConfig(ConfigModel):
@@ -63,7 +63,7 @@ class EmbeddingConfig(ConfigModel):
     )
 
     # Credentials (can be provided locally even when using server config)
-    api_key: Optional[str] = Field(
+    api_key: Optional[TransparentSecretStr] = Field(
         default=None,
         description="API key for Cohere (not needed for Bedrock with IAM roles)",
     )
@@ -107,7 +107,9 @@ class EmbeddingConfig(ConfigModel):
 
     @classmethod
     def from_server(
-        cls, server_config: ServerEmbeddingConfig, api_key: Optional[str] = None
+        cls,
+        server_config: ServerEmbeddingConfig,
+        api_key: Optional[TransparentSecretStr] = None,
     ) -> "EmbeddingConfig":
         """Create EmbeddingConfig from server configuration.
 
@@ -247,7 +249,7 @@ class DataHubConnectionConfig(ConfigModel):
     server: str = Field(
         default="http://localhost:8080", description="DataHub GMS server URL"
     )
-    token: Optional[str] = Field(
+    token: Optional[TransparentSecretStr] = Field(
         default=None, description="DataHub API token for authentication"
     )
 

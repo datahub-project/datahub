@@ -69,7 +69,42 @@ class CustomHttpClientFactoryTest {
         CustomHttpClientFactory.createSslContext(
             truststorePath.toString(), TRUSTSTORE_PASSWORD, TRUSTSTORE_TYPE);
     assertNotNull(context);
-    assertEquals("TLS", context.getProtocol());
+    assertEquals("TLSv1.2", context.getProtocol());
+  }
+
+  @Test
+  void testCreateSslContextWithCustomProtocolsUsesFirst() throws Exception {
+    Path truststorePath = generateTempTruststore();
+    SSLContext context =
+        CustomHttpClientFactory.createSslContext(
+            truststorePath.toString(),
+            TRUSTSTORE_PASSWORD,
+            TRUSTSTORE_TYPE,
+            List.of("TLSv1.3", "TLSv1.2"));
+    assertNotNull(context);
+    assertEquals("TLSv1.3", context.getProtocol());
+  }
+
+  @Test
+  void testCreateSslContextWithEmptyListUsesDefaultProtocol() throws Exception {
+    Path truststorePath = generateTempTruststore();
+    SSLContext context =
+        CustomHttpClientFactory.createSslContext(
+            truststorePath.toString(), TRUSTSTORE_PASSWORD, TRUSTSTORE_TYPE, List.of());
+    assertNotNull(context);
+    assertEquals(ConfigUtil.DEFAULT_CLIENT_SSL_ENABLED_PROTOCOLS.get(0), context.getProtocol());
+  }
+
+  @Test
+  void testGetApacheHttpClientWithCustomProtocols() throws Exception {
+    Path truststorePath = generateTempTruststore();
+    CloseableHttpClient client =
+        CustomHttpClientFactory.getApacheHttpClient(
+            truststorePath.toString(),
+            TRUSTSTORE_PASSWORD,
+            TRUSTSTORE_TYPE,
+            List.of("TLSv1.3", "TLSv1.2"));
+    assertNotNull(client);
   }
 
   @Test
