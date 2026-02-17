@@ -19,7 +19,6 @@ def log_progress(
     item_type: str,
     interval: int = PROGRESS_LOG_INTERVAL,
 ) -> None:
-    """Log progress for large collections at regular intervals."""
     if current % interval == 0:
         logger.info(f"Processed {current} {item_type} from Vertex AI")
     if total and current == total:
@@ -27,7 +26,6 @@ def log_progress(
 
 
 def get_actor_from_labels(labels: Optional[Dict[str, str]]) -> Optional[str]:
-    """Extract actor URN from resource labels (created_by, creator, owner)."""
     if not labels:
         return None
 

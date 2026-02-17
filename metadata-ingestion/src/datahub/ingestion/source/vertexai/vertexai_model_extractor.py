@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from numbers import Real
 from operator import attrgetter
 from typing import Any, Dict, Iterable, List, Optional
@@ -26,8 +27,12 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 )
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    CREATE_TIME_FIELD,
+    ORDER_BY_UPDATE_TIME_DESC,
+    VERSION_ID_FIELD,
     MLModelType,
     ResourceCategory,
+    ResourceTypes,
     VertexAISubTypes,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
@@ -38,7 +43,10 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     ModelMetadata,
     YieldCommonAspectsProtocol,
 )
-from datahub.ingestion.source.vertexai.vertexai_state import ModelUsageTracker
+from datahub.ingestion.source.vertexai.vertexai_state import (
+    ModelUsageTracker,
+    VertexAIStateHandler,
+)
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     get_resource_category_container,
@@ -76,6 +84,7 @@ class VertexAIModelExtractor:
         yield_common_aspects_fn: YieldCommonAspectsProtocol,
         model_usage_tracker: ModelUsageTracker,
         platform: str,
+        state_handler: VertexAIStateHandler,
     ):
         self.config = config
         self.client = client
@@ -86,15 +95,39 @@ class VertexAIModelExtractor:
         self._yield_common_aspects = yield_common_aspects_fn
         self.model_usage_tracker = model_usage_tracker
         self.platform = platform
+        self.state_handler = state_handler
 
         self.endpoints: Optional[Dict[str, List[Endpoint]]] = None
 
     def get_model_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """Main entry point for model extraction."""
         logger.info("Fetching Models from Vertex AI")
-        registered_models = self.client.Model.list(order_by="update_time desc")
+
+        last_checkpoint_millis = self.state_handler.get_last_update_time(
+            ResourceTypes.MODEL
+        )
+        if last_checkpoint_millis:
+            checkpoint_time = datetime.fromtimestamp(
+                last_checkpoint_millis / 1000, tz=timezone.utc
+            ).strftime("%Y-%m-%d %H:%M:%S")
+            logger.info(
+                f"Incremental mode: Only processing Models updated after {checkpoint_time} UTC"
+            )
+
+        registered_models = self.client.Model.list(order_by=ORDER_BY_UPDATE_TIME_DESC)
         total_versions = 0
         for model_idx, model in enumerate(registered_models, start=1):
+            if last_checkpoint_millis:
+                model_update_millis = int(model.update_time.timestamp() * 1000)
+                if model_update_millis <= last_checkpoint_millis:
+                    logger.info(
+                        f"Reached checkpoint timestamp for Models, stopping early (processed {model_idx - 1} new models)"
+                    )
+                    break
+
+                self.state_handler.update_resource_timestamp(
+                    ResourceTypes.MODEL, model_update_millis
+                )
+
             if not self.config.model_name_pattern.allowed(model.display_name or ""):
                 continue
             yield from self._gen_ml_group_mcps(model)
@@ -124,9 +157,20 @@ class VertexAIModelExtractor:
             )
 
     def get_evaluation_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """Extract model evaluations."""
         logger.info("Fetching Models for evaluation extraction from Vertex AI")
-        registered_models = self.client.Model.list(order_by="update_time desc")
+
+        last_checkpoint_millis = self.state_handler.get_last_update_time(
+            ResourceTypes.MODEL_EVALUATION
+        )
+        if last_checkpoint_millis:
+            checkpoint_time = datetime.fromtimestamp(
+                last_checkpoint_millis / 1000, tz=timezone.utc
+            ).strftime("%Y-%m-%d %H:%M:%S")
+            logger.info(
+                f"Incremental mode: Only processing ModelEvaluations created after {checkpoint_time} UTC"
+            )
+
+        registered_models = self.client.Model.list(order_by=ORDER_BY_UPDATE_TIME_DESC)
         total_evaluations = 0
 
         for model in registered_models:
@@ -138,10 +182,34 @@ class VertexAIModelExtractor:
                     model.list_model_evaluations()
                 )
 
+                evaluations.sort(key=attrgetter(CREATE_TIME_FIELD), reverse=True)
+
+                if last_checkpoint_millis:
+                    original_count = len(evaluations)
+                    evaluations = [
+                        e
+                        for e in evaluations
+                        if int(e.create_time.timestamp() * 1000)
+                        > last_checkpoint_millis
+                    ]
+                    if original_count > len(evaluations):
+                        logger.debug(
+                            f"Filtered to {len(evaluations)} new evaluations for model {model.display_name} (out of {original_count} total)"
+                        )
+
                 if self.config.max_evaluations_per_model is not None:
                     evaluations = evaluations[: self.config.max_evaluations_per_model]
 
                 for evaluation in evaluations:
+                    if (
+                        hasattr(evaluation, CREATE_TIME_FIELD)
+                        and evaluation.create_time
+                    ):
+                        self.state_handler.update_resource_timestamp(
+                            ResourceTypes.MODEL_EVALUATION,
+                            int(evaluation.create_time.timestamp() * 1000),
+                        )
+
                     total_evaluations += 1
                     if total_evaluations % 100 == 0:
                         logger.info(
@@ -182,7 +250,6 @@ class VertexAIModelExtractor:
     def _extract_evaluation_metrics(
         self, evaluation: ModelEvaluation
     ) -> List[MLMetricClass]:
-        """Extract metrics from a model evaluation."""
         metrics: List[MLMetricClass] = []
         if not getattr(evaluation, "metrics", None):
             return metrics
@@ -234,13 +301,12 @@ class VertexAIModelExtractor:
         return metrics
 
     def _get_evaluation_model_urn(self, model: Model) -> Optional[str]:
-        """Get the URN for a model's latest version."""
         try:
             versions: List[VersionInfo] = list(
                 model.versioning_registry.list_versions()
             )
             if versions:
-                latest_version = max(versions, key=attrgetter("version_id"))
+                latest_version = max(versions, key=attrgetter(VERSION_ID_FIELD))
                 model_name = self.name_formatter.format_model_name(entity_id=model.name)
                 return self.urn_builder.make_ml_model_urn(latest_version, model_name)
         except (PermissionDenied, Unauthenticated) as e:
@@ -266,7 +332,6 @@ class VertexAIModelExtractor:
     def _gen_model_evaluation_mcps(
         self, model: Model, evaluation: ModelEvaluation
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate MCPs for a model evaluation."""
         model_urn = self._get_evaluation_model_urn(model)
         if not model_urn:
             logger.warning(
@@ -289,7 +354,6 @@ class VertexAIModelExtractor:
         yield MetadataChangeProposalWrapper(
             entityUrn=evaluation_urn,
             aspect=MLModelDeploymentPropertiesClass(
-                description=f"Evaluation for model {model.display_name}",
                 createdAt=created_time,
                 customProperties=ModelEvaluationCustomProperties(
                     evaluation_id=evaluation.name,
@@ -309,7 +373,6 @@ class VertexAIModelExtractor:
     def _get_ml_model_mcps(
         self, model: Model, model_version: VersionInfo
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate MCPs for a model version."""
         endpoints = self._search_endpoint(model)
         yield from self._gen_ml_model_mcps(
             ModelMetadata(
@@ -328,7 +391,6 @@ class VertexAIModelExtractor:
             )
 
     def _gen_ml_group_mcps(self, model: Model) -> Iterable[MetadataWorkUnit]:
-        """Generate container and MLModelGroup mcp for a VertexAI Model."""
         model_group_container_key = self._get_model_group_container(model)
 
         yield from gen_containers(
@@ -379,8 +441,6 @@ class VertexAIModelExtractor:
         )
 
     def _get_model_group_container(self, model: Model) -> ModelGroupKey:
-        """Get container key for model group."""
-
         return ModelGroupKey(
             project_id=self.project_id,
             platform=self.platform,
@@ -392,7 +452,6 @@ class VertexAIModelExtractor:
     def _gen_endpoints_mcps(
         self, model_meta: ModelMetadata
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate MCPs for model endpoints."""
         model: Model = model_meta.model
         model_version: VersionInfo = model_meta.model_version
 
@@ -428,7 +487,6 @@ class VertexAIModelExtractor:
                 )
 
     def _build_endpoint_urns(self, endpoints: Optional[List[Endpoint]]) -> List[str]:
-        """Build endpoint deployment URNs from endpoints list."""
         endpoint_urns: List[str] = []
         if endpoints:
             for endpoint in endpoints:
@@ -454,7 +512,6 @@ class VertexAIModelExtractor:
         downstream_job_urns: Optional[List[str]],
         endpoint_urns: List[str],
     ) -> MetadataWorkUnit:
-        """Create MLModelProperties aspect workunit."""
         return MetadataChangeProposalWrapper(
             entityUrn=model_urn,
             aspect=MLModelPropertiesClass(
@@ -495,7 +552,6 @@ class VertexAIModelExtractor:
     def _create_version_properties_aspect(
         self, model: Model, model_version: VersionInfo, model_urn: str
     ) -> MetadataWorkUnit:
-        """Create VersionProperties aspect workunit."""
         return MetadataChangeProposalWrapper(
             entityUrn=model_urn,
             aspect=VersionPropertiesClass(
@@ -522,7 +578,6 @@ class VertexAIModelExtractor:
     def _create_training_data_aspect(
         self, model_urn: str, training_data_urns: List[str]
     ) -> MetadataWorkUnit:
-        """Create TrainingData aspect workunit."""
         return MetadataChangeProposalWrapper(
             entityUrn=model_urn,
             aspect=TrainingDataClass(
@@ -535,7 +590,6 @@ class VertexAIModelExtractor:
     def _gen_ml_model_mcps(
         self, ModelMetadata: ModelMetadata
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate an MLModel and Endpoint mcp for an VertexAI Model Version."""
         model: Model = ModelMetadata.model
         model_version: VersionInfo = ModelMetadata.model_version
         training_job_urn: Optional[str] = ModelMetadata.training_job_urn
@@ -549,7 +603,7 @@ class VertexAIModelExtractor:
         model_urn = self.urn_builder.make_ml_model_urn(
             model_version, model_name=model_name
         )
-        downstream_job_urns = self.model_usage_tracker.get_downstream_jobs(model_urn)
+        downstream_job_urns = self.model_usage_tracker.get_model_usage(model_urn)
 
         yield self._create_ml_model_properties_aspect(
             model,
@@ -580,7 +634,6 @@ class VertexAIModelExtractor:
             yield self._create_training_data_aspect(model_urn, training_data_urns)
 
     def _get_version_set_urn(self, model: Model) -> VersionSetUrn:
-        """Get version set URN for a model."""
         guid_dict = {"platform": self.platform, "name": model.name}
         version_set_urn = VersionSetUrn(
             id=builder.datahub_guid(guid_dict),
@@ -589,7 +642,6 @@ class VertexAIModelExtractor:
         return version_set_urn
 
     def _search_endpoint(self, model: Model) -> List[Endpoint]:
-        """Search for an endpoint associated with the model."""
         if self.endpoints is None:
             logger.info("Fetching Endpoints from Vertex AI")
             endpoint_dict: Dict[str, List[Endpoint]] = {}

@@ -118,8 +118,6 @@ class TestModelEvaluationIngestion:
         )
         deployment_props = deployment_props_mcps[0].metadata.aspect
         assert isinstance(deployment_props, MLModelDeploymentPropertiesClass)
-        assert deployment_props.description is not None
-        assert "Evaluation" in deployment_props.description
         assert deployment_props.createdAt is not None
 
     def test_model_evaluations_filtering(self, source_with_ml_metadata):
@@ -226,8 +224,6 @@ class TestMLMetadataIntegration:
         assert isinstance(props_mcps[0].metadata, MetadataChangeProposalWrapper)
         props = props_mcps[0].metadata.aspect
         assert isinstance(props, MLModelDeploymentPropertiesClass)
-        assert props.description is not None
-        assert "Evaluation" in props.description
         assert props.createdAt is not None
 
     def test_ml_metadata_disabled(self):

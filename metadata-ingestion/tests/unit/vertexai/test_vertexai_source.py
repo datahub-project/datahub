@@ -24,6 +24,8 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     VertexAISubTypes,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
+    ExperimentMetadata,
+    ExperimentRunMetadata,
     ModelMetadata,
     TrainingJobMetadata,
     VertexAIResourceCategoryKey,
@@ -466,17 +468,18 @@ def test_get_input_dataset_mcps(source: VertexAISource) -> None:
         env=source.config.env,
     )
 
+    expected_ds_props = DatasetPropertiesClass(
+        name=mock_dataset.display_name,
+        qualifiedName=mock_dataset.resource_name,
+        customProperties={"resourceName": mock_dataset.resource_name},
+        created=TimeStampClass(time=datetime_to_ts_millis(mock_dataset.create_time)),
+    )
+    if hasattr(mock_dataset, "description") and mock_dataset.description:
+        expected_ds_props.description = mock_dataset.description
+
     mcp_ds = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
-        aspect=DatasetPropertiesClass(
-            name=mock_dataset.display_name,
-            description=mock_dataset.display_name,
-            qualifiedName=mock_dataset.resource_name,
-            customProperties={"resourceName": mock_dataset.resource_name},
-            created=TimeStampClass(
-                time=datetime_to_ts_millis(mock_dataset.create_time)
-            ),
-        ),
+        aspect=expected_ds_props,
     )
     mcp_container = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
@@ -530,7 +533,11 @@ def test_get_experiment_mcps(
 
     mcp_container = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
-        aspect=ContainerClass(container=source._get_project_container().as_urn()),
+        aspect=ContainerClass(
+            container=get_resource_category_container_urn(
+                source, ResourceCategory.EXPERIMENTS
+            )
+        ),
     )
     mcp_subtype = MetadataChangeProposalWrapper(
         entityUrn=expected_urn,
@@ -582,7 +589,9 @@ def test_gen_experiment_run_mcps(
     mock_list: List[ExperimentRun], source: VertexAISource
 ) -> None:
     mock_exp = gen_mock_experiment()
-    source.experiment_extractor.experiments = [mock_exp]
+    source.experiment_extractor.experiments = [
+        ExperimentMetadata(experiment=mock_exp, name=mock_exp.name)
+    ]
     mock_exp_run = gen_mock_experiment_run()
     assert hasattr(mock_list, "return_value")
     mock_list.return_value = [mock_exp_run]
@@ -974,7 +983,9 @@ def test_pipeline_task_with_none_timestamps(
 def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
     """Test that experiment runs with None create_time/update_time don't crash."""
     mock_exp = gen_mock_experiment()
-    source.experiment_extractor.experiments = [mock_exp]
+    source.experiment_extractor.experiments = [
+        ExperimentMetadata(experiment=mock_exp, name=mock_exp.name)
+    ]
 
     mock_exp_run = MagicMock(spec=ExperimentRun)
     mock_exp_run.name = "test_run_none_timestamps"
@@ -1104,7 +1115,9 @@ def test_ml_metadata_helper_disabled_by_config() -> None:
     assert source._ml_metadata_helper is None
 
 
-@patch("datahub.ingestion.source.vertexai.ml_metadata_helper.MetadataServiceClient")
+@patch(
+    "datahub.ingestion.source.vertexai.vertexai_ml_metadata_helper.MetadataServiceClient"
+)
 def test_ml_metadata_helper_handles_init_errors(mock_client: MagicMock) -> None:
     """Test ML Metadata helper gracefully handles initialization errors"""
     mock_client.side_effect = Exception("Auth error")
@@ -1343,7 +1356,7 @@ def test_model_downstream_lineage_from_pipeline_tasks(source: VertexAISource) ->
 
     expected_model_urn = "urn:li:mlModel:(urn:li:dataPlatform:vertexai,123456,PROD)"
 
-    downstream_urns = source.model_usage_tracker.get_downstream_jobs(expected_model_urn)
+    downstream_urns = source.model_usage_tracker.get_model_usage(expected_model_urn)
     assert len(downstream_urns) == 1
     assert any("prediction_task" in urn for urn in downstream_urns)
 
@@ -1376,12 +1389,19 @@ def test_model_downstream_lineage_from_experiment_executions(
     with patch.object(mock_run, "get_executions", return_value=[mock_execution]):
         list(
             source.experiment_extractor._gen_experiment_run_mcps(
-                mock_experiment, mock_run
+                ExperimentMetadata(
+                    experiment=mock_experiment, name=mock_experiment.name
+                ),
+                ExperimentRunMetadata(
+                    run=mock_run,
+                    name=mock_run.name,
+                    experiment_name=mock_experiment.name,
+                ),
             )
         )
 
     expected_model_urn = "urn:li:mlModel:(urn:li:dataPlatform:vertexai,789,PROD)"
-    downstream_urns = source.model_usage_tracker.get_downstream_jobs(expected_model_urn)
+    downstream_urns = source.model_usage_tracker.get_model_usage(expected_model_urn)
     assert len(downstream_urns) == 1
 
 
@@ -1398,7 +1418,7 @@ def test_model_includes_downstream_jobs_in_properties(source: VertexAISource) ->
     model_urn = source.urn_builder.make_ml_model_urn(mock_version, model_name)
 
     downstream_job_urn = "urn:li:dataProcessInstance:test_job"
-    source.model_usage_tracker.track_usage(model_urn, downstream_job_urn)
+    source.model_usage_tracker.track_model_usage(model_urn, downstream_job_urn)
 
     model_metadata = ModelMetadata(
         model=mock_model, model_version=mock_version, endpoints=[]

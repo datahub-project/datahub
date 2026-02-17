@@ -3,13 +3,15 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from datahub.ingestion.source.vertexai.ml_metadata_helper import MLMetadataHelper
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     HyperparameterPatterns,
     IngestionLimits,
     MetricPatterns,
     MLMetadataDefaults,
     URIPatterns,
+)
+from datahub.ingestion.source.vertexai.vertexai_ml_metadata_helper import (
+    MLMetadataHelper,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
     ExecutionMetadata,

@@ -1,5 +1,5 @@
 import logging
-from operator import attrgetter
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 from google.cloud import aiplatform
@@ -18,8 +18,14 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
     VertexAIUrnBuilder,
 )
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
-from datahub.ingestion.source.vertexai.vertexai_constants import VertexAISubTypes
+from datahub.ingestion.source.vertexai.vertexai_constants import (
+    ResourceCategory,
+    ResourceTypes,
+    VertexAISubTypes,
+)
 from datahub.ingestion.source.vertexai.vertexai_models import (
+    ExperimentMetadata,
+    ExperimentRunMetadata,
     RunTimestamps,
     YieldCommonAspectsProtocol,
 )
@@ -27,9 +33,10 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_execution_result_status,
     is_status_for_run_event_class,
 )
+from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
-    get_project_container,
+    get_resource_category_container,
     log_progress,
 )
 from datahub.metadata.schema_classes import (
@@ -67,6 +74,7 @@ class VertexAIExperimentExtractor:
         yield_common_aspects_fn: YieldCommonAspectsProtocol,
         model_usage_tracker: Any,
         platform: str,
+        state_handler: VertexAIStateHandler,
     ):
         self.config = config
         self.urn_builder = urn_builder
@@ -77,29 +85,71 @@ class VertexAIExperimentExtractor:
         self._yield_common_aspects = yield_common_aspects_fn
         self.model_usage_tracker = model_usage_tracker
         self.platform = platform
+        self.state_handler = state_handler
 
-        self.experiments: Optional[List[Experiment]] = None
+        self.experiments: Optional[List[ExperimentMetadata]] = None
 
     def get_experiment_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """Extract experiments and generate workunits."""
         logger.info("Fetching Experiments from Vertex AI")
+
+        last_checkpoint_millis = self.state_handler.get_last_update_time(
+            ResourceTypes.EXPERIMENT
+        )
+        if last_checkpoint_millis:
+            checkpoint_time = datetime.fromtimestamp(
+                last_checkpoint_millis / 1000, tz=timezone.utc
+            ).strftime("%Y-%m-%d %H:%M:%S")
+            logger.info(
+                f"Incremental mode: Only processing Experiments updated after {checkpoint_time} UTC"
+            )
+
         exps = aiplatform.Experiment.list()
         filtered = [
             e for e in exps if self.config.experiment_name_pattern.allowed(e.name)
         ]
-        filtered.sort(key=attrgetter("update_time"), reverse=True)
-        if self.config.max_experiments is not None:
-            filtered = filtered[: self.config.max_experiments]
-        self.experiments = filtered
 
-        logger.info(f"Retrieved {len(self.experiments)} experiments")
+        experiment_metadata = [
+            ExperimentMetadata(
+                experiment=e,
+                name=e.name,
+                update_time=getattr(e, "update_time", None),
+            )
+            for e in filtered
+        ]
+        experiment_metadata.sort(
+            key=lambda e: e.update_time or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+
+        if last_checkpoint_millis:
+            original_count = len(experiment_metadata)
+            experiment_metadata = [
+                e
+                for e in experiment_metadata
+                if e.update_time
+                and int(e.update_time.timestamp() * 1000) > last_checkpoint_millis
+            ]
+            logger.info(
+                f"Filtered to {len(experiment_metadata)} new experiments (out of {original_count} total)"
+            )
+
+        if self.config.max_experiments is not None:
+            experiment_metadata = experiment_metadata[: self.config.max_experiments]
+        self.experiments = experiment_metadata
+
+        logger.info(f"Processing {len(self.experiments)} experiments")
         total = len(self.experiments)
-        for i, experiment in enumerate(self.experiments, start=1):
+        for i, experiment_meta in enumerate(self.experiments, start=1):
+            if experiment_meta.update_time:
+                self.state_handler.update_resource_timestamp(
+                    ResourceTypes.EXPERIMENT,
+                    int(experiment_meta.update_time.timestamp() * 1000),
+                )
+
             log_progress(i, total, "experiments")
-            yield from self._gen_experiment_workunits(experiment)
+            yield from self._gen_experiment_workunits(experiment_meta)
 
     def get_experiment_run_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """Extract experiment runs and generate workunits."""
         if self.experiments is None:
             logger.info("Fetching Experiments from Vertex AI")
             exps = [
@@ -107,32 +157,90 @@ class VertexAIExperimentExtractor:
                 for e in aiplatform.Experiment.list()
                 if self.config.experiment_name_pattern.allowed(e.name)
             ]
-            exps.sort(key=attrgetter("update_time"), reverse=True)
-            self.experiments = exps
+            experiment_metadata = [
+                ExperimentMetadata(
+                    experiment=e,
+                    name=e.name,
+                    update_time=getattr(e, "update_time", None),
+                )
+                for e in exps
+            ]
+            experiment_metadata.sort(
+                key=lambda e: e.update_time
+                or datetime.min.replace(tzinfo=timezone.utc),
+                reverse=True,
+            )
+            self.experiments = experiment_metadata
             logger.info(f"Retrieved {len(self.experiments)} experiments")
 
-        for experiment in self.experiments:
-            logger.info(f"Fetching ExperimentRuns for experiment {experiment.name}")
-            experiment_runs: List[ExperimentRun] = list(
-                aiplatform.ExperimentRun.list(experiment=experiment.name)
+        last_checkpoint_millis = self.state_handler.get_last_update_time(
+            ResourceTypes.EXPERIMENT_RUN
+        )
+        if last_checkpoint_millis:
+            checkpoint_time = datetime.fromtimestamp(
+                last_checkpoint_millis / 1000, tz=timezone.utc
+            ).strftime("%Y-%m-%d %H:%M:%S")
+            logger.info(
+                f"Incremental mode: Only processing ExperimentRuns updated after {checkpoint_time} UTC"
             )
-            experiment_runs.sort(key=attrgetter("update_time"), reverse=True)
+
+        for experiment_meta in self.experiments:
+            logger.info(
+                f"Fetching ExperimentRuns for experiment {experiment_meta.name}"
+            )
+            runs = list(aiplatform.ExperimentRun.list(experiment=experiment_meta.name))
+
+            run_metadata = [
+                ExperimentRunMetadata(
+                    run=r,
+                    name=r.name,
+                    update_time=getattr(r, "update_time", None),
+                    experiment_name=experiment_meta.name,
+                )
+                for r in runs
+            ]
+            run_metadata.sort(
+                key=lambda r: r.update_time
+                or datetime.min.replace(tzinfo=timezone.utc),
+                reverse=True,
+            )
+
+            if last_checkpoint_millis:
+                original_count = len(run_metadata)
+                run_metadata = [
+                    r
+                    for r in run_metadata
+                    if r.update_time
+                    and int(r.update_time.timestamp() * 1000) > last_checkpoint_millis
+                ]
+                if original_count > len(run_metadata):
+                    logger.debug(
+                        f"Filtered to {len(run_metadata)} new runs for experiment {experiment_meta.name} (out of {original_count} total)"
+                    )
+
             if self.config.max_runs_per_experiment is not None:
-                experiment_runs = experiment_runs[: self.config.max_runs_per_experiment]
-            for i, run in enumerate(experiment_runs, start=1):
-                log_progress(i, None, f"runs for experiment {experiment.name}")
-                yield from self._gen_experiment_run_mcps(experiment, run)
+                run_metadata = run_metadata[: self.config.max_runs_per_experiment]
+
+            for i, run_meta in enumerate(run_metadata, start=1):
+                if run_meta.update_time:
+                    self.state_handler.update_resource_timestamp(
+                        ResourceTypes.EXPERIMENT_RUN,
+                        int(run_meta.update_time.timestamp() * 1000),
+                    )
+                log_progress(i, None, f"runs for experiment {experiment_meta.name}")
+                yield from self._gen_experiment_run_mcps(experiment_meta, run_meta)
 
     def _gen_experiment_workunits(
-        self, experiment: Experiment
+        self, experiment_meta: ExperimentMetadata
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate workunits for a single experiment."""
+        experiment = experiment_meta.experiment
         yield from gen_containers(
-            parent_container_key=get_project_container(
+            parent_container_key=get_resource_category_container(
                 self.project_id,
                 self.platform,
                 self.config.platform_instance,
                 self.config.env,
+                ResourceCategory.EXPERIMENTS,
             ),
             container_key=ExperimentKey(
                 platform=self.platform,
@@ -153,19 +261,16 @@ class VertexAIExperimentExtractor:
         )
 
     def _get_experiment_run_params(self, run: ExperimentRun) -> List[MLHyperParamClass]:
-        """Extract hyperparameters from experiment run."""
         return [
             MLHyperParamClass(name=k, value=str(v)) for k, v in run.get_params().items()
         ]
 
     def _get_experiment_run_metrics(self, run: ExperimentRun) -> List[MLMetricClass]:
-        """Extract metrics from experiment run."""
         return [
             MLMetricClass(name=k, value=str(v)) for k, v in run.get_metrics().items()
         ]
 
     def _get_run_timestamps(self, run: ExperimentRun) -> RunTimestamps:
-        """Extract timestamps from experiment run."""
         executions = run.get_executions()
         if len(executions) == 1:
             create_time = executions[0].create_time
@@ -194,7 +299,6 @@ class VertexAIExperimentExtractor:
     def _make_custom_properties_for_run(
         self, experiment: Experiment, run: ExperimentRun
     ) -> dict:
-        """Build custom properties for experiment run."""
         properties: Dict[str, str] = dict()
         properties["externalUrl"] = self.url_builder.make_experiment_run_url(
             experiment, run
@@ -206,7 +310,6 @@ class VertexAIExperimentExtractor:
         return properties
 
     def _make_custom_properties_for_execution(self, execution: Execution) -> dict:
-        """Build custom properties for execution."""
         properties: Dict[str, Optional[str]] = dict()
         for input in execution.get_input_artifacts():
             input_name = getattr(input, "name", "")
@@ -230,14 +333,13 @@ class VertexAIExperimentExtractor:
             if model_urn:
                 edges.append(EdgeClass(destinationUrn=model_urn))
                 if is_input:
-                    self.model_usage_tracker.track_usage(model_urn, execution_urn)
+                    self.model_usage_tracker.track_model_usage(model_urn, execution_urn)
 
         return edges
 
     def _gen_run_execution(
         self, execution: Execution, run: ExperimentRun, exp: Experiment
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate workunits for a single execution within an experiment run."""
         create_time = execution.create_time
         update_time = execution.update_time
         duration: Optional[int] = None
@@ -322,9 +424,10 @@ class VertexAIExperimentExtractor:
             ).as_workunit()
 
     def _gen_experiment_run_mcps(
-        self, experiment: Experiment, run: ExperimentRun
+        self, experiment_meta: ExperimentMetadata, run_meta: ExperimentRunMetadata
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate metadata workunits for an experiment run."""
+        experiment = experiment_meta.experiment
+        run = run_meta.run
         experiment_key = ExperimentKey(
             platform=self.platform,
             instance=self.config.platform_instance,

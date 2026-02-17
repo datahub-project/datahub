@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Annotated, Dict, Iterable, List, Optional, Protocol
 
-from google.cloud.aiplatform import Endpoint, Model
+from google.cloud.aiplatform import Endpoint, Experiment, ExperimentRun, Model
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import VersionInfo
 from google.cloud.aiplatform_v1.types import PipelineTaskDetail
@@ -175,6 +175,35 @@ class ModelMetadata(BaseModel):
     training_job_urn: Optional[str] = None
     training_data_urns: Optional[List[str]] = None
     endpoints: Optional[List[Annotated[Endpoint, SkipValidation()]]] = None
+
+
+class ExperimentMetadata(BaseModel):
+    """Metadata for a Vertex AI experiment.
+
+    Note: Google Cloud SDK types use SkipValidation to allow both real objects
+    and test mocks while preserving type hints for IDE support.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    experiment: Annotated[Experiment, SkipValidation()]
+    name: str
+    update_time: Optional[datetime] = None
+
+
+class ExperimentRunMetadata(BaseModel):
+    """Metadata for a Vertex AI experiment run.
+
+    Note: Google Cloud SDK types use SkipValidation to allow both real objects
+    and test mocks while preserving type hints for IDE support.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    run: Annotated[ExperimentRun, SkipValidation()]
+    name: str
+    update_time: Optional[datetime] = None
+    experiment_name: str
 
 
 class PipelineTaskArtifacts(BaseModel):

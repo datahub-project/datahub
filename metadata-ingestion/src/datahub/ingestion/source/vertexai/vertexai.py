@@ -44,7 +44,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source.vertexai.ml_metadata_helper import MLMetadataHelper
 from datahub.ingestion.source.vertexai.vertexai_builder import (
     VertexAIExternalURLBuilder,
     VertexAINameFormatter,
@@ -61,6 +60,9 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
 from datahub.ingestion.source.vertexai.vertexai_experiment_extractor import (
     VertexAIExperimentExtractor,
 )
+from datahub.ingestion.source.vertexai.vertexai_ml_metadata_helper import (
+    MLMetadataHelper,
+)
 from datahub.ingestion.source.vertexai.vertexai_model_extractor import (
     VertexAIModelExtractor,
 )
@@ -73,7 +75,10 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
 from datahub.ingestion.source.vertexai.vertexai_pipeline_extractor import (
     VertexAIPipelineExtractor,
 )
-from datahub.ingestion.source.vertexai.vertexai_state import ModelUsageTracker
+from datahub.ingestion.source.vertexai.vertexai_state import (
+    ModelUsageTracker,
+    VertexAIStateHandler,
+)
 from datahub.ingestion.source.vertexai.vertexai_training_extractor import (
     VertexAITrainingExtractor,
 )
@@ -106,6 +111,12 @@ class VertexAISource(StatefulIngestionSourceBase):
         self.config = config
         self.report: StaleEntityRemovalSourceReport = StaleEntityRemovalSourceReport()
         self.model_usage_tracker = ModelUsageTracker()
+
+        # Initialize state handler for incremental ingestion
+        self.state_handler = VertexAIStateHandler(
+            source=self,
+            stateful_ingestion_config=config.stateful_ingestion or config,
+        )
 
         creds = self.config.get_credentials()
         credentials = (
@@ -191,6 +202,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             yield_common_aspects_fn=self._yield_common_aspects,
             model_usage_tracker=self.model_usage_tracker,
             platform=self.platform,
+            state_handler=self.state_handler,
         )
         self.experiment_extractor = VertexAIExperimentExtractor(
             config=self.config,
@@ -202,6 +214,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             yield_common_aspects_fn=self._yield_common_aspects,
             model_usage_tracker=self.model_usage_tracker,
             platform=self.platform,
+            state_handler=self.state_handler,
         )
         self.training_extractor = VertexAITrainingExtractor(
             config=self.config,
@@ -216,6 +229,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             get_job_lineage_from_ml_metadata_fn=self._get_job_lineage_from_ml_metadata,
             platform=self.platform,
             report=self.report,
+            state_handler=self.state_handler,
         )
         self.model_extractor = VertexAIModelExtractor(
             config=self.config,
@@ -227,6 +241,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             yield_common_aspects_fn=self._yield_common_aspects,
             model_usage_tracker=self.model_usage_tracker,
             platform=self.platform,
+            state_handler=self.state_handler,
         )
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
@@ -436,6 +451,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             ResourceCategory.DATASETS,
             ResourceCategory.ENDPOINTS,
             ResourceCategory.PIPELINES,
+            ResourceCategory.EXPERIMENTS,
             ResourceCategory.EVALUATIONS,
         ]
 

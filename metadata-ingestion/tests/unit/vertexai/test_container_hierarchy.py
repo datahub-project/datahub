@@ -33,9 +33,9 @@ def test_project_container_generation(source: VertexAISource) -> None:
 
     # Should generate workunits for:
     # 1. Project container (ContainerProperties, Status, DataPlatformInstance, SubTypes)
-    # 2. 6 resource category containers, each with (Container, ContainerProperties, Status, DataPlatformInstance, SubTypes)
-    # Total: 4 (project) + 6*5 (categories) = 34 workunits
-    assert len(workunits) >= 30, f"Expected at least 30 workunits, got {len(workunits)}"
+    # 2. 7 resource category containers, each with (Container, ContainerProperties, Status, DataPlatformInstance, SubTypes)
+    # Total: 4 (project) + 7*5 (categories) = 39 workunits
+    assert len(workunits) >= 35, f"Expected at least 35 workunits, got {len(workunits)}"
 
     # Verify project container aspects
     project_urn = source._get_project_container().as_urn()
@@ -64,6 +64,7 @@ def test_resource_category_containers_generation(source: VertexAISource) -> None
         ResourceCategory.DATASETS,
         ResourceCategory.ENDPOINTS,
         ResourceCategory.PIPELINES,
+        ResourceCategory.EXPERIMENTS,
         ResourceCategory.EVALUATIONS,
     ]
 
@@ -134,9 +135,9 @@ def test_resource_category_containers_have_unique_urns(source: VertexAISource) -
     ]
     unique_entity_urns = set(urns)
 
-    # We should have exactly 6 unique entity URNs (one per category)
+    # We should have exactly 7 unique entity URNs (one per category)
     # Each entity has multiple aspects, so total workunits > unique URNs
-    categories_count = 6
+    categories_count = 7
     assert len(unique_entity_urns) == categories_count, (
         f"Expected {categories_count} unique container URNs, got {len(unique_entity_urns)}"
     )

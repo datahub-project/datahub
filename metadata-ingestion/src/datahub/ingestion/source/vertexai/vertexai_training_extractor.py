@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from google.api_core.exceptions import (
@@ -28,6 +29,7 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 )
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    ORDER_BY_UPDATE_TIME_DESC,
     DatasetTypes,
     ResourceCategory,
     TrainingJobTypes,
@@ -48,6 +50,7 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_job_result_status,
     is_status_for_run_event_class,
 )
+from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     log_progress,
@@ -91,6 +94,7 @@ class VertexAITrainingExtractor:
         ],
         platform: str,
         report: StaleEntityRemovalSourceReport,
+        state_handler: VertexAIStateHandler,
     ):
         self.config = config
         self.client = client
@@ -104,6 +108,7 @@ class VertexAITrainingExtractor:
         self._get_job_lineage_from_ml_metadata = get_job_lineage_from_ml_metadata_fn
         self.platform = platform
         self.report = report
+        self.state_handler = state_handler
 
         self.datasets: Optional[Dict[str, VertexAiResourceNoun]] = None
 
@@ -114,12 +119,33 @@ class VertexAITrainingExtractor:
                 continue
             logger.info(f"Fetching {class_name}s from Vertex AI")
 
+            last_checkpoint_millis = self.state_handler.get_last_update_time(class_name)
+            if last_checkpoint_millis:
+                checkpoint_time = datetime.fromtimestamp(
+                    last_checkpoint_millis / 1000, tz=timezone.utc
+                ).strftime("%Y-%m-%d %H:%M:%S")
+                logger.info(
+                    f"Incremental mode: Only processing {class_name}s updated after {checkpoint_time} UTC"
+                )
+
             jobs_pager = getattr(self.client, class_name).list(
-                order_by="update_time desc"
+                order_by=ORDER_BY_UPDATE_TIME_DESC
             )
 
             max_jobs = self.config.max_training_jobs_per_type
             for job_count, job in enumerate(jobs_pager, start=1):
+                if last_checkpoint_millis:
+                    job_update_millis = int(job.update_time.timestamp() * 1000)
+                    if job_update_millis <= last_checkpoint_millis:
+                        logger.info(
+                            f"Reached checkpoint timestamp for {class_name}, stopping early (processed {job_count - 1} new jobs)"
+                        )
+                        break
+
+                    self.state_handler.update_resource_timestamp(
+                        class_name, job_update_millis
+                    )
+
                 log_progress(job_count, max_jobs, class_name)
 
                 yield from self._get_training_job_mcps(job)
@@ -133,7 +159,6 @@ class VertexAITrainingExtractor:
     def _get_training_job_mcps(
         self, job: VertexAiResourceNoun
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate MCPs for a single training job."""
         job_meta: TrainingJobMetadata = self._get_training_job_metadata(job)
         external_urns = self.uri_parser.extract_external_uris_from_job(job)
         job_meta.external_input_urns = external_urns.input_urns
@@ -145,7 +170,6 @@ class VertexAITrainingExtractor:
     def _gen_output_model_mcps(
         self, job_meta: TrainingJobMetadata
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate MCPs for models produced by training jobs."""
         if job_meta.output_model and job_meta.output_model_version:
             job = job_meta.job
             job_urn = builder.make_data_process_instance_urn(
@@ -192,7 +216,6 @@ class VertexAITrainingExtractor:
     def _build_training_job_urns_and_edges(
         self, job_meta: TrainingJobMetadata
     ) -> TrainingJobURNsAndEdges:
-        """Build dataset URN, model URN, and input/output edges for training job."""
         dataset_urn = (
             builder.make_dataset_urn_with_platform_instance(
                 platform=self.platform,
@@ -234,7 +257,6 @@ class VertexAITrainingExtractor:
     def _extract_hyperparams_and_metrics(
         self, job_meta: TrainingJobMetadata
     ) -> MLMetrics:
-        """Extract hyperparameters and metrics from ML Metadata if enabled."""
         hyperparams: List[MLHyperParamClass] = []
         metrics: List[MLMetricClass] = []
 
@@ -256,7 +278,6 @@ class VertexAITrainingExtractor:
     def _gen_training_job_mcps(
         self, job_meta: TrainingJobMetadata
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate MCPs for a training job."""
         job = job_meta.job
         job_id = self.name_formatter.format_job_name(entity_id=job.name)
         job_urn = builder.make_data_process_instance_urn(job_id)
@@ -346,7 +367,6 @@ class VertexAITrainingExtractor:
             ).as_workunit()
 
     def _search_dataset(self, dataset_id: str) -> Optional[VertexAiResourceNoun]:
-        """Search for a dataset by ID."""
         if self.datasets is None:
             logger.info("Fetching Datasets from Vertex AI (one-time cache)")
             self.datasets = {}
@@ -377,7 +397,6 @@ class VertexAITrainingExtractor:
     def _get_dataset_workunits_from_job_metadata(
         self, job_meta: TrainingJobMetadata
     ) -> Iterable[MetadataWorkUnit]:
-        """Create DatasetPropertiesClass aspect for Vertex AI dataset."""
         ds = job_meta.input_dataset
 
         if ds:
@@ -389,21 +408,25 @@ class VertexAITrainingExtractor:
                 env=self.config.env,
             )
 
+            dataset_props = DatasetPropertiesClass(
+                name=ds.display_name,
+                created=(
+                    TimeStampClass(time=datetime_to_ts_millis(ds.create_time))
+                    if ds.create_time
+                    else None
+                ),
+                customProperties=DatasetCustomProperties(
+                    resource_name=ds.resource_name,
+                ).to_custom_properties(),
+                qualifiedName=ds.resource_name,
+            )
+
+            if hasattr(ds, "description") and ds.description:
+                dataset_props.description = ds.description
+
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
-                aspect=DatasetPropertiesClass(
-                    name=ds.display_name,
-                    created=(
-                        TimeStampClass(time=datetime_to_ts_millis(ds.create_time))
-                        if ds.create_time
-                        else None
-                    ),
-                    description=ds.display_name,
-                    customProperties=DatasetCustomProperties(
-                        resource_name=ds.resource_name,
-                    ).to_custom_properties(),
-                    qualifiedName=ds.resource_name,
-                ),
+                aspect=dataset_props,
             ).as_workunit()
 
             yield from self._yield_common_aspects(
@@ -415,14 +438,12 @@ class VertexAITrainingExtractor:
     def _search_model_version(
         self, model: Model, model_version_str: str
     ) -> Optional[VersionInfo]:
-        """Search for a model version."""
         for version in model.versioning_registry.list_versions():
             if version.version_id == model_version_str:
                 return version
         return None
 
     def _is_automl_job(self, job: VertexAiResourceNoun) -> bool:
-        """Check if job is an AutoML job."""
         return any(
             automl_type in job.__class__.__name__
             for automl_type in ["AutoML", "AutoMl", "Automl"]
@@ -431,10 +452,8 @@ class VertexAITrainingExtractor:
     def _get_training_job_metadata(
         self, job: VertexAiResourceNoun
     ) -> TrainingJobMetadata:
-        """Retrieve metadata for a Vertex AI training job."""
         job_meta = TrainingJobMetadata(job=job)
 
-        # Fetch lineage once if ML Metadata is enabled (for metrics or lineage extraction)
         if (
             self.config.extract_execution_metrics
             or self.config.use_ml_metadata_for_lineage
@@ -509,7 +528,6 @@ class VertexAITrainingExtractor:
                         exc=e,
                     )
         else:
-            # Use cached lineage for non-AutoML jobs
             if job_meta.lineage:
                 if job_meta.lineage.input_urns:
                     job_meta.external_input_urns = job_meta.lineage.input_urns

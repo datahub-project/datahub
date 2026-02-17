@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import (
     Any,
     Dict,
@@ -31,10 +31,12 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 )
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    ORDER_BY_UPDATE_TIME_DESC,
     DateTimeFormat,
     DurationUnit,
     LabelFormat,
     ResourceCategory,
+    ResourceTypes,
     VertexAISubTypes,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
@@ -50,7 +52,10 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_pipeline_task_result_status,
     is_status_for_run_event_class,
 )
-from datahub.ingestion.source.vertexai.vertexai_state import ModelUsageTracker
+from datahub.ingestion.source.vertexai.vertexai_state import (
+    ModelUsageTracker,
+    VertexAIStateHandler,
+)
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     get_resource_category_container,
@@ -101,6 +106,7 @@ class VertexAIPipelineExtractor:
         yield_common_aspects_fn: YieldCommonAspectsProtocol,
         model_usage_tracker: ModelUsageTracker,
         platform: str,
+        state_handler: VertexAIStateHandler,
     ):
         self.config = config
         self.client = client
@@ -112,6 +118,7 @@ class VertexAIPipelineExtractor:
         self._yield_common_aspects = yield_common_aspects_fn
         self.model_usage_tracker = model_usage_tracker
         self.platform = platform
+        self.state_handler = state_handler
         self._emitted_pipeline_urns: Set[str] = set()
         self._emitted_task_urns: Set[str] = set()
 
@@ -127,7 +134,6 @@ class VertexAIPipelineExtractor:
         return pipeline.name
 
     def _get_pipeline_container(self, pipeline_name: str) -> PipelineContainerKey:
-        """Get container key for a pipeline."""
         return PipelineContainerKey(
             project_id=self.project_id,
             platform=self.platform,
@@ -139,7 +145,6 @@ class VertexAIPipelineExtractor:
     def _gen_pipeline_container(
         self, pipeline_name: str, container_key: PipelineContainerKey
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate container entity for a pipeline."""
         pipelines_category_key = get_resource_category_container(
             project_id=self.project_id,
             platform=self.platform,
@@ -156,12 +161,37 @@ class VertexAIPipelineExtractor:
         )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """Main entry point for pipeline extraction."""
         logger.info("Fetching PipelineJobs from Vertex AI")
-        pipeline_jobs_pager = self.client.PipelineJob.list(order_by="update_time desc")
+
+        last_checkpoint_millis = self.state_handler.get_last_update_time(
+            ResourceTypes.PIPELINE_JOB
+        )
+        if last_checkpoint_millis:
+            checkpoint_time = datetime.fromtimestamp(
+                last_checkpoint_millis / 1000, tz=timezone.utc
+            ).strftime("%Y-%m-%d %H:%M:%S")
+            logger.info(
+                f"Incremental mode: Only processing PipelineJobs updated after {checkpoint_time} UTC"
+            )
+
+        pipeline_jobs_pager = self.client.PipelineJob.list(
+            order_by=ORDER_BY_UPDATE_TIME_DESC
+        )
 
         for job_count, pipeline in enumerate(pipeline_jobs_pager, start=1):
-            log_progress(job_count, None, "PipelineJobs")
+            if last_checkpoint_millis:
+                job_update_millis = int(pipeline.update_time.timestamp() * 1000)
+                if job_update_millis <= last_checkpoint_millis:
+                    logger.info(
+                        f"Reached checkpoint timestamp for PipelineJobs, stopping early (processed {job_count - 1} new jobs)"
+                    )
+                    break
+
+                self.state_handler.update_resource_timestamp(
+                    ResourceTypes.PIPELINE_JOB, job_update_millis
+                )
+
+            log_progress(job_count, None, f"{ResourceTypes.PIPELINE_JOB}s")
 
             logger.debug(f"Fetching pipeline ({pipeline.name})")
             pipeline_meta = self._get_pipeline_metadata(pipeline)
@@ -214,14 +244,13 @@ class VertexAIPipelineExtractor:
     def _gen_pipeline_run_instance(
         self, pipeline_job: PipelineJob, pipeline_meta: PipelineMetadata
     ) -> Iterable[MetadataWorkUnit]:
-        """Create DataProcessInstance for a pipeline run (execution)."""
         run_id = self.name_formatter.format_pipeline_run_id(pipeline_job.name)
         dpi_urn = builder.make_data_process_instance_urn(run_id)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dpi_urn,
             aspect=DataProcessInstancePropertiesClass(
-                name=f"Run: {pipeline_job.display_name or pipeline_job.name}",
+                name=pipeline_job.display_name or pipeline_job.name,
                 created=AuditStampClass(
                     time=(
                         datetime_to_ts_millis(pipeline_job.create_time)
@@ -286,8 +315,6 @@ class VertexAIPipelineExtractor:
     def _gen_pipeline_task_run_instance(
         self, task: PipelineTaskMetadata, pipeline: PipelineMetadata
     ) -> Iterable[MetadataWorkUnit]:
-        """Create DataProcessInstance for a task run (execution)."""
-        # Use pipeline name (unique per execution) + task name for unique run URN
         task_run_id = f"{pipeline.name}_{task.name}"
         dpi_urn = builder.make_data_process_instance_urn(
             self.name_formatter.format_pipeline_task_run_id(entity_id=task_run_id)
@@ -386,7 +413,6 @@ class VertexAIPipelineExtractor:
         """Emit lineage for a task - either as patches (incremental) or full aspects (non-incremental)."""
         task_urn_str = str(task.urn.urn())
 
-        # Collect dataset URNs (filter out non-dataset entities like models)
         input_datasets = (
             [
                 urn
@@ -408,7 +434,6 @@ class VertexAIPipelineExtractor:
         upstream_jobs = task.upstreams if task.upstreams else []
 
         if self.config.incremental_lineage:
-            # Incremental mode: Use patches (additive)
             patch_builder = DataJobPatchBuilder(task_urn_str)
 
             for input_urn in input_datasets:
@@ -423,7 +448,6 @@ class VertexAIPipelineExtractor:
                     id=f"{task_urn_str}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
                 )
         else:
-            # Non-incremental mode: Emit full aspect (replacement)
             yield MetadataChangeProposalWrapper(
                 entityUrn=task_urn_str,
                 aspect=DataJobInputOutputClass(
@@ -438,7 +462,6 @@ class VertexAIPipelineExtractor:
     def _extract_pipeline_task_inputs(
         self, task_detail: PipelineTaskDetail, task_name: str, task_urn: str
     ) -> Optional[List[str]]:
-        """Extract input dataset and model URNs from pipeline task artifacts."""
         if not task_detail.inputs:
             return None
 
@@ -453,7 +476,7 @@ class VertexAIPipelineExtractor:
                             )
                             if model_urn:
                                 input_urns.append(model_urn)
-                                self.model_usage_tracker.track_usage(
+                                self.model_usage_tracker.track_model_usage(
                                     model_urn, task_urn
                                 )
                             else:
@@ -473,7 +496,6 @@ class VertexAIPipelineExtractor:
     def _extract_pipeline_task_outputs(
         self, task_detail: PipelineTaskDetail, task_name: str
     ) -> PipelineTaskArtifacts:
-        """Extract output dataset and model URNs from pipeline task artifacts."""
         if not task_detail.outputs:
             return PipelineTaskArtifacts()
 
@@ -579,7 +601,6 @@ class VertexAIPipelineExtractor:
         return tasks
 
     def _get_pipeline_metadata(self, pipeline: PipelineJob) -> PipelineMetadata:
-        """Extract pipeline metadata from PipelineJob."""
         stable_id = self._get_stable_pipeline_id(pipeline)
         flow_id = self.name_formatter.format_pipeline_id(stable_id)
 

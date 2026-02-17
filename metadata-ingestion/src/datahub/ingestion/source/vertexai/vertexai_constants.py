@@ -5,6 +5,27 @@ from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 # Progress logging configuration
 PROGRESS_LOG_INTERVAL = 100
 
+# Field names for object attributes
+UPDATE_TIME_FIELD = "update_time"
+CREATE_TIME_FIELD = "create_time"
+VERSION_ID_FIELD = "version_id"
+
+# API ordering for incremental ingestion
+ORDER_BY_UPDATE_TIME_DESC = f"{UPDATE_TIME_FIELD} desc"
+ORDER_BY_CREATE_TIME_DESC = f"{CREATE_TIME_FIELD} desc"
+
+
+# Resource type names for state tracking and logging
+class ResourceTypes:
+    MODEL = "Model"
+    MODEL_EVALUATION = "ModelEvaluation"
+    PIPELINE_JOB = "PipelineJob"
+    EXPERIMENT = "Experiment"
+    EXPERIMENT_RUN = "ExperimentRun"
+    CUSTOM_JOB = "CustomJob"
+    BATCH_PREDICTION_JOB = "BatchPredictionJob"
+    HYPERPARAMETER_TUNING_JOB = "HyperparameterTuningJob"
+
 
 class ExternalPlatforms:
     """
@@ -34,6 +55,7 @@ class ResourceCategory:
     DATASETS = "Datasets"
     ENDPOINTS = "Endpoints"
     PIPELINES = "Pipelines"
+    EXPERIMENTS = "Experiments"
     EVALUATIONS = "Evaluations"
 
 
@@ -283,7 +305,7 @@ class URIPatterns:
 class MLMetadataDefaults:
     DEFAULT_METADATA_STORE = "default"
     DEFAULT_PAGE_SIZE = 100
-    MAX_EXECUTION_SEARCH_RESULTS = 100
+    MAX_EXECUTION_SEARCH_RESULTS = 500
     METADATA_STORE_PATH_TEMPLATE = (
         "projects/{project_id}/locations/{region}/metadataStores/{metadata_store}"
     )
