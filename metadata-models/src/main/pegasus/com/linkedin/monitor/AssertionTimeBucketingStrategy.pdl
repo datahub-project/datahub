@@ -1,0 +1,31 @@
+namespace com.linkedin.monitor
+
+import com.linkedin.dataset.SchemaFieldPath
+import com.linkedin.timeseries.TimeWindowSize
+
+/**
+ * Time bucketing strategy for assertion evaluation.
+ * Defines how to partition data into time buckets for evaluation.
+ */
+record AssertionTimeBucketingStrategy {
+  /**
+   * Path to the timestamp field used for bucketing.
+   */
+  timestampFieldPath: SchemaFieldPath
+
+  /**
+   * Interval for time buckets (e.g. 1 DAY, 2 WEEKs).
+   */
+  bucketInterval: TimeWindowSize
+
+  /**
+   * Grace period after bucket end before considering the bucket complete.
+   * Allows for late-arriving data; evaluation runs only after bucket_end + grace period.
+   */
+  lateArrivalGracePeriod: optional TimeWindowSize
+
+  /**
+   * IANA timezone (e.g. "America/Los_Angeles") for bucket boundaries.
+   */
+  timezone: string
+}

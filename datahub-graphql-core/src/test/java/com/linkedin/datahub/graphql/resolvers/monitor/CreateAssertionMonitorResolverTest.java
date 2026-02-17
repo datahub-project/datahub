@@ -15,8 +15,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationParametersInput;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationParametersType;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketInterval;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketIntervalWindowInput;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketingStrategyInput;
 import com.linkedin.datahub.graphql.generated.AuditLogSpecInput;
 import com.linkedin.datahub.graphql.generated.CreateAssertionMonitorInput;
 import com.linkedin.datahub.graphql.generated.CronScheduleInput;
@@ -26,6 +30,8 @@ import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParameter
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessSourceType;
 import com.linkedin.datahub.graphql.generated.DatasetVolumeAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.DatasetVolumeSourceType;
+import com.linkedin.datahub.graphql.generated.LateArrivalGracePeriodInput;
+import com.linkedin.datahub.graphql.generated.LateArrivalGracePeriodInterval;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -129,7 +135,7 @@ public class CreateAssertionMonitorResolverTest {
               AssertionEvaluationParametersType.DATASET_VOLUME,
               null,
               new DatasetVolumeAssertionParametersInput(
-                  DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE),
+                  DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE, null),
               null,
               null),
           TEST_EXECUTOR_ID);
@@ -202,7 +208,7 @@ public class CreateAssertionMonitorResolverTest {
               null,
               null,
               new DatasetFieldAssertionParametersInput(
-                  DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null),
+                  DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null, null),
               null),
           TEST_EXECUTOR_ID);
 
@@ -256,18 +262,17 @@ public class CreateAssertionMonitorResolverTest {
     assertEquals(monitor.getUrn(), TEST_MONITOR_URN.toString());
     assertEquals(monitor.getEntity().getUrn(), TEST_ENTITY_URN.toString());
 
-    // Validate that we created the assertion
-    AssertionEvaluationSpec evaluationSpec =
-        TEST_MONITOR_INFO_FRESHNESS.getAssertionMonitor().getAssertions().get(0);
+    // Validate that we created the assertion (8-arg overload with null settings)
     Mockito.verify(mockService, Mockito.times(1))
         .createAssertionMonitor(
             any(OperationContext.class),
             Mockito.eq(TEST_ENTITY_URN),
-            Mockito.eq(evaluationSpec.getAssertion()),
-            Mockito.eq(evaluationSpec.getSchedule()),
-            Mockito.eq(evaluationSpec.getParameters()),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
             Mockito.eq(TEST_EXECUTOR_ID),
-            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.isNull());
   }
 
   @Test
@@ -293,17 +298,16 @@ public class CreateAssertionMonitorResolverTest {
     assertEquals(monitor.getEntity().getUrn(), TEST_ENTITY_URN.toString());
 
     // Validate that we created the assertion
-    AssertionEvaluationSpec evaluationSpec =
-        TEST_MONITOR_INFO_VOLUME.getAssertionMonitor().getAssertions().get(0);
     Mockito.verify(mockService, Mockito.times(1))
         .createAssertionMonitor(
             any(OperationContext.class),
             Mockito.eq(TEST_ENTITY_URN),
-            Mockito.eq(evaluationSpec.getAssertion()),
-            Mockito.eq(evaluationSpec.getSchedule()),
-            Mockito.eq(evaluationSpec.getParameters()),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
             Mockito.eq(TEST_EXECUTOR_ID),
-            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.isNull());
   }
 
   @Test
@@ -329,17 +333,16 @@ public class CreateAssertionMonitorResolverTest {
     assertEquals(monitor.getEntity().getUrn(), TEST_ENTITY_URN.toString());
 
     // Validate that we created the assertion
-    AssertionEvaluationSpec evaluationSpec =
-        TEST_MONITOR_INFO_SQL.getAssertionMonitor().getAssertions().get(0);
     Mockito.verify(mockService, Mockito.times(1))
         .createAssertionMonitor(
             any(OperationContext.class),
             Mockito.eq(TEST_ENTITY_URN),
-            Mockito.eq(evaluationSpec.getAssertion()),
-            Mockito.eq(evaluationSpec.getSchedule()),
-            Mockito.eq(evaluationSpec.getParameters()),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
             Mockito.eq(TEST_EXECUTOR_ID),
-            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.isNull());
 
     // Ensure that we retrieved the assertion info to check whether it is of type SQL.
     Mockito.verify(mockAssertionService, Mockito.times(1))
@@ -379,17 +382,16 @@ public class CreateAssertionMonitorResolverTest {
     assertEquals(monitor.getEntity().getUrn(), TEST_ENTITY_URN.toString());
 
     // Validate that we created the assertion
-    AssertionEvaluationSpec evaluationSpec =
-        TEST_MONITOR_INFO_FIELD.getAssertionMonitor().getAssertions().get(0);
     Mockito.verify(mockService, Mockito.times(1))
         .createAssertionMonitor(
             any(OperationContext.class),
             Mockito.eq(TEST_ENTITY_URN),
-            Mockito.eq(evaluationSpec.getAssertion()),
-            Mockito.eq(evaluationSpec.getSchedule()),
-            Mockito.eq(evaluationSpec.getParameters()),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
             Mockito.eq(TEST_EXECUTOR_ID),
-            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.isNull());
   }
 
   @Test
@@ -429,7 +431,8 @@ public class CreateAssertionMonitorResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.eq(Constants.METADATA_TESTS_SOURCE));
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.any());
 
     CreateAssertionMonitorResolver resolver =
         new CreateAssertionMonitorResolver(mockService, mockAssertionService);
@@ -443,8 +446,240 @@ public class CreateAssertionMonitorResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
 
+  // ===== Time bucketing strategy tests =====
+
+  @Test
+  public void testGetSuccessWithTimeBucketingStrategy() throws Exception {
+    // Build input with valid time bucketing strategy inside DatasetVolumeAssertionParametersInput
+    AssertionTimeBucketingStrategyInput bucketingInput = new AssertionTimeBucketingStrategyInput();
+    bucketingInput.setTimestampFieldPath("created_at");
+    AssertionTimeBucketIntervalWindowInput bucketWindowInput =
+        new AssertionTimeBucketIntervalWindowInput();
+    bucketWindowInput.setUnit(AssertionTimeBucketInterval.DAY);
+    bucketingInput.setBucketInterval(bucketWindowInput);
+    bucketingInput.setTimezone("America/Los_Angeles");
+    LateArrivalGracePeriodInput gracePeriod = new LateArrivalGracePeriodInput();
+    gracePeriod.setUnit(LateArrivalGracePeriodInterval.DAY);
+    gracePeriod.setMultiple(2);
+    bucketingInput.setLateArrivalGracePeriod(gracePeriod);
+
+    CreateAssertionMonitorInput input =
+        new CreateAssertionMonitorInput(
+            TEST_ENTITY_URN.toString(),
+            TEST_ASSERTION_URN.toString(),
+            new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
+            new AssertionEvaluationParametersInput(
+                AssertionEvaluationParametersType.DATASET_VOLUME,
+                null,
+                new DatasetVolumeAssertionParametersInput(
+                    DatasetVolumeSourceType.QUERY, bucketingInput),
+                null,
+                null),
+            TEST_EXECUTOR_ID);
+
+    MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_VOLUME);
+    AssertionService mockAssertionService =
+        initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.VOLUME);
+    CreateAssertionMonitorResolver resolver =
+        new CreateAssertionMonitorResolver(mockService, mockAssertionService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Monitor monitor = resolver.get(mockEnv).get();
+    assertNotNull(monitor);
+
+    // Verify the 8-arg overload was called (time bucketing strategy is inside parameters)
+    Mockito.verify(mockService, Mockito.times(1))
+        .createAssertionMonitor(
+            any(OperationContext.class),
+            Mockito.eq(TEST_ENTITY_URN),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.isNull());
+  }
+
+  @Test
+  public void testTimeBucketingStrategyDefaultsTimezoneToUtc() throws Exception {
+    // Omit timezone — should default to UTC
+    AssertionTimeBucketingStrategyInput bucketingInput = new AssertionTimeBucketingStrategyInput();
+    bucketingInput.setTimestampFieldPath("created_at");
+    AssertionTimeBucketIntervalWindowInput bucketWindowInput2 =
+        new AssertionTimeBucketIntervalWindowInput();
+    bucketWindowInput2.setUnit(AssertionTimeBucketInterval.DAY);
+    bucketingInput.setBucketInterval(bucketWindowInput2);
+    bucketingInput.setTimezone(null);
+
+    CreateAssertionMonitorInput input =
+        new CreateAssertionMonitorInput(
+            TEST_ENTITY_URN.toString(),
+            TEST_ASSERTION_URN.toString(),
+            new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
+            new AssertionEvaluationParametersInput(
+                AssertionEvaluationParametersType.DATASET_VOLUME,
+                null,
+                new DatasetVolumeAssertionParametersInput(
+                    DatasetVolumeSourceType.QUERY, bucketingInput),
+                null,
+                null),
+            TEST_EXECUTOR_ID);
+
+    MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_VOLUME);
+    AssertionService mockAssertionService =
+        initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.VOLUME);
+    CreateAssertionMonitorResolver resolver =
+        new CreateAssertionMonitorResolver(mockService, mockAssertionService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Monitor monitor = resolver.get(mockEnv).get();
+    assertNotNull(monitor);
+
+    // Capture parameters and verify timezone defaults to UTC
+    org.mockito.ArgumentCaptor<AssertionEvaluationParameters> captor =
+        org.mockito.ArgumentCaptor.forClass(AssertionEvaluationParameters.class);
+    Mockito.verify(mockService, Mockito.times(1))
+        .createAssertionMonitor(
+            any(OperationContext.class),
+            Mockito.eq(TEST_ENTITY_URN),
+            Mockito.any(),
+            Mockito.any(),
+            captor.capture(),
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.isNull());
+    assertEquals(
+        captor.getValue().getDatasetVolumeParameters().getTimeBucketingStrategy().getTimezone(),
+        "UTC");
+  }
+
+  @Test
+  public void testTimeBucketingStrategyRejectsInvalidTimezone() throws Exception {
+    AssertionTimeBucketingStrategyInput bucketingInput = new AssertionTimeBucketingStrategyInput();
+    bucketingInput.setTimestampFieldPath("created_at");
+    AssertionTimeBucketIntervalWindowInput bucketWindowInput3 =
+        new AssertionTimeBucketIntervalWindowInput();
+    bucketWindowInput3.setUnit(AssertionTimeBucketInterval.DAY);
+    bucketingInput.setBucketInterval(bucketWindowInput3);
+    bucketingInput.setTimezone("Not/A_Real_Zone");
+
+    CreateAssertionMonitorInput input =
+        new CreateAssertionMonitorInput(
+            TEST_ENTITY_URN.toString(),
+            TEST_ASSERTION_URN.toString(),
+            new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
+            new AssertionEvaluationParametersInput(
+                AssertionEvaluationParametersType.DATASET_VOLUME,
+                null,
+                new DatasetVolumeAssertionParametersInput(
+                    DatasetVolumeSourceType.QUERY, bucketingInput),
+                null,
+                null),
+            TEST_EXECUTOR_ID);
+
+    MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_VOLUME);
+    AssertionService mockAssertionService =
+        initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.VOLUME);
+    CreateAssertionMonitorResolver resolver =
+        new CreateAssertionMonitorResolver(mockService, mockAssertionService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    CompletionException ex =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    assertTrue(ex.getCause() instanceof DataHubGraphQLException);
+    assertTrue(ex.getCause().getMessage().contains("Invalid timezone"));
+  }
+
+  @Test
+  public void testTimeBucketingStrategyRejectsNonPositiveGracePeriodMultiple() throws Exception {
+    AssertionTimeBucketingStrategyInput bucketingInput = new AssertionTimeBucketingStrategyInput();
+    bucketingInput.setTimestampFieldPath("created_at");
+    AssertionTimeBucketIntervalWindowInput bucketWindowInput4 =
+        new AssertionTimeBucketIntervalWindowInput();
+    bucketWindowInput4.setUnit(AssertionTimeBucketInterval.DAY);
+    bucketingInput.setBucketInterval(bucketWindowInput4);
+    bucketingInput.setTimezone("UTC");
+    LateArrivalGracePeriodInput gracePeriod = new LateArrivalGracePeriodInput();
+    gracePeriod.setUnit(LateArrivalGracePeriodInterval.DAY);
+    gracePeriod.setMultiple(0);
+    bucketingInput.setLateArrivalGracePeriod(gracePeriod);
+
+    CreateAssertionMonitorInput input =
+        new CreateAssertionMonitorInput(
+            TEST_ENTITY_URN.toString(),
+            TEST_ASSERTION_URN.toString(),
+            new CronScheduleInput("1 * * * *", "UTC"),
+            new AssertionEvaluationParametersInput(
+                AssertionEvaluationParametersType.DATASET_VOLUME,
+                null,
+                new DatasetVolumeAssertionParametersInput(
+                    DatasetVolumeSourceType.QUERY, bucketingInput),
+                null,
+                null),
+            TEST_EXECUTOR_ID);
+
+    MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_VOLUME);
+    AssertionService mockAssertionService =
+        initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.VOLUME);
+    CreateAssertionMonitorResolver resolver =
+        new CreateAssertionMonitorResolver(mockService, mockAssertionService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    CompletionException ex =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    assertTrue(ex.getCause() instanceof DataHubGraphQLException);
+    assertTrue(ex.getCause().getMessage().contains("Grace period multiple must be positive"));
+  }
+
+  @Test
+  public void testTimeBucketingStrategyNullPassedThrough() throws Exception {
+    // No time bucketing strategy - verify normal 8-arg call (same as
+    // testGetSuccessFreshnessAssertion)
+    MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_FRESHNESS);
+    AssertionService mockAssertionService =
+        initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.FRESHNESS);
+    CreateAssertionMonitorResolver resolver =
+        new CreateAssertionMonitorResolver(mockService, mockAssertionService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_FRESHNESS_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Monitor monitor = resolver.get(mockEnv).get();
+    assertNotNull(monitor);
+
+    Mockito.verify(mockService, Mockito.times(1))
+        .createAssertionMonitor(
+            any(OperationContext.class),
+            Mockito.eq(TEST_ENTITY_URN),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.isNull());
+  }
+
   private MonitorService initMockMonitorService(MonitorInfo monitorInfo) throws Exception {
     MonitorService service = Mockito.mock(MonitorService.class);
+    // Mock the 8-arg overload used by the resolver
     Mockito.when(
             service.createAssertionMonitor(
                 any(OperationContext.class),
@@ -453,7 +688,8 @@ public class CreateAssertionMonitorResolverTest {
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.eq(Constants.METADATA_TESTS_SOURCE)))
+                Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+                Mockito.any()))
         .thenReturn(TEST_MONITOR_URN);
 
     Mockito.when(

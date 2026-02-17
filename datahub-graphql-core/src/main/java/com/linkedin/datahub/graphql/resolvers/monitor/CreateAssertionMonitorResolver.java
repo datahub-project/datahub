@@ -61,13 +61,16 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
                       createCronSchedule(input.getSchedule()),
                       createAssertionEvaluationParameters(input.getParameters()),
                       input.getExecutorId(),
-                      appSource);
+                      appSource,
+                      null);
 
               // Then, return the new monitor
               return MonitorMapper.map(
                   context,
                   _monitorService.getMonitorEntityResponse(
                       context.getOperationContext(), monitorUrn));
+            } catch (DataHubGraphQLException e) {
+              throw e;
             } catch (Exception e) {
               log.error("Failed to create Assertion monitor!", e);
               throw new DataHubGraphQLException(

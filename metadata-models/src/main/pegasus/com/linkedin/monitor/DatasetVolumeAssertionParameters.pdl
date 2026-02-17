@@ -24,4 +24,9 @@ record DatasetVolumeAssertionParameters {
     */
     DATAHUB_DATASET_PROFILE
   }
+
+  /**
+   * Optional time bucketing strategy for evaluating the assertion over time windows.
+   */
+  timeBucketingStrategy: optional AssertionTimeBucketingStrategy
 }

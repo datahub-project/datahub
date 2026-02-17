@@ -22,6 +22,11 @@ import com.linkedin.datahub.graphql.generated.AssertionMonitorBootstrapStatus;
 import com.linkedin.datahub.graphql.generated.AssertionMonitorMetricsCubeBootstrapState;
 import com.linkedin.datahub.graphql.generated.AssertionMonitorMetricsCubeBootstrapStatus;
 import com.linkedin.datahub.graphql.generated.AssertionMonitorSettings;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketInterval;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketIntervalWindow;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketIntervalWindowInput;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketingStrategy;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketingStrategyInput;
 import com.linkedin.datahub.graphql.generated.AuditLogSpec;
 import com.linkedin.datahub.graphql.generated.CronSchedule;
 import com.linkedin.datahub.graphql.generated.DataHubOperationSpec;
@@ -38,6 +43,8 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.EvaluationTimeWindow;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldKind;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldSpec;
+import com.linkedin.datahub.graphql.generated.LateArrivalGracePeriod;
+import com.linkedin.datahub.graphql.generated.LateArrivalGracePeriodInterval;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.generated.MonitorAnomalyEvent;
 import com.linkedin.datahub.graphql.generated.MonitorError;
@@ -55,7 +62,9 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.MonitorKey;
 import com.linkedin.monitor.EmbeddedAssertionArray;
+import com.linkedin.timeseries.CalendarInterval;
 import com.linkedin.timeseries.TimeWindow;
+import com.linkedin.timeseries.TimeWindowSize;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -131,6 +140,73 @@ public class MonitorMapper {
           mapBootstrapStatus(backendAssertionMonitor.getBootstrapStatus()));
     }
     return assertionMonitor;
+  }
+
+  private static AssertionTimeBucketingStrategy mapTimeBucketingStrategy(
+      com.linkedin.monitor.AssertionTimeBucketingStrategy backend) {
+    AssertionTimeBucketingStrategy result = new AssertionTimeBucketingStrategy();
+    result.setTimestampFieldPath(backend.getTimestampFieldPath());
+    result.setBucketInterval(mapTimeWindowSizeToGraphQL(backend.getBucketInterval()));
+    if (backend.hasLateArrivalGracePeriod()) {
+      TimeWindowSize window = backend.getLateArrivalGracePeriod();
+      LateArrivalGracePeriod gracePeriod = new LateArrivalGracePeriod();
+      gracePeriod.setUnit(LateArrivalGracePeriodInterval.valueOf(window.getUnit().name()));
+      gracePeriod.setMultiple(window.getMultiple());
+      result.setLateArrivalGracePeriod(gracePeriod);
+    }
+    result.setTimezone(backend.getTimezone());
+    return result;
+  }
+
+  /** Maps a backend TimeWindowSize to the GraphQL AssertionTimeBucketIntervalWindow. */
+  private static AssertionTimeBucketIntervalWindow mapTimeWindowSizeToGraphQL(
+      TimeWindowSize windowSize) {
+    AssertionTimeBucketIntervalWindow window = new AssertionTimeBucketIntervalWindow();
+    CalendarInterval unit = windowSize.getUnit();
+    switch (unit) {
+      case DAY:
+        window.setUnit(AssertionTimeBucketInterval.DAY);
+        break;
+      case WEEK:
+        window.setUnit(AssertionTimeBucketInterval.WEEK);
+        break;
+      default:
+        throw new IllegalArgumentException(
+            String.format(
+                "Unsupported CalendarInterval '%s' for time bucket interval. Only DAY and WEEK are supported.",
+                unit));
+    }
+    window.setMultiple(windowSize.getMultiple());
+    return window;
+  }
+
+  /**
+   * Maps GraphQL input to backend AssertionTimeBucketingStrategy. Caller must set timezone (derive
+   * from column/dataset or use UTC) when input.getTimezone() is null.
+   */
+  @Nullable
+  public static com.linkedin.monitor.AssertionTimeBucketingStrategy
+      mapTimeBucketingStrategyInputToBackend(
+          @Nullable AssertionTimeBucketingStrategyInput input, @Nonnull String resolvedTimezone) {
+    if (input == null) {
+      return null;
+    }
+    com.linkedin.monitor.AssertionTimeBucketingStrategy backend =
+        new com.linkedin.monitor.AssertionTimeBucketingStrategy();
+    backend.setTimestampFieldPath(input.getTimestampFieldPath());
+    AssertionTimeBucketIntervalWindowInput intervalInput = input.getBucketInterval();
+    TimeWindowSize bucketWindow = new TimeWindowSize();
+    bucketWindow.setUnit(CalendarInterval.valueOf(intervalInput.getUnit().name()));
+    bucketWindow.setMultiple(1);
+    backend.setBucketInterval(bucketWindow);
+    if (input.getLateArrivalGracePeriod() != null) {
+      TimeWindowSize window = new TimeWindowSize();
+      window.setUnit(CalendarInterval.valueOf(input.getLateArrivalGracePeriod().getUnit().name()));
+      window.setMultiple(input.getLateArrivalGracePeriod().getMultiple());
+      backend.setLateArrivalGracePeriod(window);
+    }
+    backend.setTimezone(resolvedTimezone);
+    return backend;
   }
 
   private static AssertionMonitorBootstrapStatus mapBootstrapStatus(
@@ -387,6 +463,11 @@ public class MonitorMapper {
     datasetVolumeAssertionParameters.setSourceType(
         DatasetVolumeSourceType.valueOf(
             backendDatasetVolumeAssertionParameters.getSourceType().name()));
+    if (backendDatasetVolumeAssertionParameters.hasTimeBucketingStrategy()) {
+      datasetVolumeAssertionParameters.setTimeBucketingStrategy(
+          mapTimeBucketingStrategy(
+              backendDatasetVolumeAssertionParameters.getTimeBucketingStrategy()));
+    }
     return datasetVolumeAssertionParameters;
   }
 
@@ -400,6 +481,11 @@ public class MonitorMapper {
     if (backendDatasetFieldAssertionParameters.hasChangedRowsField()) {
       datasetFieldAssertionParameters.setChangedRowsField(
           mapFreshnessFieldSpec(backendDatasetFieldAssertionParameters.getChangedRowsField()));
+    }
+    if (backendDatasetFieldAssertionParameters.hasTimeBucketingStrategy()) {
+      datasetFieldAssertionParameters.setTimeBucketingStrategy(
+          mapTimeBucketingStrategy(
+              backendDatasetFieldAssertionParameters.getTimeBucketingStrategy()));
     }
     return datasetFieldAssertionParameters;
   }

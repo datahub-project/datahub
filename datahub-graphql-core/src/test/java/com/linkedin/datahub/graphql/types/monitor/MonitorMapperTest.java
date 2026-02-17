@@ -12,6 +12,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.codec.JacksonDataCodec;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketInterval;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketIntervalWindowInput;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketingStrategy;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketingStrategyInput;
+import com.linkedin.datahub.graphql.generated.LateArrivalGracePeriodInput;
+import com.linkedin.datahub.graphql.generated.LateArrivalGracePeriodInterval;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -28,6 +34,7 @@ import com.linkedin.monitor.AssertionMonitorBootstrapStatus;
 import com.linkedin.monitor.AssertionMonitorMetricsCubeBootstrapState;
 import com.linkedin.monitor.AssertionMonitorMetricsCubeBootstrapStatus;
 import com.linkedin.monitor.AuditLogSpec;
+import com.linkedin.monitor.DatasetFieldAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessSourceType;
 import com.linkedin.monitor.DatasetSchemaAssertionParameters;
@@ -300,6 +307,219 @@ public class MonitorMapperTest {
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)"));
     freshnessAssertionInfo.setType(FreshnessAssertionType.DATASET_CHANGE);
     info.setFreshnessAssertion(freshnessAssertionInfo);
+    return info;
+  }
+
+  // ===== Time bucketing strategy mapper tests =====
+
+  @Test
+  public void testMapTimeBucketingStrategyInputToBackendWithGracePeriod() {
+    AssertionTimeBucketingStrategyInput input = new AssertionTimeBucketingStrategyInput();
+    input.setTimestampFieldPath("event_time");
+    AssertionTimeBucketIntervalWindowInput bucketInput =
+        new AssertionTimeBucketIntervalWindowInput();
+    bucketInput.setUnit(AssertionTimeBucketInterval.DAY);
+    input.setBucketInterval(bucketInput);
+    LateArrivalGracePeriodInput grace = new LateArrivalGracePeriodInput();
+    grace.setUnit(LateArrivalGracePeriodInterval.DAY);
+    grace.setMultiple(3);
+    input.setLateArrivalGracePeriod(grace);
+
+    com.linkedin.monitor.AssertionTimeBucketingStrategy backend =
+        MonitorMapper.mapTimeBucketingStrategyInputToBackend(input, "America/New_York");
+
+    Assert.assertNotNull(backend);
+    Assert.assertEquals(backend.getTimestampFieldPath(), "event_time");
+    Assert.assertEquals(backend.getBucketInterval().getUnit(), CalendarInterval.DAY);
+    Assert.assertEquals(backend.getBucketInterval().getMultiple(), 1);
+    Assert.assertEquals(backend.getTimezone(), "America/New_York");
+    Assert.assertTrue(backend.hasLateArrivalGracePeriod());
+    Assert.assertEquals(backend.getLateArrivalGracePeriod().getUnit(), CalendarInterval.DAY);
+    Assert.assertEquals(backend.getLateArrivalGracePeriod().getMultiple(), 3);
+  }
+
+  @Test
+  public void testMapTimeBucketingStrategyInputToBackendWithoutGracePeriod() {
+    AssertionTimeBucketingStrategyInput input = new AssertionTimeBucketingStrategyInput();
+    input.setTimestampFieldPath("created_at");
+    AssertionTimeBucketIntervalWindowInput bucketInput =
+        new AssertionTimeBucketIntervalWindowInput();
+    bucketInput.setUnit(AssertionTimeBucketInterval.WEEK);
+    input.setBucketInterval(bucketInput);
+
+    com.linkedin.monitor.AssertionTimeBucketingStrategy backend =
+        MonitorMapper.mapTimeBucketingStrategyInputToBackend(input, "UTC");
+
+    Assert.assertNotNull(backend);
+    Assert.assertEquals(backend.getTimestampFieldPath(), "created_at");
+    Assert.assertEquals(backend.getBucketInterval().getUnit(), CalendarInterval.WEEK);
+    Assert.assertEquals(backend.getBucketInterval().getMultiple(), 1);
+    Assert.assertEquals(backend.getTimezone(), "UTC");
+    Assert.assertFalse(backend.hasLateArrivalGracePeriod());
+  }
+
+  @Test
+  public void testMapTimeBucketingStrategyInputToBackendNullReturnsNull() {
+    Assert.assertNull(MonitorMapper.mapTimeBucketingStrategyInputToBackend(null, "UTC"));
+  }
+
+  @Test
+  public void testMapAssertionMonitorWithTimeBucketingStrategy() throws IOException {
+    MonitorKey key = new MonitorKey();
+    key.setEntity(TEST_ENTITY_URN);
+    key.setId(TEST_MONITOR_ID);
+
+    MonitorInfo info = createAssertionMonitorInfoWithTimeBucketing();
+    EntityResponse monitorEntityResponse = createMonitorEntityResponse(key, info);
+    Monitor output = MonitorMapper.map(null, monitorEntityResponse);
+
+    Assert.assertNotNull(output);
+    Assert.assertNotNull(
+        output
+            .getInfo()
+            .getAssertionMonitor()
+            .getAssertions()
+            .get(0)
+            .getParameters()
+            .getDatasetVolumeParameters()
+            .getTimeBucketingStrategy());
+    AssertionTimeBucketingStrategy strategy =
+        output
+            .getInfo()
+            .getAssertionMonitor()
+            .getAssertions()
+            .get(0)
+            .getParameters()
+            .getDatasetVolumeParameters()
+            .getTimeBucketingStrategy();
+    Assert.assertEquals(strategy.getTimestampFieldPath(), "event_time");
+    Assert.assertNotNull(strategy.getBucketInterval());
+    Assert.assertEquals(strategy.getBucketInterval().getUnit(), AssertionTimeBucketInterval.DAY);
+    Assert.assertEquals((int) strategy.getBucketInterval().getMultiple(), 1);
+    Assert.assertEquals(strategy.getTimezone(), "America/Chicago");
+    Assert.assertNotNull(strategy.getLateArrivalGracePeriod());
+    Assert.assertEquals(
+        strategy.getLateArrivalGracePeriod().getUnit(), LateArrivalGracePeriodInterval.DAY);
+    Assert.assertEquals((int) strategy.getLateArrivalGracePeriod().getMultiple(), 2);
+  }
+
+  @Test
+  public void testMapAssertionMonitorWithTimeBucketingStrategyOnFieldParams() throws IOException {
+    MonitorKey key = new MonitorKey();
+    key.setEntity(TEST_ENTITY_URN);
+    key.setId(TEST_MONITOR_ID);
+
+    MonitorInfo info = createAssertionMonitorInfoWithTimeBucketingOnFieldParams();
+    EntityResponse monitorEntityResponse = createMonitorEntityResponse(key, info);
+    Monitor output = MonitorMapper.map(null, monitorEntityResponse);
+
+    Assert.assertNotNull(output);
+    Assert.assertNotNull(
+        output
+            .getInfo()
+            .getAssertionMonitor()
+            .getAssertions()
+            .get(0)
+            .getParameters()
+            .getDatasetFieldParameters()
+            .getTimeBucketingStrategy());
+    AssertionTimeBucketingStrategy strategy =
+        output
+            .getInfo()
+            .getAssertionMonitor()
+            .getAssertions()
+            .get(0)
+            .getParameters()
+            .getDatasetFieldParameters()
+            .getTimeBucketingStrategy();
+    Assert.assertEquals(strategy.getTimestampFieldPath(), "updated_at");
+    Assert.assertNotNull(strategy.getBucketInterval());
+    Assert.assertEquals(strategy.getBucketInterval().getUnit(), AssertionTimeBucketInterval.WEEK);
+    Assert.assertEquals((int) strategy.getBucketInterval().getMultiple(), 1);
+    Assert.assertEquals(strategy.getTimezone(), "Europe/London");
+    Assert.assertNotNull(strategy.getLateArrivalGracePeriod());
+    Assert.assertEquals(
+        strategy.getLateArrivalGracePeriod().getUnit(), LateArrivalGracePeriodInterval.DAY);
+    Assert.assertEquals((int) strategy.getLateArrivalGracePeriod().getMultiple(), 1);
+  }
+
+  private MonitorInfo createAssertionMonitorInfoWithTimeBucketingOnFieldParams() {
+    MonitorInfo info = new MonitorInfo();
+    info.setType(MonitorType.ASSERTION);
+    info.setAssertionMonitor(
+        new AssertionMonitor()
+            .setAssertions(
+                new AssertionEvaluationSpecArray(
+                    ImmutableList.of(
+                        new AssertionEvaluationSpec()
+                            .setAssertion(TEST_ASSERTION_URN)
+                            .setSchedule(
+                                new CronSchedule()
+                                    .setCron("0 8 * * *")
+                                    .setTimezone("Europe/London"))
+                            .setParameters(
+                                new AssertionEvaluationParameters()
+                                    .setType(
+                                        com.linkedin.monitor.AssertionEvaluationParametersType
+                                            .DATASET_FIELD)
+                                    .setDatasetFieldParameters(
+                                        new DatasetFieldAssertionParameters()
+                                            .setSourceType(
+                                                com.linkedin.monitor.DatasetFieldAssertionSourceType
+                                                    .ALL_ROWS_QUERY)
+                                            .setTimeBucketingStrategy(
+                                                new com.linkedin.monitor
+                                                        .AssertionTimeBucketingStrategy()
+                                                    .setTimestampFieldPath("updated_at")
+                                                    .setBucketInterval(
+                                                        new TimeWindowSize()
+                                                            .setUnit(CalendarInterval.WEEK)
+                                                            .setMultiple(1))
+                                                    .setTimezone("Europe/London")
+                                                    .setLateArrivalGracePeriod(
+                                                        new TimeWindowSize()
+                                                            .setUnit(CalendarInterval.DAY)
+                                                            .setMultiple(1)))))))));
+    info.setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE));
+    return info;
+  }
+
+  private MonitorInfo createAssertionMonitorInfoWithTimeBucketing() {
+    MonitorInfo info = new MonitorInfo();
+    info.setType(MonitorType.ASSERTION);
+    info.setAssertionMonitor(
+        new AssertionMonitor()
+            .setAssertions(
+                new AssertionEvaluationSpecArray(
+                    ImmutableList.of(
+                        new AssertionEvaluationSpec()
+                            .setAssertion(TEST_ASSERTION_URN)
+                            .setSchedule(
+                                new CronSchedule()
+                                    .setCron("0 6 * * *")
+                                    .setTimezone("America/Chicago"))
+                            .setParameters(
+                                new AssertionEvaluationParameters()
+                                    .setType(
+                                        com.linkedin.monitor.AssertionEvaluationParametersType
+                                            .DATASET_VOLUME)
+                                    .setDatasetVolumeParameters(
+                                        new DatasetVolumeAssertionParameters()
+                                            .setSourceType(DatasetVolumeSourceType.QUERY)
+                                            .setTimeBucketingStrategy(
+                                                new com.linkedin.monitor
+                                                        .AssertionTimeBucketingStrategy()
+                                                    .setTimestampFieldPath("event_time")
+                                                    .setBucketInterval(
+                                                        new TimeWindowSize()
+                                                            .setUnit(CalendarInterval.DAY)
+                                                            .setMultiple(1))
+                                                    .setTimezone("America/Chicago")
+                                                    .setLateArrivalGracePeriod(
+                                                        new TimeWindowSize()
+                                                            .setUnit(CalendarInterval.DAY)
+                                                            .setMultiple(2)))))))));
+    info.setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE));
     return info;
   }
 }

@@ -136,6 +136,8 @@ public class UpsertDatasetFieldAssertionMonitorResolver
                   appSource,
                   MonitorMapper.mapGraphqlAdjustmentSettingsToMonitorSettings(
                       input.getInferenceSettings()));
+            } catch (DataHubGraphQLException e) {
+              throw e;
             } catch (Exception e) {
               log.error("Failed to upsert Assertion monitor!", e);
               if (isCreate) {
