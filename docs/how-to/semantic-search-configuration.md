@@ -92,6 +92,7 @@ For Docker Compose or non-Helm deployments, set these on the **datahub-gms** ser
 ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
 ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document
 OPENAI_API_KEY=sk-your-api-key-here
+
 ```
 
 That's it — OpenAI is the default provider, so no other variables are needed.
@@ -102,7 +103,7 @@ That's it — OpenAI is the default provider, so no other variables are needed.
 ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
 ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document
 EMBEDDING_PROVIDER_TYPE=aws-bedrock
-EMBEDDING_PROVIDER_AWS_REGION=us-west-2
+BEDROCK_EMBEDDING_AWS_REGION=us-west-2
 ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION=1024
 ```
 
