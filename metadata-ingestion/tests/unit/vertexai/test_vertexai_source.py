@@ -676,10 +676,13 @@ def test_get_pipeline_mcps(
             )
         )
 
-    dpi_urn = "urn:li:dataProcessInstance:acryl-poc.pipeline_task_run.reverse"
+    # Task run URN now includes pipeline name to make it unique per execution
+    task_run_id = f"{mock_pipeline.name}_reverse"
+    dpi_urn = f"urn:li:dataProcessInstance:{source.name_formatter.format_pipeline_task_run_id(task_run_id)}"
 
-    # With SDK entities: 6 (dataflow) + 4 (pipeline run DPI) + 6 (datajob) + 4 (task run DPI) = 20
+    # With SDK entities: 6 (dataflow) + 4 (pipeline run DPI) + 6 (datajob, no patch for test) + 4 (task run DPI) = 20
     # SDK DataJob automatically emits browsePathsV2 (fixes browse path hierarchy)
+    # Note: DataJob patch would add task-to-task lineage if task had upstreams in test
     # Note: DataJob does NOT have ContainerClass (dataFlow cannot be a container for dataJob)
     assert len(actual_mcps) == 20, f"Expected 20 MCPs, got {len(actual_mcps)}"
 

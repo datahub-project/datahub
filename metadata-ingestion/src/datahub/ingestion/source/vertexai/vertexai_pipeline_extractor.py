@@ -1,6 +1,6 @@
 import logging
 from datetime import timedelta
-from typing import Any, Dict, Iterable, List, Optional, Set, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Union, cast
 
 from google.cloud.aiplatform import PipelineJob
 from google.cloud.aiplatform_v1.types import (
@@ -53,7 +53,7 @@ from datahub.metadata.schema_classes import (
     RunResultTypeClass,
     StatusClass,
 )
-from datahub.metadata.urns import DataFlowUrn, DataJobUrn
+from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DataJobUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.specific.datajob import DataJobPatchBuilder
@@ -235,12 +235,22 @@ class VertexAIPipelineExtractor:
             aspect=StatusClass(removed=False),
         ).as_workunit()
 
+        # Add upstream DataJob dependencies (task-to-task lineage)
+        if task.upstreams:
+            patch_builder = DataJobPatchBuilder(datajob.urn.urn())
+            for upstream_urn in task.upstreams:
+                patch_builder.add_input_datajob(upstream_urn)
+            for mcp in patch_builder.build():
+                yield MetadataWorkUnit(id=f"{datajob.urn.urn()}-patch", mcp_raw=mcp)
+
     def _gen_pipeline_task_run_instance(
         self, task: PipelineTaskMetadata, pipeline: PipelineMetadata
     ) -> Iterable[MetadataWorkUnit]:
         """Create DataProcessInstance for a task run (execution)."""
+        # Use pipeline name (unique per execution) + task name for unique run URN
+        task_run_id = f"{pipeline.name}_{task.name}"
         dpi_urn = builder.make_data_process_instance_urn(
-            self.name_formatter.format_pipeline_task_run_id(entity_id=task.name)
+            self.name_formatter.format_pipeline_task_run_id(entity_id=task_run_id)
         )
         result_status: Union[str, RunResultTypeClass] = get_pipeline_task_result_status(
             task.state
@@ -536,8 +546,10 @@ class VertexAIPipelineExtractor:
         self, task: PipelineTaskMetadata, datajob: DataJob, pipeline: PipelineMetadata
     ) -> Iterable[MetadataWorkUnit]:
         """Legacy method for non-incremental mode."""
+        # Use pipeline name (unique per execution) + task name for unique run URN
+        task_run_id = f"{pipeline.name}_{task.name}"
         dpi_urn = builder.make_data_process_instance_urn(
-            self.name_formatter.format_pipeline_task_run_id(entity_id=task.name)
+            self.name_formatter.format_pipeline_task_run_id(entity_id=task_run_id)
         )
         result_status: Union[str, RunResultTypeClass] = get_pipeline_task_result_status(
             task.state
@@ -658,9 +670,13 @@ class VertexAIPipelineExtractor:
                 display_name=task.name,
                 flow_urn=str(dataflow_urn),
                 custom_properties={},
-                owners={owner} if owner else set(),
-                inlets=inlets,
-                outlets=outlets,
+                owners=[CorpUserUrn(owner)] if owner else None,
+                inlets=cast(
+                    Optional[List[Union[str, DatasetUrn]]], inlets if inlets else None
+                ),
+                outlets=cast(
+                    Optional[List[Union[str, DatasetUrn]]], outlets if outlets else None
+                ),
                 external_url=self.url_builder.make_pipeline_url(pipeline.name),
                 platform_instance=self.config.platform_instance,
             )
@@ -678,6 +694,14 @@ class VertexAIPipelineExtractor:
                 entityUrn=datajob.urn.urn(),
                 aspect=StatusClass(removed=False),
             ).as_workunit()
+
+            # Add upstream DataJob dependencies (task-to-task lineage)
+            if task.upstreams:
+                patch_builder = DataJobPatchBuilder(datajob.urn.urn())
+                for upstream_urn in task.upstreams:
+                    patch_builder.add_input_datajob(upstream_urn)
+                for mcp in patch_builder.build():
+                    yield MetadataWorkUnit(id=f"{datajob.urn.urn()}-patch", mcp_raw=mcp)
 
             yield from self._gen_pipeline_task_run_mcps(task, datajob, pipeline)
 
@@ -752,7 +776,7 @@ class VertexAIPipelineExtractor:
             custom_properties=self._get_pipeline_properties(
                 pipeline
             ).to_custom_properties(),
-            owners={owner} if owner else set(),
+            owners=[CorpUserUrn(owner)] if owner else None,
             external_url=self.url_builder.make_pipeline_url(
                 pipeline_name=pipeline.name
             ),
