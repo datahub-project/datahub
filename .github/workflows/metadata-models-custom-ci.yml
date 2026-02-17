@@ -3,14 +3,14 @@ name: Metadata Models Custom CI
 on:
   pull_request:
     paths:
-      - 'metadata-models-custom/**'
-      - '.github/workflows/metadata-models-custom-ci.yml'
+      - "metadata-models-custom/**"
+      - ".github/workflows/metadata-models-custom-ci.yml"
   push:
     branches:
       - master
     paths:
-      - 'metadata-models-custom/**'
-      - '.github/workflows/metadata-models-custom-ci.yml'
+      - "metadata-models-custom/**"
+      - ".github/workflows/metadata-models-custom-ci.yml"
 
 jobs:
   test-model-deploy:
@@ -23,7 +23,7 @@ jobs:
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: "temurin"
           java-version: 17
 
       - name: Setup Gradle
