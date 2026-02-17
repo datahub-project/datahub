@@ -41,6 +41,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
@@ -323,6 +324,31 @@ _DBT_FIELDS_BY_TYPE = {
     ownerName
     ownerEmail
     dependsOn
+""",
+    "semanticModels": f"""
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    packageName
+    dependsOn
+    entities {{
+      name
+      type
+      description
+      expr
+    }}
+    dimensions {{
+      name
+      type
+      description
+      expr
+      typeParams
+    }}
+    measures {{
+      name
+      agg
+      description
+      expr
+      createMetric
+    }}
 """,
     # Currently unsupported dbt node types:
     # - metrics
@@ -698,6 +724,16 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         # Parse exposures
         self._exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
 
+        # Track semantic model count
+        semantic_model_count = sum(
+            1 for node in nodes if node.node_type == "semantic_model"
+        )
+        if semantic_model_count > 0:
+            self.report.num_semantic_models_emitted = semantic_model_count
+            logger.info(
+                f"Fetched {semantic_model_count} semantic models from dbt Cloud"
+            )
+
         additional_metadata: Dict[str, Optional[str]] = {
             "account_id": str(self.config.account_id),
         }
@@ -798,6 +834,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             materialization = node["materializedType"]
         elif resource_type == "snapshot":
             materialization = "snapshot"
+        elif resource_type == "semantic_model":
+            materialization = None  # Semantic models don't have materialization
         else:
             materialization = None
 
@@ -856,7 +894,17 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     )
 
         columns: List[DBTColumn] = []
-        if "columns" in node and node["columns"] is not None:
+        if resource_type == "semantic_model":
+            # For semantic models, convert entities/dimensions/measures to columns
+            entities = node.get("entities", [])
+            dimensions = node.get("dimensions", [])
+            measures = node.get("measures", [])
+            columns = convert_semantic_model_fields_to_columns(
+                entities=entities,
+                dimensions=dimensions,
+                measures=measures,
+            )
+        elif "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = list(
                 sorted(
@@ -869,6 +917,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         test_result = None
         if resource_type == "test":
             test_info, test_result = self._extract_test_info(node, name)
+
+        # Determine language - semantic models are YAML, others are SQL
+        language = "yaml" if resource_type == "semantic_model" else "sql"
 
         return DBTNode(
             dbt_name=key,
@@ -892,7 +943,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             query_tag={},  # TODO: Get this from the dbt API.
             tags=tags,
             owner=owner,
-            language="sql",  # TODO: dbt Cloud doesn't surface this
+            language=language,
             raw_code=raw_code,
             compiled_code=compiled_code,
             columns=columns,
