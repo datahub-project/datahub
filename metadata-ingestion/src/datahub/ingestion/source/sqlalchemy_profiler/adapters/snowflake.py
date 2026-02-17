@@ -6,6 +6,7 @@ from typing import Any, List, Optional
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql.elements import ColumnElement
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -163,7 +164,7 @@ class SnowflakeAdapter(PlatformAdapter):
     # SQL Expression Builders
     # =========================================================================
 
-    def get_approx_unique_count_expr(self, column: str) -> Any:
+    def get_approx_unique_count_expr(self, column: str) -> ColumnElement[Any]:
         """
         Snowflake uses APPROX_COUNT_DISTINCT for fast unique counts.
 
@@ -178,7 +179,7 @@ class SnowflakeAdapter(PlatformAdapter):
         """
         return sa.func.APPROX_COUNT_DISTINCT(sa.column(column))
 
-    def get_median_expr(self, column: str) -> Optional[Any]:
+    def get_median_expr(self, column: str) -> Optional[ColumnElement[Any]]:
         """
         Snowflake has native MEDIAN() function.
 

@@ -4,6 +4,7 @@ import logging
 from typing import Any, Optional
 
 import sqlalchemy as sa
+from sqlalchemy.sql.elements import ColumnElement
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
 
@@ -21,7 +22,7 @@ class GenericAdapter(PlatformAdapter):
     Uses default setup_profiling and cleanup from PlatformAdapter.
     """
 
-    def get_approx_unique_count_expr(self, column: str) -> Any:
+    def get_approx_unique_count_expr(self, column: str) -> ColumnElement[Any]:
         """
         Generic approximate unique count - uses exact COUNT(DISTINCT).
 
@@ -36,7 +37,7 @@ class GenericAdapter(PlatformAdapter):
         """
         return sa.func.count(sa.func.distinct(sa.column(column)))
 
-    def get_median_expr(self, column: str) -> Optional[Any]:
+    def get_median_expr(self, column: str) -> Optional[ColumnElement[Any]]:
         """
         Generic median - tries MEDIAN function.
 

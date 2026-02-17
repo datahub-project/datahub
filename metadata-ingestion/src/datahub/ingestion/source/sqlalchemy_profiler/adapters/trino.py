@@ -7,6 +7,7 @@ from typing import Any, List, Optional
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql.elements import ColumnElement
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -171,7 +172,7 @@ class TrinoAdapter(PlatformAdapter):
     # SQL Expression Builders
     # =========================================================================
 
-    def get_approx_unique_count_expr(self, column: str) -> Any:
+    def get_approx_unique_count_expr(self, column: str) -> ColumnElement[Any]:
         """
         Trino uses approx_distinct() for fast unique count estimation.
 
@@ -185,7 +186,7 @@ class TrinoAdapter(PlatformAdapter):
         """
         return sa.func.approx_distinct(sa.column(column))
 
-    def get_median_expr(self, column: str) -> Optional[Any]:
+    def get_median_expr(self, column: str) -> Optional[ColumnElement[Any]]:
         """
         Trino median via approx_percentile(col, 0.5).
 
@@ -199,7 +200,9 @@ class TrinoAdapter(PlatformAdapter):
         """
         return sa.func.approx_percentile(sa.column(column), 0.5)
 
-    def get_quantiles_expr(self, column: str, quantiles: List[float]) -> Optional[Any]:
+    def get_quantiles_expr(
+        self, column: str, quantiles: List[float]
+    ) -> Optional[ColumnElement[Any]]:
         """
         Trino quantiles via approx_percentile(col, ARRAY[...]).
 

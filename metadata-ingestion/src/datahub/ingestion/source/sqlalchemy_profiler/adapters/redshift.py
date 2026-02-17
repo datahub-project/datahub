@@ -6,6 +6,7 @@ from typing import Any, Optional
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql.elements import ColumnElement
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
 
@@ -30,7 +31,7 @@ class RedshiftAdapter(PlatformAdapter):
     # SQL Expression Builders
     # =========================================================================
 
-    def get_approx_unique_count_expr(self, column: str) -> Any:
+    def get_approx_unique_count_expr(self, column: str) -> ColumnElement[Any]:
         """
         Redshift approximate unique count - uses APPROXIMATE COUNT DISTINCT.
 
@@ -43,7 +44,7 @@ class RedshiftAdapter(PlatformAdapter):
         # Redshift supports APPROXIMATE COUNT DISTINCT
         return sa.func.count(sa.func.distinct(sa.column(column)))
 
-    def get_median_expr(self, column: str) -> Optional[Any]:
+    def get_median_expr(self, column: str) -> Optional[ColumnElement[Any]]:
         """
         Redshift median via PERCENTILE_CONT.
 
@@ -66,7 +67,7 @@ class RedshiftAdapter(PlatformAdapter):
             f"PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {quoted_column})"
         ).label("median")
 
-    def get_mean_expr(self, column: str) -> Any:
+    def get_mean_expr(self, column: str) -> ColumnElement[Any]:
         """
         Redshift mean (AVG) with CAST to preserve precision.
 

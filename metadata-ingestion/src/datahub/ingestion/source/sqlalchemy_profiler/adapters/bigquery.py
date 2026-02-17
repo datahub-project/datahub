@@ -8,6 +8,7 @@ import sqlalchemy as sa
 from google.cloud.bigquery.dbapi.cursor import Cursor as BigQueryCursor
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql.elements import ColumnElement
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -351,11 +352,11 @@ class BigQueryAdapter(PlatformAdapter):
     # SQL Expression Builders
     # =========================================================================
 
-    def get_approx_unique_count_expr(self, column: str) -> Any:
+    def get_approx_unique_count_expr(self, column: str) -> ColumnElement[Any]:
         """BigQuery uses APPROX_COUNT_DISTINCT."""
         return sa.func.APPROX_COUNT_DISTINCT(sa.column(column))
 
-    def get_median_expr(self, column: str) -> Optional[Any]:
+    def get_median_expr(self, column: str) -> Optional[ColumnElement[Any]]:
         """
         BigQuery median via APPROX_QUANTILES.
 
@@ -372,7 +373,9 @@ class BigQueryAdapter(PlatformAdapter):
             "median"
         )
 
-    def get_quantiles_expr(self, column: str, quantiles: List[float]) -> Optional[Any]:
+    def get_quantiles_expr(
+        self, column: str, quantiles: List[float]
+    ) -> Optional[ColumnElement[Any]]:
         """
         BigQuery quantiles via approx_quantiles.
 

@@ -8,6 +8,7 @@ import sqlalchemy as sa
 from pyathena.cursor import Cursor
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql.elements import ColumnElement
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -165,7 +166,7 @@ class AthenaAdapter(PlatformAdapter):
     # SQL Expression Builders
     # =========================================================================
 
-    def get_approx_unique_count_expr(self, column: str) -> Any:
+    def get_approx_unique_count_expr(self, column: str) -> ColumnElement[Any]:
         """
         Athena uses approx_distinct() for fast unique count estimation.
 
@@ -177,7 +178,7 @@ class AthenaAdapter(PlatformAdapter):
         """
         return sa.func.approx_distinct(sa.column(column))
 
-    def get_median_expr(self, column: str) -> Optional[Any]:
+    def get_median_expr(self, column: str) -> Optional[ColumnElement[Any]]:
         """
         Athena median via approx_percentile(col, 0.5).
 
@@ -189,7 +190,9 @@ class AthenaAdapter(PlatformAdapter):
         """
         return sa.func.approx_percentile(sa.column(column), 0.5)
 
-    def get_quantiles_expr(self, column: str, quantiles: List[float]) -> Optional[Any]:
+    def get_quantiles_expr(
+        self, column: str, quantiles: List[float]
+    ) -> Optional[ColumnElement[Any]]:
         """
         Athena quantiles via approx_percentile(col, ARRAY[...]).
 

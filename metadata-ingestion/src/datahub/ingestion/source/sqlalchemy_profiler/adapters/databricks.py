@@ -5,6 +5,7 @@ from typing import Any, List, Optional
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
+from sqlalchemy.sql.elements import ColumnElement
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -32,7 +33,7 @@ class DatabricksAdapter(PlatformAdapter):
     # SQL Expression Builders
     # =========================================================================
 
-    def get_approx_unique_count_expr(self, column: str) -> Any:
+    def get_approx_unique_count_expr(self, column: str) -> ColumnElement[Any]:
         """
         Databricks uses approx_count_distinct for fast unique counts.
 
@@ -47,7 +48,7 @@ class DatabricksAdapter(PlatformAdapter):
         """
         return sa.func.approx_count_distinct(sa.column(column))
 
-    def get_median_expr(self, column: str) -> Optional[Any]:
+    def get_median_expr(self, column: str) -> Optional[ColumnElement[Any]]:
         """
         Databricks uses approx_percentile for median.
 

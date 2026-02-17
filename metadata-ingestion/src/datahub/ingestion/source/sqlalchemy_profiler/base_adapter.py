@@ -7,6 +7,7 @@ from typing import Any, List, Optional, Tuple
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql.elements import ColumnElement
 
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -30,6 +31,13 @@ class PlatformAdapter(ABC):
 
     This design keeps all platform-specific code in one place per platform,
     making the codebase easier to understand and maintain.
+
+    Some methods (eg `get_column_max`, `get_column_min`, etc) return `Any` to preserve native
+    type formatting to match GE behavior.
+    Instead, this `PlatformAdapter` should be more opinionated on the expected data type for those methods, so:
+     - we can have consistent formatting across different sources
+     - no complex formatting depending on native data types, as we currently do in `sqlalchemy_profiler.py`
+       in order to match GE profiler
     """
 
     def __init__(
@@ -151,7 +159,7 @@ class PlatformAdapter(ABC):
     # =========================================================================
 
     @abstractmethod
-    def get_approx_unique_count_expr(self, column: str) -> Any:
+    def get_approx_unique_count_expr(self, column: str) -> ColumnElement[Any]:
         """
         Get platform-specific approximate distinct count expression.
 
@@ -169,10 +177,12 @@ class PlatformAdapter(ABC):
         """
         pass
 
-    @abstractmethod
-    def get_median_expr(self, column: str) -> Optional[Any]:
+    def get_median_expr(self, column: str) -> Optional[ColumnElement[Any]]:
         """
         Get platform-specific median expression.
+
+        Default implementation returns None (not supported).
+        Platforms that support median should override this.
 
         Args:
             column: Column name
@@ -180,9 +190,11 @@ class PlatformAdapter(ABC):
         Returns:
             SQLAlchemy expression for median, or None if unsupported
         """
-        pass
+        return None
 
-    def get_quantiles_expr(self, column: str, quantiles: List[float]) -> Optional[Any]:
+    def get_quantiles_expr(
+        self, column: str, quantiles: List[float]
+    ) -> Optional[ColumnElement[Any]]:
         """
         Get platform-specific quantiles expression.
 
@@ -210,7 +222,7 @@ class PlatformAdapter(ABC):
         """
         return None
 
-    def get_mean_expr(self, column: str) -> Any:
+    def get_mean_expr(self, column: str) -> ColumnElement[Any]:
         """
         Get platform-specific mean (AVG) expression.
 

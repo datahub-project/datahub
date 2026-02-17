@@ -6,6 +6,7 @@ from typing import Any, Optional
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql.elements import ColumnElement
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
 
@@ -28,7 +29,7 @@ class MySQLAdapter(PlatformAdapter):
     # SQL Expression Builders
     # =========================================================================
 
-    def get_approx_unique_count_expr(self, column: str) -> Any:
+    def get_approx_unique_count_expr(self, column: str) -> ColumnElement[Any]:
         """
         MySQL approximate unique count - uses exact COUNT(DISTINCT).
 
@@ -43,7 +44,7 @@ class MySQLAdapter(PlatformAdapter):
         """
         return sa.func.count(sa.func.distinct(sa.column(column)))
 
-    def get_median_expr(self, column: str) -> Optional[Any]:
+    def get_median_expr(self, column: str) -> Optional[ColumnElement[Any]]:
         """
         MySQL median - not supported by default.
 
