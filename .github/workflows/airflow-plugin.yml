@@ -94,7 +94,7 @@ jobs:
         if: (!cancelled())
         uses: ./.github/actions/report-test-results
         with:
-          artifact-name: ingestion-airflow-plugin-${{ matrix.python-version }}-${{ matrix.extra_pip_requirements }}-test-results
+          artifact-name: ingestion-airflow-plugin-test-results-${{ strategy.job-index }}
           test-results-path: "metadata-ingestion-modules/airflow-plugin/test-results/**"
           junit-file-glob: "metadata-ingestion-modules/airflow-plugin/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag
@@ -105,7 +105,7 @@ jobs:
           directory: ./build/coverage-reports/metadata-ingestion-modules/airflow-plugin/
           fail_ci_if_error: false
           flags: ingestion-airflow
-          name: pytest-airflow-${{ matrix.python-version }}-${{ matrix.extra_pip_requirements }}
+          name: pytest-airflow-${{ strategy.job-index }}
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov

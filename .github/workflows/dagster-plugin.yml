@@ -65,7 +65,7 @@ jobs:
         if: (!cancelled())
         uses: ./.github/actions/report-test-results
         with:
-          artifact-name: ingestion-dagster-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}-test-results
+          artifact-name: ingestion-dagster-test-results-${{ strategy.job-index }}
           test-results-path: "metadata-ingestion/dagster-plugin/test-results/**"
           junit-file-glob: "metadata-ingestion/dagster-plugin/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag
@@ -76,7 +76,7 @@ jobs:
           directory: ./build/coverage-reports/metadata-ingestion-modules/dagster-plugin/
           fail_ci_if_error: false
           flags: ingestion-dagster-plugin
-          name: pytest-dagster
+          name: pytest-dagster-${{ strategy.job-index }}
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
