@@ -3264,7 +3264,6 @@ class TableauSiteSource:
         if sheet.get(c.DATA_SOURCE_FIELDS):
             self.populate_sheet_upstream_fields(sheet, input_fields)
 
-        # datasource urn
         datasource_urn = []
         data_sources = self.get_sheetwise_upstream_datasources(sheet)
 
