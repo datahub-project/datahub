@@ -465,6 +465,7 @@ org.junit.jupiter:junit-jupiter-params:5.12.2=testCompileClasspath,testRuntimeCl
 org.junit.jupiter:junit-jupiter:5.12.2=testCompileClasspath,testRuntimeClasspath
 org.junit.platform:junit-platform-commons:1.12.2=testCompileClasspath,testRuntimeClasspath
 org.junit.platform:junit-platform-engine:1.12.2=testRuntimeClasspath
+org.junit.platform:junit-platform-launcher:1.12.2=testRuntimeClasspath
 org.junit:junit-bom:5.12.2=testCompileClasspath,testRuntimeClasspath
 org.knowm.xchart:xchart:3.2.2=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.latencyutils:LatencyUtils:2.0.3=runtimeClasspath,testRuntimeClasspath
