@@ -8,7 +8,8 @@ export const setThemeV2AndIngestionRedesignFlags = (isOn) => {
     if (hasOperationName(req, "appConfig")) {
       req.reply((res) => {
         res.body.data.appConfig.featureFlags.showIngestionPageRedesign = isOn;
-        res.body.data.appConfig.featureFlags.ingestionOnboardingRedesignV1 = false;
+        res.body.data.appConfig.featureFlags.ingestionOnboardingRedesignV1 =
+          isOn;
         res.body.data.appConfig.featureFlags.themeV2Enabled = isOn;
         res.body.data.appConfig.featureFlags.themeV2Default = isOn;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isOn;
@@ -21,22 +22,29 @@ export const goToIngestionPage = () => {
   cy.visit("/ingestion");
 };
 
+const clickIfTestIdPresent = (dataTestId) => {
+  cy.get("body").then(($body) => {
+    if ($body.find(`[data-testid="${dataTestId}"]`).length) {
+      cy.get(`[data-testid="${dataTestId}"]`).click();
+    }
+  });
+};
+
 export const verifySourceDetails = (source) => {
   cy.get("#account_id").type(source.accound_id);
   cy.get("#warehouse").type(source.warehouse_id);
   cy.get("#username").type(source.username);
   cy.get("#password").type(source.password);
-  cy.focused().blur();
+  cy.get("body").click(0, 0);
   cy.get("#role").type(source.role);
 
   // Verify yaml recipe is generated correctly
-  cy.clickOptionWithTestId("recipe-builder-yaml-button");
+  cy.clickOptionWithTestId("yaml-editor-tab");
   cy.waitTextVisible("account_id");
   cy.waitTextVisible(source.accound_id);
   cy.waitTextVisible(source.warehouse_id);
   cy.waitTextVisible(source.username);
   cy.waitTextVisible(source.password);
-  cy.waitTextVisible(source.role);
 };
 
 export const changeSchedule = (values) => {
@@ -72,24 +80,25 @@ export const verifyScheduleIsAppliedOnTable = (sourceName, scheduleText) => {
 
 export const createIngestionSource = (sourceName, options = undefined) => {
   cy.clickOptionWithTestId("create-ingestion-source-button");
+  clickIfTestIdPresent("modal-confirm-button");
   cy.clickOptionWithTextToScrollintoView("Snowflake");
-  cy.waitTextVisible("Snowflake Details");
+  cy.waitTextVisible("Snowflake Connection Details");
 
   if (options?.sourceDetails) {
     verifySourceDetails(options.sourceDetails);
   }
 
+  cy.get('[data-testid="data-source-name"]').clear();
+  cy.get('[data-testid="data-source-name"]').type(sourceName);
+
   // Finish creating source
-  cy.clickOptionWithTestId("recipe-builder-next-button");
-  cy.waitTextVisible("Configure an Ingestion Schedule");
+  cy.clickOptionWithTestId("next-button");
+  cy.waitTextVisible("Sync Schedule");
   if (options?.schedule) {
     changeSchedule(options?.schedule);
   }
-  cy.clickOptionWithTestId("ingestion-schedule-next-button");
-  cy.waitTextVisible("Give this data source a name");
-  cy.get('[data-testid="source-name-input"]').clear();
-  cy.get('[data-testid="source-name-input"]').type(sourceName);
-  cy.clickOptionWithTestId("ingestion-source-save-button");
+
+  cy.clickOptionWithTestId("save-button");
   cy.waitTextVisible("Successfully created ingestion source!");
 };
 
@@ -105,17 +114,17 @@ export const updateIngestionSource = (
     .click();
   cy.get("body .ant-dropdown-menu").contains("Edit").click();
   cy.waitForGraphQLOperation("getIngestionSource");
-  cy.waitTextVisible("Edit Data Source");
-  cy.get('[data-testid="recipe-builder-next-button"]').scrollIntoView().click();
-  cy.waitTextVisible("Configure an Ingestion Schedule");
+
+  cy.get('[data-testid="data-source-name"]')
+    .focus()
+    .type(`{selectall}{backspace}${updatedSourceName}`);
+  cy.get('[data-testid="next-button"]').scrollIntoView().click();
+  cy.waitTextVisible("Sync Schedule");
   if (options?.schedule) {
     changeSchedule(options?.schedule);
   }
-  cy.clickOptionWithTestId("ingestion-schedule-next-button");
-  cy.get('[data-testid="source-name-input"]')
-    .focus()
-    .type(`{selectall}{backspace}${updatedSourceName}`);
-  cy.clickOptionWithTestId("ingestion-source-save-button");
+
+  cy.clickOptionWithTestId("save-button");
   cy.waitTextVisible("Successfully updated ingestion source!");
 };
 
@@ -133,8 +142,9 @@ export const deleteIngestionSource = (sourceName) => {
 export const createAndRunIngestionSource = (sourceName) => {
   const cli_version = "0.15.0.5";
   cy.clickOptionWithTestId("create-ingestion-source-button");
+  clickIfTestIdPresent("modal-confirm-button");
 
-  cy.get('[placeholder="Search data sources..."]').type("custom");
+  cy.get('[data-testid="search-bar-input"]').type("other");
   cy.clickOptionWithTextToScrollintoView("Custom");
 
   cy.waitTextVisible("source-type");
@@ -144,13 +154,13 @@ export const createAndRunIngestionSource = (sourceName) => {
   readyToTypeEditor().type("{enter}");
   // no space because the editor starts new line at same indentation
   readyToTypeEditor().type("config: {}");
-  cy.clickOptionWithText("Next");
+  cy.enterTextInTestId("data-source-name", sourceName);
+
+  cy.clickOptionWithTestId("expand-collapse-button");
+  cy.enterTextInTestId("cli-version-input", cli_version);
   cy.clickOptionWithText("Next");
 
-  cy.enterTextInTestId("source-name-input", sourceName);
-  cy.clickOptionWithText("Advanced");
-  cy.enterTextInTestId("cli-version-input", cli_version);
-  cy.clickOptionWithTextToScrollintoView("Save & Run");
+  cy.clickOptionWithTestId("save-and-run-button");
   cy.waitTextVisible(sourceName);
   cy.contains("td", sourceName)
     .parent()

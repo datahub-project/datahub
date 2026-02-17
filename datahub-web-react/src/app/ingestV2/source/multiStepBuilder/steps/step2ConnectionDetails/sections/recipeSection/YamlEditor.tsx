@@ -132,7 +132,7 @@ export function YamlEditor({ value, onChange }: Props) {
                     )}
                 </NoPaddingButton>
             </Header>
-            <EditorWrapper ref={editorWrapperRef}>
+            <EditorWrapper ref={editorWrapperRef} data-testid="yaml-editor-container">
                 <Editor
                     options={{
                         minimap: { enabled: false },
