@@ -23,7 +23,7 @@ Traditional: java -jar war.war
 This optimization extracts to RAM disk first:
 
 ```
-Optimized: Extract WAR → /tmp/gms-work (tmpfs)
+Optimized: Extract WAR → /tmp/gms/extraction (tmpfs)
   → Read classes from RAM
   → No decompression overhead
   → 2-3× faster class loading
@@ -314,7 +314,7 @@ The startup script logs extraction metrics:
 
 ```
 [STARTUP] JAR extraction enabled. WAR size: 250MB, Available RAM: 7200MB
-[STARTUP] Extracting WAR to tmpfs: /tmp/gms-work
+[STARTUP] Extracting WAR to tmpfs: /tmp/gms/extraction
 [STARTUP] WAR extracted in 2843ms
 [STARTUP] Generating deterministic classpath from BOOT-INF/classpath.idx
 ```
