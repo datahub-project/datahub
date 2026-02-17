@@ -55,6 +55,7 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverInterface,
 )
+from datahub.sql_parsing.split_statements import split_statements
 from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_CASE_INSENSITIVE_COLS,
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
@@ -2230,8 +2231,15 @@ def create_lineage_sql_parsed_result(
             schema_resolver.close()
 
 
+def _prepare_sql_query_list(queries: Union[str, List[str]]) -> List[str]:
+    if isinstance(queries, str):
+        return [stmt for stmt in split_statements(queries) if stmt.strip()]
+    else:
+        return [q for q in queries if q and str(q).strip()]
+
+
 def create_lineage_from_sql_statements(
-    queries: List[str],
+    queries: Union[str, List[str]],
     default_db: Optional[str],
     platform: str,
     platform_instance: Optional[str],
@@ -2246,12 +2254,30 @@ def create_lineage_from_sql_statements(
     lineage to produce a single SqlParsingResult without temp tables.
 
     This is the multi-statement counterpart to create_lineage_sql_parsed_result().
+
+    Args:
+        queries: Either a single SQL string (which may contain multiple statements
+                 separated by semicolons) or a list of SQL statement strings.
+                 If a string is provided, it will be split into statements using
+                 SQL-aware parsing that handles strings, comments, and keywords.
+        default_db: Default database for unqualified table references
+        platform: Data platform identifier (e.g., 'snowflake', 'postgres')
+        platform_instance: Optional platform instance identifier
+        env: Environment (e.g., 'PROD', 'DEV')
+        default_schema: Optional default schema for unqualified table references
+        graph: Optional DataHub graph client for schema resolution
+        schema_aware: Whether to use schema-aware parsing
+
+    Returns:
+        SqlParsingResult containing merged lineage from all statements
     """
     from datahub.sql_parsing.sql_parsing_aggregator import (
         ObservedQuery,
         QueryMetadata,
         SqlParsingAggregator,
     )
+
+    queries = _prepare_sql_query_list(queries)
 
     if not queries:
         return SqlParsingResult.make_from_error(
@@ -2308,9 +2334,9 @@ def create_lineage_from_sql_statements(
             # Invert _lineage_map (downstream → query_ids) so we can look up
             # each query's target table during the single-pass aggregation below.
             query_to_downstream: Dict[str, str] = {}
-            for downstream_urn in aggregator._lineage_map:
-                for query_id in aggregator._lineage_map[downstream_urn]:
-                    query_to_downstream[query_id] = downstream_urn
+            for table_urn in aggregator._lineage_map:
+                for query_id in aggregator._lineage_map[table_urn]:
+                    query_to_downstream[query_id] = table_urn
 
             # Temp table creators produce CLL like "staging.id <- source.id"
             # where staging is a temp table. We must exclude these because
@@ -2343,7 +2369,7 @@ def create_lineage_from_sql_statements(
                 min_confidence = min(min_confidence, resolved.confidence_score)
 
                 # downstream_urn is None for SELECT-only queries (no output table).
-                downstream_urn = query_to_downstream.get(query_id)
+                downstream_urn: Optional[str] = query_to_downstream.get(query_id)
                 for col_lineage in resolved.column_lineage:
                     key = (downstream_urn, col_lineage.downstream.column)
                     existing = cll_by_key.get(key)

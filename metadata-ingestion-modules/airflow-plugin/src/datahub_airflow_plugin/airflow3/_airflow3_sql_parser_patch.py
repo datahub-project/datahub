@@ -28,7 +28,7 @@ except ImportError:
     AIRFLOW3_IMPORTS_AVAILABLE = False
 
 # DataHub imports (always available)
-from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_from_sql_statements
 from datahub_airflow_plugin._config import get_configured_env
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
@@ -143,41 +143,35 @@ def _datahub_generate_openlineage_metadata_from_sql(
         default_database = database or getattr(database_info, "database", None)
         default_schema = self.default_schema
 
-        # Handle list of SQL statements
-        if isinstance(sql, list):
-            logger.debug("Got list of SQL statements. Using first one for parsing.")
-            sql = sql[0] if sql else ""
-
         # Check if SQL still contains templates (should be rendered by operator)
-        if "{{" in str(sql):
+        sql_preview = str(sql)
+        if "{{" in sql_preview:
             logger.warning(
                 f"SQL still contains Jinja templates - lineage extraction may fail. "
-                f"SQL: {sql[:200]}... "
+                f"SQL: {sql_preview}... "
                 f"This usually means templates weren't rendered before SQL parsing."
             )
 
-        # Run DataHub's SQL parser
         listener = get_airflow_plugin_listener()
         graph = listener.graph if listener else None
         env = get_configured_env()
 
         logger.debug(
-            "Running DataHub SQL parser %s (platform=%s, default db=%s, schema=%s): %s",
+            "Running DataHub SQL parser %s (platform=%s, default db=%s, schema=%s)",
             "with graph client" if graph else "in offline mode",
             platform,
             default_database,
             default_schema,
-            sql,
         )
 
-        sql_parsing_result = create_lineage_sql_parsed_result(
-            query=sql,
-            graph=graph,
+        sql_parsing_result = create_lineage_from_sql_statements(
+            queries=sql,
+            default_db=default_database,
             platform=platform,
             platform_instance=None,
             env=env,
-            default_db=default_database,
             default_schema=default_schema,
+            graph=graph,
         )
 
         logger.debug(f"DataHub SQL parser result: {sql_parsing_result}")
@@ -238,11 +232,17 @@ def _datahub_generate_openlineage_metadata_from_sql(
 
         run_facets = {DATAHUB_SQL_PARSING_RESULT_KEY: sql_parsing_result}
 
+        # Create SQL string for facet
+        if isinstance(sql, list):
+            sql_str = ";\n".join(str(s) for s in sql if s)
+        else:
+            sql_str = str(sql)
+
         # Create OperatorLineage with DataHub's results
         operator_lineage = OperatorLineage(  # type: ignore[misc]
             inputs=inputs,
             outputs=outputs,
-            job_facets={"sql": SqlJobFacet(query=sql)},
+            job_facets={"sql": SqlJobFacet(query=sql_str)},
             run_facets=run_facets,
         )
         return operator_lineage
