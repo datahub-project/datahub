@@ -9,6 +9,7 @@ import styled from 'styled-components';
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 
 import analytics, { EventType } from '@app/analytics';
+import FloatingChatButton from '@app/chat/FloatingChatButton';
 import { getIngestionSourceStatus } from '@app/ingest/source/utils';
 import { LogsTab } from '@app/ingestV2/executions/components/LogsTab';
 import { RecipeTab } from '@app/ingestV2/executions/components/RecipeTab';
@@ -41,9 +42,20 @@ interface Props {
     error?: ApolloError;
     refetch: () => void;
     setTitlePill?: (pill: React.ReactNode) => void;
+    isChatOpen?: boolean;
+    setIsChatOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export default function RunDetailsContent({ urn, data, loading, error, refetch, setTitlePill }: Props) {
+export default function RunDetailsContent({
+    urn,
+    data,
+    loading,
+    error,
+    refetch,
+    setTitlePill,
+    isChatOpen,
+    setIsChatOpen,
+}: Props) {
     const location = useLocation();
     const result = data?.executionRequest?.result as Partial<ExecutionRequestResult>;
     const status = getIngestionSourceStatus(result);
@@ -154,6 +166,13 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
         ],
         [data, urn, result, status, allTableData],
     );
+
+    const onChatIconClick = () => {
+        setIsChatOpen?.(true);
+    };
+
+    const showChatButton = isChatOpen === false;
+
     return (
         <ContentWrapper>
             {!data && loading && <Message type="loading" content="Loading execution run details..." />}
@@ -167,6 +186,7 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
                 maxHeight="80vh"
                 stickyHeader
             />
+            <FloatingChatButton isVisible={showChatButton} onButtonClick={onChatIconClick} />
         </ContentWrapper>
     );
 }

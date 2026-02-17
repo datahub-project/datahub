@@ -1,5 +1,5 @@
 import { Breadcrumb } from '@components';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -7,7 +7,8 @@ import { VerticalDivider } from '@components/components/Breadcrumb/components';
 import { BreadcrumbItem } from '@components/components/Breadcrumb/types';
 
 import analytics, { EventType } from '@app/analytics';
-import { EmbeddedChat } from '@app/chat/EmbeddedChat';
+import CollapsibleChat from '@app/chat/CollapsibleChat';
+import FloatingChatButton from '@app/chat/FloatingChatButton';
 import { MessageContext } from '@app/chat/hooks/useChatStream';
 import { IngestionSourceBottomPanel } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBottomPanel';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
@@ -40,6 +41,8 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
     const currentStep = useMemo(() => getCurrentStep(), [getCurrentStep]);
 
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const [isChatOpen, setIsChatOpen] = useState(true);
 
     const breadCrumbStepItems: BreadcrumbItem[] = steps.map((step) => {
         const breadCrumbItem: BreadcrumbItem = {
@@ -118,7 +121,8 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
             subTitle={currentStep?.subTitle}
             rightPanelContent={
                 currentStep?.hideRightPanel ? null : (
-                    <EmbeddedChat
+                    <CollapsibleChat
+                        setIsChatOpen={setIsChatOpen}
                         context=""
                         agentName="IngestionTroubleshooter"
                         originType={DataHubAiConversationOriginType.IngestionUi}
@@ -131,8 +135,14 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
             }
             bottomPanelContent={currentStep?.hideBottomPanel ? null : <IngestionSourceBottomPanel />}
             topBreadcrumb={breadCrumb}
+            isRightPanelCollapsed={!isChatOpen}
         >
-            <ContentWrapper ref={scrollContainerRef}>{children}</ContentWrapper>
+            <ContentWrapper ref={scrollContainerRef}>
+                <>
+                    {children}
+                    <FloatingChatButton isVisible={!isChatOpen} onButtonClick={() => setIsChatOpen(true)} />
+                </>
+            </ContentWrapper>
         </PageLayout>
     );
 }
