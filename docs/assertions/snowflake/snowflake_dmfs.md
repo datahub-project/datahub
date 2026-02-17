@@ -223,7 +223,7 @@ You might want to ingest external DMFs if:
 
 ### Enabling External DMF Ingestion
 
-To ingest external DMFs, add the `include_external_dmf_assertions` flag to your Snowflake recipe:
+To ingest external DMFs, add the `include_externally_managed_dmfs` flag to your Snowflake recipe:
 
 ```yaml
 source:
@@ -235,7 +235,7 @@ source:
     include_assertion_results: true
 
     # Enable external DMF ingestion (new)
-    include_external_dmf_assertions: true
+    include_externally_managed_dmfs: true
 
     # Time window for assertion results
     start_time: "-7 days"

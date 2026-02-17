@@ -96,7 +96,7 @@ class SnowflakeAssertionsHandler:
     def get_assertion_workunits(
         self, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-        include_external = self.config.include_external_dmf_assertions
+        include_external = self.config.include_externally_managed_dmfs
 
         cur = self.connection.query(
             SnowflakeQuery.dmf_assertion_results(

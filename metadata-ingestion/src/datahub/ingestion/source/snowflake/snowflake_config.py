@@ -446,7 +446,7 @@ class SnowflakeV2Config(
         "in Snowflake. Also required for external DMF ingestion.",
     )
 
-    include_external_dmf_assertions: bool = Field(
+    include_externally_managed_dmfs: bool = Field(
         default=False,
         description="Ingest user-created Snowflake DMFs (not created via DataHub) "
         "as external assertions. Requires `include_assertion_results: true`. "
@@ -511,12 +511,12 @@ class SnowflakeV2Config(
             )
         return v
 
-    @field_validator("include_external_dmf_assertions", mode="after")
+    @field_validator("include_externally_managed_dmfs", mode="after")
     @classmethod
-    def validate_include_external_dmf_assertions(cls, v, info):
+    def validate_include_externally_managed_dmfs(cls, v, info):
         if not info.data.get("include_assertion_results") and v:
             raise ValueError(
-                "include_assertion_results must be True for include_external_dmf_assertions to be set."
+                "include_assertion_results must be True for include_externally_managed_dmfs to be set."
             )
         return v
 

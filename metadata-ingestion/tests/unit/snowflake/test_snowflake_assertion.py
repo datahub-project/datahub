@@ -86,7 +86,7 @@ class TestExternalDmfGuidGeneration:
         """Create a handler with mocked dependencies."""
         config = MagicMock()
         config.platform_instance = None
-        config.include_external_dmf_assertions = True
+        config.include_externally_managed_dmfs = True
         report = MagicMock()
         connection = MagicMock()
         identifiers = MagicMock()
@@ -139,11 +139,11 @@ class TestExternalDmfGuidGeneration:
         """Platform instance should affect GUID when configured."""
         config_with_instance = MagicMock()
         config_with_instance.platform_instance = "prod"
-        config_with_instance.include_external_dmf_assertions = True
+        config_with_instance.include_externally_managed_dmfs = True
 
         config_without_instance = MagicMock()
         config_without_instance.platform_instance = None
-        config_without_instance.include_external_dmf_assertions = True
+        config_without_instance.include_externally_managed_dmfs = True
 
         report = MagicMock()
         connection = MagicMock()
@@ -181,7 +181,7 @@ class TestAssertionInfoCreation:
         """Create a handler with mocked dependencies."""
         config = MagicMock()
         config.platform_instance = None
-        config.include_external_dmf_assertions = True
+        config.include_externally_managed_dmfs = True
         report = MagicMock()
         connection = MagicMock()
         identifiers = MagicMock()
@@ -238,7 +238,7 @@ class TestMixedDmfProcessing:
         """Create a handler with mocked dependencies."""
         config = MagicMock()
         config.platform_instance = None
-        config.include_external_dmf_assertions = True
+        config.include_externally_managed_dmfs = True
         report = MagicMock()
         connection = MagicMock()
         identifiers = MagicMock()
@@ -298,7 +298,7 @@ class TestDataPlatformInstance:
         """External DMFs should emit DataPlatformInstance aspect."""
         config = MagicMock()
         config.platform_instance = "my_instance"
-        config.include_external_dmf_assertions = True
+        config.include_externally_managed_dmfs = True
         report = MagicMock()
         connection = MagicMock()
         identifiers = MagicMock()
@@ -340,7 +340,7 @@ class TestDataPlatformInstance:
         """DataHub DMFs should also emit DataPlatformInstance aspect."""
         config = MagicMock()
         config.platform_instance = "prod"
-        config.include_external_dmf_assertions = True
+        config.include_externally_managed_dmfs = True
         report = MagicMock()
         connection = MagicMock()
         identifiers = MagicMock()
@@ -382,7 +382,7 @@ class TestDataPlatformInstance:
         """DataPlatformInstance should have None instance when not configured."""
         config = MagicMock()
         config.platform_instance = None
-        config.include_external_dmf_assertions = True
+        config.include_externally_managed_dmfs = True
         report = MagicMock()
         connection = MagicMock()
         identifiers = MagicMock()
@@ -421,7 +421,7 @@ class TestDataPlatformInstance:
         """DataPlatformInstance should only be emitted once per unique assertion."""
         config = MagicMock()
         config.platform_instance = "my_instance"
-        config.include_external_dmf_assertions = True
+        config.include_externally_managed_dmfs = True
         report = MagicMock()
         connection = MagicMock()
         identifiers = MagicMock()
@@ -469,7 +469,7 @@ class TestAssertionResultTypes:
         """Create a handler with mocked dependencies."""
         config = MagicMock()
         config.platform_instance = None
-        config.include_external_dmf_assertions = True
+        config.include_externally_managed_dmfs = True
         report = MagicMock()
         connection = MagicMock()
         identifiers = MagicMock()
