@@ -678,9 +678,10 @@ def test_get_pipeline_mcps(
 
     dpi_urn = "urn:li:dataProcessInstance:acryl-poc.pipeline_task_run.reverse"
 
-    # With incremental lineage: 6 (dataflow) + 4 (pipeline run DPI) + 7 (datajob) + 4 (task run DPI) = 21
+    # With SDK entities: 6 (dataflow) + 4 (pipeline run DPI) + 6 (datajob) + 4 (task run DPI) = 20
+    # SDK DataJob automatically emits browsePathsV2 (fixes browse path hierarchy)
     # Note: DataJob does NOT have ContainerClass (dataFlow cannot be a container for dataJob)
-    assert len(actual_mcps) == 21, f"Expected 21 MCPs, got {len(actual_mcps)}"
+    assert len(actual_mcps) == 20, f"Expected 20 MCPs, got {len(actual_mcps)}"
 
     dataflow_info_mcps = [
         mcp

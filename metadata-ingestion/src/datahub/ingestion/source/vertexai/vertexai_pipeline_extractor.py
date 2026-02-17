@@ -9,7 +9,6 @@ from google.cloud.aiplatform_v1.types import (
 )
 
 import datahub.emitter.mce_builder as builder
-from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.emitter.mce_builder import UNKNOWN_USER
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -52,8 +51,11 @@ from datahub.metadata.schema_classes import (
     DataProcessRunStatusClass,
     EdgeClass,
     RunResultTypeClass,
+    StatusClass,
 )
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn
+from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.datajob import DataJob
 from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -213,9 +215,9 @@ class VertexAIPipelineExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         """Emit stable DataJob entity for a pipeline task."""
         datajob = DataJob(
-            id=self.name_formatter.format_pipeline_task_id(task.name),
-            name=task.name,
-            flow_urn=dataflow_urn,
+            name=self.name_formatter.format_pipeline_task_id(task.name),
+            display_name=task.name,
+            flow_urn=str(dataflow_urn),
             platform_instance=self.config.platform_instance,
         )
 
@@ -225,8 +227,13 @@ class VertexAIPipelineExtractor:
             include_container=False,
         )
 
-        for mcp in datajob.generate_mcp():
-            yield mcp.as_workunit()
+        yield from datajob.as_workunits()
+
+        # Explicitly emit Status aspect (SDK doesn't emit it automatically)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=datajob.urn.urn(),
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
 
     def _gen_pipeline_task_run_instance(
         self, task: PipelineTaskMetadata, pipeline: PipelineMetadata
@@ -647,15 +654,14 @@ class VertexAIPipelineExtractor:
 
             owner = get_actor_from_labels(pipeline.labels)
             datajob = DataJob(
-                id=self.name_formatter.format_pipeline_task_id(task.name),
-                flow_urn=dataflow_urn,
-                name=task.name,
-                properties={},
+                name=self.name_formatter.format_pipeline_task_id(task.name),
+                display_name=task.name,
+                flow_urn=str(dataflow_urn),
+                custom_properties={},
                 owners={owner} if owner else set(),
-                upstream_urns=task.upstreams if task.upstreams else [],
                 inlets=inlets,
                 outlets=outlets,
-                url=self.url_builder.make_pipeline_url(pipeline.name),
+                external_url=self.url_builder.make_pipeline_url(pipeline.name),
                 platform_instance=self.config.platform_instance,
             )
 
@@ -665,8 +671,14 @@ class VertexAIPipelineExtractor:
                 include_platform=False,
                 include_container=False,
             )
-            for mcp in datajob.generate_mcp():
-                yield mcp.as_workunit()
+            yield from datajob.as_workunits()
+
+            # Explicitly emit Status aspect (SDK doesn't emit it automatically)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=datajob.urn.urn(),
+                aspect=StatusClass(removed=False),
+            ).as_workunit()
+
             yield from self._gen_pipeline_task_run_mcps(task, datajob, pipeline)
 
     def _format_pipeline_duration(self, td: timedelta) -> str:
@@ -732,18 +744,27 @@ class VertexAIPipelineExtractor:
         owner = get_actor_from_labels(pipeline.labels)
         # Use the URN that was already calculated in pipeline.urn (which respects incremental_lineage)
         dataflow = DataFlow(
-            orchestrator=self.platform,
-            id=pipeline.urn.flow_id,
+            platform=self.platform,
+            name=pipeline.urn.flow_id,
+            display_name=pipeline.name,
             env=self.config.env,
-            name=pipeline.name,
             platform_instance=self.config.platform_instance,
-            properties=self._get_pipeline_properties(pipeline).to_custom_properties(),
+            custom_properties=self._get_pipeline_properties(
+                pipeline
+            ).to_custom_properties(),
             owners={owner} if owner else set(),
-            url=self.url_builder.make_pipeline_url(pipeline_name=pipeline.name),
+            external_url=self.url_builder.make_pipeline_url(
+                pipeline_name=pipeline.name
+            ),
         )
 
-        for mcp in dataflow.generate_mcp():
-            yield mcp.as_workunit()
+        yield from dataflow.as_workunits()
+
+        # Explicitly emit Status aspect (SDK doesn't emit it automatically)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataflow.urn.urn(),
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
 
         yield from self._yield_common_aspects(
             entity_urn=dataflow.urn.urn(),
