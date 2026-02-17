@@ -101,6 +101,7 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
 
   private FieldResolver.FieldValue getDomains(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+
     try {
       if (entitySpec.getEntity().isEmpty()) {
         return FieldResolver.emptyFieldValue();
