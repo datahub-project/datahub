@@ -8,7 +8,7 @@ interface Props {
 
 export function ExpandCollapseButton({ expanded, onToggle }: Props) {
     return (
-        <Button variant="link" color="gray" onClick={onToggle}>
+        <Button variant="link" color="gray" onClick={onToggle} data-testid="expand-collapse-button">
             <Icon
                 source="phosphor"
                 icon={expanded ? 'CaretDown' : 'CaretRight'}
