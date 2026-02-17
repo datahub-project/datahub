@@ -135,9 +135,15 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             self.graph = self.ctx.graph
         else:
             # Fallback: Create graph from config (for standalone usage)
+            # Convert TransparentSecretStr to str for DatahubClientConfig
+            token_str = (
+                self.config.datahub.token.get_secret_value()
+                if self.config.datahub.token
+                else None
+            )
             graph_config = DatahubClientConfig(
                 server=self.config.datahub.server,
-                token=self.config.datahub.token,
+                token=token_str,
             )
             self.graph = DataHubGraph(config=graph_config)
 

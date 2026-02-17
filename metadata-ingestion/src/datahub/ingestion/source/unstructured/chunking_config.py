@@ -244,18 +244,94 @@ class EmbeddingConfig(ConfigModel):
         )
 
 
+def _get_default_gms_server() -> str:
+    """Get default GMS server URL with fallback to ~/.datahubenv.
+
+    Priority:
+    1. DATAHUB_GMS_URL environment variable
+    2. ~/.datahubenv file (via load_client_config)
+    3. http://localhost:8080 (hardcoded default)
+
+    Returns:
+        GMS server URL
+    """
+    # First try env var directly
+    url = env_vars.get_gms_url()
+    if url:
+        return url
+
+    # Fall back to load_client_config which reads from ~/.datahubenv
+    try:
+        from datahub.cli import config_utils
+
+        # Don't fail if config file doesn't exist - just use localhost
+        if not env_vars.get_skip_config():
+            try:
+                client_config = config_utils.load_client_config()
+                return client_config.server
+            except config_utils.MissingConfigError:
+                # Config file doesn't exist, use default
+                pass
+    except Exception:
+        # If anything goes wrong, fall back to default
+        pass
+
+    return "http://localhost:8080"
+
+
+def _get_default_gms_token() -> Optional[TransparentSecretStr]:
+    """Get default GMS token with fallback to ~/.datahubenv.
+
+    Priority:
+    1. DATAHUB_GMS_TOKEN environment variable
+    2. ~/.datahubenv file (via load_client_config)
+    3. None (no token)
+
+    Returns:
+        GMS token or None
+    """
+    # First try env var directly
+    token = env_vars.get_gms_token()
+    if token:
+        return TransparentSecretStr(token)
+
+    # Fall back to load_client_config which reads from ~/.datahubenv
+    try:
+        from datahub.cli import config_utils
+
+        # Don't fail if config file doesn't exist - just return None
+        if not env_vars.get_skip_config():
+            try:
+                client_config = config_utils.load_client_config()
+                if client_config.token:
+                    return TransparentSecretStr(client_config.token)
+            except config_utils.MissingConfigError:
+                # Config file doesn't exist, no token
+                pass
+    except Exception:
+        # If anything goes wrong, return None
+        pass
+
+    return None
+
+
 class DataHubConnectionConfig(ConfigModel):
-    """DataHub connection configuration."""
+    """DataHub connection configuration.
+
+    Defaults are loaded in this priority:
+    1. Explicitly configured values in the recipe
+    2. Environment variables (DATAHUB_GMS_URL, DATAHUB_GMS_TOKEN)
+    3. ~/.datahubenv file (created by `datahub init`)
+    4. Hardcoded defaults (http://localhost:8080, no token)
+    """
 
     server: str = Field(
-        default_factory=lambda: env_vars.get_gms_url() or "http://localhost:8080",
-        description="DataHub GMS server URL (defaults to DATAHUB_GMS_URL env var or localhost:8080)",
+        default_factory=_get_default_gms_server,
+        description="DataHub GMS server URL (defaults to DATAHUB_GMS_URL env var, ~/.datahubenv, or localhost:8080)",
     )
     token: Optional[TransparentSecretStr] = Field(
-        default_factory=lambda: TransparentSecretStr(env_vars.get_gms_token())
-        if env_vars.get_gms_token()
-        else None,
-        description="DataHub API token for authentication (defaults to DATAHUB_GMS_TOKEN env var)",
+        default_factory=_get_default_gms_token,
+        description="DataHub API token for authentication (defaults to DATAHUB_GMS_TOKEN env var or ~/.datahubenv)",
     )
 
 
