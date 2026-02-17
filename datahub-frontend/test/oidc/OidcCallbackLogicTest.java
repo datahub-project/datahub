@@ -1,27 +1,26 @@
 package oidc;
 
-import static auth.sso.oidc.OidcCallbackLogic.getGroupNames;
 import static auth.sso.oidc.OidcCallbackLogic.checkRequiredGroups;
-
-import auth.sso.oidc.OidcConfigs;
-import auth.sso.oidc.RequiredGroupsException;
+import static auth.sso.oidc.OidcCallbackLogic.getGroupNames;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import auth.sso.oidc.OidcConfigs;
+import auth.sso.oidc.RequiredGroupsException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Set;
 import java.util.HashSet;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.pac4j.core.profile.CommonProfile;
 
 public class OidcCallbackLogicTest {
 
-
   @Test
   public void testCheckRequiredGroups_UserHasRequiredGroup() {
-    CommonProfile profile = createMockProfileWithAttribute("[\"group1\", \"group2\"]", "groupsClaimName");
+    CommonProfile profile =
+        createMockProfileWithAttribute("[\"group1\", \"group2\"]", "groupsClaimName");
     when(profile.containsAttribute("groupsClaimName")).thenReturn(true);
     String userName = "testuser";
 
@@ -31,12 +30,13 @@ public class OidcCallbackLogicTest {
     when(oidcConfigs.getGroupsClaimName()).thenReturn("groupsClaimName");
 
     org.junit.jupiter.api.Assertions.assertDoesNotThrow(
-      () -> checkRequiredGroups(profile, userName, oidcConfigs));
+        () -> checkRequiredGroups(profile, userName, oidcConfigs));
   }
 
   @Test
   public void testCheckRequiredGroups_UserHasNoRequiredGroup_Throws() {
-    CommonProfile profile = createMockProfileWithAttribute("[\"group3\", \"group4\"]", "groupsClaimName");
+    CommonProfile profile =
+        createMockProfileWithAttribute("[\"group3\", \"group4\"]", "groupsClaimName");
     when(profile.containsAttribute("groupsClaimName")).thenReturn(true);
     String userName = "testuser";
     OidcConfigs oidcConfigs = mock(OidcConfigs.class);
@@ -45,8 +45,7 @@ public class OidcCallbackLogicTest {
     when(oidcConfigs.getGroupsClaimName()).thenReturn("groupsClaimName");
 
     org.junit.jupiter.api.Assertions.assertThrows(
-      RequiredGroupsException.class,
-      () -> checkRequiredGroups(profile, userName, oidcConfigs));
+        RequiredGroupsException.class, () -> checkRequiredGroups(profile, userName, oidcConfigs));
   }
 
   @Test

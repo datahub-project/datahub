@@ -84,7 +84,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import play.mvc.Result;
 import utils.SerializationUtils;
-import auth.sso.oidc.RequiredGroupsException;
 
 /**
  * This class contains the logic that is executed when an OpenID Connect Identity Provider redirects
@@ -246,7 +245,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
       final String userName = extractUserNameOrThrow(oidcConfigs, profile);
       final CorpuserUrn corpUserUrn = new CorpuserUrn(userName);
 
-      // If RequiredGroups has groups, ensure that the user belongs to at least one of the required groups.
+      // If RequiredGroups has groups, ensure that the user belongs to at least one of the required
+      // groups.
       checkRequiredGroups(profile, userName, oidcConfigs);
 
       try {
@@ -305,7 +305,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
         "Failed to authenticate current user. Cannot find valid identity provider profile in session.");
   }
 
-  public static void checkRequiredGroups(CommonProfile profile, String userName, OidcConfigs oidcConfigs) {
+  public static void checkRequiredGroups(
+      CommonProfile profile, String userName, OidcConfigs oidcConfigs) {
     if (!oidcConfigs.getRequiredGroups().isEmpty()) {
       final Set<String> required = oidcConfigs.getRequiredGroups();
       final String claimName = oidcConfigs.getGroupsClaimName();
@@ -330,7 +331,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
             String.format(
                 "Access denied: User %s does not have any of the required groups. Required (any): %s",
                 userName, required));
-            }
+      }
 
       log.debug(
           "User {} passed IAM group check. Matching groups={}, User groups={}",
