@@ -54,6 +54,7 @@ from datahub.ingestion.source.vertexai.vertexai_state import ModelUsageTracker
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     get_resource_category_container,
+    log_progress,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -78,14 +79,6 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
-
-
-def log_progress(current: int, total: Optional[int], resource_type: str) -> None:
-    """Log progress for resource processing."""
-    if total:
-        logger.info(f"Processing {resource_type} {current}/{total}")
-    else:
-        logger.info(f"Processing {resource_type} {current}")
 
 
 def datetime_to_ts_millis(dt: Union[datetime, Timestamp]) -> int:
@@ -164,13 +157,12 @@ class VertexAIPipelineExtractor:
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Main entry point for pipeline extraction."""
-        pipeline_jobs: List[PipelineJob] = list(
-            self.client.PipelineJob.list(order_by="update_time desc")
-        )
+        logger.info("Fetching PipelineJobs from Vertex AI")
+        pipeline_jobs_pager = self.client.PipelineJob.list(order_by="update_time desc")
 
-        total = len(pipeline_jobs)
-        for i, pipeline in enumerate(pipeline_jobs, start=1):
-            log_progress(i, total, "pipelines")
+        for job_count, pipeline in enumerate(pipeline_jobs_pager, start=1):
+            log_progress(job_count, None, "PipelineJobs")
+
             logger.debug(f"Fetching pipeline ({pipeline.name})")
             pipeline_meta = self._get_pipeline_metadata(pipeline)
 

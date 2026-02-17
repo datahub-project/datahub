@@ -91,16 +91,6 @@ from datahub.metadata.urns import DataPlatformUrn, VersionSetUrn
 logger = logging.getLogger(__name__)
 
 
-def log_progress(
-    current: int, total: Optional[int], item_type: str, interval: int = 100
-) -> None:
-    """Log progress for large collections at regular intervals."""
-    if current % interval == 0:
-        logger.info(f"Processed {current} {item_type} from VertexAI server")
-    if total and current == total:
-        logger.info(f"Finished processing {total} {item_type} from VertexAI server")
-
-
 @platform_name("Vertex AI", id="vertexai")
 @config_class(VertexAIConfig)
 @support_status(SupportStatus.INCUBATING)

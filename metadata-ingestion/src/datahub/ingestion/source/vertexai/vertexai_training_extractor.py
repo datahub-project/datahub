@@ -48,7 +48,10 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_job_result_status,
     is_status_for_run_event_class,
 )
-from datahub.ingestion.source.vertexai.vertexai_utils import get_actor_from_labels
+from datahub.ingestion.source.vertexai.vertexai_utils import (
+    get_actor_from_labels,
+    log_progress,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DataProcessInstanceInputClass,
@@ -109,24 +112,23 @@ class VertexAITrainingExtractor:
         for class_name in TrainingJobTypes.all():
             if not self.config.training_job_type_pattern.allowed(class_name):
                 continue
-            logger.info(f"Fetching a list of {class_name}s from VertexAI server")
+            logger.info(f"Fetching {class_name}s from Vertex AI")
 
-            jobs: List[VertexAiResourceNoun] = list(
-                getattr(self.client, class_name).list(order_by="update_time desc")
+            jobs_pager = getattr(self.client, class_name).list(
+                order_by="update_time desc"
             )
 
-            if self.config.max_training_jobs_per_type is not None:
-                jobs = jobs[: self.config.max_training_jobs_per_type]
+            max_jobs = self.config.max_training_jobs_per_type
+            for job_count, job in enumerate(jobs_pager, start=1):
+                log_progress(job_count, max_jobs, class_name)
 
-            for i, job in enumerate(jobs, start=1):
-                if i % 100 == 0:
-                    logger.info(f"Processed {i} {class_name}s from VertexAI server")
                 yield from self._get_training_job_mcps(job)
 
-            if jobs:
-                logger.info(
-                    f"Finished processing {len(jobs)} {class_name}s from VertexAI server"
-                )
+                if max_jobs is not None and job_count >= max_jobs:
+                    logger.info(
+                        f"Reached max_training_jobs_per_type limit of {max_jobs} for {class_name}"
+                    )
+                    break
 
     def _get_training_job_mcps(
         self, job: VertexAiResourceNoun
@@ -346,12 +348,15 @@ class VertexAITrainingExtractor:
     def _search_dataset(self, dataset_id: str) -> Optional[VertexAiResourceNoun]:
         """Search for a dataset by ID."""
         if self.datasets is None:
+            logger.info("Fetching Datasets from Vertex AI (one-time cache)")
             self.datasets = {}
 
             for dtype in DatasetTypes.all():
                 dataset_class = getattr(self.client.datasets, dtype)
                 for ds in dataset_class.list():
                     self.datasets[ds.name] = ds
+
+            logger.info(f"Cached {len(self.datasets)} datasets")
 
         return self.datasets.get(dataset_id)
 

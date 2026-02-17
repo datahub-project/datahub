@@ -30,6 +30,7 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     get_project_container,
+    log_progress,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -50,14 +51,6 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
-
-
-def log_progress(current: int, total: Optional[int], resource_type: str) -> None:
-    """Log progress for resource processing."""
-    if total:
-        logger.info(f"Processing {resource_type} {current}/{total}")
-    else:
-        logger.info(f"Processing {resource_type} {current}")
 
 
 class VertexAIExperimentExtractor:
@@ -89,6 +82,7 @@ class VertexAIExperimentExtractor:
 
     def get_experiment_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Extract experiments and generate workunits."""
+        logger.info("Fetching Experiments from Vertex AI")
         exps = aiplatform.Experiment.list()
         filtered = [
             e for e in exps if self.config.experiment_name_pattern.allowed(e.name)
@@ -98,7 +92,7 @@ class VertexAIExperimentExtractor:
             filtered = filtered[: self.config.max_experiments]
         self.experiments = filtered
 
-        logger.info("Fetching experiments from VertexAI server")
+        logger.info(f"Retrieved {len(self.experiments)} experiments")
         total = len(self.experiments)
         for i, experiment in enumerate(self.experiments, start=1):
             log_progress(i, total, "experiments")
@@ -107,6 +101,7 @@ class VertexAIExperimentExtractor:
     def get_experiment_run_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Extract experiment runs and generate workunits."""
         if self.experiments is None:
+            logger.info("Fetching Experiments from Vertex AI")
             exps = [
                 e
                 for e in aiplatform.Experiment.list()
@@ -114,9 +109,10 @@ class VertexAIExperimentExtractor:
             ]
             exps.sort(key=attrgetter("update_time"), reverse=True)
             self.experiments = exps
+            logger.info(f"Retrieved {len(self.experiments)} experiments")
 
         for experiment in self.experiments:
-            logger.info(f"Fetching experiment runs for experiment {experiment.name}")
+            logger.info(f"Fetching ExperimentRuns for experiment {experiment.name}")
             experiment_runs: List[ExperimentRun] = list(
                 aiplatform.ExperimentRun.list(experiment=experiment.name)
             )

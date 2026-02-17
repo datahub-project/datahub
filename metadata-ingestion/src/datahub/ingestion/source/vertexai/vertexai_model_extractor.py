@@ -91,6 +91,7 @@ class VertexAIModelExtractor:
 
     def get_model_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Main entry point for model extraction."""
+        logger.info("Fetching Models from Vertex AI")
         registered_models = self.client.Model.list(order_by="update_time desc")
         total_versions = 0
         for model_idx, model in enumerate(registered_models, start=1):
@@ -102,7 +103,7 @@ class VertexAIModelExtractor:
                 total_versions += 1
                 if total_versions % 100 == 0:
                     logger.info(
-                        f"Processed {total_versions} model versions from VertexAI server"
+                        f"Processed {total_versions} model versions from Vertex AI"
                     )
                 logger.debug(
                     f"Ingesting model version (name: {model.display_name} id:{model.name} version:{model_version.version_id})"
@@ -119,11 +120,12 @@ class VertexAIModelExtractor:
 
         if total_versions > 0:
             logger.info(
-                f"Finished processing {total_versions} model versions from VertexAI server"
+                f"Finished processing {total_versions} model versions from Vertex AI"
             )
 
     def get_evaluation_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Extract model evaluations."""
+        logger.info("Fetching Models for evaluation extraction from Vertex AI")
         registered_models = self.client.Model.list(order_by="update_time desc")
         total_evaluations = 0
 
@@ -143,7 +145,7 @@ class VertexAIModelExtractor:
                     total_evaluations += 1
                     if total_evaluations % 100 == 0:
                         logger.info(
-                            f"Processed {total_evaluations} model evaluations from VertexAI server"
+                            f"Processed {total_evaluations} model evaluations from Vertex AI"
                         )
                     logger.debug(
                         f"Ingesting evaluation for model {model.display_name}: {evaluation.name}"
@@ -174,7 +176,7 @@ class VertexAIModelExtractor:
 
         if total_evaluations > 0:
             logger.info(
-                f"Finished processing {total_evaluations} model evaluations from VertexAI server"
+                f"Finished processing {total_evaluations} model evaluations from Vertex AI"
             )
 
     def _extract_evaluation_metrics(
@@ -589,6 +591,7 @@ class VertexAIModelExtractor:
     def _search_endpoint(self, model: Model) -> List[Endpoint]:
         """Search for an endpoint associated with the model."""
         if self.endpoints is None:
+            logger.info("Fetching Endpoints from Vertex AI")
             endpoint_dict: Dict[str, List[Endpoint]] = {}
             for endpoint in self.client.Endpoint.list():
                 for resource in endpoint.list_models():

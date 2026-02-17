@@ -2,6 +2,9 @@ from typing import Set
 
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 
+# Progress logging configuration
+PROGRESS_LOG_INTERVAL = 100
+
 
 class ExternalPlatforms:
     """
