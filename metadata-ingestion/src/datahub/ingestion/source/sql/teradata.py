@@ -256,7 +256,91 @@ def optimized_get_pk_constraint(
     return {"constrained_columns": index_columns, "name": index_name}
 
 
-def optimized_get_columns(
+def _try_qvci_extraction(
+    self: Any,
+    connection: Connection,
+    schema: str,
+    table_name: str,
+    td_table: TeradataTable,
+) -> Tuple[List[Any], Optional[str]]:
+    """Try QVCI extraction for views."""
+    try:
+        dbc_columns = "columnsQV" + ("X" if configure.usexviews else "")
+        res = self.get_schema_columns(connection, dbc_columns, schema).get(
+            table_name, []
+        )
+        return res, None
+    except Exception as e:
+        return [], f"QVCI: {e}"
+
+
+def _try_help_extraction(
+    self: Any,
+    connection: Connection,
+    schema: str,
+    table_name: str,
+) -> Tuple[List[Any], Optional[str]]:
+    """Try HELP COLUMN extraction."""
+    try:
+        help_res = self._get_column_help(
+            connection, schema, table_name, column_name=None
+        )
+        col_info_list = []
+        for r in help_res:
+            updated_column_info_dict = self._update_column_help_info(r._mapping)
+            col_info_list.append(dict(r._mapping, **(updated_column_info_dict)))
+        return col_info_list, None
+    except Exception as e:
+        return [], f"HELP: {e}"
+
+
+def _try_dbc_extraction(
+    self: Any,
+    connection: Connection,
+    schema: str,
+    table_name: str,
+    use_qvci: bool,
+) -> Tuple[List[Any], Optional[str]]:
+    """Try DBC system tables extraction."""
+    try:
+        dbc_columns = "columnsQV" if use_qvci else "columnsV"
+        dbc_columns = dbc_columns + "X" if configure.usexviews else dbc_columns
+        res = self.get_schema_columns(connection, dbc_columns, schema).get(
+            table_name, []
+        )
+        return res, None
+    except Exception as e:
+        if hasattr(self, "report"):
+            self.report.num_dbc_access_failures += 1
+        return [], f"DBC: {e}"
+
+
+def _try_prepared_statement_extraction(
+    self: Any,
+    connection: Connection,
+    schema: str,
+    table_name: str,
+) -> Tuple[List[Any], Optional[str]]:
+    """Try prepared statement extraction."""
+    try:
+        logger.info(
+            f"Falling back to prepared statement extraction for {schema}.{table_name}"
+        )
+        raw_columns = _get_columns_via_prepared_statement(
+            connection, schema, table_name, getattr(self, "report", None)
+        )
+        res = [_map_prepared_statement_column_to_dict(col, self) for col in raw_columns]
+
+        if hasattr(self, "report"):
+            self.report.num_tables_using_prepared_statement += 1
+            self.report.tables_using_prepared_statement.append(f"{schema}.{table_name}")
+
+        return res, None
+    except Exception as e:
+        return [], f"PreparedStatement: {e}"
+
+
+def optimized_get_columns(  # noqa: C901
     self: Any,
     connection: Connection,
     table_name: str,
@@ -274,7 +358,6 @@ def optimized_get_columns(
     # with the 'help column' commands result.
 
     td_table: Optional[TeradataTable] = None
-    # Check if the object is a view
     for t in tables_cache[schema]:
         if t.name == table_name:
             td_table = t
@@ -286,74 +369,77 @@ def optimized_get_columns(
         )
         return []
 
-    res = []
-    if td_table.object_type == "View" and not use_qvci:
-        # Volatile table definition is not stored in the dictionary.
-        # We use the 'help schema.table.*' command instead to get information for all columns.
-        # We have to do the same for views since we need the type information
-        # which is not available in dbc.ColumnsV.
-        res = self._get_column_help(connection, schema, table_name, column_name=None)
+    config = getattr(self, "config", None)
+    use_fallback = config and getattr(config, "metadata_extraction_fallback", False)
+    use_prepared = config and getattr(config, "use_prepared_statement_metadata", False)
 
-        # If this is a view, get types for individual columns (dbc.ColumnsV won't have types for view columns).
-        # For a view or a volatile table, we have to set the default values as the 'help' command does not have it.
-        col_info_list = []
-        for r in res:
-            updated_column_info_dict = self._update_column_help_info(r._mapping)
-            col_info_list.append(dict(r._mapping, **(updated_column_info_dict)))
-        res = col_info_list
-    else:
-        # Default value for 'usexviews' is False so use dbc.ColumnsV by default
-        dbc_columns = "columnsQV" if use_qvci else "columnsV"
-        dbc_columns = dbc_columns + "X" if configure.usexviews else dbc_columns
-        res = self.get_schema_columns(connection, dbc_columns, schema).get(
-            table_name, []
+    res: List[Any] = []
+    extraction_errors: List[str] = []
+
+    # Try QVCI first if enabled and view
+    if td_table.object_type == "View" and use_qvci:
+        res, error = _try_qvci_extraction(
+            self, connection, schema, table_name, td_table
         )
+        if error:
+            extraction_errors.append(error)
+            logger.warning(f"QVCI extraction failed for {schema}.{table_name}: {error}")
+        if res:
+            return _process_columns(res, td_table, self)
 
-    start_time = time.time()
+    # Try HELP COLUMN for views (existing behavior when QVCI not enabled)
+    if td_table.object_type == "View" and not use_qvci and not res:
+        res, error = _try_help_extraction(self, connection, schema, table_name)
+        if error:
+            extraction_errors.append(error)
+            if not use_fallback:
+                raise Exception(error)
+        if res:
+            return _process_columns(res, td_table, self)
 
-    final_column_info = []
-    # Don't care about ART tables now
-    # Ignore the non-functional column in a PTI table
-    for row in res:
-        try:
-            col_info = self._get_column_info(row)
+    # Try DBC system tables
+    if not res:
+        res, error = _try_dbc_extraction(self, connection, schema, table_name, use_qvci)
+        if error:
+            extraction_errors.append(error)
+            logger.warning(f"DBC extraction failed for {schema}.{table_name}: {error}")
+            if not (use_fallback or use_prepared):
+                raise Exception(error)
+        if res:
+            return _process_columns(res, td_table, self)
 
-            # Add CommentString as comment field for column description
-            if hasattr(row, "CommentString") and row.CommentString:
-                col_info["comment"] = row.CommentString.strip()
-            elif (
-                isinstance(row, dict)
-                and "CommentString" in row
-                and row["CommentString"]
-            ):
-                col_info["comment"] = row["CommentString"].strip()
-
-            if "TSColumnType" in col_info and col_info["TSColumnType"] is not None:
-                if (
-                    col_info["ColumnName"] == "TD_TIMEBUCKET"
-                    and col_info["TSColumnType"].strip() == "TB"
-                ):
-                    continue
-            final_column_info.append(col_info)
-
-            # Update counter - access report through self from the connection context
-            if hasattr(self, "report"):
-                self.report.num_columns_processed += 1
-
-        except Exception as e:
+    # Fallback to prepared statement method if enabled
+    if (use_fallback or use_prepared) and not res:
+        res, error = _try_prepared_statement_extraction(
+            self, connection, schema, table_name
+        )
+        if error:
+            extraction_errors.append(error)
             logger.error(
-                f"Failed to process column {getattr(row, 'ColumnName', 'unknown')}: {e}"
+                f"Prepared statement extraction failed for {schema}.{table_name}: {error}"
             )
+        if res:
+            return _process_columns(res, td_table, self)
+
+    # Final fallback to HELP COLUMN if all else failed
+    if use_fallback and not res:
+        res, error = _try_help_extraction(self, connection, schema, table_name)
+        if error:
+            extraction_errors.append(error)
+        else:
             if hasattr(self, "report"):
-                self.report.num_column_extraction_failures += 1
-            continue
+                self.report.num_tables_using_help_fallback += 1
+                self.report.tables_using_help_fallback.append(f"{schema}.{table_name}")
+        if res:
+            return _process_columns(res, td_table, self)
 
-    # Update timing
-    if hasattr(self, "report"):
-        end_time = time.time()
-        self.report.column_extraction_duration_seconds += end_time - start_time
+    # All methods failed
+    if not res:
+        error_msg = f"All metadata extraction methods failed for {schema}.{table_name}: {'; '.join(extraction_errors)}"
+        logger.error(error_msg)
+        raise Exception(error_msg)
 
-    return final_column_info
+    return []
 
 
 # Cache size of 1 is sufficient since schemas are processed sequentially
@@ -445,6 +531,179 @@ def optimized_get_view_definition(
     return None
 
 
+def _get_columns_via_prepared_statement(
+    connection: Connection,
+    schema: str,
+    table_name: str,
+    report: Optional[Any] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Extract column metadata using prepared statement with WHERE 1=0.
+
+    This method queries the table/view directly without requiring DBC access.
+    Uses cursor.description to extract column names, types, and nullability.
+
+    Args:
+        connection: SQLAlchemy connection
+        schema: Database schema name
+        table_name: Table or view name
+        report: Optional report object for metrics tracking
+
+    Returns:
+        List of column info dicts with keys: name, type_code, nullable, display_size,
+        internal_size, precision, scale
+
+    Raises:
+        Exception: If query execution fails (e.g., table doesn't exist, no permissions)
+    """
+    # Teradata doesn't support parameterized table/schema names, use string formatting with escaping
+    # Quote identifiers to prevent SQL injection
+    escaped_schema = schema.replace('"', '""')
+    escaped_table = table_name.replace('"', '""')
+    query_str = f'SELECT * FROM "{escaped_schema}"."{escaped_table}" WHERE 1=0'
+
+    try:
+        # Execute query that returns zero rows but prepares metadata
+        result = connection.execute(text(query_str))
+        cursor = result.cursor
+
+        if not cursor.description:
+            raise ValueError(f"No column metadata available for {schema}.{table_name}")
+
+        columns = []
+        for col_desc in cursor.description:
+            # DB-API 2.0 cursor.description format:
+            # (name, type_code, display_size, internal_size, precision, scale, null_ok)
+            column_info = {
+                "name": col_desc[0],
+                "type_code": col_desc[1],
+                "display_size": col_desc[2] if len(col_desc) > 2 else None,
+                "internal_size": col_desc[3] if len(col_desc) > 3 else None,
+                "precision": col_desc[4] if len(col_desc) > 4 else None,
+                "scale": col_desc[5] if len(col_desc) > 5 else None,
+                "nullable": col_desc[6] if len(col_desc) > 6 else None,
+            }
+            columns.append(column_info)
+
+        result.close()
+
+        if report and hasattr(report, "num_columns_processed"):
+            report.num_columns_processed += len(columns)
+
+        return columns
+
+    except Exception as e:
+        logger.error(
+            f"Prepared statement metadata extraction failed for {schema}.{table_name}: {e}"
+        )
+        if report and hasattr(report, "num_prepared_statement_failures"):
+            report.num_prepared_statement_failures += 1
+        raise
+
+
+def _map_prepared_statement_column_to_dict(
+    column_info: Dict[str, Any],
+    dialect: Any,
+) -> Dict[str, Any]:
+    """
+    Convert prepared statement column info to format expected by _get_column_info.
+
+    Maps DB-API cursor.description fields to the structure that TeradataDialect._get_column_info
+    expects (similar to DBC.ColumnsV row format).
+
+    Args:
+        column_info: Dict from cursor.description with type_code, nullable, etc.
+        dialect: TeradataDialect instance for type mapping
+
+    Returns:
+        Dict compatible with _get_column_info processing
+    """
+    # The type_code from cursor.description is already a SQLAlchemy type object
+    # from the Teradata driver, so we can use it directly
+    type_obj = column_info.get("type_code")
+
+    # Create a mapping that mimics the DBC.ColumnsV structure
+    # This is what TeradataDialect._get_column_info expects
+    return {
+        "ColumnName": column_info["name"],
+        "ColumnType": type_obj,
+        "Nullable": "Y" if column_info.get("nullable", True) else "N",
+        "DefaultValue": None,  # Not available from prepared statements
+        "CommentString": None,  # Not available from prepared statements
+        "DecimalTotalDigits": column_info.get("precision"),
+        "DecimalFractionalDigits": column_info.get("scale"),
+        "ColumnLength": column_info.get("display_size")
+        or column_info.get("internal_size"),
+    }
+
+
+def _process_columns(
+    res: List[Any], td_table: TeradataTable, dialect_self: Any
+) -> List[Dict]:
+    """
+    Helper to process columns from any extraction method.
+
+    Handles conversion of column rows to final column info dicts,
+    including comment extraction and error handling.
+
+    Args:
+        res: List of column rows (from DBC, HELP, or prepared statement)
+        td_table: TeradataTable object for context
+        dialect_self: TeradataDialect instance with _get_column_info method
+
+    Returns:
+        List of processed column info dicts
+    """
+    start_time = time.time()
+    final_column_info = []
+
+    for row in res:
+        try:
+            col_info = dialect_self._get_column_info(row)
+
+            # Add CommentString as comment field for column description
+            if hasattr(row, "CommentString") and row.CommentString:
+                col_info["comment"] = row.CommentString.strip()
+            elif (
+                isinstance(row, dict)
+                and "CommentString" in row
+                and row["CommentString"]
+            ):
+                col_info["comment"] = row["CommentString"].strip()
+
+            # Filter out TD_TIMEBUCKET columns from PTI tables
+            if "TSColumnType" in col_info and col_info["TSColumnType"] is not None:
+                if (
+                    col_info.get("ColumnName") == "TD_TIMEBUCKET"
+                    and col_info["TSColumnType"].strip() == "TB"
+                ):
+                    continue
+
+            final_column_info.append(col_info)
+
+            if hasattr(dialect_self, "report"):
+                dialect_self.report.num_columns_processed += 1
+
+        except Exception as e:
+            col_name = getattr(
+                row,
+                "ColumnName",
+                row.get("ColumnName", "unknown")
+                if isinstance(row, dict)
+                else "unknown",
+            )
+            logger.error(f"Failed to process column {col_name}: {e}")
+            if hasattr(dialect_self, "report"):
+                dialect_self.report.num_column_extraction_failures += 1
+            continue
+
+    if hasattr(dialect_self, "report"):
+        end_time = time.time()
+        dialect_self.report.column_extraction_duration_seconds += end_time - start_time
+
+    return final_column_info
+
+
 @dataclass
 class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # View processing metrics (actively used)
@@ -472,6 +731,16 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
 
     # Audit query processing statistics
     num_audit_query_entries_processed: int = 0
+
+    # Metadata extraction method tracking
+    num_tables_using_prepared_statement: int = 0
+    num_tables_using_help_fallback: int = 0
+    tables_using_prepared_statement: List[str] = field(default_factory=list)
+    tables_using_help_fallback: List[str] = field(default_factory=list)
+
+    # Metadata extraction failures by method
+    num_dbc_access_failures: int = 0
+    num_prepared_statement_failures: int = 0
 
 
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
@@ -566,6 +835,27 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         ),
     )
 
+    use_prepared_statement_metadata: bool = Field(
+        default=False,
+        description=(
+            "Use prepared statements to extract column metadata instead of DBC system tables. "
+            "This method works when DBC access is restricted but SELECT permission on "
+            "tables/views is available. Provides accurate type information and nullability "
+            "but does not include default values or column comments. "
+            "Slower than DBC bulk extraction but more permission-friendly."
+        ),
+    )
+
+    metadata_extraction_fallback: bool = Field(
+        default=False,
+        description=(
+            "Enable automatic fallback between metadata extraction methods. "
+            "Attempts methods in order: QVCI -> DBC tables -> Prepared statements -> HELP COLUMN. "
+            "Ensures ingestion succeeds even with limited permissions. "
+            "When enabled, logs warnings about which method succeeded and what metadata may be incomplete."
+        ),
+    )
+
 
 @platform_name("Teradata")
 @config_class(TeradataConfig)
@@ -598,6 +888,44 @@ class TeradataSource(TwoTierSQLAlchemySource):
     - Metadata for databases, schemas, views, and tables
     - Column types associated with each table
     - Table, row, and column statistics via optional SQL profiling
+
+    Metadata Extraction Methods:
+        The connector supports multiple methods for extracting column metadata,
+        with automatic fallback support for restricted environments:
+
+        1. DBC System Tables (default):
+           - Queries dbc.ColumnsV for complete metadata
+           - Requires: SELECT on dbc.ColumnsV
+           - Provides: All metadata including defaults and comments
+           - Performance: Fast bulk extraction (all tables at once)
+
+        2. QVCI (optional):
+           - Query View Column Information for views
+           - Requires: QVCI enabled on Teradata instance
+           - Config: use_qvci: true
+           - Provides: Complete metadata for views
+           - Performance: Fast bulk extraction
+
+        3. Prepared Statements (fallback):
+           - Uses SQLAlchemy cursor.description from SELECT queries
+           - Requires: SELECT on target tables/views only (no DBC access)
+           - Config: use_prepared_statement_metadata: true or metadata_extraction_fallback: true
+           - Provides: Column names, types, nullability
+           - Does NOT provide: Default values, column comments
+           - Performance: Slower (one query per table)
+
+        4. HELP COLUMN (last resort):
+           - Teradata HELP command for column information
+           - Requires: SELECT on target tables/views
+           - Provides: Column names and types only
+           - Does NOT provide: Nullability, defaults, or comments
+           - Performance: Slowest
+
+        Fallback Behavior:
+           When metadata_extraction_fallback: true, the connector attempts methods
+           in order and falls back to the next if the current method fails. This
+           ensures ingestion succeeds even with limited permissions. The report
+           will track which tables used which method for transparency.
     """
 
     config: TeradataConfig
