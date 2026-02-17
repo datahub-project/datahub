@@ -1,16 +1,13 @@
 """Platform adapter factory for SQL profiling."""
 
 import logging
-from typing import TYPE_CHECKING, Dict, Type
+from typing import Type
 
 from sqlalchemy.engine import Engine
 
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +21,9 @@ def get_adapter(
     """
     Factory function to get platform-specific profiling adapter.
 
+    Uses lazy imports to avoid loading adapters with missing optional dependencies.
+    This allows eg BigQuery profiling to work even if pyathena is not installed, etc.
+
     Args:
         platform: Database platform name (e.g., "bigquery", "snowflake")
         config: Profiling configuration
@@ -33,45 +33,66 @@ def get_adapter(
     Returns:
         Platform-specific adapter instance
     """
-    from datahub.ingestion.source.sqlalchemy_profiler.adapters.athena import (
-        AthenaAdapter,
-    )
-    from datahub.ingestion.source.sqlalchemy_profiler.adapters.bigquery import (
-        BigQueryAdapter,
-    )
-    from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
-        DatabricksAdapter,
-    )
-    from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
-        GenericAdapter,
-    )
-    from datahub.ingestion.source.sqlalchemy_profiler.adapters.mysql import MySQLAdapter
-    from datahub.ingestion.source.sqlalchemy_profiler.adapters.postgres import (
-        PostgresAdapter,
-    )
-    from datahub.ingestion.source.sqlalchemy_profiler.adapters.redshift import (
-        RedshiftAdapter,
-    )
-    from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
-        SnowflakeAdapter,
-    )
-    from datahub.ingestion.source.sqlalchemy_profiler.adapters.trino import TrinoAdapter
-
-    # Map platform names to adapter classes
-    adapters: Dict[str, Type[PlatformAdapter]] = {
-        "bigquery": BigQueryAdapter,
-        "athena": AthenaAdapter,
-        "postgresql": PostgresAdapter,
-        "postgres": PostgresAdapter,
-        "mysql": MySQLAdapter,
-        "redshift": RedshiftAdapter,
-        "snowflake": SnowflakeAdapter,
-        "databricks": DatabricksAdapter,
-        "trino": TrinoAdapter,
-    }
-
     platform_lower = platform.lower()
-    adapter_class: Type[PlatformAdapter] = adapters.get(platform_lower, GenericAdapter)
+
+    # Lazy imports: only import the adapter we actually need
+    # This prevents failures when optional dependencies are missing
+    adapter_class: Type[PlatformAdapter]
+    if platform_lower == "bigquery":
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.bigquery import (
+            BigQueryAdapter,
+        )
+
+        adapter_class = BigQueryAdapter
+    elif platform_lower == "athena":
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.athena import (
+            AthenaAdapter,
+        )
+
+        adapter_class = AthenaAdapter
+    elif platform_lower in ("postgresql", "postgres"):
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.postgres import (
+            PostgresAdapter,
+        )
+
+        adapter_class = PostgresAdapter
+    elif platform_lower == "mysql":
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.mysql import (
+            MySQLAdapter,
+        )
+
+        adapter_class = MySQLAdapter
+    elif platform_lower == "redshift":
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.redshift import (
+            RedshiftAdapter,
+        )
+
+        adapter_class = RedshiftAdapter
+    elif platform_lower == "snowflake":
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
+            SnowflakeAdapter,
+        )
+
+        adapter_class = SnowflakeAdapter
+    elif platform_lower == "databricks":
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+            DatabricksAdapter,
+        )
+
+        adapter_class = DatabricksAdapter
+    elif platform_lower == "trino":
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.trino import (
+            TrinoAdapter,
+        )
+
+        adapter_class = TrinoAdapter
+    else:
+        # Fallback to generic adapter for unknown platforms
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
+            GenericAdapter,
+        )
+
+        adapter_class = GenericAdapter
 
     logger.debug(f"Using {adapter_class.__name__} for platform '{platform}'")
 
