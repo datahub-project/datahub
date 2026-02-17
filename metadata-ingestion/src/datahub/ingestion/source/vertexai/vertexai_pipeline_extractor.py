@@ -1,17 +1,28 @@
 import logging
-from datetime import timedelta
-from typing import Any, Dict, Iterable, List, Optional, Set, Union, cast
+from datetime import datetime, timedelta
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Union,
+)
 
 from google.cloud.aiplatform import PipelineJob
 from google.cloud.aiplatform_v1.types import (
     PipelineJob as PipelineJobType,
     PipelineTaskDetail,
 )
+from google.protobuf.timestamp_pb2 import Timestamp
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import UNKNOWN_USER
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.vertexai.vertexai_builder import (
     VertexAIExternalURLBuilder,
     VertexAINameFormatter,
@@ -27,22 +38,27 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     VertexAISubTypes,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
+    PipelineContainerKey,
     PipelineMetadata,
     PipelineProperties,
     PipelineTaskArtifacts,
     PipelineTaskMetadata,
     PipelineTaskProperties,
+    YieldCommonAspectsProtocol,
 )
 from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_pipeline_task_result_status,
     is_status_for_run_event_class,
 )
+from datahub.ingestion.source.vertexai.vertexai_state import ModelUsageTracker
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     get_resource_category_container,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    ContainerClass,
+    DataJobInputOutputClass,
     DataProcessInstanceInputClass,
     DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
@@ -59,6 +75,7 @@ from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +88,8 @@ def log_progress(current: int, total: Optional[int], resource_type: str) -> None
         logger.info(f"Processing {resource_type} {current}")
 
 
-def datetime_to_ts_millis(dt: Any) -> int:
-    """Convert datetime to milliseconds timestamp."""
+def datetime_to_ts_millis(dt: Union[datetime, Timestamp]) -> int:
+    """Convert datetime or protobuf Timestamp to milliseconds timestamp."""
     return int(dt.timestamp() * 1000)
 
 
@@ -82,14 +99,14 @@ class VertexAIPipelineExtractor:
     def __init__(
         self,
         config: VertexAIConfig,
-        client: Any,
+        client: Any,  # aiplatform module
         urn_builder: VertexAIUrnBuilder,
         name_formatter: VertexAINameFormatter,
         url_builder: VertexAIExternalURLBuilder,
         uri_parser: VertexAIURIParser,
         project_id: str,
-        yield_common_aspects_fn: Any,
-        model_usage_tracker: Any,
+        yield_common_aspects_fn: YieldCommonAspectsProtocol,
+        model_usage_tracker: ModelUsageTracker,
         platform: str,
     ):
         self.config = config
@@ -116,6 +133,35 @@ class VertexAIPipelineExtractor:
 
         return pipeline.name
 
+    def _get_pipeline_container(self, pipeline_name: str) -> PipelineContainerKey:
+        """Get container key for a pipeline."""
+        return PipelineContainerKey(
+            project_id=self.project_id,
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+            pipeline_name=self.name_formatter.format_pipeline_id(pipeline_name),
+        )
+
+    def _gen_pipeline_container(
+        self, pipeline_name: str, container_key: PipelineContainerKey
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate container entity for a pipeline."""
+        pipelines_category_key = get_resource_category_container(
+            project_id=self.project_id,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            category=ResourceCategory.PIPELINES,
+        )
+
+        yield from gen_containers(
+            parent_container_key=pipelines_category_key,
+            container_key=container_key,
+            name=pipeline_name,
+            sub_types=[DatasetContainerSubTypes.FOLDER],
+        )
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Main entry point for pipeline extraction."""
         pipeline_jobs: List[PipelineJob] = list(
@@ -128,27 +174,28 @@ class VertexAIPipelineExtractor:
             logger.debug(f"Fetching pipeline ({pipeline.name})")
             pipeline_meta = self._get_pipeline_metadata(pipeline)
 
-            if self.config.incremental_lineage:
-                yield from self._get_pipeline_mcps_incremental(pipeline, pipeline_meta)
-            else:
-                yield from self._get_pipeline_mcps(pipeline_meta)
-                yield from self._gen_pipeline_task_mcps(pipeline_meta)
+            yield from self._get_pipeline_workunits(pipeline, pipeline_meta)
 
-    def _get_pipeline_mcps_incremental(
+    def _get_pipeline_workunits(
         self, pipeline_job: PipelineJob, pipeline_meta: PipelineMetadata
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Incremental lineage mode: emits stable DataFlow/DataJob entities only once,
-        creates DataProcessInstances for each run, and uses patch builders to aggregate lineage.
+        Emit stable DataFlow/DataJob entities only once,
+        create DataProcessInstances for each run, and emit lineage.
         """
         dataflow_urn = pipeline_meta.urn
         pipeline_urn_str = str(dataflow_urn.urn())
+        stable_pipeline_id = self._get_stable_pipeline_id(pipeline_job)
+        pipeline_container_key = self._get_pipeline_container(stable_pipeline_id)
 
         if pipeline_urn_str not in self._emitted_pipeline_urns:
             logger.debug(
                 f"Emitting stable DataFlow for pipeline: {pipeline_job.display_name or pipeline_job.name}"
             )
-            yield from self._get_pipeline_mcps(pipeline_meta)
+            yield from self._gen_pipeline_container(
+                stable_pipeline_id, pipeline_container_key
+            )
+            yield from self._get_pipeline_mcps(pipeline_meta, pipeline_container_key)
             self._emitted_pipeline_urns.add(pipeline_urn_str)
         else:
             logger.debug(
@@ -162,13 +209,15 @@ class VertexAIPipelineExtractor:
 
             if task_urn_str not in self._emitted_task_urns:
                 logger.debug(f"Emitting stable DataJob for task: {task.name}")
-                yield from self._gen_pipeline_task_datajob(task, dataflow_urn)
+                yield from self._gen_pipeline_task_datajob(
+                    task, dataflow_urn, pipeline_container_key
+                )
                 self._emitted_task_urns.add(task_urn_str)
             else:
                 logger.debug(f"Skipping DataJob (already emitted): {task.name}")
 
             yield from self._gen_pipeline_task_run_instance(task, pipeline_meta)
-            yield from self._gen_pipeline_task_lineage_patches(task)
+            yield from self._gen_pipeline_task_lineage(task)
 
     def _gen_pipeline_run_instance(
         self, pipeline_job: PipelineJob, pipeline_meta: PipelineMetadata
@@ -212,7 +261,10 @@ class VertexAIPipelineExtractor:
         ).as_workunit()
 
     def _gen_pipeline_task_datajob(
-        self, task: PipelineTaskMetadata, dataflow_urn: DataFlowUrn
+        self,
+        task: PipelineTaskMetadata,
+        dataflow_urn: DataFlowUrn,
+        container_key: PipelineContainerKey,
     ) -> Iterable[MetadataWorkUnit]:
         datajob = DataJob(
             name=self.name_formatter.format_pipeline_task_id(task.name),
@@ -234,12 +286,10 @@ class VertexAIPipelineExtractor:
             aspect=StatusClass(removed=False),
         ).as_workunit()
 
-        if task.upstreams:
-            patch_builder = DataJobPatchBuilder(datajob.urn.urn())
-            for upstream_urn in task.upstreams:
-                patch_builder.add_input_datajob(upstream_urn)
-            for mcp in patch_builder.build():
-                yield MetadataWorkUnit(id=f"{datajob.urn.urn()}-patch", mcp_raw=mcp)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=datajob.urn.urn(),
+            aspect=ContainerClass(container=container_key.as_urn()),
+        ).as_workunit()
 
     def _gen_pipeline_task_run_instance(
         self, task: PipelineTaskMetadata, pipeline: PipelineMetadata
@@ -338,28 +388,60 @@ class VertexAIPipelineExtractor:
                 ),
             ).as_workunit()
 
-    def _gen_pipeline_task_lineage_patches(
+    def _gen_pipeline_task_lineage(
         self, task: PipelineTaskMetadata
     ) -> Iterable[MetadataWorkUnit]:
-        """Use DataJobPatchBuilder to aggregate lineage from task runs to the stable DataJob."""
+        """Emit lineage for a task - either as patches (incremental) or full aspects (non-incremental)."""
         task_urn_str = str(task.urn.urn())
-        patch_builder = DataJobPatchBuilder(task_urn_str)
 
-        # DataJobPatchBuilder only supports dataset URNs, not model URNs
-        if task.input_dataset_urns:
-            for input_urn in task.input_dataset_urns:
-                if ":dataset:" in input_urn:
-                    patch_builder.add_input_dataset(input_urn)
+        # Collect dataset URNs (filter out non-dataset entities like models)
+        input_datasets = (
+            [
+                urn
+                for urn in task.input_dataset_urns
+                if guess_entity_type(urn) == DatasetUrn.ENTITY_TYPE
+            ]
+            if task.input_dataset_urns
+            else []
+        )
+        output_datasets = (
+            [
+                urn
+                for urn in task.output_dataset_urns
+                if guess_entity_type(urn) == DatasetUrn.ENTITY_TYPE
+            ]
+            if task.output_dataset_urns
+            else []
+        )
+        upstream_jobs = task.upstreams if task.upstreams else []
 
-        if task.output_dataset_urns:
-            for output_urn in task.output_dataset_urns:
-                if ":dataset:" in output_urn:
-                    patch_builder.add_output_dataset(output_urn)
+        if self.config.incremental_lineage:
+            # Incremental mode: Use patches (additive)
+            patch_builder = DataJobPatchBuilder(task_urn_str)
 
-        for patch_mcp in patch_builder.build():
-            yield MetadataWorkUnit(
-                id=f"{task_urn_str}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
-            )
+            for input_urn in input_datasets:
+                patch_builder.add_input_dataset(input_urn)
+            for output_urn in output_datasets:
+                patch_builder.add_output_dataset(output_urn)
+            for upstream_urn in upstream_jobs:
+                patch_builder.add_input_datajob(upstream_urn)
+
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{task_urn_str}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
+        else:
+            # Non-incremental mode: Emit full aspect (replacement)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=task_urn_str,
+                aspect=DataJobInputOutputClass(
+                    inputDatasets=input_datasets,
+                    outputDatasets=output_datasets,
+                    inputDatajobs=[urn.urn() for urn in upstream_jobs]
+                    if upstream_jobs
+                    else [],
+                ),
+            ).as_workunit()
 
     def _extract_pipeline_task_inputs(
         self, task_detail: PipelineTaskDetail, task_name: str, task_urn: str
@@ -506,11 +588,8 @@ class VertexAIPipelineExtractor:
 
     def _get_pipeline_metadata(self, pipeline: PipelineJob) -> PipelineMetadata:
         """Extract pipeline metadata from PipelineJob."""
-        if self.config.incremental_lineage:
-            stable_id = self._get_stable_pipeline_id(pipeline)
-            flow_id = self.name_formatter.format_pipeline_id(stable_id)
-        else:
-            flow_id = self.name_formatter.format_pipeline_id(pipeline.name)
+        stable_id = self._get_stable_pipeline_id(pipeline)
+        flow_id = self.name_formatter.format_pipeline_id(stable_id)
 
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=self.platform,
@@ -539,167 +618,6 @@ class VertexAIPipelineExtractor:
                 - datetime_to_ts_millis(pipeline.create_time)
             )
         return pipeline_meta
-
-    def _gen_pipeline_task_run_mcps(
-        self, task: PipelineTaskMetadata, datajob: DataJob, pipeline: PipelineMetadata
-    ) -> Iterable[MetadataWorkUnit]:
-        """Legacy method for non-incremental mode."""
-        # Use pipeline name (unique per execution) + task name for unique run URN
-        task_run_id = f"{pipeline.name}_{task.name}"
-        dpi_urn = builder.make_data_process_instance_urn(
-            self.name_formatter.format_pipeline_task_run_id(entity_id=task_run_id)
-        )
-        result_status: Union[str, RunResultTypeClass] = get_pipeline_task_result_status(
-            task.state
-        )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dpi_urn,
-            aspect=DataProcessInstancePropertiesClass(
-                name=task.name,
-                created=AuditStampClass(
-                    time=(
-                        int(task.create_time.timestamp() * 1000)
-                        if task.create_time
-                        else 0
-                    ),
-                    actor=get_actor_from_labels(pipeline.labels)
-                    or builder.UNKNOWN_USER,
-                ),
-                externalUrl=self.url_builder.make_pipeline_url(pipeline.name),
-                customProperties={},
-            ),
-        ).as_workunit()
-
-        yield from self._yield_common_aspects(
-            entity_urn=dpi_urn,
-            subtype=VertexAISubTypes.PIPELINE_TASK_RUN,
-            include_container=False,
-        )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dpi_urn,
-            aspect=DataProcessInstanceRelationshipsClass(
-                upstreamInstances=[], parentTemplate=datajob.urn.urn()
-            ),
-        ).as_workunit()
-
-        if is_status_for_run_event_class(result_status) and task.duration:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dpi_urn,
-                aspect=DataProcessInstanceRunEventClass(
-                    status=DataProcessRunStatusClass.COMPLETE,
-                    timestampMillis=(
-                        int(task.create_time.timestamp() * 1000)
-                        if task.create_time
-                        else 0
-                    ),
-                    result=DataProcessInstanceRunResultClass(
-                        type=result_status,
-                        nativeResultType=self.platform,
-                    ),
-                    durationMillis=task.duration,
-                ),
-            ).as_workunit()
-
-        input_edges: List[EdgeClass] = []
-        if task.input_dataset_urns:
-            input_edges.extend(
-                [EdgeClass(destinationUrn=urn) for urn in task.input_dataset_urns]
-            )
-
-        if input_edges:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dpi_urn,
-                aspect=DataProcessInstanceInputClass(
-                    inputs=[],
-                    inputEdges=input_edges,
-                ),
-            ).as_workunit()
-
-        output_edges: List[EdgeClass] = []
-        if task.output_dataset_urns:
-            output_edges.extend(
-                [EdgeClass(destinationUrn=urn) for urn in task.output_dataset_urns]
-            )
-        if task.output_model_urns:
-            output_edges.extend(
-                [EdgeClass(destinationUrn=urn) for urn in task.output_model_urns]
-            )
-
-        if output_edges:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dpi_urn,
-                aspect=DataProcessInstanceOutputClass(
-                    outputs=[],
-                    outputEdges=output_edges,
-                ),
-            ).as_workunit()
-
-    def _gen_pipeline_task_mcps(
-        self, pipeline: PipelineMetadata
-    ) -> Iterable[MetadataWorkUnit]:
-        """Legacy method for non-incremental mode."""
-        dataflow_urn = pipeline.urn
-
-        for task in pipeline.tasks:
-            inlets = (
-                [
-                    DatasetUrn.from_string(urn)
-                    for urn in task.input_dataset_urns
-                    if ":dataset:" in urn
-                ]
-                if task.input_dataset_urns
-                else []
-            )
-            outlets = (
-                [
-                    DatasetUrn.from_string(urn)
-                    for urn in task.output_dataset_urns
-                    if ":dataset:" in urn
-                ]
-                if task.output_dataset_urns
-                else []
-            )
-
-            owner = get_actor_from_labels(pipeline.labels)
-            datajob = DataJob(
-                name=self.name_formatter.format_pipeline_task_id(task.name),
-                display_name=task.name,
-                flow_urn=str(dataflow_urn),
-                custom_properties={},
-                owners=[CorpUserUrn.from_string(owner)] if owner else None,
-                inlets=cast(
-                    Optional[List[Union[str, DatasetUrn]]], inlets if inlets else None
-                ),
-                outlets=cast(
-                    Optional[List[Union[str, DatasetUrn]]], outlets if outlets else None
-                ),
-                external_url=self.url_builder.make_pipeline_url(pipeline.name),
-                platform_instance=self.config.platform_instance,
-            )
-
-            yield from self._yield_common_aspects(
-                entity_urn=datajob.urn.urn(),
-                subtype=VertexAISubTypes.PIPELINE_TASK,
-                include_platform=False,
-                include_container=False,
-            )
-            yield from datajob.as_workunits()
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=datajob.urn.urn(),
-                aspect=StatusClass(removed=False),
-            ).as_workunit()
-
-            if task.upstreams:
-                patch_builder = DataJobPatchBuilder(datajob.urn.urn())
-                for upstream_urn in task.upstreams:
-                    patch_builder.add_input_datajob(upstream_urn)
-                for mcp in patch_builder.build():
-                    yield MetadataWorkUnit(id=f"{datajob.urn.urn()}-patch", mcp_raw=mcp)
-
-            yield from self._gen_pipeline_task_run_mcps(task, datajob, pipeline)
 
     def _format_pipeline_duration(self, td: timedelta) -> str:
         days = td.days
@@ -759,19 +677,10 @@ class VertexAIPipelineExtractor:
         )
 
     def _get_pipeline_mcps(
-        self, pipeline: PipelineMetadata
+        self, pipeline: PipelineMetadata, container_key: PipelineContainerKey
     ) -> Iterable[MetadataWorkUnit]:
         owner = get_actor_from_labels(pipeline.labels)
 
-        pipelines_container_key = get_resource_category_container(
-            project_id=self.project_id,
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            category=ResourceCategory.PIPELINES,
-        )
-
-        # Use the URN that was already calculated in pipeline.urn (which respects incremental_lineage)
         dataflow = DataFlow(
             platform=self.platform,
             name=pipeline.urn.flow_id,
@@ -785,7 +694,7 @@ class VertexAIPipelineExtractor:
             external_url=self.url_builder.make_pipeline_url(
                 pipeline_name=pipeline.name
             ),
-            parent_container=pipelines_container_key.as_urn(),
+            parent_container=container_key.as_urn(),
         )
 
         yield from dataflow.as_workunits()

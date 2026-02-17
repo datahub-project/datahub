@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Annotated, Dict, List, Optional
+from typing import Annotated, Dict, Iterable, List, Optional, Protocol
 
 from google.cloud.aiplatform import Endpoint, Model
 from google.cloud.aiplatform.base import VertexAiResourceNoun
@@ -9,9 +9,25 @@ from google.protobuf import timestamp_pb2
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation, model_validator
 
 from datahub.emitter.mcp_builder import ProjectIdKey
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.vertexai.vertexai_constants import MLMetadataDefaults
 from datahub.metadata.schema_classes import EdgeClass, MLHyperParamClass, MLMetricClass
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn
+
+
+class YieldCommonAspectsProtocol(Protocol):
+    """Protocol for the yield_common_aspects function signature."""
+
+    def __call__(
+        self,
+        entity_urn: str,
+        subtype: str,
+        include_container: bool = True,
+        include_platform: bool = True,
+        resource_category: Optional[str] = None,
+        include_subtypes: bool = True,
+    ) -> Iterable[MetadataWorkUnit]:
+        pass
 
 
 class VertexAIResourceCategoryKey(ProjectIdKey):
@@ -24,6 +40,12 @@ class ModelGroupKey(ProjectIdKey):
     """Container key for a Vertex AI model group."""
 
     model_group_name: str
+
+
+class PipelineContainerKey(ProjectIdKey):
+    """Container key for a Vertex AI pipeline."""
+
+    pipeline_name: str
 
 
 class ExecutionMetadata(BaseModel):

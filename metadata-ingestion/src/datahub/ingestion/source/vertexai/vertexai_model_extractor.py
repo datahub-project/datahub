@@ -1,7 +1,7 @@
 import logging
 from numbers import Real
 from operator import attrgetter
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from google.api_core.exceptions import (
     DeadlineExceeded,
@@ -36,7 +36,9 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     ModelEvaluationCustomProperties,
     ModelGroupKey,
     ModelMetadata,
+    YieldCommonAspectsProtocol,
 )
+from datahub.ingestion.source.vertexai.vertexai_state import ModelUsageTracker
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     get_resource_category_container,
@@ -66,13 +68,13 @@ class VertexAIModelExtractor:
     def __init__(
         self,
         config: VertexAIConfig,
-        client: Any,
+        client: Any,  # aiplatform module
         urn_builder: VertexAIUrnBuilder,
         name_formatter: VertexAINameFormatter,
         url_builder: VertexAIExternalURLBuilder,
         project_id: str,
-        yield_common_aspects_fn: Callable,
-        model_usage_tracker: Any,  # ModelUsageTracker, but avoiding circular import
+        yield_common_aspects_fn: YieldCommonAspectsProtocol,
+        model_usage_tracker: ModelUsageTracker,
         platform: str,
     ):
         self.config = config

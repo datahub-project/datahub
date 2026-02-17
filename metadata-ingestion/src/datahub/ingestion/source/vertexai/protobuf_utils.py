@@ -1,10 +1,12 @@
 import logging
-from typing import Any, Optional
+from typing import Optional
+
+from google.protobuf.struct_pb2 import Value
 
 logger = logging.getLogger(__name__)
 
 
-def extract_protobuf_value(value: Any) -> Optional[str]:
+def extract_protobuf_value(value: Value) -> Optional[str]:
     """
     Extract a string value from a protobuf struct value.
 
@@ -31,7 +33,7 @@ def extract_protobuf_value(value: Any) -> Optional[str]:
         return None
 
 
-def extract_numeric_value(value: Any) -> Optional[str]:
+def extract_numeric_value(value: Value) -> Optional[str]:
     """
     Extract a numeric value from a protobuf struct value and return as STRING.
 

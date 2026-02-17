@@ -5,7 +5,7 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 from google.cloud import aiplatform
 from google.cloud.aiplatform import ExperimentRun
 from google.cloud.aiplatform.metadata.experiment_resources import Experiment
-from google.cloud.aiplatform_v1.types import Execution
+from google.cloud.aiplatform_v1.types import Artifact, Execution
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -19,7 +19,10 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 )
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import VertexAISubTypes
-from datahub.ingestion.source.vertexai.vertexai_models import RunTimestamps
+from datahub.ingestion.source.vertexai.vertexai_models import (
+    RunTimestamps,
+    YieldCommonAspectsProtocol,
+)
 from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_execution_result_status,
     is_status_for_run_event_class,
@@ -68,7 +71,7 @@ class VertexAIExperimentExtractor:
         url_builder: VertexAIExternalURLBuilder,
         uri_parser: VertexAIURIParser,
         project_id: str,
-        yield_common_aspects_fn: Any,
+        yield_common_aspects_fn: YieldCommonAspectsProtocol,
         model_usage_tracker: Any,
         platform: str,
     ):
@@ -219,7 +222,7 @@ class VertexAIExperimentExtractor:
         return properties
 
     def _extract_edges_from_artifacts(
-        self, artifacts: List[Any], execution_urn: str, is_input: bool
+        self, artifacts: List[Artifact], execution_urn: str, is_input: bool
     ) -> List[EdgeClass]:
         """Extract dataset and model URNs from artifacts and convert to edges."""
         edges: List[EdgeClass] = []

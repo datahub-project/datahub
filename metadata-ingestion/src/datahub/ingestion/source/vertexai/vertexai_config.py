@@ -50,11 +50,6 @@ class VertexAIConfig(
     EnvConfigMixin,
     IncrementalLineageConfigMixin,
 ):
-    incremental_lineage: bool = Field(
-        default=True,
-        description="When enabled, emits stable DataFlow/DataJob entities with incremental lineage. When disabled, creates new entities for each pipeline run (legacy behavior).",
-    )
-
     normalize_external_dataset_paths: bool = Field(
         default=False,
         description="Strip partition segments from external dataset paths (GCS/S3/ABS) to create stable dataset URNs. "

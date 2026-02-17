@@ -680,8 +680,9 @@ def test_get_pipeline_mcps(
     task_run_id = f"{mock_pipeline.name}_reverse"
     dpi_urn = f"urn:li:dataProcessInstance:{source.name_formatter.format_pipeline_task_run_id(task_run_id)}"
 
-    # Expected MCPs: 7 (dataflow w/ container) + 4 (pipeline run) + 6 (datajob) + 4 (task run) = 21
-    assert len(actual_mcps) == 21, f"Expected 21 MCPs, got {len(actual_mcps)}"
+    # Expected MCPs: 5 (pipeline container) + 7 (dataflow w/ container) + 4 (pipeline run) + 7 (datajob w/ container) + 4 (task run) = 27
+    # Pipeline container: container, containerProperties, status, dataPlatformInstance, subTypes
+    assert len(actual_mcps) == 27, f"Expected 27 MCPs, got {len(actual_mcps)}"
 
     dataflow_info_mcps = [
         mcp
@@ -724,8 +725,7 @@ def test_get_pipeline_mcps(
         for mcp in actual_mcps
     ), "DataJob DataJobInfoClass not found"
 
-    # Verify DataJob does NOT have container aspect
-    # (DataFlow entities cannot be containers for DataJob entities in DataHub's entity model)
+    # Verify DataJob has container aspect pointing to pipeline container
     datajob_container_mcps = [
         mcp
         for mcp in actual_mcps
@@ -733,10 +733,7 @@ def test_get_pipeline_mcps(
         and isinstance(mcp.metadata.aspect, ContainerClass)
         and mcp.metadata.entityUrn == expected_task_urn
     ]
-    assert len(datajob_container_mcps) == 0, (
-        "DataJob should NOT have ContainerClass aspect. "
-        "The relationship to DataFlow is established via the flow_urn in the DataJobUrn."
-    )
+    assert len(datajob_container_mcps) == 1, "DataJob should have ContainerClass aspect"
 
     assert any(
         isinstance(mcp.metadata, MetadataChangeProposalWrapper)

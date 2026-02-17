@@ -17,6 +17,9 @@ from google.cloud.aiplatform.training_jobs import _TrainingJob
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalSourceReport,
+)
 from datahub.ingestion.source.vertexai.vertexai_builder import (
     VertexAIExternalURLBuilder,
     VertexAINameFormatter,
@@ -33,11 +36,13 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
 from datahub.ingestion.source.vertexai.vertexai_models import (
     AutoMLJobConfig,
     DatasetCustomProperties,
+    LineageMetadata,
     MLMetrics,
     ModelMetadata,
     TrainingJobCustomProperties,
     TrainingJobMetadata,
     TrainingJobURNsAndEdges,
+    YieldCommonAspectsProtocol,
 )
 from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_job_result_status,
@@ -70,17 +75,19 @@ class VertexAITrainingExtractor:
     def __init__(
         self,
         config: VertexAIConfig,
-        client: Any,
+        client: Any,  # aiplatform module
         urn_builder: VertexAIUrnBuilder,
         name_formatter: VertexAINameFormatter,
         url_builder: VertexAIExternalURLBuilder,
         uri_parser: VertexAIURIParser,
         project_id: str,
-        yield_common_aspects_fn: Callable,
-        gen_ml_model_mcps_fn: Callable,
-        get_job_lineage_from_ml_metadata_fn: Callable,
+        yield_common_aspects_fn: YieldCommonAspectsProtocol,
+        gen_ml_model_mcps_fn: Callable[[ModelMetadata], Iterable[MetadataWorkUnit]],
+        get_job_lineage_from_ml_metadata_fn: Callable[
+            [VertexAiResourceNoun], Optional[LineageMetadata]
+        ],
         platform: str,
-        report: Any,
+        report: StaleEntityRemovalSourceReport,
     ):
         self.config = config
         self.client = client
