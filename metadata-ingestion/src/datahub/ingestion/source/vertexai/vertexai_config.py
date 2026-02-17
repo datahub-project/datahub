@@ -144,7 +144,7 @@ class VertexAIConfig(EnvConfigMixin):
     )
 
     max_threads_resource_parallelism: int = Field(
-        default=1,
+        default=3,
         description=(
             "Number of worker threads to parallelize Vertex AI resource fetching within a project. "
             "Resources like models, training jobs, experiments, and pipelines are fetched in parallel. "
