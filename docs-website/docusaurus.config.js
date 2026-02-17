@@ -338,7 +338,7 @@ module.exports = {
           lastVersion: "current",
           versions: {
             current: {
-              label: "1.3.0",
+              label: "1.4.0",
               banner: 'none',
             },
           },

@@ -8,7 +8,8 @@ export const setThemeV2AndIngestionRedesignFlags = (isOn) => {
     if (hasOperationName(req, "appConfig")) {
       req.reply((res) => {
         res.body.data.appConfig.featureFlags.showIngestionPageRedesign = isOn;
-        res.body.data.appConfig.featureFlags.ingestionOnboardingRedesignV1 = false;
+        res.body.data.appConfig.featureFlags.ingestionOnboardingRedesignV1 =
+          isOn;
         res.body.data.appConfig.featureFlags.themeV2Enabled = isOn;
         res.body.data.appConfig.featureFlags.themeV2Default = isOn;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isOn;
@@ -21,57 +22,29 @@ export const goToIngestionPage = () => {
   cy.visit("/ingestion");
 };
 
-export const fillSourceDetails = (source) => {
-  cy.get("#account_id").type(source.accound_id);
-  cy.get("#warehouse").type(source.warehouse_id);
-  cy.get("#username").type(source.username);
-
-  // Select authentication type if provided, otherwise default to Username & Password
-  if (source.authentication_type) {
-    cy.get("#authentication_type").click({ force: true });
-    cy.get(`[title="${source.authentication_type}"]`).click({
-      force: true,
-      multiple: true,
-    });
-  }
-
-  // Fill in credentials based on authentication type
-  if (source.authentication_type === "Private Key") {
-    if (source.private_key) {
-      cy.get("#private_key").type(source.private_key);
+const clickIfTestIdPresent = (dataTestId) => {
+  cy.get("body").then(($body) => {
+    if ($body.find(`[data-testid="${dataTestId}"]`).length) {
+      cy.get(`[data-testid="${dataTestId}"]`).click();
     }
-    if (source.private_key_password) {
-      cy.get("#private_key_password").type(source.private_key_password);
-    }
-  } else {
-    // Default to Username & Password
-    cy.get("#password").type(source.password);
-  }
-
-  cy.focused().blur();
-  cy.get("#role").type(source.role);
+  });
 };
 
 export const verifySourceDetails = (source) => {
-  fillSourceDetails(source);
+  cy.get("#account_id").type(source.accound_id);
+  cy.get("#warehouse").type(source.warehouse_id);
+  cy.get("#username").type(source.username);
+  cy.get("#password").type(source.password);
+  cy.get("body").click(0, 0);
+  cy.get("#role").type(source.role);
 
   // Verify yaml recipe is generated correctly
-  cy.clickOptionWithTestId("recipe-builder-yaml-button");
+  cy.clickOptionWithTestId("yaml-editor-tab");
   cy.waitTextVisible("account_id");
   cy.waitTextVisible(source.accound_id);
   cy.waitTextVisible(source.warehouse_id);
   cy.waitTextVisible(source.username);
-
-  // Verify credentials in YAML based on auth type
-  if (source.authentication_type === "Private Key" && source.private_key) {
-    // For private key, just verify it contains the key content (not exact format with newlines)
-    cy.waitTextVisible("private_key");
-    cy.waitTextVisible("BEGIN PRIVATE KEY");
-  } else {
-    cy.waitTextVisible(source.password);
-  }
-
-  cy.waitTextVisible(source.role);
+  cy.waitTextVisible(source.password);
 };
 
 export const changeSchedule = (values) => {
@@ -99,7 +72,6 @@ export const changeSchedule = (values) => {
 
 export const verifyScheduleIsAppliedOnTable = (sourceName, scheduleText) => {
   cy.getWithTestId(`row-${sourceName}`)
-    .first()
     .scrollIntoView()
     .within(() => {
       cy.getWithTestId("schedule").should("contain", scheduleText);
@@ -108,38 +80,25 @@ export const verifyScheduleIsAppliedOnTable = (sourceName, scheduleText) => {
 
 export const createIngestionSource = (sourceName, options = undefined) => {
   cy.clickOptionWithTestId("create-ingestion-source-button");
+  clickIfTestIdPresent("modal-confirm-button");
   cy.clickOptionWithTextToScrollintoView("Snowflake");
-  cy.waitTextVisible("Snowflake Details");
-
-  // Provide default source details if none specified
-  // Must specify authentication_type since we changed the default to KEY_PAIR
-  const defaultSourceDetails = {
-    accound_id: "test_account",
-    warehouse_id: "test_warehouse",
-    username: "test_user",
-    password: "test_password",
-    role: "test_role",
-    authentication_type: "Username & Password", // Explicitly use password auth for tests
-  };
+  cy.waitTextVisible("Snowflake Connection Details");
 
   if (options?.sourceDetails) {
     verifySourceDetails(options.sourceDetails);
-  } else {
-    // Just fill in minimal details without verification
-    fillSourceDetails(defaultSourceDetails);
   }
 
+  cy.get('[data-testid="data-source-name"]').clear();
+  cy.get('[data-testid="data-source-name"]').type(sourceName);
+
   // Finish creating source
-  cy.clickOptionWithTestId("recipe-builder-next-button");
-  cy.waitTextVisible("Configure an Ingestion Schedule");
+  cy.clickOptionWithTestId("next-button");
+  cy.waitTextVisible("Sync Schedule");
   if (options?.schedule) {
     changeSchedule(options?.schedule);
   }
-  cy.clickOptionWithTestId("ingestion-schedule-next-button");
-  cy.waitTextVisible("Give this data source a name");
-  cy.get('[data-testid="source-name-input"]').clear();
-  cy.get('[data-testid="source-name-input"]').type(sourceName);
-  cy.clickOptionWithTestId("ingestion-source-save-button");
+
+  cy.clickOptionWithTestId("save-button");
   cy.waitTextVisible("Successfully created ingestion source!");
 };
 
@@ -155,19 +114,17 @@ export const updateIngestionSource = (
     .click();
   cy.get("body .ant-dropdown-menu").contains("Edit").click();
   cy.waitForGraphQLOperation("getIngestionSource");
-  cy.waitTextVisible("Edit Data Source");
-  cy.get("#password").type("password123");
-  cy.get('[data-testid="recipe-builder-next-button"]').scrollIntoView().click();
 
-  cy.waitTextVisible("Configure an Ingestion Schedule");
+  cy.get('[data-testid="data-source-name"]')
+    .focus()
+    .type(`{selectall}{backspace}${updatedSourceName}`);
+  cy.get('[data-testid="next-button"]').scrollIntoView().click();
+  cy.waitTextVisible("Sync Schedule");
   if (options?.schedule) {
     changeSchedule(options?.schedule);
   }
-  cy.clickOptionWithTestId("ingestion-schedule-next-button");
-  cy.get('[data-testid="source-name-input"]')
-    .focus()
-    .type(`{selectall}{backspace}${updatedSourceName}`);
-  cy.clickOptionWithTestId("ingestion-source-save-button");
+
+  cy.clickOptionWithTestId("save-button");
   cy.waitTextVisible("Successfully updated ingestion source!");
 };
 
@@ -185,16 +142,9 @@ export const deleteIngestionSource = (sourceName) => {
 export const createAndRunIngestionSource = (sourceName) => {
   const cli_version = "0.15.0.5";
   cy.clickOptionWithTestId("create-ingestion-source-button");
+  clickIfTestIdPresent("modal-confirm-button");
 
-  // Wait for the source selection modal to appear and any loading to finish
-  // Multi-step builder uses "Search..." while old builder uses "Search data sources..."
-  cy.wait(1000); // Wait for modal animations to complete
-  cy.get('[placeholder="Search..."], [placeholder="Search data sources..."]', {
-    timeout: 10000,
-  })
-    .first()
-    .should("be.visible")
-    .type("custom", { force: true });
+  cy.get('[data-testid="search-bar-input"]').type("other");
   cy.clickOptionWithTextToScrollintoView("Custom");
 
   cy.waitTextVisible("source-type");
@@ -204,13 +154,13 @@ export const createAndRunIngestionSource = (sourceName) => {
   readyToTypeEditor().type("{enter}");
   // no space because the editor starts new line at same indentation
   readyToTypeEditor().type("config: {}");
-  cy.clickOptionWithText("Next");
+  cy.enterTextInTestId("data-source-name", sourceName);
+
+  cy.clickOptionWithTestId("expand-collapse-button");
+  cy.enterTextInTestId("cli-version-input", cli_version);
   cy.clickOptionWithText("Next");
 
-  cy.enterTextInTestId("source-name-input", sourceName);
-  cy.clickOptionWithText("Advanced");
-  cy.enterTextInTestId("cli-version-input", cli_version);
-  cy.clickOptionWithTextToScrollintoView("Save & Run");
+  cy.clickOptionWithTestId("save-and-run-button");
   cy.waitTextVisible(sourceName);
   cy.contains("td", sourceName)
     .parent()

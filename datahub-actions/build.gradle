@@ -13,27 +13,10 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-plugins {
-  id 'scala'
-  id 'org.gradle.playframework'
-}
 
 apply from: "../gradle/versioning/versioning.gradle"
 apply from: "../gradle/coverage/python-coverage.gradle"
 apply from: '../gradle/docker/docker.gradle'
-
-configurations.all {
-  resolutionStrategy {
-    def jv = rootProject.ext.jacksonVersion
-    force "com.fasterxml.jackson.core:jackson-databind:${jv}"
-    force "com.fasterxml.jackson.core:jackson-core:${jv}"
-    force "com.fasterxml.jackson.core:jackson-annotations:${jv}"
-    force "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${jv}"   // CWE-20 fix; min 2.9.8
-    force "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jv}"
-    force rootProject.ext.externalDependency.xercesImpl // Xerces CVEs (2 high, 1 medium)
-    force rootProject.ext.externalDependency.gson // Gson before 2.8.9: deserialization DoS (writeReplace)
-  }
-}
 
 ext {
   python_executable = 'python3'
@@ -119,10 +102,13 @@ task installDevTest(type: Exec, dependsOn: [installDev]) {
 task testFull(type: Exec, dependsOn: installDevTest) {
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
   outputs.dir("${venv_name}")
   commandLine 'bash', '-c',
       "source ${venv_name}/bin/activate && set -x && " +
-          "pytest -vv ${get_coverage_args('full')} --continue-on-collection-errors --junit-xml=junit.full.xml"
+          "pytest -vv ${get_coverage_args('full')} --continue-on-collection-errors"
 }
 
 task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
