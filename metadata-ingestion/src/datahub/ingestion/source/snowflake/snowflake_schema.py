@@ -11,6 +11,7 @@ from typing import (
     List,
     MutableMapping,
     Optional,
+    Set,
     Tuple,
 )
 
@@ -563,8 +564,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def get_tables_for_database(
         self,
         db_name: str,
+        table_types: Set[str],
         table_filter: str = "",
-        exclude_external_tables: bool = False,
         exclude_dynamic_tables: bool = False,
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
         tables: Dict[str, List[SnowflakeTable]] = {}
@@ -572,8 +573,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
             cur = self.connection.query(
                 SnowflakeQuery.tables_for_database(
                     db_name,
-                    table_filter,
-                    exclude_external_tables=exclude_external_tables,
+                    table_types=table_types,
+                    table_filter=table_filter,
                     exclude_dynamic_tables=exclude_dynamic_tables,
                 ),
             )
@@ -618,8 +619,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
         self,
         schema_name: str,
         db_name: str,
+        table_types: Set[str],
         table_filter: str = "",
-        exclude_external_tables: bool = False,
         exclude_dynamic_tables: bool = False,
     ) -> List[SnowflakeTable]:
         tables: List[SnowflakeTable] = []
@@ -628,8 +629,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
             SnowflakeQuery.tables_for_schema(
                 schema_name,
                 db_name,
-                table_filter,
-                exclude_external_tables=exclude_external_tables,
+                table_types=table_types,
+                table_filter=table_filter,
                 exclude_dynamic_tables=exclude_dynamic_tables,
             ),
         )

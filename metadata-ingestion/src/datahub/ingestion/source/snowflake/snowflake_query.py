@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Set
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
@@ -240,25 +240,22 @@ class SnowflakeQuery:
 
     @staticmethod
     def _build_table_type_conditions(
-        exclude_external_tables: bool = False,
+        table_types: Set[str],
         exclude_dynamic_tables: bool = False,
     ) -> list:
         """Build WHERE conditions for table type filtering.
 
         Args:
-            exclude_external_tables: If True, excludes external tables from results
-            exclude_dynamic_tables: If True, excludes dynamic tables from results
+            table_types: Set of TABLE_TYPE values to include (e.g., {"BASE TABLE", "EXTERNAL TABLE"}).
+            exclude_dynamic_tables: If True, excludes dynamic tables from results.
 
         Returns:
             List of SQL WHERE conditions for table type filtering
         """
         conditions = []
 
-        # Build table_type filter
-        table_types = ["'BASE TABLE'"]
-        if not exclude_external_tables:
-            table_types.append("'EXTERNAL TABLE'")
-        conditions.append(f"table_type in ({', '.join(table_types)})")
+        type_list = ", ".join(f"'{t}'" for t in sorted(table_types))
+        conditions.append(f"table_type in ({type_list})")
 
         # Filter out dynamic tables if excluded
         if exclude_dynamic_tables:
@@ -269,8 +266,8 @@ class SnowflakeQuery:
     @staticmethod
     def tables_for_database(
         db_name: str,
+        table_types: Set[str],
         table_filter: str = "",
-        exclude_external_tables: bool = False,
         exclude_dynamic_tables: bool = False,
     ) -> str:
         db_clause = f'"{db_name}".'
@@ -278,7 +275,7 @@ class SnowflakeQuery:
         where_conditions = [
             "table_schema != 'INFORMATION_SCHEMA'",
             *SnowflakeQuery._build_table_type_conditions(
-                exclude_external_tables, exclude_dynamic_tables
+                table_types, exclude_dynamic_tables
             ),
         ]
 
@@ -311,8 +308,8 @@ class SnowflakeQuery:
     def tables_for_schema(
         schema_name: str,
         db_name: str,
+        table_types: Set[str],
         table_filter: str = "",
-        exclude_external_tables: bool = False,
         exclude_dynamic_tables: bool = False,
     ) -> str:
         db_clause = f'"{db_name}".'
@@ -320,7 +317,7 @@ class SnowflakeQuery:
         where_conditions = [
             f"table_schema='{schema_name}'",
             *SnowflakeQuery._build_table_type_conditions(
-                exclude_external_tables, exclude_dynamic_tables
+                table_types, exclude_dynamic_tables
             ),
         ]
 

@@ -1686,7 +1686,9 @@ class TestTablesForDatabaseQueryWithFilter:
 
     def test_tables_for_database_no_filter(self):
         """Test tables_for_database generates valid SQL without filter."""
-        query = SnowflakeQuery.tables_for_database("TEST_DB")
+        query = SnowflakeQuery.tables_for_database(
+            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+        )
 
         # Should be parseable by sqlglot
         parsed = sqlglot.parse(query, dialect=Snowflake)
@@ -1703,7 +1705,11 @@ class TestTablesForDatabaseQueryWithFilter:
         table_filter = SnowflakeQuery.build_table_filter(
             AllowDenyPattern(allow=["TEST_DB.PUBLIC.USERS"])
         )
-        query = SnowflakeQuery.tables_for_database("TEST_DB", table_filter)
+        query = SnowflakeQuery.tables_for_database(
+            "TEST_DB",
+            table_types={"BASE TABLE", "EXTERNAL TABLE"},
+            table_filter=table_filter,
+        )
 
         # Should be parseable by sqlglot
         parsed = sqlglot.parse(query, dialect=Snowflake)
@@ -1715,31 +1721,38 @@ class TestTablesForDatabaseQueryWithFilter:
         assert "RLIKE" in query.upper()
         assert "CONCAT" in query
 
-    def test_tables_for_database_with_exclude_flags(self):
-        """Test tables_for_database correctly applies exclude flags."""
-        # Default includes both external and dynamic tables
-        query_default = SnowflakeQuery.tables_for_database("TEST_DB")
-        assert "'EXTERNAL TABLE'" in query_default
-        assert "is_dynamic = 'NO'" not in query_default
-
-        # Exclude external tables
-        query_no_external = SnowflakeQuery.tables_for_database(
-            "TEST_DB", exclude_external_tables=True
+    def test_tables_for_database_with_table_types(self):
+        """Test tables_for_database correctly applies table_types filtering."""
+        # Default includes both BASE TABLE and EXTERNAL TABLE
+        query_default = SnowflakeQuery.tables_for_database(
+            "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
         )
-        assert "'EXTERNAL TABLE'" not in query_no_external
+        assert "'BASE TABLE'" in query_default
+        assert "'EXTERNAL TABLE'" in query_default
+        assert "COALESCE(is_dynamic" not in query_default
+
+        # Only BASE TABLE (excludes external tables)
+        query_base_only = SnowflakeQuery.tables_for_database(
+            "TEST_DB", table_types={"BASE TABLE"}
+        )
+        assert "'BASE TABLE'" in query_base_only
+        assert "'EXTERNAL TABLE'" not in query_base_only
 
         # Exclude dynamic tables (uses COALESCE to handle NULL values)
         query_no_dynamic = SnowflakeQuery.tables_for_database(
-            "TEST_DB", exclude_dynamic_tables=True
+            "TEST_DB",
+            table_types={"BASE TABLE", "EXTERNAL TABLE"},
+            exclude_dynamic_tables=True,
         )
         assert "COALESCE(is_dynamic, 'NO') = 'NO'" in query_no_dynamic
 
-        # Exclude both external and dynamic tables
-        query_no_both = SnowflakeQuery.tables_for_database(
-            "TEST_DB", exclude_external_tables=True, exclude_dynamic_tables=True
+        # Only BASE TABLE and exclude dynamic tables
+        query_base_no_dynamic = SnowflakeQuery.tables_for_database(
+            "TEST_DB", table_types={"BASE TABLE"}, exclude_dynamic_tables=True
         )
-        assert "'EXTERNAL TABLE'" not in query_no_both
-        assert "COALESCE(is_dynamic, 'NO') = 'NO'" in query_no_both
+        assert "'BASE TABLE'" in query_base_no_dynamic
+        assert "'EXTERNAL TABLE'" not in query_base_no_dynamic
+        assert "COALESCE(is_dynamic, 'NO') = 'NO'" in query_base_no_dynamic
 
 
 class TestViewsForDatabaseQueryWithFilter:

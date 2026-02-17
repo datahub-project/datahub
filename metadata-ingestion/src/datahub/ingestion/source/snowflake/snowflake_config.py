@@ -197,7 +197,9 @@ class SnowflakeFilterConfig(SQLFilterConfig):
     push_down_metadata_patterns: bool = Field(
         default=False,
         description="If enabled, pushes down database_pattern, schema_pattern, table_pattern, and view_pattern "
-        "filtering to Snowflake metadata queries using the RLIKE operator for improved performance. "
+        "filtering to Snowflake information_schema metadata queries using the RLIKE operator for improved performance. "
+        "This applies only to metadata extraction queries (information_schema.databases, schemata, tables, views) — "
+        "NOT to lineage/usage queries (for those, see push_down_database_pattern_access_history). "
         "IMPORTANT: Snowflake RLIKE requires FULL STRING match, unlike Python re.match() which matches prefixes. "
         "For prefix matching use 'PATTERN.*', for suffix use '.*PATTERN$', for contains use '.*PATTERN.*'. "
         "See the [Metadata Pattern Pushdown](#metadata-pattern-pushdown) section for detailed usage and examples, "
@@ -394,10 +396,11 @@ class SnowflakeV2Config(
         description="If enabled, streams will be ingested as separate entities from tables/views.",
     )
 
-    exclude_external_tables: bool = Field(
-        default=False,
-        description="If enabled, external tables will be excluded from ingestion. "
-        "Use this to speed up ingestion if you don't need external tables in DataHub.",
+    table_types: Set[str] = Field(
+        default={"BASE TABLE", "EXTERNAL TABLE"},
+        description="Set of Snowflake TABLE_TYPE values to include in ingestion. "
+        "Currently Supported values: 'BASE TABLE', 'EXTERNAL TABLE'. "
+        "Remove 'EXTERNAL TABLE' to exclude external tables from ingestion.",
     )
 
     exclude_dynamic_tables: bool = Field(
