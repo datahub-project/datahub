@@ -45,7 +45,7 @@ fragment query on QueryEntity {
             actor
         }
         origin {
-            ...searchResultFields
+            ...searchResultFieldsNoLineage
         }
     }
     platform {
