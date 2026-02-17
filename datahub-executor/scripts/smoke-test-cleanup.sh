@@ -12,7 +12,7 @@ for url in $queues; do
     age_seconds=$(($now - $created_at))
     if [ "${age_seconds}" -gt "${threshold}" ]; then
       echo "SQS queue ${url} is ${age_seconds} seconds old. Deleting."
-      aws --region us-west-2 sqs delete-queue --queue-url "${url}"
+      aws --region us-west-2 sqs delete-queue --queue-url "${url}" || true
     else
       echo "Skipping $url"
     fi

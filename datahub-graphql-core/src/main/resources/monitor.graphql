@@ -246,6 +246,130 @@ enum MonitorType {
   ASSERTION
 }
 
+"""
+Allowed interval unit for assertion time bucket evaluation.
+Currently restricted to DAY and WEEK.
+"""
+enum AssertionTimeBucketInterval {
+  DAY
+  WEEK
+}
+
+"""
+Defines the size of a time bucket interval (unit + multiple).
+"""
+type AssertionTimeBucketIntervalWindow {
+  """
+  Interval unit (e.g. DAY, WEEK).
+  """
+  unit: AssertionTimeBucketInterval!
+
+  """
+  How many units per bucket. Defaults to 1.
+  """
+  multiple: Int!
+}
+
+"""
+Input for the size of a time bucket interval.
+Currently only a single unit (1 DAY or 1 WEEK) is supported.
+"""
+input AssertionTimeBucketIntervalWindowInput {
+  """
+  Interval unit (e.g. DAY, WEEK).
+  """
+  unit: AssertionTimeBucketInterval!
+}
+
+"""
+The allowed interval unit for a late-arrival grace period. Currently limited to DAY.
+"""
+enum LateArrivalGracePeriodInterval {
+  DAY
+}
+
+"""
+A grace period window expressed as a count of interval units.
+"""
+type LateArrivalGracePeriod {
+  """
+  Interval unit for the grace period (currently only DAY is supported).
+  """
+  unit: LateArrivalGracePeriodInterval!
+
+  """
+  How many units. Defaults to 1.
+  """
+  multiple: Int!
+}
+
+"""
+Input for a grace period window.
+"""
+input LateArrivalGracePeriodInput {
+  """
+  Interval unit for the grace period (currently only DAY is supported).
+  """
+  unit: LateArrivalGracePeriodInterval!
+
+  """
+  How many units. Defaults to 1.
+  """
+  multiple: Int!
+}
+
+"""
+Time bucketing strategy for assertion evaluation.
+Defines how to partition data into time buckets for evaluation.
+"""
+type AssertionTimeBucketingStrategy {
+  """
+  Path to the timestamp field used for bucketing.
+  """
+  timestampFieldPath: String!
+
+  """
+  Interval for time buckets (e.g. DAY, WEEK).
+  """
+  bucketInterval: AssertionTimeBucketIntervalWindow!
+
+  """
+  Grace period after bucket end before considering the bucket complete.
+  """
+  lateArrivalGracePeriod: LateArrivalGracePeriod
+
+  """
+  IANA timezone (e.g. America/Los_Angeles) for bucket boundaries.
+  """
+  timezone: String!
+}
+
+"""
+Input for time bucketing strategy.
+If timezone is omitted, the resolver derives it (timestamp column -> dataset properties -> UTC).
+"""
+input AssertionTimeBucketingStrategyInput {
+  """
+  Path to the timestamp field used for bucketing.
+  """
+  timestampFieldPath: String!
+
+  """
+  Interval for time buckets (e.g. DAY, WEEK).
+  """
+  bucketInterval: AssertionTimeBucketIntervalWindowInput!
+
+  """
+  Grace period after bucket end before considering the bucket complete.
+  """
+  lateArrivalGracePeriod: LateArrivalGracePeriodInput
+
+  """
+  IANA timezone for bucket boundaries. If omitted, derived from column/dataset or default UTC.
+  """
+  timezone: String
+}
+
 enum AssertionMonitorMetricsCubeBootstrapState {
   """
   The metrics cube for this monitor has not been bootstrapped.
@@ -836,6 +960,11 @@ input DatasetVolumeAssertionParametersInput {
   The source of the volume source type
   """
   sourceType: DatasetVolumeSourceType!
+
+  """
+  Optional time bucketing strategy for evaluating the assertion over time windows.
+  """
+  timeBucketingStrategy: AssertionTimeBucketingStrategyInput
 }
 
 """
@@ -982,6 +1111,11 @@ type DatasetVolumeAssertionParameters {
   The source of the volume metric (row count).
   """
   sourceType: DatasetVolumeSourceType!
+
+  """
+  Optional time bucketing strategy for evaluating the assertion over time windows.
+  """
+  timeBucketingStrategy: AssertionTimeBucketingStrategy
 }
 
 """
@@ -1054,6 +1188,11 @@ type DatasetFieldAssertionParameters {
   This should be present when sourceType is CHANGED_ROWS_QUERY.
   """
   changedRowsField: FreshnessFieldSpec
+
+  """
+  Optional time bucketing strategy for evaluating the assertion over time windows.
+  """
+  timeBucketingStrategy: AssertionTimeBucketingStrategy
 }
 
 """
@@ -1070,6 +1209,11 @@ input DatasetFieldAssertionParametersInput {
   This should be present when sourceType is CHANGED_ROWS_QUERY.
   """
   changedRowsField: FreshnessFieldSpecInput
+
+  """
+  Optional time bucketing strategy for evaluating the assertion over time windows.
+  """
+  timeBucketingStrategy: AssertionTimeBucketingStrategyInput
 }
 
 extend type Assertion {

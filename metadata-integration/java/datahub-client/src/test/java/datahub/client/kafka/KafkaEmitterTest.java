@@ -19,6 +19,7 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.testcontainers.containers.Network;
@@ -38,22 +39,31 @@ public class KafkaEmitterTest {
   @SuppressWarnings("resource")
   @BeforeClass
   public static void confluentSetup() throws Exception {
-    network = Network.newNetwork();
+    try {
+      network = Network.newNetwork();
 
-    // Start Kafka with KRaft (no Zookeeper needed)
-    kafkaContainer = new KafkaContainer().withNetwork(network);
-    kafkaContainer.start();
+      // Start Kafka with KRaft (no Zookeeper needed)
+      kafkaContainer = new KafkaContainer().withNetwork(network);
+      kafkaContainer.start();
 
-    // Schema Registry now only depends on Kafka
-    schemaRegistryContainer =
-        new SchemaRegistryContainer(kafkaContainer.getInternalBootstrapServers())
-            .withNetwork(network)
-            .dependsOn(kafkaContainer);
-    schemaRegistryContainer.start();
+      // Schema Registry now only depends on Kafka
+      schemaRegistryContainer =
+          new SchemaRegistryContainer(kafkaContainer.getInternalBootstrapServers())
+              .withNetwork(network)
+              .dependsOn(kafkaContainer);
+      schemaRegistryContainer.start();
 
-    createTopics(kafkaContainer.getBootstrapServers());
-    createKafkaEmitter(kafkaContainer.getBootstrapServers());
-    registerSchemaRegistryTypes();
+      createTopics(kafkaContainer.getBootstrapServers());
+      createKafkaEmitter(kafkaContainer.getBootstrapServers());
+      registerSchemaRegistryTypes();
+    } catch (IllegalStateException e) {
+      if (e.getMessage() != null
+          && e.getMessage().contains("Could not find a valid Docker environment")) {
+        Assume.assumeTrue(
+            "Docker/Testcontainers not available (e.g. CI without Docker or API too old)", false);
+      }
+      throw e;
+    }
   }
 
   public static void createKafkaEmitter(String bootstrap) throws IOException {

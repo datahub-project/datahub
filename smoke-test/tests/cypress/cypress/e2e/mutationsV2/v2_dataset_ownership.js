@@ -57,7 +57,9 @@ const addAndRemoveOwnerOnDataset = (owner, type, elementId) => {
 
 describe("add, remove ownership for dataset", () => {
   before(() => {
-    cy.setIsThemeV2Enabled(true);
+    cy.setFeatureFlags(true, (res) => {
+      res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
+    });
     cy.login();
     cy.wait(2000);
     cy.createUser(username, password, email, true);

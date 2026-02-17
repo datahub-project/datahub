@@ -322,6 +322,48 @@ public class ESAccessControlUtil {
             && !actorFilter.getResourceOwnersTypes().isEmpty());
   }
 
+  /**
+   * Builds a query for DOMAIN criteria that checks both 'domains' and 'parentDomain' fields. This
+   * handles both regular assets (which use 'domains') and domain entities themselves (which use
+   * 'parentDomain').
+   */
+  private static AbstractQueryBuilder<?> buildDomainEqualsQuery(
+      @Nonnull OperationContext opContext,
+      @Nonnull String domainsFieldName,
+      @Nonnull Collection<String> values) {
+    BoolQueryBuilder domainBoolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    // Check 'domains' field (for regular assets with domain assignments)
+    domainBoolQuery.should(QueryBuilders.termsQuery(domainsFieldName, values));
+    // Check 'parentDomain' field (for domain entities themselves)
+    String parentDomainField =
+        ESUtils.toKeywordField("parentDomain", false, opContext.getAspectRetriever());
+    domainBoolQuery.should(QueryBuilders.termsQuery(parentDomainField, values));
+    return domainBoolQuery;
+  }
+
+  /**
+   * Builds a query for DOMAIN criteria with STARTS_WITH condition that checks both 'domains' and
+   * 'parentDomain' fields.
+   */
+  private static AbstractQueryBuilder<?> buildDomainStartsWithQuery(
+      @Nonnull OperationContext opContext,
+      @Nonnull String domainsFieldName,
+      @Nonnull Collection<String> values) {
+    BoolQueryBuilder startWithBoolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    String parentDomainField =
+        ESUtils.toKeywordField("parentDomain", false, opContext.getAspectRetriever());
+
+    values.forEach(
+        value -> {
+          // Check 'domains' field (for regular assets)
+          startWithBoolQuery.should(QueryBuilders.prefixQuery(domainsFieldName, value));
+          // Check 'parentDomain' field (for domain entities themselves)
+          startWithBoolQuery.should(QueryBuilders.prefixQuery(parentDomainField, value));
+        });
+
+    return startWithBoolQuery;
+  }
+
   private static Stream<AbstractQueryBuilder<?>> buildResourceQuery(
       @Nonnull OperationContext opContext, @Nonnull PolicyMatchCriterionArray criteriaArray) {
     return criteriaArray.stream()
@@ -332,6 +374,9 @@ public class ESAccessControlUtil {
 
               switch (criteria.getCondition()) {
                 case EQUALS:
+                  if ("DOMAIN".equals(criteria.getField().toUpperCase(Locale.ROOT))) {
+                    return buildDomainEqualsQuery(opContext, fieldName, values);
+                  }
                   return QueryBuilders.termsQuery(fieldName, values);
                 case STARTS_WITH:
                   BoolQueryBuilder startWithBoolQuery =
@@ -339,7 +384,6 @@ public class ESAccessControlUtil {
                   switch (criteria.getField()) {
                     case "URN":
                     case "TAG":
-                    case "DOMAIN":
                     case "CONTAINER":
                     case "DATA_PLATFORM_INSTANCE":
                       values.forEach(
@@ -347,6 +391,8 @@ public class ESAccessControlUtil {
                               startWithBoolQuery.should(
                                   QueryBuilders.prefixQuery(fieldName, value)));
                       return startWithBoolQuery;
+                    case "DOMAIN":
+                      return buildDomainStartsWithQuery(opContext, fieldName, values);
                     default:
                       throw new UnsupportedOperationException(
                           "Unsupported field for search access controls:" + criteria);
@@ -372,6 +418,7 @@ public class ESAccessControlUtil {
         return Optional.of(
             ESUtils.toKeywordField(MappingsBuilder.TAGS_FIELD, false, aspectRetriever));
       case "DOMAIN":
+        // Returns 'domains' field; 'parentDomain' field is handled in buildResourceQuery()
         return Optional.of(
             ESUtils.toKeywordField(MappingsBuilder.DOMAINS_FIELD, false, aspectRetriever));
       case "DATA_PLATFORM_INSTANCE":

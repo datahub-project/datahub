@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List
 from datahub.configuration.config_loader import load_config_file
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.kafka.kafka import validate_kafka_connectivity
 from datahub_actions.pipeline.pipeline import (
     DEFAULT_FAILED_EVENTS_DIR,
     DEFAULT_FAILURE_MODE,
@@ -131,13 +132,21 @@ def start_ingestion_pipeline(
     logger.info(f"Kafka bootstrap: {bootstrap}")
     logger.info(f"Schema registry URL: {schema_registry_url}")
 
+    kafka_connection = KafkaConsumerConnectionConfig(
+        bootstrap=bootstrap,
+        schema_registry_url=schema_registry_url,
+        consumer_config=consumer_config,
+    )
+    if os.getenv("SKIP_KAFKA_CONNECTIVITY_CHECK", "").lower() != "true":
+        validate_kafka_connectivity(kafka_connection)
+    else:
+        logger.info(
+            "Skipping Kafka connectivity check (SKIP_KAFKA_CONNECTIVITY_CHECK=true)"
+        )
+
     source = KafkaEventSource(
         config=KafkaEventSourceConfig(
-            connection=KafkaConsumerConnectionConfig(
-                bootstrap=bootstrap,
-                schema_registry_url=schema_registry_url,
-                consumer_config=consumer_config,
-            ),
+            connection=kafka_connection,
             topic_routes=config_dict.get("topic_routes", None),
             async_commit_enabled=True,
         ),

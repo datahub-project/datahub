@@ -79,6 +79,8 @@ dependencies {
 
     testImplementation externalDependency.junit
 
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.12.2'
+
     testImplementation externalDependency.neo4jJavaDriver
 
     testImplementation testFixtures(project(':metadata-io'))

@@ -2,6 +2,7 @@
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+at.yawk.lz4:lz4-java:1.10.1=runtimeClasspath,testRuntimeClasspath
 com.beust:jcommander:1.82=testCompileClasspath,testRuntimeClasspath
 com.eclipsesource.minimal-json:minimal-json:0.9.5=runtimeClasspath,testRuntimeClasspath
 com.fasterxml.jackson.core:jackson-annotations:2.18.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
@@ -86,7 +87,6 @@ org.jacoco:org.jacoco.report:0.8.12=jacocoAnt
 org.javassist:javassist:3.26.0-GA=runtimeClasspath,testRuntimeClasspath
 org.jgrapht:jgrapht-core:1.5.1=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.jheaps:jheaps:0.13=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-org.lz4:lz4-java:1.8.1=runtimeClasspath,testRuntimeClasspath
 org.ow2.asm:asm-commons:9.7=jacocoAnt
 org.ow2.asm:asm-tree:9.7=jacocoAnt
 org.ow2.asm:asm:9.7=jacocoAnt

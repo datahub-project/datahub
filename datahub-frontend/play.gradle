@@ -30,7 +30,7 @@ dependencies {
     testImplementation("com.nimbusds:oauth2-oidc-sdk:$oauth2OidcSdkVersion")
 
     play(externalDependency.jacksonDataBind)
-    play("com.typesafe.akka:akka-actor_$playScalaVersion:2.6.20")
+    play("com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion")
     play(externalDependency.jsonSmart)
     play('io.netty:netty-all:4.1.130.Final')
 

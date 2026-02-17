@@ -21,6 +21,9 @@ import com.linkedin.datahub.graphql.generated.AssertionStdOperator;
 import com.linkedin.datahub.graphql.generated.AssertionStdParameterInput;
 import com.linkedin.datahub.graphql.generated.AssertionStdParameterType;
 import com.linkedin.datahub.graphql.generated.AssertionStdParametersInput;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketInterval;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketIntervalWindowInput;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketingStrategyInput;
 import com.linkedin.datahub.graphql.generated.CronScheduleInput;
 import com.linkedin.datahub.graphql.generated.DatasetFieldAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.DatasetFieldAssertionSourceType;
@@ -53,6 +56,7 @@ import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.timeseries.CalendarInterval;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
@@ -95,7 +99,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
               ImmutableList.of(new AssertionActionInput(AssertionActionType.RAISE_INCIDENT))),
           new CronScheduleInput("* * * * *", "America / Los Angeles"),
           new DatasetFieldAssertionParametersInput(
-              DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null),
+              DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null, null),
           com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
           TEST_EXECUTOR_ID);
 
@@ -121,7 +125,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
               ImmutableList.of(new AssertionActionInput(AssertionActionType.RAISE_INCIDENT))),
           new CronScheduleInput("* * * * *", "America / Los Angeles"),
           new DatasetFieldAssertionParametersInput(
-              DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null),
+              DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null, null),
           com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
           TEST_EXECUTOR_ID);
 
@@ -147,7 +151,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
               ImmutableList.of(new AssertionActionInput(AssertionActionType.RAISE_INCIDENT))),
           new CronScheduleInput("* * * * *", "America / Los Angeles"),
           new DatasetFieldAssertionParametersInput(
-              DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null),
+              DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null, null),
           com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
           TEST_EXECUTOR_ID);
 
@@ -686,6 +690,160 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testTimeBucketingStrategyRejectsInvalidTimezone() throws Exception {
+    AssertionTimeBucketingStrategyInput bucketingInput = new AssertionTimeBucketingStrategyInput();
+    bucketingInput.setTimestampFieldPath("created_at");
+    AssertionTimeBucketIntervalWindowInput bucketWindowInput =
+        new AssertionTimeBucketIntervalWindowInput();
+    bucketWindowInput.setUnit(AssertionTimeBucketInterval.DAY);
+    bucketingInput.setBucketInterval(bucketWindowInput);
+    bucketingInput.setTimezone("Not/A_Real_Zone");
+
+    UpsertDatasetFieldAssertionMonitorInput inputWithBadTz =
+        new UpsertDatasetFieldAssertionMonitorInput(
+            FieldAssertionType.FIELD_METRIC,
+            "description",
+            TEST_DATASET_URN.toString(),
+            false,
+            null,
+            null,
+            new FieldMetricAssertionInput(
+                new SchemaFieldSpecInput("path", "INTEGER", "INTEGER"),
+                FieldMetricType.UNIQUE_COUNT,
+                AssertionStdOperator.EQUAL_TO,
+                new AssertionStdParametersInput(
+                    new AssertionStdParameterInput("100", AssertionStdParameterType.NUMBER),
+                    null,
+                    null)),
+            new DatasetFilterInput(DatasetFilterType.SQL, "some_condition = True"),
+            new AssertionActionsInput(
+                ImmutableList.of(new AssertionActionInput(AssertionActionType.RESOLVE_INCIDENT)),
+                ImmutableList.of(new AssertionActionInput(AssertionActionType.RAISE_INCIDENT))),
+            new CronScheduleInput("* * * * *", "America / Los Angeles"),
+            new DatasetFieldAssertionParametersInput(
+                DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null, bucketingInput),
+            com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
+            TEST_EXECUTOR_ID);
+
+    AssertionService assertionService = initMockAssertionService();
+    MonitorService monitorService = initMockMonitorService();
+    GraphClient graphClient = Mockito.mock(GraphClient.class);
+    UpsertDatasetFieldAssertionMonitorResolver resolver =
+        new UpsertDatasetFieldAssertionMonitorResolver(
+            assertionService, monitorService, graphClient, () -> TEST_TIMESTAMP_MILLIS);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("assertionUrn"))).thenReturn(null);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(inputWithBadTz);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    CompletionException ex =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    assertTrue(ex.getCause() instanceof DataHubGraphQLException);
+    DataHubGraphQLException graphQLException = (DataHubGraphQLException) ex.getCause();
+    assertEquals(graphQLException.errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
+    assertTrue(graphQLException.getMessage().contains("Invalid timezone"));
+  }
+
+  @Test
+  public void testGetSuccessCreateAssertionWithTimeBucketingStrategy() throws Exception {
+    AssertionTimeBucketingStrategyInput bucketingInput = new AssertionTimeBucketingStrategyInput();
+    bucketingInput.setTimestampFieldPath("event_time");
+    AssertionTimeBucketIntervalWindowInput bucketWindowInput2 =
+        new AssertionTimeBucketIntervalWindowInput();
+    bucketWindowInput2.setUnit(AssertionTimeBucketInterval.DAY);
+    bucketingInput.setBucketInterval(bucketWindowInput2);
+    bucketingInput.setTimezone("America/Chicago");
+
+    UpsertDatasetFieldAssertionMonitorInput inputWithBucketing =
+        new UpsertDatasetFieldAssertionMonitorInput(
+            FieldAssertionType.FIELD_METRIC,
+            "description",
+            TEST_DATASET_URN.toString(),
+            false,
+            null,
+            null,
+            new FieldMetricAssertionInput(
+                new SchemaFieldSpecInput("path", "INTEGER", "INTEGER"),
+                FieldMetricType.UNIQUE_COUNT,
+                AssertionStdOperator.EQUAL_TO,
+                new AssertionStdParametersInput(
+                    new AssertionStdParameterInput("100", AssertionStdParameterType.NUMBER),
+                    null,
+                    null)),
+            new DatasetFilterInput(DatasetFilterType.SQL, "some_condition = True"),
+            new AssertionActionsInput(
+                ImmutableList.of(new AssertionActionInput(AssertionActionType.RESOLVE_INCIDENT)),
+                ImmutableList.of(new AssertionActionInput(AssertionActionType.RAISE_INCIDENT))),
+            new CronScheduleInput("* * * * *", "America / Los Angeles"),
+            new DatasetFieldAssertionParametersInput(
+                DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null, bucketingInput),
+            com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
+            TEST_EXECUTOR_ID);
+
+    AssertionService assertionService = initMockAssertionService();
+    MonitorService monitorService = initMockMonitorService();
+    GraphClient graphClient = Mockito.mock(GraphClient.class);
+    UpsertDatasetFieldAssertionMonitorResolver resolver =
+        new UpsertDatasetFieldAssertionMonitorResolver(
+            assertionService, monitorService, graphClient, () -> TEST_TIMESTAMP_MILLIS);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("assertionUrn"))).thenReturn(null);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(inputWithBucketing);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Assertion assertion = resolver.get(mockEnv).get();
+    assertNotNull(assertion);
+
+    // Capture evaluation parameters to verify bucketing strategy is nested correctly
+    org.mockito.ArgumentCaptor<AssertionEvaluationParameters> captor =
+        org.mockito.ArgumentCaptor.forClass(AssertionEvaluationParameters.class);
+    Mockito.verify(monitorService, Mockito.times(1))
+        .upsertAssertionMonitor(
+            any(OperationContext.class),
+            Mockito.eq(TEST_MONITOR_URN),
+            Mockito.eq(TEST_ASSERTION_URN),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.any(com.linkedin.common.CronSchedule.class),
+            captor.capture(),
+            Mockito.any(MonitorMode.class),
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.isNull());
+
+    AssertionEvaluationParameters capturedParams = captor.getValue();
+    assertEquals(capturedParams.getType(), AssertionEvaluationParametersType.DATASET_FIELD);
+    assertNotNull(capturedParams.getDatasetFieldParameters());
+    assertNotNull(capturedParams.getDatasetFieldParameters().getTimeBucketingStrategy());
+    assertEquals(
+        capturedParams
+            .getDatasetFieldParameters()
+            .getTimeBucketingStrategy()
+            .getTimestampFieldPath(),
+        "event_time");
+    assertEquals(
+        capturedParams
+            .getDatasetFieldParameters()
+            .getTimeBucketingStrategy()
+            .getBucketInterval()
+            .getUnit(),
+        CalendarInterval.DAY);
+    assertEquals(
+        capturedParams
+            .getDatasetFieldParameters()
+            .getTimeBucketingStrategy()
+            .getBucketInterval()
+            .getMultiple(),
+        1);
+    assertEquals(
+        capturedParams.getDatasetFieldParameters().getTimeBucketingStrategy().getTimezone(),
+        "America/Chicago");
   }
 
   private AssertionService initMockAssertionService() {

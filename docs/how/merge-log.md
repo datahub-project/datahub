@@ -3915,3 +3915,143 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **0f5ac546e4** - Bump version (#16181)
   *by Ben Blazke <benjiaming@users.noreply.github.com> on 2026-02-11*
+
+## Upstream Merge Session - 2026-02-13 12:19:48
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 17
+- **Strategy**: stacked
+- **Started**: 2026-02-13 12:19:48
+
+### Commits Included in This Merge
+
+- **95bbec7e35** - chore(build): Rename pipIndexUrl to pipIndexUrls (#16177)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-02-12*
+
+- **a08c0b374c** - Add contributor name to avoid community contribution label (#16175)
+  *by Govind Mishra <govind.mishra@datahub.com> on 2026-02-12*
+
+- **9556371588** - fix(kafka): Unpack MCE records into MCPs in Kafka sink (#16062)
+  *by Max Margalith <max.margalith@datahub.com> on 2026-02-12*
+
+- **738ad62fd4** - feat(ingest/fivetran): make ingestion limits configurable (#15457)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-02-12*
+
+- **4791452ea3** - fix(cypress) Fix flakiness of v2_glossaryTerm.js test (#16186)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-02-12*
+
+- **7f45c44db5** - chore(docker): bump Alpine base image to 3.23 (#16189)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-12*
+
+- **b9778d3771** - docs(features): small typo fix and added missing word (#16039)
+  *by Brett Randall <brett.randall@datahub.com> on 2026-02-13*
+
+- **4da82d5bba** - fix(redirect): fix open redirect filter (#16178)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-12*
+
+- **fe530e9c82** - chore(): Upgrade testcontainers (#16196)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-12*
+
+- **fe6423e676** - fix(cypress): fix cypress tests after updating feature flags (#16102)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-02-13*
+
+- **ef55e85d4a** - fix(ingestion): prevent changing of source type for existing ingestion sources (#16152)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-02-13*
+
+- **e42f4a3d18** - tests(cypress): add lineage filtering tests (#16021)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-02-13*
+
+- **c4f4edca7f** - dockerignore - Exclude Git Objects to speed up the builds (#16199)
+  *by ani-malgari <anirudh.malgari@datahub.com> on 2026-02-12*
+
+- **37a34de6cf** - feat(description update): allow updating top level description via th… (#16192)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-02-12*
+
+- **528cfe17c0** - feat(ingestion/stored-proc): Add stored procedure lineage with improved pl/sql parsing and function support (#16067)
+  *by Jonny Dixon <45681293+acrylJonny@users.noreply.github.com> on 2026-02-13*
+
+- **d96a7c023a** - fix(ci): remove labeled trigger (#16202)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-02-13*
+
+- **038b5f7ce5** - fix(ingestion/oracle): retrieve database name when using service_name with ALL mode (#16142)
+  *by Jonny Dixon <45681293+acrylJonny@users.noreply.github.com> on 2026-02-13*
+
+## Upstream Merge Session - 2026-02-16 13:42:04
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 21
+- **Strategy**: stacked
+- **Started**: 2026-02-16 13:42:04
+
+### Commits Included in This Merge
+
+- **2ed1146cb0** - fix(ingestion/airflow): disable setproctitle on macOS to prevent SIGSEGV (#16197)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **f516de5dd8** - feat(ingestion/oracle): implement standard stored procedure lineage pattern (#16147)
+  *by Jonny Dixon <45681293+acrylJonny@users.noreply.github.com> on 2026-02-13*
+
+- **6cbb0a725c** - build: upgrade Spring Boot 3.5.6, Spring 6.2.13, Jetty 12.0.32 (#16198)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **636d76ebd5** - fix(deps): pin cryptography>=46.0.5 for CVE-2026-26007 (#16188)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **e7193ce761** - feat(security): add TransparentSecretStr for safe credential serialization for ingestions (#16163)
+  *by Esteban Gutierrez <esteban.gutierrez@acryl.io> on 2026-02-13*
+
+- **719c06b815** - [dockerignore] Exclude Git directory (#16200)
+  *by ani-malgari <anirudh.malgari@datahub.com> on 2026-02-13*
+
+- **3c17675e2f** - fix(ui/ingestion): fix custom source name used in ingestion form (#16203)
+  *by Purnima Garg <139125209+purnimagarg1@users.noreply.github.com> on 2026-02-13*
+
+- **aaa58f0b37** - docs(remote-executor): add network connectivity prerequisites for RE (#16150)
+  *by Max Margalith <max.margalith@datahub.com> on 2026-02-13*
+
+- **744c6580f0** - Update townhalls-Feb.md (#16201)
+  *by jatherley <jen.atherley@acryl.io> on 2026-02-13*
+
+- **fa488303f4** - fix(deps): bump lz4-java 1.8.1 => 1.10.1 via at.yawk.lz4 fork (#16194)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **1646202b7a** - fix(deps): upgrade jackson-databind 2.8.11.4 => 2.8.11.6 in datahub-a… (#16191)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **1f4ca5a955** - fix(security): upgrade Velocity 1.5 to 2.3+ in acryl-spark-lineage (C… (#16193)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **844b4f0658** - docs: update shimmer banner for February Town Hall (#16209)
+  *by Gray Ayer <grayayer@gmail.com> on 2026-02-13*
+
+- **87512b2e6d** - fix(spark-lineage): upgrade snappy-java for CVE-2023-34453 (#16210)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **1c04c12429** - chore(bump):  upgrade gson xerces actions/spark (#16211)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **247a2a9619** - fix(deps): pin commons-compress to 1.27.1 for CVE-2024-25710, CVE-202… (#16212)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **73e3292c22** - fix(deps): upgrade Jackson to 2.18.4 in datahub-actions for CWE-20 (J… (#16214)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **9647747b41** - fix(deps): pin hive-llap-common to 4.0.0 for LlapSignerImpl signature… (#16213)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **8e84f3152d** - fix(frontend): use root akkaVersion for Play, document CVE-2023-45865… (#16216)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-13*
+
+- **1efa36666b** - fix(frontend): restrict TLS to 1.2+ in CustomHttpClientFactory (#16215)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-14*
+
+- **1acb7d69c1** - chore(git-ignore): add a few more patterns (#16219)
+  *by Shirshanka Das <shirshanka@apache.org> on 2026-02-15*

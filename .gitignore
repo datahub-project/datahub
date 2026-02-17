@@ -61,6 +61,11 @@ out/
 **/spark-lineage/**/out*.csv/
 **/spark-lineage/coalesce-test/
 
+#spark-lineage-legacy (test output; avoid "location already exists" in CI)
+**/spark-lineage-legacy/**/derby.log
+**/spark-lineage-legacy/**/hive/
+**/spark-lineage-legacy/**/out*.csv/
+
 #VS Code
 .vscode
 .devcontainer
@@ -98,6 +103,8 @@ coverage*.xml
 # Local dev environment overrides (user-specific GMS/Kafka settings)
 docker/profiles/my-settings.env
 
+# Claude ignores
+.claude/
 **/.claude/settings.local.json
 # Claude agent files (session-specific, not to be committed)
 **/.claude/agents/
@@ -112,6 +119,7 @@ marge_checkpoints/
 
 # Development-only directories
 **/.dev/
+
 
 # A bunch of binaries we never ever want to add
 datahub-frontend/bin/main/
@@ -156,5 +164,9 @@ test-models/bin/
 notifications/bin/
 
 .claude/
+.cursor/
 # Git credentials (should never be committed)
 .git-credentials
+
+# Git Worktree management (wtp)
+.wtp.yml

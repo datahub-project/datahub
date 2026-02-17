@@ -21,6 +21,9 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationParametersInput;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketInterval;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketIntervalWindowInput;
+import com.linkedin.datahub.graphql.generated.AssertionTimeBucketingStrategyInput;
 import com.linkedin.datahub.graphql.generated.AuditLogSpecInput;
 import com.linkedin.datahub.graphql.generated.CronScheduleInput;
 import com.linkedin.datahub.graphql.generated.DataHubOperationSpecInput;
@@ -29,7 +32,9 @@ import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParameter
 import com.linkedin.datahub.graphql.generated.DatasetSchemaAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.DatasetVolumeAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldSpecInput;
+import com.linkedin.datahub.graphql.generated.LateArrivalGracePeriodInterval;
 import com.linkedin.datahub.graphql.generated.SystemMonitorType;
+import com.linkedin.datahub.graphql.types.monitor.MonitorMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -42,6 +47,7 @@ import com.linkedin.monitor.AssertionEvaluationContext;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationParametersType;
 import com.linkedin.monitor.AssertionEvaluationSpec;
+import com.linkedin.monitor.AssertionTimeBucketingStrategy;
 import com.linkedin.monitor.AuditLogSpec;
 import com.linkedin.monitor.DataHubOperationSpec;
 import com.linkedin.monitor.DatasetFieldAssertionParameters;
@@ -55,6 +61,8 @@ import com.linkedin.monitor.DatasetVolumeSourceType;
 import com.linkedin.monitor.EmbeddedAssertionArray;
 import com.linkedin.monitor.MonitorInfo;
 import io.datahubproject.metadata.context.OperationContext;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -236,6 +244,11 @@ public class MonitorUtils {
       @Nonnull final DatasetVolumeAssertionParametersInput input) {
     final DatasetVolumeAssertionParameters result = new DatasetVolumeAssertionParameters();
     result.setSourceType(DatasetVolumeSourceType.valueOf(input.getSourceType().toString()));
+    com.linkedin.monitor.AssertionTimeBucketingStrategy resolvedStrategy =
+        resolveTimeBucketingStrategy(input.getTimeBucketingStrategy());
+    if (resolvedStrategy != null) {
+      result.setTimeBucketingStrategy(resolvedStrategy);
+    }
     return result;
   }
 
@@ -246,6 +259,11 @@ public class MonitorUtils {
     if (DatasetFieldAssertionSourceType.CHANGED_ROWS_QUERY.equals(result.getSourceType())
         && input.getChangedRowsField() != null) {
       result.setChangedRowsField(createFreshnessFieldSpec(input.getChangedRowsField()));
+    }
+    com.linkedin.monitor.AssertionTimeBucketingStrategy resolvedStrategy =
+        resolveTimeBucketingStrategy(input.getTimeBucketingStrategy());
+    if (resolvedStrategy != null) {
+      result.setTimeBucketingStrategy(resolvedStrategy);
     }
     return result;
   }
@@ -296,6 +314,73 @@ public class MonitorUtils {
       result.setCustomOperationTypes(new StringArray(input.getCustomOperationTypes()));
     }
     return result;
+  }
+
+  /**
+   * Validates and maps a GraphQL time bucketing strategy input to the backend PDL type. Validates
+   * timezone is a real IANA zone and grace period interval is DAY only. Defaults timezone to UTC
+   * when omitted.
+   */
+  @Nullable
+  public static AssertionTimeBucketingStrategy resolveTimeBucketingStrategy(
+      @Nullable AssertionTimeBucketingStrategyInput strategyInput) {
+    if (strategyInput == null) {
+      return null;
+    }
+    String resolvedTimezone = strategyInput.getTimezone();
+    if (resolvedTimezone == null || resolvedTimezone.isBlank()) {
+      resolvedTimezone = "UTC";
+    }
+    validateTimezone(resolvedTimezone);
+    validateBucketInterval(strategyInput.getBucketInterval());
+    if (strategyInput.getLateArrivalGracePeriod() != null) {
+      validateGracePeriod(strategyInput);
+    }
+    return MonitorMapper.mapTimeBucketingStrategyInputToBackend(strategyInput, resolvedTimezone);
+  }
+
+  /** Validates that the given timezone string is a valid IANA timezone identifier. */
+  public static void validateTimezone(@Nonnull String timezone) {
+    try {
+      ZoneId.of(timezone);
+    } catch (DateTimeException e) {
+      throw new DataHubGraphQLException(
+          String.format("Invalid timezone '%s': %s", timezone, e.getMessage()),
+          DataHubGraphQLErrorCode.BAD_REQUEST);
+    }
+  }
+
+  /**
+   * Validates that the bucket interval uses a supported unit (DAY, WEEK). The GraphQL enum
+   * restricts the allowed unit values, but this provides defense-in-depth.
+   */
+  public static void validateBucketInterval(
+      @Nonnull AssertionTimeBucketIntervalWindowInput interval) {
+    AssertionTimeBucketInterval unit = interval.getUnit();
+    if (unit != AssertionTimeBucketInterval.DAY && unit != AssertionTimeBucketInterval.WEEK) {
+      throw new DataHubGraphQLException(
+          String.format(
+              "Unsupported bucket interval unit '%s'. Only DAY and WEEK are supported.", unit),
+          DataHubGraphQLErrorCode.BAD_REQUEST);
+    }
+  }
+
+  /** Validates that the grace period uses a supported interval (DAY) and a positive multiple. */
+  public static void validateGracePeriod(@Nonnull AssertionTimeBucketingStrategyInput strategy) {
+    if (strategy.getLateArrivalGracePeriod().getUnit() != LateArrivalGracePeriodInterval.DAY) {
+      throw new DataHubGraphQLException(
+          String.format(
+              "Unsupported grace period interval '%s'. Only DAY is supported.",
+              strategy.getLateArrivalGracePeriod().getUnit()),
+          DataHubGraphQLErrorCode.BAD_REQUEST);
+    }
+    if (strategy.getLateArrivalGracePeriod().getMultiple() <= 0) {
+      throw new DataHubGraphQLException(
+          String.format(
+              "Grace period multiple must be positive, got %d.",
+              strategy.getLateArrivalGracePeriod().getMultiple()),
+          DataHubGraphQLErrorCode.BAD_REQUEST);
+    }
   }
 
   private MonitorUtils() {}

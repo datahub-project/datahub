@@ -22,6 +22,19 @@ apply from: "../gradle/versioning/versioning.gradle"
 apply from: "../gradle/coverage/python-coverage.gradle"
 apply from: '../gradle/docker/docker.gradle'
 
+configurations.all {
+  resolutionStrategy {
+    def jv = rootProject.ext.jacksonVersion
+    force "com.fasterxml.jackson.core:jackson-databind:${jv}"
+    force "com.fasterxml.jackson.core:jackson-core:${jv}"
+    force "com.fasterxml.jackson.core:jackson-annotations:${jv}"
+    force "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:${jv}"   // CWE-20 fix; min 2.9.8
+    force "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jv}"
+    force rootProject.ext.externalDependency.xercesImpl // Xerces CVEs (2 high, 1 medium)
+    force rootProject.ext.externalDependency.gson // Gson before 2.8.9: deserialization DoS (writeReplace)
+  }
+}
+
 ext {
   python_executable = 'python3'
   venv_name = 'venv'

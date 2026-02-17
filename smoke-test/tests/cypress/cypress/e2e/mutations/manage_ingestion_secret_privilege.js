@@ -7,13 +7,9 @@ const name = `Example Name ${number}`;
 const email = `example${number}@example.com`;
 
 const setRemoteExecutorsUIFlag = (isOn) => {
-  cy.intercept("POST", "/api/v2/graphql", (req) => {
-    if (hasOperationName(req, "appConfig")) {
-      req.reply((res) => {
-        // Modify the response body directly
-        res.body.data.appConfig.featureFlags.displayExecutorPools = isOn;
-      });
-    }
+  cy.setFeatureFlags(false, (res) => {
+    res.body.data.appConfig.featureFlags.displayExecutorPools = isOn;
+    res.body.data.appConfig.featureFlags.showIngestionPageRedesign = isOn;
   });
 };
 
@@ -47,6 +43,11 @@ const clickOnButton = (saveButton) => {
   cy.clickOptionWithId(`#${saveButton}`);
 };
 
+const searchAndToggleMetadataPolicyStatus = (metadataPolicyName) => {
+  cy.get('[data-testid="search-input"]').should("be.visible");
+  cy.get('[data-testid="search-input"]').last().type(metadataPolicyName);
+};
+
 const createPolicy = (description, policyName) => {
   clickFocusAndType("policy-description", description);
   clickOnButton("nextButton");
@@ -60,11 +61,6 @@ const createPolicy = (description, policyName) => {
   cy.reload();
   searchAndToggleMetadataPolicyStatus(policyName);
   cy.get(".ant-table-row-level-0").contains(policyName);
-};
-
-const searchAndToggleMetadataPolicyStatus = (metadataPolicyName) => {
-  cy.get('[data-testid="search-input"]').should("be.visible");
-  cy.get('[data-testid="search-input"]').last().type(metadataPolicyName);
 };
 
 const editPolicy = (policyName, type, select) => {
@@ -123,24 +119,17 @@ const deactivateExistingAllUserPolicies = () => {
     });
 };
 
-describe("Manage Ingestion and Secret Privileges", () => {
-  beforeEach(() => {
-    cy.setIsThemeV2Enabled(false);
+const setFeatureFlags = () => {
+  cy.setFeatureFlags(false, (res) => {
+    res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
   });
+};
 
+describe("Manage Ingestion and Secret Privileges", () => {
   let registeredEmail = "";
 
-  beforeEach(() => {
-    cy.intercept("POST", "/api/v2/graphql", (req) => {
-      if (hasOperationName(req, "appConfig")) {
-        req.on("response", (res) => {
-          res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
-        });
-      }
-    });
-  });
-
   it("create Metadata Ingestion platform policy and assign privileges to all users", () => {
+    setFeatureFlags();
     cy.loginWithCredentials();
     cy.visit("/settings/permissions/policies");
     cy.waitTextVisible("Manage Permissions");
@@ -161,6 +150,7 @@ describe("Manage Ingestion and Secret Privileges", () => {
   });
 
   it("Create user and verify ingestion tab not present", () => {
+    setFeatureFlags();
     cy.loginWithCredentials();
     cy.visit("/settings/identities/users");
     cy.waitTextVisible("Invite Users");
@@ -191,7 +181,6 @@ describe("Manage Ingestion and Secret Privileges", () => {
     setRemoteExecutorsUIFlag(false);
     cy.clearCookies();
     cy.clearLocalStorage();
-    cy.setIsThemeV2Enabled(false);
     signIn();
     cy.waitTextVisible("Welcome back");
     cy.hideOnboardingTour();
