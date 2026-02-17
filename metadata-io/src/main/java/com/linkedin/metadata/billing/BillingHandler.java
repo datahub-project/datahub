@@ -51,26 +51,26 @@ public class BillingHandler {
   }
 
   /**
-   * Provision a customer with a billing package.
+   * Provision a customer in the billing system.
    *
    * <p>This method is idempotent. If the customer already exists in the billing provider, it will
-   * add the specified package to the existing customer. If the customer does not exist, it will
-   * create the customer first and then assign the package.
+   * add the appropriate contract to the existing customer. If the customer does not exist, it will
+   * create the customer first and then assign the contract.
    *
-   * @param packageAlias The package alias identifying the billing package to assign
+   * <p>Provider-specific details (e.g., package alias, rate cards) are handled internally by the
+   * billing provider.
+   *
    * @throws BillingException if provisioning fails
    */
-  public void provisionCustomer(@Nonnull String packageAlias) throws BillingException {
-    Objects.requireNonNull(packageAlias, "packageAlias must not be null");
-
+  public void provisionCustomer() throws BillingException {
     if (!isEnabled()) {
       return;
     }
 
-    log.info("Provisioning customer '{}' with package '{}'", customerName, packageAlias);
+    log.info("Provisioning customer '{}'", customerName);
 
     try {
-      String providerCustomerId = provider.provisionCustomer(customerName, packageAlias);
+      String providerCustomerId = provider.provisionCustomer(customerName);
       this.cachedProviderCustomerId = providerCustomerId;
       log.info(
           "Successfully provisioned customer '{}' with ID: {}", customerName, providerCustomerId);
