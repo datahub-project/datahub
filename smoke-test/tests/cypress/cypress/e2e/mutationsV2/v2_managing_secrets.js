@@ -1,6 +1,8 @@
 describe("managing secrets for ingestion creation", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
+    cy.setFeatureFlags(true, (res) => {
+      res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
+    });
   });
   it("create a secret, create ingestion source using a secret, remove a secret", () => {
     const number = Math.floor(Math.random() * 100000);

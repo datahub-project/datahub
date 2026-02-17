@@ -5,10 +5,10 @@ from urllib.parse import urlparse
 
 import pydantic
 from databricks.sdk import WorkspaceClient
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, model_validator
 
 from datahub._version import nice_version_name
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, TransparentSecretStr
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.unity.azure_auth_config import AzureAuthConfig
 
@@ -25,7 +25,7 @@ class UnityCatalogConnectionConfig(ConfigModel):
     """
 
     scheme: str = DATABRICKS
-    token: Optional[str] = pydantic.Field(
+    token: Optional[TransparentSecretStr] = pydantic.Field(
         default=None, description="Databricks personal access token"
     )
     azure_auth: Optional[AzureAuthConfig] = Field(
@@ -34,7 +34,7 @@ class UnityCatalogConnectionConfig(ConfigModel):
     client_id: Optional[str] = pydantic.Field(
         default=None, description="Databricks service principal client ID"
     )
-    client_secret: Optional[SecretStr] = pydantic.Field(
+    client_secret: Optional[TransparentSecretStr] = pydantic.Field(
         default=None, description="Databricks service principal client secret"
     )
     workspace_url: str = pydantic.Field(
@@ -96,7 +96,7 @@ def create_workspace_client(config: UnityCatalogConnectionConfig) -> WorkspaceCl
         host=config.workspace_url,
         product=DATABRICKS_USER_AGENT_ENTRY,
         product_version=nice_version_name(),
-        token=config.token,
+        token=config.token.get_secret_value() if config.token else None,
         azure_tenant_id=config.azure_auth.tenant_id if config.azure_auth else None,
         azure_client_id=config.azure_auth.client_id if config.azure_auth else None,
         azure_client_secret=(
