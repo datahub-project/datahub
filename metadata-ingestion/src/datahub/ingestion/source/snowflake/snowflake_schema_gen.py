@@ -2516,7 +2516,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         tables = self.data_dictionary.get_tables_for_database(
             db_name,
-            table_types=self.config.table_types,
+            table_types=frozenset(self.config.table_types),
             table_filter=table_filter,
             exclude_dynamic_tables=self.config.exclude_dynamic_tables,
         )
