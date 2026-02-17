@@ -2,6 +2,7 @@ import logging
 import re
 from base64 import b32decode
 from collections import defaultdict
+from dataclasses import replace
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
 
 from google.cloud.bigquery.table import TableListItem
