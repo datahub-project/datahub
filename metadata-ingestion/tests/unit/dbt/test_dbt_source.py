@@ -2152,18 +2152,21 @@ def test_create_exposure_mcps_with_strip_user_ids_from_email():
 def test_convert_semantic_model_fields_to_columns_basic():
     """Test converting semantic model entities, dimensions, and measures to columns."""
     from datahub.ingestion.source.dbt.dbt_common import (
+        SemanticModelDimension,
+        SemanticModelEntity,
+        SemanticModelMeasure,
         convert_semantic_model_fields_to_columns,
     )
 
-    entities = [
+    entities: list[SemanticModelEntity] = [
         {"name": "order_id", "type": "primary", "description": "Primary order key"},
         {"name": "customer_id", "type": "foreign", "description": ""},
     ]
-    dimensions = [
+    dimensions: list[SemanticModelDimension] = [
         {"name": "order_date", "type": "time", "description": "When order was placed"},
         {"name": "status", "type": "categorical", "description": ""},
     ]
-    measures = [
+    measures: list[SemanticModelMeasure] = [
         {"name": "total_revenue", "agg": "sum", "description": "Sum of order amounts"},
         {"name": "order_count", "agg": "count", "description": ""},
     ]
