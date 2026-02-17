@@ -8,7 +8,6 @@ import styled from 'styled-components';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import useSchemaTitleRenderer from '@app/entityV2/dataset/profile/schema/utils/schemaTitleRenderer';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
@@ -42,7 +41,7 @@ const TableContainer = styled.div<{ fullHeight?: boolean }>`
     .ant-table-thead > tr > th {
         background-color: transparent;
         font-weight: 600;
-        color: ${REDESIGN_COLORS.DARK_GREY};
+        color: ${(props) => props.theme.colors.text};
         font-weight: 700;
     }
     &&& .ant-table-cell:first-of-type {
@@ -51,7 +50,7 @@ const TableContainer = styled.div<{ fullHeight?: boolean }>`
 
     &&& .selected-row * {
         color: white;
-        background-color: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     }
 
     &&& .field-column {
@@ -67,10 +66,10 @@ const TableContainer = styled.div<{ fullHeight?: boolean }>`
 `;
 
 const StyledButton = styled(Button)`
-    color: #b0a2c2;
+    color: ${(props) => props.theme.colors.textTertiary};
     font-weight: 500;
     :hover {
-        color: ${REDESIGN_COLORS.DARK_GREY};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 

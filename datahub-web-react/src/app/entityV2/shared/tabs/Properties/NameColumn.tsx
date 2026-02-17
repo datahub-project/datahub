@@ -8,7 +8,7 @@ import StructuredPropertyTooltip from '@app/entityV2/shared/tabs/Properties/Stru
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 
 const ParentNameText = styled(Typography.Text)`
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     font-family: Manrope;
     font-weight: 600;
@@ -21,7 +21,7 @@ const ParentNameText = styled(Typography.Text)`
 
 const ChildNameText = styled(Typography.Text)`
     align-self: stretch;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     font-family: Manrope;
     font-weight: 500;
@@ -42,7 +42,7 @@ const NameLabelWrapper = styled.span`
 `;
 
 const ChildCountText = styled.span`
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
 `;
 

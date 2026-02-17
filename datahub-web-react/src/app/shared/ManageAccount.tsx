@@ -7,7 +7,6 @@ import styled, { useTheme } from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useAppConfig } from '@app/useAppConfig';
@@ -20,7 +19,7 @@ import { EntityType } from '@types';
 const DownArrow = styled(CaretDownOutlined)`
     vertical-align: -1px;
     font-size: 10px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const DropdownWrapper = styled.div`

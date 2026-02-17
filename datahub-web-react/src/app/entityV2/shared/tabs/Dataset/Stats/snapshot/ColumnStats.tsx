@@ -4,7 +4,6 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import SampleValueTag from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/SampleValueTag';
 import { downgradeV2FieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 
@@ -23,7 +22,7 @@ const NameText = styled(Typography.Text)`
     font-family: 'Roboto Mono', monospace;
     font-weight: 600;
     font-size: 12px;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const isPresent = (val?: string | number | null): val is string | number => {

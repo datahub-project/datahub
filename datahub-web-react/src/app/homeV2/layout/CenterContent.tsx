@@ -24,7 +24,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         border-radius: ${props.theme.styles['border-radius-navbar-redesign']};
         box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
         height: calc(100vh - 87px);
-        background-color: white;
+        background-color: ${props.theme.colors.bg};
     `}
 
     display: flex;

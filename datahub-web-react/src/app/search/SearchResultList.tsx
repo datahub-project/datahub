@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { SEPARATE_SIBLINGS_URL_PARAM } from '@app/entity/shared/siblingUtils';
 import { EntityAndType } from '@app/entity/shared/types';
 import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
@@ -37,11 +36,11 @@ export const ResultWrapper = styled.div<{ showUpdatedStyles: boolean }>`
     ${(props) =>
         props.showUpdatedStyles &&
         `    
-        background-color: white;
+        background-color: ${props.theme.colors.bgSurface};
         border-radius: 5px;
         margin: 0 auto 8px auto;
         padding: 8px 16px;
-        border-bottom: 1px solid ${ANTD_GRAY[5]};
+        border-bottom: 1px solid ${props.theme.colors.border};
     `}
 `;
 

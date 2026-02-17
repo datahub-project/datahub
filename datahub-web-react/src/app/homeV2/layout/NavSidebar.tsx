@@ -39,7 +39,7 @@ const Icon = styled.div`
     width: 44px;
     height: 44px;
     border-radius: 38px;
-    border: 1px solid #32267d;
+    border: 1px solid ${(props) => props.theme.colors.borderBrand};
     background: #4c39be;
     box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
     margin-bottom: 10px;

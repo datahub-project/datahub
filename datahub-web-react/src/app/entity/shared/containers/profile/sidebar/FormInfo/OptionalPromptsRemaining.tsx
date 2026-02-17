@@ -1,11 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { pluralize } from '@app/shared/textUtil';
 
 const OptionalPromptsWrapper = styled.div`
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin-top: 4px;
 `;
 

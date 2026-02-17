@@ -9,14 +9,13 @@ import NodeItem from '@app/glossary/GlossaryBrowser/NodeItem';
 import TermItem from '@app/glossary/GlossaryBrowser/TermItem';
 import { ROOT_NODES, ROOT_TERMS } from '@app/glossary/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '@graphql/glossary.generated';
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
 import { GlossaryNode } from '@types';
 
 const BrowserWrapper = styled.div`
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     max-height: calc(100% - 47px);
     padding: 10px 20px 20px 20px;
@@ -31,7 +30,7 @@ const LoadingWrapper = styled.div`
     svg {
         height: 15px;
         width: 15px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 

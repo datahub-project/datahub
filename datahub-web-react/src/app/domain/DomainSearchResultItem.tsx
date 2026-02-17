@@ -8,7 +8,6 @@ import DomainIcon from '@app/domain/DomainIcon';
 import { getParentDomains } from '@app/domain/utils';
 import { IconStyleType } from '@app/entity/Entity';
 import EntityRegistry from '@app/entity/EntityRegistry';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import ParentEntities from '@app/search/filters/ParentEntities';
 
 import { Entity, EntityType } from '@types';
@@ -21,7 +20,7 @@ type Props = {
 };
 
 const SearchResult = styled(Link)`
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     align-items: center;
     gap: 8px;
@@ -29,8 +28,8 @@ const SearchResult = styled(Link)`
     padding: 6px 8px;
     width: 100%;
     &:hover {
-        background-color: ${ANTD_GRAY[3]};
-        color: #262626;
+        background-color: ${(props) => props.theme.colors.bgSurface};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 

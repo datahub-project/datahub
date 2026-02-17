@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ChangeEventComponent from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeEvent';
 import { formatTimestamp } from '@app/entityV2/shared/tabs/Dataset/Schema/history/historyUtils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
@@ -9,7 +8,7 @@ import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { ChangeTransaction, DataPlatform } from '@types';
 
 const TitleText = styled.span`
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     font-size: 13px;
     font-style: normal;
     font-weight: 600;
@@ -17,7 +16,7 @@ const TitleText = styled.span`
 `;
 
 const ChangeTransactionTimestamp = styled(TitleText)`
-    background: #eeecfa;
+    background: ${(props) => props.theme.colors.bgSurface};
     border-radius: 20px;
     padding: 5px 15px;
 `;
@@ -64,7 +63,7 @@ const ChangeEventCircle = styled.div`
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background-color: #d2d6e0;
+    background-color: ${(props) => props.theme.colors.border};
     margin-left: -3px;
 `;
 
@@ -73,14 +72,14 @@ const InnerEventCircle = styled.div`
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: ${REDESIGN_COLORS.DARK_GREY};
+    background-color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const ChangeEventVerticalLine = styled.div`
     width: 2px;
     height: 100%;
     margin-left: 3px;
-    background-color: #e8e6eb;
+    background-color: ${(props) => props.theme.colors.border};
 `;
 
 export interface ChangeTransactionEntry {

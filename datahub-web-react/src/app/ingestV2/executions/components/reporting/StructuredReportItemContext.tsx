@@ -2,7 +2,6 @@ import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { StructuredReportLogEntry } from '@app/ingestV2/executions/components/reporting/types';
 
 const Container = styled.div`
@@ -21,8 +20,8 @@ const Item = styled.pre`
     padding: 6px;
     font-size: 12px;
     border-radius: 2px;
-    background-color: ${ANTD_GRAY[3]};
-    color: ${ANTD_GRAY[8]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface Props {

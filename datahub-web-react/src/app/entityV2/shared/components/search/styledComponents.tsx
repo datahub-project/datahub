@@ -1,21 +1,20 @@
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { Input } from '@src/alchemy-components';
 
 export const StyledInput = styled(Input)`
     width: auto;
-    background: ${REDESIGN_COLORS.WHITE};
+    background: ${(props) => props.theme.colors.bg};
     font-size: 14px;
     font-weight: 500;
     line-height: 24px;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const MatchLabelText = styled.span`
     font-size: 12px;
     font-weight: 400;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding: 4px 4px;
 `;
 
@@ -31,12 +30,12 @@ export const SearchContainer = styled.div`
 
     .ant-input-group-wrapper {
         border-radius: 8px;
-        border: 1px solid ${REDESIGN_COLORS.SILVER_GREY};
-        background: #f3f5fa;
+        border: 1px solid ${(props) => props.theme.colors.border};
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 
     .ant-input-group-wrapper {
-        background-color: #ffffff !important;
+        background-color: ${(props) => props.theme.colors.bgSurface} !important;
     }
 
     .ant-input-wrapper {
@@ -45,16 +44,16 @@ export const SearchContainer = styled.div`
 
     .ant-input {
         border-radius: 0;
-        color: ${REDESIGN_COLORS.BODY_TEXT};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
     .ant-input::placeholder {
-        color: ${REDESIGN_COLORS.BODY_TEXT} !important;
+        color: ${(props) => props.theme.colors.textSecondary} !important;
         opacity: 1;
     }
 
     .ant-input-affix-wrapper {
         border-radius: 8px;
-        border: 1px solid ${REDESIGN_COLORS.SILVER_GREY};
+        border: 1px solid ${(props) => props.theme.colors.border};
         transition: border-color 0.3s ease-in-out;
         cursor: text !important;
     }

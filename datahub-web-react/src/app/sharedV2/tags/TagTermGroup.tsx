@@ -5,7 +5,6 @@ import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
 import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
 import Tag from '@app/sharedV2/tags/tag/Tag';
@@ -51,11 +50,11 @@ const NoElementButton = styled.div`
     margin: 0px;
     padding: 0px;
     flex-basis: 100%;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.text};
 
     :hover {
         cursor: pointer;
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
+        color: ${(props) => props.theme.colors.hyperlinks};
     }
 `;
 const TagTermWrapper = styled.div<{ $showOneAndCount?: boolean }>`
@@ -68,7 +67,7 @@ const TagTermWrapper = styled.div<{ $showOneAndCount?: boolean }>`
 `;
 
 const TagText = styled.span`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.text};
     font-size: 10px;
     font-weight: 400;
     line-height: 8px;
@@ -88,7 +87,7 @@ const EmptyText = styled(Typography.Text)`
 `;
 
 const Count = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     font-weight: 400;
     line-height: 24px;
@@ -97,13 +96,13 @@ const Count = styled(Typography.Text)`
 `;
 
 const AddText = styled.span`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     font-weight: 500;
     line-height: 16px;
 
     :hover {
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
+        color: ${(props) => props.theme.colors.hyperlinks};
     }
 `;
 

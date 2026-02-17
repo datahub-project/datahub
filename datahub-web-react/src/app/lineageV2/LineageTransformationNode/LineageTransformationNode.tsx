@@ -49,7 +49,7 @@ const NodeWrapper = styled.div<{
     isSearchedEntity: boolean;
     type: EntityType;
 }>`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border: ${({ selected }) => (selected ? 2 : 1)}px solid;
     border-color: ${({ selected }) => (selected ? LINEAGE_COLORS.PURPLE_3 : LINEAGE_COLORS.NODE_BORDER)};
     border-radius: 50%;

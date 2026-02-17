@@ -7,9 +7,13 @@ export const getOptionLabelStyle = (
     isMultiSelect?: boolean,
     isDisabled?: boolean,
     applyHoverWidth?: boolean,
+    themeColors?: { text: string; textSecondary: string; bgSurfaceBrand: string; bgHover: string },
 ) => {
-    const color = isSelected ? colors.gray[600] : colors.gray[500];
-    const backgroundColor = !isDisabled && !isMultiSelect && isSelected ? colors.gray[1000] : 'transparent';
+    const color = isSelected
+        ? themeColors?.text ?? colors.gray[600]
+        : themeColors?.textSecondary ?? colors.gray[500];
+    const backgroundColor =
+        !isDisabled && !isMultiSelect && isSelected ? themeColors?.bgSurfaceBrand ?? colors.gray[1000] : 'transparent';
 
     return {
         cursor: isDisabled ? 'not-allowed' : 'pointer',
@@ -24,7 +28,9 @@ export const getOptionLabelStyle = (
         alignItems: 'center',
         width: applyHoverWidth ? '100%' : 'auto',
         '&:hover': {
-            backgroundColor: isSelected ? colors.violet[0] : colors.gray[1500],
+            backgroundColor: isSelected
+                ? themeColors?.bgSurfaceBrand ?? colors.violet[0]
+                : themeColors?.bgHover ?? colors.gray[1500],
         },
     };
 };
@@ -104,28 +110,39 @@ export const getMinHeight = (size) => {
     return minHeightStyles[size];
 };
 
-export const getSelectStyle = (props: SelectStyleProps) => {
+export const getSelectStyle = (
+    props: SelectStyleProps,
+    themeColors?: {
+        border: string;
+        bg: string;
+        bgSurface: string;
+        text: string;
+        textDisabled: string;
+        textTertiary: string;
+        borderBrandFocused: string;
+    },
+) => {
     const { isDisabled, isReadOnly, fontSize, isOpen } = props;
 
     const baseStyle = {
         borderRadius: radius.md,
-        border: `1px solid ${colors.gray[100]}`,
+        border: `1px solid ${themeColors?.border ?? colors.gray[100]}`,
         fontFamily: typography.fonts.body,
-        backgroundColor: isDisabled ? colors.gray[1500] : colors.white,
-        color: isDisabled ? colors.gray[300] : colors.gray[600],
+        backgroundColor: isDisabled ? themeColors?.bgSurface ?? colors.gray[1500] : themeColors?.bg ?? colors.white,
+        color: isDisabled ? themeColors?.textDisabled ?? colors.gray[300] : themeColors?.text ?? colors.gray[600],
         cursor: isDisabled || isReadOnly ? 'not-allowed' : 'pointer',
         boxShadow: '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
         textWrap: 'nowrap',
 
         '&::placeholder': {
-            color: colors.gray[1900],
+            color: themeColors?.textTertiary ?? colors.gray[1900],
         },
 
         // Open Styles
         ...(isOpen
             ? {
-                  borderColor: colors.gray[1800],
-                  outline: `1px solid ${colors.violet[200]}`,
+                  borderColor: themeColors?.textTertiary ?? colors.gray[1800],
+                  outline: `1px solid ${themeColors?.borderBrandFocused ?? colors.violet[200]}`,
               }
             : {}),
 

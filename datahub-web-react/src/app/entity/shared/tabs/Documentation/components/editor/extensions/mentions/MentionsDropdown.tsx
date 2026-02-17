@@ -4,7 +4,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useDataHubMentions } from '@app/entity/shared/tabs/Documentation/components/editor/extensions/mentions/useDataHubMentions';
 import AutoCompleteItem from '@app/search/autoComplete/AutoCompleteItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -20,14 +19,14 @@ const HeaderItem = styled(Typography.Text)`
 const OptionItem = styled.div<{ readonly active?: boolean }>`
     min-height: 32px;
     padding: 5px 12px 5px 24px;
-    background: ${(props) => (props.active ? ANTD_GRAY[3] : ANTD_GRAY[1])};
+    background: ${(props) => (props.active ? props.theme.colors.bgSurface : props.theme.colors.bg)};
     transition: background 0.3s ease;
     cursor: pointer;
     display: flex;
     align-items: center;
 
     &:hover {
-        background: ${ANTD_GRAY[3]};
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 

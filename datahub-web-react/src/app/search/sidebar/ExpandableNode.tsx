@@ -4,7 +4,6 @@ import React, { MouseEventHandler, ReactNode } from 'react';
 import { VscTriangleRight } from 'react-icons/vsc';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { BaseButton, BodyContainer, BodyGridExpander, RotatingButton } from '@app/shared/components';
 
 const Layout = styled.div`
@@ -39,7 +38,7 @@ ExpandableNode.Header = styled.div<{ isOpen: boolean; isSelected?: boolean; show
     padding-top: 2px;
     padding-bottom: 2px;
     padding-right: 2px;
-    border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : ANTD_GRAY[4])};
+    border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : props.theme.colors.bgSurface)};
 `;
 
 ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ isSelected: boolean }>`

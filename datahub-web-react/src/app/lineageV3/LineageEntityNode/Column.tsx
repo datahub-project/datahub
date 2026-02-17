@@ -1,5 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Tooltip, colors } from '@components';
+import { Tooltip } from '@components';
 import { Spin, Typography } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -41,19 +41,19 @@ const ColumnWrapper = styled.div<{
 }>`
     border-radius: 6px;
 
-    ${({ selected, highlighted, fromSelect }) => {
+    ${({ selected, highlighted, fromSelect, theme }) => {
         if (selected) {
             return `border: ${SELECT_COLOR} 1px solid; background-color: ${SELECT_COLOR}20;`;
         }
         if (highlighted) {
             if (fromSelect) {
-                return `border: 1px solid ${colors.gray[100]}; background-color: ${SELECT_COLOR}20;`;
+                return `border: 1px solid ${theme.colors.border}; background-color: ${SELECT_COLOR}20;`;
             }
-            return `border: 1px solid ${colors.gray[100]}; background-color: ${HOVER_COLOR}20;`;
+            return `border: 1px solid ${theme.colors.border}; background-color: ${HOVER_COLOR}20;`;
         }
-        return `border: 1px solid ${colors.gray[100]};`;
+        return `border: 1px solid ${theme.colors.border};`;
     }}
-    color: ${({ disabled }) => (disabled ? colors.gray[1800] : colors.gray[600])};
+    color: ${({ disabled, theme }) => (disabled ? theme.colors.textTertiary : theme.colors.text)};
     display: flex;
     align-items: center;
     font-size: 12px;
@@ -88,7 +88,7 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
 `;
 
 const TypeWrapper = styled.div`
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     width: 11px;
 `;
 
@@ -96,7 +96,7 @@ const ColumnLinkWrapper = styled(Link)`
     display: flex;
     margin-left: auto;
 
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
 
     :hover {
         color: ${(props) => props.theme.styles['primary-color']};

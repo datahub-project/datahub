@@ -5,7 +5,6 @@ import styled from 'styled-components';
 
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import ContentSectionLoading from '@app/entityV2/domain/summary/ContentSectionLoading';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     getContentsSummary,
     getDomainEntitiesFilterUrl,
@@ -25,11 +24,11 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetDomainEntitySummaryQuery } from '@graphql/domain.generated';
 
 const ViewAllButton = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding: 2px;
     :hover {
         cursor: pointer;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
         text-decoration: underline;
     }
 `;

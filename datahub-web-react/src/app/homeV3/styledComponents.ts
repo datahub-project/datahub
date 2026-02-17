@@ -1,4 +1,4 @@
-import { Icon, colors } from '@components';
+import { Icon } from '@components';
 import { Typography } from 'antd';
 import styled from 'styled-components';
 
@@ -22,7 +22,7 @@ export const HomePageContainer = styled.div`
     flex: 1;
     overflow: hidden;
     margin: 5px;
-    border: 1px solid ${colors.gray[100]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
     position: relative;
 `;
@@ -35,7 +35,8 @@ export const StyledVectorBackground = styled(VectorBackground)`
     transform: rotate(0deg);
     pointer-events: none;
     border-radius: 12px;
-    background-color: ${colors.white};
+    background-color: ${(props) => props.theme.colors.bg};
+    ${(props) => props.theme.id === 'themeV2Dark' && 'opacity: 0;'}
 `;
 
 export const contentWidth = (additionalWidth = 0) => `
@@ -106,14 +107,14 @@ export const FloatingRightHeaderSection = styled.div`
 `;
 
 export const NameContainer = styled(Typography.Text)`
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 700;
     font-size: 16px;
     line-height: 20px;
 `;
 
 export const DescriptionContainer = styled(Typography.Text)`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 400;
     font-size: 12px;
     line-height: 20px;

@@ -11,7 +11,7 @@ import { recordAnalyticsEvents } from '@app/lineageV3/manualLineage/recordManual
 import updateNodeContext from '@app/lineageV3/manualLineage/updateNodeContext';
 import { getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
 import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
-import { Modal, colors } from '@src/alchemy-components';
+import { Modal } from '@src/alchemy-components';
 import { EntityAndType } from '@src/app/entity/shared/types';
 import { extractTypeFromUrn } from '@src/app/entity/shared/utils';
 import { SearchSelect } from '@src/app/entityV2/shared/components/styled/search/SearchSelect';
@@ -46,7 +46,7 @@ const SearchSection = styled.div`
 const CurrentSection = styled.div`
     flex: 1;
     width: 40%;
-    border-left: 1px solid ${colors.gray[100]};
+    border-left: 1px solid ${(props) => props.theme.colors.border};
     display: flex;
     flex-direction: column;
 `;
@@ -56,7 +56,7 @@ const SectionHeader = styled.div`
     margin-top: 10px;
     font-size: 16px;
     font-weight: 500;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const ScrollableContent = styled.div`

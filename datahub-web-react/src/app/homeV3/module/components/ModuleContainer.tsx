@@ -1,9 +1,9 @@
-import { borders, colors, radius } from '@components';
+import { borders, radius } from '@components';
 import styled from 'styled-components';
 
 const ModuleContainer = styled.div<{ $height?: string; $isDragging?: boolean }>`
-    background: ${colors.white};
-    border: ${borders['1px']} ${colors.gray[100]};
+    background: ${(props) => props.theme.colors.bg};
+    border: ${borders['1px']} ${(props) => props.theme.colors.border};
     border-radius: ${radius.lg};
     flex: 1;
     overflow-x: hidden;
@@ -13,10 +13,10 @@ const ModuleContainer = styled.div<{ $height?: string; $isDragging?: boolean }>`
     opacity: 1;
     transition: opacity 0.2s ease;
 
-    ${({ $isDragging }) =>
-        $isDragging &&
+    ${(props) =>
+        props.$isDragging &&
         `
-        background: linear-gradient(180deg, #f0f8ff 0%, #e6f3ff 100%);
+        background: ${props.theme.colors.bgSurface};
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         z-index: 1000;
         transform: translateZ(0) scale(1.02);

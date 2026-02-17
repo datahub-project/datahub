@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -41,7 +40,7 @@ function DataProductContent({ dataProduct, name, closable, onClose, tagStyle, fo
     return (
         <StyledTag style={tagStyle} closable={closable} onClose={onClose} fontSize={fontSize}>
             <span style={{ paddingRight: '4px' }}>
-                {entityRegistry.getIcon(EntityType.DataProduct, fontSize || 10, IconStyleType.ACCENT, ANTD_GRAY[9])}
+                {entityRegistry.getIcon(EntityType.DataProduct, fontSize || 10, IconStyleType.ACCENT)}
             </span>
             {displayName}
         </StyledTag>

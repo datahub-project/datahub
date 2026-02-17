@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import {
     ArrowCounterClockwise,
     ArrowsCounterClockwise,
@@ -120,17 +119,17 @@ export const getExecutionRequestSummaryText = (status: string) => {
 
 export const getExecutionRequestStatusDisplayColor = (status?: string) => {
     return (
-        (status === RUNNING && colors.blue[1000]) ||
-        (status === SUCCESS && colors.green[500]) ||
-        (status === SUCCEEDED_WITH_WARNINGS && colors.yellow[500]) ||
-        (status === FAILURE && colors.red[500]) ||
-        (status === UP_FOR_RETRY && colors.violet[600]) ||
-        (status === CANCELLED && colors.gray[1700]) ||
-        (status === ROLLED_BACK && colors.yellow[500]) ||
-        (status === ROLLING_BACK && colors.yellow[500]) ||
-        (status === ROLLBACK_FAILED && colors.red[500]) ||
-        (status === ABORTED && colors.red[500]) ||
-        colors.gray[1700]
+        (status === RUNNING && '#09739A') ||
+        (status === SUCCESS && '#77B750') ||
+        (status === SUCCEEDED_WITH_WARNINGS && '#EEAE09') ||
+        (status === FAILURE && '#CD0D24') ||
+        (status === UP_FOR_RETRY && '#4C39BE') ||
+        (status === CANCELLED && '#5F6685') ||
+        (status === ROLLED_BACK && '#EEAE09') ||
+        (status === ROLLING_BACK && '#EEAE09') ||
+        (status === ROLLBACK_FAILED && '#CD0D24') ||
+        (status === ABORTED && '#CD0D24') ||
+        '#5F6685'
     );
 };
 

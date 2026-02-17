@@ -5,7 +5,6 @@ import moment from 'moment';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const { RangePicker } = DatePicker;
 
@@ -20,7 +19,7 @@ const ConfirmButtonWrapper = styled.div`
 
 const ConfirmButton = styled(Button)`
     border-radius: 15px;
-    border: 1px solid ${REDESIGN_COLORS.BLACK};
+    border: 1px solid ${(props) => props.theme.colors.text};
 
     position: absolute;
     right: 10px;
@@ -28,8 +27,8 @@ const ConfirmButton = styled(Button)`
     text-align: right;
 
     :hover {
-        border-color: ${REDESIGN_COLORS.BLUE};
-        color: ${REDESIGN_COLORS.BLUE};
+        border-color: ${(props) => props.theme.colors.textInformation};
+        color: ${(props) => props.theme.colors.textInformation};
     }
 `;
 

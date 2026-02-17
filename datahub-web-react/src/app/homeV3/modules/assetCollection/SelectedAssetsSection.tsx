@@ -66,7 +66,6 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
             <StyledIcon
                 icon="X"
                 source="phosphor"
-                color="gray"
                 size="md"
                 onClick={(e) => {
                     e.preventDefault();
@@ -92,14 +91,14 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     } else {
         content = (
             <EmptyContainer>
-                <Text color="gray">No assets selected.</Text>
+                <Text>No assets selected.</Text>
             </EmptyContainer>
         );
     }
 
     return (
         <SelectedAssetsContainer>
-            <Text color="gray" weight="bold">
+            <Text weight="bold">
                 Selected Assets
             </Text>
             <VerticalDragAndDrop items={orderedUrns} onChange={onChangeOrder}>

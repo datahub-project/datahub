@@ -17,7 +17,6 @@ export default function DragHandle({ isDragging, listeners }: Props) {
         <DragIcon
             {...listeners}
             size="lg"
-            color="gray"
             icon="DotsSixVertical"
             source="phosphor"
             $isDragging={isDragging}

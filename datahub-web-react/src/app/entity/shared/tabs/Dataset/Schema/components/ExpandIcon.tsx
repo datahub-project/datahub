@@ -3,13 +3,11 @@ import { RenderExpandIconProps } from 'rc-table/lib/interface';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 const Prefix = styled.div<{ padding: number }>`
     padding-left: ${(props) => props.padding}px;
     position: absolute;
     min-height: 100%;
-    border-right: 2px solid ${ANTD_GRAY[4]};
+    border-right: 2px solid ${(props) => props.theme.colors.bgSurface};
     border-top: 1px solid white;
     border-bottom: 1px solid white;
     margin-bottom: -1px;
@@ -21,14 +19,14 @@ const Padding = styled.span<{ padding: number }>`
 `;
 
 const Down = styled(DownOutlined)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding-right: 5px;
     padding-top: 21px;
     vertical-align: top;
 `;
 
 const Right = styled(RightOutlined)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding-right: 5px;
     padding-top: 21px;
     vertical-align: top;

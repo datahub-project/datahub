@@ -8,7 +8,6 @@ import styled, { useTheme } from 'styled-components/macro';
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import DemoButton from '@app/entity/shared/components/styled/DemoButton';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HALF_SECOND_IN_MS } from '@app/entity/shared/tabs/Dataset/Queries/utils/constants';
 import AcrylDemoBanner from '@app/home/AcrylDemoBanner';
 import { HOME_PAGE_SEARCH_BAR_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
@@ -110,7 +109,7 @@ const SuggestionTag = styled(Tag)`
 const SuggestedQueriesText = styled(Typography.Text)`
     margin-left: 12px;
     margin-bottom: 12px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const SearchBarContainer = styled.div`

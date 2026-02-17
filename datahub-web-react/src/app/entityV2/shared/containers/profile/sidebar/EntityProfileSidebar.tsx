@@ -51,7 +51,7 @@ export const StyledEntitySidebarContainer = styled.div<{
 `;
 
 export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; $isShowNavBarRedesign?: boolean }>`
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     box-shadow: ${(props) => (props.isCard ? '0px 0px 5px rgba(0, 0, 0, 0.08)' : 'none')};
     border-radius: ${(props) => {
         if (!props.isCard) return 'none';
@@ -90,7 +90,7 @@ const Content = styled.div`
 
 const ContentContainer = styled.div<{ isVisible: boolean }>`
     flex: 1;
-    ${(props) => props.isVisible && 'border-right: 1px solid #e8e8e8;'}
+    ${(props) => props.isVisible && `border-right: 1px solid ${props.theme.colors.border};`}
     overflow: auto;
     display: flex;
     flex-direction: column;

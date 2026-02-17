@@ -3,13 +3,10 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { decimalToPercentStr } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
 import SampleValueTag from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/SampleValueTag';
 import { extractChartValuesFromFieldProfiles } from '@app/entityV2/shared/utils';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
-import { colors } from '@src/alchemy-components';
-
 import { DatasetFieldProfile, SchemaField } from '@types';
 
 import NoStatsAvailble from '@images/no-stats-available.svg?react';
@@ -39,12 +36,12 @@ const StatLabel = styled.div`
     padding-top: 12px;
     padding-bottom: 12px;
     :not(:last-child) {
-        border-bottom: 1px solid ${colors.gray[100]};
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
     }
 `;
 
 const LabelText = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 400;
     line-height: 24px;
@@ -53,7 +50,7 @@ const LabelText = styled(Typography.Text)`
 `;
 
 const StatValue = styled.div<{ isDecreasing: boolean }>`
-    color: ${(props) => (props.isDecreasing ? `${REDESIGN_COLORS.RED_ERROR_BORDER}` : `${REDESIGN_COLORS.DARK_GREY}`)};
+    color: ${(props) => (props.isDecreasing ? props.theme.colors.borderError : props.theme.colors.textSecondary)};
     font-size: 12px;
     font-weight: 800;
     line-height: 24px;
@@ -72,7 +69,7 @@ const NoDataContainer = styled.div`
 `;
 
 const Section = styled.div`
-    color: #56668e;
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 700;
     font-size: 12px;
     line-height: 24px;
@@ -81,7 +78,7 @@ const Section = styled.div`
 const StyledIcon = styled(Icon)`
     font-size: 80px;
     margin-bottom: 6px;
-    color: #fff;
+    color: ${(props) => props.theme.colors.bg};
 `;
 interface Props {
     properties: {

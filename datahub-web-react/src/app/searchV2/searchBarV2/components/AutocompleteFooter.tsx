@@ -3,13 +3,13 @@ import React from 'react';
 import styled from 'styled-components';
 
 import KeyIcon from '@app/searchV2/searchBarV2/components/KeyIcon';
-import { Text, colors } from '@src/alchemy-components';
+import { Text } from '@src/alchemy-components';
 
 const Container = styled.div`
     position: sticky;
     bottom: 0;
 
-    border-top: 1px solid ${colors.gray[100]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 0 0 12px 12px;
 
     display: flex;
@@ -18,7 +18,7 @@ const Container = styled.div`
     justify-content: flex-end;
     gap: 16px;
 
-    background-color: ${colors.white};
+    background-color: ${(props) => props.theme.colors.bg};
     height: 36px;
     width: 100%;
 

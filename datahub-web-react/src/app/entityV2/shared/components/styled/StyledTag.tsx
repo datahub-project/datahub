@@ -1,9 +1,7 @@
-import { colors } from '@components';
 import { Tag } from 'antd';
 import ColorHash from 'color-hash';
 import styled, { css } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 export const generateColor = new ColorHash({
     saturation: 0.9,
@@ -24,7 +22,7 @@ export const StyledTag = styled(Tag)<{
     overflow: hidden;
     text-overflow: ellipsis;
     &&& {
-        border-color: ${colors.gray[100]};
+        border-color: ${(props) => props.theme.colors.border};
         ${(props) =>
             props.$highlightTag &&
             `
@@ -48,7 +46,7 @@ export const StyledTag = styled(Tag)<{
                 margin-right: 4px;
             }
         `};
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 400;
     ${(props) =>
         props.$showOneAndCount &&

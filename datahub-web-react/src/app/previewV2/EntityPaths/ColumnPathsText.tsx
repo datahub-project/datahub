@@ -2,7 +2,6 @@ import { Tooltip } from '@components';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import ColumnsRelationshipText from '@app/previewV2/EntityPaths/ColumnsRelationshipText';
 import DisplayedColumns from '@app/previewV2/EntityPaths/DisplayedColumns';
@@ -18,7 +17,7 @@ export const ResultText = styled.span`
 `;
 
 const DescriptionWrapper = styled.span`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     white-space: nowrap;
 `;
 

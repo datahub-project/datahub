@@ -6,7 +6,6 @@ import styled from 'styled-components';
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import {
     INCIDENT_DISPLAY_TYPES,
@@ -19,7 +18,7 @@ import { useRaiseIncidentMutation } from '@graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '@types';
 
 const StyledEditor = styled(Editor)`
-    border: 1px solid ${ANTD_GRAY[4.5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 type AddIncidentProps = {

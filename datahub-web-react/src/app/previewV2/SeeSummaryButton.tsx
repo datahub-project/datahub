@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 const SummaryButton = styled.div<{ maxWidth: number }>`
     align-items: center;
-    border: 1px solid #328980;
+    border: 1px solid ${(props) => props.theme.colors.borderSuccess};
     border-radius: 4px;
     background: #328980;
     color: white;

@@ -1,4 +1,4 @@
-import { Button, colors } from '@components';
+import { Button } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -40,7 +40,7 @@ export default function PageBanner({
     content,
     localStorageKey,
     icon,
-    backgroundColor = colors.red[0],
+    backgroundColor = '#FBF3EF',
     exitColor = 'red',
 }: Props) {
     const [isBannerHidden, setIsBannerHidden] = useState(!!localStorage.getItem(localStorageKey));

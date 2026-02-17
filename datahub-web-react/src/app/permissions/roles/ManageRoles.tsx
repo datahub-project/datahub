@@ -10,7 +10,6 @@ import { EntityCapabilityType } from '@app/entity/Entity';
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import { SearchSelectModal } from '@app/entity/shared/components/styled/search/SearchSelectModal';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { clearUserListCache } from '@app/identity/user/cacheUtils';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '@app/onboarding/config/RolesOnboardingConfig';
@@ -158,7 +157,7 @@ export const ManageRoles = () => {
                     <>
                         <RoleName
                             onClick={() => onViewRole(record.role)}
-                            style={{ color: record?.editable ? '#000000' : ANTD_GRAY[8] }}
+                            style={{ color: record?.editable ? '#000000' : '#595959' }}
                         >
                             {record?.name}
                         </RoleName>

@@ -5,7 +5,6 @@ import styled from 'styled-components/macro';
 
 import { sortGlossaryNodes } from '@app/entity/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entity/glossaryTerm/utils';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossary/GlossaryBrowser/TermItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -43,7 +42,7 @@ const StyledGlossaryNodeIcon = styled(BookmarksSimple)`
 `;
 
 const ChildrenWrapper = styled.div`
-    border-left: solid 1px ${ANTD_GRAY[4]};
+    border-left: solid 1px ${(props) => props.theme.colors.bgSurface};
     margin-left: 4px;
     padding-left: 12px;
 `;

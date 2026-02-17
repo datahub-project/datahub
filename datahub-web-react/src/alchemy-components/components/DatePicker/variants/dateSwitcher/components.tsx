@@ -8,8 +8,9 @@ import { SwitcherDirection } from '@components/components/DatePicker/variants/da
 import { Text } from '@components/components/Text/Text';
 
 const StyledContainer = styled.div<{ $opened?: boolean; $disabled?: boolean }>`
-    border: 1px solid ${(props) => (props.$opened || props.$disabled ? colors.gray[1800] : colors.gray[100])};
-    ${(props) => props.$opened && !props.$disabled && `outline: 1px solid ${colors.violet[300]};`}
+    border: 1px solid
+        ${(props) => (props.$opened || props.$disabled ? props.theme.colors.textTertiary : props.theme.colors.border)};
+    ${(props) => props.$opened && !props.$disabled && `outline: 1px solid ${props.theme.colors.borderBrandFocused};`}
     border-radius: 8px;
     padding: 8px;
     display: flex;
@@ -18,13 +19,14 @@ const StyledContainer = styled.div<{ $opened?: boolean; $disabled?: boolean }>`
     justify-content: space-between;
     align-items: center;
     width: 100%;
+    background: ${(props) => props.theme.colors.bg};
 
     box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
 
     ${(props) =>
         props.$disabled &&
         `
-        background: ${colors.gray[1500]};
+        background: ${props.theme.colors.bgSurface};
         cursor: not-allowed;
     `}
 
@@ -36,7 +38,7 @@ const StyledContainer = styled.div<{ $opened?: boolean; $disabled?: boolean }>`
 `;
 
 const Content = styled(Text)<{ $disabled?: boolean }>`
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     user-select: none;
     cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};
 
@@ -47,7 +49,7 @@ const Content = styled(Text)<{ $disabled?: boolean }>`
 
 const CaretWrapper = styled.div<{ $disabled?: boolean }>`
     & svg {
-        color: ${colors.gray[1800]};
+        color: ${(props) => props.theme.colors.textTertiary};
         display: flex;
         align-items: start;
         cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};

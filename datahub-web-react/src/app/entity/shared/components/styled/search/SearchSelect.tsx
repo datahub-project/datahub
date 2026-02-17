@@ -7,7 +7,6 @@ import styled from 'styled-components';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import { EmbeddedListSearchResults } from '@app/entity/shared/components/styled/search/EmbeddedListSearchResults';
 import { SearchSelectBar } from '@app/entity/shared/components/styled/search/SearchSelectBar';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityAndType } from '@app/entity/shared/types';
 import { isListSubset } from '@app/entity/shared/utils';
 import { SearchBar } from '@app/search/SearchBar';
@@ -30,7 +29,7 @@ const SearchBarContainer = styled.div`
     justify-content: space-between;
     align-items: center;
     padding: 12px;
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
 `;
 
 const SEARCH_BAR_STYLE = {

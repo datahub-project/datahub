@@ -19,7 +19,6 @@ import {
     SocialDetails,
 } from '@app/entity/shared/SidebarStyledComponents';
 import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { useBrowserTitle } from '@app/shared/BrowserTabTitleContext';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
@@ -85,7 +84,7 @@ const GroupTitle = styled(Typography.Title)`
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
-    color: ${REDESIGN_COLORS.BLUE};
+    color: ${(props) => props.theme.colors.textInformation};
 `;
 const AddNewDescription = styled(Button)`
     display: none;

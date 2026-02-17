@@ -8,7 +8,6 @@ import styled from 'styled-components';
 import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { DescriptionEditor } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
 import { DescriptionPreviewModal } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreviewModal';
 import { RelatedSection } from '@app/entityV2/shared/tabs/Documentation/components/RelatedSection';
@@ -23,10 +22,10 @@ const DocumentationContainer = styled.div`
 `;
 
 const StyledTabToolbar = styled(TabToolbar)`
-    background-color: ${REDESIGN_COLORS.LIGHT_GREY};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-top-left-radius: 4px;
     border-bottom-left-radius: 4px;
-    border-left: 2px solid #5c3fd1;
+    border-left: 2px solid ${(props) => props.theme.colors.borderBrand};
     padding: 8px 20px;
     margin: 2px 14px 2px 12px;
 

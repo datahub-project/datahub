@@ -45,7 +45,7 @@ const lightTheme: ColorTheme = {
     radioButtonDotDisabled: colors.gray500,
     avatarBorderBrand: colors.violet100,
     avatarBorderInformation: colors.blue200,
-    border: colors.gray100,
+    border: colors.gray300,
     borderBrand: colors.violet600,
     borderBrandFocused: colors.violet400,
     borderBrandInverse: colors.violet0,

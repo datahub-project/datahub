@@ -1,6 +1,7 @@
-import { Tooltip, colors } from '@components';
+import { Tooltip } from '@components';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { PreviewType } from '@app/entity/Entity';
 import { PreviewContext } from '@app/entityV2/Entity';
@@ -33,6 +34,7 @@ export const HoverEntityTooltip = ({
     entityCount = undefined,
     previewContext,
 }: Props) => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
 
     if (!entity || !entity.type || !entity.urn) {
@@ -58,7 +60,7 @@ export const HoverEntityTooltip = ({
                     borderRadius: 12,
                     overflow: 'hidden',
                     position: 'relative',
-                    color: colors.gray[1700],
+                    color: theme.colors.textSecondary,
                 }}
                 title={entityRegistry.renderPreview(
                     entity.type,

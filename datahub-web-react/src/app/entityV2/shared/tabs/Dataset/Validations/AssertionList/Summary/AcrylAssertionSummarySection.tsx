@@ -1,13 +1,12 @@
 import { Tooltip } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListConstants';
 import { buildAssertionUrlSearch } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
 import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { EntityType } from '@src/types.generated';
 
@@ -40,6 +39,7 @@ type SummarySectionProps = {
 };
 
 export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ group, visibleStatus }) => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
 
@@ -60,7 +60,7 @@ export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ gr
                                     {group.name} {status.text} Assertions{' '}
                                     <Link
                                         to={url}
-                                        style={{ color: REDESIGN_COLORS.BLUE }}
+                                        style={{ color: theme.colors.textInformation }}
                                         onClick={(event) => event.stopPropagation()}
                                     >
                                         view

@@ -22,7 +22,7 @@ import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
 import { useAppConfig } from '@app/useAppConfig';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
-import { Button, colors } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 
 const PageContainer = styled.div`
     display: flex;
@@ -35,7 +35,7 @@ const PageContainer = styled.div`
 
 const NavBarContainer = styled.div`
     padding: 20px 20px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     flex-direction: column;
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
@@ -62,7 +62,7 @@ const NavBarTitle = styled.div`
 
 const NavBarSubTitle = styled.div`
     font-size: 14px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin-bottom: 8px;
 `;
 
@@ -76,7 +76,7 @@ const ContentContainer = styled.div`
     flex: 1;
     display: flex;
     overflow: auto;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     box-shadow: ${(props) => props.theme.styles['box-shadow-navbar-redesign']};
 `;
 

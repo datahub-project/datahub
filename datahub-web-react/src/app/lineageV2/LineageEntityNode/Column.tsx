@@ -8,7 +8,6 @@ import styled from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageDisplayColumn } from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
@@ -53,10 +52,10 @@ const ColumnWrapper = styled.div<{
             }
             return `background-color: ${HOVER_COLOR}20;`;
         }
-        return 'background-color: white;';
+        return `background-color: ${props.theme.colors.bgSurface};`;
     }}
     border-radius: 4px;
-    color: ${({ disabled }) => (disabled ? ANTD_GRAY[11] : ANTD_GRAY[7])};
+    color: ${({ disabled, theme }) => (disabled ? theme.colors.text : theme.colors.textTertiary)};
     display: flex;
     font-size: 10px;
     gap: 4px;
@@ -87,7 +86,7 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
 `;
 
 const TypeWrapper = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     width: 11px;
 `;
 

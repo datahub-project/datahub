@@ -5,7 +5,6 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { ViewBuilder } from '@app/entity/view/builder/ViewBuilder';
 import { ViewBuilderMode } from '@app/entity/view/builder/types';
 import { ViewSelectDropdown } from '@app/entity/view/select/ViewSelectDropdown';
@@ -23,7 +22,7 @@ type ViewBuilderDisplayState = {
 };
 
 const TriangleIcon = styled(VscTriangleDown)<{ isOpen: boolean }>`
-    color: ${(props) => (props.isOpen ? props.theme.styles['primary-color'] : ANTD_GRAY_V2[10])};
+    color: ${(props) => (props.isOpen ? props.theme.styles['primary-color'] : props.theme.colors.text)};
 `;
 
 const DEFAULT_VIEW_BUILDER_DISPLAY_STATE = {
@@ -50,7 +49,7 @@ const ViewSelectContainer = styled.div`
             &:not(.ant-select-open) {
                 .ant-select-selection-placeholder,
                 .ant-select-selection-item {
-                    color: ${ANTD_GRAY_V2[10]};
+                    color: ${(props) => props.theme.colors.text};
                 }
             }
             .ant-select-selection-placeholder,

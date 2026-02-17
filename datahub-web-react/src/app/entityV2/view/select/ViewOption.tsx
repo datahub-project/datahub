@@ -2,7 +2,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewOptionName } from '@app/entityV2/view/select/ViewOptionName';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
@@ -25,7 +24,7 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        border: 1px solid ${props.selected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BORDER_1};
+        border: 1px solid ${props.selected ? props.theme.styles['primary-color'] : props.theme.colors.border};
     `}
 
     &:hover {
@@ -45,14 +44,14 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
     & .default-view-icon-container {
         border: 1px solid
             ${(props) =>
-                props.selected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK};
+                props.selected ? props.theme.styles['primary-color'] : '#171723'};
         border-radius: 100%;
     }
     & .close-container {
         position: absolute;
         top: -10px;
         right: -5px;
-        background-color: ${ANTD_GRAY[1]};
+        background-color: ${(props) => props.theme.colors.bg};
         display: flex;
         align-items: center;
         border-radius: 100%;

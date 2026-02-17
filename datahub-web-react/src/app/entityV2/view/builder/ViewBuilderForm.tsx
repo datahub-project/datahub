@@ -1,9 +1,8 @@
 import { Form, Input, Select, Typography } from 'antd';
 import React, { useEffect } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { ViewTypeLabel } from '@app/entityV2/view/ViewTypeLabel';
 import { ViewDefinitionBuilder } from '@app/entityV2/view/builder/ViewDefinitionBuilder';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
@@ -23,6 +22,7 @@ type Props = {
 };
 
 export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
+    const theme = useTheme();
     const userContext = useUserContext();
     const [form] = Form.useForm();
 
@@ -95,10 +95,10 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                             disabled={!canManageGlobalViews || isEditing || mode === ViewBuilderMode.PREVIEW}
                         >
                             <Select.Option value={DataHubViewType.Personal}>
-                                <ViewTypeLabel type={DataHubViewType.Personal} color={ANTD_GRAY[9]} />
+                                <ViewTypeLabel type={DataHubViewType.Personal} color={theme.colors.text} />
                             </Select.Option>
                             <Select.Option value={DataHubViewType.Global}>
-                                <ViewTypeLabel type={DataHubViewType.Global} color={ANTD_GRAY[9]} />
+                                <ViewTypeLabel type={DataHubViewType.Global} color={theme.colors.text} />
                             </Select.Option>
                         </Select>
                     </Form.Item>

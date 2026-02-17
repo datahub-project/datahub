@@ -12,7 +12,7 @@ const StyledAnalyticsLink = styled(Typography.Text)`
         color: ${(props) => props.theme.styles['layout-header-color']};
     }
     &&:hover {
-        color: #000;
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 

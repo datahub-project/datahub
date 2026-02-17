@@ -1,9 +1,8 @@
-import { colors } from '@components';
 import styled from 'styled-components';
 
 export const ExpandContractButton = styled.div<{ expandOnHover?: boolean }>`
-    background-color: ${colors.white};
-    color: ${colors.violet[500]};
+    background-color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.iconBrand};
     cursor: pointer;
     font-size: 18px;
 
@@ -47,6 +46,6 @@ export const Button = styled.span`
     padding: 4px;
 
     :hover {
-        background-color: ${colors.gray[1600]};
+        background-color: ${(props) => props.theme.colors.bgSurfaceNewNav};
     }
 `;

@@ -2,9 +2,7 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { PinnedLinkLogo } from '@app/homeV2/reference/sections/pinned/PinnedLinkLogo';
-import { colors } from '@src/alchemy-components';
 import { SEARCH_COLORS } from '@src/app/entityV2/shared/constants';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
@@ -17,12 +15,12 @@ const LinkButton = styled.a<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     align-items: center;
     line-height: 16px;
-    background-color: #fff;
+    background-color: ${(props) => props.theme.colors.bg};
 
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        border: 1px solid ${colors.gray[100]};
+        border: 1px solid ${props.theme.colors.border};
         border-radius: 8px;
 
         :hover {
@@ -55,7 +53,7 @@ const TextColumn = styled.div`
 const Title = styled.div``;
 
 const Description = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding-top: 4px;
 `;
 

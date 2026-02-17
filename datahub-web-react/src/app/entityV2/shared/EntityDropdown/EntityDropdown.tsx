@@ -4,7 +4,7 @@ import { message } from 'antd';
 import qs from 'query-string';
 import React, { useState } from 'react';
 import { Redirect, useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
@@ -73,6 +73,7 @@ interface Props {
 
 const EntityDropdown = (props: Props) => {
     const history = useHistory();
+    const themeConfig = useTheme();
 
     const {
         urn,
@@ -201,7 +202,7 @@ const EntityDropdown = (props: Props) => {
                             style={{
                                 width: '16px',
                                 height: '16px',
-                                color: '#8088A3',
+                                color: themeConfig.colors.textTertiary,
                             }}
                         />
                     </div>
@@ -217,7 +218,7 @@ const EntityDropdown = (props: Props) => {
                             style={{
                                 fontFamily: 'Mulish',
                                 fontWeight: 600,
-                                color: '#374066',
+                                color: themeConfig.colors.text,
                                 fontSize: '14px',
                             }}
                         >

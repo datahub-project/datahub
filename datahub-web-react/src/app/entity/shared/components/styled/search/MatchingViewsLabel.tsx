@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entity/view/utils';
 
 import { useListGlobalViewsQuery, useListMyViewsQuery } from '@graphql/view.generated';
@@ -14,7 +13,7 @@ const MatchingViewsLabel = () => {
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
 
     const StyledMatchingViewsLabel = styled.div`
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
     `;
 
     /**

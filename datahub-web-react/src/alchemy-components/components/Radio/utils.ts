@@ -13,15 +13,29 @@ const radioCheckmarkColors = {
     error: colors.red[500],
 };
 
-export function getRadioBorderColor(disabled: boolean, error: string) {
-    if (disabled) return radioBorderColors.disabled;
-    if (error) return radioCheckmarkColors.error;
-    return radioBorderColors.default;
+export function getRadioBorderColor(
+    disabled: boolean,
+    error: string,
+    themeColors?: { radioButtonBorder: string; borderDisabled: string; textError: string },
+) {
+    if (disabled) return themeColors?.borderDisabled ?? radioBorderColors.disabled;
+    if (error) return themeColors?.textError ?? radioCheckmarkColors.error;
+    return themeColors?.radioButtonBorder ?? radioBorderColors.default;
 }
 
-export function getRadioCheckmarkColor(checked: boolean, disabled: boolean, error: string) {
-    if (disabled) return radioCheckmarkColors.disabled;
-    if (error) return radioCheckmarkColors.error;
-    if (checked) return radioCheckmarkColors.checked;
-    return radioCheckmarkColors.default;
+export function getRadioCheckmarkColor(
+    checked: boolean,
+    disabled: boolean,
+    error: string,
+    themeColors?: {
+        radioButtonDotFill: string;
+        radioButtonDotDisabled: string;
+        iconBrand: string;
+        textError: string;
+    },
+) {
+    if (disabled) return themeColors?.radioButtonDotDisabled ?? radioCheckmarkColors.disabled;
+    if (error) return themeColors?.textError ?? radioCheckmarkColors.error;
+    if (checked) return themeColors?.iconBrand ?? radioCheckmarkColors.checked;
+    return themeColors?.radioButtonDotFill ?? radioCheckmarkColors.default;
 }

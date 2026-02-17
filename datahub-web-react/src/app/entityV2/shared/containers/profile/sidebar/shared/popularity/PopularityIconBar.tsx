@@ -1,10 +1,8 @@
 import { Bar } from '@visx/shape';
 import React from 'react';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 const ACTIVE_COLOR = '#3F54D1';
-const INACTIVE_COLOR = ANTD_GRAY[5];
+const INACTIVE_COLOR = '#D9D9D9';
 
 type Props = {
     index: number;

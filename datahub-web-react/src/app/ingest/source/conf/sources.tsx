@@ -1,7 +1,6 @@
 import { FormOutlined } from '@ant-design/icons';
 import React from 'react';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import azureAdConfig from '@app/ingest/source/conf/azure/azure';
 import bigqueryConfig from '@app/ingest/source/conf/bigquery/bigquery';
 import csvConfig from '@app/ingest/source/conf/csv/csv';
@@ -57,6 +56,6 @@ export const SOURCE_TEMPLATE_CONFIGS: Array<SourceConfig> = [
         placeholderRecipe: DEFAULT_PLACEHOLDER_RECIPE,
         displayName: 'Other',
         docsUrl: 'https://docs.datahub.com/docs/metadata-ingestion/',
-        logoComponent: <FormOutlined style={{ color: ANTD_GRAY[8], fontSize: 28 }} />,
+        logoComponent: <FormOutlined style={{ color: '#595959', fontSize: 28 }} />,
     },
 ];

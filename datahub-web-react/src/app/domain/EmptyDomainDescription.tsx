@@ -1,8 +1,6 @@
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components/macro';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import styled, { useTheme } from 'styled-components/macro';
 
 const StyledParagraph = styled(Typography.Paragraph)`
     text-align: justify;
@@ -12,20 +10,21 @@ const StyledParagraph = styled(Typography.Paragraph)`
 `;
 
 function EmptyDomainDescription() {
+    const theme = useTheme();
     return (
         <>
             <StyledParagraph type="secondary">
-                <strong style={{ color: ANTD_GRAY[8] }}>Welcome to your Data Domains!</strong> It looks like this space
+                <strong style={{ color: theme.colors.textSecondary }}>Welcome to your Data Domains!</strong> It looks like this space
                 is ready to be transformed into a well-organized data universe. Start by creating your first domain - a
                 high-level category for your data assets.
             </StyledParagraph>
             <StyledParagraph type="secondary">
-                <strong style={{ color: ANTD_GRAY[8] }}> Create Nested Domains:</strong> Want to dive deeper? You can
+                <strong style={{ color: theme.colors.textSecondary }}> Create Nested Domains:</strong> Want to dive deeper? You can
                 also create nested domains to add granularity and structure. Just like nesting Russian dolls, its all
                 about refining your organization.
             </StyledParagraph>
             <StyledParagraph type="secondary">
-                <strong style={{ color: ANTD_GRAY[8] }}>Build Data Products</strong>: Once your domains are set, go a
+                <strong style={{ color: theme.colors.textSecondary }}>Build Data Products</strong>: Once your domains are set, go a
                 step further! Organize your data assets into data products to realize a data mesh architecture. Data
                 products empower you to treat data as a product, making it more accessible and manageable.
             </StyledParagraph>

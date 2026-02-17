@@ -1,12 +1,10 @@
 import { ThunderboltOutlined } from '@ant-design/icons';
-import { colors } from '@components';
 import CloseIcon from '@mui/icons-material/Close';
 import { Tag, message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { StopPropagation } from '@app/shared/StopPropagation';
@@ -29,7 +27,7 @@ const TermContainer = styled.div<{ $shouldHighlightBorderOnHover?: boolean }>`
 
     .ant-tag.ant-tag {
         border-radius: 5px;
-        border: 1px solid ${colors.gray[100]};
+        border: 1px solid ${(props) => props.theme.colors.border};
     }
 
     ${(props) =>
@@ -53,7 +51,7 @@ const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; sho
             `}
     }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 400;
     padding: 3px 8px;
     margin-right: 0;

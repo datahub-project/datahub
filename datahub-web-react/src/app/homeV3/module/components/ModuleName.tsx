@@ -1,5 +1,5 @@
-import { colors } from '@components';
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { NameContainer } from '@app/homeV3/styledComponents';
 
@@ -8,12 +8,13 @@ interface Props {
 }
 
 export default function ModuleName({ text }: Props) {
+    const theme = useTheme();
     return (
         <NameContainer
             ellipsis={{
                 tooltip: {
                     color: 'white',
-                    overlayInnerStyle: { color: colors.gray[1700] },
+                    overlayInnerStyle: { color: theme.colors.textSecondary },
                     showArrow: false,
                 },
             }}

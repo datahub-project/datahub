@@ -1,4 +1,4 @@
-import { Icon, Text, colors } from '@components';
+import { Icon, Text } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -16,7 +16,7 @@ const ContentWrapper = styled.div<{ $isProposed?: boolean }>`
     align-items: center;
     padding: 2px 6px 2px 4px;
     border-radius: 20px;
-    border: 1px ${({ $isProposed }) => ($isProposed ? 'dashed' : 'solid')} ${colors.gray[1400]};
+    border: 1px ${({ $isProposed }) => ($isProposed ? 'dashed' : 'solid')} ${(props) => props.theme.colors.border};
 
     :hover {
         cursor: pointer;

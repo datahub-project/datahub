@@ -25,7 +25,7 @@ import { PageRoutes } from '@conf/Global';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     ${(props) =>

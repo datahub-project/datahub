@@ -5,7 +5,6 @@ import styled from 'styled-components/macro';
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import NodeItem from '@app/glossaryV2/GlossaryBrowser/NodeItem';
 import TermItem from '@app/glossaryV2/GlossaryBrowser/TermItem';
 import { ROOT_NODES, ROOT_TERMS } from '@app/glossaryV2/utils';
@@ -16,7 +15,7 @@ import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '@gra
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
 
 const BrowserWrapper = styled.div`
-    color: ${ANTD_GRAY[11]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     max-height: calc(100% - 104px);
     padding: 0;
@@ -31,7 +30,7 @@ const LoadingWrapper = styled.div`
     svg {
         height: 15px;
         width: 15px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 

@@ -1,7 +1,6 @@
 import { CheckOutlined, ClockCircleOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import {
     FAILURE_COLOR_HEX,
     SUCCESS_COLOR_HEX,
@@ -30,7 +29,7 @@ export const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
 `;
 
 export const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textDisabled};
     font-size: 16px;
     margin-right: 4px;
     margin-left: 4px;

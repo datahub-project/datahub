@@ -6,7 +6,6 @@ import styled from 'styled-components/macro';
 import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { getOwnershipTypeDescription } from '@app/entityV2/shared/components/styled/ExpandedOwner/OwnerUtils';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getOwnershipTypeName } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
 
 import { Owner, OwnershipTypeEntity } from '@types';
@@ -22,7 +21,7 @@ const OwnershipTypeNameText = styled(Typography.Text)`
     font-family: 'Mulish', sans-serif;
     font-weight: 500;
     font-size: 10px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const OwnersContainer = styled.div`

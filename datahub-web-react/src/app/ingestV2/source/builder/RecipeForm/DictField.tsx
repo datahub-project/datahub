@@ -4,7 +4,6 @@ import { Button, Form, Input, Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { StyledFormItem } from '@app/ingestV2/source/builder/RecipeForm/SecretField/SecretField';
 import { RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
@@ -14,7 +13,7 @@ export const Label = styled.div`
 `;
 
 export const StyledButton = styled(Button)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin: 10px 0 0 30px;
     width: calc(100% - 72px);
 `;
@@ -33,7 +32,7 @@ const SectionWrapper = styled.div`
     display: flex;
     padding: 8px 0 0 30px;
     &:hover {
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 

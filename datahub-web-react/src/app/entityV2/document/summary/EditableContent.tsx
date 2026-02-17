@@ -11,8 +11,6 @@ import { useRefetch } from '@app/entity/shared/EntityContext';
 import { RelatedSection } from '@app/entityV2/document/summary/RelatedSection';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-
 import { DocumentRelatedAsset, DocumentRelatedDocument, UploadDownloadScenario } from '@types';
 
 const ContentWrapper = styled.div`
@@ -37,7 +35,7 @@ const StyledEditor = styled(Editor)<{ $hideToolbar?: boolean }>`
         .remirror-editor.ProseMirror {
             font-size: 15px;
             line-height: 1.7;
-            color: ${colors.gray[1700]};
+            color: ${(props) => props.theme.colors.textSecondary};
         }
         p:last-of-type {
             margin-bottom: 0;

@@ -64,6 +64,14 @@ const headings = {} as any;
     const component = styled[heading.toLowerCase()];
     headings[heading] = component({ ...baseStyles, ...headingStyles[heading] }, (props: HeadingStyleProps) => ({
         ...propStyles(props),
+        '& a': {
+            color: props.theme?.colors?.hyperlinks ?? colors.violet[400],
+            textDecoration: 'none',
+            transition: 'color 0.15s ease',
+            '&:hover': {
+                color: props.theme?.colors?.textBrand ?? colors.violet[500],
+            },
+        },
     }));
 });
 

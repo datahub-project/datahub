@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { colors } from '@src/alchemy-components/theme';
 
 const ShowMoreContainer = styled.div`
     display: flex;
@@ -17,11 +16,11 @@ const ShowMoreContainer = styled.div`
     transition: background-color 0.15s ease;
     font-size: 13px;
     font-weight: 500;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 
     &:hover {
-        background-color: ${colors.gray[100]};
-        color: ${colors.violet[500]};
+        background-color: ${(props) => props.theme.colors.border};
+        color: ${(props) => props.theme.colors.iconBrand};
     }
 `;
 

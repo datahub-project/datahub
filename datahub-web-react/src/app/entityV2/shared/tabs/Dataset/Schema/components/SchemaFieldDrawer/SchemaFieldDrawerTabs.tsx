@@ -1,4 +1,4 @@
-import { Tooltip, colors } from '@components';
+import { Tooltip } from '@components';
 import { Tabs } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -13,7 +13,7 @@ const UnborderedTabs = styled(Tabs).attrs({ className: 'schema-field-drawer-tabs
     box-sizing: border-box;
     user-select: none;
     overflow: visible;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
 
     .ant-tabs-nav {
         margin: 0;
@@ -80,12 +80,7 @@ const UnborderedTabs = styled(Tabs).attrs({ className: 'schema-field-drawer-tabs
         }
 
         &:hover {
-            background: linear-gradient(
-                180deg,
-                rgba(243, 244, 246, 0.5) -3.99%,
-                rgba(235, 236, 240, 0.5) 53.04%,
-                rgba(235, 236, 240, 0.5) 100%
-            );
+            background: ${(props) => props.theme.colors.border};
             box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
         }
 
@@ -136,7 +131,7 @@ const TabIconContainer = styled.div<{ $isSelected?: boolean }>`
     align-items: center;
     justify-content: center;
     transition: none;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     width: 48px;
     height: 48px;
     padding: 0;
@@ -156,7 +151,7 @@ const TabText = styled.span<{ $isSelected?: boolean }>`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
 
     ${(props) =>
         props.$isSelected &&
@@ -180,7 +175,7 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
 
     /* For Phosphor icons */
     svg {
-        ${(props) => (props.$isSelected ? 'fill: url(#menu-item-selected-gradient) #533fd1;' : 'color: #8088a3;')}
+        ${(props) => (props.$isSelected ? 'fill: url(#menu-item-selected-gradient) #533fd1;' : `color: ${props.theme.colors.textTertiary};`)}
         width: 20px;
         height: 20px;
         min-width: 20px;
@@ -197,7 +192,7 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
         display: flex;
         align-items: center;
         justify-content: center;
-        ${(props) => (props.$isSelected ? 'color: url(#menu-item-selected-gradient) #533fd1;' : 'color: #8088a3;')}
+        ${(props) => (props.$isSelected ? 'color: url(#menu-item-selected-gradient) #533fd1;' : `color: ${props.theme.colors.textTertiary};`)}
         width: 20px;
         height: 20px;
 

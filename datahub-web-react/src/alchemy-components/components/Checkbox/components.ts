@@ -20,15 +20,16 @@ export const CheckboxContainer = styled.div<{ justifyContent?: 'center' | 'flex-
     }),
 );
 
-export const Label = styled.div<{ clickable?: boolean }>(({ clickable }) => ({
+export const Label = styled.div<{ clickable?: boolean }>(({ clickable, theme }) => ({
     ...formLabelTextStyles,
+    color: theme.colors.text,
     ...(clickable ? { cursor: 'pointer' } : {}),
 }));
 
-export const Required = styled.span({
-    color: colors.red[500],
+export const Required = styled.span(({ theme }) => ({
+    color: theme.colors.textError,
     marginLeft: spacing.xxsm,
-});
+}));
 
 export const CheckboxBase = styled.div({
     position: 'relative',
@@ -40,13 +41,13 @@ export const StyledCheckbox = styled.input<{
     checked: boolean;
     error: string;
     disabled: boolean;
-}>(({ error, checked, disabled }) => ({
+}>(({ error, checked, disabled, theme }) => ({
     position: 'absolute',
     opacity: 0,
     height: 0,
     width: 0,
     '&:checked + div': {
-        backgroundColor: getCheckboxColor(checked, error, disabled, 'background'),
+        backgroundColor: getCheckboxColor(checked, error, disabled, 'background', theme.colors),
     },
     '&:checked + div:after': {
         display: 'block',
@@ -65,7 +66,7 @@ export const Checkmark = styled.div<{
     position: 'absolute',
     zIndex: zIndices.docked,
     borderRadius: '4px',
-    border: `${borders['1px']} ${getCheckboxColor(checked, error, disabled, undefined)}`,
+    border: `${borders['1px']} ${getCheckboxColor(checked, error, disabled, undefined, theme.colors)}`,
     transition: 'all 0.2s ease-in-out',
     cursor: disabled ? 'normal' : 'pointer',
     ':hover': {
@@ -81,20 +82,20 @@ export const Checkmark = styled.div<{
         left: !intermediate ? '30%' : '45%',
         width: !intermediate ? '35%' : '0px',
         height: !intermediate ? '60%' : '50%',
-        border: disabled ? `solid ${colors.gray[300]}` : 'solid white',
+        border: disabled ? `solid ${theme.colors.textDisabled}` : `solid ${theme.colors.textBrandOnBgFill}`,
         borderWidth: '0 2px 2px 0',
         transform: !intermediate ? 'rotate(45deg)' : transform.rotate[90],
     },
     ...(disabled && {
-        backgroundColor: colors.gray[1500],
+        backgroundColor: theme.colors.bgDisabled,
     }),
 }));
 
 export const HoverState = styled.div<{ isHovering: boolean; error: string; checked: boolean; disabled: boolean }>(
-    ({ isHovering, error, checked }) => ({
+    ({ isHovering, error, checked, theme }) => ({
         width: '40px',
         height: '40px',
-        backgroundColor: !isHovering ? 'transparent' : getCheckboxHoverBackgroundColor(checked, error),
+        backgroundColor: !isHovering ? 'transparent' : getCheckboxHoverBackgroundColor(checked, error, theme.colors),
         position: 'absolute',
         borderRadius: radius.full,
         top: '-5px',

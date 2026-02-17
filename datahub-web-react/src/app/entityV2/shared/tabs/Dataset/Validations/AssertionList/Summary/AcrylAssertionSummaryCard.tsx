@@ -21,7 +21,6 @@ import { getAssertionGroupName } from '@app/entityV2/shared/tabs/Dataset/Validat
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { Button } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { AssertionType, EntityType } from '@src/types.generated';
 
@@ -32,7 +31,7 @@ const StyledCard = styled.div`
     width: auto;
     height: 228px;
     box-shadow: 0px 4px 8px 0px #cecece1a;
-    border: 1px solid #e5e7ed;
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
     cursor: pointer;
     overflow: hidden;
@@ -44,7 +43,7 @@ const StyledCard = styled.div`
 
 const StyledCardChartSection = styled.div`
     padding: 24px;
-    border-top: 1px solid ${ANTD_GRAY[3]};
+    border-top: 1px solid ${(props) => props.theme.colors.bgSurface};
     display: flex;
     flex-direction: column;
     gap: 24px;
@@ -60,12 +59,12 @@ const AssertionIconWrapper = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: ${ANTD_GRAY[3]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     height: 36px;
     width: 36px;
     border-radius: 36px;
     svg {
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 
@@ -81,7 +80,7 @@ const AssertionDetailsContainer = styled.div`
 `;
 
 const AssertionTextContainer = styled.div`
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 14px;
     font-weight: 600;
 `;

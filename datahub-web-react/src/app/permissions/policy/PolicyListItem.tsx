@@ -2,8 +2,6 @@ import { Button, List, Space, Tag, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 import { Policy, PolicyState } from '@types';
 
 type Props = {
@@ -11,7 +9,7 @@ type Props = {
     onView: () => void;
 };
 
-const inactiveTextColor = ANTD_GRAY[7];
+const inactiveTextColor = '#8C8C8C';
 
 const PolicyItemContainer = styled.div`
     display: flex;

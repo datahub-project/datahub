@@ -1,4 +1,4 @@
-import { Tooltip, colors } from '@components';
+import { Tooltip } from '@components';
 import { Divider, Typography, message } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import moment from 'moment';
@@ -7,7 +7,6 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
@@ -25,7 +24,7 @@ const DeprecatedContainer = styled.div`
     justify-content: center;
     gap: 4px;
     align-items: center;
-    color: ${colors.red[500]};
+    color: ${(props) => props.theme.colors.textError};
 `;
 
 const DeprecatedTitle = styled(Typography.Text)`
@@ -33,14 +32,14 @@ const DeprecatedTitle = styled(Typography.Text)`
     font-size: 16px;
     margin-bottom: 5px;
     font-weight: bold;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const DeprecatedSubTitle = styled(Typography.Text)`
     display: block;
     margin-bottom: 5px;
     font-size: 12px;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     max-width: 100%;
 `;
 
@@ -49,7 +48,7 @@ const LastEvaluatedAtLabel = styled.div`
     margin: 0;
     display: flex;
     align-items: center;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 14px;
 `;
 
@@ -69,7 +68,7 @@ const ThinDivider = styled(Divider)`
 const IconGroup = styled.div`
     padding-top: 10px;
     font-size: 12px;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
 
     &:hover {
         color: ${(props) => props.theme.styles['primary-color']};

@@ -2,12 +2,11 @@ import { FileText } from '@phosphor-icons/react';
 import { List } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { getActorDisplayName, isActor } from '@app/entityV2/shared/utils/actorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { Document } from '@types';
 
@@ -17,7 +16,7 @@ const DocumentListItem = styled(List.Item)`
     transition: background-color 0.2s ease;
 
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.border};
     }
 `;
 
@@ -56,7 +55,7 @@ const TitleLink = styled.a`
 
 const Description = styled.div`
     font-size: 12px;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     line-height: 20px;
 `;
 
@@ -66,6 +65,7 @@ interface RelatedDocumentItemProps {
 }
 
 export const RelatedDocumentItem: React.FC<RelatedDocumentItemProps> = ({ document, onClick }) => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const lastModified = document.info?.lastModified;
     const actor = lastModified?.actor;
@@ -82,7 +82,7 @@ export const RelatedDocumentItem: React.FC<RelatedDocumentItemProps> = ({ docume
         >
             <MetaContainer>
                 <IconContainer>
-                    <FileText size={16} weight="duotone" color={colors.primary[500]} />
+                    <FileText size={16} weight="duotone" color={theme.colors.iconBrand} />
                 </IconContainer>
                 <ContentContainer>
                     <TitleLink href="#" onClick={handleClick}>

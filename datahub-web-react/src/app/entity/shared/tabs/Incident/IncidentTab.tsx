@@ -5,7 +5,6 @@ import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
 import { AddIncidentModal } from '@app/entity/shared/tabs/Incident/components/AddIncidentModal';
 import IncidentListItem from '@app/entity/shared/tabs/Incident/components/IncidentListItem';
@@ -21,7 +20,7 @@ import { useGetEntityIncidentsQuery } from '@graphql/incident.generated';
 import { EntityType, Incident, IncidentState } from '@types';
 
 const Header = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[3]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
 `;
 

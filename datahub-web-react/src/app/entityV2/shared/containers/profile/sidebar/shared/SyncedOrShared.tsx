@@ -2,9 +2,8 @@ import { Tooltip } from '@components';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SyncedOrSharedTooltip from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrSharedTooltip';
 import {
     ContentText,
@@ -23,12 +22,12 @@ const DetailsContainer = styled.div`
     flex-direction: column;
     justify-content: center;
     padding: 5px 8px;
-    background-color: ${REDESIGN_COLORS.SECTION_BACKGROUND};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
 `;
 
 const SyncIcon = styled.div`
-    color: ${REDESIGN_COLORS.DARK_DIVIDER};
+    color: ${(props) => props.theme.colors.border};
     height: 24px;
     width: 24px;
 `;
@@ -41,7 +40,7 @@ const DetailRow = styled.div`
 `;
 
 const SyncedSharedText = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 700;
 `;
 
@@ -60,13 +59,14 @@ interface Props {
 }
 
 const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props) => {
+    const theme = useTheme();
     return (
         <DetailsContainer>
             <DetailRow>
                 <StyledTooltip
                     showArrow={false}
                     title={<SyncedOrSharedTooltip type={type} />}
-                    color={REDESIGN_COLORS.TOOLTIP_BACKGROUND}
+                    color="#272D48"
                     overlayInnerStyle={{ width: 300, padding: 10 }}
                     placement="bottomLeft"
                 >
@@ -77,7 +77,7 @@ const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props
 
                 <SyncedSharedText>{labelText} </SyncedSharedText>
                 <Tooltip showArrow={false} title={toLocalDateString(time)}>
-                    <RelativeTime relativeTimeColor={getRelativeTimeColor(time)}>
+                    <RelativeTime relativeTimeColor={getRelativeTimeColor(time, theme)}>
                         {toRelativeTimeString(time)}
                     </RelativeTime>
                 </Tooltip>
@@ -85,7 +85,7 @@ const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props
                     <>
                         <LabelText>from</LabelText>
                         <PlatformIcon platform={platform} size={16} />
-                        <ContentText color={REDESIGN_COLORS.BODY_TEXT}>{platformName}</ContentText>
+                        <ContentText color={theme.colors.textSecondary}>{platformName}</ContentText>
                     </>
                 )}
             </DetailRow>

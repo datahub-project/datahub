@@ -2,7 +2,6 @@ import { Badge } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { TypeData } from '@app/entity/shared/tabs/Properties/types';
 import { truncate } from '@app/entity/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -24,9 +23,9 @@ export const PropertyTypeBadge = styled(Badge)<{ displayTransparent?: boolean }>
             background-color: transparent;
             `
                 : `
-        background-color: ${ANTD_GRAY[1]};
-        color: ${ANTD_GRAY_V2[8]};
-        border: 1px solid ${ANTD_GRAY_V2[6]};
+        background-color: ${(props) => props.theme.colors.bg};
+        color: ${(props) => props.theme.colors.textSecondary};
+        border: 1px solid ${(props) => props.theme.colors.textDisabled};
         `}
         font-size: 12px;
         font-weight: 500;

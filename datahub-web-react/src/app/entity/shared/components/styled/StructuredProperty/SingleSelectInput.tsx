@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import DropdownLabel from '@app/entity/shared/components/styled/StructuredProperty/DropdownLabel';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import ValueDescription from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 
@@ -12,7 +11,7 @@ import { AllowedValue } from '@types';
 const StyledRadio = styled(Radio)`
     display: block;
     .ant-radio-inner {
-        border-color: ${ANTD_GRAY_V2[8]};
+        border-color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 

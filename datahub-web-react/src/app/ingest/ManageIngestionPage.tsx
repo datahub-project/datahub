@@ -18,7 +18,7 @@ import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 16px;
     padding-right: 16px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     height: 100%;
     display: flex;
     flex-direction: column;

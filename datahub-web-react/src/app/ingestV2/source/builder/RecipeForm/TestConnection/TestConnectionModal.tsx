@@ -4,7 +4,6 @@ import { Button, Divider, Modal, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import ConnectionCapabilityView from '@app/ingestV2/source/builder/RecipeForm/TestConnection/ConnectionCapabilityView';
 import {
     CapabilityReport,
@@ -26,7 +25,7 @@ const LoadingSubheader = styled.div`
     display: flex;
     justify-content: center;
     font-size: 12px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const LoadingHeader = styled(Typography.Title)`
@@ -48,7 +47,7 @@ const ResultsHeader = styled.div<{ success: boolean }>`
 `;
 
 const ResultsSubHeader = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const ResultsWrapper = styled.div`

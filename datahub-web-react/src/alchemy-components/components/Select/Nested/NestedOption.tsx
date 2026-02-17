@@ -1,4 +1,4 @@
-import { Icon, colors } from '@components';
+import { Icon } from '@components';
 import { Checkbox } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -21,7 +21,7 @@ const ChildOptions = styled.div`
 
 const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: boolean }>`
     .ant-checkbox-inner {
-        border: 1px solid ${colors.gray[300]} !important;
+        border: 1px solid ${({ theme }) => theme.colors.textDisabled} !important;
         border-radius: 3px;
     }
     margin-left: auto;
@@ -47,7 +47,7 @@ const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: bool
         props.disabled &&
         `
 		.ant-checkbox-inner {
-			background-color: ${colors.gray[200]} !important;
+			background-color: ${props.theme.colors.border} !important;
 		}
 	`}
 `;

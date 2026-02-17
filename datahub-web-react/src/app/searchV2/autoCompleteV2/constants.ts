@@ -2,17 +2,9 @@ import { VariantElementsPropsMapping, VariantProps } from '@app/searchV2/autoCom
 
 export const DEFAULT_STYLES: VariantProps = {
     showEntityPopover: true,
-    nameColor: 'gray',
-    nameColorLevel: 600,
     nameWeight: 'semiBold',
     nameCanBeHovered: true,
     nameFontSize: 'md',
-    subtitleColor: 'gray',
-    subtitleColorLevel: 1800,
-    matchColor: 'gray',
-    matchColorLevel: 1700,
-    typeColor: 'gray',
-    typeColorLevel: 1800,
 };
 
 export const VARIANT_STYLES: VariantElementsPropsMapping = new Map([
@@ -21,15 +13,9 @@ export const VARIANT_STYLES: VariantElementsPropsMapping = new Map([
         'searchBar',
         {
             ...DEFAULT_STYLES,
-            ...{
-                showEntityPopover: false,
-                nameCanBeHovered: false,
-                nameColorLevel: 600,
-                nameWeight: 'normal',
-                subtitleColorLevel: 600,
-                matchColorLevel: 1700,
-                typeColorLevel: 600,
-            },
+            showEntityPopover: false,
+            nameCanBeHovered: false,
+            nameWeight: 'normal',
         },
     ],
     [

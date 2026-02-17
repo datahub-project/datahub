@@ -7,7 +7,6 @@ import styled from 'styled-components';
 import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import { DomainNavigatorVariant } from '@app/domainV2/nestedDomains/types';
 import useScrollDomains from '@app/domainV2/useScrollDomains';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import Loading from '@app/shared/Loading';
 import { BodyContainer, BodyGridExpander } from '@app/shared/components';
@@ -37,7 +36,7 @@ const DisplayName = styled.span<{ $isSelected: boolean }>`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BODY_TEXT_GREY)};
+    color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textSecondary)};
 `;
 
 const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boolean }>`
@@ -47,7 +46,7 @@ const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boole
     svg {
         font-size: 16px !important;
         color: ${(props) =>
-            props.$isSelected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BODY_TEXT_GREY} !important;
+            props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textSecondary} !important;
     }
 
     .ant-btn {
@@ -60,13 +59,13 @@ const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean; $variant
     align-items: center;
     display: flex;
     width: 100%;
-    border-bottom: ${({ $variant }) =>
-        $variant === 'select' ? 'none' : `1px solid ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1}`};
+    border-bottom: ${(props) =>
+        props.$variant === 'select' ? 'none' : `1px solid ${props.theme.colors.border}`};
     padding: ${({ $variant }) => ($variant === 'select' ? '6px' : '12px')};
-    ${(props) => props.isOpen && `background-color: ${REDESIGN_COLORS.SECTION_BACKGROUND};`}
-    ${(props) => props.$isSelected && `background-color: ${REDESIGN_COLORS.LIGHT_TEXT_DARK_BACKGROUND};`}
+    ${(props) => props.isOpen && `background-color: ${props.theme.colors.bgSurface};`}
+    ${(props) => props.$isSelected && `background-color: ${props.theme.colors.bgSurfaceBrand};`}
     &:hover {
-        background-color: ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
+        background-color: ${(props) => props.theme.colors.border};
         ${ButtonWrapper} {
             svg {
                 color: ${(props) => props.theme.styles['primary-color']} !important;
@@ -80,7 +79,7 @@ const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean; $variant
 
 const StyledExpander = styled(BodyGridExpander)<{ paddingLeft: number }>`
     padding-left: 0px;
-    background: ${REDESIGN_COLORS.SECTION_BACKGROUND};
+    background: ${(props) => props.theme.colors.bgSurface};
     display: flex;
     width: 100%;
     overflow: auto;

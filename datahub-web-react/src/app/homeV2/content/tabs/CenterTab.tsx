@@ -2,7 +2,6 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { CountBadge } from '@app/homeV2/content/tabs/CountBadge';
 
 const Tab = styled.div<{ selected: boolean; disabled: boolean }>`
@@ -13,8 +12,8 @@ const Tab = styled.div<{ selected: boolean; disabled: boolean }>`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    ${(props) => !props.selected && `color: ${ANTD_GRAY[9]};`}
-    ${(props) => props.disabled && `color: ${ANTD_GRAY[6]};`}
+    ${(props) => !props.selected && `color: ${props.theme.colors.text};`}
+    ${(props) => props.disabled && `color: ${props.theme.colors.textDisabled};`}
     ${(props) => props.selected && `background-color: ${props.theme.styles['primary-color']};`}
     ${(props) => props.selected && 'color: #ffffff;'}
     ${(props) =>

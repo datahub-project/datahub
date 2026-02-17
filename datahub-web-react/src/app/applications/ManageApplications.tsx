@@ -34,7 +34,7 @@ const LoadingBar = styled.div`
     left: 0;
     width: 100%;
     height: 4px;
-    background-color: #1890ff;
+    background-color: ${(props) => props.theme.colors.buttonFillBrand};
     z-index: 1000;
     animation: loading 2s infinite ease-in-out;
 

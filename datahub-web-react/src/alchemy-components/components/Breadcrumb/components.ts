@@ -18,7 +18,7 @@ export const BreadcrumbItemContainer = styled.span`
 `;
 
 export const BreadcrumbLink = styled(Link)<{ $isCurrent?: boolean }>`
-    color: ${(props) => (props.$isCurrent ? colors.gray[600] : colors.gray[1800])};
+    color: ${(props) => (props.$isCurrent ? props.theme.colors.text : props.theme.colors.textTertiary)};
     font-size: 12px;
     text-decoration: none;
     cursor: pointer;
@@ -26,15 +26,15 @@ export const BreadcrumbLink = styled(Link)<{ $isCurrent?: boolean }>`
 
 export const BreadcrumbButton = styled(Text)<{ $isCurrent?: boolean }>`
     cursor: pointer;
-    color: ${(props) => (props.$isCurrent ? colors.gray[600] : colors.gray[1800])};
+    color: ${(props) => (props.$isCurrent ? props.theme.colors.text : props.theme.colors.textTertiary)};
 
     :hover {
-        color: ${colors.primary[500]};
+        color: ${(props) => props.theme.styles['primary-color']};
     }
 `;
 
 export const VerticalDivider = styled(Divider)`
-    color: ${colors.gray[100]};
+    color: ${(props) => props.theme.colors.border};
     height: 16px;
     width: 2px;
     margin: 0 4px;

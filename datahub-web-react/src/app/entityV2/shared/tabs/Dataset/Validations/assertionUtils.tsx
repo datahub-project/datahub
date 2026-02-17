@@ -5,9 +5,6 @@ import React from 'react';
 
 import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
 
-// TODO
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 import {
     AssertionResult,
     AssertionResultErrorType,
@@ -61,7 +58,7 @@ export const getResultText = (result: AssertionResultType) => {
  * Returns the display color associated with an AssertionResultType
  */
 const INIT_COLOR_HEX = '#2F54EB';
-const NO_RESULTS_COLOR_HEX = ANTD_GRAY[8];
+const NO_RESULTS_COLOR_HEX = '#595959';
 
 export const getResultColor = (result?: AssertionResultType) => {
     if (!result) {

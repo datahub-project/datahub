@@ -1,8 +1,6 @@
 import MDEditor from '@uiw/react-md-editor';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 export default styled(MDEditor)`
     height: calc(100% - 46px) !important;
     z-index: 0;
@@ -10,8 +8,8 @@ export default styled(MDEditor)`
     border-radius: 0;
     font-weight: 400;
     .w-md-editor-toolbar {
-        border-color: ${ANTD_GRAY[4]};
-        background: white;
+        border-color: ${(props) => props.theme.colors.bgSurface};
+        background: ${(props) => props.theme.colors.bgSurface};
         padding: 0 20px;
         height: 46px !important;
         li {
@@ -25,12 +23,12 @@ export default styled(MDEditor)`
             }
             &.active > button {
                 color: ${(props) => props.theme.styles['primary-color']};
-                background-color: ${ANTD_GRAY[3]};
+                background-color: ${(props) => props.theme.colors.bgSurface};
             }
         }
     }
     .w-md-editor-preview {
-        box-shadow: inset 1px 0 0 0 ${ANTD_GRAY[4]};
+        box-shadow: inset 1px 0 0 0 ${(props) => props.theme.colors.bgSurface};
     }
     .w-md-editor-content {
         height: calc(100% - 46px) !important;

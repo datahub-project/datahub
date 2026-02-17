@@ -12,7 +12,7 @@ import {
 import { useActive, useCommands, useRemirrorContext } from '@remirror/react';
 import { Divider } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop';
 import { AddImageButton } from '@components/components/Editor/toolbar/AddImageButton';
@@ -24,7 +24,6 @@ import { FontSizeSelect } from '@components/components/Editor/toolbar/FontSizeSe
 import { HeadingMenu } from '@components/components/Editor/toolbar/HeadingMenu';
 
 import { useAppConfig } from '@app/useAppConfig';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const Container = styled.div<{ $fixedBottom?: boolean }>`
     position: ${(props) => (props.$fixedBottom ? 'fixed' : 'sticky')};
@@ -34,10 +33,10 @@ const Container = styled.div<{ $fixedBottom?: boolean }>`
             ? 'left: 50%; transform: translateX(-50%); max-width: 800px; width: fit-content;'
             : 'width: 100%;'}
     z-index: ${(props) => (props.$fixedBottom ? '1000' : '99')};
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     ${(props) =>
         props.$fixedBottom
-            ? 'border-radius: 12px; border: 1px solid #e8e8e8;'
+            ? `border-radius: 12px; border: 1px solid ${props.theme.colors.border};`
             : 'border-top-left-radius: 12px; border-top-right-radius: 12px;'}
     padding: 8px !important;
     & button {
@@ -75,6 +74,8 @@ export const Toolbar = ({ styles, fixedBottom }: Props) => {
     const { documentationFileUploadV1 } = config.featureFlags;
     const remirrorContext = useRemirrorContext();
     const fileExtension = remirrorContext.getExtension(FileDragDropExtension);
+    const themeConfig = useTheme() as any;
+    const iconColor = themeConfig?.colors?.textTertiary ?? '#8088A3';
 
     const shouldShowImageButtonV2 = documentationFileUploadV1 && fileExtension.options.uploadFileProps?.onFileUpload;
 
@@ -85,54 +86,54 @@ export const Toolbar = ({ styles, fixedBottom }: Props) => {
                 <HeadingMenu />
                 <CustomDivider type="vertical" />
                 <CommandButton
-                    icon={<TextB size={20} color={colors.gray[1800]} />}
+                    icon={<TextB size={20} color={iconColor} />}
                     style={{ marginRight: 2 }}
                     commandName="toggleBold"
                     active={active.bold()}
                     onClick={() => commands.toggleBold()}
                 />
                 <CommandButton
-                    icon={<TextItalic size={20} color={colors.gray[1800]} />}
+                    icon={<TextItalic size={20} color={iconColor} />}
                     style={{ marginRight: 2 }}
                     commandName="toggleItalic"
                     active={active.italic()}
                     onClick={() => commands.toggleItalic()}
                 />
                 <CommandButton
-                    icon={<TextUnderline size={20} color={colors.gray[1800]} />}
+                    icon={<TextUnderline size={20} color={iconColor} />}
                     style={{ marginRight: 2 }}
                     commandName="toggleUnderline"
                     active={active.underline()}
                     onClick={() => commands.toggleUnderline()}
                 />
                 <CommandButton
-                    icon={<TextStrikethrough size={20} color={colors.gray[1800]} />}
+                    icon={<TextStrikethrough size={20} color={iconColor} />}
                     commandName="toggleStrike"
                     active={active.strike()}
                     onClick={() => commands.toggleStrike()}
                 />
                 <CustomDivider type="vertical" />
                 <CommandButton
-                    icon={<ListBullets size={20} color={colors.gray[1800]} />}
+                    icon={<ListBullets size={20} color={iconColor} />}
                     commandName="toggleBulletList"
                     active={active.bulletList()}
                     onClick={() => commands.toggleBulletList()}
                 />
                 <CommandButton
-                    icon={<ListNumbers size={20} color={colors.gray[1800]} />}
+                    icon={<ListNumbers size={20} color={iconColor} />}
                     commandName="toggleOrderedList"
                     active={active.orderedList()}
                     onClick={() => commands.toggleOrderedList()}
                 />
                 <CustomDivider type="vertical" />
                 <CommandButton
-                    icon={<Code size={20} color={colors.gray[1800]} />}
+                    icon={<Code size={20} color={iconColor} />}
                     commandName="toggleCode"
                     active={active.code()}
                     onClick={() => commands.toggleCode()}
                 />
                 <CommandButton
-                    icon={<CodeBlock size={20} color={colors.gray[1800]} />}
+                    icon={<CodeBlock size={20} color={iconColor} />}
                     commandName="toggleCodeBlock"
                     active={active.codeBlock()}
                     onClick={() => commands.toggleCodeBlock()}
@@ -141,10 +142,10 @@ export const Toolbar = ({ styles, fixedBottom }: Props) => {
                 {shouldShowImageButtonV2 ? <AddImageButtonV2 /> : <AddImageButton />}
                 <AddLinkButton />
                 <CommandButton
-                    icon={<Table size={20} color={colors.gray[1800]} />}
+                    icon={<Table size={20} color={iconColor} />}
                     commandName="createTable"
                     onClick={() => commands.createTable()}
-                    disabled={active.table()} /* Disables nested tables */
+                    disabled={active.table()}
                 />
                 <FileUploadButton />
             </InnerContainer>

@@ -37,7 +37,7 @@ export const StyledReadOutlined = styled(ReadOutlined)<{ color?: string; addLine
     margin-right: 8px;
     height: 18px;
     width: 18px;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     ${(props) => props.addLineHeight && `line-height: 24px;`}
     ${(props) => props.color && `color: ${props.color};`}
 `;
@@ -46,21 +46,21 @@ export const StyledReadFilled = styled(ReadFilled)<{ color: string; addLineHeigh
     margin-right: 8px;
     height: 18px;
     width: 18px;
-    color: #7532a4;
+    color: ${(props) => props.theme.colors.textBrand};
     ${(props) => props.addLineHeight && `line-height: 24px;`}
     ${(props) => props.color && `color: ${props.color};`}
 `;
 
 export const CTAWrapper = styled.div<{ backgroundColor?: string; borderColor?: string; padding?: string }>`
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     min-width: 180px;
     ${(props) =>
         `
         border-radius: 8px;
         padding: ${props.padding || '16px'};
-        background-color: ${props.backgroundColor ? props.backgroundColor : '#f9f0ff'};
-        border: 1px solid ${props.borderColor ? props.borderColor : '#8338b8'};
+        background-color: ${props.backgroundColor ? props.backgroundColor : props.theme.colors.bgSurfaceBrand};
+        border: 1px solid ${props.borderColor ? props.borderColor : props.theme.colors.textBrand};
         `}
 `;
 

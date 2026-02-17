@@ -1,10 +1,10 @@
 import styled from 'styled-components';
 
-import { ANTD_GRAY, LINEAGE_COLORS } from '@app/entityV2/shared/constants';
+import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 
 export const ExpandContractButton = styled.div<{ expandOnHover?: boolean }>`
-    background-color: white;
-    border: 1px solid ${ANTD_GRAY[5]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 10px;
     color: ${LINEAGE_COLORS.BLUE_1};
     cursor: pointer;

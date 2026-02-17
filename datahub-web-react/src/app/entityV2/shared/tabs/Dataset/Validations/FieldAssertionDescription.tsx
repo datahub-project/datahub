@@ -3,7 +3,6 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import {
     getFieldDescription,
     getFieldOperatorDescription,
@@ -27,7 +26,7 @@ const StyledDescrptionContainer = styled.div`
 `;
 const StyledColumnTag = styled.div`
     align-items: center;
-    background-color: ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
+    background-color: ${(props) => props.theme.colors.border};
     width: fit-content;
     border-radius: 12px;
     height: 24px;

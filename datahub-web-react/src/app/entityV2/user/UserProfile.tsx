@@ -3,7 +3,7 @@ import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { EntityContext } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -25,7 +25,7 @@ import { ErrorSection } from '@app/shared/error/ErrorSection';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
-import colors from '@src/alchemy-components/theme/foundations/colors';
+
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '@graphql/user.generated';
@@ -56,7 +56,7 @@ const UserProfileWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     &&& .ant-tabs-nav {
         margin: 0;
     }
-    background-color: #fff;
+    background-color: ${(props) => props.theme.colors.bg};
     height: 100%;
     overflow: hidden;
     display: flex;
@@ -77,7 +77,7 @@ const UserProfileWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 export const EmptyValue = styled.div`
     &:after {
         content: 'None';
-        color: #b7b7b7;
+        color: ${(props) => props.theme.colors.textDisabled};
         font-style: italic;
         font-weight: 100;
     }
@@ -85,7 +85,7 @@ export const EmptyValue = styled.div`
 
 const ContentContainer = styled.div<{ isVisible: boolean }>`
     flex: 1;
-    ${(props) => props.isVisible && 'border-right: 1px solid #e8e8e8;'}
+    ${(props) => props.isVisible && `border-right: 1px solid ${props.theme.colors.border};`}
     overflow: inherit;
 `;
 
@@ -98,6 +98,7 @@ const Tabs = styled.div``;
  */
 export default function UserProfile({ urn }: Props) {
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const isCompact = React.useContext(CompactContext);
@@ -227,7 +228,7 @@ export default function UserProfile({ urn }: Props) {
                     md={17}
                     sm={24}
                     xs={24}
-                    style={{ borderLeft: `1px solid ${colors.gray[100]}`, height: '100%' }}
+                    style={{ borderLeft: `1px solid ${theme.colors.border}`, height: '100%' }}
                 >
                     <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
                 </Col>

@@ -5,13 +5,14 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import SelectRole from '@app/identity/user/SelectRole';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
 import { USERS_ASSIGN_ROLE_ID } from '@app/onboarding/config/UsersOnboardingConfig';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useTheme } from 'styled-components/macro';
 
 import { CorpUser, CorpUserStatus, DataHubRole, EntityType } from '@types';
 
@@ -70,6 +71,7 @@ export default function UserListItem({
     refetch,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
     const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
     const isNativeUser: boolean = user.isNativeUser as boolean;
@@ -93,9 +95,9 @@ export default function UserListItem({
     const getUserStatusColor = (userStatus: CorpUserStatus) => {
         switch (userStatus) {
             case CorpUserStatus.Active:
-                return REDESIGN_COLORS.BLUE;
+                return theme.colors.textInformation;
             default:
-                return ANTD_GRAY[6];
+                return '#BFBFBF';
         }
     };
 
@@ -146,7 +148,7 @@ export default function UserListItem({
                         </div>
                         {userStatus && (
                             <Tooltip overlay={userStatusToolTip}>
-                                <Tag color={userStatusColor || ANTD_GRAY[6]}>{userStatus}</Tag>
+                                <Tag color={userStatusColor || '#BFBFBF'}>{userStatus}</Tag>
                             </Tooltip>
                         )}
                     </UserHeaderContainer>

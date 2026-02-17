@@ -62,13 +62,13 @@ const TableContainer = styled.div`
         position: sticky;
         top: 0;
         z-index: 1;
-        background: white;
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 
     /* Ensure header cells have proper background */
     .ant-table-thead > tr > th {
-        background: white !important;
-        border-bottom: 1px solid #f0f0f0;
+        background: ${(props) => props.theme.colors.bgSurface} !important;
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
     }
 `;
 

@@ -2,7 +2,6 @@ import { Modal } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getDisplayedColumns } from '@app/preview/EntityPaths/ColumnPathsText';
 import ColumnsRelationshipText from '@app/preview/EntityPaths/ColumnsRelationshipText';
 import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
@@ -18,14 +17,14 @@ const PathWrapper = styled.div`
     display: inline-block;
     margin: 15px 0 15px -4px;
     padding: 20px;
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
     box-shadow: 1px 1px 12px 4px #0000000d;
     width: 100%;
 `;
 
 const Header = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 16px;
     padding-top: 8px;
 `;

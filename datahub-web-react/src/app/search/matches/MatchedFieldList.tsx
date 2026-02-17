@@ -2,7 +2,6 @@ import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { useSearchQuery } from '@app/search/context/SearchContext';
 import { useMatchedFieldLabel, useMatchedFieldsForList } from '@app/search/context/SearchResultContext';
 import { MatchesGroupedByFieldName } from '@app/search/matches/constants';
@@ -18,7 +17,7 @@ const MatchesContainer = styled.div`
 `;
 
 const MatchText = styled(Typography.Text)`
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     background: ${(props) => props.theme.styles['highlight-color']};
     border-radius: 4px;
     padding: 2px 4px 2px 4px;

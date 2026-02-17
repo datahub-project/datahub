@@ -26,7 +26,7 @@ const StyledEntitySidebarContainer = styled.div<{
     margin-bottom: ${(props) => (props.$isShowNavBarRedesign ? '0' : '12px')};
     transition: width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
 
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;

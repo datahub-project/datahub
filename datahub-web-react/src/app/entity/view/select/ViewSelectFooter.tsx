@@ -3,12 +3,11 @@ import { Button, Typography } from 'antd';
 import React, { useRef } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { NoMarginButton } from '@app/entity/view/select/styledComponents';
 
 const ButtonContainer = styled.div`
     display: flex;
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textDisabled};
     flex-direction: column;
 `;
 
@@ -22,15 +21,15 @@ const CreateViewButton = styled(NoMarginButton)<{ bordered: boolean }>`
         margin-right: 8px;
         padding-left: 0px;
 
-        ${(props) => props.bordered && `border-top: 1px solid ${ANTD_GRAY_V2[5]};`}
+        ${(props) => props.bordered && `border-top: 1px solid ${props.theme.colors.border};`}
     }
 `;
 
 const ManageViewsButton = styled(Button)`
     &&& {
         color: ${(props) => props.theme.styles['primary-color']};
-        border-top: 1px solid ${ANTD_GRAY_V2[5]};
-        background-color: ${ANTD_GRAY_V2[2]};
+        border-top: 1px solid ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         border-top-left-radius: 0;
         border-top-right-radius: 0;
     }

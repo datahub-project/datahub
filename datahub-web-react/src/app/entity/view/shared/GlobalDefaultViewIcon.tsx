@@ -1,6 +1,7 @@
 import React from 'react';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useTheme } from 'styled-components';
+
 import { DefaultViewIcon } from '@app/entity/view/shared/DefaultViewIcon';
 
 type Props = {
@@ -8,5 +9,6 @@ type Props = {
 };
 
 export const GlobalDefaultViewIcon = ({ title }: Props) => {
-    return <DefaultViewIcon title={title} color={ANTD_GRAY[6]} />;
+    const theme = useTheme();
+    return <DefaultViewIcon title={title} color={theme.colors.textDisabled} />;
 };

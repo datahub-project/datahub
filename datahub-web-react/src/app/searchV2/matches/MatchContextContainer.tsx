@@ -25,7 +25,7 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean; comp
 
     // height: 100%;
     width: 100%;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     display: flex;
     flex-direction: column;
 

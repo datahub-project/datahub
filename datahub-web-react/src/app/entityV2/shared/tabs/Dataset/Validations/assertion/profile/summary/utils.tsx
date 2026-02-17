@@ -2,8 +2,7 @@ import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
-
-import { ANTD_GRAY_V2 } from '@app/entityV2/shared/constants';
+import { useTheme } from 'styled-components';
 import { DatasetAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
 import { FieldAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/FieldAssertionDescription';
 import {
@@ -409,6 +408,7 @@ export const useBuildAssertionPrimaryLabel = (
  * @returns {JSX.Element} if sufficient data is present
  */
 const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Element | null => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
 
     // 1. Fetching the most recent actor data.
@@ -491,7 +491,7 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
                 </>
             }
         >
-            <Typography.Text style={{ color: ANTD_GRAY_V2['6'], fontSize: 12 }}>
+            <Typography.Text style={{ color: theme.colors.textDisabled, fontSize: 12 }}>
                 {secondaryLabelMessage}
             </Typography.Text>
         </Tooltip>

@@ -5,7 +5,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@src/app/entityV2/Entity';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntityMentionNodeQuery } from '@src/graphql/search.generated';
@@ -15,7 +14,7 @@ const { Text } = Typography;
 const InvalidEntityText = styled(Text)`
     display: inline-block;
     font-weight: 500;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const ValidEntityText = styled(Text)`

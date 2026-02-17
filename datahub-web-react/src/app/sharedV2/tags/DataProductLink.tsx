@@ -1,10 +1,9 @@
 import { CloseOutlined } from '@ant-design/icons';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -26,7 +25,7 @@ const CloseButton = styled.div`
         cursor: pointer;
     }
     && {
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 
@@ -58,13 +57,14 @@ interface ContentProps {
 
 function DataProductContent({ dataProduct, name, closable, onClose, tagStyle, fontSize }: ContentProps) {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
 
     const displayName = name || entityRegistry.getDisplayName(EntityType.DataProduct, dataProduct);
 
     return (
         <StyledTag style={tagStyle} fontSize={fontSize}>
             <IconWrapper>
-                {entityRegistry.getIcon(EntityType.DataProduct, fontSize || 10, IconStyleType.ACCENT, ANTD_GRAY[9])}
+                {entityRegistry.getIcon(EntityType.DataProduct, fontSize || 10, IconStyleType.ACCENT, theme.colors.textSecondary)}
             </IconWrapper>
             {displayName}
             {closable && (

@@ -1,4 +1,4 @@
-import { Input, Switch, Text, colors } from '@components';
+import { Input, Switch, Text } from '@components';
 import React, { useState } from 'react';
 import Cron from 'react-js-cron';
 import styled from 'styled-components';
@@ -28,13 +28,13 @@ const AdvancedSchedule = styled.div`
 
 const ScheduleContainer = styled.div`
     .cron-builder {
-        color: ${colors.gray[1800]};
+        color: ${(props) => props.theme.colors.textTertiary};
         font-size: 14px;
         display: flex;
         gap: 8px;
     }
     .cron-builder-select {
-        color: ${colors.gray[500]};
+        color: ${(props) => props.theme.colors.textSecondary};
         font-size: 14px;
 
         .ant-select-selector {
@@ -48,7 +48,7 @@ const ScheduleContainer = styled.div`
 `;
 
 const CronFormat = styled.div`
-    background-color: ${colors.gray[1600]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceNewNav};
     border-radius: 4px;
     padding: 3px 6px;
     width: fit-content;

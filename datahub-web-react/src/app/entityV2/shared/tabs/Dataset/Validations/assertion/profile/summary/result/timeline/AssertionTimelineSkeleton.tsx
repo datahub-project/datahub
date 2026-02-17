@@ -2,7 +2,6 @@ import { Col, Row, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const SKELETON_MARGIN_BOTTOM_PX = 12;
 const Body = styled.div`
@@ -31,8 +30,8 @@ const StyledCol = styled(Col)`
 const Box = styled.div`
     width: 100%;
     height: 100%;
-    background-color: ${ANTD_GRAY[3]};
-    border: 1px solid ${ANTD_GRAY[4]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -55,7 +54,7 @@ const LoadingTextContainer = styled.div`
 `;
 const LoadingText = styled(Typography.Text)`
     font-size: 14px;
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textDisabled};
 `;
 
 const NUM_GRID_BOXES = 12;

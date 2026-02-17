@@ -15,7 +15,7 @@ const Badge = styled.div<{ color: string }>`
     color: #ffffff;
     margin-left: -4px;
     margin-top: -12px;
-    border: 1px solid #ffffff;
+    border: 1px solid ${(props) => props.theme.colors.bg};
 `;
 
 type Props = {

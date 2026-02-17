@@ -3,7 +3,6 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import {
     getDescriptionFromType,
     getNameFromType,
@@ -15,7 +14,7 @@ import { Owner } from '@types';
 
 const TextWrapper = styled.span<{ fontSize?: number }>`
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.text};
 
     max-width: 150px;
     text-overflow: ellipsis;

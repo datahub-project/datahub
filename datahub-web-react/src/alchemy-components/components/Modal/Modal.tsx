@@ -17,7 +17,7 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
         //margin-bottom: 24px;
         padding: 12px 20px;
         border-radius: ${({ hasChildren }) => (hasChildren ? '12px 12px 0 0' : '12px')};
-        border-bottom: ${({ hasChildren }) => (hasChildren ? `1px solid #F0F0F0` : '0')};
+        border-bottom: ${(props) => (props.hasChildren ? `1px solid ${props.theme.colors.border}` : '0')};
     }
 
     .ant-modal-body {

@@ -1,7 +1,7 @@
-import { Pill, Text, Tooltip, colors } from '@components';
+import { Pill, Text, Tooltip } from '@components';
 import { Image, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
@@ -14,7 +14,7 @@ const NameContainer = styled.div`
 `;
 
 const TextContainer = styled(Typography.Text)`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const DisplayNameContainer = styled.div`
@@ -44,6 +44,7 @@ interface TypeColumnProps {
 }
 
 export function SourceNameColumn({ type, record }: TypeColumnProps) {
+    const theme = useTheme();
     const iconUrl = useGetSourceLogoUrl(type);
     const typeDisplayName = capitalizeFirstLetter(type);
 
@@ -60,7 +61,7 @@ export function SourceNameColumn({ type, record }: TypeColumnProps) {
                         tooltip: {
                             title: record.name,
                             color: 'white',
-                            overlayInnerStyle: { color: colors.gray[1700] },
+                            overlayInnerStyle: { color: theme.colors.textSecondary },
                             showArrow: false,
                         },
                     }}

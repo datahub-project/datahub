@@ -14,7 +14,7 @@ import { useGetAllGroupMembersQuery, useRemoveGroupMembersMutation } from '@grap
 import { CorpUser, EntityType } from '@types';
 
 const ADD_MEMBER_STYLE = {
-    backGround: '#ffffff',
+    backGround: 'transparent',
     boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.05)',
 };
 const AVATAR_STYLE = { margin: '5px 5px 5px 0' };
@@ -42,7 +42,7 @@ const AddMemberText = styled(Typography.Text)`
 const MemberNameSection = styled.div`
     font-size: 20px;
     line-height: 28px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     align-items: center;
     justify-content: start;
@@ -60,7 +60,7 @@ const GroupMemberWrapper = styled.div`
 
 const MemberColumn = styled(Col)`
     padding: 19px 0 19px 0;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const MemberEditIcon = styled.div`
@@ -72,7 +72,7 @@ const Name = styled.span`
     font-weight: bold;
     font-size: 14px;
     line-height: 22px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     margin-left: 8px;
 `;
 

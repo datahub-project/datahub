@@ -11,7 +11,7 @@ import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProp
 import defaultAvatar from '@images/default_avatar.png';
 
 const AvatarStyled = styled(Avatar)<{ size?: number; $backgroundColor?: string }>`
-    color: #fff;
+    color: ${(props) => props.theme.colors.textBrandOnBgFill};
     background-color: ${(props) => (props.$backgroundColor ? `${props.$backgroundColor}` : 'transparent')};
     font-size: ${(props) => (props.size ? `${Math.max(props.size / 2.0, 10)}px` : '10px')} !important;
     height: ${(props) => (props.size ? props.size : 20)}px;

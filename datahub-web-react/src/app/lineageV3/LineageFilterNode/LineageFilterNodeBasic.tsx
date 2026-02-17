@@ -25,7 +25,7 @@ import { EntityType } from '@types';
 export const LINEAGE_FILTER_NODE_NAME = 'lineage-filter';
 
 const NodeWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border: 1px solid ${LINEAGE_COLORS.NODE_BORDER};
     border-radius: 12px;
     cursor: pointer;
@@ -34,8 +34,8 @@ const NodeWrapper = styled.div`
 `;
 
 const ExtraCard = styled.div<{ bottom: number }>`
-    background-color: white;
-    border: 1px solid #eee;
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
     bottom: ${({ bottom }) => bottom}px;
     height: 40px;

@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SidebarStatsColumn } from '@app/entityV2/shared/containers/profile/utils';
 import HorizontalScroller from '@app/sharedV2/carousel/HorizontalScroller';
 
@@ -44,7 +43,7 @@ const Heading = styled.div`
 const Title = styled.div`
     font-size: 12px;
     font-weight: 600;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 interface Props {

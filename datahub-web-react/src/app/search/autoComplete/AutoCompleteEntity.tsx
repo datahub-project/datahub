@@ -2,7 +2,6 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { getPlatformName } from '@app/entity/shared/utils';
 import AutoCompleteEntityIcon from '@app/search/autoComplete/AutoCompleteEntityIcon';
 import AutoCompletePlatformNames from '@app/search/autoComplete/AutoCompletePlatformNames';
@@ -34,8 +33,8 @@ const ContentWrapper = styled.div`
 `;
 
 const Subtype = styled.span`
-    color: ${ANTD_GRAY_V2[8]};
-    border: 1px solid ${ANTD_GRAY_V2[6]};
+    color: ${(props) => props.theme.colors.textSecondary};
+    border: 1px solid ${(props) => props.theme.colors.textDisabled};
     border-radius: 16px;
     padding: 4px 8px;
     line-height: 12px;
@@ -51,7 +50,7 @@ const ItemHeader = styled.div`
 `;
 
 const Divider = styled.div`
-    border-right: 1px solid ${ANTD_GRAY_V2[6]};
+    border-right: 1px solid ${(props) => props.theme.colors.textDisabled};
     height: 12px;
 `;
 

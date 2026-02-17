@@ -6,7 +6,6 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { SuggestedText } from '@app/search/suggestions/SearchQuerySugggester';
 import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
 import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
@@ -16,7 +15,7 @@ import { FacetFilterInput, SearchSuggestion } from '@types';
 const NoDataContainer = styled.div`
     margin: 40px auto;
     font-size: 16px;
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const Section = styled.div`

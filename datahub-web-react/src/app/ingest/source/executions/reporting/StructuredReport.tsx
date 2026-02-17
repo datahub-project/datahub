@@ -2,7 +2,6 @@ import { CloseCircleOutlined, ExclamationCircleOutlined, InfoCircleOutlined } fr
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { StructuredReportItemList } from '@app/ingest/source/executions/reporting/StructuredReportItemList';
 import { StructuredReportItemLevel, StructuredReport as StructuredReportType } from '@app/ingest/source/types';
 
@@ -14,7 +13,7 @@ const Container = styled.div`
 
 const ERROR_COLOR = '#F5222D';
 const WARNING_COLOR = '#FA8C16';
-const INFO_COLOR = REDESIGN_COLORS.BLUE;
+const INFO_COLOR = '#1890FF';
 
 interface Props {
     report: StructuredReportType;

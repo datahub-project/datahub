@@ -8,7 +8,6 @@ import { AccessTokenModal } from '@app/settingsV2/AccessTokenModal';
 import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from '@app/settingsV2/utils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { Button, Input, Modal, SimpleSelect, Text } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { useCreateAccessTokenMutation } from '@graphql/auth.generated';
 import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '@types';
@@ -45,11 +44,11 @@ const FormGroup = styled.div`
 `;
 
 const FormLabel = styled(Text)`
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const FormDescription = styled(Text)`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const ExpirationContainer = styled.div`

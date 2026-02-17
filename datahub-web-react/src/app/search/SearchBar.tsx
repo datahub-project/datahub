@@ -16,7 +16,6 @@ import styled from 'styled-components/macro';
 import analytics, { Event, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import EntityRegistry from '@app/entity/EntityRegistry';
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { ViewSelect } from '@app/entity/view/select/ViewSelect';
 import { CommandK } from '@app/search/CommandK';
@@ -52,16 +51,16 @@ const StyledSearchBar = styled(Input)`
         border-radius: 70px;
         height: 40px;
         font-size: 14px;
-        color: ${ANTD_GRAY[7]};
-        background-color: ${ANTD_GRAY_V2[2]};
+        color: ${(props) => props.theme.colors.textTertiary};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         border: 2px solid transparent;
 
         &:focus-within {
-            border: 2px solid ${REDESIGN_COLORS.BLUE};
+            border: 2px solid ${(props) => props.theme.colors.textInformation};
         }
     }
     > .ant-input::placeholder {
-        color: ${ANTD_GRAY_V2[10]};
+        color: ${(props) => props.theme.colors.text};
     }
     .ant-input-clear-icon {
         height: 15px;
@@ -78,12 +77,12 @@ const ClearIcon = styled(CloseCircleFilled)`
 
 const ViewSelectContainer = styled.div`
     &&& {
-        border-right: 1px solid ${ANTD_GRAY_V2[5]};
+        border-right: 1px solid ${(props) => props.theme.colors.border};
     }
 `;
 
 const SearchIcon = styled(SearchOutlined)`
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';

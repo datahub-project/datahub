@@ -7,14 +7,13 @@ import { isSystemActor } from '@app/entityV2/document/changeHistory/utils/change
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Icon } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { DocumentChangeType, EntityType } from '@types';
 
 const ActionText = styled.div`
     font-size: 14px;
     line-height: 20px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     overflow-wrap: break-word;
 `;
 
@@ -27,18 +26,18 @@ const ActorName = styled.span`
 
 const ClickableText = styled(Link)`
     font-weight: bold;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     text-decoration: none;
     cursor: pointer;
 
     &:hover {
         text-decoration: underline;
-        color: ${colors.gray[800]};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
 const SeeVersionLink = styled.a`
-    color: ${colors.primary[500]};
+    color: ${(props) => props.theme.colors.textBrand};
     cursor: pointer;
     text-decoration: none;
 

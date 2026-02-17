@@ -1,13 +1,12 @@
 import { blue } from '@ant-design/colors';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Popover, Tooltip, colors } from '@components';
+import { Popover, Tooltip } from '@components';
 import { Divider, Modal, Typography, message } from 'antd';
 import moment from 'moment';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { getLocaleTimezone } from '@app/shared/time/timeUtils';
 
@@ -16,12 +15,12 @@ import { Deprecation } from '@types';
 
 const DeprecatedContainer = styled.div`
     height: 18px;
-    border: 1px solid ${colors.red[500]};
+    border: 1px solid ${(props) => props.theme.colors.textError};
     border-radius: 15px;
     display: flex;
     justify-content: center;
     align-items: center;
-    color: ${colors.red[500]};
+    color: ${(props) => props.theme.colors.textError};
     padding-top: 8px;
     padding-bottom: 8px;
     padding-right: 4px;
@@ -46,7 +45,7 @@ const LastEvaluatedAtLabel = styled.div`
     margin: 0;
     display: flex;
     align-items: center;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const ThinDivider = styled(Divider)`

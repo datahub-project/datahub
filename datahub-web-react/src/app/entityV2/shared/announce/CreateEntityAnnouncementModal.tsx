@@ -31,7 +31,7 @@ type Props = {
 
 const EditorContainer = styled.div`
     flex: 1;
-    border: 1px solid #d9d9d9;
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
     .remirror-editor.ProseMirror {
         padding: 10px;

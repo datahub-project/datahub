@@ -6,7 +6,7 @@ export const PaginationContainer = styled.div`
     display: flex;
     justify-content: center;
     margin: ${spacing.md};
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
 
     .ant-pagination {
         display: flex;
@@ -24,7 +24,7 @@ export const PaginationContainer = styled.div`
 
         a {
             border-radius: 200px;
-            color: ${colors.gray[1800]};
+            color: ${(props) => props.theme.colors.textTertiary};
 
             :hover {
                 color: ${({ theme }) => theme.styles?.['primary-color']};
@@ -33,7 +33,7 @@ export const PaginationContainer = styled.div`
     }
 
     .ant-pagination-item-active > a {
-        background: ${colors.violet[0]};
+        background: ${(props) => props.theme.colors.bgSurfaceBrand};
         color: ${({ theme }) => theme.styles?.['primary-color']};
         font-weight: 700;
     }
@@ -45,26 +45,26 @@ export const PaginationContainer = styled.div`
     }
 
     button {
-        color: ${colors.gray[1800]};
-        border: 1px solid ${colors.gray[100]};
+        color: ${(props) => props.theme.colors.textTertiary};
+        border: 1px solid ${(props) => props.theme.colors.border};
     }
 
     .ant-pagination-options {
         span,
         .ant-select-item {
-            color: ${colors.gray[1800]};
+            color: ${(props) => props.theme.colors.textTertiary};
         }
     }
 
     .ant-pagination-options-size-changer {
         .ant-select-selector {
-            border: 1px solid ${colors.gray[100]};
+            border: 1px solid ${(props) => props.theme.colors.border};
         }
 
         &:hover:not(.ant-select-disabled),
         &.ant-select-focused:not(.ant-select-disabled) {
             .ant-select-selector {
-                border: 1px solid ${colors.gray[100]};
+                border: 1px solid ${(props) => props.theme.colors.border};
                 box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
 
                 :hover {
@@ -88,7 +88,7 @@ export const PaginationContainer = styled.div`
     .ant-pagination-disabled:hover {
         box-shadow: none;
         button {
-            color: rgba(0, 0, 0, 0.25);
+            color: ${(props) => props.theme.colors.textDisabled};
         }
     }
 

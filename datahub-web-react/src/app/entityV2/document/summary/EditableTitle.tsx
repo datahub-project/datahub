@@ -3,8 +3,6 @@ import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useUpdateDocumentTitleMutation } from '@app/document/hooks/useDocumentTreeMutations';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-
 const TitleContainer = styled.div`
     width: 100%;
     min-width: 0;
@@ -14,7 +12,7 @@ const TitleInput = styled.textarea<{ $editable: boolean }>`
     font-size: 32px;
     font-weight: 700;
     line-height: 1.4;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     border: none;
     outline: none;
     background: transparent;
@@ -43,7 +41,7 @@ const TitleInput = styled.textarea<{ $editable: boolean }>`
     }
 
     &::placeholder {
-        color: ${colors.gray[400]};
+        color: ${(props) => props.theme.colors.icon};
         opacity: 0.4;
     }
 `;

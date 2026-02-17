@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { fromUnionType, toUnionType } from '@app/entityV2/view/builder/utils';
 import { ViewBuilderState } from '@app/entityV2/view/types';
@@ -19,7 +18,7 @@ const Container = styled.div`
     border-radius: 4px;
     padding: 12px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
     margin-bottom: 20px;
 `;
 

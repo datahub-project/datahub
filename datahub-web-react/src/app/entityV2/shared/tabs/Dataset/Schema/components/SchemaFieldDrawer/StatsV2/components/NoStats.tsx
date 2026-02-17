@@ -2,7 +2,7 @@ import Icon from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
 
-import { Text, colors } from '@src/alchemy-components';
+import { Text } from '@src/alchemy-components';
 
 import NoStatsAvailble from '@images/no-stats-available.svg?react';
 
@@ -16,7 +16,7 @@ const NoDataContainer = styled.div`
 const StyledIcon = styled(Icon)`
     font-size: 80px;
     margin-bottom: 6px;
-    color: ${colors.white};
+    color: ${(props) => props.theme.colors.bg};
 `;
 
 export default function NoStats() {

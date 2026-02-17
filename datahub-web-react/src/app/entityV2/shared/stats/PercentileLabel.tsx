@@ -2,7 +2,6 @@ import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { percentileToColor, percentileToLabel } from '@app/entityV2/shared/stats/statsUtils';
 
 const Description = styled.div`
@@ -13,12 +12,12 @@ const Description = styled.div`
 const Label = styled.span<{ color?: string }>`
     border-radius: 8px;
     padding: 2px 6px;
-    background-color: ${(props) => props.color || ANTD_GRAY[3]};
+    background-color: ${(props) => props.color || props.theme.colors.bgSurface};
     :hover {
         opacity: 0.7;
     }
     margin-left: 4px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type Props = {

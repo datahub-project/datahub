@@ -5,13 +5,12 @@ import { Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getLastIngestedColor } from '@app/entity/shared/containers/profile/sidebar/LastIngested';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 
 const LastUpdatedContainer = styled.div`
     align-items: center;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     display: flex;
     flex-direction: row;
     gap: 5px;

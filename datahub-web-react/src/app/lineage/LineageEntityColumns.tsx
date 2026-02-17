@@ -1,9 +1,8 @@
 import { Group } from '@visx/group';
 import { Pagination } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import ColumnNode from '@app/lineage/ColumnNode';
 import NodeColumnsHeader from '@app/lineage/NodeColumnsHeader';
 import {
@@ -35,6 +34,7 @@ interface Props {
 }
 
 export default function LineageEntityColumns({ node, onHover }: Props) {
+    const theme = useTheme();
     const { expandTitles, collapsedColumnsNodes, setVisibleColumnsByUrn, columnsByUrn, setColumnsByUrn } =
         useContext(LineageExplorerContext);
     const [pageIndex, setPageIndex] = useState(0);
@@ -79,7 +79,7 @@ export default function LineageEntityColumns({ node, onHover }: Props) {
 
     return (
         <>
-            <rect x={iconX - 21} y={centerY + 55 + titleHeight} width={width - 2} height="0.25" stroke={ANTD_GRAY[6]} />
+            <rect x={iconX - 21} y={centerY + 55 + titleHeight} width={width - 2} height="0.25" stroke={theme.colors.textDisabled} />
             <NodeColumnsHeader node={node} filterText={filterText} setFilterText={setFilterText} />
             {!areColumnsCollapsed && (
                 <Group>

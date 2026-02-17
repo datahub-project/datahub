@@ -1,7 +1,7 @@
-import { Dropdown, colors } from '@components';
+import { Dropdown } from '@components';
 import React, { useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
@@ -14,7 +14,7 @@ const ButtonWrapper = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: ${colors.white};
+    background-color: ${(props) => props.theme.colors.bg};
     height: 40px;
     width: 40px;
     position: fixed;
@@ -28,7 +28,7 @@ const ButtonWrapper = styled.div`
 const DropdownContainer = styled.div`
     border-radius: 12px;
     box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     overflow: hidden; // Cleanly rounds edges
 
     .ant-dropdown-menu-item {
@@ -37,6 +37,7 @@ const DropdownContainer = styled.div`
 `;
 
 export default function EditHomePageSettingsButton() {
+    const theme = useTheme();
     const user = useUserContext();
     const canEditDefaultTemplate = user.platformPrivileges?.manageHomePageTemplates;
 
@@ -72,7 +73,7 @@ export default function EditHomePageSettingsButton() {
                           label: 'Edit Organization Default',
                           key: 'edit-organization-default',
                           style: {
-                              color: colors.gray[600],
+                              color: theme.colors.text,
                               fontSize: '14px',
                           },
                           onClick: startGlobalTemplateEdit,
@@ -86,7 +87,7 @@ export default function EditHomePageSettingsButton() {
                           label: 'Reset to Organization Default',
                           key: 'reset-to-organization-default',
                           style: {
-                              color: colors.red[1000],
+                              color: theme.colors.textError,
                               fontSize: '14px',
                           },
                           onClick: () => setShowConfirmResetModal(true),
@@ -108,7 +109,6 @@ export default function EditHomePageSettingsButton() {
                     >
                         <StyledIcon
                             icon="Gear"
-                            color="gray"
                             source="phosphor"
                             size="4xl"
                             data-testid="edit-home-page-settings"

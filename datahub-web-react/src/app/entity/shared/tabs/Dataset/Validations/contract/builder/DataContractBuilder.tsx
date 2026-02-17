@@ -3,7 +3,6 @@ import lodash from 'lodash';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DataContractAssertionGroupSelect } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/DataContractAssertionGroupSelect';
 import {
     DEFAULT_BUILDER_STATE,
@@ -19,12 +18,12 @@ import { useGetDatasetAssertionsQuery } from '@graphql/dataset.generated';
 import { Assertion, AssertionType, DataContract } from '@types';
 
 const AssertionsSection = styled.div`
-    border: 0.5px solid ${ANTD_GRAY[4]};
+    border: 0.5px solid ${(props) => props.theme.colors.bgSurface};
 `;
 
 const HeaderText = styled.div`
     padding: 16px 20px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 16px;
 `;
 

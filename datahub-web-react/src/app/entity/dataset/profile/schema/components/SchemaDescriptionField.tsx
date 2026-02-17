@@ -8,7 +8,6 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
 import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import PropagationDetails from '@app/entity/shared/propagation/PropagationDetails';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
@@ -88,7 +87,7 @@ const StyledViewer = styled(Editor)`
 
 const AttributeDescription = styled.div`
     margin-top: 8px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const StyledAttributeViewer = styled(Editor)`
@@ -96,7 +95,7 @@ const StyledAttributeViewer = styled(Editor)`
     display: block;
     .remirror-editor.ProseMirror {
         padding: 0;
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 

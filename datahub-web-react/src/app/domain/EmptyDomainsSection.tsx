@@ -3,8 +3,6 @@ import { Button, Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 const EmptyDomainContainer = styled.div`
     display: flex;
     justify-content: center;
@@ -21,7 +19,7 @@ const StyledEmpty = styled(Empty)`
         max-height: 75vh;
         &::-webkit-scrollbar {
             width: 5px;
-            background: #d6d6d6;
+            background: ${(props) => props.theme.colors.border};
         }
     }
     padding: 60px 40px;
@@ -35,7 +33,7 @@ const StyledButton = styled(Button)`
 `;
 
 const IconContainer = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 40px;
 `;
 

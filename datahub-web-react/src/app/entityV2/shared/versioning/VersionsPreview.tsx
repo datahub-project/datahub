@@ -1,4 +1,4 @@
-import { Pill, Text, colors } from '@components';
+import { Pill, Text } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -26,7 +26,7 @@ const Header = styled(Text)`
     gap: 6px;
     margin-bottom: 8px;
 
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     line-height: 1.2;
 `;

@@ -2,7 +2,6 @@ import { Badge } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 
 type Props = {
     count: number;
@@ -13,9 +12,9 @@ const ChildCountBadge = styled(Badge)`
     margin-top: 16px;
     margin-bottom: 16px;
     &&& .ant-badge-count {
-        background-color: ${ANTD_GRAY_V2[1]};
-        color: ${ANTD_GRAY_V2[8]};
-        box-shadow: 0 2px 1px -1px ${ANTD_GRAY_V2[6]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
+        color: ${(props) => props.theme.colors.textSecondary};
+        box-shadow: 0 2px 1px -1px ${(props) => props.theme.colors.textDisabled};
         border-radius: 4px 4px 4px 4px;
         font-size: 12px;
         font-weight: 500;

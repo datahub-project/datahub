@@ -37,18 +37,33 @@ const propStyles = (props: TextProps, isText = false) => {
     return styles;
 };
 
+const themeAwareOverrides = (props: TextProps) => ({
+    '& a': {
+        color: props.theme?.colors?.hyperlinks ?? colors.violet[400],
+        textDecoration: 'none',
+        transition: 'color 0.15s ease',
+        '&:hover': {
+            color: props.theme?.colors?.textBrand ?? colors.violet[500],
+        },
+    },
+});
+
 export const P = styled.p({ ...baseStyles, ...textStyles }, (props: TextProps) => ({
     ...propStyles(props as TextProps, true),
+    ...themeAwareOverrides(props),
 }));
 
 export const Span = styled.span({ ...baseStyles, ...textStyles }, (props: TextProps) => ({
     ...propStyles(props as TextProps, true),
+    ...themeAwareOverrides(props),
 }));
 
 export const Div = styled.div({ ...baseStyles, ...textStyles }, (props: TextProps) => ({
     ...propStyles(props as TextProps, true),
+    ...themeAwareOverrides(props),
 }));
 
 export const Pre = styled.pre({ ...baseStyles, ...textStyles }, (props: TextProps) => ({
     ...propStyles(props as TextProps, true),
+    ...themeAwareOverrides(props),
 }));

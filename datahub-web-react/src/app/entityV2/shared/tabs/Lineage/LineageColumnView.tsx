@@ -18,7 +18,6 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import ColumnsLineageSelect from '@app/entityV2/shared/tabs/Lineage/ColumnLineageSelect';
 import { ImpactAnalysis } from '@app/entityV2/shared/tabs/Lineage/ImpactAnalysis';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
@@ -62,7 +61,7 @@ const StyledCaretDown = styled(CaretDownFilled)`
 
 const StyledSelect = styled(Select)`
     &:hover {
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 

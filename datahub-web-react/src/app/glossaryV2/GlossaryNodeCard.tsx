@@ -4,9 +4,7 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
-import { colors } from '@src/alchemy-components';
 
 import { DisplayProperties } from '@types';
 
@@ -14,9 +12,6 @@ interface GlossaryItemCardHeaderProps {
     color: string;
 }
 
-// there may be a good constant for this but I couldn't find one --Gabe
-// feel free to replace this color at a later date
-const DISABLED_TEXT_COLOR = '#c5c6c9';
 
 const GlossaryItemCardHeader = styled.div<GlossaryItemCardHeaderProps>`
     display: flex;
@@ -43,7 +38,7 @@ const GlossaryItemCardWrapper = styled.div`
 
     &:hover {
         transition: 0.15s;
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.border};
     }
 `;
 
@@ -51,8 +46,8 @@ const GlossaryItemCard = styled.div`
     display: flex;
     flex-direction: column;
     border-radius: 13px;
-    border: 1px solid ${REDESIGN_COLORS.LIGHT_GREY_BORDER};
-    background: ${ANTD_GRAY[1]};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    background: ${(props) => props.theme.colors.bg};
     transition: 0.15s;
     height: 100%;
     width: 100%;
@@ -73,20 +68,20 @@ const GlossaryItemCount = styled.span<{ count: number }>`
     align-items: center;
     gap: 5px;
     border-radius: 20px;
-    background: ${(props) => (props.count > 0 ? ANTD_GRAY_V2[14] : ANTD_GRAY_V2[14])};
-    color: ${(props) => (props.count > 0 ? REDESIGN_COLORS.SUB_TEXT : DISABLED_TEXT_COLOR)};
+    background: ${(props) => props.theme.colors.bgSurface};
+    color: ${(props) => (props.count > 0 ? props.theme.colors.textTertiary : props.theme.colors.textDisabled)};
     padding: 5px 10px;
     width: max-content;
     svg {
         height: 14px;
         width: 14px;
         path {
-            fill: ${(props) => (props.count > 0 ? REDESIGN_COLORS.SUB_TEXT : DISABLED_TEXT_COLOR)};
+            fill: ${(props) => (props.count > 0 ? props.theme.colors.textTertiary : props.theme.colors.textDisabled)};
         }
     }
     border: 1px solid transparent;
     :hover {
-        border: 1px solid ${(props) => (props.count > 0 ? ANTD_GRAY_V2[13] : 'transparent')};
+        border: 1px solid ${(props) => (props.count > 0 ? props.theme.colors.textTertiary : 'transparent')};
     }
 `;
 
@@ -109,7 +104,7 @@ const GlossaryItemCardDetails = styled.div`
 `;
 
 const GlossaryCardHeader = styled(Typography)`
-    color: #f9fafc;
+    color: ${(props) => props.theme.colors.textBrandOnBgFill};
     font-size: 16px;
     font-weight: 500;
     overflow: hidden;
@@ -118,7 +113,7 @@ const GlossaryCardHeader = styled(Typography)`
 `;
 
 const GlossaryItemCardDescription = styled(Typography)`
-    color: ${REDESIGN_COLORS.SUB_TEXT};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 12px;
     font-weight: 400;
     margin-top: 1px;

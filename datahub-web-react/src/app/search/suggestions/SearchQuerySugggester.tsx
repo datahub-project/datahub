@@ -2,14 +2,13 @@ import React from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
 
 import { SearchSuggestion } from '@types';
 
 const TextWrapper = styled.div`
     font-size: 14px;
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin: 16px 0 -8px 32px;
 `;
 

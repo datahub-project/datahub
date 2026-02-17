@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import CompactContext from '@src/app/shared/CompactContext';
@@ -25,7 +24,7 @@ const ActionButton = styled(Link)`
 
     :hover {
         cursor: pointer;
-        color: ${REDESIGN_COLORS.WHITE};
+        color: ${(props) => props.theme.colors.bg};
         background: ${(props) => props.theme.styles['primary-color']};
     }
 `;

@@ -8,7 +8,6 @@ import styled from 'styled-components/macro';
 import analytics, { EventType } from '@app/analytics';
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '@app/onboarding/config/PoliciesOnboardingConfig';
 import AvatarsGroup from '@app/permissions/AvatarsGroup';
@@ -294,7 +293,7 @@ export const ManagePolicies = () => {
                                     policyUrn: record?.policy?.urn,
                                 });
                             }}
-                            style={{ color: record?.editable ? 'red' : ANTD_GRAY[6], width: 100 }}
+                            style={{ color: record?.editable ? 'red' : '#BFBFBF', width: 100 }}
                         >
                             DEACTIVATE
                         </Button>
@@ -308,7 +307,7 @@ export const ManagePolicies = () => {
                                     policyUrn: record?.policy?.urn,
                                 });
                             }}
-                            style={{ color: record?.editable ? 'green' : ANTD_GRAY[6], width: 100 }}
+                            style={{ color: record?.editable ? 'green' : '#BFBFBF', width: 100 }}
                         >
                             ACTIVATE
                         </Button>

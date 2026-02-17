@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { PreviewType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityAndType } from '@app/entity/shared/types';
 import { useInitializeSearchResultCards } from '@app/entityV2/shared/components/styled/search/useInitializeSearchResultCards';
 import { useSearchContext } from '@app/search/context/SearchContext';
@@ -51,11 +50,11 @@ export const ResultWrapper = styled.div<{
     ${(props) =>
         props.showUpdatedStyles &&
         `    
-        background-color: white;
+        background-color: ${props.theme.colors.bg};
         border-radius: ${props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
         padding: 16px 20px;
         box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
-        border-bottom: 1px solid ${ANTD_GRAY[5]};
+        border-bottom: 1px solid ${props.theme.colors.border};
         cursor: pointer;
         :hover {
             ${!props.selected && `outline: 1px solid ${props.theme.styles['primary-color']}`};

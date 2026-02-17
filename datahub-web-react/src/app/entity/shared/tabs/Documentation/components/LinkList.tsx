@@ -6,7 +6,6 @@ import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { formatDateString } from '@app/entity/shared/containers/profile/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -19,7 +18,7 @@ const LinkListItem = styled(List.Item)`
         opacity: 0;
     }
     &:hover {
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         > .ant-btn {
             opacity: 1;
         }

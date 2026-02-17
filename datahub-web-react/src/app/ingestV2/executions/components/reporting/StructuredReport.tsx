@@ -1,6 +1,6 @@
-import { Card, Icon, colors } from '@components';
+import { Card, Icon } from '@components';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { StructuredReportItemList } from '@app/ingestV2/executions/components/reporting/StructuredReportItemList';
 import {
@@ -30,10 +30,10 @@ const StyledPill = styled.div`
     align-items: center;
     gap: 4px;
     border-radius: 200px;
-    background: ${colors.gray[1500]};
+    background: ${(props) => props.theme.colors.bgSurface};
     font-size: 12px;
     font-weight: 500;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const ChevronButton = styled.div`
@@ -44,16 +44,13 @@ const ChevronButton = styled.div`
 `;
 
 const ChevronIcon = styled(Icon)`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
 `;
 
-const ERROR_COLOR = colors.red[0];
-const ERROR_TEXT_COLOR = colors.red[1000];
-const WARNING_COLOR = colors.yellow[0];
-const WARNING_TEXT_COLOR = colors.yellow[1000];
-const INFO_COLOR = colors.gray[1000];
-const INFO_TEXT_COLOR = colors.violet[500];
+const ERROR_TEXT_COLOR = '#C4360B';
+const WARNING_COLOR = '#FFFAEB';
+const WARNING_TEXT_COLOR = '#C77100';
 
 interface Props {
     report: StructuredReportType;
@@ -137,6 +134,11 @@ export function distributeVisibleItems(
 }
 
 export function StructuredReport({ report }: Props) {
+    const theme = useTheme();
+    const ERROR_COLOR = theme.colors.bgSurfaceError;
+    const INFO_COLOR = theme.colors.bgSurfaceBrand;
+    const INFO_TEXT_COLOR = theme.colors.iconBrand;
+
     const warnings = report.items.filter((item) => item.level === StructuredReportItemLevel.WARN);
     const errors = report.items.filter((item) => item.level === StructuredReportItemLevel.ERROR);
     const infos = report.items.filter((item) => item.level === StructuredReportItemLevel.INFO);

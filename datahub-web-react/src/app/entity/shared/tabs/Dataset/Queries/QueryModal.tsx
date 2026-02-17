@@ -3,7 +3,6 @@ import React from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import CopyQuery from '@app/entity/shared/tabs/Dataset/Queries/CopyQuery';
 import { Editor as MarkdownEditor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 
@@ -36,21 +35,21 @@ const QueryDetails = styled.div`
 const QueryTitle = styled(Typography.Title)<{ secondary?: boolean }>`
     && {
         margin-bottom: 16px;
-        color: ${(props) => (props.secondary && ANTD_GRAY[6]) || undefined};
+        color: ${(props) => (props.secondary && props.theme.colors.textDisabled) || undefined};
     }
 `;
 
 const StyledViewer = styled(MarkdownEditor)<{ secondary?: boolean }>`
     .remirror-editor.ProseMirror {
         padding: 0;
-        color: ${(props) => (props.secondary && ANTD_GRAY[6]) || undefined};
+        color: ${(props) => (props.secondary && props.theme.colors.textDisabled) || undefined};
     }
 `;
 
 const QueryContainer = styled.div`
     height: 58vh;
     overflow-y: scroll;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 4px;
 `;
 

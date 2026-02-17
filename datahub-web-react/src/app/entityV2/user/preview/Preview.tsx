@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
@@ -51,7 +50,7 @@ const PlatformText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     font-weight: 700;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 export const Preview = ({

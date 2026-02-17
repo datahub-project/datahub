@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import React, { HTMLAttributes } from 'react';
 import styled from 'styled-components';
 
@@ -12,11 +11,11 @@ const Wrapper = styled.div<{
 }>`
     width: ${LINEAGE_NODE_WIDTH}px;
 
-    background-color: ${colors.white};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 12px;
-    border: 1px solid ${({ selected }) => (selected ? colors.violet[600] : colors.gray[100])};
-    box-shadow: ${({ isSearchedEntity }) =>
-        isSearchedEntity ? `0 0 4px 4px ${colors.gray[100]}` : '0px 1px 2px 0px rgba(33, 23, 95, 0.07)'};
+    border: 1px solid ${({ selected, theme }) => (selected ? theme.colors.textBrand : theme.colors.border)};
+    box-shadow: ${({ isSearchedEntity, theme }) =>
+        isSearchedEntity ? `0 0 4px 4px ${theme.colors.border}` : '0px 1px 2px 0px rgba(33, 23, 95, 0.07)'};
 
     display: flex;
     align-items: center;

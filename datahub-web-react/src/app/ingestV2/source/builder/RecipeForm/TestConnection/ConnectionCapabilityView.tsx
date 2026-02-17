@@ -4,7 +4,6 @@ import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const CapabilityWrapper = styled.div`
     align-items: center;
@@ -13,7 +12,7 @@ const CapabilityWrapper = styled.div`
 `;
 
 const CapabilityName = styled.span`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 18px;
     margin-right: 12px;
 `;

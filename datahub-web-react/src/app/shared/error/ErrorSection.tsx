@@ -2,7 +2,6 @@ import { Image, Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 import dataHubLogo from '@images/datahublogo.png';
 
@@ -15,7 +14,7 @@ const Section = styled.div`
 const TitleText = styled(Typography.Text)`
     font-size: 18px;
     margin-left: 8px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const TitleSection = styled.div`

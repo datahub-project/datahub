@@ -2,7 +2,6 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import LastIngested from '@app/entity/shared/containers/profile/sidebar/LastIngested';
 import { EntitySidebarSection } from '@app/entity/shared/types';
 
@@ -11,7 +10,7 @@ const ContentContainer = styled.div`
 
     & > div {
         &:not(:first-child) {
-            border-top: 1px solid ${ANTD_GRAY[4]};
+            border-top: 1px solid ${(props) => props.theme.colors.bgSurface};
         }
         padding-top: 20px;
         margin-bottom: 20px;
@@ -31,7 +30,7 @@ const ContentContainer = styled.div`
 const LastIngestedSection = styled.div`
     padding: 12px 0 12px 0;
     margin-bottom: 0;
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
 `;
 
 type Props = {

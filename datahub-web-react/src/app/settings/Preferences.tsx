@@ -1,10 +1,9 @@
 import { Card, Divider, Switch, Typography, message } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '@app/useIsThemeV2';
 
 import { useUpdateUserSettingMutation } from '@graphql/me.generated';
@@ -45,7 +44,7 @@ const UserSettingRow = styled.div`
 `;
 
 const DescriptionText = styled(Typography.Text)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 11px;
 `;
 
@@ -55,6 +54,7 @@ const SettingText = styled(Typography.Text)`
 
 export const Preferences = () => {
     // Current User Urn
+    const theme = useTheme();
     const { user, refetchUser } = useUserContext();
     const isThemeV2 = useIsThemeV2();
     const [isThemeV2Toggleable] = useIsThemeV2Toggleable();
@@ -150,7 +150,7 @@ export const Preferences = () => {
                     </>
                 )}
                 {!showSimplifiedHomepageSetting && !isThemeV2Toggleable && (
-                    <div style={{ color: ANTD_GRAY[7] }}>No appearance settings found.</div>
+                    <div style={{ color: theme.colors.textTertiary }}>No appearance settings found.</div>
                 )}
             </SourceContainer>
         </Page>

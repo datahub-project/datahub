@@ -3,7 +3,6 @@ import { Button, Image, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 import { Post } from '@types';
 
@@ -13,7 +12,7 @@ const CardContainer = styled(Button)`
     justify-content: space-between;
     padding: 0px;
     height: 100px;
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
     border-radius: 12px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
     &&:hover {

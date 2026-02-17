@@ -9,7 +9,6 @@ import { useUpdateDomainEntityDataOnChange } from '@app/domain/utils';
 import { EntityCapabilityType } from '@app/entity/Entity';
 import { EntityContext } from '@app/entity/shared/EntityContext';
 import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityHeader } from '@app/entity/shared/containers/profile/header/EntityHeader';
 import { EntityTabs } from '@app/entity/shared/containers/profile/header/EntityTabs';
 import { EntityProfileNavBar } from '@app/entity/shared/containers/profile/nav/EntityProfileNavBar';
@@ -119,7 +118,7 @@ const HeaderAndTabsFlex = styled.div`
 `;
 
 const Header = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 20px 20px 0 20px;
     flex-shrink: 0;
 `;

@@ -24,7 +24,7 @@ const FormInput = styled(Input)`
     &&& {
         height: 32px;
         font-size: 12px;
-        border: 1px solid #555555;
+        border: 1px solid ${(props) => props.theme.colors.border};
         border-radius: 5px;
         background-color: transparent;
         color: white;

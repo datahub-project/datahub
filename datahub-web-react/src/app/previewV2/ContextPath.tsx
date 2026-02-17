@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
@@ -23,7 +22,7 @@ const PlatformContentWrapper = styled.div`
     max-width: 100%;
     line-height: 22px;
     overflow: hidden;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const PlatformText = styled.div<{
@@ -40,7 +39,7 @@ export const PlatformText = styled.div<{
 `;
 
 const PlatformDivider = styled.hr`
-    color: ${colors.gray[200]};
+    color: ${(props) => props.theme.colors.border};
     align-self: stretch;
     height: auto;
     margin: 4px;
@@ -58,7 +57,7 @@ const PlatFormTitle = styled.span`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface Props {

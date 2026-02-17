@@ -1,7 +1,5 @@
 import moment from 'moment';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 import { CorpUser } from '@types';
 
 /**
@@ -109,13 +107,13 @@ export const getBarsStatusFromPopularityTier = (tier: number) => {
     return status;
 };
 
-export function getRelativeTimeColor(time: number) {
+export function getRelativeTimeColor(time: number, theme: { colors: Record<string, string> }) {
     const relativeTime = moment(time);
     if (relativeTime.isAfter(moment().subtract(1, 'week'))) {
-        return `${REDESIGN_COLORS.GREEN_NORMAL}`;
+        return theme.colors.textSuccess;
     }
     if (relativeTime.isAfter(moment().subtract(1, 'month'))) {
-        return `${REDESIGN_COLORS.WARNING_YELLOW}`;
+        return theme.colors.textWarning;
     }
-    return `${REDESIGN_COLORS.WARNING_RED}`;
+    return theme.colors.textError;
 }

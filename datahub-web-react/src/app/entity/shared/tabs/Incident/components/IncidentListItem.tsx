@@ -125,7 +125,7 @@ const IncidentResolvedContainer = styled.div`
 `;
 
 const IncidentResolvedButton = styled(Button)`
-    background: #ffffff;
+    background: ${(props) => props.theme.colors.bgSurface};
     border: 1px solid #d9d9d9;
     box-sizing: border-box;
     box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.1);

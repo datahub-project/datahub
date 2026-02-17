@@ -1,5 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Pill, Tooltip, colors } from '@components';
+import { Pill, Tooltip } from '@components';
 import { Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { Link, useHistory, useLocation } from 'react-router-dom';
@@ -117,7 +117,7 @@ const ExtraDetailsWrapper = styled.div`
     align-items: center;
     gap: 4px;
 
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 400;
     line-height: normal;
@@ -223,7 +223,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
 
     useAvoidIntersections(urn, columnsHeight + LINEAGE_NODE_HEIGHT, rootType, isVertical);
 
-    const highlightColor = isSearchedEntity ? colors.yellow[400] : colors.yellow[200];
+    const highlightColor = isSearchedEntity ? '#FFD02B' : '#FFE584';
 
     const hasUpstreamChildren = !!(numUpstreams ?? !!entity?.numUpstreamChildren);
     const hasDownstreamChildren = !!(numDownstreams ?? !!entity?.numDownstreamChildren);

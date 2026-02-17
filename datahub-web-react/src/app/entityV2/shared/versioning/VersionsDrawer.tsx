@@ -1,5 +1,5 @@
 import { CloseOutlined } from '@ant-design/icons';
-import { Icon, Input, Table, Text, colors } from '@components';
+import { Icon, Input, Table, Text } from '@components';
 import { Drawer, Dropdown, Pagination, Typography } from 'antd';
 import { ItemType } from 'antd/es/menu/hooks/useItems';
 import moment from 'moment';
@@ -65,13 +65,13 @@ const Title = styled(Text)`
 `;
 
 const CloseIcon = styled.div`
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     cursor: pointer;
 `;
 
 const MenuIcon = styled(Icon)`
     border-radius: 200px;
-    border: ${colors.gray[100]} 1px solid;
+    border: ${(props) => props.theme.colors.border} 1px solid;
     cursor: pointer;
     transition: border 0.3s ease;
 

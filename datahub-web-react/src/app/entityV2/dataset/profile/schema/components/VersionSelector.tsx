@@ -5,7 +5,6 @@ import React, { useEffect, useMemo } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import navigateToUrl from '@app/utils/navigateToUrl';
@@ -23,11 +22,11 @@ const Wrapper = styled.div`
 
 const SchemaBlameSelector = styled(Select)`
     &&& .ant-select-selector {
-        background: ${REDESIGN_COLORS.LIGHT_GREY};
+        background: ${(props) => props.theme.colors.bgSurface};
         font-size: 14px;
         font-weight: 500;
         line-height: 24px;
-        color: ${REDESIGN_COLORS.DARK_GREY};
+        color: ${(props) => props.theme.colors.textSecondary};
         min-width: 30px;
         margin-right: 10px;
         border-radius: 20px;

@@ -16,7 +16,7 @@ const HeaderItem = styled.div`
     padding: 8px 12px 4px;
     font-size: 12px;
     font-weight: 600;
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     text-transform: uppercase;
     letter-spacing: 0.5px;
 `;
@@ -24,14 +24,14 @@ const HeaderItem = styled.div`
 const OptionItem = styled.div<{ readonly active?: boolean }>`
     min-height: 36px;
     padding: 6px 12px 6px 16px;
-    background: ${(props) => (props.active ? colors.gray[1500] : 'white')};
+    background: ${(props) => (props.active ? props.theme.colors.bgHover : props.theme.colors.bg)};
     transition: background 0.15s ease;
     cursor: pointer;
     display: flex;
     align-items: center;
 
     &:hover {
-        background: ${colors.gray[1500]};
+        background: ${(props) => props.theme.colors.bgHover};
     }
 `;
 

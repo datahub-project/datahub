@@ -31,7 +31,6 @@ import { IconType } from '@src/alchemy-components/components/IconLabel/types';
 import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel';
 import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
@@ -47,17 +46,17 @@ import {
 
 const ThinDivider = styled(Divider)`
     margin: 12px 0px;
-    border-color: ${colors.gray[100]};
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 const IncidentStates = {
     [IncidentState.Active]: {
         label: IncidentState.Active,
-        icon: <Warning color={colors.red[1200]} width={20} height={20} />,
+        icon: <Warning color={'#E54D1F'} width={20} height={20} />,
     },
     [IncidentState.Resolved]: {
         label: IncidentState.Resolved,
-        icon: <Check color={colors.green[1200]} width={20} height={20} />,
+        icon: <Check color={'#248F5B'} width={20} height={20} />,
     },
 };
 

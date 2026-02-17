@@ -3,7 +3,6 @@ import { Badge } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { FkContext } from '@app/entity/shared/tabs/Dataset/Schema/utils/selectedFkContext';
 
 import { ForeignKeyConstraint } from '@types';
@@ -11,7 +10,7 @@ import { ForeignKeyConstraint } from '@types';
 const ForeignKeyBadge = styled(Badge)<{ $highlight: boolean }>`
     margin-left: 4px;
     &&& .ant-badge-count {
-        background-color: ${(props) => (props.$highlight ? green[1] : ANTD_GRAY[1])};
+        background-color: ${(props) => (props.$highlight ? green[1] : props.theme.colors.bg)};
         color: ${green[5]};
         border: 1px solid ${green[2]};
         font-size: 12px;

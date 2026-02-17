@@ -2,16 +2,15 @@ import { Modal } from '@components';
 import { Button, Checkbox, Form, Menu, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 export const StyledMenuItem = styled(Menu.Item)`
     min-width: 120px;
-    background-color: #fff !important;
+    background-color: ${(props) => props.theme.colors.bgSurface} !important;
     height: 28px;
     font-size: 12px;
     font-weight: 300;
     padding: 12px;
-    color: #46507b;
+    color: ${(props) => props.theme.colors.textSecondary};
     :hover {
         background-color: transparent;
     }
@@ -114,7 +113,7 @@ export const ModalTitle = styled.span`
     gap: 8px;
     font-size: 22px;
     font-weight: 700;
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const StyledFormItem = styled(Form.Item)`
@@ -124,7 +123,7 @@ export const StyledFormItem = styled(Form.Item)`
         font-size: 14px;
         font-weight: 500;
         border-radius: 8px;
-        color: ${REDESIGN_COLORS.FOUNDATION_BLUE_5};
+        color: ${(props) => props.theme.colors.textSecondary};
 
         &:hover,
         &:focus,
@@ -144,5 +143,5 @@ export const FormItemTitle = styled(Typography.Text)`
     margin-bottom: 8px;
     font-size: 14px;
     font-weight: 500;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
 `;

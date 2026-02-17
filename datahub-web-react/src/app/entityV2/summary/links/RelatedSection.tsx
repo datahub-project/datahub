@@ -23,8 +23,6 @@ import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Menu, Popover, Text, Tooltip } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-
 import { InstitutionalMemoryMetadata } from '@types';
 
 const SectionHeader = styled.div`
@@ -36,7 +34,7 @@ const SectionHeader = styled.div`
 
 const SectionTitle = styled(Text)`
     font-weight: 700;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
 `;
 
@@ -49,7 +47,7 @@ const ListContainer = styled.div`
 
 const EmptyState = styled.div`
     font-size: 12px;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding: 8px 0;
 `;
 

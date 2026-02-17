@@ -1,9 +1,7 @@
 import { Typography, message } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
-
-import colors from '@components/theme/foundations/colors';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useDomainsContext } from '@app/domainV2/DomainsContext';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
@@ -56,6 +54,7 @@ interface Props {
 }
 
 function EntityName(props: Props) {
+    const theme = useTheme();
     const { isNameEditable } = props;
     const { isClosed: isSidebarClosed } = useContext(EntitySidebarContext);
     const refetch = useRefetch();
@@ -162,7 +161,7 @@ function EntityName(props: Props) {
             }}
             $showEntityLink={showEntityLink}
             ellipsis={{
-                tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: colors.gray[1700] } },
+                tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: theme.colors.textSecondary } },
             }}
             key={`${updatedName}-${key}`}
         >
@@ -172,7 +171,7 @@ function EntityName(props: Props) {
         <EntityTitle
             $showEntityLink={showEntityLink}
             ellipsis={{
-                tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: colors.gray[1700] } },
+                tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: theme.colors.textSecondary } },
             }}
             key={`${entityName}-${key}`}
         >

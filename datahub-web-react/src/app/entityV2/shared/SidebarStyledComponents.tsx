@@ -1,10 +1,7 @@
-import { colors } from '@components';
 import DraftsOutlinedIcon from '@mui/icons-material/DraftsOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Row } from 'antd';
 import styled from 'styled-components';
-
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 /**
  * Styled Components- Users and Groups Side bar component
@@ -43,10 +40,10 @@ export const SideBarSubSection = styled.div`
     &::-webkit-scrollbar {
         height: 12px;
         width: 1px;
-        background: #d6d6d6;
+        background: ${(props) => props.theme.colors.border};
     }
     &::-webkit-scrollbar-thumb {
-        background: #d6d6d6;
+        background: ${(props) => props.theme.colors.border};
         -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
     }
 `;
@@ -54,7 +51,7 @@ export const SideBarSubSection = styled.div`
 export const EmptyValue = styled.div<{ color?: string }>`
     &:after {
         content: 'None';
-        color: ${(props) => (props.color ? props.color : '#b7b7b7')};
+        color: ${(props) => (props.color ? props.color : props.theme.colors.textDisabled)};
         font-style: italic;
         font-weight: 100;
     }
@@ -63,7 +60,7 @@ export const EmptyValue = styled.div<{ color?: string }>`
 export const Name = styled.div`
     font-size: 12px;
     line-height: 18px;
-    color: ${ANTD_GRAY_V2['11']};
+    color: ${(props) => props.theme.colors.textSecondary};
     text-align: left;
     display: flex;
     align-items: center;
@@ -74,26 +71,26 @@ export const Name = styled.div`
         white-space: nowrap;
     }
     @media only screen and (min-width: 1200px) {
-        color: ${REDESIGN_COLORS.WHITE};
+        color: ${(props) => props.theme.colors.bg};
     }
 `;
 
 export const TitleRole = styled.div`
     font-size: 12px;
     line-height: 18px;
-    color: ${ANTD_GRAY_V2['11']};
+    color: ${(props) => props.theme.colors.textSecondary};
     text-align: left;
     white-space: wrap;
     @media only screen and (min-width: 1200px) {
-        color: ${REDESIGN_COLORS.WHITE};
+        color: ${(props) => props.theme.colors.bg};
     }
 `;
 
 export const RoleName = styled.div`
     text-align: center;
-    color: ${REDESIGN_COLORS.WHITE};
+    color: ${(props) => props.theme.colors.bg};
     border-radius: 30px;
-    background-color: #565657;
+    background-color: ${(props) => props.theme.colors.textSecondary};
     padding: 3px 5px;
     text-transform: uppercase;
     font-size: 7px;
@@ -101,14 +98,14 @@ export const RoleName = styled.div`
     position: relative;
     z-index: 2;
     @media only screen and (min-width: 1200px) {
-        background-color: ${ANTD_GRAY[1]}4a;
+        background-color: ${(props) => props.theme.colors.bg}4a;
     }
 `;
 
 export const Team = styled.div`
     font-size: 12px;
     line-height: 20px;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 export const SocialDetails = styled.div`
@@ -117,7 +114,7 @@ export const SocialDetails = styled.div`
     gap: 0.4rem;
     font-size: 12px;
     line-height: 20px;
-    color: ${ANTD_GRAY_V2['11']};
+    color: ${(props) => props.theme.colors.textSecondary};
     text-align: left;
     span {
         text-overflow: ellipsis;
@@ -144,7 +141,7 @@ export const EditButton = styled.div`
         width: 100%;
         font-size: 12px;
         line-height: 20px;
-        color: #262626;
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
@@ -153,14 +150,14 @@ export const AboutSection = styled.div`
     font-weight: bold;
     font-size: 14px;
     line-height: 22px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const AboutSectionText = styled.div`
     font-size: 12px;
     font-weight: 100;
     line-height: 15px;
-    color: #434863;
+    color: ${(props) => props.theme.colors.text};
 
     &&& .ant-typography {
         margin-bottom: 0;
@@ -189,7 +186,7 @@ export const TagsSection = styled.div`
 
 export const NoDataFound = styled.span`
     font-size: 12px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     font-weight: 100;
 `;
 
@@ -201,7 +198,7 @@ export const GroupsSeeMoreText = styled.span`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: #1890ff;
+    color: ${(props) => props.theme.colors.hyperlinks};
     cursor: pointer;
 `;
 
@@ -211,7 +208,7 @@ export const DisplayCount = styled.span`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 export const GroupSectionTitle = styled.span`
@@ -234,7 +231,7 @@ export const Content = styled.div`
         width: 100%;
         &:not(:last-child) {
             border-bottom: 1px solid;
-            border-color: ${colors.gray[100]};
+            border-color: ${(props) => props.theme.colors.border};
         }
     }
 `;
@@ -253,7 +250,7 @@ export const UserInfo = styled(Row)`
     display: flex;
     gap: 1rem;
     padding: 10px 10px;
-    background: ${ANTD_GRAY_V2['14']};
+    background: ${(props) => props.theme.colors.bgSurface};
     border-radius: 10px;
     justify-content: center;
     @media only screen and (min-width: 1200px) {
@@ -268,7 +265,7 @@ export const GroupInfo = styled.div`
     display: flex;
     flex-direction: column;
     flex-wrap: wrap;
-    background: ${ANTD_GRAY_V2['14']};
+    background: ${(props) => props.theme.colors.bgSurface};
     border-radius: 10px;
     overflow: hidden;
 `;
@@ -284,7 +281,8 @@ export const SocialInfo = styled.div`
 
 export const GradientContainer = styled.div<{ gradient?: string; height?: number }>`
     border-radius: 10px 10px 0px 0px;
-    background: ${(props) => (props.gradient ? props.gradient : REDESIGN_COLORS.PROFILE_AVATAR_STYLE_GRADIENT)};
+    background: ${(props) =>
+        props.gradient ? props.gradient : 'linear-gradient(93deg, #705EE4 5.11%, #533FD1 112.87%), #4C39BE'};
     height: 65px;
     width: 100%;
     z-index: 1;
@@ -312,13 +310,13 @@ export const EditProfileButtonContainer = styled.div`
     cursor: pointer;
     display: none;
     &&& div {
-        border-color: ${REDESIGN_COLORS.WHITE};
+        border-color: ${(props) => props.theme.colors.bg};
         height: 18px;
         width: 18px;
         display: flex;
         align-items: center;
         &:hover {
-            border-color: ${REDESIGN_COLORS.BORDER_4};
+            border-color: ${(props) => props.theme.colors.borderBrand};
         }
     }
 `;
@@ -354,7 +352,7 @@ export const OwnershipContainer = styled(Row)`
 `;
 
 export const DisplayNameText = styled.span`
-    color: ${ANTD_GRAY_V2[12]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-family: Mulish;
     font-size: 12px;
     font-style: normal;
@@ -368,20 +366,20 @@ export const NameTitleContainer = styled.div`
 `;
 
 export const WhiteEditOutlinedIconStyle = styled(EditOutlinedIcon)`
-    color: ${REDESIGN_COLORS.WHITE};
+    color: ${(props) => props.theme.colors.bg};
     height: 18px !important;
     width: 18px !important;
     &:hover,
     &:focus {
-        color: ${REDESIGN_COLORS.WHITE};
-        border-color: ${REDESIGN_COLORS.WHITE};
+        color: ${(props) => props.theme.colors.bg};
+        border-color: ${(props) => props.theme.colors.bg};
     }
 `;
 
-const showMoreStyles = `
+const showMoreStyles = (props) => `
     margin-top: 8px;
     padding: 0px;
-    color: ${ANTD_GRAY[7]};
+    color: ${props.theme.colors.textTertiary};
     text-align: left;
 `;
 
@@ -389,7 +387,7 @@ export const ShowMoreButton = styled.div`
     ${showMoreStyles}
     :hover {
         cursor: pointer;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textTertiary};
         text-decoration: underline;
     }
 `;
@@ -399,9 +397,9 @@ export const ShowMoreText = styled.div`
 `;
 
 export const CountStyle = styled.div`
-    background-color: #ebecf0;
+    background-color: ${(props) => props.theme.colors.border};
     border-radius: 100px;
-    color: #5b6282;
+    color: ${(props) => props.theme.colors.textSecondary};
     padding: 0px 10px;
     margin: 0px 5px;
     font-size: 10px;

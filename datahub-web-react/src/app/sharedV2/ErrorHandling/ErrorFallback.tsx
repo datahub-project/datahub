@@ -23,7 +23,7 @@ const getVariantStyles = (variant: ErrorVariant) => {
 };
 
 const Container = styled.div<{ variant?: ErrorVariant }>`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     flex-direction: column;
     align-items: center;

@@ -129,7 +129,7 @@ const Header = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const HeaderContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     box-shadow: ${(props) =>
@@ -153,7 +153,7 @@ const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 
 const BodyContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 12px;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;

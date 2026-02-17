@@ -2,7 +2,6 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const HeaderInfoItem = styled.div<{ onClick?: () => void; width?: string }>`
     display: inline-block;
@@ -16,7 +15,7 @@ const HeaderInfoItem = styled.div<{ onClick?: () => void; width?: string }>`
 
 const HeaderInfoTitle = styled(Typography.Text)`
     font-size: 12px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type Props = {

@@ -27,7 +27,7 @@ const ContainerWithHover = styled.div`
     justify-content: center;
 
     :hover {
-        background: linear-gradient(180deg, #fff 0%, #fafafb 100%);
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 
     :hover ${DragIcon} {
@@ -74,7 +74,6 @@ export default function SmallModule({
                     <DragIcon
                         {...listeners}
                         size="lg"
-                        color="gray"
                         icon="DotsSixVertical"
                         source="phosphor"
                         isDragging={isDragging}

@@ -35,7 +35,7 @@ const PlatformsModule = (props: ModuleProps) => {
         return (
             <>
                 {assetCount > 0 && (
-                    <Text size="sm" color="gray">
+                    <Text size="sm">
                         {formatNumber(assetCount)}
                     </Text>
                 )}

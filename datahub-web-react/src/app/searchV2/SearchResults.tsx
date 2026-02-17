@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import { Pagination } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
@@ -7,7 +6,6 @@ import { PreviewType } from '@app/entity/Entity';
 import { EntityAndType } from '@app/entity/shared/types';
 import { isListSubset } from '@app/entity/shared/utils';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { SearchEntitySidebarContainer } from '@app/searchV2/SearchEntitySidebarContainer';
 import { SearchResultList } from '@app/searchV2/SearchResultList';
 import SearchResultsLoadingSection from '@app/searchV2/SearchResultsLoadingSection';
@@ -85,19 +83,19 @@ const SearchResultsScrollContainer = styled.div<{ $isShowNavBarRedesign?: boolea
 
 const LeftControlsContainer = styled.div`
     display: flex;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     gap: 4px;
 `;
 
 const StyledTabToolbar = styled.div`
-    background-color: #fff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 12px;
     margin: 4px 16px 4px 8px;
     padding: 12px 24px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border: 1.5px solid ${ANTD_GRAY[4]};
+    border: 1.5px solid ${(props) => props.theme.colors.bgSurface};
 `;
 
 const SearchResultListContainer = styled.div<{ v2Styles: boolean; $isShowNavBarRedesign?: boolean }>`

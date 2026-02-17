@@ -4,7 +4,6 @@ import { Typography } from 'antd';
 import React, { MouseEventHandler, ReactNode } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import { BaseButton, BodyContainer, BodyGridExpander, RotatingButton } from '@app/shared/components';
 
@@ -44,7 +43,7 @@ ExpandableNode.Header = styled.div<{
     user-select: none;
     padding: 4px;
     gap: 4px;
-    border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : ANTD_GRAY[4])};
+    border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : props.theme.colors.bgHover)};
 `;
 
 ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ $isSelected: boolean }>`
@@ -76,7 +75,7 @@ ExpandableNode.HeaderLeft = styled.div`
 
 const ChevronRightIconStyle = styled(ChevronRightIcon)<{ isVisible?: boolean }>`
     &&& {
-        color: ${ANTD_GRAY[6]};
+        color: ${(props) => props.theme.colors.border};
         visibility: ${(props) => (props.isVisible ? 'visible' : 'hidden')};
         font-size: 18px;
     }

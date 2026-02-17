@@ -14,7 +14,7 @@ import { useListDomainsQuery } from '@graphql/domain.generated';
 import { useGetHighlightsQuery } from '@graphql/highlights.generated';
 
 const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
+    background-color: ${(props) => (props.isV2 ? props.theme.colors.bg : 'inherit')};
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `

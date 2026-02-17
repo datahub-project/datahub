@@ -17,7 +17,7 @@ import { PERSONA_TYPE_TO_VIEW_URN, PersonaType, ROLE_TO_PERSONA_TYPE } from '@ap
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import Loading from '@app/shared/Loading';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
-import colors from '@src/alchemy-components/theme/foundations/colors';
+
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useListGlobalViewsQuery } from '@src/graphql/view.generated';
 
@@ -34,7 +34,7 @@ const Container = styled.div`
 `;
 
 const Content = styled.div`
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 20px;
 
     .ant-select-selection-item {
@@ -45,7 +45,7 @@ const Content = styled.div`
 
     .ant-select-selection-overflow-item-rest {
         .ant-select-selection-item {
-            background-color: #fff !important;
+            background-color: ${(props) => props.theme.colors.bgSurface} !important;
             border: none !important;
             padding: 0 0 0 5px !important;
             height: auto !important;
@@ -56,7 +56,7 @@ const Content = styled.div`
 `;
 
 const Title = styled.div`
-    color: #374066;
+    color: ${(props) => props.theme.colors.text};
     text-align: center;
     font: 700 35px Mulish;
     line-height: 44px;
@@ -64,7 +64,7 @@ const Title = styled.div`
 `;
 
 const Subtitle = styled.div`
-    color: #5f6685;
+    color: ${(props) => props.theme.colors.textSecondary};
     width: 268px;
     text-align: center;
     font: 400 13px Mulish;
@@ -91,8 +91,8 @@ const PsuedoCheckBox = styled.div<{ checked?: boolean }>`
     width: 12px;
     height: 12px;
     border-radius: 4px;
-    border: 1px solid #cfd1da;
-    background: #fff;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    background: ${(props) => props.theme.colors.bgSurface};
     color: #fff;
 
     ${(props) =>
@@ -163,23 +163,23 @@ const SelectGrid = styled.div`
         &:hover,
         &:focus,
         &:active {
-            background-color: #fff !important;
+            background-color: ${(props) => props.theme.colors.bgSurface} !important;
         }
     }
 
     .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
-        background-color: #fff !important;
+        background-color: ${(props) => props.theme.colors.bgSurface} !important;
     }
 
     .ant-select-item-option-content {
         display: flex;
         justify-content: center;
-        background-color: #fff !important;
+        background-color: ${(props) => props.theme.colors.bgSurface} !important;
 
         &:hover,
         &:focus,
         &:active {
-            background-color: #fff !important;
+            background-color: ${(props) => props.theme.colors.bgSurface} !important;
         }
     }
 `;
@@ -204,7 +204,7 @@ const Footer = styled.div`
 `;
 
 const SkipButton = styled.div`
-    color: ${colors.gray[400]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-weight: 700;
     :hover {
         cursor: pointer;

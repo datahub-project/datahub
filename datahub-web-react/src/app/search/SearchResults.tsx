@@ -6,7 +6,6 @@ import { useUserContext } from '@app/context/useUserContext';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import SearchExtendedMenu from '@app/entity/shared/components/styled/search/SearchExtendedMenu';
 import { SearchSelectBar } from '@app/entity/shared/components/styled/search/SearchSelectBar';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { EntityAndType } from '@app/entity/shared/types';
 import { isListSubset } from '@app/entity/shared/utils';
 import { SEARCH_RESULTS_FILTERS_ID } from '@app/onboarding/config/SearchOnboardingConfig';
@@ -60,7 +59,7 @@ const ResultContainer = styled.div<{ v2Styles: boolean }>`
             ? `
         display: flex;
         flex-direction: column;
-        background-color: ${ANTD_GRAY_V2[1]};
+        background-color: ${props.theme.colors.bgSurface};
     `
             : `
         max-width: calc(100% - 260px);
@@ -82,7 +81,7 @@ const PaginationInfoContainer = styled.div<{ v2Styles: boolean }>`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    ${({ v2Styles }) => v2Styles && `background-color: white;`}
+    ${({ v2Styles, theme }) => v2Styles && `background-color: ${theme.colors.bg};`}
 `;
 
 const LeftControlsContainer = styled.div`

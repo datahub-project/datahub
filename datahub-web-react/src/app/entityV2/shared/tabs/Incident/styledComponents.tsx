@@ -1,24 +1,22 @@
 import { Form } from 'antd';
 import styled from 'styled-components';
 
-import { Button, colors } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 import radius from '@src/alchemy-components/theme/foundations/radius';
 import spacing from '@src/alchemy-components/theme/foundations/spacing';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-
 export const StyledTableContainer = styled.div`
     table tr.acryl-selected-table-row {
-        background-color: ${ANTD_GRAY[4]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
     margin: 0px 12px 12px 12px;
 `;
 
 export const LinkedAssetsContainer = styled.div<{ hasButton?: boolean; width?: string }>(({ hasButton, theme }) => ({
-    border: `1px solid ${colors.gray[100]}`,
+    border: `1px solid ${theme.colors.border}`,
     borderRadius: radius.lg,
     padding: spacing.xxsm,
     boxShadow: '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.bg,
     width: 'auto',
     maxHeight: '40vh',
     overflow: 'auto',
@@ -42,7 +40,7 @@ export const StyledFilterContainer = styled.div`
         height: 36px !important;
         font-size: 14px !important;
         border-radius: 8px !important;
-        color: #5f6685;
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 export const SearchFilterContainer = styled.div`
@@ -63,18 +61,18 @@ export const ModalTitleContainer = styled.div`
 export const ModalHeading = styled.span`
     font-weight: 700;
     font-size: 16px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const ModalDescription = styled.p`
     font-weight: 500;
     font-size: 14px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const FormItem = styled(Form.Item)`
     .ant-form-item-label > label {
-        color: ${colors.gray[600]} !important;
+        color: ${(props) => props.theme.colors.text} !important;
         font-size: 12px;
     }
     .ant-form-item-control textarea {
@@ -88,7 +86,7 @@ export const IconContainer = styled.div`
     justify-content: center;
     align-items: center;
     border-radius: 50%;
-    border: 1px solid #ebecf0;
+    border: 1px solid ${(props) => props.theme.colors.border};
     height: 22px;
     width: 22px;
 `;
@@ -105,13 +103,13 @@ export const ResolverInfoContainer = styled.div`
     align-items: flex-start;
     flex-direction: column;
     gap: 8px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const ResolverTitleContainer = styled.div`
     font-size: 14px;
     font-weight: 500;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const ResolverDetailsContainer = styled.div`
@@ -128,13 +126,13 @@ export const ResolverSubTitleContainer = styled.div`
 export const ResolverSubTitle = styled.div`
     font-size: 12px;
     font-weight: 700;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const ResolverDetails = styled.div`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     width: 250px;
 `;
 
@@ -143,7 +141,7 @@ export const AssigneeAvatarStackContainer = styled.div`
 `;
 
 export const CategoryType = styled.div`
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    color: ${(props) => props.theme.colors.textSecondary};
     text-transform: capitalize;
     white-space: nowrap;
     overflow: hidden;

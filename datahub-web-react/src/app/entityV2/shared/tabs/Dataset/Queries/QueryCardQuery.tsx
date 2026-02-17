@@ -2,10 +2,8 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 const Statement = styled.div<{ fullHeight?: boolean; isCompact?: boolean }>`
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     height: ${(props) => (props.fullHeight && '378px') || '240px'};
     margin: 0px 0px 4px 0px;
     border-radius: 8px;

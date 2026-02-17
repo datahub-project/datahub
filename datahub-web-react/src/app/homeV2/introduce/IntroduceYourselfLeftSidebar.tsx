@@ -17,13 +17,13 @@ const Container = styled.div`
 const Title = styled.div`
     max-width: 240px;
     margin-bottom: 30px;
-    color: #374066;
+    color: ${(props) => props.theme.colors.text};
     font: 700 35px/44px Mulish;
 `;
 
 const Subtitle = styled.div`
     width: 371px;
-    color: #5f6685;
+    color: ${(props) => props.theme.colors.textSecondary};
     font: 400 16px/24px Mulish;
 `;
 

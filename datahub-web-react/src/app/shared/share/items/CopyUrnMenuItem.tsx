@@ -3,7 +3,6 @@ import { Tooltip } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 interface CopyUrnMenuItemProps {
     urn: string;
@@ -12,7 +11,7 @@ interface CopyUrnMenuItemProps {
 
 const StyledMenuItem = styled.div`
     && {
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 

@@ -5,7 +5,7 @@ import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY, ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entity/shared/constants';
+import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entity/shared/constants';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { navigateToLineageUrl } from '@app/lineage/utils/navigateToLineageUrl';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
@@ -59,9 +59,9 @@ const LineageSummary = styled.div`
 
 const LineageBadge = styled(Badge)`
     &&& .ant-badge-count {
-        background-color: ${ANTD_GRAY[1]};
-        color: ${ANTD_GRAY[9]};
-        border: 1px solid ${ANTD_GRAY[5]};
+        background-color: ${(props) => props.theme.colors.bg};
+        color: ${(props) => props.theme.colors.text};
+        border: 1px solid ${(props) => props.theme.colors.border};
         font-size: 12px;
         font-weight: 600;
         height: 22px;

@@ -1,11 +1,9 @@
 import { CaretUpOutlined } from '@ant-design/icons';
 import { Button, Checkbox } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import colors from '@components/theme/foundations/colors';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { generateColor } from '@app/entityV2/shared/components/styled/StyledTag';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
 import { Label } from '@app/searchV2/filters/styledComponents';
@@ -45,7 +43,7 @@ const FilterOptionWrapper = styled.div<{ addPadding?: boolean }>`
 
     ${(props) => props.addPadding && 'padding-left: 16px;'}
     &:hover {
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -53,7 +51,7 @@ const StyledCheckbox = styled(Checkbox)`
     font-size: 14px;
 
     .ant-checkbox-inner {
-        border-color: ${ANTD_GRAY[7]};
+        border-color: ${(props) => props.theme.colors.textTertiary};
     }
 
     .ant-checkbox-checked {
@@ -80,7 +78,7 @@ export const TagColor = styled.span<{ color: string; colorHash?: string | null }
 const CountText = styled.span`
     font-size: 12px;
     margin-left: 6px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const LabelCountWrapper = styled.div`
@@ -137,6 +135,7 @@ export default function FilterOption({
     addPadding,
     includeCount = true,
 }: Props) {
+    const theme = useTheme();
     const [areChildrenVisible, setAreChildrenVisible] = useState(true);
     const { field, value, count, entity } = filterOption;
     const entityRegistry = useEntityRegistry();
@@ -197,7 +196,7 @@ export default function FilterOption({
                                             title: label,
                                             showArrow: false,
                                             color: 'white',
-                                            overlayInnerStyle: { color: colors.gray[1700] },
+                                            overlayInnerStyle: { color: theme.colors.textSecondary },
                                         },
                                     }}
                                     style={{ maxWidth: 150 }}

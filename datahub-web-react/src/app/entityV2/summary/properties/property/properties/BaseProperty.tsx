@@ -1,4 +1,4 @@
-import { Menu, Pill, Popover, Text, colors } from '@components';
+import { Menu, Pill, Popover, Text } from '@components';
 import { Skeleton } from 'antd';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
@@ -54,7 +54,7 @@ const Title = styled(Text)<{ $clickable?: boolean }>`
         border-radius: 4px;
 
         :hover {
-            background: ${colors.primary[0]};
+            background: ${props.theme.colors.bgSurfaceBrand};
         }
     `}
 `;

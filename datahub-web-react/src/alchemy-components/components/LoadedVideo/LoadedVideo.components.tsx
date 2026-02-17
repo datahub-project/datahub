@@ -1,7 +1,5 @@
 import styled from 'styled-components';
 
-import colors from '@components/theme/foundations/colors';
-
 const STORY_WIDTH = '600px';
 const STORY_PADDING = '20px';
 
@@ -13,7 +11,7 @@ export const StoryContainer = styled.div`
 export const StoryTitle = styled.h3`
     margin-bottom: 20px;
     text-align: center;
-    color: ${colors.gray[600]};
+    color: ${({ theme }) => theme.colors.text};
     font-size: 18px;
     font-weight: 600;
 `;
@@ -21,13 +19,13 @@ export const StoryTitle = styled.h3`
 export const StoryDescription = styled.p`
     margin-bottom: 20px;
     text-align: center;
-    color: ${colors.gray[1700]};
+    color: ${({ theme }) => theme.colors.textSecondary};
     font-size: 14px;
     line-height: 1.5;
 `;
 
 export const CarouselContainer = styled.div`
-    border: 1px solid ${colors.gray[100]};
+    border: 1px solid ${({ theme }) => theme.colors.border};
     border-radius: 8px;
     padding: 20px;
 `;
@@ -41,7 +39,7 @@ export const SlideTitle = styled.h4`
     margin-bottom: 16px;
     font-size: 16px;
     font-weight: 600;
-    color: ${colors.gray[600]};
+    color: ${({ theme }) => theme.colors.text};
 `;
 
 export const VideoContainer = styled.div`
@@ -57,12 +55,12 @@ export const ErrorContainer = styled.div`
     justify-content: center;
     width: 400px;
     height: 225px;
-    background-color: ${colors.red[0]};
-    border: 2px dashed ${colors.red[500]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceError};
+    border: 2px dashed ${({ theme }) => theme.colors.textError};
     border-radius: 8px;
     margin: 0 auto;
     font-size: 16px;
-    color: ${colors.red[500]};
+    color: ${({ theme }) => theme.colors.textError};
     font-weight: 500;
 `;
 
@@ -72,12 +70,12 @@ export const LoadingContainer = styled.div`
     justify-content: center;
     width: 400px;
     height: 225px;
-    background-color: ${colors.gray[1500]};
-    border: 2px dashed ${colors.gray[100]};
+    background-color: ${({ theme }) => theme.colors.bgSurface};
+    border: 2px dashed ${({ theme }) => theme.colors.border};
     border-radius: 8px;
     margin: 0 auto;
     font-size: 16px;
-    color: ${colors.gray[1700]};
+    color: ${({ theme }) => theme.colors.textSecondary};
     font-weight: 500;
 `;
 
@@ -90,7 +88,7 @@ export const LoadingOverlay = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: ${colors.gray[1500]};
+    background-color: ${({ theme }) => theme.colors.bgSurface};
     z-index: 1;
     border-radius: 4px;
 `;
@@ -119,11 +117,11 @@ export const IndicatorDot = styled.div<{ $isActive: boolean }>`
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background-color: ${({ $isActive }) => ($isActive ? colors.primary[500] : colors.gray[100])};
+    background-color: ${({ $isActive, theme }) => ($isActive ? theme.colors.textBrand : theme.colors.border)};
 `;
 
 export const IndicatorText = styled.p`
     margin-top: 10px;
     font-size: 12px;
-    color: ${colors.gray[1800]};
+    color: ${({ theme }) => theme.colors.textTertiary};
 `;

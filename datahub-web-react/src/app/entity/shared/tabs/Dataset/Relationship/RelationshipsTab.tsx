@@ -10,7 +10,6 @@ import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { CreateERModelRelationModal } from '@app/entity/shared/components/styled/ERModelRelationship/CreateERModelRelationModal';
 import { ERModelRelationPreview } from '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationPreview';
 import { SearchSelectModal } from '@app/entity/shared/components/styled/search/SearchSelectModal';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
@@ -34,12 +33,12 @@ const StyledInput = styled(Input)`
 const ThinDivider = styled(Divider)`
     height: 1px;
     width: 520px !important;
-    background: #f0f0f0;
+    background: ${(props) => props.theme.colors.border};
     margin-left: -70px;
     margin-bottom: 0px;
 `;
 const NoERModelRelations = styled(Empty)`
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textDisabled};
     padding-top: 60px;
 `;
 export const RelationshipsTab = () => {

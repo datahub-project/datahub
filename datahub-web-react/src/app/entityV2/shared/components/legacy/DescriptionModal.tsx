@@ -1,4 +1,4 @@
-import { Editor, Modal, colors } from '@components';
+import { Editor, Modal } from '@components';
 import { Form, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -24,7 +24,7 @@ const OriginalDocumentation = styled(Form.Item)`
 const EditorContainer = styled.div`
     height: 200px;
     overflow: auto;
-    border: 1px solid ${colors.gray[100]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
 `;
 

@@ -3,8 +3,6 @@ import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 const SummaryHeader = styled.div`
     width: 100%;
     padding-left: 40px;
@@ -12,7 +10,7 @@ const SummaryHeader = styled.div`
     padding-bottom: 20px;
     display: flex;
     align-items: center;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const SummaryContainer = styled.div``;
@@ -45,7 +43,7 @@ const FAILURE_COLOR_HEX = '#F5222D';
 
 const getSummaryIcon = (summary: AssertionsSummary) => {
     if (summary.totalRuns === 0) {
-        return <StopOutlined style={{ color: ANTD_GRAY[6], fontSize: 28 }} />;
+        return <StopOutlined style={{ color: '#BFBFBF', fontSize: 28 }} />;
     }
     if (summary.succeededRuns === summary.totalRuns) {
         return <CheckCircleFilled style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;

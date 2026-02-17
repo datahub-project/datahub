@@ -36,11 +36,9 @@ export const StyledIcon = styled(Icon)({
 });
 
 export const TextAreaContainer = styled.div(
-    ({ isSuccess, warning, isDisabled, isInvalid }: TextAreaProps) => ({
+    ({ isSuccess, warning, isDisabled, isInvalid, theme }: TextAreaProps & { theme: any }) => ({
         border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid)}`,
-        backgroundColor: isDisabled ? colors.gray[1500] : colors.white,
-    }),
-    {
+        backgroundColor: isDisabled ? theme.colors.bgSurface : theme.colors.bg,
         ...defaultFlexStyles,
         position: 'relative',
         minWidth: '160px',
@@ -48,25 +46,26 @@ export const TextAreaContainer = styled.div(
         width: sizes.full,
         borderRadius: radius.md,
         flex: 1,
-        color: colors.gray[400], // first icon color
+        color: theme.colors.icon,
 
         '&:focus-within': {
-            borderColor: colors.violet[200],
-            outline: `${borders['1px']} ${colors.violet[200]}`,
+            borderColor: theme.colors.borderBrandFocused,
+            outline: `${borders['1px']} ${theme.colors.borderBrandFocused}`,
         },
-    },
+    }),
 );
 
-export const TextAreaField = styled.textarea<{ icon?: IconNames }>(({ icon }) => ({
+export const TextAreaField = styled.textarea<{ icon?: IconNames }>(({ icon, theme }) => ({
     padding: `${spacing.sm} ${spacing.md}`,
     borderRadius: radius.md,
     border: borders.none,
     width: '100%',
     minHeight,
+    backgroundColor: 'transparent',
+    color: theme.colors.text,
 
     ...inputValueTextStyles(),
 
-    // Account for icon placement
     ...(icon && {
         paddingLeft: spacing.xsm,
     }),
@@ -77,22 +76,24 @@ export const TextAreaField = styled.textarea<{ icon?: IconNames }>(({ icon }) =>
 
     '&::placeholder': {
         ...inputPlaceholderTextStyles,
+        color: theme.colors.textTertiary,
     },
 
     '&:disabled': {
-        backgroundColor: colors.gray[1500],
+        backgroundColor: theme.colors.bgSurface,
     },
 }));
 
-export const Label = styled.div({
+export const Label = styled.div(({ theme }) => ({
     ...formLabelTextStyles,
+    color: theme.colors.text,
     marginBottom: spacing.xxsm,
     textAlign: 'left',
-});
+}));
 
-export const Required = styled.span({
-    color: colors.red[500],
-});
+export const Required = styled.span(({ theme }) => ({
+    color: theme.colors.textError,
+}));
 
 export const ErrorMessage = styled.div({
     ...defaultMessageStyles,

@@ -6,7 +6,6 @@ import styled from 'styled-components';
 import { SelectItemPopover } from '@src/alchemy-components/components/SelectItemsPopover';
 import DataHubTooltip from '@src/alchemy-components/components/Tooltip/Tooltip';
 import { getColor } from '@src/alchemy-components/theme/utils';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { handleBatchError } from '@src/app/entityV2/shared/utils';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import Tag from '@src/app/sharedV2/tags/tag/Tag';
@@ -46,7 +45,7 @@ const AdditionalPillCount = styled.div`
     align-items: center;
     font-size: 12px;
     font-family: Mulish;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const TooltipTitleWrapper = styled.div`
@@ -98,7 +97,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
             ))}
             {remainingTagsCount > 0 ? (
                 <DataHubTooltip
-                    overlayInnerStyle={{ backgroundColor: 'white' }}
+                    overlayInnerStyle={{}}
                     open={popoverVisible ? false : undefined}
                     title={
                         <TooltipTitleWrapper onClick={() => setPopoverVisible(true)}>

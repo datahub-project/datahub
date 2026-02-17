@@ -3,7 +3,6 @@ import { Input } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DataPlatformCard } from '@app/ingest/source/builder/DataPlatformCard';
 import { CUSTOM } from '@app/ingest/source/builder/constants';
 import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
@@ -32,7 +31,7 @@ const SearchBarContainer = styled.div`
 `;
 
 const StyledSearchBar = styled(Input)`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
     box-shadow: 0px 0px 30px 0px rgb(239 239 239);
     border: 1px solid #e0e0e0;
@@ -65,7 +64,7 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
     const logoUrl = useGetSourceLogoUrl(name);
     let logoComponent;
     if (name === CUSTOM) {
-        logoComponent = <FormOutlined style={{ color: ANTD_GRAY[8], fontSize: 28 }} />;
+        logoComponent = <FormOutlined style={{ color: '#595959', fontSize: 28 }} />;
     }
 
     return (

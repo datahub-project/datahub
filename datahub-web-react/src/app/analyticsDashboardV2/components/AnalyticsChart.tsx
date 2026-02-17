@@ -4,13 +4,12 @@ import { useTooltip, useTooltipInPortal } from '@visx/tooltip';
 import { Axis, BarSeries, BarStack, Grid, Tooltip, XYChart } from '@visx/xychart';
 import dayjs from 'dayjs';
 import React, { useCallback, useMemo } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { Popover } from '@components/components/Popover';
 
 import { TableChart } from '@app/analyticsDashboardV2/components/TableChart';
 import { useAnalyticsChartColors } from '@app/analyticsDashboardV2/hooks/useAnalyticsChartColors';
-import { colors } from '@src/alchemy-components/theme';
 
 import { AnalyticsChart as AnalyticsChartType, BarChart as BarChartType, TimeSeriesChart } from '@types';
 
@@ -43,7 +42,7 @@ const LegendArea = styled.div`
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    border-top: 1px solid ${colors.gray[200]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     padding-top: 12px;
     margin-top: 8px;
     max-height: 80px;
@@ -63,22 +62,22 @@ const LegendScrollArea = styled.div`
     }
 
     &::-webkit-scrollbar-track {
-        background: ${colors.gray[100]};
+        background: ${(props) => props.theme.colors.border};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${colors.gray[300]};
+        background: ${(props) => props.theme.colors.textDisabled};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${colors.gray[400]};
+        background: ${(props) => props.theme.colors.textTertiary};
     }
 
     /* Firefox scrollbar */
     scrollbar-width: thin;
-    scrollbar-color: ${colors.gray[300]} ${colors.gray[100]};
+    scrollbar-color: ${(props) => props.theme.colors.textDisabled} ${(props) => props.theme.colors.border};
 `;
 
 const LegendItem = styled.div<{ $isSelected?: boolean }>`
@@ -91,11 +90,11 @@ const LegendItem = styled.div<{ $isSelected?: boolean }>`
     transition: all 0.2s ease;
     white-space: nowrap;
     flex-shrink: 0;
-    background-color: ${(props) => (props.$isSelected ? colors.violet[100] : 'transparent')};
-    border: 1px solid ${(props) => (props.$isSelected ? colors.violet[400] : 'transparent')};
+    background-color: ${(props) => (props.$isSelected ? props.theme.colors.bgSurfaceBrandHover : 'transparent')};
+    border: 1px solid ${(props) => (props.$isSelected ? props.theme.colors.borderBrandFocused : 'transparent')};
 
     &:hover {
-        background-color: ${(props) => (props.$isSelected ? colors.violet[100] : colors.gray[50])};
+        background-color: ${(props) => (props.$isSelected ? props.theme.colors.bgSurfaceBrandHover : props.theme.colors.bgHover)};
     }
 `;
 
@@ -110,22 +109,22 @@ const LegendColorBox = styled.div<{ color: string }>`
 
 const LegendLabel = styled.span<{ $isSelected?: boolean }>`
     font-size: 13px;
-    color: ${colors.gray[700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     line-height: 1.3;
     white-space: nowrap;
     font-weight: ${(props) => (props.$isSelected ? 'bold' : 'normal')};
 `;
 
 const TooltipContainer = styled.div`
-    background: white;
-    color: ${colors.gray[1700]};
+    background: ${(props) => props.theme.colors.bgSurface};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding: 8px 12px;
     border-radius: 4px;
     font-size: 12px;
     pointer-events: none;
     z-index: 1000;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    border: 1px solid ${colors.gray[300]};
+    border: 1px solid ${(props) => props.theme.colors.textDisabled};
 `;
 
 // Truncate label to max 11 characters total (based on "DATAPRODUCT" fitting perfectly)
@@ -142,6 +141,7 @@ type StackedBarChartProps = {
 };
 
 const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, segmentColors }: StackedBarChartProps) => {
+    const theme = useTheme();
     const { tooltipData, tooltipLeft, tooltipTop, showTooltip, hideTooltip } = useTooltip<{
         label: string;
         value: number;
@@ -308,7 +308,7 @@ const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, seg
                                                 fontSize: 11,
                                                 fontWeight: isSelected ? 'bold' : 'normal',
                                                 textDecoration: isSelected ? 'underline' : 'none',
-                                                fill: isSelected ? colors.violet[600] : colors.gray[700],
+                                                fill: isSelected ? theme.colors.textBrand : theme.colors.textSecondary,
                                                 onClick: () => handleBarClick(tickValue as number),
                                                 style: { cursor: 'pointer' },
                                                 pointerEvents: 'all',
@@ -405,6 +405,7 @@ const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, seg
 };
 
 export const AnalyticsChart = ({ chartData }: Props) => {
+    const theme = useTheme();
     const isTable = chartData.__typename === 'TableChart';
 
     const isEmpty = useMemo(() => {
@@ -536,7 +537,7 @@ export const AnalyticsChart = ({ chartData }: Props) => {
                                 angle: -45,
                                 textAnchor: 'end',
                                 fontSize: 11,
-                                fill: colors.gray[700],
+                                fill: theme.colors.textSecondary,
                             },
                         }}
                         popoverRenderer={(datum) => {

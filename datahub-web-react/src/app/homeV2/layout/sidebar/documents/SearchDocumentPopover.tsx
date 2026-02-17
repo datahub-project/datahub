@@ -7,7 +7,6 @@ import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree'
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Input } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { DocumentSourceType, DocumentState, EntityType } from '@types';
 
@@ -16,7 +15,7 @@ const PopoverContainer = styled.div`
     max-height: 300px; /* Fixed height to prevent popover jumping */
     display: flex;
     flex-direction: column;
-    background: white;
+    background: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
     box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.1);
 `;
@@ -32,8 +31,8 @@ const TreeScrollContainer = styled.div`
 
     padding: 8px 4px;
 
-    border-top: 1px solid ${colors.gray[100]};
-    border-bottom: 1px solid ${colors.gray[100]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 
     /* Custom scrollbar styling */
     &::-webkit-scrollbar {
@@ -45,19 +44,19 @@ const TreeScrollContainer = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${colors.gray[200]};
+        background: ${(props) => props.theme.colors.border};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${colors.gray[500]};
+        background: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 
 const EmptyState = styled.div`
     padding: 24px;
     text-align: center;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
 `;
 

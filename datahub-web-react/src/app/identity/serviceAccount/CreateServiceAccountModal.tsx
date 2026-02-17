@@ -6,7 +6,6 @@ import styled from 'styled-components';
 import { addServiceAccountToListCache } from '@app/identity/serviceAccount/cacheUtils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { Input, Modal, Text, TextArea } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { useCreateServiceAccountMutation } from '@graphql/auth.generated';
 
@@ -23,11 +22,11 @@ const FormGroup = styled.div`
 `;
 
 const FormLabel = styled(Text)`
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const FormDescription = styled(Text)`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type Props = {

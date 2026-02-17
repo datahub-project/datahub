@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import CreateTokenModal from '@app/settingsV2/CreateTokenModal';
-import { Avatar, Button, Icon, Modal, Pagination, SearchBar, Table, Text, colors } from '@src/alchemy-components';
+import { Avatar, Button, Icon, Modal, Pagination, SearchBar, Table, Text } from '@src/alchemy-components';
 import { Menu } from '@src/alchemy-components/components/Menu';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
@@ -32,13 +32,13 @@ export const TableContainer = styled.div`
         position: sticky;
         top: 0;
         z-index: 1;
-        background: white;
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 
     /* Ensure header cells have proper background */
     .ant-table-thead > tr > th {
-        background: white !important;
-        border-bottom: 1px solid #f0f0f0;
+        background: ${(props) => props.theme.colors.bgSurface} !important;
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
     }
 `;
 
@@ -77,7 +77,7 @@ const ServiceAccountInfo = styled.div`
 const ServiceAccountDetails = styled.div`
     display: flex;
     flex-direction: column;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const ActionsButtonStyle = {

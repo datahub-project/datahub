@@ -18,7 +18,7 @@ const Container = styled.div<{ $border?: boolean; $fontSize?: string }>`
         props.$border &&
         `
         border-radius: 8px;
-        border: 1px solid ${colors.gray[100]};
+        border: 1px solid ${props.theme.colors.border};
     `}
 
     ${(props) => props.$fontSize && `font-size: ${props.$fontSize};`}

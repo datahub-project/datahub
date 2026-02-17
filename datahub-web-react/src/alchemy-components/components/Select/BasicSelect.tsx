@@ -1,6 +1,7 @@
 import { Dropdown, Text, colors } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTheme } from 'styled-components';
 
 import {
     ActionButtonsContainer,
@@ -71,6 +72,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     visibilityDeps,
     ...props
 }: SelectProps<OptionType>) => {
+    const styledTheme = useTheme() as any;
     const [searchQuery, setSearchQuery] = useState('');
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -223,7 +225,13 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                                         <span>{option.label}</span>
                                                         {!!option.description && [
                                                             <br />,
-                                                            <span style={{ color: colors.gray[400] }}>
+                                                            <span
+                                                                style={{
+                                                                    color:
+                                                                        styledTheme?.colors?.textTertiary ??
+                                                                        colors.gray[400],
+                                                                }}
+                                                            >
                                                                 {option.description}
                                                             </span>,
                                                         ]}

@@ -1,10 +1,10 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+import { useTheme } from 'styled-components';
 
 import ExpandingStat from '@app/entityV2/dataset/shared/ExpandingStat';
 import { StatsSummary } from '@app/entityV2/shared/components/styled/StatsSummary';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { PercentileLabel } from '@app/entityV2/shared/stats/PercentileLabel';
 import LastUpdated from '@app/shared/LastUpdated';
 import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
@@ -17,7 +17,7 @@ const StatText = styled.span<{ color: string }>`
     }
     font-size: 12px;
     font-family: 'Mulish', sans-serif;
-    color: #8894a9;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type Props = {
@@ -54,8 +54,9 @@ export const DatasetStatsSummary = ({
     subTypes,
     mode = 'normal',
 }: Props) => {
+    const theme = useTheme();
     const isTooltipMode = mode === 'tooltip-content';
-    const displayedColor = isTooltipMode ? '' : (color ?? ANTD_GRAY[7]);
+    const displayedColor = isTooltipMode ? '' : (color ?? theme.colors.textTertiary);
 
     const statsViews = [
         !!rowCount && (

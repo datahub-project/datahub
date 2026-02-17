@@ -1,9 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
-import styled from 'styled-components/macro';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import styled, { useTheme } from 'styled-components/macro';
 import { SearchBar } from '@app/searchV2/SearchBar';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -17,7 +15,7 @@ const StyledButton = styled(Button)`
 `;
 
 export const DropdownMenu = styled.div<{ type: 'card' | 'default' }>`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     ${(props) => props.type === 'card' && 'border-radius: 5px;'}
     ${(props) =>
         props.type === 'card' &&
@@ -26,9 +24,9 @@ export const DropdownMenu = styled.div<{ type: 'card' | 'default' }>`
     min-width: 200px;
 
     .ant-dropdown-menu-title-content {
-        background-color: white;
+        background-color: ${(props) => props.theme.colors.bgSurface};
         &:hover {
-            background-color: white;
+            background-color: ${(props) => props.theme.colors.bgSurface};
         }
     }
     .ant-dropdown-menu {
@@ -77,6 +75,7 @@ export default function OptionsDropdownMenu({
     className,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
 
     useEnterKeyListener({ querySelectorToExecuteClick: '#updateFiltersButton' });
 
@@ -101,8 +100,8 @@ export default function OptionsDropdownMenu({
                         onSearch={() => null}
                         onQueryChange={updateSearchQuery}
                         entityRegistry={entityRegistry}
-                        textColor={ANTD_GRAY[9]}
-                        placeholderColor={ANTD_GRAY[6]}
+                        textColor={theme.colors.text}
+                        placeholderColor={theme.colors.textDisabled}
                     />
                 )}
                 {React.cloneElement(menu as React.ReactElement, { style: { boxShadow: 'none' } })}

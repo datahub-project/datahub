@@ -4,7 +4,6 @@ import qs from 'query-string';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 interface EmailMenuItemProps {
     urn: string;
@@ -14,7 +13,7 @@ interface EmailMenuItemProps {
 
 const StyledMenuItem = styled.div`
     && {
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 

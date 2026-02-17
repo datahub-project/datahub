@@ -18,9 +18,16 @@ const Container = styled.div`
     word-wrap: nowrap;
 `;
 
-const IconWrapper = styled.div`
+const IconWrapper = styled.div<{ $isDisabled?: boolean }>`
     display: flex;
     flex-shrink: 0;
+    color: ${(props) => (props.$isDisabled ? props.theme.colors.textDisabled : props.theme.colors.textTertiary)};
+`;
+
+const CaretWrapper = styled(IconWrapper)``;
+
+const DescriptionText = styled(Text)<{ $isDisabled?: boolean }>`
+    color: ${(props) => (props.$isDisabled ? props.theme.colors.textDisabled : props.theme.colors.textSecondary)};
 `;
 
 const SpaceFiller = styled.div`
@@ -45,29 +52,29 @@ export default function MenuItem({ icon, title, description, hasChildren, isDisa
         return 'Cannot add large widget to small widget row';
     }, [isDisabled, isSmallModule]);
 
-    const iconColorLevel = isDisabled ? 300 : 1800;
-
     const content = (
         <Wrapper>
-            <IconWrapper>
-                <Icon icon={icon} source="phosphor" color="gray" colorLevel={iconColorLevel} size="2xl" />
+            <IconWrapper $isDisabled={isDisabled}>
+                <Icon icon={icon} source="phosphor" size="2xl" />
             </IconWrapper>
 
             <Container>
-                <Text weight="semiBold" color="gray" colorLevel={600}>
+                <Text weight="semiBold">
                     {title}
                 </Text>
                 {description && (
-                    <Text color="gray" colorLevel={isDisabled ? 300 : 1700} size="sm">
+                    <DescriptionText $isDisabled={isDisabled} size="sm">
                         {description}
-                    </Text>
+                    </DescriptionText>
                 )}
             </Container>
 
             <SpaceFiller />
 
             {hasChildren && (
-                <Icon icon="CaretRight" source="phosphor" color="gray" colorLevel={iconColorLevel} size="lg" />
+                <CaretWrapper $isDisabled={isDisabled}>
+                    <Icon icon="CaretRight" source="phosphor" size="lg" />
+                </CaretWrapper>
             )}
         </Wrapper>
     );

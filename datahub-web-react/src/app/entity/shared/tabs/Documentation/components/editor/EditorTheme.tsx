@@ -15,8 +15,6 @@ import { defaultRemirrorTheme } from '@remirror/theme';
 import type { RemirrorThemeType } from '@remirror/theme';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 export const EditorTheme: RemirrorThemeType = {
     ...defaultRemirrorTheme,
     fontSize: {
@@ -28,19 +26,19 @@ export const EditorTheme: RemirrorThemeType = {
         primary: '#00B14F',
         table: {
             ...defaultRemirrorTheme.color.table,
-            mark: ANTD_GRAY[6],
+            mark: '#BFBFBF',
             default: {
-                controller: ANTD_GRAY[3],
-                border: ANTD_GRAY[4.5],
+                controller: '#F5F5F5',
+                border: '#E9E9E9',
             },
             selected: {
-                controller: ANTD_GRAY[4],
-                border: ANTD_GRAY[4.5],
-                cell: ANTD_GRAY[2.5],
+                controller: '#F0F0F0',
+                border: '#E9E9E9',
+                cell: '#F8F8F8',
             },
             preselect: {
-                controller: ANTD_GRAY[5],
-                border: ANTD_GRAY[6],
+                controller: '#D9D9D9',
+                border: '#BFBFBF',
             },
         },
     },
@@ -109,14 +107,14 @@ export const EditorContainer = styled.div<{ editorStyle?: string }>`
 
         .autocomplete {
             padding: 0.2rem;
-            background: ${ANTD_GRAY[4]};
+            background: ${(props) => props.theme.colors.bgSurface};
             border-radius: 4px;
         }
 
         table {
             display: block;
             th:not(.remirror-table-controller) {
-                background: ${ANTD_GRAY[2]};
+                background: ${(props) => props.theme.colors.bgSurface};
             }
 
             th:not(.remirror-table-controller),

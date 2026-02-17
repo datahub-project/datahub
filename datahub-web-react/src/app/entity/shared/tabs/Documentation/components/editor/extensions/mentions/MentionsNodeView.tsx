@@ -4,7 +4,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -15,7 +14,7 @@ const { Text } = Typography;
 const InvalidEntityText = styled(Text)`
     display: inline-block;
     font-weight: 500;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const ValidEntityText = styled(Text)`

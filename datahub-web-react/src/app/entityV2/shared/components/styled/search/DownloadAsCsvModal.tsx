@@ -1,9 +1,9 @@
 import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
-import { Modal, Text, colors } from '@components';
+import { Modal, Text } from '@components';
 import { Input, Spin, notification } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useLocation } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -23,8 +23,8 @@ const ImpactAnalysisWarning = styled.div`
     padding: 8px;
     display: flex;
     align-items: center;
-    color: ${colors.yellow[1000]};
-    background-color: ${colors.yellow[0]};
+    color: ${(props) => props.theme.colors.textWarning};
+    background-color: ${(props) => props.theme.colors.bgSurfaceWarning};
     margin-bottom: 16px;
     border-radius: 8px;
 `;
@@ -66,6 +66,7 @@ export default function DownloadAsCsvModal({
     setShowDownloadAsCsvModal,
 }: Props) {
     const { lineageSearchPath } = useContext(LineageTabContext);
+    const theme = useTheme();
     const { entityData: entitySearchIsEmbeddedWithin } = useEntityData();
     const location = useLocation();
 
@@ -215,7 +216,7 @@ export default function DownloadAsCsvModal({
         >
             {lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">
-                    <ExclamationCircleFilled style={{ color: colors.yellow[1000], fontSize: 16 }} />
+                    <ExclamationCircleFilled style={{ color: theme.colors.textWarning, fontSize: 16 }} />
                     <div>
                         <Text weight="bold" style={{ lineHeight: 'normal' }}>
                             Results may vary

@@ -15,7 +15,6 @@ import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/trans
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 import { findIndexOfFieldPathExcludingCollapsedFields } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
@@ -44,11 +43,11 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
     }
 
     &&& .ant-table-tbody > tr {
-        background-color: #fff;
+        background-color: ${(props) => props.theme.colors.bg};
     }
 
     &&& .ant-table-tbody > tr.expanded-child {
-        background-color: #f5f9fa;
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 
     &&& .ant-table-tbody > tr > .ant-table-cell {
@@ -71,21 +70,21 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
 
     &&& .selected-row * {
         .ant-typography mark {
-            background-color: ${REDESIGN_COLORS.HEADING_COLOR} !important;
+            background-color: ${(props) => props.theme.colors.text} !important;
         }
 
         .row-icon-tooltip .ant-tooltip-inner {
-            background: #e5eff1 !important;
-            color: ${REDESIGN_COLORS.DARK_GREY} !important;
+            background: ${(props) => props.theme.colors.bgSurface} !important;
+            color: ${(props) => props.theme.colors.text} !important;
         }
 
         .ant-tag {
-            background-color: ${REDESIGN_COLORS.WHITE};
+            background-color: ${(props) => props.theme.colors.bg};
         }
     }
 
     &&& .selected-row {
-        background: ${colors.gray[100]} !important;
+        background: ${(props) => props.theme.colors.border} !important;
     }
 
     &&& .level-0 td .row-icon-container .row-icon {
@@ -98,12 +97,12 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
 
     &&& tr.expanded-row td:first-of-type {
         border-left: ${(props) =>
-            props.isSearchActive ? '4px solid #ffffff00' : `4px solid ${REDESIGN_COLORS.BACKGROUND_PURPLE}`};
+            props.isSearchActive ? '4px solid #ffffff00' : `4px solid ${props.theme.colors.bgSurfaceBrand}`};
     }
 
     &&& .expanded-child > td {
         .depth-container {
-            background: ${REDESIGN_COLORS.PRIMARY_PURPLE};
+            background: ${(props) => props.theme.colors.textBrand};
         }
 
         .depth-text {

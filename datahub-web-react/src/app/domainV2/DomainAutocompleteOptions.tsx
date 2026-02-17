@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import { getParentDomains } from '@app/domain/utils';
 import EntityRegistry from '@app/entity/EntityRegistry';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import ParentEntities from '@app/search/filters/ParentEntities';
 
@@ -18,7 +17,7 @@ const LoadingWrapper = styled.div`
     svg {
         height: 15px;
         width: 15px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 const LabelWrapper = styled.div`

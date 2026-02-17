@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import GloassarySearchResultItem from '@app/glossary/GloassarySearchResultItem';
 import { SearchBar } from '@app/search/SearchBar';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -15,7 +14,7 @@ const GlossarySearchWrapper = styled.div`
 `;
 
 const ResultsWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 5px;
     box-shadow:
         0 3px 6px -4px rgb(0 0 0 / 12%),
@@ -34,7 +33,7 @@ const ResultsWrapper = styled.div`
 
 const TermNodeName = styled.span`
     margin-top: 12px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: bold;
 `;
 

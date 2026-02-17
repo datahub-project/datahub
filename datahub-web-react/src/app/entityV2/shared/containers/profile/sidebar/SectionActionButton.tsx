@@ -2,15 +2,14 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 export const ActionButton = styled.div<{ privilege: boolean }>`
     color: ${(props) =>
-        props.privilege ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
+        props.privilege ? `${props.theme.styles['primary-color']}` : `${props.theme.colors.textTertiary}`};
     border: ${(props) =>
         props.privilege
             ? `1px solid ${props.theme.styles['primary-color']}`
-            : `1px solid ${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
+            : `1px solid ${props.theme.colors.textTertiary}`};
     ${(props) => (props.privilege ? 'cursor: pointer;' : 'pointer-events: none;')}
     height: 20px;
     width: 20px;
@@ -25,7 +24,7 @@ export const ActionButton = styled.div<{ privilege: boolean }>`
         ${(props) =>
             props.privilege &&
             `
-        color: ${REDESIGN_COLORS.WHITE};
+        color: ${props.theme.colors.bg};
         background: ${props.theme.styles['primary-color']};
         `}
     

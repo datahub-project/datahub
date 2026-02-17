@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 export const Title = styled.div`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 14px;
     font-weight: 400;
 `;
@@ -28,12 +28,12 @@ export const SectionHeader = styled.div`
 export const SectionTitle = styled.div`
     font-weight: 700;
     font-size: 12px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const Content = styled.div`
     margin-top: 4px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 14px;
 `;
 

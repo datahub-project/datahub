@@ -16,7 +16,7 @@ const PreviewImage = styled.img<{ $isShowNavBarRedesign?: boolean }>`
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
     border-top-right-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
-    ${(props) => !props.$isShowNavBarRedesign && 'border: 2px solid #ffffff;'}
+    ${(props) => !props.$isShowNavBarRedesign && `border: 2px solid ${props.theme.colors.bg};`}
 `;
 
 const PreviewLetter = styled.div<{ color: string; $isShowNavBarRedesign?: boolean }>`
@@ -31,7 +31,7 @@ const PreviewLetter = styled.div<{ color: string; $isShowNavBarRedesign?: boolea
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
     border-top-right-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
-    ${(props) => !props.$isShowNavBarRedesign && 'border: 2px solid #ffffff;'}
+    ${(props) => !props.$isShowNavBarRedesign && `border: 2px solid ${props.theme.colors.bg};`}
 `;
 
 type Props = {

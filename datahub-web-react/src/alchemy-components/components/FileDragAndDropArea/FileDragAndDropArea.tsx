@@ -9,7 +9,7 @@ const Container = styled.div<{ $dragActive?: boolean }>`
     flex-direction: column;
     align-items: center;
 
-    border: 1px dashed ${(props) => (props.$dragActive ? colors.primary[500] : colors.gray[100])};
+    border: 1px dashed ${({ $dragActive, theme }) => ($dragActive ? colors.primary[500] : theme.colors.border)};
     border-radius: 12px;
 `;
 
@@ -29,7 +29,7 @@ const IconContainer = styled.div`
     width: 32px;
     height: 32px;
     border-radius: 100%;
-    background-color: ${colors.gray[1000]};
+    background-color: ${({ theme }) => theme.colors.bgSurfaceBrand};
 `;
 
 const ActionTextContainer = styled.div`

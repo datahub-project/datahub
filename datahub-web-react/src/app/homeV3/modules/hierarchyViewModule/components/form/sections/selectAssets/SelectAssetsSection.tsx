@@ -61,7 +61,7 @@ export default function SelectAssetsSection() {
 
     return (
         <Wrapper>
-            <Text color="gray" colorLevel={600} weight="bold">
+            <Text weight="bold">
                 Search and Select Assets
             </Text>
             <FormItem name={FORM_FIELD_ASSET_TYPE}>

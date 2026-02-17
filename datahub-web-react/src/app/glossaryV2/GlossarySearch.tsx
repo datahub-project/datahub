@@ -6,7 +6,6 @@ import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
 import { IconStyleType } from '@app/entityV2/Entity';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ClickOutside from '@app/shared/ClickOutside';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -15,11 +14,11 @@ import { EntityType } from '@types';
 
 const GlossarySearchWrapper = styled.div`
     position: relative;
-    border-bottom: 1px solid ${REDESIGN_COLORS.BORDER_3};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const ResultsWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 5px;
     box-shadow:
         0 3px 6px -4px rgb(0 0 0 / 12%),
@@ -43,15 +42,15 @@ const LoadingWrapper = styled.div`
 `;
 
 const SearchResult = styled(Link)`
-    color: ${ANTD_GRAY[11]};
+    color: ${(props) => props.theme.colors.text};
     display: inline-block;
     height: 100%;
     padding: 6px 8px;
     width: 100%;
 
     &:hover {
-        background-color: ${ANTD_GRAY[3]};
-        color: ${ANTD_GRAY[11]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 

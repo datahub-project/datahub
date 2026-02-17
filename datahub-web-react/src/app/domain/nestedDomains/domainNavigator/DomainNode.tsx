@@ -7,7 +7,6 @@ import DomainIcon from '@app/domain/DomainIcon';
 import { useDomainsContext } from '@app/domain/DomainsContext';
 import useHasDomainChildren from '@app/domain/nestedDomains/domainNavigator/useHasDomainChildren';
 import useListDomains from '@app/domain/useListDomains';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { BodyContainer, BodyGridExpander } from '@app/shared/components';
 import { RotatingTriangle } from '@app/shared/sidebar/components';
@@ -33,7 +32,7 @@ const NameWrapper = styled(Typography.Text)<{ isSelected: boolean; addLeftPaddin
     ${(props) => props.addLeftPadding && 'padding-left: 22px;'}
 
     &:hover {
-        ${(props) => !props.isSelected && `background-color: ${ANTD_GRAY_V2[1]};`}
+        ${(props) => !props.isSelected && `background-color: ${props.theme.colors.bgSurface};`}
         cursor: pointer;
     }
 

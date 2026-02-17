@@ -1,8 +1,6 @@
 import ColorThief from 'colorthief';
 import React, { useCallback } from 'react';
-import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import styled, { useTheme } from 'styled-components';
 
 const Wrapper = styled.div<{ background?: string }>`
     align-items: center;
@@ -17,6 +15,7 @@ interface Props {
 }
 
 export default function ImageColoredBackground({ children, className }: Props): JSX.Element {
+    const theme = useTheme();
     const [background, setBackground] = React.useState<string | undefined>(undefined);
 
     const ref = useCallback(
@@ -41,7 +40,7 @@ export default function ImageColoredBackground({ children, className }: Props): 
                     };
                     image.onerror = () => {
                         image.removeAttribute('crossOrigin');
-                        setBackground(REDESIGN_COLORS.BACKGROUND_GREY);
+                        setBackground(theme.colors.bgSurface);
                     };
                 }
             }

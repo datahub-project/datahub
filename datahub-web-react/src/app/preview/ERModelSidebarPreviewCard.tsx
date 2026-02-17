@@ -7,7 +7,6 @@ import { PreviewType } from '@app/entity/Entity';
 import { usePreviewData } from '@app/entity/shared/PreviewContext';
 import { ExpandedActorGroup } from '@app/entity/shared/components/styled/ExpandedActorGroup';
 import NoMarkdownViewer from '@app/entity/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import EntityCount from '@app/entity/shared/containers/profile/header/EntityCount';
 import PlatformContentView from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
 import StructuredPropertyBadge from '@app/entity/shared/containers/profile/header/StructuredPropertyBadge';
@@ -76,13 +75,13 @@ const PlatformDivider = styled.div`
     display: inline-block;
     padding-left: 10px;
     margin-right: 10px;
-    border-right: 1px solid ${ANTD_GRAY[4]};
+    border-right: 1px solid ${(props) => props.theme.colors.bgSurface};
     height: 21px;
     vertical-align: text-top;
 `;
 
 const DescriptionContainer = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-bottom: 8px;
 `;
 

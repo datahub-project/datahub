@@ -1,4 +1,4 @@
-import { Icon, Text, Tooltip, colors } from '@components';
+import { Icon, Text, Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -14,7 +14,7 @@ const DocumentContainer = styled.div`
     display: flex;
     width: 100%;
     border-radius: 8px;
-    background-color: ${colors.gray[1500]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     justify-content: space-between;
     padding: 8px 4px;
     cursor: pointer;

@@ -1,9 +1,7 @@
 import { CheckCircleFilled, StopOutlined, WarningFilled } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import styled, { useTheme } from 'styled-components';
 import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
 
 const SummaryHeader = styled.div`
@@ -41,9 +39,9 @@ type Props = {
     summary: IncidentsSummary;
 };
 
-const getSummaryIcon = (summary: IncidentsSummary) => {
+const getSummaryIcon = (summary: IncidentsSummary, disabledColor: string) => {
     if (summary.totalIncident === 0) {
-        return <StopOutlined style={{ color: ANTD_GRAY[6], fontSize: 28 }} />;
+        return <StopOutlined style={{ color: disabledColor, fontSize: 28 }} />;
     }
     if (summary.resolvedIncident === summary.totalIncident) {
         return <CheckCircleFilled style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;
@@ -68,7 +66,8 @@ const getSummaryMessage = (summary: IncidentsSummary) => {
 };
 
 export const IncidentSummary = ({ summary }: Props) => {
-    const summaryIcon = getSummaryIcon(summary);
+    const theme = useTheme();
+    const summaryIcon = getSummaryIcon(summary, theme.colors.textDisabled);
     const summaryMessage = getSummaryMessage(summary);
     const subtitleMessage = `${summary.activeIncident} active incidents, ${summary.resolvedIncident} resolved incidents`;
     return (

@@ -1,9 +1,8 @@
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import {
     BrowseProvider,
     useEntityAggregation,
@@ -53,6 +52,8 @@ const EntityNode: React.FC<EntityNodeProps> = ({ sortBy }) => {
         if (count) toggle();
     };
 
+    const theme = useTheme();
+
     const { loaded, error, environmentAggregations, platformAggregations, retry } = useAggregationsQuery({
         skip: !isOpen,
         facets: [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME],
@@ -61,7 +62,7 @@ const EntityNode: React.FC<EntityNodeProps> = ({ sortBy }) => {
     const showEnvironments =
         environmentAggregations &&
         (environmentAggregations.length > 1 || (hasEnvironmentFilter && !!environmentAggregations.length));
-    const color = count > 0 ? '#000' : ANTD_GRAY[8];
+    const color = count > 0 ? '#000' : theme.colors.textSecondary;
 
     return (
         <ExpandableNode

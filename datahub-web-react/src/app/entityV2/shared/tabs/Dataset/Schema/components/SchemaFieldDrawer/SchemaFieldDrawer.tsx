@@ -66,7 +66,7 @@ const Body = styled.div`
 
 const Content = styled.div`
     flex: 1;
-    border-right: 1px solid #e8e8e8;
+    border-right: 1px solid ${(props) => props.theme.colors.border};
     max-width: calc(100% - ${TABS_WIDTH}px);
 `;
 

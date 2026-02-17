@@ -2,7 +2,6 @@ import { Button, Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
 
 const Container = styled(Button)`
     padding: 32px;
@@ -13,10 +12,10 @@ const Container = styled(Button)`
     align-items: start;
     flex-direction: column;
     border: 1px solid #e0e0e0;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     &&:hover {
-        border: 1px solid ${REDESIGN_COLORS.BLUE};
-        background-color: #ffffff;
+        border: 1px solid ${(props) => props.theme.colors.textInformation};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
     white-space: unset;
 `;

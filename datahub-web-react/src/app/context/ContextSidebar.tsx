@@ -9,7 +9,6 @@ import { useContextDocumentsPermissions } from '@app/context/useContextDocuments
 import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useCreateDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -32,7 +31,7 @@ const SidebarContainer = styled.div<{
     max-height: 100%;
     width: ${(props) => (props.$isCollapsed ? `${SIDEBAR_COLLAPSED_WIDTH}px` : `${props.$width}px`)};
     transition: width ${SIDEBAR_TRANSITION_MS}ms ease-in-out;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;
@@ -58,7 +57,7 @@ const HeaderControls = styled.div<{ $isCollapsed: boolean }>`
 const SidebarTitle = styled.div`
     font-size: 16px;
     font-weight: bold;
-    color: #374066;
+    color: ${(props) => props.theme.colors.text};
     white-space: nowrap;
 `;
 
@@ -91,19 +90,19 @@ const SearchInputWrapper = styled.div`
 `;
 
 const SearchIcon = styled(SearchOutlined)`
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+    color: ${(props) => props.theme.colors.text};
     padding: 16px;
     width: 100%;
     font-size: 20px;
     cursor: pointer;
 
     &:hover {
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
+        color: ${(props) => props.theme.colors.hyperlinks};
     }
 `;
 
 const ResultsWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 5px;
     box-shadow:
         0 3px 6px -4px rgb(0 0 0 / 12%),
@@ -129,7 +128,7 @@ const LoadingWrapper = styled(ResultsWrapper)`
 const EmptyState = styled.div`
     padding: 16px;
     text-align: center;
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
 `;
 
@@ -149,16 +148,16 @@ const TreeContainer = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: #a9adbd;
+        background: ${(props) => props.theme.colors.textDisabled};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: #81879f;
+        background: ${(props) => props.theme.colors.textTertiary};
     }
 
     scrollbar-width: thin;
-    scrollbar-color: #a9adbd transparent;
+    scrollbar-color: ${(props) => props.theme.colors.textDisabled} transparent;
 `;
 
 type Props = {

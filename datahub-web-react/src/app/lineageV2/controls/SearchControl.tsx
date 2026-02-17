@@ -6,7 +6,6 @@ import { useDebounce } from 'react-use';
 import { Panel } from 'reactflow';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import { LineageDisplayContext, LineageNodesContext } from '@app/lineageV2/common';
 
@@ -25,7 +24,7 @@ const StyledInput = styled(Input)<{ width: number }>`
 
     font-size: 14px;
 
-    border-color: ${ANTD_GRAY[5]} !important;
+    border-color: ${(props) => props.theme.colors.border} !important;
     box-shadow: none !important;
 `;
 
@@ -35,14 +34,14 @@ const ClosedSearchIcon = styled(SearchOutlined)`
 `;
 
 const OpenSearchIcon = styled(SearchOutlined)`
-    color: ${REDESIGN_COLORS.PLACEHOLDER_PURPLE};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const VerticalDivider = styled.hr<{ margin: number }>`
     align-self: stretch;
     height: auto;
     margin: 0 ${({ margin }) => margin}px;
-    border: 0.5px solid ${ANTD_GRAY[5]};
+    border: 0.5px solid ${(props) => props.theme.colors.border};
     vertical-align: text-top;
 `;
 

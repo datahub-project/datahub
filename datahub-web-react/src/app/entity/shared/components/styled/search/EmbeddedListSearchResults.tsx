@@ -1,16 +1,15 @@
 import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
-import { Text, colors } from '@components';
+import { Text } from '@components';
 import { Button, Pagination, Spin, Typography } from 'antd';
 import React from 'react';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import {
     EntityActionProps,
     EntitySearchResults,
 } from '@app/entity/shared/components/styled/search/EntitySearchResults';
 import MatchingViewsLabel from '@app/entity/shared/components/styled/search/MatchingViewsLabel';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityAndType } from '@app/entity/shared/types';
 import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
 import { combineSiblingsInSearchResults } from '@app/search/utils/combineSiblingsInSearchResults';
@@ -72,7 +71,7 @@ const LoadingContainer = styled.div`
 
 const StyledLoading = styled(LoadingOutlined)`
     font-size: 32px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding-bottom: 18px;
 ]`;
 
@@ -91,8 +90,8 @@ const WarningMessage = styled.div`
     display: flex;
     margin: 8px 16px 0 16px
     align-items: center;
-    color: ${colors.yellow[1000]};
-    background-color: ${colors.yellow[0]};
+    color: ${(props) => props.theme.colors.textWarning};
+    background-color: ${(props) => props.theme.colors.bgSurfaceWarning};
     border-radius: 8px;
 `;
 
@@ -159,6 +158,7 @@ export const EmbeddedListSearchResults = ({
     handleViewAllClickWarning,
 }: Props) => {
     const history = useHistory();
+    const theme = useTheme();
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(
         showSeparateSiblings,
@@ -227,7 +227,7 @@ export const EmbeddedListSearchResults = ({
                     )}
                     {isViewAllMode && (
                         <WarningMessage>
-                            <ExclamationCircleFilled style={{ color: colors.yellow[1000], fontSize: 16 }} />
+                            <ExclamationCircleFilled style={{ color: theme.colors.textWarning, fontSize: 16 }} />
                             <Text weight="bold" style={{ lineHeight: 'normal' }}>
                                 Results may be incomplete.{' '}
                                 {platform && (

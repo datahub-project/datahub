@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import { CaretDown, CaretRight } from '@phosphor-icons/react';
 import { Collapse, Typography } from 'antd';
 import React from 'react';
@@ -62,7 +61,7 @@ const Title = styled(Typography.Text)`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 700;
     font-size: 14px;
     display: flex;
@@ -73,7 +72,7 @@ const StyledIcon = styled.div`
     svg {
         height: 16px;
         width: 16px;
-        color: ${colors.gray[1800]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 

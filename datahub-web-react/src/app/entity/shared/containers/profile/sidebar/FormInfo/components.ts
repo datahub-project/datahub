@@ -54,7 +54,7 @@ export const CTAWrapper = styled.div<{ shouldDisplayBackground?: boolean }>`
         `
         border-radius: 8px;
         padding: 16px;
-        background-color: #f9f0ff;
+        background-color: ${props.theme.colors.bgSurface};
         border: 1px solid #8338b8;
         `}
 `;

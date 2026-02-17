@@ -31,8 +31,8 @@ export default function SmallModuleFallback({ moduleProps, fallbackProps }: Prop
     return (
         <SmallModule {...moduleProps}>
             <Container>
-                <StyledIcon icon="ExclamationMark" source="phosphor" color="gray" colorLevel={1800} size="4xl" />
-                <StyledText weight="bold" size="lg" color="gray" colorLevel={600}>
+                <StyledIcon icon="ExclamationMark" source="phosphor" size="4xl" />
+                <StyledText weight="bold" size="lg">
                     Error loading. Try refreshing.
                 </StyledText>
                 <Button

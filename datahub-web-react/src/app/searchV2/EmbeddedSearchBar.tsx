@@ -9,7 +9,7 @@ import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 
 const SearchIcon = styled(SearchOutlined)`
-    color: #8088a3;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const SearchInput = styled(Input)`

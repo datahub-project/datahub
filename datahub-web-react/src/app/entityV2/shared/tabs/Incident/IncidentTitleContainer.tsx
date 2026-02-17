@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import { CreateIncidentButton } from '@app/entityV2/shared/tabs/Incident/CreateIncidentButton';
 import { EntityStagedForIncident } from '@app/entityV2/shared/tabs/Incident/types';
-import { colors } from '@src/alchemy-components';
 import { EntityPrivileges } from '@src/types.generated';
 
 const TitleContainer = styled.div`
@@ -26,7 +25,7 @@ const IncidentListTitle = styled.div`
 
 const SubTitle = styled(Typography.Text)`
     font-size: 14px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const IncidentTitleContainer = ({

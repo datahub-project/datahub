@@ -2,13 +2,12 @@ import { Modal, Progress } from 'antd';
 import React, { useCallback, useContext, useEffect } from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 
 const ModalStyle = styled(Modal)`
     .ant-modal-content {
         border-radius: 8px;
-        border: 1px solid #c1c4d0;
+        border: 1px solid ${(props) => props.theme.colors.border};
         border-bottom: unset;
     }
 
@@ -34,7 +33,7 @@ const ModalContent = styled.span`
     font-weight: 700;
     display: flex;
     justify-content: center;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     padding: 25px 0 0;
     font-size: 16px;
 `;

@@ -3,12 +3,10 @@ import { Badge } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 const PartitioningKeyBadge = styled(Badge)`
     margin-left: 4px;
     &&& .ant-badge-count {
-        background-color: ${ANTD_GRAY[1]};
+        background-color: ${(props) => props.theme.colors.bg};
         color: ${blue[5]};
         border: 1px solid ${blue[2]};
         font-size: 12px;

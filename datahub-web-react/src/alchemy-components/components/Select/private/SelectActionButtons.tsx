@@ -9,8 +9,8 @@ import { colors, shadows } from '@src/alchemy-components/theme';
 
 export const StyledClearButton = styled(Button).attrs({
     variant: 'text',
-})({
-    color: colors.gray[1800],
+})(({ theme }) => ({
+    color: theme.colors.textTertiary,
     padding: '0px',
 
     '&:hover': {
@@ -23,9 +23,9 @@ export const StyledClearButton = styled(Button).attrs({
     '&:focus': {
         border: 'none',
         backgroundColor: colors.transparent,
-        boxShadow: `0 0 0 2px ${colors.white}, 0 0 0 4px ${colors.violet[50]}`,
+        boxShadow: `0 0 0 2px ${theme.colors.bg}, 0 0 0 4px ${colors.violet[50]}`,
     },
-});
+}));
 
 export default function SelectActionButtons({
     hasSelectedValues,

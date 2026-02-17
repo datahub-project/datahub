@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
@@ -24,7 +23,7 @@ const LineageTabWrapper = styled.div`
 `;
 
 const LineageSwitchWrapper = styled.div`
-    border: 1px solid ${colors.violet[600]};
+    border: 1px solid ${(props) => props.theme.colors.textBrand};
     border-radius: 4.5px;
     display: flex;
     margin: 13px 11px;
@@ -32,9 +31,9 @@ const LineageSwitchWrapper = styled.div`
 `;
 
 const LineageViewSwitch = styled.div<{ selected: boolean }>`
-    background: ${({ selected, theme }) => (selected ? `${getColor('primary', 600, theme)}` : '#fff')};
+    background: ${({ selected, theme }) => (selected ? `${getColor('primary', 600, theme)}` : theme.colors.bg)};
     border-radius: 3px;
-    color: ${({ selected, theme }) => (selected ? '#fff' : `${getColor('primary', 600, theme)}`)};
+    color: ${({ selected, theme }) => (selected ? theme.colors.bg : `${getColor('primary', 600, theme)}`)};
     cursor: pointer;
     display: flex;
     font-size: 10px;

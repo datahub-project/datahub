@@ -2,7 +2,7 @@ import { Dropdown, Tooltip, colors } from '@components';
 import { useRemirrorContext } from '@remirror/react';
 import { FileArrowUp } from 'phosphor-react';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop';
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
@@ -16,12 +16,14 @@ const DropdownContainer = styled.div`
     gap: 8px;
     border-radius: 12px;
     width: 192px;
-    background: ${colors.white};
+    background: ${({ theme }) => theme.colors.bg};
 `;
 
 export const FileUploadButton = () => {
     const remirrorContext = useRemirrorContext();
     const fileExtension = remirrorContext.getExtension(FileDragDropExtension);
+    const styledTheme = useTheme() as any;
+    const iconColor = styledTheme?.colors?.textTertiary ?? colors.gray[1800];
 
     const [showDropdown, setShowDropdown] = useState(false);
 
@@ -40,7 +42,7 @@ export const FileUploadButton = () => {
         >
             <Tooltip title="Upload File">
                 <CommandButton
-                    icon={<FileArrowUp size={20} color={colors.gray[1800]} />}
+                    icon={<FileArrowUp size={20} color={iconColor} />}
                     onClick={() => setShowDropdown(true)}
                     commandName="uploadFile"
                 />

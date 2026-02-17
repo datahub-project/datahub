@@ -2,20 +2,19 @@ import { EnterOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
 import { Divider, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 import RowIcon from '@images/row-icon.svg?react';
 
 const FieldPathWrapper = styled.div`
     display: flex;
     align-self: center;
-    stroke: ${REDESIGN_COLORS.WHITE};
+    stroke: ${(props) => props.theme.colors.bg};
 `;
 
 const PopoverContentWrapper = styled.span`
-    color: ${REDESIGN_COLORS.BLACK};
+    color: ${(props) => props.theme.colors.text};
 `;
 const FieldName = styled(Typography.Text)`
     font-size: 12px;
@@ -36,7 +35,7 @@ const StyledDivider = styled(Divider)`
     margin: 5px;
     margin-left: 0px;
     height: 1px;
-    background: ${REDESIGN_COLORS.BLACK};
+    background: ${(props) => props.theme.colors.text};
     opacity: 0.1;
 `;
 const RowIconContainer = styled.div`
@@ -48,7 +47,7 @@ const DepthContainer = styled.div`
     height: 13px;
     width: 13px;
     border-radius: 50%;
-    background: ${REDESIGN_COLORS.WHITE};
+    background: ${(props) => props.theme.colors.bg};
     margin-left: -7px;
     margin-top: -12px;
     display: flex;
@@ -58,7 +57,7 @@ const DepthContainer = styled.div`
 const DepthNumber = styled(Typography.Text)`
     margin-left: 4px;
     background: transparent;
-    color: ${REDESIGN_COLORS.PRIMARY_PURPLE};
+    color: ${(props) => props.theme.colors.textBrand};
     font-size: 10px;
     font-weight: 400;
 `;
@@ -69,6 +68,7 @@ interface Props {
 }
 
 export default function FieldPath({ displayName, setExpandedDrawerFieldPath }: Props) {
+    const theme = useTheme();
     const displayNameTokens = displayName.split('.');
     const isNestedField = displayNameTokens.length > 1;
     if (!isNestedField) {
@@ -100,7 +100,7 @@ export default function FieldPath({ displayName, setExpandedDrawerFieldPath }: P
             <Popover
                 content={content}
                 overlayStyle={{ borderRadius: 10, minWidth: 200 }}
-                overlayInnerStyle={{ borderRadius: 10, border: '1px solid #D0DDE0', background: '#F5F9FA' }}
+                overlayInnerStyle={{ borderRadius: 10, border: `1px solid ${theme.colors.border}`, background: theme.colors.bgSurface }}
             >
                 <RowIconContainer className="row-icon">
                     <RowIcon height={16} width={16} />

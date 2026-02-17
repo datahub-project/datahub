@@ -5,7 +5,7 @@ import React from 'react';
 import { SelectFormItem, SelectWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { INCIDENT_OPTION_LABEL_MAPPING } from '@app/entityV2/shared/tabs/Incident/constant';
 import { IncidentConstant } from '@app/entityV2/shared/tabs/Incident/types';
-import { SimpleSelect, colors } from '@src/alchemy-components';
+import { SimpleSelect } from '@src/alchemy-components';
 import { IconLabel } from '@src/alchemy-components/components/IconLabel';
 import { IconType } from '@src/alchemy-components/components/IconLabel/types';
 import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel';
@@ -17,11 +17,11 @@ import { IncidentState } from '@src/types.generated';
 const IncidentStates = {
     [IncidentState.Active]: {
         label: IncidentState.Active,
-        icon: <Warning color={colors.red[1200]} width={17} height={15} />,
+        icon: <Warning color={'#E54D1F'} width={17} height={15} />,
     },
     [IncidentState.Resolved]: {
         label: IncidentState.Resolved,
-        icon: <Check color={colors.green[1200]} width={17} height={15} />,
+        icon: <Check color={'#248F5B'} width={17} height={15} />,
     },
 };
 

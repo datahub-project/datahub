@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useRef } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { GLYPH_DROP_SHADOW_FILTER } from '@components/components/LineChart/constants';
 import { GlyphProps } from '@components/components/LineChart/types';
@@ -14,10 +14,14 @@ export const ChartWrapper = styled.div`
 `;
 
 export const Glyph = ({ x, y }: GlyphProps): React.ReactElement => {
+    const styledTheme = useTheme() as any;
+    const bgColor = styledTheme?.colors?.bg ?? colors.white;
+    const brandColor = styledTheme?.colors?.iconBrand ?? colors.violet[500];
+
     return (
         <g>
-            <circle cx={x} cy={y} r="8" fill={colors.white} filter={GLYPH_DROP_SHADOW_FILTER} />
-            <circle cx={x} cy={y} r="6" fill={colors.violet[500]} />
+            <circle cx={x} cy={y} r="8" fill={bgColor} filter={GLYPH_DROP_SHADOW_FILTER} />
+            <circle cx={x} cy={y} r="6" fill={brandColor} />
         </g>
     );
 };

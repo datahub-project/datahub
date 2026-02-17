@@ -6,8 +6,7 @@ import { Group } from '@visx/group';
 import { scaleUtc } from '@visx/scale';
 import { LinePath } from '@visx/shape';
 import React, { useMemo } from 'react';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { useTheme } from 'styled-components';
 import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';
 import {
     AssertionResultChartData,
@@ -40,6 +39,7 @@ const CHART_AXIS_BOTTOM_HEIGHT = 40;
  * TODO(jayacryl) refactor to a pretty timeline line-view
  */
 export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions, renderHeader }: Props) => {
+    const theme = useTheme();
     const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT;
     const chartInnerWidth = chartDimensions.width - CHART_HORIZ_MARGIN;
 
@@ -62,10 +62,10 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     <AxisBottom
                         top={chartInnerHeight}
                         scale={xScale}
-                        stroke={ANTD_GRAY[4]}
+                        stroke={theme.colors.bgSurface}
                         tickValues={timeScaleTicks}
                         tickFormat={(v) => getCustomTimeScaleTickValue(v, timeRange)}
-                        tickStroke={ANTD_GRAY[9]}
+                        tickStroke={theme.colors.text}
                         tickLength={4}
                         tickLabelProps={{
                             fontSize: 11,
@@ -80,7 +80,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                         tickValues={timeScaleTicks}
                         height={chartInnerHeight}
                         lineStyle={{
-                            stroke: ANTD_GRAY[5],
+                            stroke: theme.colors.border,
                             strokeLinecap: 'round',
                             strokeWidth: 1,
                             strokeDasharray: '1 4',

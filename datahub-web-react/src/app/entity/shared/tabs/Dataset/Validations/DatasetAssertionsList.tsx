@@ -13,7 +13,6 @@ import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { DatasetAssertionDescription } from '@app/entity/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
 import { DatasetAssertionDetails } from '@app/entity/shared/tabs/Dataset/Validations/DatasetAssertionDetails';
 import {
@@ -60,7 +59,7 @@ const AssertionSelectCheckbox = styled(Checkbox)`
 const DataContractLogo = styled(AuditOutlined)`
     margin-left: 8px;
     font-size: 16px;
-    color: ${REDESIGN_COLORS.BLUE};
+    color: ${(props) => props.theme.colors.textInformation};
 `;
 
 const AssertionDescriptionContainer = styled.div`

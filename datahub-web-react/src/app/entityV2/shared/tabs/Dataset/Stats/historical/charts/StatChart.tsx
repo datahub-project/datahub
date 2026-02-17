@@ -4,15 +4,13 @@ import styled from 'styled-components';
 
 import { ChartContainer } from '@app/analyticsDashboard/components/ChartContainer';
 import { TimeSeriesChart } from '@app/analyticsDashboard/components/TimeSeriesChart';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 import { DateInterval, DateRange } from '@types';
 
 const ChartTitle = styled(Typography.Text)`
     && {
         text-align: left;
         font-size: 12px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 

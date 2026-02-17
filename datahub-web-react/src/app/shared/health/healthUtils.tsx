@@ -7,7 +7,6 @@ import {
     WarningFilled,
     WarningOutlined,
 } from '@ant-design/icons';
-import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -16,7 +15,7 @@ import { GenericEntityProperties } from '@src/app/entity/shared/types';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
 
-const HEALTH_INDICATOR_COLOR = colors.red[500];
+const HEALTH_INDICATOR_COLOR = '#CD0D24';
 
 const UnhealthyIconFilled = styled(ExclamationCircleTwoTone)<{ fontSize: number }>`
     && {

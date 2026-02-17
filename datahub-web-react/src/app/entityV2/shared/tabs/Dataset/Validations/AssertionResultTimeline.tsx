@@ -8,7 +8,7 @@ import React, { useMemo } from 'react';
 
 import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { useTheme } from 'styled-components';
 import { LinkWrapper } from '@app/shared/LinkWrapper';
 
 import { AssertionResultType } from '@types';
@@ -57,6 +57,7 @@ const getFillColor = (type: AssertionResultType) => {
  * Assertion run results displayed on a horizontal timeline.
  */
 export const AssertionResultTimeline = ({ data, timeRange, width }: Props) => {
+    const theme = useTheme();
     const yMax = 60;
     const left = 0;
 
@@ -120,7 +121,7 @@ export const AssertionResultTimeline = ({ data, timeRange, width }: Props) => {
                     left={left}
                     scale={xScale}
                     numTicks={7}
-                    stroke={ANTD_GRAY[5]}
+                    stroke={theme.colors.border}
                     tickFormat={(v: any) => v.toLocaleDateString('en-us', { month: 'short', day: 'numeric' })}
                     tickLabelProps={(_) => ({
                         fontSize: 11,

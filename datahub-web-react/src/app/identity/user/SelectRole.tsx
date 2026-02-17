@@ -4,7 +4,6 @@ import { Select, Spin } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import AssignRoleConfirmation from '@app/identity/user/AssignRoleConfirmation';
 import { mapRoleIcon } from '@app/identity/user/UserUtils';
 import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
@@ -130,7 +129,7 @@ export default function SelectRole({
                 }
                 value={currentRoleUrn}
                 onChange={(e) => onSelectRole(e as string)}
-                color={currentRoleUrn === NO_ROLE_URN ? ANTD_GRAY[6] : undefined}
+                color={currentRoleUrn === NO_ROLE_URN ? '#BFBFBF' : undefined}
                 showSearch
                 filterOption={false}
                 searchValue={rolesSearchQuery}

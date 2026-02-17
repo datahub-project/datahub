@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -11,7 +10,7 @@ import { CorpGroup, CorpUser, EntityType } from '@types';
 const StyledTitle = styled(HeaderTitle)`
     margin-bottom: 12px;
     font-size: 14px;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 700;
 `;
 
@@ -19,7 +18,7 @@ const Details = styled.div`
     display: flex;
     align-items: center;
     gap: 5px;
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     font-weight: 500;
 `;

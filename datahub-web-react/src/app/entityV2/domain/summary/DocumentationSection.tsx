@@ -6,7 +6,6 @@ import styled from 'styled-components';
 import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/LinkList';
 import { Button, Editor } from '@src/alchemy-components';
 
@@ -19,7 +18,7 @@ const Header = styled.div`
 
 const Title = styled(Typography.Title)`
     && {
-        color: ${ANTD_GRAY[9]};
+        color: ${(props) => props.theme.colors.textSecondary};
         padding: 0px;
         margin: 0px;
         display: flex;

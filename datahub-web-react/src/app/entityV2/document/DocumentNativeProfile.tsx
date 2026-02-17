@@ -50,7 +50,7 @@ const ContentWrapper = styled.div`
 
 const ContentCard = styled.div`
     padding-top: 12px;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 12px;
     display: flex;
     flex-direction: column;

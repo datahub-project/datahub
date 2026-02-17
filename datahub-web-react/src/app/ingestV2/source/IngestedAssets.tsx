@@ -17,7 +17,6 @@ import { formatNumber } from '@app/shared/formatNumber';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Card, Heading, Pill, Text } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import { ExecutionRequestResult, Maybe } from '@src/types.generated';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
@@ -85,7 +84,7 @@ const EntityCountsContainer = styled(FlexContainer)`
 
 const VerticalDivider = styled.div`
     width: 2px;
-    background-color: ${colors.gray[1400]};
+    background-color: ${(props) => props.theme.colors.border};
     height: 80px;
     align-self: center;
 `;

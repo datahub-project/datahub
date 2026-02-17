@@ -1,16 +1,14 @@
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 export const ControlPanel = styled.div`
     display: flex;
     flex-direction: column;
     align-items: flex-start;
 
-    background: #fff;
+    background: ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
-    border: 1px solid ${ANTD_GRAY[5]};
-    box-shadow: 0 4px 4px 0 ${REDESIGN_COLORS.BOX_SHADOW};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    box-shadow: 0 4px 4px 0 #E0E0E025;
     padding: 16px;
     gap: 2px;
 
@@ -22,11 +20,11 @@ export const ControlPanel = styled.div`
 export const ControlPanelTitle = styled.div`
     font-size: 14px;
     font-weight: 700;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const ControlPanelSubtext = styled.div`
-    color: ${REDESIGN_COLORS.TEXT_GREY};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 10px;
     font-weight: 500;
     margin-bottom: 8px;

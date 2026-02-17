@@ -16,7 +16,6 @@ import { defaultRemirrorTheme } from '@remirror/theme';
 import type { RemirrorThemeType } from '@remirror/theme';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 
 export const EditorTheme: RemirrorThemeType = {
     ...defaultRemirrorTheme,
@@ -29,19 +28,19 @@ export const EditorTheme: RemirrorThemeType = {
         primary: '#00B14F',
         table: {
             ...defaultRemirrorTheme.color.table,
-            mark: ANTD_GRAY[6],
+            mark: '#BFBFBF',
             default: {
-                controller: ANTD_GRAY[3],
-                border: ANTD_GRAY[4.5],
+                controller: '#F5F5F5',
+                border: '#D9D9D9',
             },
             selected: {
-                controller: ANTD_GRAY[4],
-                border: ANTD_GRAY[4.5],
-                cell: ANTD_GRAY[2.5],
+                controller: '#F0F0F0',
+                border: '#D9D9D9',
+                cell: '#FAFAFA',
             },
             preselect: {
-                controller: ANTD_GRAY[5],
-                border: ANTD_GRAY[6],
+                controller: '#D9D9D9',
+                border: '#BFBFBF',
             },
         },
     },
@@ -68,7 +67,7 @@ export const EditorContainer = styled.div<{
     font-weight: 400;
     display: flex;
     flex: 1 1 auto;
-    border: ${(props) => (props.$readOnly || props.$hideBorder ? `none` : `1px solid ${ANTD_GRAY[4.5]}`)};
+    border: ${(props) => (props.$readOnly || props.$hideBorder ? `none` : `1px solid ${props.theme.colors.border}`)};
     border-radius: 12px;
     padding-bottom: ${(props) => (props.$fixedBottomToolbar ? '100px' : '0')};
 
@@ -90,14 +89,14 @@ export const EditorContainer = styled.div<{
         line-height: ${(props) => (props.$compact ? '20px' : '1.5')};
         white-space: pre-wrap;
         margin: 0;
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.text};
         min-height: ${(props) => (props.$compact ? '80px' : 'auto')};
         max-height: ${(props) => (props.$compact ? '80px' : 'auto')};
         overflow-y: ${(props) => (props.$compact ? 'auto' : 'visible')};
 
         a {
             font-weight: 500;
-            color: ${colors.primary[500]};
+            color: ${(props) => props.theme.colors.hyperlinks};
         }
 
         li {
@@ -123,14 +122,14 @@ export const EditorContainer = styled.div<{
 
         .autocomplete {
             padding: 0.2rem;
-            background: ${ANTD_GRAY[4]};
+            background: ${(props) => props.theme.colors.bgSurface};
             border-radius: 4px;
         }
 
         table {
             display: block;
             th:not(.remirror-table-controller) {
-                background: ${ANTD_GRAY[2]};
+                background: ${(props) => props.theme.colors.bgSurface};
             }
 
             th:not(.remirror-table-controller),
@@ -146,7 +145,7 @@ export const EditorContainer = styled.div<{
         }
 
         &::-webkit-scrollbar-thumb {
-            background-color: ${colors.gray[300]};
+            background-color: ${(props) => props.theme.colors.textDisabled};
             border-radius: 2px;
         }
     }

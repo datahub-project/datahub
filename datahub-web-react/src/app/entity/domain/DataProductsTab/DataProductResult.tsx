@@ -12,7 +12,7 @@ import { useDeleteDataProductMutation } from '@graphql/dataProduct.generated';
 import { DataProduct, EntityType } from '@types';
 
 const ResultWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
     max-width: 1200px;
     margin: 0 auto 8px auto;

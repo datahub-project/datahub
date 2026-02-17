@@ -1,10 +1,9 @@
 import { Group } from '@visx/group';
 import { LinkHorizontal } from '@visx/shape';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityHealth } from '@app/entity/shared/containers/profile/header/EntityHealth';
 import StructuredPropertyBadge, {
     MAX_PROP_BADGE_WIDTH,
@@ -85,6 +84,7 @@ export default function LineageEntityNode({
     setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
 }) {
     const { direction } = node;
+    const theme = useTheme();
     const { expandTitles, collapsedColumnsNodes, showColumns, refetchCenterNode } = useContext(LineageExplorerContext);
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
     const [hasExpanded, setHasExpanded] = useState(false);
@@ -243,7 +243,7 @@ export default function LineageEntityNode({
                             r="30"
                         />
                         <g
-                            fill={expandHover ? ANTD_GRAY[5] : ANTD_GRAY[6]}
+                            fill={expandHover ? theme.colors.border : theme.colors.textDisabled}
                             transform={`translate(${
                                 direction === Direction.Upstream ? centerX - 52 : width / 2 + 10
                             } -21.5) scale(0.04 0.04)`}
@@ -253,7 +253,7 @@ export default function LineageEntityNode({
                     </Group>
                 ) : (
                     <g
-                        fill={ANTD_GRAY[6]}
+                        fill={theme.colors.textDisabled}
                         transform={`translate(${
                             direction === Direction.Upstream ? centerX - 52 : width / 2 + 10
                         } -21.5) scale(0.04 0.04)`}

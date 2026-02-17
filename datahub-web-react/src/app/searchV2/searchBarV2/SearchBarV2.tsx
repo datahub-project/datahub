@@ -23,9 +23,10 @@ import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH, SEARCH_BAR_CLASS_NAME } from '@app/searchV2/utils/constants';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
-import { colors, radius, spacing } from '@src/alchemy-components';
+import { radius, spacing } from '@src/alchemy-components';
 import { AutoComplete } from '@src/alchemy-components/components/AutoComplete';
 import { SearchBarApi } from '@src/types.generated';
+import { useTheme } from 'styled-components';
 
 const Wrapper = styled.div``;
 
@@ -65,6 +66,7 @@ export const SearchBarV2 = ({
     width,
 }: SearchBarV2Props) => {
     const appConfig = useAppConfig();
+    const theme = useTheme();
     const showAutoCompleteResults = appConfig?.config?.featureFlags?.showAutoCompleteResults;
     const isShowSeparateSiblingsEnabled = useIsShowSeparateSiblingsEnabled();
     const shouldCombineSiblings = isShowSeparateSiblingsEnabled ? false : combineSiblings;
@@ -199,7 +201,7 @@ export const SearchBarV2 = ({
                             maxHeight: 1000,
                             overflowY: 'visible',
                             position: (fixAutoComplete && 'fixed') || 'relative',
-                            backgroundColor: colors.gray[1500],
+                            backgroundColor: theme.colors.bgSurface,
                             boxShadow: BOX_SHADOW,
                             ...(isShowNavBarRedesign
                                 ? {

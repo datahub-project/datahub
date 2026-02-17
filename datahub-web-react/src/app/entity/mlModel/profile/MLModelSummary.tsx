@@ -10,8 +10,6 @@ import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
 import { notEmpty } from '@app/entity/shared/utils';
 import { TimestampPopover } from '@app/sharedV2/TimestampPopover';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors } from '@src/alchemy-components/theme';
-
 import { GetMlModelQuery } from '@graphql/mlModel.generated';
 import { EntityType, MlHyperParam, MlMetric } from '@types';
 
@@ -33,7 +31,7 @@ const InfoItemContent = styled.div`
 `;
 
 const JobLink = styled(Link)`
-    color: ${colors.blue[700]};
+    color: ${(props) => props.theme.colors.textInformation};
     &:hover {
         text-decoration: underline;
     }

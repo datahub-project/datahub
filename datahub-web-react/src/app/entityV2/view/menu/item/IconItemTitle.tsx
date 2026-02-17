@@ -2,7 +2,6 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const TitleContainer = styled.span`
     display: flex;
@@ -13,7 +12,7 @@ const TitleContainer = styled.span`
 
 const IconContainer = styled.span`
     && {
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
         margin-right: 12px;
         display: flex;
         align-items: center;

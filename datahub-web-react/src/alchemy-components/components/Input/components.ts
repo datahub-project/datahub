@@ -29,39 +29,39 @@ export const InputWrapper = styled.div({
 });
 
 export const InputContainer = styled.div(
-    ({ isSuccess, warning, isDisabled, isInvalid }: InputProps) => ({
+    ({ isSuccess, warning, isDisabled, isInvalid, theme }: InputProps & { theme: any }) => ({
         border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid)}`,
-        backgroundColor: isDisabled ? colors.gray[1500] : colors.white,
+        backgroundColor: isDisabled ? theme.colors.bgSurface : theme.colors.bg,
         paddingRight: spacing.md,
-    }),
-    {
         ...defaultFlexStyles,
         width: '100%',
         maxHeight: INPUT_MAX_HEIGHT,
         overflow: 'hidden',
         borderRadius: radius.md,
         flex: 1,
-        color: colors.gray[400], // 1st icon color
+        color: theme.colors.icon,
 
         '&:focus-within': {
-            borderColor: colors.violet[200],
-            outline: `${borders['1px']} ${colors.violet[200]}`,
+            borderColor: theme.colors.borderBrandFocused,
+            outline: `${borders['1px']} ${theme.colors.borderBrandFocused}`,
         },
-    },
+    }),
 );
 
-export const InputField = styled.input({
+export const InputField = styled.input(({ theme }) => ({
     padding: `${spacing.sm} ${spacing.md}`,
     lineHeight: typography.lineHeights.normal,
     maxHeight: INPUT_MAX_HEIGHT,
     border: borders.none,
     width: '100%',
+    backgroundColor: 'transparent',
+    color: theme.colors.text,
 
-    // Shared common input text styles
     ...inputValueTextStyles(),
 
     '&::placeholder': {
         ...inputPlaceholderTextStyles,
+        color: theme.colors.textTertiary,
     },
 
     '&:focus': {
@@ -69,20 +69,21 @@ export const InputField = styled.input({
     },
 
     '&:disabled': {
-        backgroundColor: colors.gray[1500],
+        backgroundColor: theme.colors.bgSurface,
         cursor: 'not-allowed',
     },
-});
+}));
 
-export const Required = styled.span({
-    color: colors.red[500],
-});
+export const Required = styled.span(({ theme }) => ({
+    color: theme.colors.textError,
+}));
 
-export const Label = styled.div({
+export const Label = styled.div(({ theme }) => ({
     ...formLabelTextStyles,
+    color: theme.colors.text,
     marginBottom: spacing.xsm,
     textAlign: 'left',
-});
+}));
 
 export const ErrorMessage = styled.div({
     ...defaultMessageStyles,
@@ -94,7 +95,7 @@ export const WarningMessage = styled.div({
     color: theme.semanticTokens.colors.warning,
 });
 
-export const HelperText = styled.div({
+export const HelperText = styled.div(({ theme }) => ({
     ...defaultMessageStyles,
-    color: colors.gray[600],
-});
+    color: theme.colors.textSecondary,
+}));

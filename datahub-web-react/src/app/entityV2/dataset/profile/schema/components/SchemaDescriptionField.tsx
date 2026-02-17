@@ -8,7 +8,6 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { Editor, Tooltip } from '@src/alchemy-components';
@@ -25,7 +24,7 @@ const EditIcon = styled(EditOutlined)`
 const AddNewDescription = styled(Button)`
     display: flex;
     width: 140px;
-    background-color: #fafafa;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 4px;
     align-items: center;
     justify-content: center;
@@ -46,7 +45,7 @@ const DescriptionContainer = styled.div`
     font-size: 12px;
     font-weight: 400;
     line-height: 24px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.text};
     vertical-align: middle;
     &:hover ${EditIcon} {
         display: inline-block;
@@ -89,7 +88,7 @@ const StyledViewer = styled(Editor)`
         font-size: 12px;
         font-weight: 400;
         line-height: 24px;
-        color: ${REDESIGN_COLORS.DARK_GREY};
+        color: ${(props) => props.theme.colors.text};
         vertical-align: middle;
     }
 `;

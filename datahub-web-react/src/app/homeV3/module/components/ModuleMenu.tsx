@@ -1,7 +1,7 @@
-import { Icon, Text, Tooltip, colors } from '@components';
+import { Icon, Text, Tooltip } from '@components';
 import { Dropdown } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { DEFAULT_MODULE_URNS } from '@app/homeV3/modules/constants';
@@ -28,6 +28,10 @@ const StyledDropdownContainer = styled.div`
     }
 `;
 
+const DisabledText = styled(Text)`
+    color: ${(props) => props.theme.colors.textDisabled};
+`;
+
 interface Props {
     module: PageModuleFragment;
     position: ModulePositionInput;
@@ -35,6 +39,7 @@ interface Props {
 
 export default function ModuleMenu({ module, position }: Props) {
     const [showRemoveModuleConfirmation, setShowRemoveModuleConfirmation] = useState<boolean>(false);
+    const theme = useTheme();
     const { type } = module.properties;
     const canEdit = !DEFAULT_MODULE_URNS.includes(module.urn);
 
@@ -76,12 +81,12 @@ export default function ModuleMenu({ module, position }: Props) {
                     <>
                         {!canEdit ? (
                             <Tooltip title="Default modules are not editable">
-                                <Text color="gray" colorLevel={300}>
+                                <DisabledText>
                                     Edit
-                                </Text>
+                                </DisabledText>
                             </Tooltip>
                         ) : (
-                            <Text color="gray" colorLevel={600}>
+                            <Text>
                                 Edit
                             </Text>
                         )}
@@ -101,7 +106,7 @@ export default function ModuleMenu({ module, position }: Props) {
                 key: 'remove',
                 style: {
                     ...menuItemStyle,
-                    color: colors.red[500],
+                    color: theme.colors.textError,
                 },
                 onClick: () => setShowRemoveModuleConfirmation(true),
                 'data-testid': 'remove-module',

@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { CSVInfo } from '@app/ingestV2/source/builder/CSVInfo';
 import { IngestionDocumentationHint } from '@app/ingestV2/source/builder/IngestionDocumentationHint';
 import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
@@ -26,7 +25,7 @@ const BorderedSection = styled.div`
     display: flex;
     flex-direction: column;
     padding-bottom: 16px;
-    border: solid ${ANTD_GRAY[4]} 0.5px;
+    border: solid ${(props) => props.theme.colors.bgSurface} 0.5px;
 `;
 
 const StyledButton = styled(Button)<{ $isSelected: boolean }>`

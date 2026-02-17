@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -9,7 +8,7 @@ export const VideoWrapper = styled.div`
     width: 100%;
     height: 100vh;
     overflow: hidden;
-    background-color: ${colors.gray[1600]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceNewNav};
 `;
 
 const BackgroundVideo = styled.video`

@@ -12,7 +12,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     align-items: start;
     justify-content: start;
     padding: ${(props) => (props.$isShowNavBarRedesign ? '16px 20px' : '16px 24px 24px 24px')};
-    background-color: #fff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
 
     ${(props) =>
         !props.$isShowNavBarRedesign &&
@@ -20,7 +20,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         margin-top: 24px;
         overflow: hidden;
         border-radius: 10px;
-        border: 1.5px solid #ecf2f9;
+        border: 1.5px solid ${props.theme.colors.border};
     `}
 
     ${(props) =>

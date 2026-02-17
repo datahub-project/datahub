@@ -30,7 +30,7 @@ const TransparentButton = styled(Button)`
 
 const ListItem = styled.div`
     position: relative;
-    border: 1px solid #ebebeb;
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 11px;
 
     &:hover ${TransparentButton} {

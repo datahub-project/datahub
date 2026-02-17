@@ -5,12 +5,11 @@ import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 import { GetChartQuery } from '@graphql/chart.generated';
 
 const InfoSection = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 20px;
 `;
 
@@ -27,7 +26,7 @@ const InfoItemContent = styled.div`
 
 const QueryText = styled(Typography.Paragraph)`
     margin-top: 20px;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 // NOTE: Yes, using `!important` is a shame. However, the SyntaxHighlighter is applying styles directly

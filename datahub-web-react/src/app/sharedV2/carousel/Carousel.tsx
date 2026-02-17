@@ -3,7 +3,6 @@ import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
 
 const Wrapper = styled.div`
@@ -40,10 +39,10 @@ const ButtonContainer = styled.div<{ left?: boolean; right?: boolean }>`
 
     border-radius: 100px;
     box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
-    background-color: ${REDESIGN_COLORS.WHITE};
+    background-color: ${(props) => props.theme.colors.bg};
 
     :hover {
-        color: ${REDESIGN_COLORS.WHITE};
+        color: ${(props) => props.theme.colors.bg};
         background-color: ${(props) => props.theme.styles['primary-color']};
     }
 

@@ -41,7 +41,6 @@ import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useGetIngestionLink } from '@app/sharedV2/ingestionSources/useGetIngestionLink';
 import { useHasIngestionSources } from '@app/sharedV2/ingestionSources/useHasIngestionSources';
 import { useAppConfig, useBusinessAttributesFlag, useIsContextDocumentsEnabled } from '@app/useAppConfig';
-import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
 import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
@@ -56,7 +55,7 @@ import AcrylIcon from '@images/acryl-light-mark.svg?react';
 
 const Container = styled.div`
     height: 100vh;
-    background-color: ${colors.gray[1600]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceNewNav};
     display: flex;
     flex: column;
     align-items: center;
@@ -73,7 +72,7 @@ const Content = styled.div<{ isCollapsed: boolean }>`
 
 const Header = styled.div`
     padding: 17px 8px 8px 16px;
-    border-bottom: 1px solid ${colors.gray[100]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const ScrollableContent = styled.div`
@@ -95,21 +94,21 @@ const ScrollableContent = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: #a9adbd;
+        background: ${(props) => props.theme.colors.textTertiary};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: #81879f;
+        background: ${(props) => props.theme.colors.textSecondary};
     }
 
     scrollbar-width: thin;
-    scrollbar-color: #a9adbd transparent;
+    scrollbar-color: ${(props) => props.theme.colors.textTertiary} transparent;
 `;
 
 const Footer = styled.div`
     padding: 8px 8px 17px 16px;
-    border-top: 1px solid ${colors.gray[100]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const CustomLogo = styled.img`

@@ -3,8 +3,6 @@ import styled from 'styled-components';
 
 import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '@components/theme/foundations/colors';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 export const StyledCheckOutlined = styled(CheckOutlined)`
     color: ${SUCCESS_COLOR_HEX};
     font-size: 16px;
@@ -27,7 +25,7 @@ export const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
 `;
 
 export const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textDisabled};
     font-size: 16px;
     margin-right: 4px;
     margin-left: 4px;

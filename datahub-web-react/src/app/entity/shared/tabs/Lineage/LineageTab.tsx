@@ -16,7 +16,6 @@ import styled from 'styled-components/macro';
 import { downgradeV2FieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import ColumnsLineageSelect from '@app/entity/shared/tabs/Lineage/ColumnLineageSelect';
 import { ImpactAnalysis } from '@app/entity/shared/tabs/Lineage/ImpactAnalysis';
@@ -59,7 +58,7 @@ const StyledCaretDown = styled(CaretDownFilled)`
 
 const StyledSelect = styled(Select)`
     &:hover {
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 

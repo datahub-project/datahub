@@ -78,20 +78,7 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
             height: 100%;
         }
         &:hover {
-            background: ${(props) =>
-                props.$isClosed
-                    ? `linear-gradient(
-                180deg,
-                rgba(243, 244, 246, 0.5) -3.99%,
-                rgba(235, 236, 240, 0.5) 53.04%,
-                rgba(235, 236, 240, 0.5) 100%
-            )`
-                    : `linear-gradient(
-                180deg,
-                rgba(243, 244, 246, 0.5) -3.99%,
-                rgba(235, 236, 240, 0.5) 53.04%,
-                rgba(235, 236, 240, 0.5) 100%
-            )`} !important;
+            background: ${(props) => props.theme.colors.border} !important;
             box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
         }
         &:last-child {
@@ -116,12 +103,7 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
         &:hover {
             background: ${(props) =>
                 props.$isClosed
-                    ? `linear-gradient(
-                180deg,
-                rgba(243, 244, 246, 0.5) -3.99%,
-                rgba(235, 236, 240, 0.5) 53.04%,
-                rgba(235, 236, 240, 0.5) 100%
-            )`
+                    ? props.theme.colors.border
                     : `linear-gradient(
                 180deg,
                 rgba(83, 63, 209, 0.04) -3.99%,
@@ -134,7 +116,7 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
     &&& .ant-tabs-content-holder {
         display: none;
     }
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const Tab = styled(Tabs.TabPane)`
@@ -150,7 +132,7 @@ const TabIconContainer = styled.div<{ $isSelected?: boolean }>`
     align-items: center;
     justify-content: center;
     transition: none !important;
-    color: #8088a3;
+    color: ${(props) => props.theme.colors.textTertiary};
     width: 48px;
     height: 48px;
     padding: 0;
@@ -173,7 +155,7 @@ const TabText = styled.span<{ $isSelected?: boolean }>`
     text-overflow: ellipsis;
     white-space: nowrap;
     /* Override any Ant Design styling that could cause blue text */
-    color: ${(props) => (props.$isSelected ? 'transparent !important' : '#8088a3 !important')};
+    color: ${(props) => (props.$isSelected ? 'transparent !important' : `${props.theme.colors.textTertiary} !important`)};
     ${(props) =>
         props.$isSelected &&
         `
@@ -217,7 +199,7 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
 
     /* For Phosphor icons */
     && svg {
-        ${(props) => (props.$isSelected ? 'fill: url(#menu-item-selected-gradient) #533fd1;' : 'color: #8088a3;')}
+        ${(props) => (props.$isSelected ? 'fill: url(#menu-item-selected-gradient) #533fd1;' : `color: ${props.theme.colors.textTertiary};`)}
         width: 20px !important;
         height: 20px !important;
         min-width: 20px !important;
@@ -234,7 +216,7 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        ${(props) => (props.$isSelected ? 'color: url(#menu-item-selected-gradient) #533fd1;' : 'color: #8088a3;')}
+        ${(props) => (props.$isSelected ? 'color: url(#menu-item-selected-gradient) #533fd1;' : `color: ${props.theme.colors.textTertiary};`)}
         width: 20px !important;
         height: 20px !important;
 

@@ -1,11 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 
 const StyledEditor = styled(Editor)`
-    border: 1px solid ${ANTD_GRAY_V2[6]};
+    border: 1px solid ${(props) => props.theme.colors.textDisabled};
     min-height: 115px;
     border-radius: 6px;
     width: 75%;

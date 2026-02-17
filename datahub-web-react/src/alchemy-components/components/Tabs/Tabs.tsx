@@ -6,7 +6,6 @@ import { Pill } from '@components/components/Pills';
 import { Tooltip } from '@components/components/Tooltip';
 
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
-import { colors } from '@src/alchemy-components/theme';
 import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 const ScrollableTabsContainer = styled.div<{ $maxHeight?: string }>`
@@ -38,7 +37,7 @@ const StyledTabsPrimary = styled(AntTabs)<{
     .ant-tabs-tab {
         padding: 8px 0;
         font-size: 14px;
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.text};
     }
 
     ${({ $addPaddingLeft }) =>
@@ -67,7 +66,7 @@ const StyledTabsPrimary = styled(AntTabs)<{
                 position: sticky;
                 top: 0;
                 z-index: 10;
-                background-color: white;
+                background-color: ${(props) => props.theme.colors.bg};
             }
         `}
     .ant-tabs-tab-active .ant-tabs-tab-btn {
@@ -116,7 +115,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
         padding: 8px 8px;
         border-radius: 4px;
         font-size: 14px;
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.text};
     }
 
     ${({ $addPaddingLeft }) =>
@@ -168,7 +167,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
         }
     }
 
-    ${({ $stickyHeader }) =>
+    ${({ $stickyHeader, theme }) =>
         $stickyHeader &&
         `
             .ant-tabs-nav::before {
@@ -186,7 +185,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
                 left: 0;
                 right: 0;
                 height: 1px;
-                background-color: ${colors.gray[200]};
+                background-color: ${theme.colors.border};
             }
         `}
 
@@ -204,7 +203,7 @@ const TabViewWrapper = styled.div<{ $disabled?: boolean }>`
     display: flex;
     align-items: center;
     gap: 4px;
-    ${({ $disabled }) => $disabled && `color: ${colors.gray[1800]};`}
+    ${({ $disabled, theme }) => $disabled && `color: ${theme.colors.textTertiary};`}
 `;
 
 function TabView({ tab }: { tab: Tab }) {

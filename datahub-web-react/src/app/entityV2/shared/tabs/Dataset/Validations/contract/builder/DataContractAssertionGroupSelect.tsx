@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { AcrylDatasetAssertionsList } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsList';
 import { DataContractCategoryType } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
 
@@ -11,14 +10,14 @@ const Category = styled.div`
     padding: 20px;
     font-weight: bold;
     font-size: 14px;
-    background-color: ${ANTD_GRAY[3]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 4px;
 `;
 
 const Hint = styled.span`
     font-weight: normal;
     font-size: 14px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type Props = {

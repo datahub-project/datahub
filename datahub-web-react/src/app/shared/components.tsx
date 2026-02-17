@@ -1,7 +1,6 @@
 import { Button } from 'antd';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 export const HomePageButton = styled(Button)`
     margin-right: 12px;
@@ -14,7 +13,7 @@ export const HomePageButton = styled(Button)`
     border-radius: 4px;
     align-items: center;
     flex-direction: column;
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
     &&:hover {
         box-shadow: ${(props) => props.theme.styles['box-shadow-hover']};
@@ -50,7 +49,7 @@ export const BodyContainer = styled.div`
 `;
 
 export const WhiteButton = styled(Button)`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     color: ${(props) => props.theme.styles['primary-color']};
     text-shadow: none;
 `;

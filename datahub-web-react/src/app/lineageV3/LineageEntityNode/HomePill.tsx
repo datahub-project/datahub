@@ -1,12 +1,12 @@
-import { Icon, colors } from '@components';
+import { Icon } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
 const Wrapper = styled.div`
-    background-color: ${colors.gray[1500]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-top-left-radius: 4px;
     border-top-right-radius: 4px;
-    border: 1px solid ${colors.gray[100]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     color: ${(p) => p.theme.styles['primary-color']};
 
     display: flex;

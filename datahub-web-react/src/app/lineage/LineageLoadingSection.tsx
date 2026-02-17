@@ -3,7 +3,6 @@ import { Spin } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const Container = styled.div`
     height: auto;
@@ -16,7 +15,7 @@ const Container = styled.div`
 
 const StyledLoading = styled(LoadingOutlined)`
     font-size: 32px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding-bottom: 18px;
 ]`;
 

@@ -3,7 +3,6 @@ import { Select, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { ProfileSidebarResizer } from '@app/entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '@app/onboarding/config/SearchOnboardingConfig';
 import { BrowseProvider } from '@app/search/sidebar/BrowseContext';
@@ -21,8 +20,8 @@ export const SidebarWrapper = styled.div<{ visible: boolean; width: number }>`
     width: ${(props) => (props.visible ? `${props.width}px` : '0')};
     min-width: ${(props) => (props.visible ? `${props.width}px` : '0')};
     transition: width 250ms ease-in-out;
-    background-color: ${ANTD_GRAY_V2[1]};
-    background: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    background: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const SidebarHeader = styled.div`
@@ -48,18 +47,18 @@ const SelectWrapper = styled.div`
     display: inline-flex;
     align-items: center;
     width: 200px .ant-select-selection-item {
-        color: ${ANTD_GRAY[8]} !important;
+        color: ${(props) => props.theme.colors.textSecondary} !important;
         font-weight: 700;
     }
 
     .ant-select-selection-placeholder {
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
         font-weight: 700;
     }
 `;
 
 const StyledIcon = styled(Icon)`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 16px;
     margin-right: -8px;
 `;

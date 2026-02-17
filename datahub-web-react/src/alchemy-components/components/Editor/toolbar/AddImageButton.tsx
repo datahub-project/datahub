@@ -2,6 +2,7 @@ import { Image } from '@phosphor-icons/react';
 import { useCommands } from '@remirror/react';
 import { Form, Input, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTheme } from 'styled-components';
 
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
 import { Modal } from '@components/components/Modal';
@@ -12,6 +13,8 @@ export const AddImageButton = () => {
     const [isModalVisible, setModalVisible] = useState(false);
     const [form] = Form.useForm();
     const { insertImage } = useCommands();
+    const styledTheme = useTheme() as any;
+    const iconColor = styledTheme?.colors?.textTertiary ?? colors.gray[1800];
 
     const handleButtonClick = () => {
         setModalVisible(true);
@@ -37,7 +40,7 @@ export const AddImageButton = () => {
         <>
             <CommandButton
                 active={false}
-                icon={<Image size={20} color={colors.gray[1800]} />}
+                icon={<Image size={20} color={iconColor} />}
                 commandName="insertImage"
                 onClick={handleButtonClick}
             />

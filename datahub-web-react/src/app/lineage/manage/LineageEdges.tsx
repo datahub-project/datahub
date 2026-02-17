@@ -2,7 +2,6 @@ import { Empty } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import EntityEdge from '@app/lineage/manage/EntityEdge';
 import { Direction, FetchedEntity } from '@app/lineage/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -20,7 +19,7 @@ const EmptyWrapper = styled.div`
     align-items: center;
     justify-content: center;
     height: 100%;
-    background-color: ${ANTD_GRAY[3]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 interface Props {

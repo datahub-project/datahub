@@ -1,17 +1,16 @@
-import { Tooltip, colors } from '@components';
+import { Tooltip } from '@components';
 import { Divider, Image, Tag } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 
 const EntityTag = styled(Tag)<{ $showMargin?: boolean }>`
     ${(props) => (props.$showMargin ? `margin: 4px;` : `margin: 0px;`)}
     max-width: inherit;
-    border-color: ${colors.gray[100]} !important;
+    border-color: ${(props) => props.theme.colors.border} !important;
 `;
 
 const TitleContainer = styled.div`
@@ -54,7 +53,7 @@ const ColumnName = styled.span`
 `;
 
 export const StyledDivider = styled(Divider)`
-    background-color: ${ANTD_GRAY[6]};
+    background-color: ${(props) => props.theme.colors.textDisabled};
     margin: 0 7px;
 `;
 

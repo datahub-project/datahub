@@ -4,11 +4,11 @@ import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { Skeleton, Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { Handle, Position } from 'reactflow';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import { ANTD_GRAY, LINEAGE_COLORS, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import Columns from '@app/lineageV2/LineageEntityNode/Columns';
 import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
@@ -47,7 +47,7 @@ const NodeWrapper = styled.div<{
     isSearchedEntity: boolean;
 }>`
     align-items: center;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border: 1px solid
         ${({ color, selected, isGhost }) => {
             if (selected) return color;
@@ -126,7 +126,7 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
 
 const IconsWrapper = styled.div`
     align-items: center;
-    color: ${ANTD_GRAY[10]};
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     flex-direction: column;
     font-size: 24px;
@@ -293,6 +293,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     } = props;
 
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
 
     const isGhost = isGhostEntity(entity, ignoreSchemaFieldStatus);
 
@@ -309,7 +310,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
 
     const platformName = entityRegistry.getDisplayName(EntityType.DataPlatform, entity?.platform);
     const [nodeColor] = getNodeColor(type);
-    const highlightColor = isSearchedEntity ? REDESIGN_COLORS.YELLOW_500 : REDESIGN_COLORS.YELLOW_200;
+    const highlightColor = isSearchedEntity ? theme.colors.textWarning : theme.colors.bgSurfaceWarning;
     const hasUpstreamChildren = !!entity?.numUpstreamChildren;
     const hasDownstreamChildren = !!entity?.numDownstreamChildren;
     const isExpandedDownstream = isExpanded[LineageDirection.Downstream];

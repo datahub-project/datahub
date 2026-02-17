@@ -12,7 +12,6 @@ import {
     GroupInfo,
     WhiteEditOutlinedIconStyle,
 } from '@app/entityV2/shared/SidebarStyledComponents';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 
@@ -38,13 +37,13 @@ const AVATAR_STYLE = {
     zIndex: '2',
     height: '36px',
     width: '36px',
-    backgroundColor: REDESIGN_COLORS.AVATAR_STYLE_WHITE_BACKGROUND,
+    backgroundColor: '#ffffff66',
 };
 
 const AvatarWithTitleContainer = styled.div`
     display: flex;
     padding: 10px;
-    background: ${REDESIGN_COLORS.GROUP_AVATAR_STYLE_GRADIENT}};
+    background: linear-gradient(0deg, #705EE4 0%, #533FD1 100%), #4C39BE;;
     gap: 0.5rem;
 `;
 

@@ -1,9 +1,6 @@
 import { Select, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 export const Layout = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     overflow: hidden;
     margin: ${(props) => (props.$isShowNavBarRedesign ? '5px' : '0 16px 12px 0')};
@@ -12,7 +9,7 @@ export const Layout = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex: 1;
     flex-direction: column;
-    background-color: #fff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};`}
 `;
 
@@ -35,7 +32,7 @@ export const TabsContainer = styled.div<{ isThemeV2: boolean; formCreationEnable
             ? `
         
         height: 50px;
-        border-bottom: 1px solid #e8ebed;
+        border-bottom: 1px solid ${props.theme.colors.border};
 
         .ant-tabs {
             margin-bottom: -17px;
@@ -66,19 +63,19 @@ export const TabsContainer = styled.div<{ isThemeV2: boolean; formCreationEnable
         .ant-tabs-tab {
             font-size: 14px;
             font-weight: 600;
-            color: ${REDESIGN_COLORS.GREY_300};
+            color: ${props.theme.colors.textTertiary};
             padding: 8px 16px !important;
             border-radius: 36px;
-            border: 1px solid ${REDESIGN_COLORS.GREY_100};
-            background-color: ${REDESIGN_COLORS.WHITE};
+            border: 1px solid ${props.theme.colors.border};
+            background-color: ${props.theme.colors.bg};
         }
 
         ${
             props.isThemeV2 &&
             `
                 .ant-tabs-tab-active  {
-                    background-color: ${REDESIGN_COLORS.PURPLE_LIGHT};
-                    border: 1px solid ${REDESIGN_COLORS.PURPLE_LIGHT};
+                    background-color: ${props.theme.colors.buttonSurfaceSecondaryHover};
+                    border: 1px solid ${props.theme.colors.buttonSurfaceSecondaryHover};
                 }
                 
                 .ant-tabs-tab-active .ant-tabs-tab-btn {
@@ -169,7 +166,7 @@ export const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     display: flex;
     flex-direction: column;
-    background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : '#f8f9fa')};
+    background-color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.bg : props.theme.colors.bgSurface)};
     padding: 1rem;
 `;
 
@@ -211,14 +208,14 @@ export const StatusSeriesHeading = styled(Typography.Text)`
     font-size: 18px;
     font-weight: 600;
     margin-top: 0.5rem;
-    color: #00615f;
+    color: ${(props) => props.theme.colors.textSuccess};
 `;
 
 export const StatusSeriesDescription = styled(Typography.Text)`
     display: block;
     font-size: 12px;
     font-weight: 400;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     max-width: 85%;
 `;
 

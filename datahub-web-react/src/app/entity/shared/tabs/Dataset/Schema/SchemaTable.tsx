@@ -1,14 +1,13 @@
 import { ColumnsType } from 'antd/es/table';
 import ResizeObserver from 'rc-resize-observer';
 import React, { useEffect, useMemo, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 import { useVT } from 'virtualizedtableforantd4';
 
 import useSchemaTitleRenderer from '@app/entity/dataset/profile/schema/utils/schemaTitleRenderer';
 import translateFieldPath from '@app/entity/dataset/profile/schema/utils/translateFieldPath';
 import { ExtendedSchemaFields } from '@app/entity/dataset/profile/schema/utils/types';
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import ExpandIcon from '@app/entity/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import PropertiesColumn from '@app/entity/shared/tabs/Dataset/Schema/components/PropertiesColumn';
 import SchemaFieldDrawer from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
@@ -55,7 +54,7 @@ const TableContainer = styled.div`
     }
 
     &&& tbody > tr:hover > td {
-        background-color: ${ANTD_GRAY_V2[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 
     &&& .expanded-row {
@@ -95,6 +94,7 @@ export default function SchemaTable({
     hasProperties,
     inputFields,
 }: Props): JSX.Element {
+    const theme = useTheme();
     const businessAttributesFlag = useBusinessAttributesFlag();
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
     const [tableHeight, setTableHeight] = useState(0);
@@ -184,7 +184,7 @@ export default function SchemaTable({
         render(record: SchemaField) {
             return {
                 props: {
-                    style: { backgroundColor: ANTD_GRAY[2.5] },
+                    style: { backgroundColor: theme.colors.bgSurface },
                 },
                 children: schemaBlameRenderer(record),
             };

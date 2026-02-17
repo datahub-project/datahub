@@ -1,8 +1,6 @@
 import { Progress } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import styled, { useTheme } from 'styled-components';
 import useGetPromptInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
 
 const StyledProgress = styled(Progress)`
@@ -23,6 +21,7 @@ interface Props {
     formUrn: string;
 }
 export default function ProgressBar({ formUrn }: Props) {
+    const theme = useTheme();
     const { totalRequiredSchemaFieldPrompts, numRequiredPromptsRemaining, requiredEntityPrompts } =
         useGetPromptInfo(formUrn);
     const totalRequiredPrompts = requiredEntityPrompts.length + totalRequiredSchemaFieldPrompts;
@@ -33,7 +32,7 @@ export default function ProgressBar({ formUrn }: Props) {
             percent={percent}
             showInfo={false}
             strokeColor="linear-gradient(270deg, #9f33cc 0%, #20d3bd 100%)"
-            trailColor={ANTD_GRAY[1]}
+            trailColor={theme.colors.bg}
         />
     );
 }

@@ -3,7 +3,6 @@ import { DownOutlined, WarningFilled } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import FailingAssertions from '@app/entity/shared/embed/UpstreamHealth/FailingAssertions';
 import { UpstreamSummary } from '@app/entity/shared/embed/UpstreamHealth/utils';
 
@@ -20,7 +19,7 @@ const StyledWarning = styled(WarningFilled)`
 
 const FailingDetailsWrapper = styled.span`
     font-size: 14px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin-left: 8px;
     &:hover {
         cursor: pointer;

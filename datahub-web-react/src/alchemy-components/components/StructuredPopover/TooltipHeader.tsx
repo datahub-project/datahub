@@ -25,7 +25,7 @@ const PrimaryTitle = styled.div`
 const Title = styled.div`
     font-weight: 500;
     font-size: 14px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const TitleSuffix = styled.div`
@@ -37,7 +37,7 @@ export const SubTitle = styled.div`
     font-size: 12px;
     flex-shrink: 1;
     min-width: 0;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const ActionContainer = styled.div`

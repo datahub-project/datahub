@@ -2,15 +2,14 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
-import { colors } from '@src/alchemy-components';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1700] : '#dcdcdc')};
-    background-color: ${(props) => (props.$isShowNavBarRedesign ? colors.white : '#171723')};
+    color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textSecondary : '#dcdcdc')};
+    background-color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.bg : '#171723')};
     opacity: 0.9;
     border-color: black;
     border-radius: 6px;
-    border: 1px solid ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1700] : '#dcdcdc')};
+    border: 1px solid ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textSecondary : '#dcdcdc')};
     padding-right: 6px;
     padding-left: 6px;
     margin-right: 4px;
@@ -29,7 +28,7 @@ const Letter = styled.span<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        color: ${colors.gray[1700]};
+        color: ${props.theme.colors.textSecondary};
         text-align: center;
         line-height: 23px;
     `}

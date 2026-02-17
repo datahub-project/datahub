@@ -4,7 +4,6 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import analytics, { Event, EventType } from '@app/analytics';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getQuickFilterDetails } from '@app/searchV2/autoComplete/quickFilters/utils';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -13,7 +12,7 @@ import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 import { QuickFilter as QuickFilterType } from '@types';
 
 const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
     border-radius: 16px;
     box-shadow: none;
     font-weight: 400;

@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityContext } from '@src/app/entity/shared/EntityContext';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
@@ -9,7 +8,7 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { DataContract, EntityType } from '@types';
 
 const TitleText = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-bottom: 20px;
     letter-spacing: 1px;
 `;

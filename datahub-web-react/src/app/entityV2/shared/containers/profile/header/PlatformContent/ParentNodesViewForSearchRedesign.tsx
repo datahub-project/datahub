@@ -2,16 +2,14 @@ import { FolderOutlined, RightOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import styled, { useTheme } from 'styled-components';
 import useContentTruncation from '@app/shared/useContentTruncation';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, GlossaryNode } from '@types';
 
 export const StyledRightOutlined = styled(RightOutlined)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 8px;
     margin: 0 4px;
 `;
@@ -26,7 +24,7 @@ export const ParentNodesWrapper = styled.div`
 `;
 
 export const Ellipsis = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-right: 2px;
 `;
 
@@ -37,7 +35,7 @@ export const StyledTooltip = styled(Tooltip)`
 `;
 
 const GlossaryNodeText = styled(Typography.Text)<{ color: string }>`
-    color: #56668e;
+    color: ${(props) => props.theme.colors.textSecondary};
 
     font-family: Mulish;
     font-size: 10px;
@@ -61,6 +59,7 @@ interface Props {
 
 export default function ParentNodesView({ parentNodes }: Props) {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const { contentRef, isContentTruncated } = useContentTruncation(parentNodes);
 
     return (
@@ -85,10 +84,10 @@ export default function ParentNodesView({ parentNodes }: Props) {
                 {[...(parentNodes || [])]?.map((parentNode, idx) => (
                     <>
                         hihihihi
-                        <GlossaryNodeText color={ANTD_GRAY[7]}>
+                        <GlossaryNodeText color={theme.colors.textTertiary}>
                             {entityRegistry.getDisplayName(EntityType.GlossaryNode, parentNode)}
                         </GlossaryNodeText>
-                        <GlossaryNodeIcon color={ANTD_GRAY[7]} />
+                        <GlossaryNodeIcon color={theme.colors.textTertiary} />
                         {idx + 1 !== parentNodes?.length && <StyledRightOutlined data-testid="right-arrow" />}
                     </>
                 ))}

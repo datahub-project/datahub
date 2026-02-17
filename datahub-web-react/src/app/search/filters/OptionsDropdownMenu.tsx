@@ -19,7 +19,7 @@ const StyledButton = styled(Button)`
 `;
 
 export const DropdownMenu = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 5px;
     box-shadow:
         0 3px 6px -4px rgba(0, 0, 0, 0.12),
@@ -29,9 +29,9 @@ export const DropdownMenu = styled.div`
     min-width: 200px;
 
     .ant-dropdown-menu-title-content {
-        background-color: white;
+        background-color: ${(props) => props.theme.colors.bgSurface};
         &:hover {
-            background-color: white;
+            background-color: ${(props) => props.theme.colors.bgSurface};
         }
     }
 `;

@@ -5,7 +5,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import FailingInputs from '@app/entity/shared/embed/UpstreamHealth/FailingInputs';
 import { extractUpstreamSummary } from '@app/entity/shared/embed/UpstreamHealth/utils';
 
@@ -34,7 +33,7 @@ const UnknownText = styled.span`
 `;
 
 const StyledIcon = styled(Icon)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const StyledCheck = styled(CheckCircleFilled)`

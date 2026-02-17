@@ -10,7 +10,7 @@ import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 
 const ColumnName = styled(Typography.Text)`
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const ViewButton = styled.div`

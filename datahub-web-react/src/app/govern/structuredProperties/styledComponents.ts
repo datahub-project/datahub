@@ -1,7 +1,7 @@
 import { Checkbox, Collapse, Divider, Drawer, Form, Select, Spin, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { Icon, colors, typography } from '@src/alchemy-components';
+import { Icon, typography } from '@src/alchemy-components';
 
 export const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     overflow: auto;
@@ -13,7 +13,7 @@ export const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     flex-direction: column;
     gap: 20px;
-    background-color: ${colors.white};
+    background-color: ${(props) => props.theme.colors.bg};
     ${(props) => props.$isShowNavBarRedesign && 'max-height: calc(100vh - 88px);'};
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -53,7 +53,7 @@ export const DataContainer = styled.div`
 export const PropName = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 600;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     line-height: normal;
 
     :hover {
@@ -65,7 +65,7 @@ export const PropName = styled(Typography.Text)`
 export const PropDescription = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     line-height: normal;
 `;
 
@@ -83,7 +83,7 @@ export const IconContainer = styled.div`
     align-items: center;
     gap: 12px;
     border-radius: 200px;
-    background-color: ${colors.gray[1000]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
 `;
 
 export const PillsContainer = styled.div`
@@ -101,7 +101,7 @@ export const MenuItem = styled.div`
     padding: 5px 100px 5px 5px;
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-family: ${typography.fonts.body};
 `;
 
@@ -143,9 +143,9 @@ export const CheckboxWrapper = styled.div`
     align-items: center;
     gap: 10px;
     margin: 10px 0;
-    color: #374066;
+    color: ${(props) => props.theme.colors.text};
     p {
-        color: #374066;
+        color: ${(props) => props.theme.colors.text};
         font-weight: 500;
     }
 `;
@@ -193,14 +193,14 @@ export const GridFormItem = styled(Form.Item)`
 export const FieldLabel = styled.div`
     font-size: 14px;
     font-weight: 500;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     margin-bottom: 24px;
 `;
 
 export const InputLabel = styled.div`
     font-size: 14px;
     font-weight: 500;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     gap: 2px;
 `;
@@ -208,7 +208,7 @@ export const InputLabel = styled.div`
 export const StyledLabel = styled.div`
     font-size: 12px;
     font-weight: 700;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const DescriptionContainer = styled.div`
@@ -247,7 +247,7 @@ export const StyledCollapse = styled(Collapse)`
 `;
 
 export const CollapseHeader = styled.div`
-    border-top: 1px solid ${colors.gray[1400]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 0;
     margin-left: -16px;
     width: calc(100% + 32px);
@@ -272,7 +272,7 @@ export const CreatedByContainer = styled.div`
     gap: 4px;
     padding: 3px 6px 3px 4px;
     border-radius: 20px;
-    border: 1px solid ${colors.gray[1400]};
+    border: 1px solid ${(props) => props.theme.colors.border};
 
     :hover {
         cursor: pointer;
@@ -295,7 +295,7 @@ export const ValueListContainer = styled.div`
     align-items: center;
     gap: 4px;
     font-size: 14px;
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
 
     svg {
         :hover {
@@ -305,7 +305,7 @@ export const ValueListContainer = styled.div`
 `;
 
 export const ValueType = styled.div`
-    background-color: ${colors.gray[100]};
+    background-color: ${(props) => props.theme.colors.border};
     border-radius: 4px;
     padding: 2px 4px;
 `;
@@ -333,7 +333,7 @@ export const ValuesContainer = styled.div<{ height: number }>`
 
 export const ValuesList = styled.div`
     font-size: 14px;
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     display: flex;
     flex: 1;
     align-items: center;
@@ -376,7 +376,7 @@ export const ModalFooter = styled.div`
 `;
 
 export const VerticalDivider = styled(Divider)`
-    color: ${colors.gray[1400]};
+    color: ${(props) => props.theme.colors.border};
     height: 20px;
     width: 2px;
 `;
@@ -391,8 +391,8 @@ export const StyledSelect = styled(Select)`
 
         &:hover,
         &:focus-within {
-            border: 1px solid ${colors.violet[200]} !important;
-            outline: 2px solid ${colors.violet[200]} !important;
+            border: 1px solid ${(props) => props.theme.colors.borderBrandFocused} !important;
+            outline: 2px solid ${(props) => props.theme.colors.borderBrandFocused} !important;
             box-shadow: none !important;
         }
     }
@@ -409,7 +409,7 @@ export const StyledSelect = styled(Select)`
         display: flex;
         align-items: center;
         font-size: 14px;
-        color: ${colors.gray[400]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 
@@ -430,12 +430,12 @@ export const SelectOptionContainer = styled.div`
 `;
 
 export const StyledDivider = styled(Divider)`
-    color: ${colors.gray[1400]};
+    color: ${(props) => props.theme.colors.border};
     margin: 16px 0;
 `;
 
 export const ViewDivider = styled(Divider)`
-    color: ${colors.gray[1400]};
+    color: ${(props) => props.theme.colors.border};
     margin: 16px 0 0 -16px;
     width: calc(100% + 32px);
 `;
@@ -466,7 +466,7 @@ export const CardIcons = styled.div`
         width: 28px;
         height: 28px;
         padding: 4px;
-        color: #8088a3;
+        color: ${(props) => props.theme.colors.textTertiary};
         :hover {
             cursor: pointer;
         }

@@ -3,12 +3,10 @@ import { Card, Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { colors } from '@components/theme';
-
 const StyledCard = styled(Card)`
     && {
         border-radius: 12px;
-        border: 1px solid ${colors.gray[100]};
+        border: 1px solid ${(props) => props.theme.colors.border};
         box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
         margin-bottom: 24px;
 
@@ -21,7 +19,7 @@ const StyledCard = styled(Card)`
 const Title = styled.div`
     font-size: 16px;
     font-weight: 700;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     display: flex;
     align-items: center;
     gap: 8px;
@@ -29,7 +27,7 @@ const Title = styled.div`
 
 const TitleDescriptionText = styled.div`
     font-size: 14px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const SettingTitle = styled.div`
@@ -56,7 +54,7 @@ const FeatureOptionRow = styled.div`
 `;
 
 const StyledDivider = styled(Divider)`
-    color: ${colors.gray[100]};
+    color: ${(props) => props.theme.colors.border};
 `;
 
 const SettingsOptionRow = styled.div`
@@ -71,7 +69,7 @@ const SettingsOptionRow = styled.div`
 `;
 
 const DescriptionText = styled.div`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
 `;
 
@@ -80,7 +78,7 @@ const OptionTitle = styled.div`
     align-items: center;
     gap: 8px;
     font-size: 14px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 600;
 `;
 

@@ -12,7 +12,7 @@ const ActionsContainer = styled.div`
     border-radius: 12px;
     box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
 
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     position: absolute;
     left: 50%;
     bottom: 2px;

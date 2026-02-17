@@ -32,7 +32,7 @@ const DeleteButtonContainer = styled.div`
     gap: 8px;
 
     button {
-        border: 1px solid #d9d9d9;
+        border: 1px solid ${(props) => props.theme.colors.border};
         border-radius: 20px;
         width: 28px;
         height: 28px;
@@ -45,14 +45,14 @@ const DeleteButtonContainer = styled.div`
         cursor: pointer;
         :hover {
             color: #262626;
-            border-color: #262626;
+            border-color: ${(props) => props.theme.colors.text};
         }
 
         &.delete-action {
             color: #ff4d4f;
             :hover {
                 color: #cf1322;
-                border-color: #262626;
+                border-color: ${(props) => props.theme.colors.text};
             }
         }
     }

@@ -4,9 +4,9 @@ import { Skeleton, Spin } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY, LINEAGE_COLORS, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
 import { ContractLineageButton } from '@app/lineageV2/LineageEntityNode/ContractLineageButton';
 import { ExpandLineageButton } from '@app/lineageV2/LineageEntityNode/ExpandLineageButton';
@@ -36,7 +36,7 @@ const NodeWrapper = styled.div<{
     isSearchedEntity: boolean;
 }>`
     align-items: center;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border: 1px solid
         ${({ color, selected, isGhost }) => {
             if (selected) return color;
@@ -102,7 +102,7 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
 
 const IconsWrapper = styled.div`
     align-items: center;
-    color: ${ANTD_GRAY[10]};
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     flex-direction: column;
     font-size: 24px;
@@ -144,7 +144,7 @@ const ParentLine = styled.span`
     height: min-content;
     gap: 4px;
 
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 600;
 `;
 
@@ -237,6 +237,7 @@ export default function SchemaFieldNodeContents({
     ignoreSchemaFieldStatus,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
+    const theme = useTheme();
 
     const isExpandedDownstream = isExpanded?.[LineageDirection.Downstream];
     const isExpandedUpstream = isExpanded?.[LineageDirection.Upstream];
@@ -248,7 +249,7 @@ export default function SchemaFieldNodeContents({
     const parentLineageUrl = useGetLineageUrl(parent?.urn, parent?.type);
     const lineageUrl = useGetLineageUrl(urn, EntityType.SchemaField);
 
-    const highlightColor = isSearchedEntity ? REDESIGN_COLORS.YELLOW_500 : REDESIGN_COLORS.YELLOW_200;
+    const highlightColor = isSearchedEntity ? theme.colors.textWarning : theme.colors.bgSurfaceWarning;
     const contents = (
         <NodeWrapper
             selected={selected}

@@ -15,7 +15,7 @@ const Container = styled.div<{ $isHidden?: boolean; $isShowNavBarRedesign?: bool
         margin: 5px;
         border-radius: ${props.theme.styles['border-radius-navbar-redesign']};
         box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
-        background-color: white;
+        background-color: ${props.theme.colors.bgSurface};
     `}
 
     /* Hide scrollbar for Chrome, Safari, and Opera */

@@ -21,7 +21,7 @@ const ContentContainer = styled.div`
 const StyledImage = styled(Image)`
     border-radius: 8px;
     box-shadow: 0 0 24px 0 rgba(83, 63, 209, 0.1);
-    border: 0.3px solid #f3f5f8;
+    border: 0.3px solid ${(props) => props.theme.colors.border};
 `;
 
 const ItalicsText = styled(Text)`

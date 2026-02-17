@@ -17,7 +17,6 @@ import { RemoveUserDefaultItem } from '@app/entityV2/view/menu/item/RemoveUserDe
 import { SetGlobalDefaultItem } from '@app/entityV2/view/menu/item/SetGlobalDefaultItem';
 import { SetUserDefaultItem } from '@app/entityV2/view/menu/item/SetUserDefaultItem';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entityV2/view/utils';
-import { colors } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useUpdateGlobalViewsSettingsMutation } from '@graphql/app.generated';
@@ -27,7 +26,7 @@ import { DataHubView, DataHubViewType } from '@types';
 
 const MenuButton = styled(MoreVertIcon)<{ $isShowNavBarRedesign?: boolean }>`
     width: 20px;
-    ${(props) => props.$isShowNavBarRedesign && `color: ${colors.gray[1800]};`}
+    ${(props) => props.$isShowNavBarRedesign && `color: ${props.theme.colors.textTertiary};`}
     &&& {
         padding-left: 0px;
         padding-right: 0px;
@@ -46,7 +45,7 @@ const MenuStyled = styled(Menu)`
             background: none;
         }
         .ant-dropdown-menu-item:hover {
-            background: #f5f5f5;
+            background: ${(props) => props.theme.colors.bgSurface};
         }
     }
 `;

@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 type Props = {
     icon: any;
@@ -12,7 +11,7 @@ type Props = {
 const IconContainer = styled.div<{ enabled?: boolean }>`
     width: 28px;
     height: 28px;
-    background-color: #f7f7f7;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     cursor: pointer;
     border-radius: 50%;
     text-align: center;
@@ -22,11 +21,11 @@ const IconContainer = styled.div<{ enabled?: boolean }>`
     align-items: center;
     & svg {
         font-size: 14px;
-        color: #5d668b;
+        color: ${(props) => props.theme.colors.textTertiary};
     }
-    border: 1px solid #eee;
+    border: 1px solid ${(props) => props.theme.colors.border};
     :hover {
-        border: 1px solid ${({ enabled }) => (enabled ? '#3F54D1' : ANTD_GRAY['4'])};
+        border: 1px solid ${({ enabled, theme }) => (enabled ? theme.styles['primary-color'] : theme.colors.bgSurface)};
     }
 `;
 

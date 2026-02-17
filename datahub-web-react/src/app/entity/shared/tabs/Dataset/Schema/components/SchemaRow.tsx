@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { FkContext } from '@app/entity/shared/tabs/Dataset/Schema/utils/selectedFkContext';
 import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
 import CompactContext from '@app/shared/CompactContext';
@@ -19,7 +18,7 @@ const ForeignKeyContent = styled.tr`
     flex-direction: column;
     width: 100%;
     margin-top: -587px;
-    box-shadow: inset 0 7px 16px -7px ${ANTD_GRAY[5]};
+    box-shadow: inset 0 7px 16px -7px ${(props) => props.theme.colors.border};
 `;
 
 const EntitySidePanel = styled.div`
@@ -27,17 +26,17 @@ const EntitySidePanel = styled.div`
     max-height: 545px;
     padding: 8px;
     width: 900px;
-    border-right: 1px solid ${ANTD_GRAY[4]};
-    background-color: white;
+    border-right: 1px solid ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const FieldBadge = styled(Badge)`
     margin-left: 4px;
     margin-top: 12px;
     &&& .ant-badge-count {
-        background-color: ${ANTD_GRAY[1]};
-        color: ${ANTD_GRAY[9]};
-        border: 1px solid ${ANTD_GRAY[6]};
+        background-color: ${(props) => props.theme.colors.bg};
+        color: ${(props) => props.theme.colors.text};
+        border: 1px solid ${(props) => props.theme.colors.textDisabled};
         font-size: 12px;
         font-weight: 400;
         height: 22px;
@@ -52,7 +51,7 @@ const ConstraintSection = styled.div`
     min-height: 100%;
     display: flex;
     justify-content: space-between;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const TableTitle = styled.span`
@@ -62,7 +61,7 @@ const TableTitle = styled.span`
 const BodyContent = styled.div`
     display: flex;
     flex-direction: row;
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const HeaderContent = styled.div`
@@ -71,7 +70,7 @@ const HeaderContent = styled.div`
     font-size: 16px;
     font-weight: 500;
     padding-left: 12px;
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const ForiegnKeyTd = styled.td`
@@ -81,7 +80,7 @@ const ForiegnKeyTd = styled.td`
 `;
 
 const DatasetLink = styled(Link)`
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 800;
 `;
 

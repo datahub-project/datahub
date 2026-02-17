@@ -41,14 +41,32 @@ export const Container = styled.div`
     justify-content: start;
 `;
 
-export const Title = styled.div<{ variant: string }>(({ variant }) => ({
+export const Title = styled.div<{ variant: string }>(({ variant, theme }) => ({
     ...baseStyles,
     ...titleStyles,
+    color: theme.colors.text,
     ...getHeaderTitleStyles(variant),
+    '& a': {
+        color: theme.colors.hyperlinks,
+        textDecoration: 'none',
+        transition: 'color 0.15s ease',
+        '&:hover': {
+            color: theme.colors.textBrand,
+        },
+    },
 }));
 
-export const SubTitle = styled.div<{ variant: string }>(({ variant }) => ({
+export const SubTitle = styled.div<{ variant: string }>(({ variant, theme }) => ({
     ...baseStyles,
     ...subTitleStyles,
+    color: theme.colors.textSecondary,
     ...getHeaderSubtitleStyles(variant),
+    '& a': {
+        color: theme.colors.hyperlinks,
+        textDecoration: 'none',
+        transition: 'color 0.15s ease',
+        '&:hover': {
+            color: theme.colors.textBrand,
+        },
+    },
 }));

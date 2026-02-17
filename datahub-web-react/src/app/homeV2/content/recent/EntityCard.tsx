@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
@@ -16,11 +15,11 @@ const Container = styled.div`
     display: flex;
     flex-direction: row;
     padding: 10px 12px 10px 12px;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 10px;
     min-width: 200px;
     max-width: 260px;
-    border: 1.5px solid #0000001a;
+    border: 1.5px solid ${(props) => props.theme.colors.border};
     gap: 12px;
 
     :hover {
@@ -30,7 +29,7 @@ const Container = styled.div`
 
 const Name = styled.div`
     font-size: 14px;
-    color: #565657;
+    color: ${(props) => props.theme.colors.textSecondary};
     margin-bottom: 4px;
     font-weight: 500;
     overflow: hidden;
@@ -46,7 +45,7 @@ const Context = styled.div`
 
 const SubHeader = styled.div`
     font-size: 14px;
-    color: ${ANTD_GRAY[5]};
+    color: ${(props) => props.theme.colors.border};
     margin-top: 4px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -54,7 +53,7 @@ const SubHeader = styled.div`
 
 const Type = styled.div`
     font-size: 14px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;

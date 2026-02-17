@@ -2,10 +2,8 @@ import { blue, green } from '@ant-design/colors';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 const Pill = styled.div`
-    background-color: ${ANTD_GRAY[1]};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 10px;
     border: 1px solid;
     font-size: 12px;
@@ -25,8 +23,8 @@ const ForeignKeyPill = styled(Pill)`
 `;
 
 const NullablePill = styled(Pill)`
-    color: ${ANTD_GRAY[7]} !important;
-    border-color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary} !important;
+    border-color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 export function PrimaryKeyLabel() {

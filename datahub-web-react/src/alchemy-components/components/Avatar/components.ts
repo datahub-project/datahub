@@ -10,7 +10,7 @@ export const Container = styled.div<{ $hasOnClick: boolean; $showInPill?: boolea
     align-items: center;
     gap: 4px;
     border-radius: 20px;
-    border: ${(props) => props.$showInPill && `1px solid ${colors.gray[100]}`};
+    border: ${(props) => props.$showInPill && `1px solid ${props.theme.colors.border}`};
     padding: ${(props) => props.$showInPill && '3px 6px 3px 4px'};
 
     ${(props) =>
@@ -32,7 +32,7 @@ export const AvatarImageWrapper = styled.div<{
     position: relative;
     border-radius: 50%;
     color: ${(props) => props.$color};
-    border: ${(props) => props.$isOutlined && `1px solid ${colors.gray[1800]}`};
+    border: ${(props) => props.$isOutlined && `1px solid ${props.theme.colors.textTertiary}`};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -47,7 +47,7 @@ export const AvatarImage = styled.img`
 `;
 
 export const AvatarText = styled.span<{ $size?: AvatarSizeOptions }>`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 600;
     font-size: ${(props) => getAvatarNameSizes(props.$size)};
 `;

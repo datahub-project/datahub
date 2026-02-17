@@ -2,14 +2,12 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 export const EntityCountText = styled(Typography.Text)`
     display: inline-block;
     font-size: 12px;
     line-height: 20px;
     font-weight: 400;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 interface Props {
