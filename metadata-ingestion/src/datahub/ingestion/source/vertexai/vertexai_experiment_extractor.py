@@ -28,15 +28,13 @@ from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     get_project_container,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
-    DataProcessInstanceRelationships,
-)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ContainerClass,
     DataProcessInstanceInputClass,
     DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
+    DataProcessInstanceRelationshipsClass,
     DataProcessInstanceRunEventClass,
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
@@ -300,7 +298,7 @@ class VertexAIExperimentExtractor:
 
         yield MetadataChangeProposalWrapper(
             entityUrn=execution_urn,
-            aspect=DataProcessInstanceRelationships(
+            aspect=DataProcessInstanceRelationshipsClass(
                 upstreamInstances=[self.urn_builder.make_experiment_run_urn(exp, run)],
                 parentInstance=self.urn_builder.make_experiment_run_urn(exp, run),
             ),

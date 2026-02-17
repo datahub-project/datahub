@@ -44,9 +44,6 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     is_status_for_run_event_class,
 )
 from datahub.ingestion.source.vertexai.vertexai_utils import get_actor_from_labels
-from datahub.metadata.com.linkedin.pegasus2avro.ml.metadata import (
-    MLTrainingRunProperties,
-)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DataProcessInstanceInputClass,
@@ -59,6 +56,7 @@ from datahub.metadata.schema_classes import (
     EdgeClass,
     MLHyperParamClass,
     MLMetricClass,
+    MLTrainingRunPropertiesClass,
     TimeStampClass,
 )
 from datahub.utilities.time import datetime_to_ts_millis
@@ -286,7 +284,7 @@ class VertexAITrainingExtractor:
 
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
-            aspect=MLTrainingRunProperties(
+            aspect=MLTrainingRunPropertiesClass(
                 externalUrl=self.url_builder.make_job_url(job.name),
                 id=job.name,
                 hyperParams=hyperparams if hyperparams else None,

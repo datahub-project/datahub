@@ -37,15 +37,16 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_pipeline_task_result_status,
     is_status_for_run_event_class,
 )
-from datahub.ingestion.source.vertexai.vertexai_utils import get_actor_from_labels
-from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
-    DataProcessInstanceRelationships,
+from datahub.ingestion.source.vertexai.vertexai_utils import (
+    get_actor_from_labels,
+    get_resource_category_container,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DataProcessInstanceInputClass,
     DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
+    DataProcessInstanceRelationshipsClass,
     DataProcessInstanceRunEventClass,
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
@@ -204,7 +205,7 @@ class VertexAIPipelineExtractor:
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dpi_urn,
-            aspect=DataProcessInstanceRelationships(
+            aspect=DataProcessInstanceRelationshipsClass(
                 upstreamInstances=[],
                 parentTemplate=str(pipeline_meta.urn.urn()),
             ),
@@ -213,7 +214,6 @@ class VertexAIPipelineExtractor:
     def _gen_pipeline_task_datajob(
         self, task: PipelineTaskMetadata, dataflow_urn: DataFlowUrn
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit stable DataJob entity for a pipeline task."""
         datajob = DataJob(
             name=self.name_formatter.format_pipeline_task_id(task.name),
             display_name=task.name,
@@ -229,13 +229,11 @@ class VertexAIPipelineExtractor:
 
         yield from datajob.as_workunits()
 
-        # Explicitly emit Status aspect (SDK doesn't emit it automatically)
         yield MetadataChangeProposalWrapper(
             entityUrn=datajob.urn.urn(),
             aspect=StatusClass(removed=False),
         ).as_workunit()
 
-        # Add upstream DataJob dependencies (task-to-task lineage)
         if task.upstreams:
             patch_builder = DataJobPatchBuilder(datajob.urn.urn())
             for upstream_urn in task.upstreams:
@@ -282,7 +280,7 @@ class VertexAIPipelineExtractor:
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dpi_urn,
-            aspect=DataProcessInstanceRelationships(
+            aspect=DataProcessInstanceRelationshipsClass(
                 upstreamInstances=[], parentTemplate=str(task.urn.urn())
             ),
         ).as_workunit()
@@ -581,7 +579,7 @@ class VertexAIPipelineExtractor:
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dpi_urn,
-            aspect=DataProcessInstanceRelationships(
+            aspect=DataProcessInstanceRelationshipsClass(
                 upstreamInstances=[], parentTemplate=datajob.urn.urn()
             ),
         ).as_workunit()
@@ -689,13 +687,11 @@ class VertexAIPipelineExtractor:
             )
             yield from datajob.as_workunits()
 
-            # Explicitly emit Status aspect (SDK doesn't emit it automatically)
             yield MetadataChangeProposalWrapper(
                 entityUrn=datajob.urn.urn(),
                 aspect=StatusClass(removed=False),
             ).as_workunit()
 
-            # Add upstream DataJob dependencies (task-to-task lineage)
             if task.upstreams:
                 patch_builder = DataJobPatchBuilder(datajob.urn.urn())
                 for upstream_urn in task.upstreams:
@@ -766,6 +762,15 @@ class VertexAIPipelineExtractor:
         self, pipeline: PipelineMetadata
     ) -> Iterable[MetadataWorkUnit]:
         owner = get_actor_from_labels(pipeline.labels)
+
+        pipelines_container_key = get_resource_category_container(
+            project_id=self.project_id,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            category=ResourceCategory.PIPELINES,
+        )
+
         # Use the URN that was already calculated in pipeline.urn (which respects incremental_lineage)
         dataflow = DataFlow(
             platform=self.platform,
@@ -780,11 +785,11 @@ class VertexAIPipelineExtractor:
             external_url=self.url_builder.make_pipeline_url(
                 pipeline_name=pipeline.name
             ),
+            parent_container=pipelines_container_key.as_urn(),
         )
 
         yield from dataflow.as_workunits()
 
-        # Explicitly emit Status aspect (SDK doesn't emit it automatically)
         yield MetadataChangeProposalWrapper(
             entityUrn=dataflow.urn.urn(),
             aspect=StatusClass(removed=False),
