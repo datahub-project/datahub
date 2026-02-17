@@ -678,9 +678,9 @@ def test_get_pipeline_mcps(
 
     dpi_urn = "urn:li:dataProcessInstance:acryl-poc.pipeline_task_run.reverse"
 
-    # With incremental lineage: 6 (dataflow) + 4 (pipeline run DPI) + 5 (datajob with info) +
-    # 5 (task run DPI) + 2 (patch MCPs) = 22
-    assert len(actual_mcps) == 22, f"Expected 22 MCPs, got {len(actual_mcps)}"
+    # With incremental lineage: 6 (dataflow) + 4 (pipeline run DPI) + 7 (datajob) + 4 (task run DPI) = 21
+    # Note: DataJob does NOT have ContainerClass (dataFlow cannot be a container for dataJob)
+    assert len(actual_mcps) == 21, f"Expected 21 MCPs, got {len(actual_mcps)}"
 
     dataflow_info_mcps = [
         mcp
@@ -723,7 +723,8 @@ def test_get_pipeline_mcps(
         for mcp in actual_mcps
     ), "DataJob DataJobInfoClass not found"
 
-    # Verify DataJob has container pointing to parent DataFlow
+    # Verify DataJob does NOT have container aspect
+    # (DataFlow entities cannot be containers for DataJob entities in DataHub's entity model)
     datajob_container_mcps = [
         mcp
         for mcp in actual_mcps
@@ -731,16 +732,9 @@ def test_get_pipeline_mcps(
         and isinstance(mcp.metadata.aspect, ContainerClass)
         and mcp.metadata.entityUrn == expected_task_urn
     ]
-    assert len(datajob_container_mcps) == 1, "Expected DataJob to have container aspect"
-
-    # Type narrow for mypy
-    datajob_container_wu = datajob_container_mcps[0]
-    assert isinstance(datajob_container_wu.metadata, MetadataChangeProposalWrapper)
-    datajob_container = datajob_container_wu.metadata.aspect
-    assert isinstance(datajob_container, ContainerClass)
-    assert datajob_container.container == expected_pipeline_urn, (
-        f"DataJob container should point to parent DataFlow. "
-        f"Expected {expected_pipeline_urn}, got {datajob_container.container}"
+    assert len(datajob_container_mcps) == 0, (
+        "DataJob should NOT have ContainerClass aspect. "
+        "The relationship to DataFlow is established via the flow_urn in the DataJobUrn."
     )
 
     assert any(

@@ -1529,22 +1529,6 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(vertexai,test-project-id.pipeline.Mock Pipeline,PROD),test-project-id.pipeline_task.reverse)",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:dataFlow:(vertexai,test-project-id.pipeline.Mock Pipeline,PROD)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1771274771017,
-        "runId": "vertexai-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(vertexai,test-project-id.pipeline.Mock Pipeline,PROD),test-project-id.pipeline_task.reverse)",
-    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
         "json": {
@@ -1644,35 +1628,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1771279350289,
-        "runId": "vertexai-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(vertexai,test-project-id.pipeline.Mock Pipeline,PROD),test-project-id.pipeline_task.reverse)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
-                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
-                },
-                {
-                    "id": "urn:li:container:1f16c00952f79966aa7222f9937f884b",
-                    "urn": "urn:li:container:1f16c00952f79966aa7222f9937f884b"
-                },
-                {
-                    "id": "urn:li:dataFlow:(vertexai,test-project-id.pipeline.Mock Pipeline,PROD)",
-                    "urn": "urn:li:dataFlow:(vertexai,test-project-id.pipeline.Mock Pipeline,PROD)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1771279350290,
         "runId": "vertexai-source-test",
         "lastRunId": "no-run-id-provided"
     }

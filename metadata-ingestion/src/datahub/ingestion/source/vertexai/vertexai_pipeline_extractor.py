@@ -44,7 +44,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ContainerClass,
     DataProcessInstanceInputClass,
     DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
@@ -219,11 +218,6 @@ class VertexAIPipelineExtractor:
             flow_urn=dataflow_urn,
             platform_instance=self.config.platform_instance,
         )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=datajob.urn.urn(),
-            aspect=ContainerClass(container=str(dataflow_urn)),
-        ).as_workunit()
 
         yield from self._yield_common_aspects(
             entity_urn=datajob.urn.urn(),
@@ -664,11 +658,6 @@ class VertexAIPipelineExtractor:
                 url=self.url_builder.make_pipeline_url(pipeline.name),
                 platform_instance=self.config.platform_instance,
             )
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=datajob.urn.urn(),
-                aspect=ContainerClass(container=str(dataflow_urn)),
-            ).as_workunit()
 
             yield from self._yield_common_aspects(
                 entity_urn=datajob.urn.urn(),
