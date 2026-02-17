@@ -302,6 +302,7 @@ class TestDataHubConnectionConfig:
                 server="http://explicit-server:8080", token="explicit-token"
             )
             assert config.server == "http://explicit-server:8080"
+            assert config.token is not None
             assert config.token.get_secret_value() == "explicit-token"
 
     def test_loads_from_datahubenv_file(self):
@@ -330,4 +331,5 @@ class TestDataHubConnectionConfig:
 
             config = DataHubConnectionConfig()
             assert config.server == "http://file-server:8080"
+            assert config.token is not None
             assert config.token.get_secret_value() == "file-token-abc"
