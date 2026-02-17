@@ -281,8 +281,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 ):
                     yield from self._process_database(snowflake_db)
 
-            # Skip external table DDL lineage extraction if external tables are excluded
-            if not self.config.exclude_external_tables:
+            # Only extract external table DDL lineage if external tables are included
+            if "EXTERNAL TABLE" in self.config.table_types:
                 with self.report.new_stage(f"*: {EXTERNAL_TABLE_DDL_LINEAGE}"):
                     discovered_tables: List[str] = [
                         self.identifiers.get_dataset_identifier(
@@ -2516,8 +2516,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         tables = self.data_dictionary.get_tables_for_database(
             db_name,
-            table_filter,
-            exclude_external_tables=self.config.exclude_external_tables,
+            table_types=self.config.table_types,
+            table_filter=table_filter,
             exclude_dynamic_tables=self.config.exclude_dynamic_tables,
         )
 
@@ -2528,8 +2528,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return self.data_dictionary.get_tables_for_schema(
                 db_name=db_name,
                 schema_name=schema_name,
+                table_types=self.config.table_types,
                 table_filter=table_filter,
-                exclude_external_tables=self.config.exclude_external_tables,
                 exclude_dynamic_tables=self.config.exclude_dynamic_tables,
             )
 

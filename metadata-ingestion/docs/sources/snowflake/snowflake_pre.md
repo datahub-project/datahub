@@ -192,6 +192,8 @@ Both strategies access the same Snowflake system tables (`account_usage.query_hi
 
 When ingesting metadata from large Snowflake environments, you can improve performance by pushing down pattern filters directly to Snowflake SQL queries using the `push_down_metadata_patterns` configuration option.
 
+> **Note:** This option applies only to **metadata extraction** queries (`information_schema.databases`, `schemata`, `tables`, `views`). For pushing down filters on **lineage/usage** queries (`account_usage.access_history`), use `push_down_database_pattern_access_history` instead. These two options are independent and target completely separate query paths.
+
 #### Configuration
 
 ```yaml

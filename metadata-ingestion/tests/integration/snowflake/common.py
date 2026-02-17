@@ -265,9 +265,13 @@ def default_query_results(  # noqa: C901
                 "COMMENT": "comment for TEST_DB.TEST_SCHEMA",
             },
         ]
-    elif query == SnowflakeQuery.tables_for_database("TEST_DB"):
+    elif query == SnowflakeQuery.tables_for_database(
+        "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+    ):
         raise Exception("Information schema query returned too much data")
-    elif query == SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB"):
+    elif query == SnowflakeQuery.tables_for_schema(
+        "TEST_SCHEMA", "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+    ):
         return [
             {
                 "TABLE_SCHEMA": "TEST_SCHEMA",
