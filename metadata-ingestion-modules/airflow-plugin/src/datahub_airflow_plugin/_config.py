@@ -90,6 +90,11 @@ class DatahubLineageConfig(ConfigModel):
     # Makes extraction of jinja-templated fields more accurate.
     render_templates: bool
 
+    # If true, use multi-statement SQL parsing that resolves temporary tables
+    # and merges lineage across multiple SQL statements in a single execution.
+    # When false (default), only the first SQL statement is parsed.
+    enable_multi_statement_sql_parsing: bool
+
     # Only if true, lineage will be emitted for the DataJobs.
     enable_datajob_lineage: bool
 
@@ -189,6 +194,9 @@ def get_lineage_config() -> DatahubLineageConfig:
         "datahub", "disable_openlineage_plugin", fallback=default_disable_openlineage
     )
     render_templates = conf.get("datahub", "render_templates", fallback=True)
+    enable_multi_statement_sql_parsing = conf.get(
+        "datahub", "enable_multi_statement_sql_parsing", fallback=False
+    )
 
     # Use new task URL format for Airflow 3.x, old taskinstance format for Airflow 2.x
     # Airflow 3 changed URL structure: /dags/{dag_id}/tasks/{task_id} instead of /taskinstance/list/...
@@ -229,6 +237,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         render_templates=render_templates,
         dag_filter_pattern=dag_filter_pattern,
         enable_datajob_lineage=enable_lineage,
+        enable_multi_statement_sql_parsing=enable_multi_statement_sql_parsing,
     )
 
 

@@ -12,7 +12,7 @@ when the provider package is installed.
 
 import logging
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 
 # Try importing from provider package (Airflow 2.10+ with apache-airflow-providers-openlineage)
 try:
@@ -31,7 +31,12 @@ except ImportError:
     PROVIDER_IMPORTS_AVAILABLE = False
 
 # DataHub imports (always available)
-from datahub.sql_parsing.sqlglot_lineage import create_lineage_from_sql_statements
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    create_lineage_from_sql_statements,
+    create_lineage_sql_parsed_result,
+)
 from datahub_airflow_plugin._config import get_configured_env
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
@@ -46,6 +51,56 @@ logger = logging.getLogger(__name__)
 
 # Store the original SQLParser method for fallback
 _original_sql_parser_method: Optional[Callable[..., Any]] = None
+
+
+def _parse_sql_with_datahub(
+    sql: Union[str, List[str]],
+    default_database: Optional[str],
+    platform: str,
+    env: str,
+    default_schema: Optional[str],
+    graph: Optional[DataHubGraph],
+    enable_multi_statement: bool,
+) -> SqlParsingResult:
+    if enable_multi_statement:
+        return create_lineage_from_sql_statements(
+            queries=sql,
+            default_db=default_database,
+            platform=platform,
+            platform_instance=None,
+            env=env,
+            default_schema=default_schema,
+            graph=graph,
+        )
+    else:
+        if isinstance(sql, list):
+            logger.debug("Got list of SQL statements. Using first one for parsing.")
+            sql = sql[0] if sql else ""
+
+        return create_lineage_sql_parsed_result(
+            query=sql,
+            default_db=default_database,
+            platform=platform,
+            platform_instance=None,
+            env=env,
+            default_schema=default_schema,
+            graph=graph,
+        )
+
+
+def _format_sql_for_job_facet(sql: Any, enable_multi_statement: bool) -> str:
+    """
+    Format SQL for OpenLineage SqlJobFacet.
+
+    When multi-statement parsing is enabled, join all statements with semicolons.
+    Otherwise, use only the first statement (for backward compatibility).
+    """
+    if isinstance(sql, list) and enable_multi_statement:
+        return ";\n".join(str(s) for s in sql if s)
+    elif isinstance(sql, list):
+        return str(sql[0]) if sql else ""
+    else:
+        return str(sql)
 
 
 def _datahub_generate_openlineage_metadata_from_sql(
@@ -73,10 +128,12 @@ def _datahub_generate_openlineage_metadata_from_sql(
         from datahub_airflow_plugin._config import get_lineage_config
         from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
 
-        # Check if OpenLineage plugin is enabled
+        # Check if OpenLineage plugin is enabled and load multi-statement flag
+        enable_multi_statement = False  # Default to False if config loading fails
         try:
             config = get_lineage_config()
             openlineage_enabled = not config.disable_openlineage_plugin
+            enable_multi_statement = config.enable_multi_statement_sql_parsing
         except Exception as e:
             logger.warning(
                 f"Could not load config to check disable_openlineage_plugin: {e}"
@@ -150,21 +207,22 @@ def _datahub_generate_openlineage_metadata_from_sql(
         env = get_configured_env()
 
         logger.debug(
-            "Running DataHub SQL parser %s (platform=%s, default db=%s, schema=%s)",
+            "Running DataHub SQL parser %s (platform=%s, default db=%s, schema=%s, multi_statement=%s)",
             "with graph client" if graph else "in offline mode",
             platform,
             default_database,
             default_schema,
+            enable_multi_statement,
         )
 
-        sql_parsing_result = create_lineage_from_sql_statements(
-            queries=sql,
-            default_db=default_database,
+        sql_parsing_result = _parse_sql_with_datahub(
+            sql=sql,
+            default_database=default_database,
             platform=platform,
-            platform_instance=None,
             env=env,
             default_schema=default_schema,
             graph=graph,
+            enable_multi_statement=enable_multi_statement,
         )
 
         logger.debug(f"DataHub SQL parser result: {sql_parsing_result}")
@@ -223,13 +281,10 @@ def _datahub_generate_openlineage_metadata_from_sql(
         inputs = [_urn_to_ol_dataset(urn) for urn in sql_parsing_result.in_tables]
         outputs = [_urn_to_ol_dataset(urn) for urn in sql_parsing_result.out_tables]
 
-        run_facets = {DATAHUB_SQL_PARSING_RESULT_KEY: sql_parsing_result}
+        run_facets = {DATAHUB_SQL_PARSING_RESULT_KEY: sql_parsing_result}  # type: ignore[dict-item]
 
         # Create SQL string for facet
-        if isinstance(sql, list):
-            sql_str = ";\n".join(str(s) for s in sql if s)
-        else:
-            sql_str = str(sql)
+        sql_str = _format_sql_for_job_facet(sql, enable_multi_statement)
 
         # Create OperatorLineage with DataHub's results
         operator_lineage = OperatorLineage(  # type: ignore[misc]
