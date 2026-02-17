@@ -38,6 +38,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - Hadoop upgraded from 2.7.2 to 3.3.6 (addresses Hadoop CVEs, bundled with Spark 3.3+)
   - Note: If you're a self-hosted user still running Java 11, you must upgrade to Java 17 before deploying this release. Spark lineage users must upgrade to Spark 3.3.0+.
 - (Frontend) CustomHttpClientFactory now restricts TLS to 1.2 and 1.3 only when using a custom truststore; TLS 1.0 and 1.1 are disabled for security. If the frontend uses a custom truststore to reach GMS or an IdP that only supports TLS 1.0/1.1, those connections will fail until the server is upgraded to support at least TLS 1.2.
+- #16149 (Ingestion) DataHub source: now uses URN pattern filtering to exclude environment-specific entities by default. This prevents copying credentials and creating invalid entities.
+  - **Default behavior change**: Previously `exclude_aspects` contained `dataHubIngestionSourceInfo`, `dataHubSecretValue`, `dataHubExecutionRequestInput`, `globalSettingsInfo`. Now `urn_pattern.deny` contains `urn:li:dataHubIngestionSource:.*`, `urn:li:dataHubSecret:.*`, `urn:li:globalSettings:.*`, `urn:li:dataHubExecutionRequest:.*` to exclude entire entity types instead of individual aspects.
+  - **Note**: If you override `urn_pattern` or `exclude_aspects` in recipe, carefully configure them based on your requirements to avoid syncing sensitive data or creating invalid entities. Recommended to keep new defaults.
 
 ### Known Issues
 
