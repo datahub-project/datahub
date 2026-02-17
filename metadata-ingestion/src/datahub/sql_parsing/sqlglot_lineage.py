@@ -419,8 +419,9 @@ def _clickhouse_extract_dictget_tables(
     sqlglot parses dictGet(dict_name, ...) first arg as a Column node, not a
     Table node. This extracts those references as _TableName for upstream lineage.
 
-    TODO: CLL is still wrong — dictionary name appears as a column on the FROM
-    table. Needs a post-processor to fix.
+    TODO: CLL currently points to dict_name as a column; should point to
+    dict_name.attr_name. Needs post-processor to extract attr_name from second
+    argument and map to table.column.
     """
     if not is_dialect_instance(dialect, "clickhouse"):
         return OrderedSet()
