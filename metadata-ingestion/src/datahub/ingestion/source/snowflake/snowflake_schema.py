@@ -7,6 +7,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    FrozenSet,
     Iterable,
     List,
     MutableMapping,
@@ -564,7 +565,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def get_tables_for_database(
         self,
         db_name: str,
-        table_types: Set[str],
+        table_types: FrozenSet[str],
         table_filter: str = "",
         exclude_dynamic_tables: bool = False,
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:

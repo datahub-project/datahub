@@ -1,4 +1,4 @@
-from typing import List, Optional, Set
+from typing import AbstractSet, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
@@ -240,7 +240,7 @@ class SnowflakeQuery:
 
     @staticmethod
     def _build_table_type_conditions(
-        table_types: Set[str],
+        table_types: AbstractSet[str],
         exclude_dynamic_tables: bool = False,
     ) -> list:
         """Build WHERE conditions for table type filtering.
@@ -266,7 +266,7 @@ class SnowflakeQuery:
     @staticmethod
     def tables_for_database(
         db_name: str,
-        table_types: Set[str],
+        table_types: AbstractSet[str],
         table_filter: str = "",
         exclude_dynamic_tables: bool = False,
     ) -> str:
@@ -308,7 +308,7 @@ class SnowflakeQuery:
     def tables_for_schema(
         schema_name: str,
         db_name: str,
-        table_types: Set[str],
+        table_types: AbstractSet[str],
         table_filter: str = "",
         exclude_dynamic_tables: bool = False,
     ) -> str:
