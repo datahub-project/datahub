@@ -12,6 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -1155,6 +1156,9 @@ public class ESAccessControlUtilTest {
     Optional<QueryBuilder> filter =
         ESAccessControlUtil.buildAccessControlFilters(
             mockGraphUserAContext, Collections.emptyList());
+
+    // After the fix, DOMAIN filters now query both 'domains' and 'parentDomain' fields
+    // to ensure domain entities themselves are included in search results
     assertEquals(
         filter,
         Optional.of(
@@ -1165,9 +1169,16 @@ public class ESAccessControlUtilTest {
                 .should(
                     QueryBuilders.boolQuery()
                         .filter(
-                            QueryBuilders.termsQuery(
-                                "domains.keyword",
-                                List.of(DOMAIN_A.toString(), DOMAIN_B.toString()))))
+                            QueryBuilders.boolQuery()
+                                .minimumShouldMatch(1)
+                                .should(
+                                    QueryBuilders.termsQuery(
+                                        "domains.keyword",
+                                        List.of(DOMAIN_A.toString(), DOMAIN_B.toString())))
+                                .should(
+                                    QueryBuilders.termsQuery(
+                                        "parentDomain.keyword",
+                                        List.of(DOMAIN_A.toString(), DOMAIN_B.toString())))))
                 .minimumShouldMatch(1)));
   }
 
@@ -1243,5 +1254,261 @@ public class ESAccessControlUtilTest {
                 .should(
                     QueryBuilders.boolQuery()
                         .filter(QueryBuilders.termsQuery(ES_INDEX_FIELD, "domainindex_v2")))));
+  }
+
+  /**
+   * Test that DOMAIN filter with EQUALS condition queries both 'domains' and 'parentDomain' fields
+   * This ensures that domain entities themselves (which use parentDomain field) are included in
+   * search results when a policy grants access to their parent domain
+   */
+  @Test
+  public void testDomainFilterIncludesParentDomainField()
+      throws RemoteInvocationException, URISyntaxException {
+    GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
+    OperationContext mockGraphUserAContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("domainA"))).toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(null))
+                    .graphRetriever(mockGraphRetriever)
+                    .searchRetriever(mock(SearchRetriever.class))
+                    .build())
+            .build(USER_A_AUTH, false);
+
+    when(mockGraphRetriever.scrollRelatedEntities(
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
+            nullable(Filter.class),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
+            any(),
+            eq(Set.of(Constants.IS_PART_OF_RELATIONSHIP_NAME)),
+            eq(new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING)),
+            any(),
+            eq(null),
+            eq(GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT),
+            eq(null),
+            eq(null)))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                1,
+                1,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        "IsPartOf",
+                        DOMAIN_B.toString(),
+                        DOMAIN_A.toString(),
+                        RelationshipDirection.OUTGOING,
+                        null))));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(
+            mockGraphUserAContext, Collections.emptyList());
+
+    // Verify the filter includes both 'domains' and 'parentDomain' fields
+    assertTrue(filter.isPresent(), "Filter should be present");
+    String filterString = filter.get().toString();
+
+    // The filter should include a bool query with a minimumShouldMatch for domain fields
+    assertTrue(
+        filterString.contains("domains.keyword"),
+        "Filter should query 'domains' field for regular assets");
+    assertTrue(
+        filterString.contains("parentDomain.keyword"),
+        "Filter should query 'parentDomain' field for domain entities themselves");
+    assertTrue(
+        filterString.contains(DOMAIN_A.toString()), "Filter should include parent domain URN");
+    assertTrue(
+        filterString.contains(DOMAIN_B.toString()), "Filter should include child domain URN");
+  }
+
+  /**
+   * Test that DOMAIN filter with STARTS_WITH condition queries both 'domains' and 'parentDomain'
+   * fields
+   */
+  @Test
+  public void testDomainStartsWithFilterIncludesParentDomainField()
+      throws RemoteInvocationException, URISyntaxException {
+    String domainPrefix = "urn:li:domain:marketing";
+    Urn marketingDomain = UrnUtils.getUrn(domainPrefix);
+    Urn childDomain = UrnUtils.getUrn("urn:li:domain:marketing.emea");
+
+    DataHubPolicyInfo domainPrefixPolicy =
+        new DataHubPolicyInfo()
+            .setDisplayName("")
+            .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+            .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+            .setActors(
+                new DataHubActorFilter()
+                    .setAllUsers(true)
+                    .setGroups(new UrnArray())
+                    .setUsers(new UrnArray()))
+            .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+            .setResources(
+                new DataHubResourceFilter()
+                    .setFilter(
+                        new PolicyMatchFilter()
+                            .setCriteria(
+                                new PolicyMatchCriterionArray(
+                                    List.of(
+                                        new PolicyMatchCriterion()
+                                            .setField("DOMAIN")
+                                            .setCondition(PolicyMatchCondition.STARTS_WITH)
+                                            .setValues(new StringArray(List.of(domainPrefix))))))));
+
+    GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
+    OperationContext mockGraphUserAContext =
+        sessionWithUserAGroupAandC(List.of(domainPrefixPolicy)).toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(null))
+                    .graphRetriever(mockGraphRetriever)
+                    .searchRetriever(mock(SearchRetriever.class))
+                    .build())
+            .build(USER_A_AUTH, false);
+
+    when(mockGraphRetriever.scrollRelatedEntities(
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
+            nullable(Filter.class),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
+            any(),
+            eq(Set.of(Constants.IS_PART_OF_RELATIONSHIP_NAME)),
+            eq(new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING)),
+            any(),
+            eq(null),
+            eq(GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT),
+            eq(null),
+            eq(null)))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                1,
+                1,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        "IsPartOf",
+                        childDomain.toString(),
+                        marketingDomain.toString(),
+                        RelationshipDirection.OUTGOING,
+                        null))));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(
+            mockGraphUserAContext, Collections.emptyList());
+
+    // Verify the filter includes both 'domains' and 'parentDomain' fields with prefix queries
+    assertTrue(filter.isPresent(), "Filter should be present");
+    String filterString = filter.get().toString();
+
+    // The filter should include prefix queries for both fields
+    assertTrue(
+        filterString.contains("domains.keyword"),
+        "Filter should query 'domains' field for regular assets");
+    assertTrue(
+        filterString.contains("parentDomain.keyword"),
+        "Filter should query 'parentDomain' field for domain entities themselves");
+    assertTrue(
+        filterString.contains("prefix"),
+        "Filter should use prefix query for STARTS_WITH condition");
+  }
+
+  /**
+   * Test the domain filter with a complex hierarchy: grandparent -> parent -> child This ensures
+   * that all levels of the hierarchy are properly resolved and included in the filter
+   */
+  @Test
+  public void testDomainFilterWithMultipleLevelHierarchy()
+      throws RemoteInvocationException, URISyntaxException {
+    Urn grandparentDomain = UrnUtils.getUrn("urn:li:domain:company");
+    Urn parentDomain = UrnUtils.getUrn("urn:li:domain:company.engineering");
+    Urn childDomain = UrnUtils.getUrn("urn:li:domain:company.engineering.backend");
+
+    DataHubPolicyInfo domainPolicy =
+        new DataHubPolicyInfo()
+            .setDisplayName("")
+            .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+            .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+            .setActors(
+                new DataHubActorFilter()
+                    .setAllUsers(true)
+                    .setGroups(new UrnArray())
+                    .setUsers(new UrnArray()))
+            .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+            .setResources(
+                new DataHubResourceFilter()
+                    .setFilter(
+                        new PolicyMatchFilter()
+                            .setCriteria(
+                                new PolicyMatchCriterionArray(
+                                    List.of(
+                                        new PolicyMatchCriterion()
+                                            .setField("DOMAIN")
+                                            .setCondition(PolicyMatchCondition.EQUALS)
+                                            .setValues(
+                                                new StringArray(
+                                                    List.of(grandparentDomain.toString()))))))));
+
+    GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
+    OperationContext mockGraphUserAContext =
+        sessionWithUserAGroupAandC(List.of(domainPolicy)).toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(null))
+                    .graphRetriever(mockGraphRetriever)
+                    .searchRetriever(mock(SearchRetriever.class))
+                    .build())
+            .build(USER_A_AUTH, false);
+
+    // Mock the graph retriever to return child and grandchild domains
+    when(mockGraphRetriever.scrollRelatedEntities(
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
+            nullable(Filter.class),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
+            any(),
+            eq(Set.of(Constants.IS_PART_OF_RELATIONSHIP_NAME)),
+            eq(new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING)),
+            any(),
+            eq(null),
+            eq(GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT),
+            eq(null),
+            eq(null)))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                2,
+                2,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        "IsPartOf",
+                        parentDomain.toString(),
+                        grandparentDomain.toString(),
+                        RelationshipDirection.OUTGOING,
+                        null),
+                    new RelatedEntities(
+                        "IsPartOf",
+                        childDomain.toString(),
+                        parentDomain.toString(),
+                        RelationshipDirection.OUTGOING,
+                        null))));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(
+            mockGraphUserAContext, Collections.emptyList());
+
+    assertTrue(filter.isPresent(), "Filter should be present");
+    String filterString = filter.get().toString();
+
+    // Verify all three levels are included in the filter
+    assertTrue(
+        filterString.contains(grandparentDomain.toString()),
+        "Filter should include grandparent domain");
+    assertTrue(
+        filterString.contains(parentDomain.toString()), "Filter should include parent domain");
+    assertTrue(filterString.contains(childDomain.toString()), "Filter should include child domain");
   }
 }
