@@ -856,6 +856,12 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         ),
     )
 
+    lazy_schema_resolver: bool = Field(
+        default=True,
+        description="If True, resolve table/view schemas from DataHub on first use (lazy) instead of bulk-loading all Teradata datasets at startup. "
+        "Use False to restore previous behavior of one GraphQL scroll across all assets when include_tables or include_views is disabled.",
+    )
+
 
 @platform_name("Teradata")
 @config_class(TeradataConfig)
@@ -1217,6 +1223,13 @@ ORDER by DataBaseName, TableName;
         return cls(config, ctx)
 
     def _init_schema_resolver(self) -> SchemaResolver:
+        if self.config.lazy_schema_resolver:
+            return SchemaResolver(
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                graph=self.ctx.graph,
+            )
         if not self.config.include_tables or not self.config.include_views:
             if self.ctx.graph:
                 return self.ctx.graph.initialize_schema_resolver_from_datahub(
