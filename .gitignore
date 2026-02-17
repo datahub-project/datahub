@@ -163,5 +163,7 @@ metadata-utils/bin/
 test-models/bin/
 notifications/bin/
 
+.claude/
+.cursor/
 # Git credentials (should never be committed)
 .git-credentials

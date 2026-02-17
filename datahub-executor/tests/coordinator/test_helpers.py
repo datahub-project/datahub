@@ -4,6 +4,9 @@ import os
 from typing import Any, Callable
 from unittest.mock import MagicMock, Mock, patch
 
+import pytest
+from datahub.ingestion.source.kafka.kafka import KafkaConnectivityError
+
 
 class TestGetKafkaConsumerConfigFromEnv:
     """Tests for get_kafka_consumer_config_from_env function.
@@ -200,8 +203,10 @@ class TestStartIngestionPipeline:
     @patch("datahub_executor.coordinator.helpers.KafkaEventSource")
     @patch("datahub_executor.coordinator.helpers.load_config_file")
     @patch("datahub_executor.coordinator.helpers.asyncio.set_event_loop_policy")
+    @patch("datahub_executor.coordinator.helpers.validate_kafka_connectivity")
     def test_start_ingestion_pipeline_with_oauth(
         self,
+        mock_validate_kafka: MagicMock,
         mock_set_event_loop_policy: MagicMock,
         mock_load_config: MagicMock,
         mock_kafka_source: MagicMock,
@@ -269,8 +274,10 @@ class TestStartIngestionPipeline:
     @patch("datahub_executor.coordinator.helpers.KafkaEventSource")
     @patch("datahub_executor.coordinator.helpers.load_config_file")
     @patch("datahub_executor.coordinator.helpers.asyncio.set_event_loop_policy")
+    @patch("datahub_executor.coordinator.helpers.validate_kafka_connectivity")
     def test_start_ingestion_pipeline_override_bootstrap(
         self,
+        mock_validate_kafka: MagicMock,
         mock_set_event_loop_policy: MagicMock,
         mock_load_config: MagicMock,
         mock_kafka_source: MagicMock,
@@ -318,8 +325,10 @@ class TestStartIngestionPipeline:
     @patch("datahub_executor.coordinator.helpers.KafkaEventSource")
     @patch("datahub_executor.coordinator.helpers.load_config_file")
     @patch("datahub_executor.coordinator.helpers.asyncio.set_event_loop_policy")
+    @patch("datahub_executor.coordinator.helpers.validate_kafka_connectivity")
     def test_start_ingestion_pipeline_plain_auth(
         self,
+        mock_validate_kafka: MagicMock,
         mock_set_event_loop_policy: MagicMock,
         mock_load_config: MagicMock,
         mock_kafka_source: MagicMock,
@@ -364,3 +373,77 @@ class TestStartIngestionPipeline:
             assert consumer_config["sasl.mechanism"] == "PLAIN"
             assert consumer_config["sasl.username"] == "testuser"
             assert consumer_config["sasl.password"] == "testpassword"
+
+    @patch("datahub_executor.coordinator.helpers.Thread")
+    @patch("datahub_executor.coordinator.helpers.Pipeline")
+    @patch("datahub_executor.coordinator.helpers.IngestionAction")
+    @patch("datahub_executor.coordinator.helpers.KafkaEventSource")
+    @patch("datahub_executor.coordinator.helpers.load_config_file")
+    @patch("datahub_executor.coordinator.helpers.asyncio.set_event_loop_policy")
+    @patch("datahub_executor.coordinator.helpers.validate_kafka_connectivity")
+    def test_start_ingestion_pipeline_calls_validate_kafka(
+        self,
+        mock_validate_kafka: MagicMock,
+        mock_set_event_loop_policy: MagicMock,
+        mock_load_config: MagicMock,
+        mock_kafka_source: MagicMock,
+        mock_ingestion_action: MagicMock,
+        mock_pipeline: MagicMock,
+        mock_thread: MagicMock,
+    ) -> None:
+        """Test that validate_kafka_connectivity is called with the correct config."""
+        from datahub_executor.coordinator.helpers import start_ingestion_pipeline
+
+        mock_graph = Mock()
+        mock_discovery = Mock()
+        sighandler: list[Callable[[], Any]] = []
+
+        mock_load_config.return_value = {
+            "connection": {
+                "bootstrap": "broker:9092",
+                "schema_registry_url": "http://schema-registry:8081",
+                "consumer_config": {},
+            },
+            "topic_routes": {},
+        }
+
+        start_ingestion_pipeline(mock_graph, mock_discovery, sighandler)
+
+        mock_validate_kafka.assert_called_once()
+        connection_arg = mock_validate_kafka.call_args[0][0]
+        assert connection_arg.bootstrap == "broker:9092"
+        assert connection_arg.schema_registry_url == "http://schema-registry:8081"
+
+    @patch("datahub_executor.coordinator.helpers.KafkaEventSource")
+    @patch("datahub_executor.coordinator.helpers.load_config_file")
+    @patch("datahub_executor.coordinator.helpers.validate_kafka_connectivity")
+    def test_start_ingestion_pipeline_propagates_kafka_error(
+        self,
+        mock_validate_kafka: MagicMock,
+        mock_load_config: MagicMock,
+        mock_kafka_source: MagicMock,
+    ) -> None:
+        """Test that KafkaConnectivityError propagates without being swallowed."""
+        from datahub_executor.coordinator.helpers import start_ingestion_pipeline
+
+        mock_graph = Mock()
+        mock_discovery = Mock()
+        sighandler: list[Callable[[], Any]] = []
+
+        mock_load_config.return_value = {
+            "connection": {
+                "bootstrap": "bad-host:9092",
+                "schema_registry_url": "http://schema-registry:8081",
+                "consumer_config": {},
+            },
+            "topic_routes": {},
+        }
+
+        mock_validate_kafka.side_effect = KafkaConnectivityError(
+            "Failed to connect to Kafka"
+        )
+
+        with pytest.raises(KafkaConnectivityError):
+            start_ingestion_pipeline(mock_graph, mock_discovery, sighandler)
+
+        mock_kafka_source.assert_not_called()

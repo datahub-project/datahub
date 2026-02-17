@@ -14,6 +14,9 @@ import reactpy
 import starlette
 import starlette.background
 from asyncer import asyncify
+from datahub.configuration.config_loader import EnvResolver
+from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+from datahub.ingestion.source.kafka.kafka import validate_kafka_connectivity
 from datahub.secret.datahub_secret_store import (
     DataHubSecretStore,
     DataHubSecretStoreConfig,
@@ -199,6 +202,17 @@ async def actions_lifespan(app: fastapi.FastAPI) -> AsyncIterator[None]:
         f"Kafka consumer group configuration validated. "
         f"Using prefix: {os.getenv(KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX)}"
     )
+
+    resolved_config = EnvResolver(environ=os.environ).resolve(base_action_config)
+    connection_config = resolved_config["source"]["config"]["connection"]
+    if os.getenv("SKIP_KAFKA_CONNECTIVITY_CHECK", "").lower() != "true":
+        validate_kafka_connectivity(
+            KafkaConsumerConnectionConfig.parse_obj(connection_config)
+        )
+    else:
+        logger.info(
+            "Skipping Kafka connectivity check (SKIP_KAFKA_CONNECTIVITY_CHECK=true)"
+        )
 
     async with pipeline_manager:
         logger.debug("Fetching registered actions.")
