@@ -53,6 +53,11 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.azure_data_factory.adf_client import (
     AzureDataFactoryClient,
 )
+from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+    ColumnLineageExtractor,
+    CopyActivityColumnLineageExtractor,
+    DatasetSchemaInfo,
+)
 from datahub.ingestion.source.azure_data_factory.adf_config import (
     AzureDataFactoryConfig,
 )
@@ -75,6 +80,7 @@ from datahub.metadata.schema_classes import (
     DataProcessTypeClass,
     DataTransformClass,
     DataTransformLogicClass,
+    FineGrainedLineageClass,
     QueryLanguageClass,
     QueryStatementClass,
 )
@@ -204,6 +210,13 @@ class AzureDataFactoryContainerKey(ContainerKey):
     ],
 )
 @capability(
+    SourceCapability.LINEAGE_FINE,
+    "Extracts column-level lineage from Copy activities",
+    subtype_modifier=[
+        SourceCapabilityModifier.ADF_COPY_ACTIVITY,
+    ],
+)
+@capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
     subtype_modifier=[
@@ -240,6 +253,11 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         self._data_flows_cache: dict[str, dict[str, DataFlowResource]] = {}
         self._pipelines_cache: dict[str, dict[str, PipelineResource]] = {}
         self._triggers_cache: dict[str, list[TriggerResource]] = {}
+
+        # Column-level lineage extractors - extensible for different activity types
+        self._column_lineage_extractors: list[ColumnLineageExtractor] = [
+            CopyActivityColumnLineageExtractor(),
+        ]
 
     @classmethod
     def create(
@@ -632,6 +650,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         # Extract lineage (inlets/outlets)
         inlets: Optional[list[DatasetUrnOrStr]] = None
         outlets: Optional[list[DatasetUrnOrStr]] = None
+        fine_grained_lineages: Optional[list[FineGrainedLineageClass]] = None
 
         if self.config.include_lineage:
             extracted_inlets = self._extract_activity_inputs(activity, factory_key)
@@ -640,6 +659,16 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 inlets = extracted_inlets
             if extracted_outlets:
                 outlets = extracted_outlets
+
+            # Extract column-level lineage if enabled
+            if self.config.include_column_lineage and inlets and outlets:
+                fine_grained_lineages = self._extract_column_lineage(
+                    activity=activity,
+                    activity_type=activity_type,
+                    inlets=inlets,
+                    outlets=outlets,
+                    factory_key=factory_key,
+                )
 
         # Create DataJob with external URL to the parent pipeline
         # (ADF doesn't have direct activity URLs, so we link to the pipeline)
@@ -654,6 +683,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             subtype=subtype,
             inlets=inlets,
             outlets=outlets,
+            fine_grained_lineages=fine_grained_lineages,
         )
 
         return datajob
@@ -726,6 +756,146 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 pass  # Complex case, skip for now
 
         return outputs
+
+    def _extract_column_lineage(
+        self,
+        activity: Activity,
+        activity_type: str,
+        inlets: list[DatasetUrnOrStr],
+        outlets: list[DatasetUrnOrStr],
+        factory_key: str,
+    ) -> Optional[list[FineGrainedLineageClass]]:
+        """Extract column-level lineage from an activity.
+
+        Uses registered column lineage extractors to parse activity-specific
+        column mapping configurations. Each extractor is responsible for
+        selecting which inlets/outlets to use based on the activity semantics.
+
+        Args:
+            activity: The ADF activity object
+            activity_type: The activity type (e.g., "Copy")
+            inlets: List of input dataset URNs
+            outlets: List of output dataset URNs
+            factory_key: Factory key for cache lookups
+
+        Returns:
+            List of FineGrainedLineageClass objects, or None if no mappings found
+        """
+        if not inlets or not outlets:
+            # No inlets or outlets provided for activity
+            logger.debug(f"No inlets or outlets provided for activity: {activity.name}")
+            self.report.report_column_lineage_skipped(activity_type)
+            return None
+
+        # Find an extractor that supports this activity type
+        extractor: Optional[ColumnLineageExtractor] = None
+        for ext in self._column_lineage_extractors:
+            if ext.supports_activity(activity_type):
+                extractor = ext
+                break
+
+        if extractor is None:
+            # No extractor supports this activity type - this is expected for most activities
+            logger.debug(
+                f"No column lineage extractor for activity type: {activity_type}"
+            )
+            self.report.report_column_lineage_skipped(activity_type)
+            return None
+
+        # Create schema resolver bound to this factory
+        def schema_resolver(dataset_urn: str) -> Optional[DatasetSchemaInfo]:
+            return self._get_source_dataset_schema(dataset_urn, factory_key)
+
+        # Extract column lineage - extractor decides which inlets/outlets to use
+        fine_grained_lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=inlets,
+            outlets=outlets,
+            schema_resolver=schema_resolver,
+        )
+
+        if not fine_grained_lineages:
+            return None
+
+        for _ in fine_grained_lineages:
+            self.report.report_column_lineage_extracted()
+
+        return fine_grained_lineages
+
+    def _get_source_dataset_schema(
+        self, source_urn: str, factory_key: str
+    ) -> Optional[DatasetSchemaInfo]:
+        """Get schema information for a source dataset.
+
+        Looks up the dataset in the cache and extracts column names from
+        schema_definition or structure properties.
+
+        Args:
+            source_urn: URN of the source dataset
+            factory_key: Factory key for cache lookups
+
+        Returns:
+            DatasetSchemaInfo with column names, or None if schema not available
+        """
+        # Extract dataset name from URN
+        # URN format: urn:li:dataset:(platform,name,env)
+        try:
+            # Verify URN is parseable before searching cache
+            DatasetUrn.from_string(source_urn)
+            # For ADF datasets, the name in cache is the ADF dataset name, not the table name
+            # We need to search for a dataset that resolves to this URN
+        except Exception:
+            logger.debug(f"Could not parse dataset URN: {source_urn}")
+            return None
+
+        # Search datasets cache for matching dataset
+        datasets = self._datasets_cache.get(factory_key, {})
+        for dataset_name, dataset in datasets.items():
+            # Check if this dataset resolves to the source URN
+            resolved_urn = self._resolve_dataset_urn(dataset_name, factory_key)
+            if resolved_urn and str(resolved_urn) == source_urn:
+                # Found the dataset, extract schema
+                return self._extract_dataset_schema(dataset)
+
+        return None
+
+    def _extract_dataset_schema(
+        self, dataset: DatasetResource
+    ) -> Optional[DatasetSchemaInfo]:
+        """Extract schema information from a dataset resource.
+
+        Tries schema_definition first, then falls back to structure field.
+        """
+        props = dataset.properties
+        columns: list[str] = []
+
+        # Try schema_definition first (newer format)
+        schema_def = getattr(props, "schema", None)
+        if schema_def and isinstance(schema_def, list):
+            for field in schema_def:
+                if isinstance(field, dict):
+                    name = field.get("name")
+                    if name:
+                        columns.append(str(name))
+                elif hasattr(field, "name") and field.name:
+                    columns.append(str(field.name))
+
+        # Fall back to structure field (legacy format)
+        if not columns:
+            structure = getattr(props, "structure", None)
+            if structure and isinstance(structure, list):
+                for field in structure:
+                    if isinstance(field, dict):
+                        name = field.get("name")
+                        if name:
+                            columns.append(str(name))
+                    elif hasattr(field, "name") and field.name:
+                        columns.append(str(field.name))
+
+        if columns:
+            return DatasetSchemaInfo(columns=columns)
+
+        return None
 
     def _get_data_flow_name_from_activity(
         self, activity: Activity, factory_key: str
