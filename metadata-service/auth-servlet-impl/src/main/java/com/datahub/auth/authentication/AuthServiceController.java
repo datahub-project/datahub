@@ -216,6 +216,8 @@ public class AuthServiceController {
    * "fullName": "Full Name" "userUrn": "urn:li:corpuser:test" "email": "email@test.com" "title":
    * "Data Scientist" "password": "password123" "inviteToken": "abcd" }
    *
+   * <p>Note: "title" is optional. If not provided, user title will not be set.
+   *
    * <p>Example Response:
    *
    * <p>{ "isNativeUserCreated": true }
@@ -246,7 +248,6 @@ public class AuthServiceController {
     if (fullName == null
         || userUrn == null
         || email == null
-        || title == null
         || password == null
         || inviteToken == null) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
@@ -263,7 +264,8 @@ public class AuthServiceController {
     }
     String fullNameString = fullName.asText();
     String emailString = email.asText();
-    String titleString = title.asText();
+    // Title is optional - null if not provided
+    String titleString = title == null ? null : title.asText();
     String passwordString = password.asText();
     String inviteTokenString = inviteToken.asText();
     Authentication auth = AuthenticationContext.getAuthentication();

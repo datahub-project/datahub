@@ -48,12 +48,22 @@ out/
 # Mac OS
 **/.DS_Store
 
+# Mise
+**/mise.local.toml
+**/.mise.local.toml
+.mise/**
+
 #spark-lineage
 **/spark-lineage/metastore_db/
 **/spark-lineage/**/derby.log
 **/spark-lineage/**/hive/
 **/spark-lineage/**/out*.csv/
 **/spark-lineage/coalesce-test/
+
+#spark-lineage-legacy (test output; avoid "location already exists" in CI)
+**/spark-lineage-legacy/**/derby.log
+**/spark-lineage-legacy/**/hive/
+**/spark-lineage-legacy/**/out*.csv/
 
 #VS Code
 .vscode
@@ -74,8 +84,6 @@ metadata-ingestion/generated/**
 
 # docs
 docs/generated/
-docs-website/versioned_docs/
-docs-website/versioned_sidebars/
 tmp*
 temp/**
 
@@ -90,9 +98,22 @@ smoke-test/rollback-reports
 coverage*.xml
 .vercel
 .envrc
-**/.claude/settings.local.json
 
-# A long series of binary directories we should ignore
+# Local dev environment overrides (user-specific GMS/Kafka settings)
+docker/profiles/my-settings.env
+
+# Claude ignores
+.claude/
+**/.claude/settings.local.json
+# Claude agent files (session-specific, not to be committed)
+**/.claude/agents/
+**/.claude/*.md
+
+# Environment files with credentials
+.env*
+*.env
+
+# A bunch of binaries we never ever want to add
 datahub-frontend/bin/main/
 datahub-frontend/bin/test/
 datahub-graphql-core/bin/
@@ -132,7 +153,5 @@ metadata-service/war/bin/
 metadata-utils/bin/
 test-models/bin/
 
-datahub-executor/
-datahub-integrations-service/
-metadata-ingestion-modules/acryl-cloud
-
+# Git credentials (should never be committed)
+.git-credentials

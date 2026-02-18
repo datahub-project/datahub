@@ -13,10 +13,13 @@ import {
 import {
     buildOwnerEntities,
     capitalizeMonthsAndDays,
+    formatExtraArgs,
     formatTimezone,
     getAspectsBySubtypes,
     getEntitiesIngestedByTypeOrSubtype,
     getIngestionContents,
+    getIngestionSourceMutationInput,
+    getNewIngestionSourcePlaceholder,
     getOtherIngestionContents,
     getSortInput,
     getSourceStatus,
@@ -24,7 +27,14 @@ import {
     getTotalEntitiesIngested,
 } from '@app/ingestV2/source/utils';
 
-import { EntityType, ExecutionRequest, ExecutionRequestResult, IngestionSource, SortOrder } from '@types';
+import {
+    EntityType,
+    ExecutionRequest,
+    ExecutionRequestResult,
+    IngestionSource,
+    OwnershipTypeEntity,
+    SortOrder,
+} from '@types';
 
 // Mock entity registry for tests
 const mockEntityRegistry = {
@@ -1505,5 +1515,274 @@ describe('getStructuredReport', () => {
         expect(result?.errorCount).toBe(1);
         expect(result?.items).toHaveLength(1);
         expect(result?.items[0].message).toBe('This should be included');
+    });
+});
+
+describe('formatExtraArgs', () => {
+    test('should return empty array when input is null', () => {
+        expect(formatExtraArgs(null)).toEqual([]);
+    });
+
+    test('should return empty array when input is undefined', () => {
+        expect(formatExtraArgs(undefined)).toEqual([]);
+    });
+
+    test('should return filtered and mapped array when input has valid entries', () => {
+        const input = [
+            { key: 'key1', value: 'value1' },
+            { key: 'key2', value: 'value2' },
+        ];
+        expect(formatExtraArgs(input)).toEqual(input);
+    });
+
+    test('should filter out entries with null, undefined, or empty string values', () => {
+        const input = [
+            { key: 'key1', value: 'value1' },
+            { key: 'key2', value: null },
+            { key: 'key3', value: undefined },
+            { key: 'key4', value: '' },
+            { key: 'key5', value: 'value5' },
+        ];
+        const expected = [
+            { key: 'key1', value: 'value1' },
+            { key: 'key5', value: 'value5' },
+        ];
+        expect(formatExtraArgs(input)).toEqual(expected);
+    });
+
+    test('should handle empty array input', () => {
+        expect(formatExtraArgs([])).toEqual([]);
+    });
+});
+
+describe('getNewIngestionSourcePlaceholder', () => {
+    test('should create a placeholder ingestion source with correct structure', () => {
+        const urn = 'test-urn';
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+            owners: [],
+        };
+
+        const defaultOwnershipType = {
+            urn: 'urn:li:ownershipType:TEST',
+            name: 'TEST',
+            description: 'Test ownership type',
+            type: EntityType.CustomOwnershipType,
+        } as OwnershipTypeEntity;
+
+        const result = getNewIngestionSourcePlaceholder(urn, data, defaultOwnershipType);
+
+        expect(result).toMatchObject({
+            urn: 'test-urn',
+            name: 'test-source',
+            type: 'test-type',
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+            platform: null,
+            executions: null,
+            source: null,
+            config: {
+                executorId: '',
+                recipe: '',
+                version: null,
+                debugMode: null,
+                extraArgs: null,
+            },
+            ownership: {
+                lastModified: {
+                    time: 0,
+                },
+                __typename: 'Ownership',
+            },
+            __typename: 'IngestionSource',
+        });
+    });
+
+    test('should handle data with missing optional fields', () => {
+        const urn = 'test-urn';
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            // No schedule provided
+            owners: [],
+        };
+
+        const result = getNewIngestionSourcePlaceholder(urn, data, undefined);
+
+        expect(result.schedule.interval).toBe('');
+        expect(result.schedule.timezone).toBe(null);
+    });
+});
+
+describe('getIngestionSourceMutationInput', () => {
+    test('should create mutation input with correct structure', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+                version: '1.0.0',
+                executorId: 'executor-1',
+                debugMode: true,
+                extraArgs: [{ key: 'arg1', value: 'value1' }],
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result).toEqual({
+            type: 'test-type',
+            name: 'test-source',
+            config: {
+                recipe: 'test-recipe',
+                version: '1.0.0',
+                executorId: 'executor-1',
+                debugMode: true,
+                extraArgs: [{ key: 'arg1', value: 'value1' }],
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        });
+    });
+
+    test('should use default executor ID when executorId is not provided', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+                executorId: '',
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.config.executorId).toBe('default');
+    });
+
+    test('should use undefined version when version is empty', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+                version: '', // Empty string
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.config.version).toBeUndefined();
+    });
+
+    test('should not include schedule when no schedule is provided', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            // No schedule provided
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.schedule).toBeUndefined();
+    });
+
+    test('should preserve source field when editing existing sources', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const existingSource = {
+            urn: 'test-urn',
+            name: 'test-source',
+            type: 'test-type',
+            config: { recipe: '', executorId: '' },
+            source: {
+                type: 'SYSTEM',
+            },
+        } as IngestionSource;
+
+        const result = getIngestionSourceMutationInput(data, existingSource);
+
+        expect(result.source).toEqual({ type: 'SYSTEM' });
+    });
+
+    test('should not include source field for new sources', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.source).toBeUndefined();
+    });
+
+    test('should format extraArgs using formatExtraArgs function', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+                extraArgs: [
+                    { key: 'key1', value: 'value1' },
+                    { key: 'key2', value: '' },
+                    { key: 'key3', value: '' },
+                ],
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.config.extraArgs).toEqual([{ key: 'key1', value: 'value1' }]);
     });
 });

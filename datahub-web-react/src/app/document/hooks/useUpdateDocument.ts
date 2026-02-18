@@ -166,7 +166,7 @@ export function useUpdateDocument() {
                 throw new Error('Failed to update related entities');
             } catch (error) {
                 console.error('Failed to update related entities:', error);
-                message.error('Failed to related assets. An unexpected error occurred!');
+                message.error('Failed to update related assets. An unexpected error occurred!');
                 // Silent fail - don't show error message for this operation
                 return false;
             }

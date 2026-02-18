@@ -92,7 +92,7 @@ class KafkaSchemaRegistryBase(ABC):
 
 The custom schema registry class can be configured using the `schema_registry_class` config param of the `kafka` source as shown below.
 
-```YAML
+```yaml
 source:
   type: "kafka"
   config:
@@ -106,13 +106,37 @@ source:
 
 ### OAuth Callback
 
-The OAuth callback function can be set up using `config.connection.consumer_config.oauth_cb`.
+The OAuth callback function can be set up for both Kafka sources (consumers) and sinks (producers):
+
+- For sources: `config.connection.consumer_config.oauth_cb`
+- For sinks: `config.connection.producer_config.oauth_cb`
 
 You need to specify a Python function reference in the format &lt;python-module&gt;:&lt;function-name&gt;.
 
 For example, in the configuration `oauth:create_token`, `create_token` is a function defined in `oauth.py`, and `oauth.py` must be accessible in the PYTHONPATH.
 
-```YAML
+#### Deploying Custom OAuth Callbacks
+
+**For Built-in Callbacks (Recommended):**
+
+DataHub includes pre-built OAuth callbacks for common use cases:
+
+- **AWS MSK IAM**: `datahub_actions.utils.kafka_msk_iam:oauth_cb`
+- **Azure Event Hubs**: `datahub_actions.utils.kafka_eventhubs_auth:oauth_cb`
+
+**Important:** To use these built-in callbacks, you must install the `acryl-datahub-actions` package:
+
+```bash
+pip install acryl-datahub-actions>=1.3.1.2
+```
+
+**For Custom OAuth Callbacks:**
+
+If you need to implement a custom OAuth callback, you must ensure your Python module is accessible to the DataHub process, e.g. adding it via `PYTHONPATH=/path/to/your/module:$PYTHONPATH` or `pip install my-oauth-package`.
+
+**Example for Kafka Source:**
+
+```yaml
 source:
   type: "kafka"
   config:
@@ -127,6 +151,22 @@ source:
         sasl.mechanism: "OAUTHBEARER"
         oauth_cb: "oauth:create_token"
 # sink configs
+```
+
+**Example for Kafka Sink (e.g., MSK IAM authentication):**
+
+```yaml
+sink:
+  type: "datahub-kafka"
+  config:
+    connection:
+      bootstrap: "b-1.msk.us-west-2.amazonaws.com:9098"
+      schema_registry_url: "http://datahub-gms:8080/schema-registry/api/"
+      producer_config:
+        security.protocol: "SASL_SSL"
+        sasl.mechanism: "OAUTHBEARER"
+        sasl.oauthbearer.method: "default"
+        oauth_cb: "datahub_actions.utils.kafka_msk_iam:oauth_cb"
 ```
 
 ### Limitations of `PROTOBUF` schema types implementation

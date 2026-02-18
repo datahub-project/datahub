@@ -1,8 +1,9 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { colors } from '@components';
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
+import { useContextLayout } from '@app/context/ContextLayoutContext';
 import { DocumentExternalProfile } from '@app/entityV2/document/DocumentExternalProfile';
 import { DocumentNativeProfile } from '@app/entityV2/document/DocumentNativeProfile';
 
@@ -33,8 +34,21 @@ export const DocumentProfile = ({ urn }: { urn: string }): JSX.Element => {
     const { data, loading, refetch } = useGetDocumentQuery({
         variables: { urn, includeParentDocuments: true },
     });
+    const contextLayout = useContextLayout();
 
     const document = data?.document;
+    const sourceType = document?.info?.source?.sourceType;
+    const isExternal = sourceType === DocumentSourceType.External;
+    const isNative = sourceType === DocumentSourceType.Native || (document && !sourceType);
+
+    // Control sidebar visibility based on document type
+    // Sidebar is hidden by default (set in ContextRoutes)
+    // Show for native documents, hide for external documents
+    useEffect(() => {
+        if (document && contextLayout?.setSidebarHidden) {
+            contextLayout.setSidebarHidden(!isNative);
+        }
+    }, [document, isNative, contextLayout]);
 
     if (loading || !document) {
         return (
@@ -43,9 +57,6 @@ export const DocumentProfile = ({ urn }: { urn: string }): JSX.Element => {
             </LoadingWrapper>
         );
     }
-
-    const sourceType = document.info?.source?.sourceType;
-    const isExternal = sourceType === DocumentSourceType.External;
 
     // For external documents, use the traditional EntityProfile
     if (isExternal) {

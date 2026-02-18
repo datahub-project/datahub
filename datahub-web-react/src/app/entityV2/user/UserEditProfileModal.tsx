@@ -1,6 +1,6 @@
 import { MoreOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Button, Form, Input, Modal, Typography, message } from 'antd';
+import { Modal, Tooltip } from '@components';
+import { Form, Input, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -106,16 +106,20 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
             title="Edit Profile"
             open={visible}
             onCancel={onClose}
-            footer={
-                <>
-                    <Button onClick={onClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button type="primary" id="editUserButton" onClick={onSaveChanges} disabled={saveButtonEnabled}>
-                        Save Changes
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Save Changes',
+                    variant: 'filled',
+                    id: 'editUserButton',
+                    disabled: saveButtonEnabled,
+                    onClick: onSaveChanges,
+                },
+            ]}
         >
             <Form
                 form={form}

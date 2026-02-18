@@ -1,6 +1,8 @@
 describe("managing secrets for ingestion creation", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
+    cy.setFeatureFlags(true, (res) => {
+      res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
+    });
   });
   it("create a secret, create ingestion source using a secret, remove a secret", () => {
     const number = Math.floor(Math.random() * 100000);
@@ -51,6 +53,7 @@ describe("managing secrets for ingestion creation", () => {
     cy.get('[data-testid="source-name-input"]').type(ingestion_source_name);
     cy.clickOptionWithTestId("ingestion-source-save-button");
     cy.waitTextVisible("Successfully created ingestion source!").wait(5000);
+    cy.getWithTestId("search-bar-input").type(ingestion_source_name);
     cy.waitTextVisible(ingestion_source_name);
     cy.get("button").contains("Pending...").should("be.visible");
 
@@ -104,6 +107,7 @@ describe("managing secrets for ingestion creation", () => {
     cy.get('[data-testid="source-name-input"]').type(ingestion_source_name);
     cy.get("button").contains("Save").click();
     cy.waitTextVisible("Successfully created ingestion source!").wait(5000); // prevent issue with missing form data
+    cy.getWithTestId("search-bar-input").type(ingestion_source_name);
     cy.waitTextVisible(ingestion_source_name);
     cy.get("button").contains("Pending...").should("be.visible");
 

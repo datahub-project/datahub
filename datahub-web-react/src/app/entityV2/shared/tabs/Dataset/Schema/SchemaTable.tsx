@@ -19,6 +19,7 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
+import useBusinessAttributeRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useBusinessAttributeRenderer';
 import useDescriptionRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useDescriptionRenderer';
 import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
@@ -27,6 +28,7 @@ import { useGetStructuredPropColumns } from '@app/entityV2/shared/tabs/Dataset/S
 import { useGetTableColumnProperties } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useGetTableColumnProperties';
 import useTagsAndTermsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useTagsAndTermsRenderer';
 import useUsageStatsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useUsageStatsRenderer';
+import { useBusinessAttributesFlag } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 
@@ -222,8 +224,10 @@ export default function SchemaTable({
     const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata);
     const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata);
     const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
+    const businessAttributeRenderer = useBusinessAttributeRenderer(filterText, false);
     const schemaTitleRenderer = useSchemaTitleRenderer(entityUrn, schemaMetadata, filterText);
     const schemaTypeRenderer = useSchemaTypeRenderer();
+    const businessAttributesFlag = useBusinessAttributesFlag();
 
     const tableColumnStructuredProps = useGetTableColumnProperties();
     const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps);
@@ -298,6 +302,17 @@ export default function SchemaTable({
         [termRenderer, extractFieldGlossaryTermsInfo],
     );
 
+    const businessAttributeColumn = useMemo(
+        () => ({
+            width: 150,
+            title: 'Business Attribute',
+            dataIndex: 'businessAttribute',
+            key: 'businessAttribute',
+            render: businessAttributeRenderer,
+        }),
+        [businessAttributeRenderer],
+    );
+
     // Function to get the count of each usageStats fieldPath
     const getCount = useCallback(
         (fieldPath: any) => {
@@ -324,7 +339,7 @@ export default function SchemaTable({
     );
 
     const allColumns = useMemo(() => {
-        const columns: ColumnsType<ExtendedSchemaFields> = [
+        let columns: ColumnsType<ExtendedSchemaFields> = [
             fieldColumn,
             typeColumn,
             descriptionColumn,
@@ -333,9 +348,23 @@ export default function SchemaTable({
             usageColumn,
         ];
 
+        if (businessAttributesFlag) {
+            columns = [...columns, businessAttributeColumn];
+        }
+
         if (structuredPropColumns) columns.splice(columns?.length - 1, 0, ...structuredPropColumns);
         return columns;
-    }, [fieldColumn, typeColumn, descriptionColumn, tagColumn, termColumn, usageColumn, structuredPropColumns]);
+    }, [
+        fieldColumn,
+        typeColumn,
+        businessAttributeColumn,
+        descriptionColumn,
+        tagColumn,
+        termColumn,
+        usageColumn,
+        structuredPropColumns,
+        businessAttributesFlag,
+    ]);
 
     const finalColumns = useMemo(() => {
         if (!visibleColumns) return allColumns;

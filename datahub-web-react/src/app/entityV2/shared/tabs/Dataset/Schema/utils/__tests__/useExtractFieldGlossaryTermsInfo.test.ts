@@ -4,6 +4,7 @@ import { beforeEach } from 'vitest';
 import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
 import {
+    BusinessAttribute,
     EditableSchemaMetadata,
     EntityType,
     GlossaryTerm,
@@ -159,6 +160,65 @@ describe('useExtractFieldTermsInfo', () => {
         ...filledSchemaField,
     };
 
+    const businessAttributeGlossaryTerm: GlossaryTerm = {
+        urn: 'urn:businessAttributeTerm',
+        type: EntityType.GlossaryTerm,
+        name: 'businessAttributeTermName',
+        hierarchicalName: 'business.businessAttributeTermName',
+        properties: {
+            name: 'businessAttributeTermName',
+            definition: 'business attribute term',
+            termSource: 'INTERNAL',
+        },
+    };
+
+    const mockBusinessAttribute: BusinessAttribute = {
+        urn: 'urn:li:businessAttribute:testBA',
+        type: EntityType.BusinessAttribute,
+        properties: {
+            name: 'Test Business Attribute',
+            description: 'Test description',
+            glossaryTerms: {
+                terms: [
+                    {
+                        associatedUrn: 'urn:li:glossaryTerm:business.businessAttributeTermName',
+                        term: businessAttributeGlossaryTerm,
+                    },
+                ],
+            },
+            created: {
+                time: Date.now(),
+                actor: 'urn:li:corpuser:test',
+            },
+            lastModified: {
+                time: Date.now(),
+                actor: 'urn:li:corpuser:test',
+            },
+        },
+    };
+
+    const schemaFieldWithBusinessAttribute: SchemaField = {
+        fieldPath: 'testField',
+        nullable: true,
+        recursive: false,
+        type: SchemaFieldDataType.String,
+        schemaFieldEntity: {
+            urn: 'urn:li:schemaField:testField',
+            type: EntityType.SchemaField,
+            fieldPath: 'testField',
+            parent: {
+                urn: 'urn:li:dataset:test',
+                type: EntityType.Dataset,
+            },
+            businessAttributes: {
+                businessAttribute: {
+                    businessAttribute: mockBusinessAttribute,
+                    associatedUrn: 'urn:li:schemaField:testField',
+                },
+            },
+        },
+    };
+
     const emptyBaseEntity = {};
 
     beforeAll(() => {
@@ -280,6 +340,46 @@ describe('useExtractFieldTermsInfo', () => {
         expect(editableTerms?.terms).toHaveLength(0);
         expect(uneditableTerms?.terms).toHaveLength(0);
         expect(numberOfTerms).toBe(0);
+    });
+
+    it('should extract business attribute glossary terms when schema field has business attribute', () => {
+        const extractFieldGlossaryTermsInfo = renderHook(() =>
+            useExtractFieldGlossaryTermsInfo(emptyEditableSchemaMetadata),
+        ).result.current;
+
+        const { editableTerms, uneditableTerms, numberOfTerms } = extractFieldGlossaryTermsInfo(
+            schemaFieldWithBusinessAttribute,
+        );
+
+        expect(editableTerms?.terms).toHaveLength(0);
+        expect(uneditableTerms?.terms?.[0]?.term?.properties?.name === 'businessAttributeTermName').toBeTruthy();
+        expect(numberOfTerms).toBe(1);
+    });
+
+    it('should combine field glossary terms and business attribute glossary terms', () => {
+        const schemaFieldWithBothTerms: SchemaField = {
+            ...filledSchemaField,
+            schemaFieldEntity: schemaFieldWithBusinessAttribute.schemaFieldEntity,
+        };
+
+        const extractFieldGlossaryTermsInfo = renderHook(() =>
+            useExtractFieldGlossaryTermsInfo(emptyEditableSchemaMetadata),
+        ).result.current;
+
+        const { editableTerms, uneditableTerms, numberOfTerms } =
+            extractFieldGlossaryTermsInfo(schemaFieldWithBothTerms);
+
+        expect(editableTerms?.terms).toHaveLength(0);
+        expect(uneditableTerms?.terms).toHaveLength(2);
+        expect(
+            uneditableTerms?.terms?.some((termAssoc) => termAssoc.term?.properties?.name === 'testTermName'),
+        ).toBeTruthy();
+        expect(
+            uneditableTerms?.terms?.some(
+                (termAssoc) => termAssoc.term?.properties?.name === 'businessAttributeTermName',
+            ),
+        ).toBeTruthy();
+        expect(numberOfTerms).toBe(2);
     });
 
     it('should extract extra uneditable terms from fields that match the field path insensitive to V2', () => {

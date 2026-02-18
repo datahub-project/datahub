@@ -170,7 +170,7 @@ Once configured, include your JWT token in the Authorization header when making 
 curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
      -H "Content-Type: application/json" \
      https://your-datahub.com/api/graphql \
-     -d '{"query": "{ corpUsers { total } }"}'
+     -d '{"query": "{ me { corpUser { urn username }}}"}'
 ```
 
 For Python applications:
@@ -186,7 +186,7 @@ headers = {
 response = requests.post(
     'https://your-datahub.com/api/graphql',
     headers=headers,
-    json={'query': '{ corpUsers { total } }'}
+    json={'query': '{ me { corpUser { urn username }}}'}
 )
 ```
 

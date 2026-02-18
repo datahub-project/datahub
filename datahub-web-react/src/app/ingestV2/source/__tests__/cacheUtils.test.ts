@@ -43,4 +43,16 @@ describe('mergeSources', () => {
         expect(result[0].owners).toEqual(['bar']);
         expect(result[0].data.arr).toEqual([3]);
     });
+
+    it('should handle null or undefined existingSources array', () => {
+        const updatedSource = { urn: 'a', name: 'Updated Source A', data: { foo: 99 } };
+
+        // Test with null
+        let result = mergeSources(updatedSource, null, true);
+        expect(result).toEqual([updatedSource]);
+
+        // Test with undefined
+        result = mergeSources(updatedSource, undefined, true);
+        expect(result).toEqual([updatedSource]);
+    });
 });

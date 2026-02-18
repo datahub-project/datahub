@@ -1,6 +1,6 @@
 import { UserOutlined } from '@ant-design/icons';
 import { useApolloClient } from '@apollo/client';
-import { Select } from 'antd';
+import { Select, Spin } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -18,6 +18,11 @@ type Props = {
     user: CorpUser;
     userRoleUrn: string;
     selectRoleOptions: Array<DataHubRole>;
+    rolesLoading: boolean;
+    rolesHasMore: boolean;
+    rolesObserverRef: (node: HTMLDivElement | null) => void;
+    rolesSearchQuery: string;
+    setRolesSearchQuery: (query: string) => void;
     refetch?: () => void;
 };
 
@@ -31,7 +36,28 @@ const RoleIcon = styled.span`
     font-size: 12px;
 `;
 
-export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refetch }: Props) {
+const LoadMoreSentinel = styled.div`
+    display: flex;
+    justify-content: center;
+    padding: 8px;
+`;
+
+const DropdownContainer = styled.div`
+    max-height: 300px;
+    overflow-y: auto;
+`;
+
+export default function SelectRole({
+    user,
+    userRoleUrn,
+    selectRoleOptions,
+    rolesLoading,
+    rolesHasMore,
+    rolesObserverRef,
+    rolesSearchQuery,
+    setRolesSearchQuery,
+    refetch,
+}: Props) {
     const client = useApolloClient();
     const rolesMap: Map<string, DataHubRole> = new Map();
     selectRoleOptions.forEach((role) => {
@@ -73,8 +99,25 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
         }, 3000);
     };
 
-    // wait for available roles to load
-    if (!selectRoleOptions.length) return null;
+    const handleDropdownVisibleChange = (open: boolean) => {
+        if (!open) {
+            setRolesSearchQuery('');
+        }
+    };
+
+    const dropdownRender = (menu: React.ReactNode) => (
+        <DropdownContainer>
+            {menu}
+            {rolesHasMore && (
+                <LoadMoreSentinel ref={rolesObserverRef}>
+                    <Spin size="small" />
+                </LoadMoreSentinel>
+            )}
+        </DropdownContainer>
+    );
+
+    // wait for available roles to load on initial render
+    if (!selectRoleOptions.length && !rolesSearchQuery && rolesLoading) return null;
 
     return (
         <>
@@ -88,6 +131,14 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
                 value={currentRoleUrn}
                 onChange={(e) => onSelectRole(e as string)}
                 color={currentRoleUrn === NO_ROLE_URN ? ANTD_GRAY[6] : undefined}
+                showSearch
+                filterOption={false}
+                searchValue={rolesSearchQuery}
+                onSearch={setRolesSearchQuery}
+                onDropdownVisibleChange={handleDropdownVisibleChange}
+                dropdownRender={dropdownRender}
+                loading={rolesLoading}
+                notFoundContent={rolesLoading ? <Spin size="small" /> : 'No roles found'}
             >
                 {selectOptions}
             </RoleSelect>

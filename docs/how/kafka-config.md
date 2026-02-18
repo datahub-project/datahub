@@ -89,7 +89,8 @@ the System Update container for topic setup:
 
 #### Topic Setup
 
-- `DATAHUB_PRECREATE_TOPICS`: Defaults to true, set this to false if you intend to create and configure the topics yourself and not have datahub create them.
+- `DATAHUB_PRECREATE_TOPICS`: Defaults to true, set this to false if you intend to create and configure the topics yourself and not have DataHub create them.
+- `DATAHUB_AUTO_INCREASE_PARTITIONS`: Defaults to false, controls whether DataHub automatically increases partition counts for existing topics when configured partition count exceeds current count. Only applies when `DATAHUB_PRECREATE_TOPICS` is enabled. Note that Kafka does not support decreasing partition counts and attempting to do so is treated as an error when this setting is enabled.
 
 ### MCE Consumer (datahub-mce-consumer)
 
@@ -277,6 +278,46 @@ Examples:
    `KAFKA_TOPICDEFAULTS_CONFIGPROPERTIES_max_message_bytes=10000`
 
 Configurations specified in `topicDefaults` are applied to all topics by merging them with any configs defined per topic, with the per-topic config taking precedence over those specified in `topicDefault`.
+
+### Schema Registry Topic Configuration
+
+When using Confluent Schema Registry, DataHub's system update job attempts to configure the cleanup policy for the `_schemas` topic. If your Kafka user does not have `ALTER_CONFIGS` permission on the Schema Registry topics, you can disable this step by setting `USE_CONFLUENT_SCHEMA_REGISTRY` to `false`:
+
+```bash
+USE_CONFLUENT_SCHEMA_REGISTRY=false
+```
+
+This configuration is useful in enterprise environments where:
+
+- Schema Registry and its topics are managed separately
+- DataHub's Kafka user has restricted permissions
+- The `_schemas` topic cleanup policy is already configured by your Kafka administrators
+
+**Helm configuration:**
+
+You can use the built-in helm chart value to control this behavior:
+
+```yaml
+global:
+  kafka:
+    schemaregistry:
+      configureCleanupPolicy: false
+```
+
+| Parameter                                            | Type    | Default | Description                                                                                                                                                                                                   |
+| ---------------------------------------------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `global.kafka.schemaregistry.configureCleanupPolicy` | boolean | null    | Whether to configure cleanup policy on schema registry. By default, a suitable default is chosen based on `global.kafka.schemaregistry.type` (true only if type is KAFKA). Set this to have explicit control. |
+
+Alternatively, you can use the environment variable directly:
+
+```yaml
+datahub-system-update:
+  extraEnvs:
+    - name: USE_CONFLUENT_SCHEMA_REGISTRY
+      value: "false"
+```
+
+> **Note:** Setting `configureCleanupPolicy: false` or `USE_CONFLUENT_SCHEMA_REGISTRY=false` disables the schema registry cleanup policy configuration step during upgrades. Use this if you encounter `TopicAuthorizationException` errors and your Schema Registry topics are managed externally.
 
 ## Debugging Kafka
 

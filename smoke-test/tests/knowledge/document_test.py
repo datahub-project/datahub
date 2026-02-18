@@ -12,16 +12,20 @@ Validates end-to-end functionality of:
 - searchDocuments (with various filters)
 - changeHistory
 - parentDocuments (hierarchy)
+- relatedDocuments (fetching related context documents for entities)
 
 Tests are idempotent and use unique IDs for created documents.
 """
 
+import logging
 import time
 import uuid
 
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
+
+logger = logging.getLogger(__name__)
 
 
 def execute_graphql(auth_session, query: str, variables: dict | None = None) -> dict:
@@ -105,8 +109,8 @@ def test_get_document(auth_session):
               }
               status { state }
               contents { text }
-              created { time actor }
-              lastModified { time actor }
+              created { time actor { urn } }
+              lastModified { time actor { urn } }
               relatedAssets { asset { urn } }
               relatedDocuments { document { urn } }
               parentDocument { document { urn } }
@@ -185,7 +189,7 @@ def test_update_document_contents(auth_session):
               title
               contents { text }
               created { time }
-              lastModified { time actor }
+              lastModified { time actor { urn } }
             }
           }
         }
@@ -393,7 +397,7 @@ def test_search_documents(auth_session):
 
     # Search can fail if index is not ready - log and skip assertion if it fails
     if "errors" in search_res:
-        print(
+        logger.info(
             f"WARNING: Search failed (index may not be ready): {search_res.get('errors')}"
         )
         # Cleanup and return early
@@ -799,7 +803,7 @@ def test_search_documents_with_filters(auth_session):
     """
     Test searching documents with various filters.
     1. Create parent document and child document.
-    2. Search for documents with parentDocument filter.
+    2. Search for documents with parentDocuments filter.
     3. Search for root-only documents.
     4. Search by subType filter.
     5. Clean up.
@@ -879,14 +883,14 @@ def test_search_documents_with_filters(auth_session):
         "input": {
             "start": 0,
             "count": 100,
-            "parentDocument": parent_urn,
+            "parentDocuments": [parent_urn],
         }
     }
     search_res = execute_graphql(auth_session, search_query, search_vars)
 
     # Search can fail if index is not ready
     if "errors" in search_res:
-        print(
+        logger.info(
             f"WARNING: Search with filters failed (index may not be ready): {search_res.get('errors')}"
         )
         # Cleanup and return early
@@ -1253,7 +1257,7 @@ def test_search_ownership_filtering(auth_session):
 
     # Search can fail if index is not ready
     if "errors" in search_res:
-        print(
+        logger.info(
             f"WARNING: Ownership search failed (index may not be ready): {search_res.get('errors')}"
         )
         # Cleanup and return early
@@ -1312,3 +1316,169 @@ def test_search_ownership_filtering(auth_session):
     """
     execute_graphql(auth_session, delete_mutation, {"urn": published_urn})
     execute_graphql(auth_session, delete_mutation, {"urn": unpublished_urn})
+
+
+@pytest.mark.dependency()
+def test_context_documents_for_dataset(auth_session):
+    """
+    Test fetching context documents for a dataset entity.
+    1. Create a document.
+    2. Get or use an existing dataset (using bootstrap sample data).
+    3. Update the document to relate to the dataset.
+    4. Query the dataset's relatedDocuments field to verify it returns the document.
+    5. Clean up.
+    """
+    document_id = _unique_id("smoke-doc-context")
+
+    # Create a document
+    create_mutation = """
+        mutation CreateDoc($input: CreateDocumentInput!) {
+          createDocument(input: $input)
+        }
+    """
+    variables = {
+        "input": {
+            "id": document_id,
+            "subType": "guide",
+            "title": f"Context Test {document_id}",
+            "contents": {"text": "Document related to dataset"},
+        }
+    }
+    create_res = execute_graphql(auth_session, create_mutation, variables)
+    document_urn = create_res["data"]["createDocument"]
+
+    # Use bootstrap sample dataset (commonly available in test environments)
+    # If this doesn't exist, the test will fail gracefully
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"
+
+    # Verify dataset exists first
+    dataset_query = """
+        query GetDataset($urn: String!) {
+          dataset(urn: $urn) {
+            urn
+            name
+          }
+        }
+    """
+    dataset_res = execute_graphql(auth_session, dataset_query, {"urn": dataset_urn})
+
+    # If dataset doesn't exist, skip the test
+    if "errors" in dataset_res or not dataset_res.get("data", {}).get("dataset"):
+        # Cleanup document and skip
+        delete_mutation = """
+            mutation DeleteDoc($urn: String!) { deleteDocument(urn: $urn) }
+        """
+        execute_graphql(auth_session, delete_mutation, {"urn": document_urn})
+        pytest.skip(f"Dataset {dataset_urn} not available for testing")
+        return
+
+    # Update document to relate to the dataset
+    update_mutation = """
+        mutation UpdateRelated($input: UpdateDocumentRelatedEntitiesInput!) {
+          updateDocumentRelatedEntities(input: $input)
+        }
+    """
+    update_vars = {
+        "input": {
+            "urn": document_urn,
+            "relatedAssets": [dataset_urn],
+        }
+    }
+    update_res = execute_graphql(auth_session, update_mutation, update_vars)
+    assert update_res["data"]["updateDocumentRelatedEntities"] is True
+
+    wait_for_writes_to_sync()
+
+    # Wait for search indexing
+    time.sleep(5)
+
+    # Query relatedDocuments on the dataset entity
+    context_query = """
+        query GetRelatedDocuments($urn: String!, $input: RelatedDocumentsInput!) {
+          dataset(urn: $urn) {
+            urn
+            relatedDocuments(input: $input) {
+              start
+              count
+              total
+              documents {
+                urn
+                info {
+                  title
+                }
+              }
+            }
+          }
+        }
+    """
+    context_vars = {
+        "urn": dataset_urn,
+        "input": {
+            "start": 0,
+            "count": 100,
+        },
+    }
+    context_res = execute_graphql(auth_session, context_query, context_vars)
+
+    # Verify no errors
+    assert "errors" not in context_res, f"GraphQL errors: {context_res.get('errors')}"
+
+    # Verify relatedDocuments result
+    context_docs = context_res["data"]["dataset"]["relatedDocuments"]
+    assert context_docs is not None
+    assert context_docs["total"] >= 1, (
+        f"Expected at least 1 context document, got {context_docs['total']}"
+    )
+
+    # Verify our document is in the results
+    document_urns = [doc["urn"] for doc in context_docs["documents"]]
+    assert document_urn in document_urns, (
+        f"Expected document {document_urn} to be in context documents, "
+        f"but got: {document_urns}"
+    )
+
+    # Verify the document has the expected title
+    our_doc = next(
+        (doc for doc in context_docs["documents"] if doc["urn"] == document_urn), None
+    )
+    assert our_doc is not None
+    assert our_doc["info"]["title"] == f"Context Test {document_id}"
+
+    # Test with filters - query with rootOnly filter
+    context_query_filtered = """
+        query GetRelatedDocuments($urn: String!, $input: RelatedDocumentsInput!) {
+          dataset(urn: $urn) {
+            urn
+            relatedDocuments(input: $input) {
+              start
+              count
+              total
+              documents {
+                urn
+              }
+            }
+          }
+        }
+    """
+    context_vars_filtered = {
+        "urn": dataset_urn,
+        "input": {
+            "start": 0,
+            "count": 100,
+            "rootOnly": True,
+        },
+    }
+    context_res_filtered = execute_graphql(
+        auth_session, context_query_filtered, context_vars_filtered
+    )
+    assert "errors" not in context_res_filtered
+    # Our document should still be there (it's root-level)
+    filtered_docs = context_res_filtered["data"]["dataset"]["relatedDocuments"]
+    filtered_urns = [doc["urn"] for doc in filtered_docs["documents"]]
+    assert document_urn in filtered_urns
+
+    # Cleanup
+    delete_mutation = """
+        mutation DeleteDoc($urn: String!) { deleteDocument(urn: $urn) }
+    """
+    execute_graphql(auth_session, delete_mutation, {"urn": document_urn})

@@ -33,6 +33,11 @@ record FreshnessAssertionInfo {
       "name": "Asserts",
       "entityTypes": [ "dataset", "dataJob" ]
     }
+    @UrnValidation = {
+      "exist": false,
+      "strict": true,
+      "entityTypes": [ "dataset", "dataJob" ]
+    }
     entity: Urn
 
     /**

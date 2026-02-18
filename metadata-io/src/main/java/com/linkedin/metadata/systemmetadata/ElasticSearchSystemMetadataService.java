@@ -279,8 +279,22 @@ public class ElasticSearchSystemMetadataService
 
   @Override
   public void clear() {
-    _esBulkProcessor.deleteByQuery(
-        QueryBuilders.matchAllQuery(), true, _indexConvention.getIndexName(INDEX_NAME));
+    // Instead of deleting all documents (inefficient), delete and recreate the index
+    String indexName = _indexConvention.getIndexName(INDEX_NAME);
+    try {
+      // Build a config with the correct target mappings for recreation
+      ReindexConfig config =
+          _indexBuilder.buildReindexState(
+              indexName, SystemMetadataMappingsBuilder.getMappings(), Collections.emptyMap());
+
+      // Use clearIndex which handles deletion and recreation
+      _indexBuilder.clearIndex(indexName, config);
+
+      log.info("Cleared index {} by deleting and recreating it", indexName);
+    } catch (IOException e) {
+      log.error("Failed to clear index {}", indexName, e);
+      throw new RuntimeException("Failed to clear index: " + indexName, e);
+    }
   }
 
   @Override

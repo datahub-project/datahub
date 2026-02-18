@@ -5,6 +5,7 @@ export const TRINO = 'trino';
 export const TRINO_HOST_PORT: RecipeField = {
     name: 'host_port',
     label: 'Host and Port',
+    helper: 'Trino host and port',
     tooltip:
         "The host (without protocol and ://) and port where Trino is running. For example, 'trino-server:5432'. Note: this host must be accessible on the network where DataHub is running (or allowed via an IP Allow List, AWS PrivateLink, etc).",
     type: FieldType.TEXT,
@@ -17,6 +18,7 @@ export const TRINO_HOST_PORT: RecipeField = {
 export const TRINO_DATABASE: RecipeField = {
     name: 'database',
     label: 'Database',
+    helper: 'Specific Database to ingest',
     tooltip: 'Ingest metadata for a specific Database.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.database',
@@ -28,6 +30,7 @@ export const TRINO_DATABASE: RecipeField = {
 export const TRINO_USERNAME: RecipeField = {
     name: 'username',
     label: 'Username',
+    helper: 'Trino username for metadata',
     tooltip: 'The Trino username used to extract metadata.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.username',
@@ -39,6 +42,7 @@ export const TRINO_USERNAME: RecipeField = {
 export const TRINO_PASSWORD: RecipeField = {
     name: 'password',
     label: 'Password',
+    helper: 'Trino password for user',
     tooltip: 'The Trino password for the user.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.password',

@@ -19,6 +19,7 @@ record MLModelGroupKey {
   * Name of the MLModelGroup
   */
   @Searchable = {
+    "fieldName": "id",
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,

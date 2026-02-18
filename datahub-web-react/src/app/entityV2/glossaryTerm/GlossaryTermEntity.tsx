@@ -262,6 +262,8 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 

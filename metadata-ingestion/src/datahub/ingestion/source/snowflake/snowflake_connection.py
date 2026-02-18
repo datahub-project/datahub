@@ -15,12 +15,20 @@ from snowflake.connector.network import (
     KEY_PAIR_AUTHENTICATOR,
     OAUTH_AUTHENTICATOR,
 )
+from tenacity import (
+    Retrying,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+)
+from tenacity.before_sleep import before_sleep_log
 
 from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
     HiddenFromDocs,
     MetaError,
+    TransparentSecretStr,
 )
 from datahub.configuration.connection_resolver import auto_connection_resolver
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -73,10 +81,10 @@ class SnowflakeConnectionConfig(ConfigModel):
     username: Optional[str] = pydantic.Field(
         default=None, description="Snowflake username."
     )
-    password: Optional[pydantic.SecretStr] = pydantic.Field(
+    password: Optional[TransparentSecretStr] = pydantic.Field(
         default=None, exclude=True, description="Snowflake password."
     )
-    private_key: Optional[str] = pydantic.Field(
+    private_key: Optional[TransparentSecretStr] = pydantic.Field(
         default=None,
         description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n' if using key pair authentication. Encrypted version of private key will be in a form of '-----BEGIN ENCRYPTED PRIVATE KEY-----\\nencrypted-private-key\\n-----END ENCRYPTED PRIVATE KEY-----\\n' See: https://docs.snowflake.com/en/user-guide/key-pair-auth.html",
     )
@@ -85,7 +93,7 @@ class SnowflakeConnectionConfig(ConfigModel):
         default=None,
         description="The path to the private key if using key pair authentication. Ignored if `private_key` is set. See: https://docs.snowflake.com/en/user-guide/key-pair-auth.html",
     )
-    private_key_password: Optional[pydantic.SecretStr] = pydantic.Field(
+    private_key_password: Optional[TransparentSecretStr] = pydantic.Field(
         default=None,
         exclude=True,
         description="Password for your private key. Required if using key pair authentication with encrypted private key.",
@@ -111,7 +119,7 @@ class SnowflakeConnectionConfig(ConfigModel):
         description="Connect args to pass to Snowflake SqlAlchemy driver",
         exclude=True,
     )
-    token: Optional[str] = pydantic.Field(
+    token: Optional[TransparentSecretStr] = pydantic.Field(
         default=None,
         description="OAuth token from external identity provider. Not recommended for most use cases because it will not be able to refresh once expired.",
     )
@@ -270,7 +278,9 @@ class SnowflakeConnectionConfig(ConfigModel):
             and self.authentication_type == "KEY_PAIR_AUTHENTICATOR"
         ):
             if self.private_key is not None:
-                pkey_bytes = self.private_key.replace("\\n", "\n").encode()
+                pkey_bytes = (
+                    self.private_key.get_secret_value().replace("\\n", "\n").encode()
+                )
             else:
                 assert self.private_key_path, (
                     "missing required private key path to read key from"
@@ -319,7 +329,9 @@ class SnowflakeConnectionConfig(ConfigModel):
         if self.oauth_config.use_certificate:
             response = generator.get_token_with_certificate(
                 private_key_content=str(self.oauth_config.encoded_oauth_public_key),
-                public_key_content=str(self.oauth_config.encoded_oauth_private_key),
+                public_key_content=self.oauth_config.encoded_oauth_private_key.get_secret_value()
+                if self.oauth_config.encoded_oauth_private_key
+                else "",
                 scopes=self.oauth_config.scopes,
             )
         else:
@@ -380,7 +392,9 @@ class SnowflakeConnectionConfig(ConfigModel):
                 user=self.username,
                 account=self.account_id,
                 authenticator="oauth",
-                token=self.token,  # Token generated externally and provided directly to the recipe
+                token=self.token.get_secret_value()
+                if self.token
+                else None,  # Token generated externally and provided directly to the recipe
                 warehouse=self.warehouse,
                 role=self.role,
                 application=_APPLICATION_NAME,
@@ -441,19 +455,44 @@ class SnowflakeConnection(Closeable):
             self._query_num += 1
             return no
 
+    def _execute_query_with_retry(self, query: str, query_num: int) -> Any:
+        """
+        Execute a query with retry logic for transient ACCOUNT_USAGE errors.
+
+        Snowflake's ACCOUNT_USAGE system views can be temporarily unavailable during refresh.
+        We retry up to 4 times with exponential backoff (20, 40, 60 seconds). All other queries
+        execute normally without retry.
+
+        This retry is specific because write-based retries could lead to side effects. ACCOUNT_USAGE has read-only views,
+        so it is safe to retry them.
+        """
+        retryer = Retrying(
+            retry=retry_if_exception(
+                lambda e: _is_retryable_account_usage_error(e, query)
+            ),
+            stop=stop_after_attempt(4),
+            wait=wait_exponential(multiplier=10, min=20, max=60),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            reraise=True,
+        )
+
+        for attempt in retryer:
+            with attempt:
+                resp = self._connection.cursor(DictCursor).execute(query)
+                if resp is not None and resp.rowcount is not None:
+                    logger.info(
+                        f"Query #{query_num} got {resp.rowcount} row(s) back from Snowflake"
+                    )
+                return resp
+
     def query(self, query: str) -> Any:
         try:
             # We often run multiple queries in parallel across multiple threads,
             # so we need to number them to help with log readability.
             query_num = self.get_query_no()
-            logger.info(f"Query #{query_num}: {query.rstrip()}", stacklevel=2)
-            resp = self._connection.cursor(DictCursor).execute(query)
-            if resp is not None and resp.rowcount is not None:
-                logger.info(
-                    f"Query #{query_num} got {resp.rowcount} row(s) back from Snowflake",
-                    stacklevel=2,
-                )
-            return resp
+            logger.info(f"Query #{query_num}: {query.rstrip()}")
+
+            return self._execute_query_with_retry(query, query_num)
 
         except Exception as e:
             if _is_permission_error(e):
@@ -472,3 +511,34 @@ def _is_permission_error(e: Exception) -> bool:
     # 002003 (02000): SQL compilation error: Database/SCHEMA 'XXXX' does not exist or not authorized.
     # Insufficient privileges to operate on database 'XXXX'
     return "Insufficient privileges" in msg or "not authorized" in msg
+
+
+def _is_retryable_account_usage_error(e: BaseException, query: str) -> bool:
+    """
+    Check if a Snowflake error should be retried.
+
+    Returns True ONLY if BOTH conditions are met:
+    1. Query accesses ACCOUNT_USAGE schema (from query text)
+    2. Error is "002003: does not exist or not authorized" (from error message)
+
+    This targets the known intermittent unavailability of Snowflake's ACCOUNT_USAGE
+    system views during refresh, as confirmed by Snowflake support. All other errors
+    return False to avoid masking real problems.
+
+    Args:
+        e: The exception raised by Snowflake
+        query: The SQL query that was executed
+
+    Returns:
+        True if both conditions are met, False otherwise
+    """
+    msg = str(e).upper()
+    query_upper = query.upper()
+
+    is_account_usage_query = "ACCOUNT_USAGE" in query_upper
+
+    is_permission_error = (
+        "NOT AUTHORIZED" in msg or "DOES NOT EXIST" in msg
+    ) and "002003" in msg
+
+    return is_account_usage_query and is_permission_error

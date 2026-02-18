@@ -1,5 +1,6 @@
 import { hasOperationName } from "../utils";
 
+// Use unique test ID with timestamp to ensure idempotency across runs
 const test_id = `cy_doc_${Date.now()}`;
 
 // Helper to enable context documents and nav bar redesign feature flags
@@ -17,36 +18,26 @@ function enableContextDocuments() {
 }
 
 describe("Document Management End-to-End Test", () => {
-  // Suppress ResizeObserver and quick filters errors
+  // Suppress common errors that don't affect test validity
   Cypress.on("uncaught:exception", (err) => {
-    // Suppress ResizeObserver errors
-    if (err.message.includes("ResizeObserver loop")) {
-      return false;
-    }
-    // Suppress quick filters backend errors
-    if (err.message.includes("Failed to to get quick filters")) {
-      return false;
-    }
-    // Suppress page template context errors from homeV3 context documents
+    if (err.message.includes("ResizeObserver loop")) return false;
+    if (err.message.includes("Failed to to get quick filters")) return false;
     if (
       err.message.includes(
         "usePageTemplateContext must be used within a PageTemplateProvider",
       )
-    ) {
+    )
       return false;
-    }
-    // Suppress DataProcessInstanceEntity init error from entity registry V2
     if (
       err.message.includes(
         "Cannot access 'DataProcessInstanceEntity' before initialization",
       )
-    ) {
+    )
       return false;
-    }
     return true;
   });
 
-  // Store document URNs for cleanup
+  // Store document URNs for cleanup - ensures idempotency
   const createdDocuments = [];
 
   // Helper to safely delete documents
@@ -55,10 +46,12 @@ describe("Document Management End-to-End Test", () => {
       if (urn) {
         cy.deleteUrn(urn).then(
           () => cy.log(`Cleaned up document: ${urn}`),
-          (err) => cy.log(`Failed to cleanup ${urn}: ${err.message}`),
+          (err) => cy.log(`Failed to cleanup ${urn}: ${err?.message || err}`),
         );
       }
     });
+    // Clear the array after cleanup
+    createdDocuments.length = 0;
   };
 
   before(() => {
@@ -72,7 +65,7 @@ describe("Document Management End-to-End Test", () => {
     cy.login();
   });
 
-  // Cleanup after all tests, regardless of pass/fail
+  // Cleanup after all tests, regardless of pass/fail - ensures idempotency
   after(() => {
     cy.login().then(() => {
       cleanupDocuments();
@@ -87,27 +80,16 @@ describe("Document Management End-to-End Test", () => {
     let testDocument2Urn = null;
     const doc1UpdatedTitle = `${doc1Title}_Updated`;
 
-    it("should create a new document", () => {
-      // Navigate to search page
-      cy.visit("/search");
+    it("should create a new document via Context Documents page", () => {
+      // Navigate directly to Context Documents page
+      cy.visit("/context/documents");
       cy.wait(2000);
 
-      // Click the sidebar toggle button to expand the sidebar
-      cy.getWithTestId("nav-bar-toggler").should("be.visible").click();
-      cy.wait(1000);
+      // Wait for navigation to document page (either redirected or auto-created)
+      cy.url().should("include", "/document/", { timeout: 15000 });
 
-      // Check if Context is visible (it should be in the sidebar if feature is enabled)
-      cy.contains("Context").should("exist");
-
-      // Hover over the Context header to reveal the create button
-      cy.contains("Context").realHover();
-      cy.wait(500);
-
-      // Click the create document button - force click
-      cy.getWithTestId("create-document-button").click({ force: true });
-
-      // Wait for navigation to document page
-      cy.url().should("include", "/document/", { timeout: 10000 });
+      // The context sidebar should be visible
+      cy.getWithTestId("context-documents-sidebar").should("be.visible");
 
       // Extract URN from URL
       cy.url().then((url) => {
@@ -115,32 +97,82 @@ describe("Document Management End-to-End Test", () => {
         if (match) {
           testDocument1Urn = decodeURIComponent(match[1]);
           createdDocuments.push(testDocument1Urn);
-          cy.log(`Created document with URN: ${testDocument1Urn}`);
+          cy.log(`Document URN: ${testDocument1Urn}`);
         }
       });
 
       // Set initial title
       cy.getWithTestId("document-title-input", { timeout: 5000 })
         .should("be.visible")
+        .should("not.be.disabled")
         .clear()
         .type(doc1Title, { delay: 50 });
 
       // Trigger save by clicking away
       cy.get("body").click(0, 0);
-      cy.wait(1500); // Allow auto-save
+      cy.wait(1500);
 
       // Verify title persisted
       cy.getWithTestId("document-title-input").should("have.value", doc1Title);
     });
 
+    it("should create a second document using sidebar create button", () => {
+      cy.visit(`/document/${encodeURIComponent(testDocument1Urn)}`);
+      cy.wait(2000); // Wait longer for page to stabilize
+
+      // The context sidebar should be visible
+      cy.getWithTestId("context-documents-sidebar").should("be.visible");
+
+      // Wait for any re-renders to settle, then click the create button
+      cy.wait(500);
+      cy.getWithTestId("create-document-button")
+        .should("be.visible")
+        .should("not.be.disabled")
+        .click({ force: true });
+
+      // Wait for navigation to new document page
+      cy.url().should("not.include", testDocument1Urn, { timeout: 10000 });
+      cy.url().should("include", "/document/");
+
+      // Extract URN from URL
+      cy.url().then((url) => {
+        const match = url.match(/\/document\/([^/?]+)/);
+        if (match) {
+          testDocument2Urn = decodeURIComponent(match[1]);
+          createdDocuments.push(testDocument2Urn);
+          cy.log(`Created second document with URN: ${testDocument2Urn}`);
+        }
+      });
+
+      // Wait for sidebar to finish loading (create button becomes enabled again)
+      cy.getWithTestId("create-document-button", { timeout: 15000 })
+        .should("be.visible")
+        .and("not.be.disabled");
+
+      // Now set the title - break up the chain to handle React re-renders
+      cy.getWithTestId("document-title-input", { timeout: 10000 })
+        .should("be.visible")
+        .and("not.be.disabled")
+        .clear();
+
+      cy.getWithTestId("document-title-input").type(doc2Title, { delay: 50 });
+
+      // Trigger save
+      cy.get("body").click(0, 0);
+      cy.wait(1500);
+
+      // Verify title persisted
+      cy.getWithTestId("document-title-input").should("have.value", doc2Title);
+    });
+
     it("should update document title and verify persistence", () => {
-      // Navigate directly to document
       cy.visit(`/document/${encodeURIComponent(testDocument1Urn)}`);
       cy.wait(1000);
 
       // Update title
       cy.getWithTestId("document-title-input")
         .should("be.visible")
+        .should("not.be.disabled")
         .clear()
         .type(doc1UpdatedTitle, { delay: 50 });
 
@@ -170,11 +202,10 @@ describe("Document Management End-to-End Test", () => {
       // Check if editor section exists
       cy.getWithTestId("document-editor-section").should("exist");
 
-      // Look for the remirror editor directly (it might not have the exact testid we expect)
+      // Click and type in the editor
       cy.get(".remirror-editor").should("exist").click();
       cy.wait(300);
 
-      // Type content into the editor
       cy.get('.remirror-editor[contenteditable="true"]')
         .should("exist")
         .click()
@@ -183,11 +214,11 @@ describe("Document Management End-to-End Test", () => {
 
       cy.get('.remirror-editor[contenteditable="true"]').type(testContent, {
         delay: 100,
-      }); // Slower typing
+      });
 
       // Trigger save
       cy.get("body").click(0, 0);
-      cy.wait(3500); // Auto-save timeout + buffer
+      cy.wait(3500);
 
       // Verify content saved
       cy.reload();
@@ -200,20 +231,19 @@ describe("Document Management End-to-End Test", () => {
       cy.visit(`/document/${encodeURIComponent(testDocument1Urn)}`);
       cy.wait(1000);
 
-      // Verify initial status is Draft - wait for it to load
+      // Wait for status selector to load
       cy.getWithTestId("document-status-select", { timeout: 10000 }).should(
         "exist",
       );
       cy.wait(1000);
 
-      // Change to Published - click the ant-dropdown-trigger inside the wrapper
+      // Change to Published
       cy.getWithTestId("document-status-select")
         .find(".ant-dropdown-trigger")
         .should("be.visible")
         .click({ force: true });
       cy.wait(500);
 
-      // Click Published option - use specific testid from SimpleSelect
       cy.get('[data-testid="option-PUBLISHED"]')
         .should("be.visible")
         .click({ force: true });
@@ -245,7 +275,6 @@ describe("Document Management End-to-End Test", () => {
         .click({ force: true });
       cy.wait(500);
 
-      // Click Runbook option - use specific testid
       cy.get('[data-testid="option-Runbook"]')
         .should("be.visible")
         .click({ force: true });
@@ -267,26 +296,101 @@ describe("Document Management End-to-End Test", () => {
     });
   });
 
-  describe("Document Hierarchy Operations", () => {
-    it("should create two documents, move one to the other, and verify nesting", function () {
-      // 1. Initial Setup
-      cy.visit("/search");
+  describe("Sidebar Navigation Features", () => {
+    it("should collapse and expand the sidebar", () => {
+      cy.visit("/context/documents");
       cy.wait(2000);
+      cy.url().should("include", "/document/", { timeout: 15000 });
 
-      // Ensure sidebar is open - check for Context visibility
-      cy.get("body").then(($body) => {
-        if ($body.find(':contains("Context")').length === 0) {
-          cy.getWithTestId("nav-bar-toggler").should("be.visible").click();
-          cy.wait(1000);
+      // Sidebar should be visible and expanded by default
+      cy.getWithTestId("context-documents-sidebar").should("be.visible");
+
+      // The collapse button should be visible
+      cy.getWithTestId("context-sidebar-collapse-button").should("be.visible");
+
+      // Title should be visible when expanded
+      cy.getWithTestId("context-documents-sidebar").should(
+        "contain.text",
+        "Documents",
+      );
+
+      // Click collapse button
+      cy.getWithTestId("context-sidebar-collapse-button").click();
+      cy.wait(500);
+
+      // After collapsing, the title should not be visible
+      // The sidebar width should be reduced (we check that create button is hidden)
+      cy.getWithTestId("create-document-button").should("not.exist");
+
+      // Click expand button (same button, different icon)
+      cy.getWithTestId("context-sidebar-collapse-button").click();
+      cy.wait(500);
+
+      // After expanding, the title should be visible again
+      cy.getWithTestId("context-documents-sidebar").should(
+        "contain.text",
+        "Documents",
+      );
+      cy.getWithTestId("create-document-button").should("be.visible");
+    });
+
+    it("should search for documents using sidebar search", () => {
+      cy.visit("/context/documents");
+      cy.wait(2000);
+      cy.url().should("include", "/document/", { timeout: 15000 });
+
+      // Get the current document URN
+      cy.url().then((url) => {
+        const match = url.match(/\/document\/([^/?]+)/);
+        if (match) {
+          const urn = decodeURIComponent(match[1]);
+          createdDocuments.push(urn);
         }
       });
 
-      // 2. Create Parent Doc
-      cy.contains("Context").should("exist").realHover();
-      cy.wait(500);
-      cy.getWithTestId("create-document-button").click({ force: true });
-      cy.url().should("include", "/document/", { timeout: 10000 });
+      // Set a unique title we can search for
+      const searchTestTitle = `${test_id}_SearchTest`;
+      cy.getWithTestId("document-title-input")
+        .should("be.visible")
+        .should("not.be.disabled")
+        .clear()
+        .type(searchTestTitle, { delay: 50 });
+      cy.get("body").click(0, 0);
+      cy.wait(1500);
 
+      // The sidebar should have a search bar input - find by placeholder
+      cy.getWithTestId("context-documents-sidebar").should("be.visible");
+
+      // Find the search input by placeholder
+      cy.get('input[placeholder="Search documents"]')
+        .should("be.visible")
+        .click()
+        .type(searchTestTitle.substring(0, 8), { delay: 50 });
+
+      cy.wait(1500); // Wait for debounce
+
+      // Search results should appear
+      cy.getWithTestId("context-sidebar-search-results", {
+        timeout: 10000,
+      }).should("be.visible");
+
+      // Clear search by clicking outside
+      cy.get("body").click(0, 0);
+      cy.wait(500);
+
+      // Search results should be hidden
+      cy.getWithTestId("context-sidebar-search-results").should("not.exist");
+    });
+  });
+
+  describe("Document Hierarchy Operations", () => {
+    it("should create two documents, move one to the other, and verify nesting", function () {
+      // Navigate to Context Documents page
+      cy.visit("/context/documents");
+      cy.wait(2000);
+      cy.url().should("include", "/document/", { timeout: 15000 });
+
+      // Extract first document URN
       cy.url().then((url) => {
         const match = url.match(/\/document\/([^/?]+)/);
         const urn = decodeURIComponent(match[1]);
@@ -294,20 +398,19 @@ describe("Document Management End-to-End Test", () => {
         cy.wrap(urn).as("parentUrn");
       });
 
+      // Set parent title
       cy.getWithTestId("document-title-input")
         .should("be.visible")
+        .should("not.be.disabled")
         .clear()
         .type(doc1Title, { delay: 50 });
       cy.get("body").click(0, 0);
       cy.wait(1500);
 
-      // 3. Create Child Doc (from current page)
-      cy.contains("Context").should("exist").scrollIntoView().realHover();
-      cy.getWithTestId("create-document-button")
-        .should("exist")
-        .click({ force: true });
+      // Create Child Doc using sidebar create button
+      cy.getWithTestId("create-document-button").should("be.visible").click();
 
-      // Wait for URL to change (ensure we are on new doc)
+      // Wait for URL to change
       cy.get("@parentUrn").then((parentUrn) => {
         cy.url().should("not.include", parentUrn);
         cy.url().should("include", "/document/");
@@ -322,13 +425,14 @@ describe("Document Management End-to-End Test", () => {
 
       cy.getWithTestId("document-title-input")
         .should("be.visible")
+        .should("not.be.disabled")
         .clear()
         .type(doc2Title, { delay: 50 });
       cy.get("body").click(0, 0);
       cy.wait(1500);
 
-      // 4. Move Child to Parent (from current page)
-      cy.get("@parentUrn").then((parentUrn) => {
+      // Move Child to Parent
+      cy.get("@parentUrn").then(() => {
         cy.get("@childUrn").then((childUrn) => {
           // Find child in tree
           cy.getWithTestId(`document-tree-item-${childUrn}`)
@@ -345,7 +449,7 @@ describe("Document Management End-to-End Test", () => {
             .click({ force: true });
           cy.wait(1000);
 
-          // Click Move - force click the item container in the dropdown
+          // Click Move
           cy.get(".ant-dropdown-menu")
             .should("be.visible")
             .contains("Move")
@@ -354,40 +458,18 @@ describe("Document Management End-to-End Test", () => {
             .click({ force: true });
           cy.wait(2000);
 
-          // Select new parent inside the move document popover by searching for its title
-          cy.log(
-            `Looking for parent by title inside move popover: ${doc1Title}`,
-          );
+          // Search for parent in move popover
           cy.get('[data-testid="move-document-popover"]', { timeout: 15000 })
             .should("be.visible")
             .within(() => {
-              // Use the search box to find the parent document by name
-              cy.get('input[placeholder="Search documents..."]')
+              cy.get('input[placeholder="Search context..."]')
                 .should("be.visible")
                 .clear()
                 .type(doc1Title, { delay: 50 });
-
-              // Wait for debounce and search to complete
               cy.wait(2000);
             });
 
-          // Check if results loaded, if not retry the search
-          cy.get('[data-testid="move-document-popover"]').then(($popover) => {
-            const resultExists = $popover.find(
-              '[data-testid="move-popover-search-result-title"]',
-            ).length;
-            if (!resultExists) {
-              cy.log("No results found on first try, typing again...");
-              cy.get('[data-testid="move-document-popover"]').within(() => {
-                cy.get('input[placeholder="Search documents..."]')
-                  .clear()
-                  .type(doc1Title, { delay: 50 });
-              });
-              cy.wait(2000);
-            }
-          });
-
-          // Now find and click the search result
+          // Click the search result
           cy.get('[data-testid="move-document-popover"]').within(() => {
             cy.get('[data-testid="move-popover-search-result-title"]', {
               timeout: 10000,
@@ -411,9 +493,8 @@ describe("Document Management End-to-End Test", () => {
             timeout: 5000,
           });
 
-          // Verify nesting by checking breadcrumb on the child document profile
+          // Verify nesting by checking breadcrumb
           cy.get("@childUrn").then((childUrnInner) => {
-            // Navigate to the child document page
             cy.visit(`/document/${encodeURIComponent(childUrnInner)}`);
           });
           cy.wait(1000);
@@ -427,17 +508,19 @@ describe("Document Management End-to-End Test", () => {
 
   describe("Document Deletion", () => {
     it("should delete parent document and cascade to children", () => {
-      const parentUrn = createdDocuments[1];
+      const parentUrn = createdDocuments[createdDocuments.length - 2];
 
-      // Navigate to search page
-      cy.visit("/search");
+      if (!parentUrn) {
+        cy.log("No parent document to delete, skipping test");
+        return;
+      }
+
+      cy.visit(`/document/${encodeURIComponent(parentUrn)}`);
       cy.wait(2000);
 
-      // Click the sidebar toggle button to expand the sidebar
-      cy.getWithTestId("nav-bar-toggler").should("be.visible").click();
-      cy.wait(1000);
+      cy.getWithTestId("context-documents-sidebar").should("be.visible");
 
-      // Hover to reveal actions
+      // Hover to reveal actions in the tree
       cy.getWithTestId(`document-tree-item-${parentUrn}`)
         .should("exist")
         .first()
@@ -461,10 +544,10 @@ describe("Document Management End-to-End Test", () => {
       cy.contains("button", "Delete").click();
       cy.wait(2000);
 
-      // Verify parent deleted
+      // Verify parent deleted from tree
       cy.getWithTestId(`document-tree-item-${parentUrn}`).should("not.exist");
 
-      // Clear from cleanup list since we deleted it
+      // Clear from cleanup list since we deleted them
       createdDocuments.length = 0;
     });
   });

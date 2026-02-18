@@ -1,4 +1,7 @@
-from typing import Any
+import json
+import os
+import time
+from typing import Any, List
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -7,13 +10,179 @@ from freezegun import freeze_time
 from sqlalchemy import exc
 
 from datahub.ingestion.api.source import StructuredLogLevel
-from datahub.ingestion.source.sql.oracle import OracleInspectorObjectWrapper
+from datahub.ingestion.source.sql.oracle import (
+    OracleInspectorObjectWrapper,
+    OracleSource,
+)
+from datahub.testing import mce_helpers
 from tests.integration.oracle.common import (  # type: ignore[import-untyped]
     OracleSourceMockDataBase,
     OracleTestCaseBase,
 )
+from tests.test_helpers.click_helpers import run_datahub_cmd
+from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2022-02-03 07:00:00"
+
+# Staging tables in STAGING_SCHEMA that may have volatile V$SQL queries
+# These are populated by INSERT operations during test setup
+VOLATILE_STAGING_TABLES = {
+    "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD)",
+}
+
+
+def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
+    """
+    Filter out volatile V$SQL query entities and their related lineage.
+
+    V$SQL is a cache, not a persistent log. DML queries from test setup
+    may or may not be present when the connector runs, depending on:
+    - Oracle cache flush timing
+    - Memory pressure
+    - Query execution timing
+
+    This function removes entities related to staging tables that are populated
+    by volatile INSERT queries, making tests deterministic regardless of cache state.
+    """
+    filtered = []
+    volatile_query_urns = set()
+
+    # First pass: collect query URNs that reference volatile staging tables
+    for entity in metadata_json:
+        if entity.get("entityType") == "query":
+            # Check if query references any volatile staging tables
+            aspect_json = entity.get("aspect", {}).get("json", {})
+            query_subjects = aspect_json.get("subjects", [])
+            if any(
+                subject.get("entity") in VOLATILE_STAGING_TABLES
+                for subject in query_subjects
+            ):
+                volatile_query_urns.add(entity.get("entityUrn", ""))
+
+    # Second pass: filter out volatile queries, staging datasets, and their lineage
+    for entity in metadata_json:
+        entity_urn = entity.get("entityUrn", "")
+
+        # Skip query entities that reference volatile staging tables
+        if entity.get("entityType") == "query" and entity_urn in volatile_query_urns:
+            continue
+
+        # Skip all aspects of staging table datasets (they only exist due to volatile queries)
+        if (
+            entity.get("entityType") == "dataset"
+            and entity_urn in VOLATILE_STAGING_TABLES
+        ):
+            continue
+
+        # Skip upstreamLineage that references volatile queries
+        if entity.get("aspectName") == "upstreamLineage":
+            aspect_json = entity.get("aspect", {}).get("json", {})
+            upstreams = aspect_json.get("upstreams", [])
+            fine_grained = aspect_json.get("fineGrainedLineages", [])
+
+            # Check if this lineage references a volatile query
+            has_volatile_query = any(
+                upstream.get("query") in volatile_query_urns for upstream in upstreams
+            ) or any(fg.get("query") in volatile_query_urns for fg in fine_grained)
+
+            if has_volatile_query:
+                continue
+
+        filtered.append(entity)
+
+    return filtered
+
+
+@pytest.fixture(scope="module")
+def oracle_runner(docker_compose_runner, pytestconfig):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/oracle"
+    with docker_compose_runner(
+        test_resources_dir / "docker-compose.yml", "oracle"
+    ) as docker_services:
+        wait_for_port(
+            docker_services,
+            "testoracle",
+            1521,
+            timeout=300,
+        )
+
+        time.sleep(30)  # Extra time for setup scripts to complete
+
+        yield docker_services
+
+
+SOURCE_FILES_PATH = "./tests/integration/oracle/source_files"
+config_files = [f for f in os.listdir(SOURCE_FILES_PATH) if f.endswith(".yml")]
+
+
+@pytest.mark.parametrize("config_file", config_files)
+@freeze_time(FROZEN_TIME, ignore=["oracledb", "oracledb.thin_impl"])
+@pytest.mark.integration
+def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_file):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/oracle"
+    # Run the metadata ingestion pipeline.
+    config_file_path = (test_resources_dir / f"source_files/{config_file}").resolve()
+    run_datahub_cmd(
+        ["ingest", "-c", f"{config_file_path}"], tmp_path=tmp_path, check_result=True
+    )
+
+    output_path = tmp_path / "oracle_mces.json"
+    golden_path = (
+        test_resources_dir
+        / f"golden_files/golden_mces_{config_file.replace('.yml', '.json')}"
+    )
+
+    # For query usage tests, filter out volatile V$SQL entities before comparison
+    if "query_usage" in config_file:
+        # Load both files
+        with open(output_path) as f:
+            output_data = json.load(f)
+        with open(golden_path) as f:
+            golden_data = json.load(f)
+
+        # Filter volatile queries from both
+        output_filtered = filter_volatile_vsql_queries(output_data)
+        golden_filtered = filter_volatile_vsql_queries(golden_data)
+
+        # Write filtered output to temp file for comparison
+        filtered_output_path = tmp_path / "oracle_mces_filtered.json"
+        with open(filtered_output_path, "w") as f:
+            json.dump(output_filtered, f, indent=4)
+
+        filtered_golden_path = tmp_path / "oracle_golden_filtered.json"
+        with open(filtered_golden_path, "w") as f:
+            json.dump(golden_filtered, f, indent=4)
+
+        # Compare filtered versions
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=filtered_output_path,
+            golden_path=filtered_golden_path,
+        )
+    else:
+        # Normal comparison for non-query-usage tests
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=output_path,
+            golden_path=golden_path,
+        )
+
+
+@pytest.mark.integration
+def test_oracle_test_connection(oracle_runner):
+    """Test Oracle connection using the test_connection method."""
+    config_dict = {
+        "username": "system",
+        "password": "example",
+        "host_port": "localhost:51521",
+        "service_name": "XEPDB1",
+    }
+
+    report = OracleSource.test_connection(config_dict)
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason is None
 
 
 class OracleErrorHandlingMockData(OracleSourceMockDataBase):
@@ -56,7 +225,7 @@ class TestOracleSourceErrorHandling(OracleIntegrationTestCase):
         super().__init__(
             pytestconfig=pytestconfig,
             tmp_path=tmp_path,
-            golden_file_name="golden_test_error_handling.json",
+            golden_file_name="golden_files/golden_test_error_handling.json",
             output_file_name="oracle_mce_output_error_handling.json",
             add_database_name_to_urn=False,
         )
@@ -152,7 +321,7 @@ def test_oracle_source_integration_with_out_database(pytestconfig, tmp_path):
     oracle_source_integration_test = OracleIntegrationTestCase(
         pytestconfig=pytestconfig,
         tmp_path=tmp_path,
-        golden_file_name="golden_test_ingest_with_out_database.json",
+        golden_file_name="golden_files/golden_test_ingest_with_out_database.json",
         output_file_name="oracle_mce_output_with_out_database.json",
         add_database_name_to_urn=False,
     )
@@ -165,7 +334,7 @@ def test_oracle_source_integration_with_database(pytestconfig, tmp_path):
     oracle_source_integration_test = OracleIntegrationTestCase(
         pytestconfig=pytestconfig,
         tmp_path=tmp_path,
-        golden_file_name="golden_test_ingest_with_database.json",
+        golden_file_name="golden_files/golden_test_ingest_with_database.json",
         output_file_name="oracle_mce_output_with_database.json",
         add_database_name_to_urn=True,
     )

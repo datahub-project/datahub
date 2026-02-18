@@ -352,7 +352,7 @@ const StructuredPropsDrawer = ({
                             <Button
                                 style={{ display: 'block', width: '100%' }}
                                 onClick={handleUpdateAllowedValues}
-                                isDisabled={!canEditProps}
+                                disabled={!canEditProps}
                             >
                                 Update Allowed Values
                             </Button>
@@ -360,7 +360,7 @@ const StructuredPropsDrawer = ({
                             <Button
                                 style={{ display: 'block', width: '100%' }}
                                 onClick={handleSubmit}
-                                isDisabled={isLoading || !canEditProps}
+                                disabled={isLoading || !canEditProps}
                                 data-testid="structured-props-create-update-button"
                             >
                                 {isEditMode ? 'Update' : 'Create'}

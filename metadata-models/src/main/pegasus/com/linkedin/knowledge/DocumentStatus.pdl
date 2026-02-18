@@ -10,6 +10,7 @@ record DocumentStatus {
    * The current visibility state of the document
    */
   @Searchable = {
+    "fieldType": "KEYWORD",
     "queryByDefault": false
   }
   state: DocumentState

@@ -34,7 +34,7 @@ jobs:
     steps:
       # We explicitly don't use acryldata/sane-checkout-action because docusaurus runs
       # git commands to determine the last change date for each file.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Set up JDK 17
@@ -56,6 +56,13 @@ jobs:
       - name: Run tests
         run: |
           ./gradlew --info :metadata-ingestion:testScripts
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: metadata-ingestion-scripts-test-results
+          test-results-path: "metadata-ingestion/scripts/test-results/**"
+          junit-file-glob: "metadata-ingestion/scripts/test-results/*.xml"
       - name: Build Docs
         run: |
           ./gradlew --info docs-website:build

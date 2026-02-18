@@ -83,6 +83,64 @@ List schema fields for a dataset with keyword filtering and pagination, useful w
 
 Retrieve the exact lineage paths between two assets or columns, including intermediate transformations and SQL query information.
 
+### Mutation Tools
+
+:::info
+Mutation tools are available in [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub) v0.5.0+. They are enabled via the `TOOLS_IS_MUTATION_ENABLED=true` environment variable.
+:::
+
+`add_tags` / `remove_tags`
+
+Add or remove tags from entities or schema fields (columns). Supports bulk operations on multiple entities.
+
+`add_terms` / `remove_terms`
+
+Add or remove glossary terms from entities or schema fields. Useful for applying business definitions and data classification.
+
+`add_owners` / `remove_owners`
+
+Add or remove ownership assignments from entities. Supports different ownership types (technical owner, data owner, etc.).
+
+`set_domains` / `remove_domains`
+
+Assign or remove domain membership for entities. Each entity can belong to one domain.
+
+`update_description`
+
+Update, append to, or remove descriptions for entities or schema fields. Supports markdown formatting.
+
+`add_structured_properties` / `remove_structured_properties`
+
+Manage structured properties (typed metadata fields) on entities. Supports string, number, URN, date, and rich text value types.
+
+### User Tools
+
+:::info
+User tools are available in [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub) v0.5.0+. They are enabled via the `TOOLS_IS_USER_ENABLED=true` environment variable.
+:::
+
+`get_me`
+
+Retrieve information about the currently authenticated user, including profile details and group memberships.
+
+### Document Tools
+
+:::info
+Document tools are available in [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub) v0.5.0+. Document tools are automatically hidden if no documents exist in the catalog.
+:::
+
+`search_documents`
+
+Search for documents using keyword search with filters for platforms, domains, tags, glossary terms, and owners.
+
+`grep_documents`
+
+Search within document content using regex patterns. Useful for finding specific information across multiple documents.
+
+`save_document`
+
+Save standalone documents (insights, decisions, FAQs, notes) to DataHub's knowledge base. Documents are organized under a configurable parent folder.
+
 ## Managed MCP Server Usage
 
 For folks on DataHub Cloud v0.3.12+, you can use our hosted MCP server endpoint.
@@ -102,6 +160,26 @@ There are two [transports types](https://modelcontextprotocol.io/docs/concepts/t
 ### Prerequisites
 
 To connect to the MCP server, you'll need the following:
+
+- **Node.js 18+** - Required for AI tools that use the `npx` command (for example Claude Desktop)
+
+  ```bash
+  # Check if Node.js is installed
+  node --version
+
+  # If not installed, download from https://nodejs.org/
+  # Or use a package manager:
+
+  # macOS (using Homebrew)
+  brew install node
+
+  # Linux (using apt)
+  sudo apt update && sudo apt install nodejs npm
+
+  # Or use nvm (Node Version Manager) for easier version management
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+  nvm install --lts
+  ```
 
 - The URL of your DataHub Cloud instance e.g. `https://<tenant>.acryl.io`
 - A [personal access token](../../authentication/personal-access-tokens.md)
@@ -192,7 +270,6 @@ You can run the [open-source MCP server](https://github.com/acryldata/mcp-server
    ```
 
 2. For authentication, you'll need the following:
-
    - The URL of your DataHub instance's GMS endpoint; e.g. `http://<localhost>:8080` or `https://<tenant>.acryl.io`
    - A [personal access token](../../authentication/personal-access-tokens.md)
 
