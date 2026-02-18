@@ -1,5 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import Dropdown from '@components/components/Dropdown/Dropdown';
@@ -13,9 +14,10 @@ import {
 } from '@components/components/Select/components';
 
 import EntitySearchInputResultV2 from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
+import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
+import { useGetEntitySearchResultsAutoCompleteFieldsLazyQuery } from '@graphql/search.generated';
 import { AndFilterInput, Entity, EntityType } from '@types';
 
 const SearchInputContainer = styled.div({
@@ -95,7 +97,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
 
     // Search functionality
     const [searchResources, { data: resourcesSearchData, loading: searchLoading }] =
-        useGetSearchResultsForMultipleLazyQuery();
+        useGetEntitySearchResultsAutoCompleteFieldsLazyQuery();
 
     // Issue a default search when dropdown opens
     useEffect(() => {
@@ -117,24 +119,30 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
         prevOpenRef.current = open;
     }, [open, entityTypes, searchResources, defaultFilters, viewUrn]);
 
-    const handleSearchChange = useCallback(
-        (value: string) => {
-            setSearchQuery(value);
-            searchResources({
-                variables: {
-                    input: {
-                        types: entityTypes,
-                        query: value || '*',
-                        start: 0,
-                        count: 10,
-                        orFilters: defaultFilters,
-                        viewUrn: viewUrn || undefined,
+    useDebounce(
+        () => {
+            if (open) {
+                searchResources({
+                    variables: {
+                        input: {
+                            types: entityTypes,
+                            query: searchQuery || '*',
+                            start: 0,
+                            count: 10,
+                            orFilters: defaultFilters,
+                            viewUrn: viewUrn || undefined,
+                        },
                     },
-                },
-            });
+                });
+            }
         },
-        [entityTypes, searchResources, defaultFilters, viewUrn],
+        DEBOUNCE_SEARCH_MS,
+        [searchQuery, entityTypes, defaultFilters, viewUrn, open],
     );
+
+    const handleSearchChange = useCallback((value: string) => {
+        setSearchQuery(value);
+    }, []);
 
     const entityOptions = useMemo(() => {
         const results = resourcesSearchData?.searchAcrossEntities?.searchResults || [];

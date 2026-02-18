@@ -146,6 +146,10 @@ def dataplatform2instance_func(
     click.echo(
         f"Starting migration: platform:{platform}, instance={instance}, force={force}, dry-run={dry_run}"
     )
+    click.echo(
+        "This command will migrate DATASETS and CONTAINERS only. "
+        "Other entity types (charts, dashboards, datajobs) are not supported."
+    )
     run_id: str = f"migrate-{uuid.uuid4()}"
     migration_report = MigrationReport(run_id, dry_run, keep)
     system_metadata = SystemMetadataClass(runId=run_id)
@@ -155,7 +159,9 @@ def dataplatform2instance_func(
     urns_to_migrate: List[str] = []
 
     # we first calculate all the urns we will be migrating
-    for src_entity_urn in graph.get_urns_by_filter(platform=platform, env=env):
+    for src_entity_urn in graph.get_urns_by_filter(
+        platform=platform, env=env, entity_types=["dataset"]
+    ):
         key = dataset_urn_to_key(src_entity_urn)
         assert key
         # Does this urn already have a platform instance associated with it?

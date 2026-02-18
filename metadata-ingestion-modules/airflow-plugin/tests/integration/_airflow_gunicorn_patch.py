@@ -1,16 +1,24 @@
 """
-Patch gunicorn's setproctitle function to prevent SIGSEGV crashes on macOS.
+Patch setproctitle/gunicorn on macOS to prevent SIGSEGV crashes after fork().
 
-This module should be imported early in the Airflow process to patch gunicorn
-before it forks worker processes. The setproctitle library causes segmentation
-faults on macOS when called from gunicorn workers after fork().
+When used as PYTHONSTARTUP (e.g. in Airflow integration tests), this module:
+1. Imports datahub._setproctitle_patch to no-op setproctitle globally.
+2. Patches gunicorn.util._setproctitle so gunicorn workers never call the C extension.
 
-This is a known issue: https://github.com/apache/airflow/issues/55838
+The setproctitle library causes segmentation faults on macOS when called from
+gunicorn workers (or any forked child). This is a known issue:
+https://github.com/apache/airflow/issues/55838
 """
 
 import os
 import platform
 import sys
+
+# Apply global setproctitle no-op first (covers OpenLineage and any other caller).
+try:
+    import datahub._setproctitle_patch  # noqa: F401
+except ImportError:
+    pass
 
 # Log that this startup file was loaded
 print(

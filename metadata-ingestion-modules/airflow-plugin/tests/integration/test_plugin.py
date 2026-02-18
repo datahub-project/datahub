@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import pathlib
+import platform
 import random
 import signal
 import subprocess
@@ -280,6 +281,7 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
     multiple_connections: bool,
     platform_instance: Optional[str],
     enable_datajob_lineage: bool,
+    cluster: Optional[str] = None,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -397,6 +399,18 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
         "AIRFLOW__DATAHUB__ENABLE_DATAJOB_LINEAGE": (
             "true" if enable_datajob_lineage else "false"
         ),
+        # macOS: run setproctitle/gunicorn patch before any process forks.
+        # Ensures the Airflow subprocess gets the patch even when the venv has no .pth (e.g. tox).
+        **(
+            {
+                "PYTHONSTARTUP": str(
+                    pathlib.Path(__file__).resolve().parent
+                    / "_airflow_gunicorn_patch.py"
+                ),
+            }
+            if platform.system() == "Darwin"
+            else {}
+        ),
     }
 
     # Configure API authentication based on Airflow version
@@ -448,6 +462,9 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
 
     if platform_instance:
         environment["AIRFLOW__DATAHUB__PLATFORM_INSTANCE"] = platform_instance
+
+    if cluster:
+        environment["AIRFLOW__DATAHUB__CLUSTER"] = cluster
 
     if multiple_connections:
         environment[f"AIRFLOW_CONN_{datahub_connection_name_2.upper()}"] = Connection(
@@ -517,8 +534,9 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
 
     print(f"[DEBUG] Starting airflow standalone, logging to {standalone_log}")
 
-    # Note: For Airflow 3.0 on macOS, gunicorn setproctitle is patched via sitecustomize.py
-    # in site-packages to prevent SIGSEGV crashes. See .tox/py311-airflow302/lib/python3.11/site-packages/sitecustomize.py
+    # On macOS, PYTHONSTARTUP (set in environment above) loads _airflow_gunicorn_patch so
+    # setproctitle is no-op'd and gunicorn does not call it after fork (avoids SIGSEGV).
+    # See https://github.com/apache/airflow/issues/55838
 
     airflow_process = subprocess.Popen(
         [str(airflow_executable), "standalone"],
@@ -753,6 +771,7 @@ class DagTestCase:
     multiple_connections: bool = False
     platform_instance: Optional[str] = None
     enable_datajob_lineage: bool = True
+    cluster: Optional[str] = None
 
     # used to identify the test case in the golden file when same DAG is used in multiple tests
     test_variant: Optional[str] = None
@@ -775,6 +794,9 @@ test_cases_airflow2 = [
         test_variant="_no_datajob_lineage",
     ),
     DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase(
+        "airflow_asset_iolets", v2_only=True, platform_instance=PLATFORM_INSTANCE
+    ),
     DagTestCase("dag_to_skip", v2_only=True, platform_instance=PLATFORM_INSTANCE),
     DagTestCase("snowflake_operator", success=False, v2_only=True),
     DagTestCase("sqlite_operator", v2_only=True, platform_instance=PLATFORM_INSTANCE),
@@ -785,6 +807,12 @@ test_cases_airflow2 = [
     DagTestCase("datahub_emitter_operator_jinja_template_dag", v2_only=True),
     DagTestCase("athena_operator", v2_only=True),
     DagTestCase("bigquery_insert_job_operator", v2_only=True),
+    DagTestCase(
+        "bigquery_insert_job_operator",
+        v2_only=True,
+        cluster="DEV",
+        test_variant="_dev_cluster",
+    ),
     DagTestCase("teradata_operator", v2_only=True),
 ]
 
@@ -802,6 +830,11 @@ test_cases_airflow3 = [
         test_variant="_no_datajob_lineage",
     ),
     DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("airflow_asset_iolets", platform_instance=PLATFORM_INSTANCE),
+    # @asset decorated DAGs - Airflow 3.0+ feature
+    DagTestCase("decorated_asset_producer", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("decorated_asset_with_file", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("consume_decorated_assets", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("dag_to_skip", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("snowflake_operator", success=False),
     DagTestCase("sqlite_operator", platform_instance=PLATFORM_INSTANCE),
@@ -810,7 +843,15 @@ test_cases_airflow3 = [
     DagTestCase("datahub_emitter_operator_jinja_template_dag"),
     DagTestCase("athena_operator"),
     DagTestCase("bigquery_insert_job_operator"),
+    DagTestCase(
+        "bigquery_insert_job_operator", cluster="DEV", test_variant="_dev_cluster"
+    ),
     DagTestCase("teradata_operator"),
+    DagTestCase("athena_operator", cluster="DEV", test_variant="_dev_cluster"),
+    DagTestCase("teradata_operator", cluster="DEV", test_variant="_dev_cluster"),
+    DagTestCase(
+        "snowflake_operator", cluster="DEV", test_variant="_dev_cluster", success=False
+    ),
 ]
 
 
@@ -902,20 +943,30 @@ def test_airflow_plugin(
 
     # Support provider-specific golden files for apache-airflow-providers-openlineage tests
     # When using the provider package (Airflow 2.10+), OpenLineage version differs from
-    # legacy openlineage-airflow package, causing cosmetic metadata formatting differences
+    # legacy openlineage-airflow package, causing cosmetic metadata formatting differences.
+    # Tests without provider-specific golden files are skipped in provider environments.
+    # Note: This only applies to Airflow 2.x - Airflow 3.x always uses the provider and
+    # has separate _airflow3.json golden files.
     golden_path = GOLDENS_FOLDER / f"{golden_filename}.json"
-    try:
-        from datahub_airflow_plugin.airflow2._openlineage_compat import (
-            USE_OPENLINEAGE_PROVIDER,
-        )
+    if not is_airflow3():
+        try:
+            from datahub_airflow_plugin.airflow2._openlineage_compat import (
+                USE_OPENLINEAGE_PROVIDER,
+            )
 
-        if USE_OPENLINEAGE_PROVIDER:
-            provider_golden_path = GOLDENS_FOLDER / f"{golden_filename}_provider.json"
-            if provider_golden_path.exists():
-                golden_path = provider_golden_path
-    except ImportError:
-        # Airflow 3.x or other scenarios where this import might fail
-        pass
+            if USE_OPENLINEAGE_PROVIDER:
+                provider_golden_path = (
+                    GOLDENS_FOLDER / f"{golden_filename}_provider.json"
+                )
+                if provider_golden_path.exists():
+                    golden_path = provider_golden_path
+                else:
+                    pytest.skip(
+                        f"Skipping test in provider environment: no {golden_filename}_provider.json golden file exists. "
+                        "This test only runs with the standalone openlineage-airflow package."
+                    )
+        except ImportError:
+            pass
 
     dag_id = test_case.dag_id
 
@@ -934,6 +985,7 @@ def test_airflow_plugin(
         multiple_connections=test_case.multiple_connections,
         platform_instance=test_case.platform_instance,
         enable_datajob_lineage=test_case.enable_datajob_lineage,
+        cluster=test_case.cluster,
     ) as airflow_instance:
         print(f"Running DAG {dag_id}...")
         _wait_for_dag_to_load(airflow_instance, dag_id)
@@ -1049,6 +1101,7 @@ if __name__ == "__main__":
         multiple_connections=False,
         platform_instance=None,
         enable_datajob_lineage=True,
+        cluster=None,
     ) as airflow_instance:
         # input("Press enter to exit...")
         print("quitting airflow")

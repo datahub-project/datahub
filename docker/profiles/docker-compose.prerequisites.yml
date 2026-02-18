@@ -193,7 +193,7 @@ services:
   mysql-setup-cdc:
     <<: *mysql-setup-common
     environment: &mysql-setup-env-cdc
-      CDC_MCL_PROCESSING_ENABLED: ${CDC_MCL_PROCESSING_ENABLED:-true}
+      CDC_MCL_PROCESSING_ENABLED: ${CDC_MCL_PROCESSING_ENABLED:-false}
     profiles:
       - quickstart-consumers-cdc
   mysql-setup-dev:
@@ -231,7 +231,7 @@ services:
   postgres-setup-cdc:
     <<: *postgres-setup-common
     environment: &postgres-setup-env-cdc
-      CDC_MCL_PROCESSING_ENABLED: ${CDC_MCL_PROCESSING_ENABLED:-true}
+      CDC_MCL_PROCESSING_ENABLED: ${CDC_MCL_PROCESSING_ENABLED:-false}
     profiles:
       - quickstart-postgres-cdc
   postgres-setup-dev:
