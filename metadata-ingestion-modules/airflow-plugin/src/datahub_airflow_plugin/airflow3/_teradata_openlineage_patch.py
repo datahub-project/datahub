@@ -245,6 +245,7 @@ def _create_teradata_openlineage_wrapper(
 
             # Render SQL templates if needed
             # Handle both string and list of SQL statements
+            rendered_sql: Union[str, list]
             if isinstance(sql, list):
                 rendered_sql = [
                     _render_teradata_sql_templates(str(s), self, task_instance)
