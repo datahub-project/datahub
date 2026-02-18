@@ -405,7 +405,7 @@ def _format_numeric_value(value: Any, col_type: ProfilerDataType) -> str:
     return str_value
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(init=False)
 class SQLAlchemyProfiler:
     """Custom SQLAlchemy-based profiler replacing Great Expectations."""
 
