@@ -26,7 +26,7 @@ const GlossaryItemCardHeader = styled.div<GlossaryItemCardHeaderProps>`
         height: 22px;
         width: 22px;
         path {
-            fill: white;
+            fill: ${(props) => props.theme.colors.textOnFillBrand};
         }
     }
 `;
@@ -92,7 +92,7 @@ const GlossaryItemBadge = styled.span`
     transform: rotate(-45deg);
     padding: 8px;
     opacity: 1;
-    background-color: rgba(0, 0, 0, 0.17);
+    background-color: ${(props) => props.theme.colors.overlayMedium};
 `;
 
 const GlossaryItemCardDetails = styled.div`

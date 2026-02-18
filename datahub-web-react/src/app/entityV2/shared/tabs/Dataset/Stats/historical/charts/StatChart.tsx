@@ -1,6 +1,6 @@
 import { Card, Typography } from 'antd';
 import React, { useMemo } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { ChartContainer } from '@app/analyticsDashboard/components/ChartContainer';
 import { TimeSeriesChart } from '@app/analyticsDashboard/components/TimeSeriesChart';
@@ -45,12 +45,6 @@ export type Props = {
     lineColor?: string;
 };
 
-/**
- * Change these to change the chart axis & line colors
- * TODO: Add this to the theme config.
- */
-const DEFAULT_LINE_COLOR = '#20d3bd';
-const DEFAULT_AXIS_COLOR = '#D8D8D8';
 const DEFAULT_AXIS_WIDTH = 2;
 
 /**
@@ -65,8 +59,10 @@ export default function StatChart({
     visible = true,
     width = 360,
     height = 300,
-    lineColor = DEFAULT_LINE_COLOR,
+    lineColor,
 }: Props) {
+    const theme = useTheme();
+    const resolvedLineColor = lineColor || theme.colors.chartsSeafoamHigh;
     const timeSeriesData = useMemo(
         () =>
             values
@@ -87,8 +83,8 @@ export default function StatChart({
                 <ChartTitle>{title}</ChartTitle>
                 <TimeSeriesChart
                     style={{
-                        lineColor,
-                        axisColor: DEFAULT_AXIS_COLOR,
+                        lineColor: resolvedLineColor,
+                        axisColor: theme.colors.border,
                         axisWidth: DEFAULT_AXIS_WIDTH,
                     }}
                     hideLegend

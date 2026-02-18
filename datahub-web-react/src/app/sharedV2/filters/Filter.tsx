@@ -40,7 +40,7 @@ export const FilterLabel = styled(Button)<{ $isActive: boolean }>`
     color: ${(props) => props.theme.colors.textSecondary};
     font-size: 14px;
     font-weight: 500;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     cursor: pointer;
     transition: all 0.2s ease;
     gap: 8px;
@@ -51,7 +51,7 @@ export const FilterLabel = styled(Button)<{ $isActive: boolean }>`
     &:focus {
         color: inherit;
         border-color: ${(props) => props.theme.colors.border};
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
 
     ${(props) =>

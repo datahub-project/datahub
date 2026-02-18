@@ -58,6 +58,59 @@ export default interface ColorTheme {
     borderError: string;
     borderSuccess: string;
     borderWarning: string;
+    // Interactive states: Hover
+    textHover: string;
+    iconHover: string;
+    borderHover: string;
+    // Interactive states: Active / Pressed
+    bgActive: string;
+    textActive: string;
+    borderActive: string;
+    // Interactive states: Selected
+    bgSelected: string;
+    bgSelectedSubtle: string;
+    textSelected: string;
+    iconSelected: string;
+    borderSelected: string;
+    // Interactive states: Focus (supplements existing borderBrandFocused)
+    borderFocused: string;
+    // Interactive states: Disabled (supplements existing bgDisabled, textDisabled, borderDisabled)
+    iconDisabled: string;
+    bgSurfaceDisabled: string;
+    // Shadows
+    shadowXs: string;
+    shadowSm: string;
+    shadowMd: string;
+    shadowLg: string;
+    shadowXl: string;
+    shadowFocus: string;
+    shadowFocusBrand: string;
+    shadowInset: string;
+    shadowNavbar: string;
+    // Overlays
+    overlayLight: string;
+    overlayMedium: string;
+    overlayHeavy: string;
+    // Inputs / Forms
+    bgInput: string;
+    bgInputDisabled: string;
+    borderInput: string;
+    borderInputFocus: string;
+    textPlaceholder: string;
+    // Scrollbar
+    scrollbarTrack: string;
+    scrollbarThumb: string;
+    scrollbarThumbHover: string;
+    // Code blocks
+    bgCode: string;
+    bgCodeBlock: string;
+    // Highlight
+    bgHighlight: string;
+    // Tooltip
+    bgTooltip: string;
+    // Skeleton / Loading
+    bgSkeleton: string;
+    bgSkeletonShimmer: string;
     chartsWineHigh: string;
     chartsWineMedium: string;
     chartsWineLow: string;

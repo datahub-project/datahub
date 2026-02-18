@@ -3,7 +3,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { formatNumber } from '@app/shared/formatNumber';
@@ -20,7 +19,8 @@ const Card = styled(Link)<{ $isShowNavBarRedesign?: boolean }>`
         props.$isShowNavBarRedesign ? `1px solid ${props.theme.colors.border}` : '2px solid transparent'};
 
     :hover {
-        border: ${(props) => (props.$isShowNavBarRedesign ? '1px' : '2px')} solid ${SEARCH_COLORS.LINK_BLUE};
+        border: ${(props) => (props.$isShowNavBarRedesign ? '1px' : '2px')} solid
+            ${(props) => props.theme.colors.hyperlinks};
     }
 
     display: flex;

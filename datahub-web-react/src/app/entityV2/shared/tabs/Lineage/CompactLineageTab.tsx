@@ -23,7 +23,7 @@ const Container = styled.div`
 const LineageButton = styled(Button)<{ $isSelected: boolean }>`
     &&& {
         background-color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : 'none')};
-        color: ${(props) => (props.$isSelected ? '#ffffff' : props.theme.colors.textTertiary)};
+        color: ${(props) => (props.$isSelected ? props.theme.colors.textOnFillBrand : props.theme.colors.textTertiary)};
         border-radius: 8px;
         margin-right: 12px;
         min-height: 32px;
@@ -75,7 +75,7 @@ const AdvancedFiltersButton = styled(Button)<{ $isSelected: boolean }>`
     && {
         padding: 0px 4px;
         font-size: 16px;
-        color: ${(props) => (props.$isSelected ? '#00615F' : props.theme.colors.textTertiary)};
+        color: ${(props) => (props.$isSelected ? props.theme.colors.textSelected : props.theme.colors.textTertiary)};
     }
 `;
 

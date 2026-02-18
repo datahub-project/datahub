@@ -20,6 +20,7 @@ const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
     border-radius: 200px;
     background-color: ${(props) =>
         props.isThemeV2 ? props.theme.styles['primary-color'] : props.theme.colors.hyperlinks};
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     width: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     height: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     display: flex;
@@ -33,7 +34,7 @@ const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
 
 const DropdownContainer = styled.div`
     border-radius: 12px;
-    box-shadow: 0px 0px 14px 0px rgba(0, 0, 0, 0.15);
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     background-color: ${(props) => props.theme.colors.bg};
     padding-bottom: 8px;
     width: 300px;
@@ -194,7 +195,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
             >
                 <Tooltip title="Add property" placement="left" showArrow={false}>
                     <AddButton isThemeV2={isThemeV2} isV1Drawer={isV1Drawer} data-testid="add-structured-prop-button">
-                        <Icon icon="Add" size={isV1Drawer ? 'lg' : '2xl'} color="white" />
+                        <Icon icon="Add" size={isV1Drawer ? 'lg' : '2xl'} color="inherit" />
                     </AddButton>
                 </Tooltip>
             </Dropdown>

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { Text } from '@components/components/Text';
-import { colors } from '@components/theme';
 
 export const Wrapper = styled.nav`
     display: flex;

@@ -61,6 +61,59 @@ const lightTheme: ColorTheme = {
     borderError: colors.red300,
     borderSuccess: colors.green300,
     borderWarning: colors.yellow800,
+    // Interactive states: Hover
+    textHover: colors.violet600,
+    iconHover: colors.violet500,
+    borderHover: colors.violet300,
+    // Interactive states: Active / Pressed
+    bgActive: colors.violet100,
+    textActive: colors.violet700,
+    borderActive: colors.violet400,
+    // Interactive states: Selected
+    bgSelected: colors.violet0,
+    bgSelectedSubtle: 'rgba(83, 63, 209, 0.04)',
+    textSelected: colors.violet600,
+    iconSelected: colors.violet500,
+    borderSelected: colors.violet400,
+    // Interactive states: Focus
+    borderFocused: colors.gray500,
+    // Interactive states: Disabled
+    iconDisabled: colors.gray500,
+    bgSurfaceDisabled: colors.gray300,
+    // Shadows
+    shadowXs: '0 4px 8px 0 rgba(33, 23, 95, 0.04)',
+    shadowSm: '0 4px 8px 0 rgba(33, 23, 95, 0.08)',
+    shadowMd: '0 0 24px 0 rgba(0, 0, 0, 0.10)',
+    shadowLg: '0 4px 12px 0 rgba(9, 1, 61, 0.12)',
+    shadowXl: '0 4px 28px 0 rgba(9, 1, 61, 0.14)',
+    shadowFocus: '0px 0px 0px 1px rgba(139, 135, 157, 0.08)',
+    shadowFocusBrand: '0px 0px 0px 1px rgba(108, 71, 255, 0.08)',
+    shadowInset: 'inset 0px 1px 3px rgba(0, 0, 0, 0.08)',
+    shadowNavbar: '0px 2px 10px rgba(0, 0, 0, 0.08)',
+    // Overlays
+    overlayLight: 'rgba(0, 0, 0, 0.05)',
+    overlayMedium: 'rgba(0, 0, 0, 0.15)',
+    overlayHeavy: 'rgba(0, 0, 0, 0.45)',
+    // Inputs / Forms
+    bgInput: colors.gray0,
+    bgInputDisabled: colors.gray300,
+    borderInput: colors.gray300,
+    borderInputFocus: colors.violet400,
+    textPlaceholder: colors.gray500,
+    // Scrollbar
+    scrollbarTrack: 'transparent',
+    scrollbarThumb: colors.gray300,
+    scrollbarThumbHover: colors.gray500,
+    // Code blocks
+    bgCode: colors.gray200,
+    bgCodeBlock: colors.gray200,
+    // Highlight
+    bgHighlight: '#ffe58f',
+    // Tooltip
+    bgTooltip: colors.gray800,
+    // Skeleton / Loading
+    bgSkeleton: colors.gray300,
+    bgSkeletonShimmer: colors.gray200,
     chartsWineHigh: colors.wine600,
     chartsWineMedium: colors.wine400,
     chartsWineLow: colors.wine200,

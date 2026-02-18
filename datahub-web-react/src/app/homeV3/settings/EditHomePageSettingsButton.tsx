@@ -21,13 +21,13 @@ const ButtonWrapper = styled.div`
     right: 32px;
     bottom: 32px;
     border-radius: 200px;
-    box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     z-index: ${ANT_NOTIFICATION_Z_INDEX + 1};
 `;
 
 const DropdownContainer = styled.div`
     border-radius: 12px;
-    box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     background-color: ${(props) => props.theme.colors.bgSurface};
     overflow: hidden; // Cleanly rounds edges
 

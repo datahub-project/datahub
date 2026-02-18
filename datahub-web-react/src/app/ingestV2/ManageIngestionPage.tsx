@@ -33,7 +33,7 @@ const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         `
         overflow: hidden;
         margin: 5px;
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowSm};
         height: 100%;
     `}
 `;

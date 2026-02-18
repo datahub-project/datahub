@@ -1,6 +1,6 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import StatChart, { ChartCard } from '@app/entityV2/shared/tabs/Dataset/Stats/historical/charts/StatChart';
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
@@ -13,7 +13,6 @@ import NoStatsAvailble from '@images/no-stats-available.svg?react';
 
 const CHART_WIDTH = 460;
 const CHART_HEIGHT = 170;
-const DEFAULT_LINE_COLOR = '#ece9f8';
 
 const StatSection = styled.div`
     padding: 12px 16px;
@@ -72,6 +71,8 @@ const getLookbackWindowSize = (window: LookbackWindow) => {
 };
 
 export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Props) {
+    const theme = useTheme();
+    const defaultLineColor = theme.colors.chartsBrandBase;
     const { fieldProfile, profiles } = properties;
     const selectedFieldPath = fieldProfile?.fieldPath || '';
 
@@ -121,7 +122,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
-                    lineColor={DEFAULT_LINE_COLOR}
+                    lineColor={defaultLineColor}
                     title="Null Count Over Time"
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}
@@ -130,7 +131,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
-                    lineColor={DEFAULT_LINE_COLOR}
+                    lineColor={defaultLineColor}
                     title="Null Percentage Over Time"
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}
@@ -139,7 +140,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
-                    lineColor={DEFAULT_LINE_COLOR}
+                    lineColor={defaultLineColor}
                     title="Distinct Count Over Time"
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}
@@ -148,7 +149,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
-                    lineColor={DEFAULT_LINE_COLOR}
+                    lineColor={defaultLineColor}
                     title="Distinct Percentage Over Time"
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}

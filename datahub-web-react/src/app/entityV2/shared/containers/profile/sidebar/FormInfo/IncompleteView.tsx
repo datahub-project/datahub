@@ -61,7 +61,7 @@ export default function IncompleteView({
                                     {showVerificationStyles ? (
                                         <StyledImgIcon src={ShieldExclamation} />
                                     ) : (
-                                        <StyledReadOutlined color="#F4C449" addLineHeight />
+                                        <StyledReadOutlined color={themeConfig.colors.iconWarning} addLineHeight />
                                     )}
                                 </>
                             )}

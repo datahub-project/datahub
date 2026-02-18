@@ -21,7 +21,7 @@ const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean; $minWidth?:
         height: 40px;
         border: 1px solid;
         border-color: ${props.theme.colors.border};
-        box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+        box-shadow: ${props.theme.colors.shadowXs};
 
         &&:hover {
             border-color: ${props.theme.styles['primary-color']};

@@ -21,7 +21,8 @@ const TabButton = styled.div<{ selected: boolean; disabled?: boolean }>`
     padding: 0px 24px;
     border: none;
     background-color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : 'transparent')};
-    color: ${(props) => (props.selected ? '#fff' : props.theme.colors.text || props.theme.colors.bgSurface)};
+    color: ${(props) =>
+        props.selected ? props.theme.colors.textOnFillBrand : props.theme.colors.text || props.theme.colors.bgSurface};
     font-size: 12px;
     cursor: pointer;
     ${(props) => props.disabled && 'opacity: 0.5;'}

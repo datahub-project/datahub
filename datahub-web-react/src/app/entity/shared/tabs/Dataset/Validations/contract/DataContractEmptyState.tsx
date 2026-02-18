@@ -14,7 +14,7 @@ const Summary = styled.div`
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid ${(props) => props.theme.colors.border};
-    box-shadow: 0px 2px 6px 0px #0000000d;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const SummaryDescription = styled.div`

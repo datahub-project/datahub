@@ -31,7 +31,7 @@ const ScrollButton = styled.button<{
     transition:
         background-color 0.3s ease-in-out,
         color 0.3s ease-in-out;
-    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 
     &:hover {
         color: ${(props) => props.theme.colors.bg};

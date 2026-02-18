@@ -31,7 +31,7 @@ const SidebarContainer = styled.div<{
     max-height: 100%;
     width: ${(props) => (props.$isCollapsed ? `${SIDEBAR_COLLAPSED_WIDTH}px` : `${props.$width}px`)};
     transition: width ${SIDEBAR_TRANSITION_MS}ms ease-in-out;
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;
@@ -41,7 +41,7 @@ const SidebarContainer = styled.div<{
         props.$isShowNavBarRedesign &&
         `
         margin: ${props.$isEntityProfile ? '5px 0px 6px 5px' : '0px 4px 0px 0px'};
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowSm};
     `}
 `;
 
@@ -102,12 +102,9 @@ const SearchIcon = styled(SearchOutlined)`
 `;
 
 const ResultsWrapper = styled.div`
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
-    box-shadow:
-        0 3px 6px -4px rgb(0 0 0 / 12%),
-        0 6px 16px 0 rgb(0 0 0 / 8%),
-        0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     padding: 8px;
     position: absolute;
     max-height: 300px;

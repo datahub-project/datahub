@@ -15,7 +15,7 @@ const DateWithTooltip = styled.span`
     &:hover {
         text-decoration: underline;
         text-decoration-style: dotted;
-        text-decoration-color: #d9d9d9;
+        text-decoration-color: ${(props) => props.theme.colors.border};
     }
 `;
 

@@ -39,12 +39,12 @@ export const SideBarSubSection = styled.div`
     &::-webkit-scrollbar {
         height: 12px;
         width: 1px;
-        background: #d6d6d6;
+        background: ${(props) => props.theme.colors.scrollbarTrack};
     }
     &::-webkit-scrollbar-thumb {
-        background: #d6d6d6;
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+        -webkit-box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
 `;
 

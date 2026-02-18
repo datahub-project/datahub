@@ -13,7 +13,7 @@ export const PageWrapper = styled.div`
     }
     display: flex;
     flex-direction: column;
-    box-shadow: 0px 4px 8px 0px rgba(33, 23, 95, 0.08);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     align-items: center;
 `;
 

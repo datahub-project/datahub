@@ -1,6 +1,6 @@
 import { Affix, Row, Typography } from 'antd';
 import React, { ReactNode } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import DataProfileView from '@app/entity/dataset/profile/stats/snapshot/SnapshotStatsView';
 
@@ -18,6 +18,7 @@ export type Props = {
 };
 
 export default function LatestStatsView({ profile, toggleView }: Props) {
+    const theme = useTheme();
     const reportedAtDate = new Date(profile.timestampMillis);
     return (
         <>
@@ -25,7 +26,7 @@ export default function LatestStatsView({ profile, toggleView }: Props) {
                 <HeaderRow justify="space-between" align="middle">
                     <div>
                         <Typography.Title level={2}>Latest Stats</Typography.Title>
-                        <Typography.Text style={{ color: 'gray' }}>
+                        <Typography.Text style={{ color: theme.colors.textTertiary }}>
                             Reported on {reportedAtDate.toLocaleDateString()} at {reportedAtDate.toLocaleTimeString()}
                         </Typography.Text>
                     </div>

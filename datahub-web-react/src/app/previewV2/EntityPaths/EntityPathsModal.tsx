@@ -16,7 +16,7 @@ const PathWrapper = styled.div`
     padding: 20px;
     border: 1px solid ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
-    box-shadow: 1px 1px 12px 4px #0000000d;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     width: 100%;
 `;
 

@@ -38,8 +38,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     padding: 16px 0px 8px 0px;
     border: 1px solid ${(props) => props.theme.colors.border};
-    box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign ? props.theme.styles['box-shadow-navbar-redesign'] : '0px 4px 10px 0px #a8a8a840'};
+    box-shadow: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.shadowSm : props.theme.colors.shadowXs)};
 `;
 
 const FiltersContainerTop = styled.div`

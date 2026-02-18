@@ -39,7 +39,7 @@ const ModalContent = styled.span`
 `;
 
 const modalMaskStyle = {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: 'var(--theme-overlayLight)',
 };
 
 export default function PersonalizationLoadingModal() {

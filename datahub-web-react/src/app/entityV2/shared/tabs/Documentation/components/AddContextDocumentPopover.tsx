@@ -16,8 +16,8 @@ const NewDocumentButton = styled(Button)`
     justify-content: start;
     color: ${(props) => props.theme.colors.textSecondary};
     &:hover {
-        background: ${(props) => props.theme.colors.border};
-        box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
+        background: ${(props) => props.theme.colors.bgHover};
+        box-shadow: ${(props) => props.theme.colors.shadowFocus};
     }
     padding: 12px 8px;
 `;

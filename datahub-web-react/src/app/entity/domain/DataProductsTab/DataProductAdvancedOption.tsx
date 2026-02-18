@@ -20,7 +20,7 @@ const FormItemNoMargin = styled(FormItem)`
 `;
 
 const AdvancedLabel = styled(Typography.Text)`
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export function DataProductAdvancedOption({ builderState, updateBuilderState }: DataProductBuilderFormProps) {

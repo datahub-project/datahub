@@ -13,7 +13,6 @@ import Skeleton from '@app/searchV2/searchBarV2/components/Skeleton';
 import {
     AUTOCOMPLETE_DROPDOWN_ALIGN,
     AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR,
-    BOX_SHADOW,
 } from '@app/searchV2/searchBarV2/constants';
 import useFiltersMapFromQueryParams from '@app/searchV2/searchBarV2/hooks/useFiltersMapFromQueryParams';
 import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
@@ -202,7 +201,7 @@ export const SearchBarV2 = ({
                             overflowY: 'visible',
                             position: (fixAutoComplete && 'fixed') || 'relative',
                             backgroundColor: theme.colors.bgSurface,
-                            boxShadow: BOX_SHADOW,
+                            boxShadow: theme.colors.shadowXl,
                             ...(isShowNavBarRedesign
                                 ? {
                                       padding: spacing.xsm,

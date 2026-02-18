@@ -56,7 +56,7 @@ export const ViewContainer = styled.div<{
 
         :hover {
             border: 1px solid ${props.theme.styles['primary-color']};
-            box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+            box-shadow: ${props.theme.colors.shadowXs};
         }
     `}
 `;
@@ -87,7 +87,7 @@ export const ViewIconNavBarRedesign = styled.div<{ $selected?: boolean }>`
     justify-content: center;
 
     svg {
-        color: ${(props) => (props.$selected ? '#705EE4' : props.theme.colors.textTertiary)};
+        color: ${(props) => (props.$selected ? props.theme.colors.textBrand : props.theme.colors.textTertiary)};
     }
 `;
 

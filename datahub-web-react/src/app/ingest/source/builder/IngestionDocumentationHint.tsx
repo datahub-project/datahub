@@ -9,7 +9,7 @@ const Container = styled.div`
     background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
     padding: 12px 12px 16px 24px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid ${(props) => props.theme.colors.border};
     margin-bottom: 20px;
 `;
 

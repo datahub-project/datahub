@@ -12,7 +12,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     align-items: start;
     justify-content: start;
     padding: ${(props) => (props.$isShowNavBarRedesign ? '16px 20px' : '16px 24px 24px 24px')};
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
 
     ${(props) =>
         !props.$isShowNavBarRedesign &&
@@ -27,7 +27,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         props.$isShowNavBarRedesign &&
         `
         border-radius: ${props.theme.styles['border-radius-navbar-redesign']};
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowSm};
         margin: 0 5px;
     `}
 `;

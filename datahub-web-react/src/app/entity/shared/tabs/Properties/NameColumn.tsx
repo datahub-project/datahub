@@ -1,7 +1,7 @@
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import ChildCountLabel from '@app/entity/shared/tabs/Dataset/Schema/components/ChildCountLabel';
 import PropertyTypeLabel from '@app/entity/shared/tabs/Dataset/Schema/components/PropertyTypeLabel';
@@ -46,6 +46,7 @@ interface Props {
 }
 
 export default function NameColumn({ propertyRow, filterText }: Props) {
+    const theme = useTheme();
     const { structuredProperty } = propertyRow;
     return (
         <>
@@ -59,7 +60,7 @@ export default function NameColumn({ propertyRow, filterText }: Props) {
             ) : (
                 <NameLabelWrapper>
                     <Tooltip
-                        color="#373D44"
+                        color={theme.colors.bgTooltip}
                         placement="topRight"
                         title={
                             structuredProperty ? (

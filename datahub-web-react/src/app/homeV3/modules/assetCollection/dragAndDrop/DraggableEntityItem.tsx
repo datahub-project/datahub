@@ -10,7 +10,7 @@ import type { DataHubPageModuleType, Entity } from '@types';
 
 const DraggableWrapper = styled.div<{ $isDragging: boolean; $transform?: string; $transition?: string }>`
     background-color: ${(props) => props.theme.colors.bg};
-    box-shadow: ${(props) => (props.$isDragging ? '0px 4px 12px 0px rgba(9, 1, 61, 0.12)' : 'none')};
+    box-shadow: ${(props) => (props.$isDragging ? props.theme.colors.shadowSm : 'none')};
     cursor: ${(props) => (props.$isDragging ? 'grabbing' : 'inherit')};
     z-index: ${(props) => (props.$isDragging ? '999' : 'auto')};
     transform: ${(props) => props.$transform};

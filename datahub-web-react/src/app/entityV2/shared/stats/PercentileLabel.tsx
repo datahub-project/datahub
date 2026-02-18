@@ -1,6 +1,6 @@
 import { Popover } from '@components';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { percentileToColor, percentileToLabel } from '@app/entityV2/shared/stats/statsUtils';
 
@@ -26,9 +26,10 @@ type Props = {
 };
 
 export const PercentileLabel = ({ percentile, description }: Props) => {
+    const theme = useTheme();
     return (
         <Popover
-            color="#262626"
+            color={theme.colors.bgTooltip}
             overlayStyle={{ maxWidth: 260 }}
             placement="bottom"
             showArrow={false}

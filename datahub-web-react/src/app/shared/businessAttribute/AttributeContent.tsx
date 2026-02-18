@@ -2,7 +2,7 @@ import { GlobalOutlined } from '@ant-design/icons';
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { MatchedFieldName } from '@app/search/matches/constants';
@@ -10,8 +10,6 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveBusinessAttributeMutation } from '@graphql/mutations.generated';
 import { BusinessAttributeAssociation, EntityType } from '@types';
-
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
 const StyledAttribute = styled(Tag)<{ fontSize?: number; highlightAttribute?: boolean }>`
     &&& {
@@ -45,8 +43,10 @@ export default function AttributeContent({
     entityUrn,
     refetch,
 }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const [removeBusinessAttributeMutation] = useRemoveBusinessAttributeMutation();
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
     const highlightAttribute = useHasMatchedFieldByUrn(
         businessAttribute?.businessAttribute?.urn || '',
         'businessAttributes' as MatchedFieldName,

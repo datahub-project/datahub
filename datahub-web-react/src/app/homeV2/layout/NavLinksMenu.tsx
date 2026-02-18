@@ -40,14 +40,14 @@ const LinkWrapper = styled.span`
     height: 52px;
     width: 52px;
     line-height: 0;
-    box-shadow: 0px 0px 8px 4px rgba(0, 0, 0, 0);
+    box-shadow: none;
     transition: all 200ms ease;
     color: ${(props) => props.theme.colors.textOnFillDefault};
 
     &:hover {
         cursor: pointer;
         background-color: ${(props) => props.theme.colors.bgSurfaceBrandHover};
-        box-shadow: 0px 0px 8px 4px rgba(0, 0, 0, 0.15);
+        box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
 
     & svg {
@@ -70,7 +70,7 @@ const SubMenu = styled.div`
 const SubMenuContent = styled.div`
     border-radius: 12px;
     background: ${(props) => props.theme.colors.bgSurfaceBrand};
-    box-shadow: 0px 8px 8px 4px rgba(0, 0, 0, 0.25);
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     padding: 8px;
 `;
 

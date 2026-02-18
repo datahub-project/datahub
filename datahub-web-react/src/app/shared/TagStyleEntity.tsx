@@ -1,4 +1,3 @@
-import { grey } from '@ant-design/colors';
 import { PlusOutlined } from '@ant-design/icons';
 import { ApolloError } from '@apollo/client';
 import { Button, Divider, Typography, message } from 'antd';
@@ -47,7 +46,7 @@ type SearchResultsInterface = {
 
 const TitleLabel = styled(Typography.Text)`
     &&& {
-        color: ${grey[2]};
+        color: ${(props) => props.theme.colors.textTertiary};
         font-size: 12px;
         display: block;
         line-height: 20px;
@@ -57,7 +56,7 @@ const TitleLabel = styled(Typography.Text)`
 
 const TitleText = styled(Typography.Text)`
     &&& {
-        color: ${grey[10]};
+        color: ${(props) => props.theme.colors.text};
         font-weight: 700;
         font-size: 20px;
         line-height: 28px;
@@ -114,7 +113,7 @@ const StatsBox = styled.div`
 
 const StatsLabel = styled(Typography.Text)`
     &&& {
-        color: ${grey[10]};
+        color: ${(props) => props.theme.colors.text};
         font-size: 14px;
         font-weight: 700;
         line-height: 28px;
@@ -138,14 +137,14 @@ const OwnerButtonEmptyTitle = styled.span`
     font-weight: 700;
     font-size: 12px;
     line-height: 20px;
-    color: ${grey[10]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const OwnerButtonTitle = styled.span`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: ${grey[10]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const TagName = styled.div`

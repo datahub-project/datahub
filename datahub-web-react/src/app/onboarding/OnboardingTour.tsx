@@ -8,7 +8,6 @@ import { useUserContext } from '@app/context/useUserContext';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import useShouldSkipOnboardingTour from '@app/onboarding/useShouldSkipOnboardingTour';
 import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from '@app/onboarding/utils';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { EducationStepsContext } from '@providers/EducationStepsContext';
 
 import { useBatchUpdateStepStatesMutation } from '@graphql/step.generated';
@@ -21,11 +20,10 @@ type Props = {
 export const OnboardingTour = ({ stepIds }: Props) => {
     const { educationSteps, setEducationSteps, educationStepIdsAllowlist } = useContext(EducationStepsContext);
     const userUrn = useUserContext()?.user?.urn;
-    const isThemeV2 = useIsThemeV2();
     const theme = useTheme();
     const { isTourOpen, tourReshow, setTourReshow, setIsTourOpen } = useContext(OnboardingContext);
     const location = useLocation();
-    const accentColor = isThemeV2 ? theme.colors.bgSurfaceBrand : '#5cb7b7';
+    const accentColor = theme.colors.bgSurfaceBrand;
 
     useEffect(() => {
         function handleKeyDown(e) {

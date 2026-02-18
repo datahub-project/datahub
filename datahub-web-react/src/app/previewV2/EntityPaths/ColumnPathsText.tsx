@@ -11,7 +11,7 @@ import { EntityPath, EntityType, LineageDirection, SchemaFieldEntity } from '@ty
 export const ResultText = styled.span`
     white-space: nowrap;
     &:hover {
-        border-bottom: 1px solid black;
+        border-bottom: 1px solid ${(props) => props.theme.colors.text};
         cursor: pointer;
     }
 `;

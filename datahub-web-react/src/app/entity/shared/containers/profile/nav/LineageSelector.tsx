@@ -1,4 +1,3 @@
-import { blue, grey } from '@ant-design/colors';
 import { InfoCircleOutlined, PartitionOutlined } from '@ant-design/icons';
 import { Badge } from 'antd';
 import React from 'react';
@@ -37,12 +36,17 @@ const IconGroup = styled.div<{ isSelected: boolean; disabled?: boolean }>`
     font-size: 14px;
     color: ${(props) => {
         if (props.disabled) {
-            return grey[2];
+            return props.theme.colors.textDisabled;
         }
-        return !props.isSelected ? 'black' : props.theme.styles['primary-color'] || blue[4];
+        return !props.isSelected
+            ? props.theme.colors.text
+            : props.theme.styles['primary-color'] || props.theme.colors.textBrand;
     }};
     &:hover {
-        color: ${(props) => (props.disabled ? grey[2] : props.theme.styles['primary-color'] || blue[4])};
+        color: ${(props) =>
+            props.disabled
+                ? props.theme.colors.textDisabled
+                : props.theme.styles['primary-color'] || props.theme.colors.textBrand};
         cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
     }
 `;

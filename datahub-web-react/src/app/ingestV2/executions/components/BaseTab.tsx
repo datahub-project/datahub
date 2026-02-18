@@ -40,7 +40,7 @@ export const ScrollableDetailsContainer = styled(DetailsContainer)`
 
     pre:hover {
         scrollbar-width: thin;
-        scrollbar-color: rgba(193, 196, 208, 0.8) transparent;
+        scrollbar-color: ${(props) => props.theme.colors.scrollbarThumb} transparent;
     }
 
     pre:hover::-webkit-scrollbar {
@@ -48,12 +48,12 @@ export const ScrollableDetailsContainer = styled(DetailsContainer)`
     }
 
     pre::-webkit-scrollbar-track {
-        background: rgba(193, 196, 208, 0.3) !important;
+        background: ${(props) => props.theme.colors.scrollbarTrack} !important;
         border-radius: 10px;
     }
 
     pre::-webkit-scrollbar-thumb {
-        background: rgba(193, 196, 208, 0.8) !important;
+        background: ${(props) => props.theme.colors.scrollbarThumb} !important;
         border-radius: 10px;
     }
 `;

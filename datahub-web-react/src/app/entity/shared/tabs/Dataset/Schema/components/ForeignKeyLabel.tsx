@@ -1,4 +1,3 @@
-import { green } from '@ant-design/colors';
 import { Badge } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
@@ -10,9 +9,10 @@ import { ForeignKeyConstraint } from '@types';
 const ForeignKeyBadge = styled(Badge)<{ $highlight: boolean }>`
     margin-left: 4px;
     &&& .ant-badge-count {
-        background-color: ${(props) => (props.$highlight ? green[1] : props.theme.colors.bg)};
-        color: ${green[5]};
-        border: 1px solid ${green[2]};
+        background-color: ${(props) =>
+            props.$highlight ? props.theme.colors.bgSurfaceSuccess : props.theme.colors.bg};
+        color: ${(props) => props.theme.colors.textSuccess};
+        border: 1px solid ${(props) => props.theme.colors.borderSuccess};
         font-size: 12px;
         font-weight: 400;
         height: 22px;

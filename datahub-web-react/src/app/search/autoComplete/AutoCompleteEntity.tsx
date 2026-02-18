@@ -1,6 +1,6 @@
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { getPlatformName } from '@app/entity/shared/utils';
 import AutoCompleteEntityIcon from '@app/search/autoComplete/AutoCompleteEntityIcon';
@@ -62,6 +62,7 @@ interface Props {
 }
 
 export default function AutoCompleteEntity({ query, entity, siblings, hasParentTooltip }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const genericEntityProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
@@ -109,9 +110,7 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
                         </ItemHeader>
                     )}
                     <Typography.Text
-                        ellipsis={
-                            hasParentTooltip ? {} : { tooltip: { title: displayName, color: 'rgba(0, 0, 0, 0.9)' } }
-                        }
+                        ellipsis={hasParentTooltip ? {} : { tooltip: { title: displayName, color: theme.colors.text } }}
                     >
                         <Typography.Text strong>{matchedText}</Typography.Text>
                         {unmatchedText}

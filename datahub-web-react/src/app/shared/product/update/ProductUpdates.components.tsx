@@ -14,7 +14,7 @@ export const ToastContainer = styled.div<{ $sidebarWidth: number }>`
     padding: 0;
     border-radius: 12px;
     background: ${(props) => props.theme.colors.bgSurface};
-    box-shadow: 0 4px 28px 0 rgba(9, 1, 61, 0.14);
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     z-index: 1000;
     transition:
         left 250ms ease-in-out,

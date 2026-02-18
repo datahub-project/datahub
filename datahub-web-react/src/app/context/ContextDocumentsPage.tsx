@@ -20,9 +20,9 @@ const ContentCard = styled.div`
     gap: 16px;
     height: 100%;
     width: 100%;
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 12px;
-    box-shadow: 0 0 6px 0px rgba(93, 102, 139, 0.2);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     margin: 4px;
 `;
 

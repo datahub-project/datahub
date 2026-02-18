@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { PinnedLinkLogo } from '@app/homeV2/reference/sections/pinned/PinnedLinkLogo';
-import { SEARCH_COLORS } from '@src/app/entityV2/shared/constants';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { PostContent } from '@types';
@@ -24,7 +23,7 @@ const LinkButton = styled.a<{ $isShowNavBarRedesign?: boolean }>`
         border-radius: 8px;
 
         :hover {
-            border: 1px solid ${SEARCH_COLORS.LINK_BLUE};
+            border: 1px solid ${props.theme.colors.hyperlinks};
         }
     `}
 `;

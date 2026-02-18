@@ -8,7 +8,7 @@ export const ControlPanel = styled.div`
     background: ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
     border: 1px solid ${(props) => props.theme.colors.border};
-    box-shadow: 0 4px 4px 0 #e0e0e025;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     padding: 16px;
     gap: 2px;
 

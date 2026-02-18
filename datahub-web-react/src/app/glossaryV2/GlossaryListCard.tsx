@@ -1,7 +1,7 @@
 import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
 import { Tooltip } from 'antd';
 import React from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
@@ -62,7 +62,7 @@ const EntityDetailsWrapper = styled.div<{ type: EntityType }>`
 
     &:hover > ${EntityDetails} > ${EntityDetailsLeftColumn} > ${BookmarkIconWrapper} > svg > g > path {
         transition: 0.15s;
-        fill: rgba(216, 160, 75, 1);
+        fill: ${(props) => props.theme.colors.iconWarning};
     }
 
     &:hover > ${EntityDetails} > ${EntityDetailsRightColumn} > svg {
@@ -103,7 +103,7 @@ const BookmarkRibbon = styled.span`
     transform: rotate(-45deg);
     padding: 4px;
     opacity: 1;
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: ${(props) => props.theme.colors.overlayMedium};
 `;
 
 const GlossaryItemCount = styled.span<{ count: number }>`
@@ -155,6 +155,7 @@ interface Props {
 }
 
 const GlossaryListCard = (props: Props) => {
+    const theme = useTheme();
     const { name, description, type, entityData } = props;
     const isDescriptionTruncated = description && description.length > MAX_DESCRIPTION_LENGTH;
     const truncatedDescription = description?.slice(0, MAX_DESCRIPTION_LENGTH);
@@ -167,7 +168,7 @@ const GlossaryListCard = (props: Props) => {
                 <EntityTitleWrapper>
                     <BookmarkIconWrapper $background={generateColor(entityData?.urn || '')}>
                         <BookmarkRibbon />
-                        <BookmarksSimple color="white" size="16px" weight="bold" />
+                        <BookmarksSimple color={theme.colors.textOnFillBrand} size="16px" weight="bold" />
                     </BookmarkIconWrapper>
                     <NameAndDescription>
                         <EntityName>{name}</EntityName>
@@ -185,7 +186,7 @@ const GlossaryListCard = (props: Props) => {
                 <EntityTitleWrapper>
                     <BookmarkIconWrapper $background={generateColor(entityData?.urn || '')}>
                         <BookmarkRibbon />
-                        <BookmarkSimple color="white" size="16px" weight="bold" />
+                        <BookmarkSimple color={theme.colors.textOnFillBrand} size="16px" weight="bold" />
                     </BookmarkIconWrapper>
                     <NameAndDescription>
                         <EntityName>{name}</EntityName>

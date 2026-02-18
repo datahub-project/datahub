@@ -4,7 +4,7 @@ import { Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
@@ -205,6 +205,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         numDownstreams,
     } = props;
 
+    const theme = useTheme();
     const history = useHistory();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
@@ -223,7 +224,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
 
     useAvoidIntersections(urn, columnsHeight + LINEAGE_NODE_HEIGHT, rootType, isVertical);
 
-    const highlightColor = isSearchedEntity ? '#FFD02B' : '#FFE584';
+    const highlightColor = theme.colors.bgHighlight;
 
     const hasUpstreamChildren = !!(numUpstreams ?? !!entity?.numUpstreamChildren);
     const hasDownstreamChildren = !!(numDownstreams ?? !!entity?.numDownstreamChildren);

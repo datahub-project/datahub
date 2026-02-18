@@ -11,7 +11,7 @@ const StyledZoomButton = styled(Button)`
     border: 1px solid ${(props) => props.theme.colors.border};
     background-color: ${(props) => props.theme.colors.bgSurface};
     color: ${(props) => props.theme.colors.text};
-    box-shadow: 0px 2px 0px 0px rgba(0, 0, 0, 0.02);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     height: 40px;
     width: 40px;
     margin-bottom: 8px;

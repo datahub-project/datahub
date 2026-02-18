@@ -1,4 +1,3 @@
-import { green } from '@ant-design/colors';
 import { CheckCircleFilled, LoadingOutlined } from '@ant-design/icons';
 import Icon from '@ant-design/icons/lib/components/Icon';
 import React from 'react';
@@ -37,7 +36,7 @@ const StyledIcon = styled(Icon)`
 `;
 
 const StyledCheck = styled(CheckCircleFilled)`
-    color: ${green[6]};
+    color: ${(props) => props.theme.colors.textSuccess};
     font-size: 14px;
 `;
 

@@ -36,9 +36,7 @@ type Props = {
     width: number;
 };
 
-const INIT_COLOR_HEX = '#8C8C8C';
-
-const getFillColor = (type: AssertionResultType) => {
+const getFillColor = (type: AssertionResultType, initColor: string) => {
     switch (type) {
         case AssertionResultType.Success:
             return SUCCESS_COLOR_HEX;
@@ -47,7 +45,7 @@ const getFillColor = (type: AssertionResultType) => {
         case AssertionResultType.Error:
             return ERROR_COLOR_HEX;
         case AssertionResultType.Init:
-            return INIT_COLOR_HEX;
+            return initColor;
         default:
             throw new Error(`Unsupported Assertion Result Type ${type} provided.`);
     }
@@ -90,7 +88,7 @@ export const AssertionResultTimeline = ({ data, timeRange, width }: Props) => {
                         const barHeight = 18;
                         const barX = xScale(new Date(d.time));
                         const barY = yMax - barHeight;
-                        const fillColor = getFillColor(d.type);
+                        const fillColor = getFillColor(d.type, theme.colors.textDisabled);
                         return (
                             <LinkWrapper to={d.url} target="_blank">
                                 <Popover
@@ -106,7 +104,7 @@ export const AssertionResultTimeline = ({ data, timeRange, width }: Props) => {
                                         key={`bar-${d.time}`}
                                         x={barX}
                                         y={barY}
-                                        stroke="white"
+                                        stroke={theme.colors.bg}
                                         width={barWidth}
                                         height={barHeight}
                                         fill={fillColor}

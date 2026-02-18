@@ -10,7 +10,7 @@ const Container = styled(Button)`
     border-radius: 8px;
     align-items: start;
     flex-direction: column;
-    border: 1px solid #e0e0e0;
+    border: 1px solid ${(props) => props.theme.colors.border};
     background-color: ${(props) => props.theme.colors.bgSurface};
     &&:hover {
         border: 1px solid ${(props) => props.theme.colors.textInformation};

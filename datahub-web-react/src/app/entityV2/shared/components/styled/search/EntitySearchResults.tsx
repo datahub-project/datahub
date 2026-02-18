@@ -54,9 +54,9 @@ export const ListItem = styled.div<{ isSelectMode: boolean; areMatchesExpanded; 
     ${(props) =>
         props.areMatchesExpanded &&
         `
-        -webkit-box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.15);
-        -moz-box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.15);
-         box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.15);
+        -webkit-box-shadow: ${props.theme.colors.shadowLg};
+        -moz-box-shadow: ${props.theme.colors.shadowLg};
+         box-shadow: ${props.theme.colors.shadowLg};
     `}
 `;
 

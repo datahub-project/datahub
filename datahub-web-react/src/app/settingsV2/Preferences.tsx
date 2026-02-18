@@ -27,7 +27,7 @@ const HeaderContainer = styled.div`
 const StyledCard = styled.div`
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
-    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     padding: 16px;
     display: flex;
     justify-content: space-between;

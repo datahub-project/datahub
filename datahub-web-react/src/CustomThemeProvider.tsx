@@ -20,7 +20,12 @@ const CustomThemeProvider = ({ children }: Props) => {
     const isDarkMode = loadIsDarkMode();
 
     // Note: If custom theme id is a json file, it will only be loaded later in useSetAppTheme
-    const defaultTheme = isThemeV2 && isDarkMode ? themes.themeV2Dark : isThemeV2 ? themes.themeV2 : themes.themeV1;
+    let defaultTheme = themes.themeV1;
+    if (isThemeV2 && isDarkMode) {
+        defaultTheme = themes.themeV2Dark;
+    } else if (isThemeV2) {
+        defaultTheme = themes.themeV2;
+    }
     const customTheme = customThemeId ? themes[customThemeId] : null;
     const [theme, setTheme] = useState<Theme>(customTheme ?? defaultTheme);
 

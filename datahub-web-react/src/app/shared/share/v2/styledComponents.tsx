@@ -53,15 +53,15 @@ export const StyledButton = styled(Button)<{ $type?: string; $color?: string; $h
         display: flex;
         align-items: center;
         gap: 5px;
-        box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
+        box-shadow: ${(props) => props.theme.colors.shadowXs};
         border-color: ${(props) => props.$color};
-        color: ${(props) => (props.$type === 'filled' ? 'white' : props.$color)};
+        color: ${(props) => (props.$type === 'filled' ? props.theme.colors.textOnFillBrand : props.$color)};
         background-color: ${(props) => (props.$type === 'filled' ? props.$color : 'transparent')};
 
         :hover {
             border-color: ${(props) => (props.$hoverColor ? props.$hoverColor : props.$color)};
             background-color: ${(props) => (props.$hoverColor ? props.$hoverColor : props.$color)};
-            color: ${(props) => !(props.$type === 'filled') && 'white'};
+            color: ${(props) => !(props.$type === 'filled') && props.theme.colors.textOnFillBrand};
         }
     }
 `;
@@ -72,9 +72,7 @@ export const StyledModal = styled(Modal)`
     max-width: 680px;
 
     &&& .ant-modal-content {
-        box-shadow:
-            0px 4px 4px 0px rgba(0, 0, 0, 0.25),
-            0px 4px 8px 3px rgba(0, 0, 0, 0.15);
+        box-shadow: ${(props) => props.theme.colors.shadowLg};
         border-radius: 12px;
     }
 
@@ -133,7 +131,7 @@ export const StyledFormItem = styled(Form.Item)`
         &:focus,
         &:active {
             color: ${(props) => props.theme.styles['primary-color']};
-            box-shadow: 0px 0px 4px 0px rgba(83, 63, 209, 0.5);
+            box-shadow: ${(props) => props.theme.colors.shadowFocusBrand};
         }
     }
 `;

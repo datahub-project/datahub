@@ -21,7 +21,7 @@ const Container = styled.div`
 const GreetingTextWrapper = styled.div`
     color: ${(props) => props.theme.colors.textOnFillDefault};
     position: absolute;
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 7%, #000 88.79%);
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 7%, ${(props) => props.theme.colors.bgSurfaceDarker} 88.79%);
     width: 100%;
     height: 100%;
     display: flex;

@@ -14,7 +14,38 @@ import {
 import { defaultRemirrorTheme } from '@remirror/theme';
 import type { RemirrorThemeType } from '@remirror/theme';
 import styled from 'styled-components';
+import type { DefaultTheme } from 'styled-components';
 
+export const getEditorTheme = (theme: DefaultTheme): RemirrorThemeType => ({
+    ...defaultRemirrorTheme,
+    fontSize: {
+        default: '14px',
+    },
+    color: {
+        border: 'none',
+        outline: 'none',
+        primary: theme.colors.textSuccess,
+        table: {
+            ...defaultRemirrorTheme.color.table,
+            mark: theme.colors.textDisabled,
+            default: {
+                controller: theme.colors.bgHover,
+                border: theme.colors.border,
+            },
+            selected: {
+                controller: theme.colors.bgHover,
+                border: theme.colors.border,
+                cell: theme.colors.bgSurface,
+            },
+            preselect: {
+                controller: theme.colors.borderDisabled,
+                border: theme.colors.textDisabled,
+            },
+        },
+    },
+});
+
+/** @deprecated Use getEditorTheme(theme) instead */
 export const EditorTheme: RemirrorThemeType = {
     ...defaultRemirrorTheme,
     fontSize: {

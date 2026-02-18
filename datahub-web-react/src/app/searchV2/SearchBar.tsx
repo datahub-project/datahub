@@ -41,7 +41,7 @@ const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean; $isShowNavBar
     align-items: center;
     border: ${(props) =>
         props.$isShowNavBarRedesign ? `2px solid ${props.theme.colors.border}` : '2px solid transparent'};
-    ${(props) => props.$isShowNavBarRedesign && 'box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07)'};
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowXs}`};
 
     transition: border-color 0.3s ease;
 

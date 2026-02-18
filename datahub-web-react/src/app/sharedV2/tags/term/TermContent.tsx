@@ -3,7 +3,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Tag, message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
@@ -18,8 +18,6 @@ import { useRemoveTermMutation } from '@graphql/mutations.generated';
 import { DataHubPageModuleType, GlossaryTermAssociation, SubResourceType } from '@types';
 
 const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
-
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
 const TermContainer = styled.div<{ $shouldHighlightBorderOnHover?: boolean }>`
     position: relative;
@@ -141,8 +139,10 @@ export default function TermContent({
     refetch,
     showOneAndCount,
 }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { reloadByKeyType } = useReloadableContext();
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
     const [removeTermMutation] = useRemoveTermMutation();
     const { parentNodes, urn, type } = term.term;
     const generateColor = useGenerateGlossaryColorFromPalette();

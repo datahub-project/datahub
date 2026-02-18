@@ -95,7 +95,7 @@ export const TableCell = styled.td<{
     alignment?: AlignmentOptions;
     isGroupHeader?: boolean;
     isExpanded?: boolean;
-}>(({ width, alignment, isGroupHeader, isExpanded, theme }) => ({
+}>(({ width, alignment, isGroupHeader, theme }) => ({
     padding: isGroupHeader
         ? `${spacing.xsm} ${spacing.xsm} ${spacing.xsm} ${spacing.md}`
         : `${spacing.md} ${spacing.xsm} ${spacing.md} ${spacing.md}`,

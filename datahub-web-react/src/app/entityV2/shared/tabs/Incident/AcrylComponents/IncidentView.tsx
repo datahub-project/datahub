@@ -1,7 +1,7 @@
 import { Check, Warning } from '@phosphor-icons/react';
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
@@ -49,19 +49,20 @@ const ThinDivider = styled(Divider)`
     border-color: ${(props) => props.theme.colors.border};
 `;
 
-const IncidentStates = {
-    [IncidentState.Active]: {
-        label: IncidentState.Active,
-        icon: <Warning color={'#E54D1F'} width={20} height={20} />,
-    },
-    [IncidentState.Resolved]: {
-        label: IncidentState.Resolved,
-        icon: <Check color={'#248F5B'} width={20} height={20} />,
-    },
-};
-
 export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
+
+    const IncidentStates = {
+        [IncidentState.Active]: {
+            label: IncidentState.Active,
+            icon: <Warning color={theme.colors.iconError} width={20} height={20} />,
+        },
+        [IncidentState.Resolved]: {
+            label: IncidentState.Resolved,
+            icon: <Check color={theme.colors.iconSuccess} width={20} height={20} />,
+        },
+    };
     const history = useHistory();
     const [getAssigneeEntities, { data: resolvedAssignees, loading }] = useGetEntitiesLazyQuery();
 

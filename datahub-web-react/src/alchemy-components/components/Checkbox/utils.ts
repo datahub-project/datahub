@@ -1,11 +1,11 @@
-import theme, { colors } from '@components/theme';
+import { colors } from '@components/theme';
 
 import { SizeOptions } from '@src/alchemy-components/theme/config';
 
 const checkboxBackgroundDefault = {
     default: colors.white,
-    checked: theme.semanticTokens.colors.primary,
-    error: theme.semanticTokens.colors.error,
+    checked: colors.violet[500],
+    error: colors.red[500],
     disabled: colors.gray[1500],
 };
 

@@ -69,8 +69,8 @@ export default function ParentNodesView({ parentNodes }: Props) {
                 <>
                     {[...(parentNodes || [])]?.reverse()?.map((parentNode, idx) => (
                         <>
-                            <GlossaryNodeIcon color="white" />
-                            <GlossaryNodeText color="white">
+                            <GlossaryNodeIcon color={theme.colors.textOnFillBrand} />
+                            <GlossaryNodeText color={theme.colors.textOnFillBrand}>
                                 {entityRegistry.getDisplayName(EntityType.GlossaryNode, parentNode)}
                             </GlossaryNodeText>
                             {idx + 1 !== parentNodes?.length && <StyledRightOutlined data-testid="right-arrow" />}

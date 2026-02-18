@@ -95,7 +95,7 @@ export default function UserListItem({
             case CorpUserStatus.Active:
                 return theme.colors.textInformation;
             default:
-                return '#BFBFBF';
+                return theme.colors.textDisabled;
         }
     };
 
@@ -146,7 +146,7 @@ export default function UserListItem({
                         </div>
                         {userStatus && (
                             <Tooltip overlay={userStatusToolTip}>
-                                <Tag color={userStatusColor || '#BFBFBF'}>{userStatus}</Tag>
+                                <Tag color={userStatusColor || theme.colors.textDisabled}>{userStatus}</Tag>
                             </Tooltip>
                         )}
                     </UserHeaderContainer>

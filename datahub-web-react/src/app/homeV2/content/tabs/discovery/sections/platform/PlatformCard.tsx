@@ -3,7 +3,6 @@ import React from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
@@ -22,7 +21,8 @@ const Card = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         props.$isShowNavBarRedesign ? `1px solid ${props.theme.colors.border}` : '2px solid transparent'};
     ${(props) => props.$isShowNavBarRedesign && 'border-radius: 8px;'}
     :hover {
-        border: ${(props) => (props.$isShowNavBarRedesign ? '1px' : '2px')} solid ${SEARCH_COLORS.LINK_BLUE};
+        border: ${(props) => (props.$isShowNavBarRedesign ? '1px' : '2px')} solid
+            ${(props) => props.theme.colors.hyperlinks};
         cursor: pointer;
     }
     display: flex;

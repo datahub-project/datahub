@@ -52,7 +52,7 @@ const DefaultViewIconContainer = styled.div<{ selected?: boolean; $isShowNavBarR
             if (props.$isShowNavBarRedesign) {
                 return props.selected ? props.theme.styles['primary-color'] : 'transparent';
             }
-            return props.selected ? props.theme.styles['primary-color'] : '#171723';
+            return props.selected ? props.theme.styles['primary-color'] : props.theme.colors.text;
         }};
     border-radius: 100%;
 `;

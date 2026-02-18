@@ -1,4 +1,3 @@
-import { red } from '@ant-design/colors';
 import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
@@ -59,7 +58,7 @@ const ExpirationContainer = styled.div`
 `;
 
 const ExpirationText = styled(Text)<{ $isWarning?: boolean }>`
-    color: ${(props) => (props.$isWarning ? red[5] : props.theme.colors.textSecondary)};
+    color: ${(props) => (props.$isWarning ? props.theme.colors.textError : props.theme.colors.textSecondary)};
 `;
 
 const ModalFooter = styled.div`

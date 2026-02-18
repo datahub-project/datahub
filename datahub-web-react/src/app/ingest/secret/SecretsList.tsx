@@ -44,7 +44,7 @@ const DeleteButtonContainer = styled.div`
         background: none;
         cursor: pointer;
         :hover {
-            color: #262626;
+            color: ${(props) => props.theme.colors.text};
             border-color: ${(props) => props.theme.colors.text};
         }
 

@@ -38,7 +38,7 @@ const GroupItemColumn = styled(Col)`
 `;
 
 const GroupItem = styled.div`
-    border: 1px solid #eaeaea;
+    border: 1px solid ${(props) => props.theme.colors.border};
     padding: 10px;
     min-height: 107px;
     max-height: 107px;

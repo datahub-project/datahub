@@ -1,4 +1,3 @@
-import { red } from '@ant-design/colors';
 import { DeleteOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { Button, Form, Input, Tooltip } from 'antd';
 import React from 'react';
@@ -45,7 +44,7 @@ const StyledDeleteButton = styled(Button)`
 `;
 
 export const ErrorWrapper = styled.div`
-    color: ${red[5]};
+    color: ${(props) => props.theme.colors.textError};
     margin-top: 5px;
 `;
 

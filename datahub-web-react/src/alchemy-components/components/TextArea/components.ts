@@ -7,7 +7,7 @@ import {
     inputPlaceholderTextStyles,
     inputValueTextStyles,
 } from '@components/components/commonStyles';
-import theme, { borders, radius, sizes, spacing, typography } from '@components/theme';
+import { borders, radius, sizes, spacing, typography } from '@components/theme';
 import { getStatusColors } from '@components/theme/utils';
 
 const minHeight = '100px';
@@ -95,15 +95,15 @@ export const Required = styled.span(({ theme }) => ({
     color: theme.colors.textError,
 }));
 
-export const ErrorMessage = styled.div({
+export const ErrorMessage = styled.div(({ theme: t }) => ({
     ...defaultMessageStyles,
-    color: theme.semanticTokens.colors.error,
-});
+    color: t.colors.textError,
+}));
 
-export const WarningMessage = styled.div({
+export const WarningMessage = styled.div(({ theme: t }) => ({
     ...defaultMessageStyles,
-    color: theme.semanticTokens.colors.warning,
-});
+    color: t.colors.textWarning,
+}));
 
 export const StyledStatusIcon = styled(Icon)({
     position: 'absolute',

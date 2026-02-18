@@ -1,4 +1,3 @@
-import { orange } from '@ant-design/colors';
 import { DownOutlined, WarningFilled } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -13,7 +12,7 @@ const TextWrapper = styled.span`
 `;
 
 const StyledWarning = styled(WarningFilled)`
-    color: ${orange[5]};
+    color: ${(props) => props.theme.colors.textWarning};
     font-size: 14px;
 `;
 

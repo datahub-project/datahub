@@ -1,4 +1,3 @@
-import { green, red } from '@ant-design/colors';
 import { CheckOutlined, CloseOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
 import React from 'react';
@@ -17,7 +16,7 @@ const CapabilityName = styled.span`
 `;
 
 const CapabilityMessage = styled.span<{ success: boolean }>`
-    color: ${(props) => (props.success ? `${green[6]}` : `${red[5]}`)};
+    color: ${(props) => (props.success ? props.theme.colors.textSuccess : props.theme.colors.textError)};
     font-size: 12px;
     flex: 1;
     padding-left: 4px;
@@ -29,12 +28,12 @@ const StyledQuestion = styled(QuestionCircleOutlined)`
 `;
 
 export const StyledCheck = styled(CheckOutlined)`
-    color: ${green[6]};
+    color: ${(props) => props.theme.colors.textSuccess};
     margin-right: 15px;
 `;
 
 export const StyledClose = styled(CloseOutlined)`
-    color: ${red[5]};
+    color: ${(props) => props.theme.colors.textError};
     margin-right: 15px;
 `;
 

@@ -2,9 +2,9 @@ import colors from '@conf/theme/colorThemes/color';
 import ColorTheme from '@conf/theme/colorThemes/types';
 
 const darkTheme: ColorTheme = {
-    bg: colors.gray1200,
-    bgSurface: colors.gray1100,
-    bgSurfaceNewNav: colors.gray1100,
+    bg: colors.gray1100,
+    bgSurface: colors.gray1200,
+    bgSurfaceNewNav: colors.gray1200,
     bgSurfaceDarker: colors.gray1000,
     bgSurfaceBrand: colors.violet1200,
     bgSurfaceBrandHover: colors.violet1100,
@@ -18,7 +18,7 @@ const darkTheme: ColorTheme = {
     bgSurfaceSuccessHover: colors.green300,
     bgSurfaceWarning: colors.yellow800,
     bgSurfaceWarningHover: colors.yellow800,
-    bgHover: colors.gray1100,
+    bgHover: colors.gray1000,
     text: colors.gray200,
     textSecondary: colors.gray300,
     textTertiary: colors.gray400,
@@ -51,7 +51,7 @@ const darkTheme: ColorTheme = {
     radioButtonDotDisabled: colors.gray500,
     avatarBorderBrand: colors.violet500,
     avatarBorderInformation: colors.blue600,
-    border: colors.gray700,
+    border: colors.gray900,
     borderBrand: colors.violet600,
     borderBrandFocused: colors.violet400,
     borderBrandInverse: colors.violet800,
@@ -61,6 +61,59 @@ const darkTheme: ColorTheme = {
     borderError: colors.red300,
     borderSuccess: colors.green300,
     borderWarning: colors.yellow800,
+    // Interactive states: Hover
+    textHover: colors.violet400,
+    iconHover: colors.violet400,
+    borderHover: colors.violet500,
+    // Interactive states: Active / Pressed
+    bgActive: colors.violet1000,
+    textActive: colors.violet300,
+    borderActive: colors.violet600,
+    // Interactive states: Selected
+    bgSelected: colors.violet1100,
+    bgSelectedSubtle: 'rgba(108, 71, 255, 0.08)',
+    textSelected: colors.violet300,
+    iconSelected: colors.violet400,
+    borderSelected: colors.violet600,
+    // Interactive states: Focus
+    borderFocused: colors.gray500,
+    // Interactive states: Disabled
+    iconDisabled: colors.gray700,
+    bgSurfaceDisabled: colors.gray900,
+    // Shadows
+    shadowXs: '0 1px 2px 0 rgba(13, 14, 27, 0.24)',
+    shadowSm: '0 2px 6px -1px rgba(13, 14, 27, 0.32)',
+    shadowMd: '0 4px 12px -2px rgba(13, 14, 27, 0.40)',
+    shadowLg: '0 6px 16px -4px rgba(13, 14, 27, 0.48)',
+    shadowXl: '0 8px 24px -4px rgba(13, 14, 27, 0.56)',
+    shadowFocus: '0px 0px 0px 1px rgba(139, 135, 157, 0.20)',
+    shadowFocusBrand: '0px 0px 0px 1px rgba(108, 71, 255, 0.20)',
+    shadowInset: 'inset 0px 1px 3px rgba(0, 0, 0, 0.40)',
+    shadowNavbar: '0px 2px 10px rgba(0, 0, 0, 0.40)',
+    // Overlays
+    overlayLight: 'rgba(255, 255, 255, 0.05)',
+    overlayMedium: 'rgba(0, 0, 0, 0.30)',
+    overlayHeavy: 'rgba(0, 0, 0, 0.60)',
+    // Inputs / Forms
+    bgInput: colors.gray1100,
+    bgInputDisabled: colors.gray900,
+    borderInput: colors.gray900,
+    borderInputFocus: colors.violet400,
+    textPlaceholder: colors.gray600,
+    // Scrollbar
+    scrollbarTrack: 'transparent',
+    scrollbarThumb: colors.gray700,
+    scrollbarThumbHover: colors.gray600,
+    // Code blocks
+    bgCode: colors.gray1000,
+    bgCodeBlock: colors.gray1000,
+    // Highlight
+    bgHighlight: '#4a3d00',
+    // Tooltip
+    bgTooltip: colors.gray300,
+    // Skeleton / Loading
+    bgSkeleton: colors.gray900,
+    bgSkeletonShimmer: colors.gray1000,
     chartsWineHigh: colors.wine600,
     chartsWineMedium: colors.wine400,
     chartsWineLow: colors.wine200,

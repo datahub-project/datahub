@@ -2,7 +2,7 @@ import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import StructuredPropertyTooltip from '@app/entityV2/shared/tabs/Properties/StructuredPropertyTooltip';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
@@ -52,6 +52,7 @@ interface Props {
 }
 
 export default function NameColumn({ propertyRow, filterText }: Props) {
+    const theme = useTheme();
     const { structuredProperty } = propertyRow;
 
     return (
@@ -70,7 +71,7 @@ export default function NameColumn({ propertyRow, filterText }: Props) {
             ) : (
                 <NameLabelWrapper>
                     <Tooltip
-                        color="#373D44"
+                        color={theme.colors.bgTooltip}
                         placement="topRight"
                         overlayStyle={{ minWidth: 'min-content' }}
                         title={structuredProperty ? <StructuredPropertyTooltip propertyRow={propertyRow} /> : ''}

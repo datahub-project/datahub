@@ -9,7 +9,7 @@ const DropZone = styled.div<{ $isOver?: boolean; $canDrop?: boolean; $isSmall?: 
     ${({ $isOver, $canDrop, theme }) => {
         if ($isOver && $canDrop) {
             return `
-                background-color: rgba(59, 130, 246, 0.1);
+                background-color: ${theme.colors.bgSelectedSubtle};
                 border: 2px solid ${theme.colors.borderBrand};
             `;
         }

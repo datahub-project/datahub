@@ -55,14 +55,15 @@ export const getResultText = (result: AssertionResultType) => {
 };
 
 /**
- * Returns the display color associated with an AssertionResultType
+ * Returns the display color associated with an AssertionResultType.
+ * Accepts an optional theme to use semantic tokens; falls back to hardcoded values.
  */
-const INIT_COLOR_HEX = '#2F54EB';
-const NO_RESULTS_COLOR_HEX = '#595959';
+export const getResultColor = (result?: AssertionResultType, theme?: { colors: Record<string, string> }) => {
+    const initColor = theme?.colors?.textInformation ?? '#2F54EB';
+    const noResultsColor = theme?.colors?.textTertiary ?? '#595959';
 
-export const getResultColor = (result?: AssertionResultType) => {
     if (!result) {
-        return NO_RESULTS_COLOR_HEX;
+        return noResultsColor;
     }
     switch (result) {
         case AssertionResultType.Success:
@@ -72,7 +73,7 @@ export const getResultColor = (result?: AssertionResultType) => {
         case AssertionResultType.Error:
             return ERROR_COLOR_HEX;
         case AssertionResultType.Init:
-            return INIT_COLOR_HEX;
+            return initColor;
         default:
             throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
     }

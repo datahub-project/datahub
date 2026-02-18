@@ -9,7 +9,7 @@ const Container = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: rgb(250, 250, 250);
+    background-color: ${(props) => props.theme.colors.bg};
 `;
 
 const StyledLoading = styled(LoadingOutlined)`

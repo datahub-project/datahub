@@ -58,7 +58,7 @@ const StyledCarousel = styled(Carousel)`
     }
 
     > .slick-dots li.slick-active button {
-        background-color: #5c3fd1;
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
 `;
 

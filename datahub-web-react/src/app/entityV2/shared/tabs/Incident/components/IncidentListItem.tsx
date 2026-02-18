@@ -129,10 +129,10 @@ const IncidentResolvedContainer = styled.div`
 `;
 
 const IncidentResolvedButton = styled(Button)`
-    background: ${(props) => props.theme.colors.bgSurface};
+    background: ${(props) => props.theme.colors.bg};
     border: 1px solid ${(props) => props.theme.colors.border};
     box-sizing: border-box;
-    box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     border-radius: 5px;
     color: ${(props) => props.theme.colors.text};
     font-weight: 500;

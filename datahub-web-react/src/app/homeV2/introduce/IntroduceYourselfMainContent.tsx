@@ -75,7 +75,7 @@ const DoneButton = styled(Button)`
     width: 290px;
     height: 45px;
     flex-shrink: 0;
-    background-color: #3f54d1;
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     color: ${(props) => props.theme.colors.textOnFillBrand};
     margin-top: 12px;
 `;
@@ -436,7 +436,7 @@ export const IntroduceYourselfMainContent = () => {
         width: 290,
         borderRadius: '8px',
         borderColor: themeConfig.colors.border,
-        color: '#81879f',
+        color: themeConfig.colors.textTertiary,
     };
 
     // Sort Roles Alphabetically

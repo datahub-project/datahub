@@ -1,4 +1,3 @@
-import { geekblue } from '@ant-design/colors';
 import { Tooltip } from '@components';
 import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import React from 'react';
@@ -13,7 +12,7 @@ import { UsageQueryResult } from '@types';
 export const UsageBar = styled.div<{ width: number }>`
     width: ${(props) => props.width}px;
     height: 4px;
-    background-color: ${geekblue[3]};
+    background-color: ${(props) => props.theme.colors.textBrand};
     border-radius: 2px;
 `;
 

@@ -39,7 +39,7 @@ export const SearchContainer = styled.div`
     }
 
     .ant-input-wrapper {
-        background-color: #ffffff00 !important;
+        background-color: transparent !important;
     }
 
     .ant-input {
@@ -60,7 +60,7 @@ export const SearchContainer = styled.div`
 
     .ant-input-group-addon {
         border: none;
-        background-color: #ffffff00 !important;
+        background-color: transparent !important;
         left: 2px;
     }
 

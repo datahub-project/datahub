@@ -62,7 +62,7 @@ const EntityNode: React.FC<EntityNodeProps> = ({ sortBy }) => {
     const showEnvironments =
         environmentAggregations &&
         (environmentAggregations.length > 1 || (hasEnvironmentFilter && !!environmentAggregations.length));
-    const color = count > 0 ? '#000' : theme.colors.textSecondary;
+    const color = count > 0 ? theme.colors.text : theme.colors.textSecondary;
 
     return (
         <ExpandableNode

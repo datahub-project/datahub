@@ -6,7 +6,7 @@ export default styled(Button)`
     padding-bottom: 5px;
     padding-right: 16px;
     padding-left: 16px;
-    box-shadow: 0px 0px 4px 0px #0000001a;
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     border: 1px solid ${(props) => props.theme.colors.border};
 
     font-size: 12px;

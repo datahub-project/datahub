@@ -4,7 +4,6 @@ import { Typography } from 'antd';
 import React, { MouseEventHandler, ReactNode } from 'react';
 import styled from 'styled-components';
 
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import { BaseButton, BodyContainer, BodyGridExpander, RotatingButton } from '@app/shared/components';
 
 const Layout = styled.div`
@@ -49,14 +48,14 @@ ExpandableNode.Header = styled.div<{
 
 ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ $isSelected: boolean }>`
     & {
-        border: 1px solid ${(props) => (props.$isSelected ? SEARCH_COLORS.BACKGROUND_PURPLE : 'transparent')};
-        background-color: ${(props) => (props.$isSelected ? SEARCH_COLORS.BACKGROUND_PURPLE : 'transparent')};
+        border: 1px solid ${(props) => (props.$isSelected ? props.theme.colors.borderSelected : 'transparent')};
+        background-color: ${(props) => (props.$isSelected ? props.theme.colors.bgSelected : 'transparent')};
         border-radius: 8px;
         overflow: hidden;
     }
 
     &:hover {
-        background-color: ${SEARCH_COLORS.BACKGROUND_PURPLE};
+        background-color: ${(props) => props.theme.colors.bgSelected};
     }
 `;
 

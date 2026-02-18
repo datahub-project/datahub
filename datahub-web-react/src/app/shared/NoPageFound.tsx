@@ -37,7 +37,7 @@ const NumberContainer = styled.h1`
 `;
 
 const Number = styled.span`
-    text-shadow: -8px 0px 0px #fff;
+    text-shadow: -8px 0px 0px ${(props) => props.theme.colors.bg};
 `;
 
 const SubTitle = styled.h2`

@@ -8,7 +8,7 @@ const Card = styled.div`
     flex-direction: column;
     overflow: hidden;
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
-    box-shadow: ${(props) => props.theme.styles['box-shadow-navbar-redesign']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const PageWrapper = styled(Card)<{ $hasBottomPanel?: boolean }>`

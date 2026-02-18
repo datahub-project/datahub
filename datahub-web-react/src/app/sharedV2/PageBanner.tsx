@@ -1,6 +1,6 @@
 import { Button } from '@components';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { FontColorOptions } from '@components/theme/config';
 
@@ -36,13 +36,9 @@ interface Props {
     exitColor?: FontColorOptions;
 }
 
-export default function PageBanner({
-    content,
-    localStorageKey,
-    icon,
-    backgroundColor = '#FBF3EF',
-    exitColor = 'red',
-}: Props) {
+export default function PageBanner({ content, localStorageKey, icon, backgroundColor, exitColor = 'red' }: Props) {
+    const theme = useTheme();
+    const bgColor = backgroundColor || theme.colors.bgSurfaceWarning;
     const [isBannerHidden, setIsBannerHidden] = useState(!!localStorage.getItem(localStorageKey));
 
     function handleClose() {
@@ -53,7 +49,7 @@ export default function PageBanner({
     if (isBannerHidden) return null;
 
     return (
-        <BannerWrapper $backgroundColor={backgroundColor}>
+        <BannerWrapper $backgroundColor={bgColor}>
             <IconTextWrapper>
                 <IconWrapper>{icon}</IconWrapper>
                 {content}

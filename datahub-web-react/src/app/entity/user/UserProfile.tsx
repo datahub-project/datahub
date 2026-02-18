@@ -1,6 +1,6 @@
 import { Col, Row } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import NonExistentEntityPage from '@app/entity/shared/entity/NonExistentEntityPage';
 import { decodeUrn } from '@app/entity/shared/utils';
@@ -58,6 +58,7 @@ export const EmptyValue = styled.div`
  * Responsible for reading & writing users.
  */
 export default function UserProfile() {
+    const theme = useTheme();
     const { urn: encodedUrn } = useUserParams();
     const urn = decodeUrn(encodedUrn);
     const entityRegistry = useEntityRegistry();
@@ -132,7 +133,14 @@ export default function UserProfile() {
                     <Col xl={5} lg={5} md={5} sm={24} xs={24}>
                         <UserInfoSideBar sideBarData={sideBarData} refetch={refetch} />
                     </Col>
-                    <Col xl={19} lg={19} md={19} sm={24} xs={24} style={{ borderLeft: '1px solid #E9E9E9' }}>
+                    <Col
+                        xl={19}
+                        lg={19}
+                        md={19}
+                        sm={24}
+                        xs={24}
+                        style={{ borderLeft: `1px solid ${theme.colors.border}` }}
+                    >
                         <Content>
                             <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
                         </Content>

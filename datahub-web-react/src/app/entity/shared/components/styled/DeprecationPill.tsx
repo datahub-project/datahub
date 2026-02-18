@@ -1,4 +1,3 @@
-import { blue } from '@ant-design/colors';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Popover, Tooltip } from '@components';
 import { Divider, Modal, Typography, message } from 'antd';
@@ -62,7 +61,7 @@ const IconGroup = styled.div`
     font-size: 12px;
     color: ${(props) => props.theme.colors.text};
     &:hover {
-        color: ${blue[4]};
+        color: ${(props) => props.theme.colors.textBrand};
         cursor: pointer;
     }
 `;

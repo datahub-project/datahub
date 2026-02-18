@@ -1,4 +1,3 @@
-import { orange } from '@ant-design/colors';
 import { DownOutlined, WarningFilled } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React, { useState } from 'react';
@@ -19,7 +18,7 @@ const FailingEntityTitle = styled(Typography.Text)`
 `;
 
 const StyledWarning = styled(WarningFilled)`
-    color: ${orange[5]};
+    color: ${(props) => props.theme.colors.textWarning};
     font-size: 14px;
 `;
 

@@ -39,7 +39,7 @@ const NavBarContainer = styled.div`
     display: flex;
     flex-direction: column;
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
-    box-shadow: ${(props) => props.theme.styles['box-shadow-navbar-redesign']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     align-items: start;
     overflow: auto;
     width: 20%;
@@ -77,7 +77,7 @@ const ContentContainer = styled.div`
     display: flex;
     overflow: auto;
     background-color: ${(props) => props.theme.colors.bg};
-    box-shadow: ${(props) => props.theme.styles['box-shadow-navbar-redesign']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 export const SettingsPage = () => {

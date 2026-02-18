@@ -104,9 +104,7 @@ const VersionPreviewEntry = styled.div<{ isViewing: boolean }>`
     gap: 8px;
     padding: 8px;
 
-    ${({ isViewing }) =>
-        isViewing &&
-        'background: linear-gradient(180deg, rgba(83, 63, 209, 0.04) -3.99%, rgba(112, 94, 228, 0.04) 53.04%, rgba(112, 94, 228, 0.04) 100%)'};
+    ${(props) => props.isViewing && `background: ${props.theme.colors.bgSelectedSubtle}`};
 `;
 
 const VersionPreviewHeader = styled.span`

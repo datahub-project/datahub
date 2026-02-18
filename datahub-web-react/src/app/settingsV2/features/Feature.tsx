@@ -7,7 +7,7 @@ const StyledCard = styled(Card)`
     && {
         border-radius: 12px;
         border: 1px solid ${(props) => props.theme.colors.border};
-        box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+        box-shadow: ${(props) => props.theme.colors.shadowXs};
         margin-bottom: 24px;
 
         .ant-card-body {

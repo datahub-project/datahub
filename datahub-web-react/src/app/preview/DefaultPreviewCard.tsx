@@ -125,7 +125,7 @@ const TagContainer = styled.div`
 const TagSeparator = styled.div`
     margin: 2px 8px 0 0;
     height: 17px;
-    border-right: 1px solid #cccccc;
+    border-right: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const InsightContainer = styled.div`

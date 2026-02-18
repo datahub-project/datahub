@@ -30,13 +30,13 @@ const StyledCard = styled.div`
     flex-direction: column;
     width: auto;
     height: 228px;
-    box-shadow: 0px 4px 8px 0px #cecece1a;
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
     cursor: pointer;
     overflow: hidden;
     :hover {
-        box-shadow: 0 1px 12px 0px rgba(0, 0, 0, 0.1);
+        box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
     transition: box-shadow 0.3s ease;
 `;

@@ -82,7 +82,7 @@ export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
                                     key={`bar-${d.time}`}
                                     x={barX}
                                     y={barY}
-                                    stroke="white"
+                                    stroke={theme.colors.bg}
                                     width={barWidth}
                                     height={barHeight}
                                     fill={fillColor}

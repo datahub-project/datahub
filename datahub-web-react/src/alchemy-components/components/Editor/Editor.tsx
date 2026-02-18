@@ -1,6 +1,6 @@
 import { EditorComponent, Remirror, TableComponents, ThemeProvider, useRemirror } from '@remirror/react';
 import DOMPurify from 'dompurify';
-import React, { forwardRef, useEffect, useImperativeHandle } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo } from 'react';
 import { useMount } from 'react-use';
 import {
     BlockquoteExtension,
@@ -25,8 +25,9 @@ import {
     TableExtension,
     UnderlineExtension,
 } from 'remirror/extensions';
+import { useTheme } from 'styled-components';
 
-import { EditorContainer, EditorTheme } from '@components/components/Editor/EditorTheme';
+import { EditorContainer, getEditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
@@ -60,6 +61,8 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         hideToolbar,
         compact,
     } = props;
+    const styledTheme = useTheme();
+    const editorTheme = useMemo(() => getEditorTheme(styledTheme), [styledTheme]);
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -120,7 +123,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             $fixedBottomToolbar={fixedBottomToolbar}
             $compact={compact}
         >
-            <ThemeProvider theme={EditorTheme}>
+            <ThemeProvider theme={editorTheme}>
                 <Remirror
                     classNames={['ant-typography']}
                     editable={!readOnly}

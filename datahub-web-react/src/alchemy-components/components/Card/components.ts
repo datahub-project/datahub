@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 
-import { colors, radius, spacing, typography } from '@src/alchemy-components/theme';
+import { radius, spacing, typography } from '@src/alchemy-components/theme';
 import { IconAlignmentOptions } from '@src/alchemy-components/theme/config';
 
 export const CardContainer = styled.div<{ isClickable?: boolean; width?: string; maxWidth?: string; height?: string }>(

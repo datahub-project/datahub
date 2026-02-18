@@ -15,7 +15,7 @@ const ColumnsContainer = styled(HorizontalScroller)`
     & > div {
         &:not(:first-child) {
             border-left: 1px dashed;
-            border-color: rgba(0, 0, 0, 0.3);
+            border-color: ${(props) => props.theme.colors.border};
         }
     }
 `;

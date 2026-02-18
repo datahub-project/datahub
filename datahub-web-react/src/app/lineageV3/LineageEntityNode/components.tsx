@@ -7,7 +7,7 @@ export const ExpandContractButton = styled.div<{ expandOnHover?: boolean }>`
     font-size: 18px;
 
     border-radius: 4px;
-    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
 
     position: absolute;
 

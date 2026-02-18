@@ -1,4 +1,3 @@
-import { blue, grey } from '@ant-design/colors';
 import { Breadcrumb, Row } from 'antd';
 import React from 'react';
 import { IconBaseProps } from 'react-icons/lib';
@@ -30,9 +29,9 @@ const LineageIconGroup = styled.div`
 const HoverableVscPreview = styled(({ isSelected: _, ...props }: IconBaseProps & { isSelected: boolean }) => (
     <VscPreview {...props} />
 ))`
-    color: ${(props) => (props.isSelected ? 'black' : grey[2])};
+    color: ${(props) => (props.isSelected ? props.theme.colors.text : props.theme.colors.textTertiary)};
     &:hover {
-        color: ${(props) => (props.isSelected ? 'black' : blue[4])};
+        color: ${(props) => (props.isSelected ? props.theme.colors.text : props.theme.colors.textBrand)};
         cursor: pointer;
     }
 `;
@@ -40,9 +39,9 @@ const HoverableVscPreview = styled(({ isSelected: _, ...props }: IconBaseProps &
 const HoverableVscRepoForked = styled(({ isSelected: _, ...props }: IconBaseProps & { isSelected: boolean }) => (
     <VscRepoForked {...props} />
 ))`
-    color: ${(props) => (props.isSelected ? 'black' : grey[2])};
+    color: ${(props) => (props.isSelected ? props.theme.colors.text : props.theme.colors.textTertiary)};
     &:hover {
-        color: ${(props) => (props.isSelected ? 'black' : blue[4])};
+        color: ${(props) => (props.isSelected ? props.theme.colors.text : props.theme.colors.textBrand)};
         cursor: pointer;
     }
     transform: rotate(90deg);
@@ -50,7 +49,7 @@ const HoverableVscRepoForked = styled(({ isSelected: _, ...props }: IconBaseProp
 
 const BrowseRow = styled(Row)`
     padding: 10px 100px;
-    border-bottom: 1px solid #dcdcdc;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     background-color: ${(props) => props.theme.styles['body-background']};
     display: flex;
     justify-content: space-between;

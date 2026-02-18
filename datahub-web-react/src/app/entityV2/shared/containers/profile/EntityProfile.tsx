@@ -132,10 +132,7 @@ const HeaderContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign
-            ? props.theme.styles['box-shadow-navbar-redesign']
-            : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
+    box-shadow: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.shadowSm : props.theme.colors.shadowXs)};
     flex: 1;
     flex-shrink: 0;
     padding: 0;
@@ -159,10 +156,7 @@ const BodyContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex-direction: column;
     flex: 1;
-    box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign
-            ? props.theme.styles['box-shadow-navbar-redesign']
-            : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
+    box-shadow: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.shadowSm : props.theme.colors.shadowXs)};
     height: 100%;
     overflow: hidden;
 `;

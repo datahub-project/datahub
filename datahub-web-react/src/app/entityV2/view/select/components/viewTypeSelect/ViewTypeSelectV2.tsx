@@ -20,18 +20,18 @@ const IconWrapper = styled.div<{ $active?: boolean }>`
     flex-shrink: 0;
     padding: 2px;
     background: ${(props) => (props.$active ? props.theme.colors.textBrand : props.theme.colors.bg)};
+    color: ${(props) => (props.$active ? props.theme.colors.textOnFillBrand : 'inherit')};
     border-radius: 100%;
     cursor: pointer;
     width: 20px;
     height: 20px;
 `;
 
-const ICON_ACTIVE_COLOR: FontColorOptions = 'white';
 const ICON_INACTIVE_COLOR: FontColorOptions = 'gray';
 const ICON_INACTIVE_COLOR_LEVEL: FontColorLevelOptions = 1800;
 
 const ACTIVE_ICON_PROPS = {
-    color: ICON_ACTIVE_COLOR,
+    color: 'inherit' as FontColorOptions,
 };
 
 const INACTIVE_ICON_PROPS = {

@@ -7,7 +7,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textSecondary : '#dcdcdc')};
     background-color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.bg : '#171723')};
     opacity: 0.9;
-    border-color: black;
+    border-color: ${(props) => props.theme.colors.border};
     border-radius: 6px;
     border: 1px solid ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textSecondary : '#dcdcdc')};
     padding-right: 6px;

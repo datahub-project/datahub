@@ -18,7 +18,7 @@ export const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowSm};
         margin: 5px;
     `}
 `;
@@ -461,7 +461,7 @@ export const CardIcons = styled.div`
     gap: 12px;
 
     div {
-        border: 1px solid $E9EAEE;
+        border: 1px solid ${(props) => props.theme.colors.border};
         border-radius: 20px;
         width: 28px;
         height: 28px;

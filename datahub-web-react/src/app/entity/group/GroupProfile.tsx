@@ -1,6 +1,6 @@
 import { Col, Row } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { GroupAssets } from '@app/entity/group/GroupAssets';
 import GroupInfoSidebar from '@app/entity/group/GroupInfoSideBar';
@@ -48,6 +48,7 @@ const Content = styled.div`
  * Responsible for reading & writing groups.
  */
 export default function GroupProfile() {
+    const theme = useTheme();
     const { urn: encodedUrn } = useUserParams();
     const urn = encodedUrn && decodeUrn(encodedUrn);
     const { loading, error, data, refetch } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
@@ -126,7 +127,14 @@ export default function GroupProfile() {
                         <Col xl={5} lg={5} md={5} sm={24} xs={24}>
                             <GroupInfoSidebar sideBarData={sideBarData} refetch={refetch} />
                         </Col>
-                        <Col xl={19} lg={19} md={19} sm={24} xs={24} style={{ borderLeft: '1px solid #E9E9E9' }}>
+                        <Col
+                            xl={19}
+                            lg={19}
+                            md={19}
+                            sm={24}
+                            xs={24}
+                            style={{ borderLeft: `1px solid ${theme.colors.border}` }}
+                        >
                             <Content>
                                 <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
                             </Content>

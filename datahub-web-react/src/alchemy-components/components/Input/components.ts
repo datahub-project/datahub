@@ -7,7 +7,7 @@ import {
     inputPlaceholderTextStyles,
     inputValueTextStyles,
 } from '@components/components/commonStyles';
-import theme, { borders, radius, spacing, typography } from '@components/theme';
+import { borders, radius, spacing, typography } from '@components/theme';
 import { getStatusColors } from '@components/theme/utils';
 
 const defaultFlexStyles = {
@@ -85,15 +85,15 @@ export const Label = styled.div(({ theme }) => ({
     textAlign: 'left',
 }));
 
-export const ErrorMessage = styled.div({
+export const ErrorMessage = styled.div(({ theme: t }) => ({
     ...defaultMessageStyles,
-    color: theme.semanticTokens.colors.error,
-});
+    color: t.colors.textError,
+}));
 
-export const WarningMessage = styled.div({
+export const WarningMessage = styled.div(({ theme: t }) => ({
     ...defaultMessageStyles,
-    color: theme.semanticTokens.colors.warning,
-});
+    color: t.colors.textWarning,
+}));
 
 export const HelperText = styled.div(({ theme }) => ({
     ...defaultMessageStyles,

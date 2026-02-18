@@ -2,7 +2,7 @@ import { FolderOpenOutlined } from '@ant-design/icons';
 import { Tooltip, Typography } from 'antd';
 import { CaretRight } from 'phosphor-react';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -50,6 +50,7 @@ interface Props {
 
 export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NUM_VISIBLE, hideIcon = false }: Props) {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
 
     // parent nodes/domains are returned with direct parent first
     const orderedParentEntities = [...parentEntities].reverse();
@@ -68,7 +69,7 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                     {orderedParentEntities.map((parentEntity, index) => (
                         <>
                             {!hideIcon && <FolderOpenOutlined />}
-                            <ParentNode color="white">
+                            <ParentNode color={theme.colors.textOnFillBrand}>
                                 {entityRegistry.getDisplayName(parentEntity.type, parentEntity) || 'Unknown'}
                             </ParentNode>
                             {index !== orderedParentEntities.length - 1 && (

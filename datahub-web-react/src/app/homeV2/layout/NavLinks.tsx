@@ -6,7 +6,7 @@ import { NavLinksMenu } from '@app/homeV2/layout/NavLinksMenu';
 const Container = styled.div`
     border-radius: 47px;
     background-color: ${(props) => props.theme.colors.buttonFillBrand};
-    box-shadow: 0px 8px 8px 4px rgba(0, 0, 0, 0.25);
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
 `;
 
 export const NavLinks = () => {

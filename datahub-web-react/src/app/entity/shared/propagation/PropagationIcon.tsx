@@ -3,7 +3,7 @@ import styled from 'styled-components';
 
 export const PropagateThunderbolt = styled(ThunderboltFilled)`
     && {
-        color: #a7c7fa;
+        color: ${(props) => props.theme.colors.icon};
     }
     font-size: 16px;
     &:hover {

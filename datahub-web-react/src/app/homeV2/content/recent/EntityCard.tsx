@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
@@ -23,7 +22,7 @@ const Container = styled.div`
     gap: 12px;
 
     :hover {
-        border: 1.5px solid ${SEARCH_COLORS.LINK_BLUE};
+        border: 1.5px solid ${(props) => props.theme.colors.hyperlinks};
     }
 `;
 

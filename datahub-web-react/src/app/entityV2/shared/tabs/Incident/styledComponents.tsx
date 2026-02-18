@@ -16,7 +16,7 @@ export const LinkedAssetsContainer = styled.div<{ hasButton?: boolean; width?: s
     border: `1px solid ${theme.colors.border}`,
     borderRadius: radius.lg,
     padding: spacing.xxsm,
-    boxShadow: '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
+    boxShadow: theme.colors.shadowXs,
     backgroundColor: theme.colors.bg,
     width: 'auto',
     maxHeight: '40vh',

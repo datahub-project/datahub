@@ -26,7 +26,7 @@ const StyledPagination = styled(Pagination)`
 `;
 const StyledInput = styled(Input)`
     border-radius: 70px;
-    border: 1px solid rgba(0, 0, 0, 0.12);
+    border: 1px solid ${(props) => props.theme.colors.border};
     max-width: 416px;
     height: 40px !important;
 `;

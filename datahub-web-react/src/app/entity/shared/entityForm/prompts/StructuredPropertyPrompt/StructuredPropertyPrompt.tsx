@@ -6,7 +6,6 @@ import StructuredPropertyInput from '@app/entity/shared/components/styled/Struct
 import CompletedPromptAuditStamp from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/CompletedPromptAuditStamp';
 import useStructuredPropertyPrompt from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/useStructuredPropertyPrompt';
 import usePromptCompletionInfo from '@app/entity/shared/entityForm/prompts/usePromptCompletionInfo';
-import { applyOpacity } from '@app/shared/styleUtils';
 
 import { FormPrompt, SchemaField, SubmitFormPromptInput } from '@types';
 
@@ -52,7 +51,7 @@ const StyledButton = styled(Button)`
     margin-top: 16px;
 
     &:focus {
-        box-shadow: 0 0 3px 2px ${(props) => applyOpacity(props.theme.styles['primary-color'] || '', 50)};
+        box-shadow: ${(props) => props.theme.colors.shadowFocusBrand};
     }
 `;
 

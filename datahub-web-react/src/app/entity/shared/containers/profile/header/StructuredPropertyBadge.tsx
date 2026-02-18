@@ -13,7 +13,7 @@ export const MAX_PROP_BADGE_WIDTH = 150;
 const StyledTooltip = styled(Tooltip)`
     .ant-tooltip-inner {
         border-radius: 8px;
-        box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
+        box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
 `;
 

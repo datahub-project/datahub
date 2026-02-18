@@ -24,9 +24,9 @@ export const StyledEntitySidebarContainer = styled.div<{
             return 'none';
         }
         if (props.$isShowNavBarRedesign) {
-            return props.theme.styles['box-shadow-navbar-redesign'];
+            return props.theme.colors.shadowSm;
         }
-        return '0px 0px 6px 0px rgba(93, 102, 139, 0.2)';
+        return props.theme.colors.shadowSm;
     }};
     ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
     ${(props) => props.isCollapsed && 'min-width: 64px; max-width: 64px;'}
@@ -52,7 +52,7 @@ export const StyledEntitySidebarContainer = styled.div<{
 
 export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};
-    box-shadow: ${(props) => (props.isCard ? '0px 0px 5px rgba(0, 0, 0, 0.08)' : 'none')};
+    box-shadow: ${(props) => (props.isCard ? props.theme.colors.shadowXs : 'none')};
     border-radius: ${(props) => {
         if (!props.isCard) return 'none';
         return props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px';

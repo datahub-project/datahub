@@ -42,7 +42,7 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
         }
     }
     & .default-view-icon-container {
-        border: 1px solid ${(props) => (props.selected ? props.theme.styles['primary-color'] : '#171723')};
+        border: 1px solid ${(props) => (props.selected ? props.theme.styles['primary-color'] : props.theme.colors.text)};
         border-radius: 100%;
     }
     & .close-container {

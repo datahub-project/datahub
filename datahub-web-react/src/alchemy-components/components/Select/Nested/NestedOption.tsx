@@ -8,7 +8,6 @@ import useNestedSelectOptionChildren from '@components/components/Select/Nested/
 import useNestedOption from '@components/components/Select/Nested/useSelectOption';
 import { OptionLabel } from '@components/components/Select/components';
 import { CustomOptionRenderer } from '@components/components/Select/types';
-import theme from '@components/theme';
 
 const ParentOption = styled.div`
     display: flex;
@@ -30,8 +29,8 @@ const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: bool
         !props.indeterminate &&
         `
 		.ant-checkbox-inner {
-			background-color: ${theme.semanticTokens.colors.primary};
-			border-color: ${theme.semanticTokens.colors.primary} !important;
+			background-color: ${props.theme.colors.buttonFillBrand};
+			border-color: ${props.theme.colors.borderBrand} !important;
 		}
 	`}
     ${(props) =>
@@ -39,7 +38,7 @@ const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: bool
         `
 		.ant-checkbox-inner {
 			&:after {
-				background-color: ${theme.semanticTokens.colors.primary};
+				background-color: ${props.theme.colors.buttonFillBrand};
 			}
 		}
 	`}

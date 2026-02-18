@@ -1,4 +1,3 @@
-import { blue, green } from '@ant-design/colors';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -13,13 +12,13 @@ const Pill = styled.div`
 `;
 
 const PrimaryKeyPill = styled(Pill)`
-    color: ${blue[5]} !important;
-    border-color: ${blue[2]};
+    color: ${(props) => props.theme.colors.textBrand} !important;
+    border-color: ${(props) => props.theme.colors.borderBrand};
 `;
 
 const ForeignKeyPill = styled(Pill)`
-    color: ${green[5]} !important;
-    border-color: ${green[2]};
+    color: ${(props) => props.theme.colors.textSuccess} !important;
+    border-color: ${(props) => props.theme.colors.borderSuccess};
 `;
 
 const NullablePill = styled(Pill)`

@@ -1,4 +1,3 @@
-import { grey } from '@ant-design/colors';
 import { Divider, Typography } from 'antd';
 import React from 'react';
 import { useParams } from 'react-router';
@@ -23,7 +22,7 @@ type RolePageParams = {
 
 const TitleLabel = styled(Typography.Text)`
     &&& {
-        color: ${grey[2]};
+        color: ${(props) => props.theme.colors.textTertiary};
         font-size: 12px;
         display: block;
         line-height: 20px;
@@ -43,7 +42,7 @@ const DescriptionLabel = styled(Typography.Text)`
 
 const TitleText = styled(Typography.Text)`
     &&& {
-        color: ${grey[10]};
+        color: ${(props) => props.theme.colors.text};
         font-weight: 700;
         font-size: 20px;
         line-height: 28px;

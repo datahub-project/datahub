@@ -8,6 +8,6 @@ export default styled.div`
     height: 46px;
     border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 7px 16px;
-    box-shadow: 0px 2px 6px 0px #0000000d;
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     flex: 0 0 auto;
 `;

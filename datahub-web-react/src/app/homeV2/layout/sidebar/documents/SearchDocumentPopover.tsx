@@ -17,7 +17,7 @@ const PopoverContainer = styled.div`
     flex-direction: column;
     background: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
-    box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const SearchContainer = styled.div`

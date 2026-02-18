@@ -195,7 +195,7 @@ export const ManageRoles = () => {
                                 />
                                 {numberOfUsers > 5 && (
                                     // Keeping the color same as the avatar component indicator
-                                    <Avatar size={28} style={{ backgroundColor: 'rgb(204,204,204)' }}>
+                                    <Avatar size={28} style={{ backgroundColor: theme.colors.bgDisabled }}>
                                         +{numberOfUsers - 5}
                                     </Avatar>
                                 )}

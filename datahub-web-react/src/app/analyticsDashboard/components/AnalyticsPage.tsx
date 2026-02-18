@@ -23,7 +23,7 @@ const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolea
         height: 100%;
         margin: 5px;
         overflow: auto;
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowSm};
     `}
     ${(props) =>
         !props.$isShowNavBarRedesign &&

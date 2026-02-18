@@ -15,7 +15,7 @@ const CellContainer = styled.div<{ color?: string; selected?: boolean }>`
     display: flex;
     justify-content: center;
     align-items: center;
-    color: ${({ color }) => color || 'black'};
+    color: ${({ color, theme }) => color || theme.colors.text};
     border: ${({ selected }) => (selected ? '2px solid blue' : '1px solid lightgray')};
 `;
 

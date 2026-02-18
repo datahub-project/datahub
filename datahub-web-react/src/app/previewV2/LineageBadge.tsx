@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import { isNullOrUndefined } from '@app/previewV2/utils';
 import { pluralize } from '@app/shared/textUtil';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
@@ -15,11 +14,11 @@ import LineageStatusIcon from '@images/lineage-status.svg?react';
 
 const Icon = styled(LineageStatusIcon)<{ highlighted?: boolean }>`
     display: flex;
-    color: ${({ highlighted, theme }) => (highlighted ? SEARCH_COLORS.SUBTEXT_PURPPLE : theme.colors.border)};
+    color: ${({ highlighted, theme }) => (highlighted ? theme.colors.textBrand : theme.colors.border)};
     font-size: 16px;
 
     :hover {
-        ${({ highlighted }) => highlighted && `color: ${SEARCH_COLORS.LINK_BLUE};`}
+        ${({ highlighted, theme }) => highlighted && `color: ${theme.colors.hyperlinks};`}
 `;
 
 const PopoverContent = styled.div`

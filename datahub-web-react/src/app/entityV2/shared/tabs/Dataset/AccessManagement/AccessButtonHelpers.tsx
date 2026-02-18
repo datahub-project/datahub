@@ -21,7 +21,7 @@ export const AccessButton = styled(Button)`
     font-weight: bold;
 
     &:hover {
-        background-color: ${(props) => props.theme.styles['primary-color'] || '#18baff'};
+        background-color: ${(props) => props.theme.styles['primary-color'] || props.theme.colors.hyperlinks};
         color: ${(props) => props.theme.colors.bg};
         border: none;
     }

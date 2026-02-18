@@ -2,7 +2,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
 import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
@@ -106,8 +106,6 @@ const AddText = styled.span`
     }
 `;
 
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
-
 export default function TagTermGroup({
     numberOfTags,
     directTags,
@@ -135,9 +133,11 @@ export default function TagTermGroup({
     showOneAndCount,
     showAddButton = true,
 }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
 
     const tagsEmpty = !directTags?.tags?.length && !editableTags?.tags?.length && !uneditableTags?.tags?.length;
 

@@ -2,7 +2,7 @@ import { Icon } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
@@ -42,8 +42,6 @@ const DisplayNameContainer = styled.span<{ maxWidth?: number }>`
     }
 `;
 
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
-
 interface Props {
     tag: TagAssociation;
     entityUrn?: string;
@@ -81,8 +79,10 @@ export default function Tag({
     tagStyle,
     options,
 }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const isEmbeddedProfile = useIsEmbeddedProfile();
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
     const [removeTagMutation] = useRemoveTagMutation();
     const highlightTag = useHasMatchedFieldByUrn(tag.tag.urn, 'tags');
 

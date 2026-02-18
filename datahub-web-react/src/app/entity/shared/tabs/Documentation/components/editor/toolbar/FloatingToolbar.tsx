@@ -24,10 +24,7 @@ export const ToolbarContainer = styled.span`
     padding: 2px;
     background-color: ${(props) => props.theme.colors.bg};
     border-radius: 4px;
-    box-shadow:
-        0 3px 6px -4px #0000001f,
-        0 6px 16px #00000014,
-        0 9px 28px 8px #0000000d;
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     overflow: hidden;
     z-index: 300;
 `;

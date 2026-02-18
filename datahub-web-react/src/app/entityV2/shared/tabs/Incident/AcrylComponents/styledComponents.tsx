@@ -237,7 +237,7 @@ export const IncidentFooter = styled.div`
     width: 100%;
     padding: 16px;
     border-top: 1px solid ${(props) => props.theme.colors.border};
-    box-shadow: 0px 0px 6px 0px #5d668b33;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     max-height: 68px;
     position: absolute;
     bottom: 0;
@@ -288,7 +288,7 @@ export const StyledHeader = styled.div`
     align-items: center;
     padding: 16px;
     justify-content: space-between;
-    box-shadow: 0px 0px 6px 0px #5d668b33;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 export const StyledHeaderTitleContainer = styled.div`

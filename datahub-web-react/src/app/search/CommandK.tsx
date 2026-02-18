@@ -5,7 +5,7 @@ const Container = styled.div`
     color: ${(props) => props.theme.colors.textDisabled};
     background-color: ${(props) => props.theme.colors.bgSurface};
     opacity: 0.9;
-    border-color: black;
+    border-color: ${(props) => props.theme.colors.border};
     border-radius: 6px;
     border: 1px solid ${(props) => props.theme.colors.textDisabled};
     padding-right: 6px;

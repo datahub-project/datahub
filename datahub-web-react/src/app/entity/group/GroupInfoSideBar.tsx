@@ -57,7 +57,7 @@ const TITLES = {
 const GroupNameHeader = styled(Row)`
     font-size: 20px;
     line-height: 28px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     margin: 16px 16px 8px 8px;
     display: flex;
     align-items: center;
@@ -115,17 +115,17 @@ const DescriptionContainer = styled.div`
         display: block;
     }
     & ins.diff {
-        background-color: #b7eb8f99;
+        background-color: ${(props) => props.theme.colors.bgSurfaceSuccess};
         text-decoration: none;
         &:hover {
-            background-color: #b7eb8faa;
+            background-color: ${(props) => props.theme.colors.bgSurfaceSuccess};
         }
     }
     & del.diff {
-        background-color: #ffa39e99;
+        background-color: ${(props) => props.theme.colors.bgSurfaceError};
         text-decoration: line-through;
         &: hover {
-            background-color: #ffa39eaa;
+            background-color: ${(props) => props.theme.colors.bgSurfaceError};
         }
     }
 `;

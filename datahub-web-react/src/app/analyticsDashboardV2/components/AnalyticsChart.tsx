@@ -105,7 +105,7 @@ const LegendColorBox = styled.div<{ color: string }>`
     background-color: ${(props) => props.color};
     border-radius: 3px;
     flex-shrink: 0;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const LegendLabel = styled.span<{ $isSelected?: boolean }>`
@@ -124,7 +124,7 @@ const TooltipContainer = styled.div`
     font-size: 12px;
     pointer-events: none;
     z-index: 1000;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     border: 1px solid ${(props) => props.theme.colors.textDisabled};
 `;
 
@@ -289,7 +289,7 @@ const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, seg
                                     yScale={{ type: 'linear' }}
                                     margin={{ top: 20, right: 20, bottom: 80, left: 60 }}
                                 >
-                                    <Grid columns={false} numTicks={5} lineStyle={{ stroke: '#EAEAEA' }} />
+                                    <Grid columns={false} numTicks={5} lineStyle={{ stroke: theme.colors.border }} />
                                     <Axis
                                         orientation="bottom"
                                         tickFormat={(tickValue) => {

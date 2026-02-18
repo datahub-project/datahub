@@ -10,7 +10,7 @@ const Pill = styled.div<{ selected: boolean }>`
     padding: 4px 12px;
     background-color: ${(props) =>
         props.selected ? props.theme.styles['primary-color'] : props.theme.colors.bgSurface};
-    color: ${(props) => (props.selected ? '#fff' : props.theme.colors.text)};
+    color: ${(props) => (props.selected ? props.theme.colors.textOnFillBrand : props.theme.colors.text)};
     :hover {
         opacity: 0.6;
         cursor: pointer;

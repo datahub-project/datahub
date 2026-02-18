@@ -22,9 +22,9 @@ const StyledEmpty = styled(Empty)`
 
 const SectionWrapper = styled.div`
     border-radius: 0 0 10px 10px;
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     padding: 24px;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     height: 100%;
 `;
 

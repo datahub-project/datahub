@@ -1,4 +1,3 @@
-import { green, red } from '@ant-design/colors';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { Button, Divider, Modal, Typography } from 'antd';
 import React from 'react';
@@ -35,7 +34,7 @@ const LoadingHeader = styled(Typography.Title)`
 
 const ResultsHeader = styled.div<{ success: boolean }>`
     align-items: center;
-    color: ${(props) => (props.success ? `${green[6]}` : `${red[5]}`)};
+    color: ${(props) => (props.success ? props.theme.colors.textSuccess : props.theme.colors.textError)};
     display: flex;
     margin-bottom: 5px;
     font-size: 20px;
@@ -78,12 +77,12 @@ const CapabilitiesTitle = styled.div`
 `;
 
 const StyledCheck = styled(CheckOutlined)`
-    color: ${green[6]};
+    color: ${(props) => props.theme.colors.textSuccess};
     margin-right: 5px;
 `;
 
 const StyledClose = styled(CloseOutlined)`
-    color: ${red[5]};
+    color: ${(props) => props.theme.colors.textError};
     margin-right: 5px;
 `;
 

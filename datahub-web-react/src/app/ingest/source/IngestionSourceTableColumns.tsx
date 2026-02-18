@@ -1,4 +1,3 @@
-import { blue } from '@ant-design/colors';
 import { CodeOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Button, Image, Typography } from 'antd';
@@ -59,8 +58,8 @@ const CliBadge = styled.span`
     font-size: 8px;
     font-weight: bold;
     letter-spacing: 0.5px;
-    border: 1px solid ${blue[6]};
-    color: ${blue[6]};
+    border: 1px solid ${(props) => props.theme.colors.borderBrand};
+    color: ${(props) => props.theme.colors.textBrand};
 
     svg {
         display: none;

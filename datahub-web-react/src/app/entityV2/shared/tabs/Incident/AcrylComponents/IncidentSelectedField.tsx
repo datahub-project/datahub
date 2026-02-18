@@ -1,6 +1,7 @@
 import { Check, Warning } from '@phosphor-icons/react';
 import { FormInstance } from 'antd/es/form/Form';
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { SelectFormItem, SelectWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { INCIDENT_OPTION_LABEL_MAPPING } from '@app/entityV2/shared/tabs/Incident/constant';
@@ -13,17 +14,6 @@ import { IncidentStagePill } from '@src/alchemy-components/components/IncidentSt
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { IncidentState } from '@src/types.generated';
-
-const IncidentStates = {
-    [IncidentState.Active]: {
-        label: IncidentState.Active,
-        icon: <Warning color={'#E54D1F'} width={17} height={15} />,
-    },
-    [IncidentState.Resolved]: {
-        label: IncidentState.Resolved,
-        icon: <Check color={'#248F5B'} width={17} height={15} />,
-    },
-};
 
 interface IncidentSelectFieldProps {
     incidentLabelMap: {
@@ -54,6 +44,19 @@ export const IncidentSelectField = ({
     isDisabled,
     value,
 }: IncidentSelectFieldProps) => {
+    const theme = useTheme();
+
+    const IncidentStates = {
+        [IncidentState.Active]: {
+            label: IncidentState.Active,
+            icon: <Warning color={theme.colors.iconError} width={17} height={15} />,
+        },
+        [IncidentState.Resolved]: {
+            label: IncidentState.Resolved,
+            icon: <Check color={theme.colors.iconSuccess} width={17} height={15} />,
+        },
+    };
+
     const { label, name } = incidentLabelMap;
     const placeholder = label.toLowerCase() === IncidentConstant.PRIORITY ? 'priority level' : label.toLowerCase();
     const isRequiredField = label.toLowerCase() === IncidentConstant.CATEGORY;

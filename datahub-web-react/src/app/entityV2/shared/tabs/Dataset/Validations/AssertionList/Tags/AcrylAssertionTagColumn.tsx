@@ -29,7 +29,7 @@ const StyledPill = styled.div<{ color?: string; backgroundColor?: string }>`
     background-color: ${(props) => props.backgroundColor || 'none'};
     height: 24px;
     width: 24px;
-    color: ${(props) => props.color || '#5F6685'};
+    color: ${(props) => props.color || props.theme.colors.textTertiary};
     border-radius: 100px;
     transition: all 0.2s;
     &:hover {

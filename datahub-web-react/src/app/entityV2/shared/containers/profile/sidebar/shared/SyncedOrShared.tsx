@@ -66,7 +66,7 @@ const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props
                 <StyledTooltip
                     showArrow={false}
                     title={<SyncedOrSharedTooltip type={type} />}
-                    color="#272D48"
+                    color={theme.colors.bgTooltip}
                     overlayInnerStyle={{ width: 300, padding: 10 }}
                     placement="bottomLeft"
                 >

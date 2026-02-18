@@ -21,7 +21,7 @@ const LoadingWrapper = styled.div`
     padding: 20px;
     margin: 4px;
     background-color: ${(props) => props.theme.colors.bg};
-    box-shadow: 0 0 6px 0px rgba(93, 102, 139, 0.2);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 /**

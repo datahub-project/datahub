@@ -1,7 +1,7 @@
 import { Popover } from '@components';
 import { Divider } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { EntityHealthStatus } from '@app/entityV2/shared/containers/profile/header/EntityHealthStatus';
 import { HealthSummaryIconType, getHealthSummaryIcon, getHealthSummaryMessage } from '@app/shared/health/healthUtils';
@@ -53,6 +53,7 @@ type Props = {
 };
 
 export const EntityHealthPopover = ({ health, baseUrl, children, fontSize, placement = 'right' }: Props) => {
+    const theme = useTheme();
     return (
         <Popover
             showArrow={false}
@@ -70,7 +71,7 @@ export const EntityHealthPopover = ({ health, baseUrl, children, fontSize, place
                     ))}
                 </>
             }
-            color="#262626"
+            color={theme.colors.bgTooltip}
             placement={placement}
             zIndex={10000000}
         >

@@ -33,7 +33,7 @@ const StyledDrawer = styled(Drawer)`
     }
 
     &&& .ant-drawer-content-wrapper {
-        box-shadow: -20px 0px 44px 0px rgba(0, 0, 0, 0.1);
+        box-shadow: ${(props) => props.theme.colors.shadowLg};
     }
 `;
 

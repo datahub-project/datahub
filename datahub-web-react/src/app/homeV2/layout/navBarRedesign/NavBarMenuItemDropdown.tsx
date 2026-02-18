@@ -11,7 +11,7 @@ import analytics, { EventType } from '@src/app/analytics';
 const StyledDropdownContentWrapper = styled.div`
     background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
-    box-shadow: 0px 0px 14px 0px rgba(0, 0, 0, 0.15);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     padding: 8px;
 `;
 

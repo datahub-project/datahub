@@ -6,7 +6,6 @@ import ViewSelectButton from '@app/entityV2/view/select/ViewSelectButton';
 import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectButtonWithPopover';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { CommandK } from '@app/searchV2/CommandK';
-import { BOX_SHADOW } from '@app/searchV2/searchBarV2/constants';
 import { Icon, SearchBar, radius, transition } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
@@ -54,8 +53,8 @@ export const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boo
         props.$open &&
         props.$isShowNavBarRedesign &&
         `
-        background: ${(props) => props.theme.colors.bgSurface};
-        box-shadow: ${BOX_SHADOW};
+        background: ${props.theme.colors.bgSurface};
+        box-shadow: ${props.theme.colors.shadowXl};
     `}
 `;
 

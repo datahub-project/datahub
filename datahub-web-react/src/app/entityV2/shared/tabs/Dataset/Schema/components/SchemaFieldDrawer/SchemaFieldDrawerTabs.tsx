@@ -80,8 +80,8 @@ const UnborderedTabs = styled(Tabs).attrs({ className: 'schema-field-drawer-tabs
         }
 
         &:hover {
-            background: ${(props) => props.theme.colors.border};
-            box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
+            background: ${(props) => props.theme.colors.bgHover};
+            box-shadow: ${(props) => props.theme.colors.shadowFocus};
         }
 
         &:last-child {
@@ -90,26 +90,16 @@ const UnborderedTabs = styled(Tabs).attrs({ className: 'schema-field-drawer-tabs
     }
 
     .ant-tabs-tab-active {
-        background: linear-gradient(
-            180deg,
-            rgba(83, 63, 209, 0.04) -3.99%,
-            rgba(112, 94, 228, 0.04) 53.04%,
-            rgba(112, 94, 228, 0.04) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
+        background: ${(props) => props.theme.colors.bgSelectedSubtle};
+        box-shadow: ${(props) => props.theme.colors.shadowFocusBrand};
 
         .ant-tabs-tab-btn {
             color: inherit;
         }
 
         &:hover {
-            background: linear-gradient(
-                180deg,
-                rgba(83, 63, 209, 0.04) -3.99%,
-                rgba(112, 94, 228, 0.04) 53.04%,
-                rgba(112, 94, 228, 0.04) 100%
-            );
-            box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
+            background: ${(props) => props.theme.colors.bgSelectedSubtle};
+            box-shadow: ${(props) => props.theme.colors.shadowFocus};
         }
     }
 
@@ -177,7 +167,7 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
     svg {
         ${(props) =>
             props.$isSelected
-                ? 'fill: url(#menu-item-selected-gradient) #533fd1;'
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconSelected};`
                 : `color: ${props.theme.colors.textTertiary};`}
         width: 20px;
         height: 20px;
@@ -197,7 +187,7 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
         justify-content: center;
         ${(props) =>
             props.$isSelected
-                ? 'color: url(#menu-item-selected-gradient) #533fd1;'
+                ? `color: url(#menu-item-selected-gradient) ${props.theme.colors.iconSelected};`
                 : `color: ${props.theme.colors.textTertiary};`}
         width: 20px;
         height: 20px;
@@ -214,7 +204,10 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
 
     /* Ensure Phosphor icon weights are correctly applied */
     .ph-fill {
-        fill: ${(props) => (props.$isSelected ? 'url(#menu-item-selected-gradient) #533fd1' : '#8088a3')};
+        fill: ${(props) =>
+            props.$isSelected
+                ? `url(#menu-item-selected-gradient) ${props.theme.colors.iconSelected}`
+                : props.theme.colors.icon};
     }
 `;
 

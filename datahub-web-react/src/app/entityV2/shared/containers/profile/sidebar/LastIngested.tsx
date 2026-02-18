@@ -1,10 +1,9 @@
-import { green, orange, red } from '@ant-design/colors';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
 import { Image } from 'antd';
 import moment from 'moment-timezone';
 import React from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
@@ -88,30 +87,34 @@ const PreviewImage = styled(Image)`
 `;
 
 function TooltipContent() {
+    const theme = useTheme();
     return (
         <div>
             <TooltipSection>
-                <StyledDot color={green[5]} /> Synchronized in the&nbsp;<b>past week</b>
+                <StyledDot color={theme.colors.textSuccess} /> Synchronized in the&nbsp;<b>past week</b>
             </TooltipSection>
             <TooltipSection>
-                <StyledDot color={orange[5]} /> Synchronized in the&nbsp;<b>past month</b>
+                <StyledDot color={theme.colors.textWarning} /> Synchronized in the&nbsp;<b>past month</b>
             </TooltipSection>
             <TooltipSection>
-                <StyledDot color={red[5]} /> Synchronized&nbsp;<b>more than a month ago</b>
+                <StyledDot color={theme.colors.textError} /> Synchronized&nbsp;<b>more than a month ago</b>
             </TooltipSection>
         </div>
     );
 }
 
-export function getLastIngestedColor(lastIngested: number) {
+export function getLastIngestedColor(
+    lastIngested: number,
+    colors: { textSuccess: string; textWarning: string; textError: string },
+) {
     const lastIngestedDate = moment(lastIngested);
     if (lastIngestedDate.isAfter(moment().subtract(1, 'week'))) {
-        return green[5];
+        return colors.textSuccess;
     }
     if (lastIngestedDate.isAfter(moment().subtract(1, 'month'))) {
-        return orange[5];
+        return colors.textWarning;
     }
-    return red[5];
+    return colors.textError;
 }
 
 interface Props {
@@ -119,10 +122,11 @@ interface Props {
 }
 
 function LastIngested({ lastIngested }: Props) {
+    const theme = useTheme();
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
-    const lastIngestedColor = getLastIngestedColor(lastIngested);
+    const lastIngestedColor = getLastIngestedColor(lastIngested, theme.colors);
     const platformName = getPlatformNameFromEntityData(entityData);
     const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
 

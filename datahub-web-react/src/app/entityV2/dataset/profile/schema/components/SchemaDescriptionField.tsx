@@ -52,17 +52,17 @@ const DescriptionContainer = styled.div`
     }
 
     & ins.diff {
-        background-color: #b7eb8f99;
+        background-color: ${(props) => props.theme.colors.bgSurfaceSuccess};
         text-decoration: none;
         &:hover {
-            background-color: #b7eb8faa;
+            background-color: ${(props) => props.theme.colors.bgSurfaceSuccess};
         }
     }
     & del.diff {
-        background-color: #ffa39e99;
+        background-color: ${(props) => props.theme.colors.bgSurfaceError};
         text-decoration: line-through;
         &: hover {
-            background-color: #ffa39eaa;
+            background-color: ${(props) => props.theme.colors.bgSurfaceError};
         }
     }
 `;

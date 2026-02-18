@@ -48,10 +48,6 @@ const ChevronIcon = styled(Icon)`
     font-size: 12px;
 `;
 
-const ERROR_TEXT_COLOR = '#C4360B';
-const WARNING_COLOR = '#FFFAEB';
-const WARNING_TEXT_COLOR = '#C77100';
-
 interface Props {
     report: StructuredReportType;
 }
@@ -136,6 +132,9 @@ export function distributeVisibleItems(
 export function StructuredReport({ report }: Props) {
     const theme = useTheme();
     const ERROR_COLOR = theme.colors.bgSurfaceError;
+    const ERROR_TEXT_COLOR = theme.colors.textError;
+    const WARNING_COLOR = theme.colors.bgSurfaceWarning;
+    const WARNING_TEXT_COLOR = theme.colors.textWarning;
     const INFO_COLOR = theme.colors.bgSurfaceBrand;
     const INFO_TEXT_COLOR = theme.colors.iconBrand;
 

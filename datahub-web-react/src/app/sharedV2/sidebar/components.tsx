@@ -9,14 +9,14 @@ export const SidebarWrapper = styled.div<{ width: number; $isShowNavBarRedesign?
     width: ${(props) => props.width}px;
     min-width: ${(props) => props.width}px;
     display: ${(props) => (props.width ? 'block' : 'none')};
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     ${(props) => !props.$isShowNavBarRedesign && 'margin-bottom: 12px;'}
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowSm};
     `}
 `;
 

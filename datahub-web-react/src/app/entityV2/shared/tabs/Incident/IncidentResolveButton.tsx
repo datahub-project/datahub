@@ -70,7 +70,7 @@ export const IncidentResolveButton = ({
     };
 
     const checkIconRenderer = () => {
-        return <Check color="#248F5B" height={9} width={12} />;
+        return <Check color={theme.colors.iconSuccess} height={9} width={12} />;
     };
 
     const showPopoverWithResolver = loading ? (

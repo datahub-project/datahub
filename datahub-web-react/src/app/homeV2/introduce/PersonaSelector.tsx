@@ -12,7 +12,7 @@ import {
 import { Heading } from '@src/alchemy-components';
 
 const PersonaCard = styled.div<{ selected: boolean }>`
-    border: 1px rgb(217, 217, 217) solid;
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 5px;
     padding: 12px;
     margin: 12px 0;

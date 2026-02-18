@@ -96,7 +96,7 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
 
     &&& tr.expanded-row td:first-of-type {
         border-left: ${(props) =>
-            props.isSearchActive ? '4px solid #ffffff00' : `4px solid ${props.theme.colors.bgSurfaceBrand}`};
+            props.isSearchActive ? '4px solid transparent' : `4px solid ${props.theme.colors.bgSurfaceBrand}`};
     }
 
     &&& .expanded-child > td {

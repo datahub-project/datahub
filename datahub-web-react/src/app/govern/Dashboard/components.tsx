@@ -9,8 +9,8 @@ export const Layout = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex: 1;
     flex-direction: column;
-    background-color: ${(props) => props.theme.colors.bgSurface};
-    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};`}
+    background-color: ${(props) => props.theme.colors.bg};
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowSm};`}
 `;
 
 export const Header = styled.div`
@@ -151,7 +151,7 @@ export const DataFreshness = styled.div`
     }
 
     svg {
-        color: orange;
+        color: ${(props) => props.theme.colors.textWarning};
         margin-right: 0.15rem;
     }
 `;

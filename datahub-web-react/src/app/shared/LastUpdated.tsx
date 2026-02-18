@@ -1,9 +1,8 @@
-import { green, orange, red } from '@ant-design/colors';
 import { ClockCircleOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
 import { Image } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { getLastIngestedColor } from '@app/entity/shared/containers/profile/sidebar/LastIngested';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
@@ -45,16 +44,17 @@ const PreviewImage = styled(Image)`
 `;
 
 function PopoverContent() {
+    const theme = useTheme();
     return (
         <div>
             <PopoverContentSection>
-                <StyledDot color={green[5]} /> Updated in the&nbsp;<b>past week</b>
+                <StyledDot color={theme.colors.textSuccess} /> Updated in the&nbsp;<b>past week</b>
             </PopoverContentSection>
             <PopoverContentSection>
-                <StyledDot color={orange[5]} /> Updated in the&nbsp;<b>past month</b>
+                <StyledDot color={theme.colors.textWarning} /> Updated in the&nbsp;<b>past month</b>
             </PopoverContentSection>
             <PopoverContentSection>
-                <StyledDot color={red[5]} /> Updated&nbsp;<b>more than a month ago</b>
+                <StyledDot color={theme.colors.textError} /> Updated&nbsp;<b>more than a month ago</b>
             </PopoverContentSection>
         </div>
     );
@@ -69,6 +69,7 @@ type Props = {
 };
 
 export default function LastUpdated({ time, typeName, platformName, platformLogoUrl, noLabel }: Props) {
+    const theme = useTheme();
     return (
         <Popover
             title={
@@ -94,7 +95,7 @@ export default function LastUpdated({ time, typeName, platformName, platformLogo
             showArrow={false}
         >
             <LastUpdatedContainer>
-                <StyledDot color={getLastIngestedColor(time)} />
+                <StyledDot color={getLastIngestedColor(time, theme.colors)} />
                 {!noLabel && (
                     <>
                         <ClockCircleOutlined />

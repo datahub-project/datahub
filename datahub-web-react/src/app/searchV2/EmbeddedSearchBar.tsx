@@ -14,7 +14,7 @@ const SearchIcon = styled(SearchOutlined)`
 
 const SearchInput = styled(Input)`
     width: 400px;
-    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     border-radius: 70px;
 `;
 
