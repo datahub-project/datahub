@@ -13,7 +13,14 @@ We do NOT test:
 - Pydantic validation (covered by test_adf_config.py)
 """
 
+from typing import TYPE_CHECKING, Callable
+
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+        DatasetSchemaInfo,
+    )
 from datahub.ingestion.source.azure_data_factory.adf_source import (
     ACTIVITY_SUBTYPE_MAP,
     LINKED_SERVICE_PLATFORM_MAP,
@@ -468,7 +475,9 @@ class MockActivity:
         self.type_properties = type_properties
 
 
-def make_schema_resolver(schema_map: dict | None = None):
+def make_schema_resolver(
+    schema_map: dict | None = None,
+) -> "Callable[[str], DatasetSchemaInfo | None]":
     """Create a schema resolver function for testing.
 
     Args:
@@ -537,14 +546,17 @@ class TestCopyActivityColumnLineageExtractor:
         # Extract column names from URNs (format: urn:li:schemaField:(...,column))
         mapping_dict = {}
         for fgl in lineages:
+            assert fgl.upstreams is not None and fgl.downstreams is not None
             upstream_col = fgl.upstreams[0].split(",")[-1].rstrip(")")
             downstream_col = fgl.downstreams[0].split(",")[-1].rstrip(")")
             mapping_dict[upstream_col] = downstream_col
         assert mapping_dict["source_id"] == "target_id"
         assert mapping_dict["source_name"] == "target_name"
         # Verify URNs contain the dataset URNs
-        assert all(source_urn in fgl.upstreams[0] for fgl in lineages)
-        assert all(sink_urn in fgl.downstreams[0] for fgl in lineages)
+        for fgl in lineages:
+            assert fgl.upstreams is not None and fgl.downstreams is not None
+            assert source_urn in fgl.upstreams[0]
+            assert sink_urn in fgl.downstreams[0]
 
     def test_extract_list_format_column_mappings(self) -> None:
         """Should parse current list format: [{source: {name}, sink: {name}}]."""
@@ -577,6 +589,7 @@ class TestCopyActivityColumnLineageExtractor:
         # Extract column names from URNs
         mapping_dict = {}
         for fgl in lineages:
+            assert fgl.upstreams is not None and fgl.downstreams is not None
             upstream_col = fgl.upstreams[0].split(",")[-1].rstrip(")")
             downstream_col = fgl.downstreams[0].split(",")[-1].rstrip(")")
             mapping_dict[upstream_col] = downstream_col
@@ -663,6 +676,7 @@ class TestCopyActivityColumnLineageExtractor:
         # Only the valid mapping should be extracted
         assert len(lineages) == 1
         # Extract column names from URNs
+        assert lineages[0].upstreams is not None and lineages[0].downstreams is not None
         upstream_col = lineages[0].upstreams[0].split(",")[-1].rstrip(")")
         downstream_col = lineages[0].downstreams[0].split(",")[-1].rstrip(")")
         assert upstream_col == "valid_src"
@@ -695,6 +709,7 @@ class TestCopyActivityColumnLineageExtractor:
         )
 
         assert len(lineages) == 1
+        assert lineages[0].upstreams is not None
         upstream_col = lineages[0].upstreams[0].split(",")[-1].rstrip(")")
         assert upstream_col == "id"
 
@@ -727,6 +742,7 @@ class TestCopyActivityColumnLineageExtractor:
         )
 
         assert len(lineages) == 1
+        assert lineages[0].upstreams is not None and lineages[0].downstreams is not None
         upstream_col = lineages[0].upstreams[0].split(",")[-1].rstrip(")")
         downstream_col = lineages[0].downstreams[0].split(",")[-1].rstrip(")")
         assert upstream_col == "name"
@@ -759,10 +775,14 @@ class TestCopyActivityColumnLineageExtractor:
         assert len(lineages) == 3
         # Auto-mapping means same column name on both sides
         for fgl in lineages:
+            assert fgl.upstreams is not None and fgl.downstreams is not None
             upstream_col = fgl.upstreams[0].split(",")[-1].rstrip(")")
             downstream_col = fgl.downstreams[0].split(",")[-1].rstrip(")")
             assert upstream_col == downstream_col
-        column_names = {fgl.upstreams[0].split(",")[-1].rstrip(")") for fgl in lineages}
+        column_names = set()
+        for fgl in lineages:
+            assert fgl.upstreams is not None
+            column_names.add(fgl.upstreams[0].split(",")[-1].rstrip(")"))
         assert column_names == {"id", "name", "email"}
 
     def test_no_inference_without_source_schema(self) -> None:
@@ -835,7 +855,7 @@ class TestSourceDatasetSchemaExtraction:
         schema = None
         structure = None
 
-        columns = []
+        columns: list[str] = []
         if schema and isinstance(schema, list):
             for field in schema:
                 if isinstance(field, dict):
@@ -887,6 +907,7 @@ class TestFineGrainedLineageOutput:
         fgl = lineages[0]
 
         # Verify URN formats
+        assert fgl.upstreams is not None and fgl.downstreams is not None
         assert "schemaField" in fgl.upstreams[0]
         assert "id" in fgl.upstreams[0]
         assert "schemaField" in fgl.downstreams[0]

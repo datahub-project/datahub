@@ -5,7 +5,7 @@ produces the expected metadata events.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, cast
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -13,6 +13,9 @@ import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.azure_data_factory.adf_report import (
+    AzureDataFactorySourceReport,
+)
 from datahub.testing import mce_helpers
 from tests.integration.azure_data_factory.complex_mocks import (
     RESOURCE_GROUP as COMPLEX_RESOURCE_GROUP,
@@ -1175,7 +1178,9 @@ def test_adf_source_with_column_lineage(pytestconfig, tmp_path):
             pipeline.raise_from_status()
 
             # Verify column lineage was extracted
-            source_report = pipeline.source.get_report()
+            source_report = cast(
+                AzureDataFactorySourceReport, pipeline.source.get_report()
+            )
             assert source_report.column_lineage_extracted > 0, (
                 "Expected column lineage mappings to be extracted"
             )
@@ -1239,7 +1244,9 @@ def test_adf_source_column_lineage_disabled(tmp_path):
             pipeline.raise_from_status()
 
             # Verify no column lineage was extracted
-            source_report = pipeline.source.get_report()
+            source_report = cast(
+                AzureDataFactorySourceReport, pipeline.source.get_report()
+            )
             assert source_report.column_lineage_extracted == 0, (
                 "Expected no column lineage when disabled"
             )
