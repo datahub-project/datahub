@@ -58,6 +58,17 @@ import {
     VIEW_DENY,
 } from '@app/ingestV2/source/builder/RecipeForm/common';
 import {
+    CONFLUENCE_API_TOKEN,
+    CONFLUENCE_DEPLOYMENT_TYPE,
+    CONFLUENCE_PAGE_ALLOW,
+    CONFLUENCE_PAGE_DENY,
+    CONFLUENCE_PERSONAL_ACCESS_TOKEN,
+    CONFLUENCE_SPACE_ALLOW,
+    CONFLUENCE_SPACE_DENY,
+    CONFLUENCE_URL,
+    CONFLUENCE_USERNAME,
+} from '@app/ingestV2/source/builder/RecipeForm/confluence';
+import {
     CSV_ARRAY_DELIMITER,
     CSV_DELIMITER,
     CSV_FILE_URL,
@@ -166,6 +177,7 @@ import {
     MSSQL_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/mssql';
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from '@app/ingestV2/source/builder/RecipeForm/mysql';
+import { NOTION_API_KEY, NOTION_PAGE_IDS } from '@app/ingestV2/source/builder/RecipeForm/notion';
 import {
     INCLUDE_DEPROVISIONED_USERS,
     INCLUDE_SUSPENDED_USERS,
@@ -290,10 +302,12 @@ import {
 } from '@app/ingestV2/source/builder/RecipeForm/vertica';
 import {
     AZURE,
+    CONFLUENCE,
     CSV,
     DATABRICKS,
     DBT_CLOUD,
     MYSQL,
+    NOTION,
     OKTA,
     POWER_BI,
     SAC,
@@ -638,6 +652,25 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
             SKIP_USERS_WITHOUT_GROUP,
         ],
+    },
+    [NOTION]: {
+        fields: [NOTION_API_KEY, NOTION_PAGE_IDS],
+        filterFields: [],
+        advancedFields: [],
+    },
+    [CONFLUENCE]: {
+        fields: [
+            CONFLUENCE_DEPLOYMENT_TYPE,
+            CONFLUENCE_URL,
+            CONFLUENCE_USERNAME,
+            CONFLUENCE_API_TOKEN,
+            CONFLUENCE_PERSONAL_ACCESS_TOKEN,
+        ],
+        filterFields: [CONFLUENCE_SPACE_ALLOW, CONFLUENCE_SPACE_DENY, CONFLUENCE_PAGE_ALLOW, CONFLUENCE_PAGE_DENY],
+        advancedFields: [],
+        filterSectionTooltip:
+            'Control which Confluence content is ingested by filtering spaces and pages. Leave empty to ingest all accessible content.',
+        defaultOpenSections: [RecipeSections.Filter],
     },
     [AZURE]: {
         fields: [

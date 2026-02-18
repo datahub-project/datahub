@@ -19,3 +19,9 @@ repos:
         language: system
         files: ^.*build\.gradle(\.kts)?$
         pass_filenames: false
+      - id: check-quickstart-compose
+        name: Check quickstart docker-compose config is up-to-date
+        entry: bash .github/scripts/check_quickstart_compose.sh
+        language: system
+        files: ^docker/.*$
+        pass_filenames: false

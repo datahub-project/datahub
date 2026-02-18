@@ -622,6 +622,64 @@ public class ApplicationTest extends WithBrowser {
   }
 
   @Test
+  public void testRedirectTrailingSlashNestedPath() {
+    Http.RequestBuilder request =
+        fakeRequest(routes.Application.redirectTrailingSlash("foo/bar/baz"));
+
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/foo/bar/baz", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashDirectWithLeadingSlash() {
+    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
+    Result result = controller.redirectTrailingSlash("/evil.com");
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/evil.com", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashDirectWithMultipleLeadingSlashes() {
+    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
+    Result result = controller.redirectTrailingSlash("///evil.com/path");
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/evil.com/path", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashDirectWithNull() {
+    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
+    Result result = controller.redirectTrailingSlash(null);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashDirectWithEmpty() {
+    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
+    Result result = controller.redirectTrailingSlash("");
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashDirectWithOnlySlashes() {
+    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
+    Result result = controller.redirectTrailingSlash("////");
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlashDirectWithNormalPath() {
+    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
+    Result result = controller.redirectTrailingSlash("dataset/urn:li:dataset:1");
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/dataset/urn:li:dataset:1", result.redirectLocation().orElse(""));
+  }
+
+  @Test
   public void testAppConfigWithEmptyBasePath() {
     // Create a new application with empty basePath
     Application customApp =

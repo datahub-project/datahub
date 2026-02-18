@@ -1,0 +1,78 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "07fd3fd50838cd074f3d5c92c5082e82c6c31e6e4463aba6268e0324de006426",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "subscription_id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+                    "column": "subscription_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"events\".\"subscription_id\" AS \"subscription_id\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "subscription_type",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+                    "column": "default.subscriptions"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+                    "column": "subscription_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "DICTGET(\"events\".\"default\".\"subscriptions\", 'type', \"events\".\"subscription_id\") AS \"subscription_type\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "subscription_domain",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+                    "column": "default.subscriptions"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+                    "column": "subscription_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "DICTGET(\"events\".\"default\".\"subscriptions\", 'domain', \"events\".\"subscription_id\") AS \"subscription_domain\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT subscription_id, DICTGET(default.subscriptions, {?: }, subscription_id) AS subscription_type, DICTGET(default.subscriptions, {?: }, subscription_id) AS subscription_domain FROM analytics.events"
+    }
+}

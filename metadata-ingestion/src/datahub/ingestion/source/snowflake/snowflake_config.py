@@ -103,12 +103,45 @@ class SemanticViewsConfig(ConfigModel):
         description="If enabled, column-level lineage will be generated for semantic views, mapping dimensions, facts, and metrics to their source columns in base tables. Only applicable when enabled is True.",
     )
 
+    include_usage: bool = Field(
+        default=False,
+        description="If enabled, usage statistics will be extracted for semantic views. "
+        "This scans QUERY_HISTORY which can be slow on accounts with high query volume.",
+    )
+
+    include_queries: bool = Field(
+        default=False,
+        description="If enabled, generate query entities for queries against semantic views.",
+    )
+
+    max_queries_per_view: int = Field(
+        default=100,
+        ge=1,
+        le=10000,
+        description="Maximum number of query entities to emit per semantic view. "
+        "Only applicable when include_queries is True.",
+    )
+
     @model_validator(mode="after")
     def validate_column_lineage_requires_enabled(self) -> "SemanticViewsConfig":
         if self.column_lineage and not self.enabled:
             logger.warning(
                 "semantic_views.column_lineage is set to True but semantic_views.enabled is False. "
                 "Column lineage will not be generated. Set semantic_views.enabled to True to enable column lineage."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_usage_requires_enabled(self) -> "SemanticViewsConfig":
+        if self.include_usage and not self.enabled:
+            logger.warning(
+                "semantic_views.include_usage is set to True but semantic_views.enabled is False. "
+                "Usage statistics will not be extracted. Set semantic_views.enabled to True to enable usage tracking."
+            )
+        if self.include_queries and not self.enabled:
+            logger.warning(
+                "semantic_views.include_queries is set to True but semantic_views.enabled is False. "
+                "Query entities will not be generated. Set semantic_views.enabled to True to enable query tracking."
             )
         return self
 
