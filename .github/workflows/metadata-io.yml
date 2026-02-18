@@ -77,15 +77,17 @@ jobs:
       - name: Gradle build (and test)
         run: |
           ./gradlew :metadata-io:test
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
         with:
-          name: Test Results (metadata-io)
-          path: |
+          artifact-name: Test Results (metadata-io)
+          test-results-paths: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
-            **/junit.*.xml
             !**/binary/**
+          junit-file-globs: |
+            **/build/test-results/test/**/*.xml
       - name: Send failed test metrics to PostHog
         if: failure()
         continue-on-error: true
