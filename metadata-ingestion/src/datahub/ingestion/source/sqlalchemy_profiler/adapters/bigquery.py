@@ -5,6 +5,7 @@ from typing import Any, List, Optional
 
 import google.cloud.bigquery.job.query
 import sqlalchemy as sa
+from google.cloud.bigquery.dbapi import exceptions as bq_exceptions
 from google.cloud.bigquery.dbapi.cursor import Cursor as BigQueryCursor
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
@@ -198,7 +199,7 @@ class BigQueryAdapter(PlatformAdapter):
                 )
                 raise RuntimeError(error_msg)
 
-        except Exception as e:
+        except bq_exceptions.DatabaseError as e:
             error_msg = (
                 f"Cannot profile {context.pretty_name}: BigQuery temp table creation failed. "
                 f"Temp table is required for custom SQL/LIMIT/OFFSET queries. "

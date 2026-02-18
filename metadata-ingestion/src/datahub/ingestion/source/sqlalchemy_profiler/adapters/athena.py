@@ -5,6 +5,7 @@ import uuid
 from typing import Any, List, Optional
 
 import sqlalchemy as sa
+from pyathena import error as athena_errors
 from pyathena.cursor import Cursor
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
@@ -120,7 +121,7 @@ class AthenaAdapter(PlatformAdapter):
 
             logger.debug(f"Created Athena temp view: {temp_view}")
 
-        except SQLAlchemyError as e:
+        except athena_errors.DatabaseError as e:
             error_msg = (
                 f"Cannot profile {context.pretty_name}: Athena temp view creation failed. "
                 f"Temp view is required for custom SQL queries. "

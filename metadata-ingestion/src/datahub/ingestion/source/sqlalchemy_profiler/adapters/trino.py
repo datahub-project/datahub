@@ -8,6 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
+from trino import exceptions as trino_exceptions
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -126,7 +127,7 @@ class TrinoAdapter(PlatformAdapter):
 
             logger.debug(f"Created Trino temp view: {temp_view}")
 
-        except SQLAlchemyError as e:
+        except trino_exceptions.DatabaseError as e:
             error_msg = (
                 f"Cannot profile {context.pretty_name}: Trino temp view creation failed. "
                 f"Temp view is required for custom SQL queries. "
