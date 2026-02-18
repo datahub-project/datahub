@@ -87,6 +87,21 @@ class PowerBiAPI:
         # reports and tiles across different workspaces.
         self.dataset_registry: Dict[str, PowerBIDataset] = {}
 
+    def _get_dataset_workspace_context(self, dataset_id: str) -> str:
+        """
+        Resolve dataset to its workspace via Admin API when available.
+        Returns a string to append to error context, e.g.
+        ", dataset-workspace-id: x, dataset-workspace-name: y" or "".
+        """
+        resolved = self.__admin_api_resolver.get_dataset_workspace_as_admin(dataset_id)
+        if not resolved:
+            return ""
+        workspace_id, workspace_name = resolved
+        parts = [f", dataset-workspace-id: {workspace_id}"]
+        if workspace_name:
+            parts.append(f", dataset-workspace-name: {workspace_name}")
+        return "".join(parts)
+
     def log_http_error(self, message: str) -> Any:
         logger.warning(message)
         _, e, _ = sys.exc_info()
@@ -209,10 +224,13 @@ class PowerBiAPI:
                 if report.dataset_id:
                     report.dataset = self.dataset_registry.get(report.dataset_id)
                     if report.dataset is None:
+                        dataset_ctx = self._get_dataset_workspace_context(
+                            report.dataset_id
+                        )
                         self.reporter.info(
                             title="Missing Lineage For Report",
-                            message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
-                            context=f"workspace-name: {workspace.name}, report-name: {report.name}, dataset-id: {report.dataset_id}",
+                            message="Report references a dataset from another workspace that could not be resolved (dataset not in any ingested workspace). The workspace below is where the report lives. Add the dataset's workspace to ingestion or relax workspace_id_pattern.",
+                            context=f"report-workspace: {workspace.name}, report-name: {report.name}, dataset-id: {report.dataset_id}{dataset_ctx}",
                         )
         except Exception:
             self.log_http_error(
@@ -762,10 +780,13 @@ class PowerBiAPI:
                     if tile.dataset_id:
                         tile.dataset = self.dataset_registry.get(tile.dataset_id)
                         if tile.dataset is None:
+                            dataset_ctx = self._get_dataset_workspace_context(
+                                tile.dataset_id
+                            )
                             self.reporter.info(
                                 title="Missing Dataset Lineage For Tile",
-                                message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
-                                context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, dataset-id: {tile.dataset_id}",
+                                message="Tile references a dataset from another workspace that could not be resolved. Add the dataset's workspace to ingestion or relax workspace_id_pattern.",
+                                context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, dataset-id: {tile.dataset_id}{dataset_ctx}",
                             )
 
         def fill_reports() -> None:
