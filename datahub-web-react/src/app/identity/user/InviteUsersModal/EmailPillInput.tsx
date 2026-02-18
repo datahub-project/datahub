@@ -1,5 +1,5 @@
 import { Icon, Pill, colors } from '@components';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { colors as alchemyColors, typography } from '@src/alchemy-components/theme';
@@ -11,8 +11,10 @@ type ParsedEmail = {
 };
 
 type Props = {
+    emails: string[];
     onEmailsChange: (emails: string[]) => void;
     onKeyPress: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+    onInputChange?: (value: string) => void;
     className?: string;
     placeholder?: string;
     helperText?: string;
@@ -97,80 +99,70 @@ const IconWrapper = styled.div`
 `;
 
 export default function EmailPillInput({
+    emails,
     onEmailsChange,
     onKeyPress,
+    onInputChange,
     className,
     placeholder = 'email1@address.com, email2@address.com',
     helperText = 'Input emails separated by commas, then press Enter to finish.',
     error,
 }: Props) {
     const [inputValue, setInputValue] = useState('');
-    const [parsedEmails, setParsedEmails] = useState<ParsedEmail[]>([]);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Cache email validation results to avoid repeated regex operations
-    const emailValidationCache = useRef<Map<string, boolean>>(new Map());
-    const idCounter = useRef<number>(0);
-
-    const validateEmail = useCallback((email: string): boolean => {
-        const cached = emailValidationCache.current.get(email);
-        if (cached !== undefined) {
-            return cached;
-        }
-        const isValid = EMAIL_REGEX.test(email);
-        emailValidationCache.current.set(email, isValid);
-        return isValid;
-    }, []);
-
-    const parseEmailInput = useCallback(
-        (input: string): ParsedEmail[] => {
-            return input
-                .split(/[,\s]+/)
-                .map((email) => email.trim())
-                .filter((email) => email.length > 0)
-                .map((email) => ({
-                    id: `email-${++idCounter.current}`,
-                    email,
-                    isValid: validateEmail(email),
-                }));
-        },
-        [validateEmail],
+    const nextId = useRef(0);
+    const parsedEmails: ParsedEmail[] = useMemo(
+        () => emails.map((email) => ({ id: `email-${nextId.current++}`, email, isValid: EMAIL_REGEX.test(email) })),
+        [emails],
     );
 
-    const updateEmails = useCallback(
-        (emails: ParsedEmail[]) => {
-            setParsedEmails(emails);
-            onEmailsChange(emails.map((e) => e.email));
-        },
-        [onEmailsChange],
-    );
-
-    const validateEmailsAndGetError = useCallback((emails: ParsedEmail[]): string => {
-        const invalidEmails = emails.filter((e) => !e.isValid);
+    const validationError = useMemo(() => {
+        const invalidEmails = parsedEmails.filter((e) => !e.isValid);
         if (invalidEmails.length > 0) {
             return 'Enter valid email address';
         }
         return '';
+    }, [parsedEmails]);
+
+    const setInput = useCallback(
+        (value: string) => {
+            setInputValue(value);
+            onInputChange?.(value);
+        },
+        [onInputChange],
+    );
+
+    const parseRawInput = useCallback((input: string): string[] => {
+        return input
+            .split(/[,\s]+/)
+            .map((email) => email.trim())
+            .filter((email) => email.length > 0);
     }, []);
+
+    const commitInput = useCallback(
+        (raw: string) => {
+            const newEmails = parseRawInput(raw);
+            if (newEmails.length > 0) {
+                onEmailsChange([...emails, ...newEmails]);
+                setInput('');
+            }
+        },
+        [emails, parseRawInput, onEmailsChange, setInput],
+    );
 
     const handleInputChange = useCallback(
         (e: React.ChangeEvent<HTMLInputElement>) => {
             const { value } = e.target;
 
-            // Check if user typed a separator to create pills immediately
             if (value.includes(',') || value.includes(' ')) {
-                const newEmails = parseEmailInput(value);
-                if (newEmails.length > 0) {
-                    const updatedEmails = [...parsedEmails, ...newEmails];
-                    updateEmails(updatedEmails);
-                    setInputValue('');
-                    return;
-                }
+                commitInput(value);
+                return;
             }
 
-            setInputValue(value);
+            setInput(value);
         },
-        [parsedEmails, parseEmailInput, updateEmails],
+        [commitInput, setInput],
     );
 
     const handleKeyDown = useCallback(
@@ -178,36 +170,35 @@ export default function EmailPillInput({
             if (e.key === 'Enter' || e.key === ',') {
                 e.preventDefault();
                 if (inputValue.trim()) {
-                    const newEmails = parseEmailInput(inputValue);
-                    const updatedEmails = [...parsedEmails, ...newEmails];
-                    updateEmails(updatedEmails);
-                    setInputValue('');
+                    commitInput(inputValue);
                 }
-            } else if (e.key === 'Backspace' && !inputValue && parsedEmails.length > 0) {
-                // Remove last pill when backspacing on empty input
-                const updatedEmails = parsedEmails.slice(0, -1);
-                updateEmails(updatedEmails);
+            } else if (e.key === 'Backspace' && !inputValue && emails.length > 0) {
+                onEmailsChange(emails.slice(0, -1));
             }
 
-            // Pass through the key press event for parent handling
             onKeyPress(e);
         },
-        [inputValue, parsedEmails, parseEmailInput, updateEmails, onKeyPress],
+        [inputValue, emails, commitInput, onEmailsChange, onKeyPress],
     );
 
     const handlePillRemove = useCallback(
         (indexToRemove: number) => {
-            const updatedEmails = parsedEmails.filter((_, index) => index !== indexToRemove);
-            updateEmails(updatedEmails);
+            onEmailsChange(emails.filter((_, index) => index !== indexToRemove));
         },
-        [parsedEmails, updateEmails],
+        [emails, onEmailsChange],
     );
+
+    const handleBlur = useCallback(() => {
+        if (inputValue.trim()) {
+            commitInput(inputValue);
+        }
+    }, [inputValue, commitInput]);
 
     const handleContainerClick = useCallback(() => {
         inputRef.current?.focus();
     }, []);
 
-    const currentError = error || validateEmailsAndGetError(parsedEmails);
+    const currentError = error || validationError;
 
     return (
         <Container className={className}>
@@ -243,7 +234,8 @@ export default function EmailPillInput({
                         value={inputValue}
                         onChange={handleInputChange}
                         onKeyDown={handleKeyDown}
-                        placeholder={parsedEmails.length === 0 ? placeholder : ''}
+                        onBlur={handleBlur}
+                        placeholder={emails.length === 0 ? placeholder : ''}
                     />
                 </PillsContainer>
             </InputWrapper>

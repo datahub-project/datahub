@@ -14,12 +14,16 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.InviteToken;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.List;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -314,5 +318,86 @@ public class InviteTokenServiceTest {
     assertEquals(tokens.get(0), "singleToken");
 
     verify(_entityClient, times(1)).batchIngestProposals(eq(opContext), any(), eq(false));
+  }
+
+  @Test
+  public void getInviteTokenFilterExcludesIndividualTokens() throws Exception {
+    final SearchResult searchResult = new SearchResult();
+    searchResult.setEntities(new SearchEntityArray());
+    when(opContext.getAuthentication()).thenReturn(SYSTEM_AUTHENTICATION);
+    when(_entityClient.filter(
+            eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+        .thenReturn(searchResult);
+    when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
+    when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
+    when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
+
+    _inviteTokenService.getInviteToken(opContext, null, true);
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(_entityClient)
+        .filter(
+            eq(opContext),
+            eq(INVITE_TOKEN_ENTITY_NAME),
+            filterCaptor.capture(),
+            any(),
+            anyInt(),
+            anyInt());
+
+    Filter capturedFilter = filterCaptor.getValue();
+    CriterionArray criteria = capturedFilter.getOr().get(0).getAnd();
+
+    boolean hasTokenTypeExclusion =
+        criteria.stream()
+            .anyMatch(
+                c ->
+                    "tokenType".equals(c.getField())
+                        && Condition.EQUAL.equals(c.getCondition())
+                        && c.isNegated()
+                        && c.getValues().contains("INDIVIDUAL"));
+    assertTrue(
+        hasTokenTypeExclusion,
+        "Filter should exclude INDIVIDUAL tokens to avoid deleting email invitation tokens");
+  }
+
+  @Test
+  public void getInviteTokenWithRoleFilterExcludesIndividualTokens() throws Exception {
+    final SearchResult searchResult = new SearchResult();
+    searchResult.setEntities(new SearchEntityArray());
+    when(opContext.getAuthentication()).thenReturn(SYSTEM_AUTHENTICATION);
+    when(_entityClient.filter(
+            eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+        .thenReturn(searchResult);
+    when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
+    when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
+    when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
+
+    _inviteTokenService.getInviteToken(opContext, ROLE_URN_STRING, true);
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(_entityClient)
+        .filter(
+            eq(opContext),
+            eq(INVITE_TOKEN_ENTITY_NAME),
+            filterCaptor.capture(),
+            any(),
+            anyInt(),
+            anyInt());
+
+    Filter capturedFilter = filterCaptor.getValue();
+    CriterionArray criteria = capturedFilter.getOr().get(0).getAnd();
+
+    boolean hasTokenTypeExclusion =
+        criteria.stream()
+            .anyMatch(
+                c ->
+                    "tokenType".equals(c.getField())
+                        && Condition.EQUAL.equals(c.getCondition())
+                        && c.isNegated()
+                        && c.getValues().contains("INDIVIDUAL"));
+    assertTrue(
+        hasTokenTypeExclusion,
+        "Filter with role should exclude INDIVIDUAL tokens to avoid deleting email invitation"
+            + " tokens");
   }
 }

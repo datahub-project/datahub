@@ -67,6 +67,7 @@ export default function InviteUsersModal({ open, onClose }: Props) {
         createInviteToken,
         handleSendInvitations,
         handleEmailInputKeyPress,
+        handleEmailInputChange,
         handleEmailsChange,
         resetModalState,
         emailInvitations,
@@ -211,6 +212,7 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                         handleEmailInputKeyPress={handleEmailInputKeyPress}
                         handleSendInvitations={handleSendInvitations}
                         onEmailsChange={handleEmailsChange}
+                        onEmailInputChange={handleEmailInputChange}
                     />
 
                     {invitedUsers.length > 0 && (

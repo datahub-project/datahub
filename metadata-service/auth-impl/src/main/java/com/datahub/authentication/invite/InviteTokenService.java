@@ -35,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 public class InviteTokenService {
   private static final String ROLE_FIELD_NAME = "role";
   private static final String HAS_ROLE_FIELD_NAME = "hasRole";
+  private static final String TOKEN_TYPE_FIELD_NAME = "tokenType";
   private final EntityClient _entityClient;
   private final SecretService _secretService;
 
@@ -130,27 +131,26 @@ public class InviteTokenService {
   public String getInviteToken(
       @Nonnull OperationContext opContext, @Nullable final String roleUrnStr, boolean regenerate)
       throws Exception {
-    final Filter inviteTokenFilter =
-        roleUrnStr == null ? createInviteTokenFilter() : createInviteTokenFilter(roleUrnStr);
+    final Filter inviteTokenFilter = createInviteTokenFilter(roleUrnStr);
 
     final SearchResult searchResult =
         _entityClient.filter(opContext, INVITE_TOKEN_ENTITY_NAME, inviteTokenFilter, null, 0, 10);
 
     final int numEntities = searchResult.getEntities().size();
-    // If there is more than one invite token, wipe all of them and generate a fresh one
-    if (numEntities > 1) {
+
+    if (numEntities == 0) {
+      return createInviteToken(opContext, roleUrnStr);
+    }
+
+    // Clean up duplicates or regenerate: delete existing tokens and create a fresh one
+    if (regenerate || numEntities > 1) {
       deleteExistingInviteTokens(opContext, searchResult);
       return createInviteToken(opContext, roleUrnStr);
     }
 
-    // If we want to regenerate, or there are no entities in the result, create a new invite token.
-    if (regenerate || numEntities == 0) {
-      return createInviteToken(opContext, roleUrnStr);
-    }
-
+    // Return the existing token
     final SearchEntity searchEntity = searchResult.getEntities().get(0);
     final Urn inviteTokenUrn = searchEntity.getEntity();
-
     com.linkedin.identity.InviteToken inviteToken = getInviteTokenEntity(opContext, inviteTokenUrn);
     return _secretService.decrypt(inviteToken.getToken());
   }
@@ -190,35 +190,26 @@ public class InviteTokenService {
         aspectMap.get(INVITE_TOKEN_ASPECT_NAME).getValue().data());
   }
 
-  private Filter createInviteTokenFilter() {
-    final Filter filter = new Filter();
-    final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
-    final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
+  private Filter createInviteTokenFilter(@Nullable final String roleUrnStr) {
+    final Criterion roleCriterion =
+        roleUrnStr == null
+            ? buildCriterion(HAS_ROLE_FIELD_NAME, Condition.EQUAL, "false")
+            : buildCriterion(ROLE_FIELD_NAME, Condition.EQUAL, roleUrnStr);
+    final Criterion excludeIndividualCriterion =
+        buildCriterion(TOKEN_TYPE_FIELD_NAME, Condition.EQUAL, true, "INDIVIDUAL");
+
     final CriterionArray andCriterion = new CriterionArray();
-
-    final Criterion roleCriterion = buildCriterion(HAS_ROLE_FIELD_NAME, Condition.EQUAL, "false");
-
     andCriterion.add(roleCriterion);
-    conjunction.setAnd(andCriterion);
-    disjunction.add(conjunction);
-    filter.setOr(disjunction);
+    andCriterion.add(excludeIndividualCriterion);
 
-    return filter;
-  }
-
-  private Filter createInviteTokenFilter(@Nonnull final String roleUrnStr) {
-    final Filter filter = new Filter();
-    final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
     final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
-    final CriterionArray andCriterion = new CriterionArray();
-
-    final Criterion roleCriterion = buildCriterion(ROLE_FIELD_NAME, Condition.EQUAL, roleUrnStr);
-
-    andCriterion.add(roleCriterion);
     conjunction.setAnd(andCriterion);
-    disjunction.add(conjunction);
-    filter.setOr(disjunction);
 
+    final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
+    disjunction.add(conjunction);
+
+    final Filter filter = new Filter();
+    filter.setOr(disjunction);
     return filter;
   }
 

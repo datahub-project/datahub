@@ -54,8 +54,9 @@ export function useEmailInvitations() {
 
     const handleSendInvitations = useCallback(
         async (emailInviteRole: DataHubRole | undefined) => {
-            // Use parsed emails from the pill input component
-            const emails = parsedEmails.length > 0 ? parsedEmails : parseEmails(emailInput);
+            // Combine committed pills with any uncommitted text in the input
+            const uncommittedEmails = emailInput.trim() ? parseEmails(emailInput) : [];
+            const emails = [...parsedEmails, ...uncommittedEmails];
 
             // Check if any emails are invalid for tracking purposes
             const enteredInvalidEmail = emails.some((email) => !EMAIL_REGEX.test(email));
@@ -107,8 +108,8 @@ export function useEmailInvitations() {
                         invited: true,
                     }));
                     setInvitedUsers([...invitedUsers, ...newInvitedUsers]);
-                    setEmailInput(''); // Clear input after successful send
-                    setParsedEmails([]); // Clear parsed emails after successful send
+                    setEmailInput('');
+                    setParsedEmails([]);
 
                     // Add to global invited users tracking
                     addToGlobalInvitedUsers(emails);
@@ -180,7 +181,6 @@ export function useEmailInvitations() {
     const handleEmailsChange = useCallback(
         (emails: string[]) => {
             setParsedEmails(emails);
-            setEmailInput(emails.join(', ')); // Keep emailInput for backward compatibility
 
             // Clear validation error when emails change
             if (emailValidationError) {

@@ -17,6 +17,7 @@ type Props = {
     handleEmailInputKeyPress: (e: React.KeyboardEvent<HTMLInputElement>) => void;
     handleSendInvitations: () => void;
     onEmailsChange: (emails: string[]) => void;
+    onEmailInputChange?: (value: string) => void;
 };
 
 export default function EmailInviteSection({
@@ -29,14 +30,17 @@ export default function EmailInviteSection({
     handleEmailInputKeyPress,
     handleSendInvitations,
     onEmailsChange,
+    onEmailInputChange,
 }: Props) {
     return (
         <EmailInputSection>
             <SectionTitle>Input emails</SectionTitle>
             <InputRow>
                 <EmailPillInput
+                    emails={parsedEmails}
                     onEmailsChange={onEmailsChange}
                     onKeyPress={handleEmailInputKeyPress}
+                    onInputChange={onEmailInputChange}
                     placeholder="email1@address.com, email2@address.com"
                     error={emailValidationError}
                 />
