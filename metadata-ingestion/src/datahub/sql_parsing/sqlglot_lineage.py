@@ -437,22 +437,20 @@ def _clickhouse_extract_dictget_tables(
 
         first_arg = func.expressions[0]
         if isinstance(first_arg, sqlglot.exp.Column):
-            # dictGet(schema.dict_name, ...) → Column(table='schema', this='dict_name')
-            # dictGet(db.schema.dict_name, ...) → Column(catalog='db', table='schema', ...)
-            table_name = first_arg.name
-            schema = first_arg.table if first_arg.table else None
-            database = first_arg.args.get("catalog")
-            db_name = database.name if database else None
-            result.add(_TableName(database=db_name, db_schema=schema, table=table_name))
-        elif isinstance(first_arg, sqlglot.exp.Literal) and first_arg.is_string:
-            # dictGet('schema.dict_name', ...) → Literal('schema.dict_name')
-            parts = first_arg.this.split(".")
-            parts = [p for p in parts if p]  # guard against empty parts
-            if len(parts) == 3:
-                result.add(
-                    _TableName(database=parts[0], db_schema=parts[1], table=parts[2])
+            # dictGet(dict_name, ...) → Column(name='dict_name')
+            # dictGet(db.dict_name, ...) → Column(table='db', name='dict_name')
+            result.add(
+                _TableName(
+                    database=None,
+                    db_schema=first_arg.table if first_arg.table else None,
+                    table=first_arg.name,
                 )
-            elif len(parts) == 2:
+            )
+        elif isinstance(first_arg, sqlglot.exp.Literal) and first_arg.is_string:
+            # dictGet('db.dict_name', ...) → Literal('db.dict_name')
+            parts = first_arg.this.split(".")
+            parts = [p for p in parts if p]
+            if len(parts) == 2:
                 result.add(
                     _TableName(database=None, db_schema=parts[0], table=parts[1])
                 )
@@ -462,7 +460,11 @@ def _clickhouse_extract_dictget_tables(
                 logger.warning(
                     f"Unexpected dictGet literal with {len(parts)} parts: {first_arg.this}"
                 )
+        else:
+            logger.debug(f"Unexpected dictGet first argument type: {type(first_arg)}")
 
+    if result:
+        logger.debug(f"Extracted dictGet table references: {result}")
     return result
 
 

@@ -1712,6 +1712,20 @@ FROM db1.events
     )
 
 
+def test_clickhouse_dictget_unqualified() -> None:
+    # dictGet with bare dictionary name (no database prefix).
+    assert_sql_result(
+        """\
+SELECT
+    col_id,
+    DICTGET(my_dict, 'type', col_id) AS dict_type
+FROM db1.events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget_unqualified.json",
+    )
+
+
 def test_clickhouse_dictget_in_materialized_view() -> None:
     # dictGet table in in_tables, TO table in out_tables (not in_tables).
     # Guards against operator precedence bug where `- modified` doesn't
