@@ -213,6 +213,7 @@ class PipelineMetadata(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: str
+    display_name: str
     resource_name: str
     tasks: List[PipelineTaskMetadata]
     urn: DataFlowUrn

@@ -62,6 +62,7 @@ def test_pipeline_task_with_none_timestamps(
     """Test that pipeline tasks with None start_time or end_time don't crash the ingestion."""
     mock_pipeline_job = MagicMock(spec=PipelineJob)
     mock_pipeline_job.name = f"test_pipeline_{task_name}"
+    mock_pipeline_job.display_name = f"stable_pipeline_{task_name}"
     mock_pipeline_job.resource_name = (
         "projects/123/locations/us-central1/pipelineJobs/789"
     )

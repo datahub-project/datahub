@@ -192,6 +192,7 @@ def test_model_downstream_lineage_from_pipeline_tasks(source: VertexAISource) ->
     """Test that pipeline tasks using models as inputs create downstream lineage."""
     mock_pipeline = MagicMock(spec=PipelineJob)
     mock_pipeline.name = "test_pipeline_with_model_input"
+    mock_pipeline.display_name = "stable_pipeline_with_model_input"
     mock_pipeline.resource_name = "projects/123/locations/us-central1/pipelineJobs/999"
     mock_pipeline.labels = {}
     mock_pipeline.create_time = datetime(2024, 1, 1, tzinfo=timezone.utc)

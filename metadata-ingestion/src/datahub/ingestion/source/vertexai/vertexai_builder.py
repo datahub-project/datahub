@@ -112,21 +112,11 @@ class VertexAINameFormatter:
             )
         return f"{self.project_id}.execution.{entity_id}"
 
-    def format_pipeline_id(self, entity_id: Optional[str]) -> str:
-        if entity_id is None:
-            raise ValueError("entity_id cannot be None for pipeline ID formatting")
-        return f"{self.project_id}.pipeline.{entity_id}"
-
     def format_pipeline_run_id(self, entity_id: Optional[str]) -> str:
         """Format ID for a pipeline run (execution instance)."""
         if entity_id is None:
             raise ValueError("entity_id cannot be None for pipeline run ID formatting")
         return f"{self.project_id}.pipeline_run.{entity_id}"
-
-    def format_pipeline_task_id(self, entity_id: Optional[str]) -> str:
-        if entity_id is None:
-            raise ValueError("entity_id cannot be None for pipeline task ID formatting")
-        return f"{self.project_id}.pipeline_task.{entity_id}"
 
     def format_pipeline_task_run_id(self, entity_id: Optional[str]) -> str:
         if entity_id is None:

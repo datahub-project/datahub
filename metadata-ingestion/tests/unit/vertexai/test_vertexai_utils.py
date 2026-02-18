@@ -14,7 +14,6 @@ def test_vertexai_multi_project_context_naming() -> None:
 
     assert name_formatter.format_model_group_name("m") == "p2.model_group.m"
     assert name_formatter.format_dataset_name("d") == "p2.dataset.d"
-    assert name_formatter.format_pipeline_task_id("t") == "p2.pipeline_task.t"
 
     assert (
         url_builder.make_model_url("xyz")

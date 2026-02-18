@@ -133,7 +133,7 @@ class VertexAIPipelineExtractor:
             platform=self.platform,
             instance=self.config.platform_instance,
             env=self.config.env,
-            pipeline_name=self.name_formatter.format_pipeline_id(pipeline_name),
+            pipeline_name=pipeline_name,
         )
 
     def _gen_pipeline_container(
@@ -277,7 +277,7 @@ class VertexAIPipelineExtractor:
         container_key: PipelineContainerKey,
     ) -> Iterable[MetadataWorkUnit]:
         datajob = DataJob(
-            name=self.name_formatter.format_pipeline_task_id(task.name),
+            name=task.name,
             display_name=task.name,
             flow_urn=str(dataflow_urn),
             platform_instance=self.config.platform_instance,
@@ -535,7 +535,7 @@ class VertexAIPipelineExtractor:
                 )
                 task_urn = DataJobUrn.create_from_ids(
                     data_flow_urn=pipeline_urn.urn(),
-                    job_id=self.name_formatter.format_pipeline_task_id(task_name),
+                    job_id=task_name,
                 )
                 task_meta = PipelineTaskMetadata(name=task_name, urn=task_urn)
 
@@ -552,9 +552,7 @@ class VertexAIPipelineExtractor:
                     upstream_urls = [
                         DataJobUrn.create_from_ids(
                             data_flow_urn=pipeline_urn.urn(),
-                            job_id=self.name_formatter.format_pipeline_task_id(
-                                upstream_task
-                            ),
+                            job_id=upstream_task,
                         )
                         for upstream_task in upstream_tasks
                     ]
@@ -591,12 +589,11 @@ class VertexAIPipelineExtractor:
 
     def _get_pipeline_metadata(self, pipeline: PipelineJob) -> PipelineMetadata:
         stable_id = self._get_stable_pipeline_id(pipeline)
-        flow_id = self.name_formatter.format_pipeline_id(stable_id)
 
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=self.platform,
             env=self.config.env,
-            flow_id=flow_id,
+            flow_id=stable_id,
             platform_instance=self.config.platform_instance,
         )
         tasks = self._get_pipeline_tasks_metadata(
@@ -605,6 +602,7 @@ class VertexAIPipelineExtractor:
 
         pipeline_meta = PipelineMetadata(
             name=pipeline.name,
+            display_name=stable_id,
             resource_name=pipeline.resource_name,
             urn=dataflow_urn,
             tasks=tasks,
@@ -686,7 +684,7 @@ class VertexAIPipelineExtractor:
         dataflow = DataFlow(
             platform=self.platform,
             name=pipeline.urn.flow_id,
-            display_name=pipeline.name,
+            display_name=pipeline.display_name,
             env=self.config.env,
             platform_instance=self.config.platform_instance,
             custom_properties=self._get_pipeline_properties(
