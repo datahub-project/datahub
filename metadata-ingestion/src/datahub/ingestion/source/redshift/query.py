@@ -507,6 +507,16 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
+                    WITH query_txt AS (
+                        SELECT
+                            query,
+                            userid,
+                            RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < 200 THEN ' ' ELSE '' END, '')
+                                WITHIN GROUP (ORDER BY sequence)) AS querytxt
+                        FROM STL_QUERYTEXT
+                        WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
+                        GROUP BY query, userid
+                    )
                         select
                             distinct cluster,
                             target_schema,
@@ -514,7 +524,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                             username as username,
                             source_schema,
                             source_table,
-                            querytxt as ddl,  -- TODO: this querytxt is truncated to 4000 characters
+                            querytxt as ddl,
                             starttime as timestamp
                         from
                                 (
@@ -554,7 +564,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                             ) ss
                             join SVV_TABLE_INFO sti on
                                 sti.table_id = ss.tbl
-                            left join stl_query sq on
+                            left join query_txt sq on
                                 ss.query = sq.query
                             left join svl_user_info sui on
                                 sq.userid = sui.usesysid
@@ -566,6 +576,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                             scan_type in (1, 2, 3)
                         order by cluster, target_schema, target_table, starttime asc
                     """.format(
+            _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -613,12 +624,8 @@ with query_txt as (
     select
         query,
         pid,
-        LISTAGG(case
-            when LEN(RTRIM(text)) = 0 then text
-            else RTRIM(text)
-        end) within group (
-            order by sequence
-        ) as ddl
+        RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < 200 THEN ' ' ELSE '' END, '')
+            WITHIN GROUP (ORDER BY sequence)) as ddl
     from (
         select
             query,
@@ -714,13 +721,8 @@ from (
                 xid,
                 type,
                 userid,
-                LISTAGG(case
-                    when LEN(RTRIM(text)) = 0 then text
-                    else RTRIM(text)
-                end,
-                '') within group (
-                    order by sequence
-                ) as query_text
+                RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < 200 THEN ' ' ELSE '' END, '')
+                    WITHIN GROUP (ORDER BY sequence)) as query_text
             from
                 SVL_STATEMENTTEXT
             where
@@ -949,7 +951,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     table_id as source_table_id,
                     queries.query_id as query_id,
                     username,
-                    LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence) AS query_text
+                    RTRIM(LISTAGG(RTRIM(qt."text") || CASE WHEN LEN(RTRIM(qt."text")) < 4000 THEN ' ' ELSE '' END, '')
+                        WITHIN GROUP (ORDER BY sequence)) AS query_text
                 FROM
                     "queries" LEFT JOIN
                     unique_query_text qt ON qt.query_id = queries.query_id
@@ -1037,7 +1040,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                 target_table,
                 username,
                 query_id,
-                LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) AS ddl,
+                RTRIM(LISTAGG(RTRIM(querytxt) || CASE WHEN LEN(RTRIM(querytxt)) < 4000 THEN ' ' ELSE '' END, '')
+                    WITHIN GROUP (ORDER BY sequence)) AS ddl,
                 ANY_VALUE(session_id) AS session_id,
                 starttime AS timestamp
             FROM
@@ -1118,7 +1122,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                                             qh.transaction_id AS transaction_id,
                                             qh.start_time AS start_time,
                                             qh.user_id AS userid,
-                                            LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence) AS query_text
+                                            RTRIM(LISTAGG(RTRIM(qt."text") || CASE WHEN LEN(RTRIM(qt."text")) < 4000 THEN ' ' ELSE '' END, '')
+                                                WITHIN GROUP (ORDER BY sequence)) AS query_text
                                     FROM
                                             SYS_QUERY_HISTORY qh
                                             LEFT JOIN SYS_QUERY_TEXT qt on qt.query_id = qh.query_id
