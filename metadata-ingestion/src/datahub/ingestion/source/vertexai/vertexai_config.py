@@ -162,7 +162,8 @@ class VertexAIConfig(
         default=MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS,
         description="Maximum number of ML Metadata executions to retrieve when searching for a training job. "
         "Executions are ordered by LAST_UPDATE_TIME descending (most recently updated first), so if the limit is reached, "
-        "you'll get the most recently completed/updated executions. Prevents excessive API calls and timeouts. Default: 500.",
+        "you'll get the most recently completed/updated executions. Prevents excessive API calls and timeouts. "
+        "Default: 500. The API will automatically paginate results (100 per page).",
     )
     # Optional multi-project / filter support
     project_ids: List[str] = Field(

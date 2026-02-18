@@ -305,6 +305,7 @@ class URIPatterns:
 class MLMetadataDefaults:
     DEFAULT_METADATA_STORE = "default"
     DEFAULT_PAGE_SIZE = 100
+    MAX_PAGE_SIZE = 100  # API limitation
     MAX_EXECUTION_SEARCH_RESULTS = 500
     METADATA_STORE_PATH_TEMPLATE = (
         "projects/{project_id}/locations/{region}/metadataStores/{metadata_store}"

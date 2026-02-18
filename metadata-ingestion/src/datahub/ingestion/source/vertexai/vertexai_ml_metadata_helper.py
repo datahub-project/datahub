@@ -155,16 +155,14 @@ class MLMetadataHelper:
             [f'schema_title="{schema}"' for schema in schema_filters]
         )
 
-        # Use configured search limit (default 100) to prevent excessive API calls and timeouts
+        # Use configured search limit (default 500) to prevent excessive API calls and timeouts
         max_to_retrieve = self.config.max_execution_search_limit
 
         request = ListExecutionsRequest(
             parent=parent,
             filter=filter_str,
             order_by="LAST_UPDATE_TIME desc",
-            page_size=min(
-                max_to_retrieve, MLMetadataDefaults.MAX_EXECUTION_SEARCH_RESULTS
-            ),
+            page_size=MLMetadataDefaults.MAX_PAGE_SIZE,  # API max is 100 per page
         )
 
         paged_response = self.client.list_executions(request=request)
