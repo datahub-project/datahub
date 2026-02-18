@@ -4,19 +4,9 @@
 
 Doris 3.0.x is required. Doris 2.0+ may work but is untested.
 
-Check your Doris version:
-
-```sql
-SELECT version();
-```
-
-#### Network Access
-
-Ensure network connectivity from DataHub to Doris FE (Frontend) on port `9030`.
-
 #### Required Permissions
 
-The DataHub user requires the following minimal permissions:
+In order to execute this source, your Doris user will need specific privileges for extracting metadata.
 
 ```sql
 -- Create user
@@ -31,7 +21,7 @@ GRANT SHOW_VIEW_PRIV ON *.* TO 'datahub'@'%';
 
 ### Profiling
 
-If you enable profiling in your ingestion recipe, note that Doris-specific types (HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB) are automatically excluded from field-level profiling as they don't support standard aggregation operations. Table-level statistics are still collected for all tables.
+Doris-specific types (HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB) are automatically excluded from field-level profiling as they don't support standard aggregation operations. Table-level statistics are still collected for all tables.
 
 ### Stored Procedures
 
