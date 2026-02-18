@@ -12,6 +12,7 @@ from datahub.configuration.common import (
     ConfigEnum,
     ConfigModel,
     HiddenFromDocs,
+    TransparentSecretStr,
 )
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
@@ -288,7 +289,15 @@ class DataBricksPlatformDetail(PlatformDetail):
 
 class OwnershipMapping(ConfigModel):
     create_corp_user: bool = pydantic.Field(
-        default=True, description="Whether ingest PowerBI user as Datahub Corpuser"
+        default=False,
+        description=(
+            "Whether to create user entities from PowerBI data. "
+            "When False (RECOMMENDED): PowerBI emits ownership URNs only (soft references). "
+            "User profiles must come from LDAP/SCIM/Okta. "
+            "When True (OPT-IN): PowerBI creates users with displayName and email from PowerBI. "
+            "WARNING: May overwrite existing user profiles from other sources. Use only if "
+            "PowerBI is your authoritative user source."
+        ),
     )
     use_powerbi_email: bool = pydantic.Field(
         # TODO: Deprecate and remove this config, since the non-email format
@@ -446,7 +455,9 @@ class PowerBiDashboardSourceConfig(
     # Azure app client identifier
     client_id: str = pydantic.Field(description="Azure app client identifier")
     # Azure app client secret
-    client_secret: str = pydantic.Field(description="Azure app client secret")
+    client_secret: TransparentSecretStr = pydantic.Field(
+        description="Azure app client secret"
+    )
     # timeout for meta-data scanning
     scan_timeout: int = pydantic.Field(
         default=60, description="timeout for PowerBI metadata scanning"

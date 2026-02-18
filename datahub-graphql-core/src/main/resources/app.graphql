@@ -853,6 +853,11 @@ type FeatureFlagsConfig {
   If enabled, shows the context documents feature in the sidebar.
   """
   contextDocumentsEnabled: Boolean!
+
+  """
+  If enabled, hides lineage information in search result cards
+  """
+  hideLineageInSearchCards: Boolean!
 }
 
 """

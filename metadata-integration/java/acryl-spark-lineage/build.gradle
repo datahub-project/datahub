@@ -32,10 +32,25 @@ dependencies {
     provided(externalDependency.commonsIo) {
       because 'required for org.apache.commons.io.Charsets that is used internally'
     }
+    provided(externalDependency.snappy) {
+      because 'CVE-2023-34453: snappy-java integer overflow in BitShuffle'
+    }
+    implementation(externalDependency.snappy) {
+      because 'CVE-2023-34453: snappy-java integer overflow in BitShuffle'
+    }
+    provided(externalDependency.gson) {
+      because 'Gson before 2.8.9: deserialization DoS (writeReplace)'
+    }
+    implementation(externalDependency.gson) {
+      because 'Gson before 2.8.9: deserialization DoS (writeReplace)'
+    }
   }
 
   provided(externalDependency.sparkSql)
-  provided(externalDependency.sparkHive)
+  provided(externalDependency.sparkHive) {
+    exclude group: 'org.apache.velocity', module: 'velocity'
+  }
+  implementation 'org.apache.velocity:velocity-engine-core:2.3'
   implementation 'org.slf4j:slf4j-log4j12:2.0.7'
   implementation externalDependency.httpClient
   implementation externalDependency.typesafeConfig
@@ -68,10 +83,11 @@ dependencies {
   testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'
   testImplementation 'org.slf4j:slf4j-log4j12:2.0.7'
 
-  // JUnit 5 dependencies
-  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
-  testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
+  // JUnit 5 dependencies (align with root to match junit-platform 1.12.2; launcher must match engine for Gradle test runner)
+  testImplementation "org.junit.jupiter:junit-jupiter-api:${rootProject.ext.junitJupiterVersion}"
+  testImplementation "org.junit.jupiter:junit-jupiter-engine:${rootProject.ext.junitJupiterVersion}"
+  testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${rootProject.ext.junitJupiterVersion}"
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.12.2'
 
   testImplementation(externalDependency.postgresql) {
     exclude group: "com.fasterxml.jackson.core"

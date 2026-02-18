@@ -12,7 +12,7 @@ on:
       - master
       - releases/**
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened]
     branches:
       - "**"
   release:
@@ -22,9 +22,7 @@ concurrency:
   # Using `github.run_id` (unique val) instead of `github.ref` here
   # because we don't want to cancel this workflow on master only for PRs
   #   as that makes reproducing issues easier
-  # Adding github.event.action == labeled as a means to differentiate the trigger due to adding a label -- most labels are
-  # no-ops except for `depot`
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}-${{ github.event.action == 'labeled' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -46,7 +44,6 @@ permissions:
 jobs:
   setup:
     runs-on: depot-ubuntu-24.04-small
-    if: ${{ github.event_name != 'pull_request' || github.event.action != 'labeled' || github.event.label.name == 'depot' }}
     outputs:
       # TODO: Many of the vars below should not be required anymore.
       tag: ${{ steps.tag.outputs.tag }}
@@ -805,16 +802,18 @@ jobs:
         with:
           name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: smoke-test/tests/cypress/cypress/screenshots/
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
         with:
-          name: Test Results (smoke tests) ${{ matrix.test_strategy }} ${{ matrix.batch }}
-          path: |
-            **/build/reports/tests/test/**
-            **/build/test-results/test/**
+          artifact-name: Test Results (smoke tests) ${{ matrix.test_strategy }} ${{ matrix.batch }}
+          test-results-paths: |
             **/smoke-test-results/cypress-test-*.xml
             **/junit.*.xml
             !**/binary/**
+          junit-file-globs: |
+            **/smoke-test-results/cypress-test-*.xml
+            **/junit.*.xml
       - name: Send failed test metrics to PostHog
         if: failure()
         continue-on-error: true

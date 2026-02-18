@@ -11,7 +11,7 @@ import requests
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter, Retry
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
@@ -67,7 +67,7 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     tenant_id: str = Field(
         description="Directory ID. Found in your app registration on Azure AD Portal"
     )
-    client_secret: str = Field(
+    client_secret: TransparentSecretStr = Field(
         description="Client secret. Found in your app registration on Azure AD Portal"
     )
     authority: str = Field(
@@ -273,7 +273,7 @@ class AzureADSource(StatefulIngestionSourceBase):
             "grant_type": "client_credentials",
             "client_id": self.config.client_id,
             "tenant_id": self.config.tenant_id,
-            "client_secret": self.config.client_secret,
+            "client_secret": self.config.client_secret.get_secret_value(),
             "resource": "https://graph.microsoft.com",
             "scope": "https://graph.microsoft.com/.default",
         }

@@ -3,17 +3,25 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 
 import pytest
+import sqlalchemy.exc
 from pydantic import ValidationError
 from sqlalchemy.engine import Inspector
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.oracle import (
+    VSQL_USAGE_QUERY,
     OracleConfig,
     OracleInspectorObjectWrapper,
+    OracleObjectType,
     OracleSource,
+    ProcedureDependencies,
+    VSqlPrerequisiteCheckResult,
 )
 from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    ObservedQuery,
+)
 
 
 def test_oracle_config():
@@ -109,6 +117,142 @@ def test_oracle_config_data_dictionary_mode():
         ValidationError, match="Specify one of data dictionary views mode"
     ):
         OracleConfig.parse_obj({**base_config, "data_dictionary_mode": "INVALID"})
+
+
+def test_oracle_get_db_name_with_service_name():
+    """Test getting database name when using service_name with ALL mode."""
+
+    base_config = {
+        "username": "user",
+        "password": "password",
+        "host_port": "host:1521",
+        "service_name": "svc01",
+        "data_dictionary_mode": "ALL",
+    }
+
+    config = OracleConfig.parse_obj(base_config)
+    ctx = PipelineContext(run_id="test-oracle-service-name")
+
+    with patch("datahub.ingestion.source.sql.oracle.oracledb"):
+        source = OracleSource(config, ctx)
+
+        # Mock inspector with empty database in URL (simulating service_name usage)
+        mock_inspector = Mock()
+        mock_engine = Mock()
+        mock_url = Mock()
+        mock_url.database = None  # This is the case when using service_name
+        mock_engine.url = mock_url
+        mock_inspector.engine = mock_engine
+
+        # Mock bind and the database query result
+        mock_bind = Mock()
+        mock_result = Mock()
+        mock_result.scalar.return_value = "TESTDB"  # Oracle returns uppercase
+        mock_bind.execute.return_value = mock_result
+        mock_inspector.bind = mock_bind
+
+        # Mock dialect for normalization (Oracle normalizes to lowercase)
+        mock_dialect = Mock()
+        mock_dialect.normalize_name.return_value = "testdb"  # normalized to lowercase
+        mock_inspector.dialect = mock_dialect
+
+        # Test that get_db_name queries Oracle and normalizes the database name
+        db_name = source.get_db_name(mock_inspector)
+
+        assert db_name == "testdb"  # Should be normalized to lowercase
+        mock_bind.execute.assert_called_once()
+        call_args = mock_bind.execute.call_args
+        # Verify the exact SQL query is used
+        query_text = str(call_args[0][0]).upper()
+        assert "SYS_CONTEXT('USERENV','DB_NAME')" in query_text
+        assert "FROM DUAL" in query_text
+        mock_dialect.normalize_name.assert_called_once_with("TESTDB")
+
+
+def test_oracle_get_db_name_with_service_name_dba_mode():
+    """Test getting database name when using service_name with DBA mode."""
+
+    base_config = {
+        "username": "user",
+        "password": "password",
+        "host_port": "host:1521",
+        "service_name": "svc01",
+        "data_dictionary_mode": "DBA",
+    }
+
+    config = OracleConfig.parse_obj(base_config)
+    ctx = PipelineContext(run_id="test-oracle-service-name-dba")
+
+    with patch("datahub.ingestion.source.sql.oracle.oracledb"):
+        source = OracleSource(config, ctx)
+
+        # Mock OracleInspectorObjectWrapper with empty database in URL
+        mock_inspector = Mock(spec=OracleInspectorObjectWrapper)
+        mock_engine = Mock()
+        mock_url = Mock()
+        mock_url.database = None  # This is the case when using service_name
+        mock_engine.url = mock_url
+        mock_inspector.engine = mock_engine
+
+        # Mock the wrapper's get_db_name method (returns uppercase from Oracle)
+        mock_inspector.get_db_name.return_value = "TESTDB_DBA"
+
+        # Mock dialect for normalization
+        mock_dialect = Mock()
+        mock_dialect.normalize_name.return_value = "testdb_dba"  # normalized
+        mock_inspector.dialect = mock_dialect
+
+        # Test that get_db_name uses the wrapper's method and normalizes
+        db_name = source.get_db_name(mock_inspector)
+
+        assert db_name == "testdb_dba"  # Should be normalized
+        mock_inspector.get_db_name.assert_called_once()
+        mock_dialect.normalize_name.assert_called_once_with("TESTDB_DBA")
+
+
+def test_oracle_get_db_name_database_error():
+    """Test error handling when Oracle database query fails."""
+    base_config = {
+        "username": "user",
+        "password": "password",
+        "host_port": "host:1521",
+        "service_name": "svc01",
+        "data_dictionary_mode": "ALL",
+    }
+
+    config = OracleConfig.parse_obj(base_config)
+    ctx = PipelineContext(run_id="test-oracle-db-error")
+
+    with patch("datahub.ingestion.source.sql.oracle.oracledb"):
+        source = OracleSource(config, ctx)
+
+        # Mock inspector with empty database in URL
+        mock_inspector = Mock()
+        mock_engine = Mock()
+        mock_url = Mock()
+        mock_url.database = None
+        mock_engine.url = mock_url
+        mock_inspector.engine = mock_engine
+
+        # Mock bind to raise DatabaseError
+        mock_bind = Mock()
+        mock_bind.execute.side_effect = sqlalchemy.exc.DatabaseError(
+            "Connection failed", None, None
+        )
+        mock_inspector.bind = mock_bind
+
+        # Mock dialect (even though we won't reach normalization)
+        mock_dialect = Mock()
+        mock_inspector.dialect = mock_dialect
+
+        # Test that get_db_name handles the error gracefully
+        db_name = source.get_db_name(mock_inspector)
+
+        # Should return empty string when query fails
+        assert db_name == ""
+        mock_bind.execute.assert_called_once()
+        # Normalization should not be called since query failed
+        mock_dialect.normalize_name.assert_not_called()
 
 
 class TestOracleInspectorObjectWrapper:
@@ -264,7 +408,7 @@ class TestOracleSource:
             patch.object(
                 source,
                 "_get_procedure_dependencies",
-                return_value={"upstream": ["TEST_TABLE"]},
+                return_value=ProcedureDependencies(upstream=["TEST_TABLE"]),
             ),
         ):
             result = source.get_procedures_for_schema(
@@ -364,13 +508,13 @@ class TestOracleSource:
         )
 
         assert result is not None
-        assert "upstream" in result
-        assert "downstream" in result
-        assert len(result["upstream"]) == 2
-        assert len(result["downstream"]) == 1
-        assert "TEST_SCHEMA.TEST_TABLE (TABLE)" in result["upstream"]
-        assert "TEST_SCHEMA.OTHER_PROC (PROCEDURE)" in result["upstream"]
-        assert "TEST_SCHEMA.DEPENDENT_PROC (PROCEDURE)" in result["downstream"]
+        assert result.upstream is not None
+        assert result.downstream is not None
+        assert len(result.upstream) == 2
+        assert len(result.downstream) == 1
+        assert "TEST_SCHEMA.TEST_TABLE (TABLE)" in result.upstream
+        assert "TEST_SCHEMA.OTHER_PROC (PROCEDURE)" in result.upstream
+        assert "TEST_SCHEMA.DEPENDENT_PROC (PROCEDURE)" in result.downstream
 
         # Verify both queries were called
         assert mock_connection.execute.call_count == 2
@@ -566,3 +710,404 @@ class TestOracleSource:
             tables_prefix="DBA",
         )
         assert deps_result is None
+
+
+class TestOracleQueryExtraction:
+    """Test Oracle query extraction from V$SQL."""
+
+    @pytest.fixture
+    def config_with_query_usage(self):
+        return OracleConfig.model_validate(
+            {
+                "username": "test_user",
+                "password": "test_pass",
+                "host_port": "localhost:1521",
+                "service_name": "test_service",
+                "include_query_usage": True,
+                "max_queries_to_extract": 100,
+            }
+        )
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test")
+
+    def test_vsql_prerequisites_success(self, config_with_query_usage, ctx):
+        """Test V$SQL prerequisites check when access is granted."""
+        source = OracleSource(config_with_query_usage, ctx)
+
+        mock_engine = Mock()
+        mock_conn = Mock()
+        mock_result = Mock()
+        mock_result.scalar.return_value = 1
+        mock_conn.execute.return_value = mock_result
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_engine.connect.return_value = mock_conn
+
+        result = source._check_vsql_prerequisites(mock_engine)
+
+        assert result.is_accessible is True
+        assert "accessible" in result.message.lower()
+
+    def test_vsql_prerequisites_no_table(self, config_with_query_usage, ctx):
+        """Test V$SQL prerequisites check when view doesn't exist."""
+        source = OracleSource(config_with_query_usage, ctx)
+
+        mock_engine = Mock()
+        mock_conn = Mock()
+        mock_conn.execute.side_effect = sqlalchemy.exc.DatabaseError(
+            statement="SELECT COUNT(*) FROM V$SQL",
+            params={},
+            orig=Exception("ORA-00942: table or view does not exist"),
+        )
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_engine.connect.return_value = mock_conn
+
+        result = source._check_vsql_prerequisites(mock_engine)
+
+        assert result.is_accessible is False
+        assert "not accessible" in result.message
+
+    def test_vsql_prerequisites_insufficient_privileges(
+        self, config_with_query_usage, ctx
+    ):
+        """Test V$SQL prerequisites check when user lacks privileges."""
+        source = OracleSource(config_with_query_usage, ctx)
+
+        mock_engine = Mock()
+        mock_conn = Mock()
+        mock_conn.execute.side_effect = sqlalchemy.exc.DatabaseError(
+            statement="SELECT COUNT(*) FROM V$SQL",
+            params={},
+            orig=Exception("ORA-01031: insufficient privileges"),
+        )
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_engine.connect.return_value = mock_conn
+
+        result = source._check_vsql_prerequisites(mock_engine)
+
+        assert result.is_accessible is False
+        assert "Insufficient privileges" in result.message
+
+    def test_extract_queries_from_vsql_success(self, config_with_query_usage, ctx):
+        """Test successful query extraction from V$SQL."""
+        source = OracleSource(config_with_query_usage, ctx)
+
+        mock_rows = [
+            {
+                "sql_id": "abc123",
+                "sql_text": "SELECT * FROM HR.EMPLOYEES WHERE dept_id = 10",
+                "parsing_schema_name": "HR",
+                "executions": 100,
+                "elapsed_seconds": 5.5,
+                "first_load_time": "2024-01-15 10:30:00",
+            },
+            {
+                "sql_id": "def456",
+                "sql_text": "SELECT COUNT(*) FROM SALES.ORDERS",
+                "parsing_schema_name": "SALES",
+                "executions": 50,
+                "elapsed_seconds": 2.3,
+                "first_load_time": "2024-01-15 11:00:00",
+            },
+        ]
+
+        mock_engine = Mock()
+        mock_conn = Mock()
+        mock_inspector = Mock()
+        mock_result = Mock()
+        mock_result.__iter__ = Mock(return_value=iter(mock_rows))
+        mock_conn.execute.return_value = mock_result
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_engine.connect.return_value = mock_conn
+
+        with (
+            patch("sqlalchemy.inspect", return_value=mock_inspector),
+            patch.object(source, "get_db_name", return_value="TESTDB"),
+        ):
+            queries = list(source._extract_queries_from_vsql(mock_engine))
+
+        assert len(queries) == 2
+        assert queries[0].query == "SELECT * FROM HR.EMPLOYEES WHERE dept_id = 10"
+        assert queries[0].default_schema == "HR"
+        assert queries[0].default_db == "TESTDB"
+        assert queries[0].session_id == "sql_id:abc123"
+        assert queries[1].query == "SELECT COUNT(*) FROM SALES.ORDERS"
+        assert queries[1].default_schema == "SALES"
+
+    def test_extract_queries_with_exclude_patterns(self, ctx):
+        """Test query extraction with exclude patterns."""
+        config = OracleConfig.model_validate(
+            {
+                "username": "test_user",
+                "password": "test_pass",
+                "host_port": "localhost:1521",
+                "service_name": "test_service",
+                "include_query_usage": True,
+                "max_queries_to_extract": 100,
+                "query_exclude_patterns": ["^SELECT.*FROM SYS\\..*", ".*DBMS_.*"],
+            }
+        )
+        source = OracleSource(config, ctx)
+
+        mock_rows = [
+            {
+                "sql_id": "abc123",
+                "sql_text": "SELECT * FROM HR.EMPLOYEES",
+                "parsing_schema_name": "HR",
+                "executions": 100,
+                "elapsed_seconds": 5.5,
+                "first_load_time": "2024-01-15 10:30:00",
+            },
+            {
+                "sql_id": "def456",
+                "sql_text": "SELECT * FROM SYS.DBA_TABLES",
+                "parsing_schema_name": "SYSTEM",
+                "executions": 50,
+                "elapsed_seconds": 2.3,
+                "first_load_time": "2024-01-15 11:00:00",
+            },
+            {
+                "sql_id": "ghi789",
+                "sql_text": "BEGIN DBMS_OUTPUT.PUT_LINE('test'); END;",
+                "parsing_schema_name": "HR",
+                "executions": 20,
+                "elapsed_seconds": 1.0,
+                "first_load_time": "2024-01-15 12:00:00",
+            },
+        ]
+
+        mock_engine = Mock()
+        mock_conn = Mock()
+        mock_inspector = Mock()
+        mock_result = Mock()
+        mock_result.__iter__ = Mock(return_value=iter(mock_rows))
+        mock_conn.execute.return_value = mock_result
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_engine.connect.return_value = mock_conn
+
+        with (
+            patch("sqlalchemy.inspect", return_value=mock_inspector),
+            patch.object(source, "get_db_name", return_value="TESTDB"),
+        ):
+            queries = list(source._extract_queries_from_vsql(mock_engine))
+
+        assert len(queries) == 1
+        assert queries[0].query == "SELECT * FROM HR.EMPLOYEES"
+
+    def test_extract_queries_database_error(self, config_with_query_usage, ctx):
+        """Test query extraction handles database errors gracefully."""
+        source = OracleSource(config_with_query_usage, ctx)
+
+        mock_engine = Mock()
+        mock_conn = Mock()
+        mock_conn.execute.side_effect = sqlalchemy.exc.DatabaseError(
+            statement="SELECT FROM V$SQL",
+            params={},
+            orig=Exception("Connection lost"),
+        )
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_engine.connect.return_value = mock_conn
+
+        queries = list(source._extract_queries_from_vsql(mock_engine))
+
+        assert len(queries) == 0
+
+    def test_populate_aggregator_skip_when_disabled(self, ctx):
+        """Test that query population is skipped when include_query_usage is False."""
+        config = OracleConfig.model_validate(
+            {
+                "username": "test_user",
+                "password": "test_pass",
+                "host_port": "localhost:1521",
+                "service_name": "test_service",
+                "include_query_usage": False,
+            }
+        )
+        source = OracleSource(config, ctx)
+
+        source._populate_aggregator_from_queries()
+
+    def test_populate_aggregator_skip_on_permission_error(
+        self, config_with_query_usage, ctx
+    ):
+        """Test that query population is skipped gracefully when V$SQL is not accessible."""
+        source = OracleSource(config_with_query_usage, ctx)
+
+        mock_engine = Mock()
+        with (
+            patch.object(source, "_get_metadata_engine", return_value=mock_engine),
+            patch.object(
+                source,
+                "_check_vsql_prerequisites",
+                return_value=VSqlPrerequisiteCheckResult(
+                    is_accessible=False, message="Insufficient privileges"
+                ),
+            ),
+        ):
+            source._populate_aggregator_from_queries()
+
+        mock_engine.dispose.assert_called_once()
+
+    def test_populate_aggregator_success(self, config_with_query_usage, ctx):
+        """Test successful population of aggregator from queries."""
+        source = OracleSource(config_with_query_usage, ctx)
+
+        mock_engine = Mock()
+        mock_queries = [
+            ObservedQuery(
+                query="SELECT * FROM test_table",
+                default_schema="HR",
+                default_db="TESTDB",
+            )
+        ]
+
+        with (
+            patch.object(source, "_get_metadata_engine", return_value=mock_engine),
+            patch.object(
+                source,
+                "_check_vsql_prerequisites",
+                return_value=VSqlPrerequisiteCheckResult(
+                    is_accessible=True, message="V$SQL accessible"
+                ),
+            ),
+            patch.object(
+                source, "_extract_queries_from_vsql", return_value=iter(mock_queries)
+            ),
+        ):
+            source._populate_aggregator_from_queries()
+
+        assert source.report.num_queries_extracted == 1
+        mock_engine.dispose.assert_called_once()
+
+    def test_vsql_query_format(self):
+        """Test that VSQL_USAGE_QUERY constant is properly formatted."""
+        assert "SELECT" in VSQL_USAGE_QUERY
+        assert "sql_id" in VSQL_USAGE_QUERY
+        assert "sql_text" in VSQL_USAGE_QUERY
+        assert "parsing_schema_name" in VSQL_USAGE_QUERY
+        assert "V$SQL" in VSQL_USAGE_QUERY
+        assert "command_type IN" in VSQL_USAGE_QUERY
+        assert "ROWNUM" in VSQL_USAGE_QUERY
+        assert ":max_queries" in VSQL_USAGE_QUERY
+
+    def test_query_usage_integration_flow(self, ctx):
+        """Test end-to-end flow of query usage extraction."""
+        config = OracleConfig.model_validate(
+            {
+                "username": "test_user",
+                "password": "test_pass",
+                "host_port": "localhost:1521",
+                "service_name": "test_service",
+                "include_query_usage": True,
+                "max_queries_to_extract": 10,
+            }
+        )
+        source = OracleSource(config, ctx)
+
+        mock_engine = Mock()
+        mock_queries = [
+            ObservedQuery(
+                query="SELECT * FROM hr_schema.employees",
+                default_schema="HR_SCHEMA",
+                default_db="TESTDB",
+            )
+        ]
+
+        with (
+            patch.object(source, "_get_metadata_engine", return_value=mock_engine),
+            patch.object(
+                source,
+                "_check_vsql_prerequisites",
+                return_value=VSqlPrerequisiteCheckResult(
+                    is_accessible=True, message="Accessible"
+                ),
+            ),
+            patch.object(
+                source, "_extract_queries_from_vsql", return_value=iter(mock_queries)
+            ),
+        ):
+            source._populate_aggregator_from_queries()
+
+        assert source.report.num_queries_extracted == 1
+        mock_engine.dispose.assert_called_once()
+
+
+class TestOracleProcedureLineage:
+    """Tests for stored procedure dependency extraction."""
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test")
+
+    @pytest.fixture
+    def config_with_procedures(self):
+        """Config with stored procedures enabled."""
+        return OracleConfig.model_validate(
+            {
+                "username": "test_user",
+                "password": "test_pass",
+                "host_port": "localhost:1521",
+                "service_name": "test_service",
+                "include_stored_procedures": True,
+            }
+        )
+
+    def test_get_procedure_dependencies_returns_upstream_tables(
+        self, config_with_procedures, ctx
+    ):
+        """Test that _get_procedure_dependencies returns structured upstream_tables."""
+        source = OracleSource(config_with_procedures, ctx)
+
+        mock_conn = Mock()
+
+        mock_upstream_result = Mock()
+        mock_upstream_result.__iter__ = Mock(
+            return_value=iter(
+                [
+                    Mock(
+                        referenced_owner="HR_SCHEMA",
+                        referenced_name="EMPLOYEES",
+                        referenced_type="TABLE",
+                    ),
+                    Mock(
+                        referenced_owner="HR_SCHEMA",
+                        referenced_name="DEPARTMENTS",
+                        referenced_type="VIEW",
+                    ),
+                    Mock(
+                        referenced_owner="HR_SCHEMA",
+                        referenced_name="OTHER_PROC",
+                        referenced_type="PROCEDURE",
+                    ),
+                ]
+            )
+        )
+
+        mock_downstream_result = Mock()
+        mock_downstream_result.__iter__ = Mock(return_value=iter([]))
+
+        mock_conn.execute = Mock(
+            side_effect=[mock_upstream_result, mock_downstream_result]
+        )
+
+        dependencies = source._get_procedure_dependencies(
+            conn=mock_conn,
+            schema="HR_SCHEMA",
+            procedure_name="PROCESS_EMPLOYEES",
+            tables_prefix="ALL",
+        )
+
+        assert dependencies is not None
+        assert dependencies.upstream_tables is not None
+        assert len(dependencies.upstream_tables) == 2
+        assert dependencies.upstream_tables[0].schema_name == "HR_SCHEMA"
+        assert dependencies.upstream_tables[0].table == "EMPLOYEES"
+        assert dependencies.upstream_tables[0].type == OracleObjectType.TABLE
+        assert dependencies.upstream_tables[1].type == OracleObjectType.VIEW
