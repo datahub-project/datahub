@@ -284,6 +284,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
             .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
             .setIngestionOnboardingRedesignV1(_featureFlags.isIngestionOnboardingRedesignV1())
+            .setHideLineageInSearchCards(_featureFlags.isHideLineageInSearchCards())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
