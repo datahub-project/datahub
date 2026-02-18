@@ -42,7 +42,7 @@ const BASE_AVATAR_STYLE = {
 const AvatarWithTitleContainer = styled.div`
     display: flex;
     padding: 10px;
-    background: linear-gradient(0deg, #705ee4 0%, #533fd1 100%), #4c39be;
+    background: ${(props) => props.theme.colors.brandGradient};
     gap: 0.5rem;
 `;
 

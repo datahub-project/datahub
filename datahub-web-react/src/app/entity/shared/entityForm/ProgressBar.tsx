@@ -32,7 +32,7 @@ export default function ProgressBar({ formUrn }: Props) {
         <StyledProgress
             percent={percent}
             showInfo={false}
-            strokeColor="linear-gradient(270deg, #9f33cc 0%, #20d3bd 100%)"
+            strokeColor={theme.colors.brandGradient}
             trailColor={theme.colors.bg}
         />
     );

@@ -15,9 +15,9 @@ export function hashString(str: string) {
     return Math.abs(hash);
 }
 
-export default function getAvatarColor(name?: string) {
+export default function getAvatarColor(name?: string, fallbackColor?: string) {
     if (!name) {
-        return '#8C8C8C';
+        return fallbackColor ?? '#8C8C8C';
     }
     return lineColors[hashString(name) % lineColors.length];
 }

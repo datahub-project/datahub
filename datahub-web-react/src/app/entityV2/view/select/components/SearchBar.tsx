@@ -8,7 +8,8 @@ import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean; $minWidth?: string; $fullWidth?: boolean }>`
     ${(props) => !props.$isShowNavBarRedesign && 'max-width: 330px;'}
-    background-color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.bg : '#404053')};
+    background-color: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.colors.bg : props.theme.colors.bgSurfaceDarker};
     border-radius: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '7px')};
 
     ${(props) => !props.$isShowNavBarRedesign && 'border: unset;'}
@@ -38,7 +39,7 @@ const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean; $minWidth?:
         & .ant-input-prefix {
             margin-right: 8px;
             svg {
-                color: ${props.theme.colors.textTertiary}
+                color: ${props.theme.colors.icon}
             }
         }
     `}
@@ -51,7 +52,7 @@ const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean; $minWidth?:
 `;
 
 const SearchOutlinedStyle = styled(SearchOutlined)`
-    color: ${(props) => props.theme.colors.border};
+    color: ${(props) => props.theme.colors.icon};
 `;
 
 const Wrapper = styled.div<{ $isShowNavBarRedesign?: boolean; $fullWidth?: boolean }>`

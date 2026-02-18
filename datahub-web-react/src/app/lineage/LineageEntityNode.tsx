@@ -297,10 +297,14 @@ export default function LineageEntityNode({
                     width={width}
                     y={centerY}
                     x={centerX}
-                    fill="white"
+                    fill={theme.colors.bg}
                     stroke={
                         // eslint-disable-next-line no-nested-ternary
-                        isSelected ? '#1890FF' : isHovered ? '#1890FF' : 'rgba(192, 190, 190, 0.25)'
+                        isSelected
+                            ? theme.colors.borderBrand
+                            : isHovered
+                              ? theme.colors.borderBrand
+                              : 'rgba(192, 190, 190, 0.25)'
                     }
                     strokeWidth={isCenterNode ? 2 : 1}
                     strokeOpacity={1}
@@ -400,12 +404,12 @@ export default function LineageEntityNode({
                         fontFamily="Manrope"
                         fontWeight="bold"
                         textAnchor="start"
-                        fill="#8C8C8C"
+                        fill={theme.colors.textTertiary}
                     >
                         {platformDisplayText && (
                             <>
                                 <tspan>{getShortenedTitle(platformDisplayText || '', width)}</tspan>
-                                <tspan dx=".25em" dy="2px" fill="#dadada" fontSize={12} fontWeight="normal">
+                                <tspan dx=".25em" dy="2px" fill={theme.colors.border} fontSize={12} fontWeight="normal">
                                     {' '}
                                     |{' '}
                                 </tspan>
@@ -426,7 +430,7 @@ export default function LineageEntityNode({
                             fontSize={14}
                             fontFamily="Manrope"
                             textAnchor="start"
-                            fill={isCenterNode ? '#1890FF' : 'black'}
+                            fill={isCenterNode ? theme.colors.textBrand : theme.colors.text}
                         >
                             {getShortenedTitle(node.data.name, width)}
                         </UnselectableText>

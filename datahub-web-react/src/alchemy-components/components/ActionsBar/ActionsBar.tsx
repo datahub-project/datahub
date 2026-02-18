@@ -10,7 +10,7 @@ const ActionsContainer = styled.div`
     width: fit-content;
     align-self: center;
     border-radius: 12px;
-    box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
 
     background-color: ${(props) => props.theme.colors.bg};
     position: absolute;

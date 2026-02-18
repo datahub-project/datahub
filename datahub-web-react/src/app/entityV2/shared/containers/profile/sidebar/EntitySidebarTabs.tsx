@@ -2,7 +2,7 @@ import { Tooltip } from '@components';
 import { ArrowLineLeft, ArrowLineRight } from '@phosphor-icons/react';
 import { Tabs } from 'antd';
 import React, { useContext } from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
 import { EntitySidebarTab } from '@app/entityV2/shared/types';
@@ -146,7 +146,7 @@ const TabText = styled.span<{ $isSelected?: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(#7565d6 20%, #5340cc 80%) !important;
+        background: ${props.theme.colors.brandGradientSelected} !important;
         background-clip: text !important;
         -webkit-background-clip: text !important;
         -webkit-text-fill-color: transparent !important;
@@ -232,16 +232,19 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
     }
 `;
 
-const GradientDefs = () => (
-    <svg width="0" height="0">
-        <defs>
-            <linearGradient id="menu-item-selected-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="20%" stopColor="#7565d6" />
-                <stop offset="80%" stopColor="#5340cc" />
-            </linearGradient>
-        </defs>
-    </svg>
-);
+const GradientDefs = () => {
+    const theme = useTheme();
+    return (
+        <svg width="0" height="0">
+            <defs>
+                <linearGradient id="menu-item-selected-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="20%" stopColor={theme.colors.iconBrand} />
+                    <stop offset="80%" stopColor={theme.colors.buttonFillBrand} />
+                </linearGradient>
+            </defs>
+        </svg>
+    );
+};
 
 const TabsWrapper = styled.div`
     width: 64px;

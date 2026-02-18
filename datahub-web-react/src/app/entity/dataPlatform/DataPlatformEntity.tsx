@@ -22,7 +22,7 @@ export class DataPlatformEntity implements Entity<DataPlatform> {
             <DatabaseOutlined
                 style={{
                     fontSize,
-                    color: color || '#BFBFBF',
+                    color: color || 'var(--theme-icon, #BFBFBF)',
                 }}
             />
         );

@@ -4,7 +4,7 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
-import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
+import ColorTheme from '@src/conf/theme/colorThemes/types';
 
 const SummaryHeader = styled.div`
     width: 100%;
@@ -42,17 +42,17 @@ type Props = {
     summary: AssertionsSummary;
 };
 
-const getSummaryIcon = (summary: AssertionsSummary, disabledColor: string) => {
+const getSummaryIcon = (summary: AssertionsSummary, colors: ColorTheme) => {
     if (summary.totalRuns === 0) {
-        return <StopOutlined style={{ color: disabledColor, fontSize: 28 }} />;
+        return <StopOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
     }
     if (summary.succeededRuns === summary.totalRuns) {
-        return <CheckCircleFilled style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;
+        return <CheckCircleFilled style={{ color: colors.iconSuccess, fontSize: 28 }} />;
     }
     if (summary.erroredRuns > 0) {
-        return <ExclamationCircleFilled style={{ color: ERROR_COLOR_HEX, fontSize: 28 }} />;
+        return <ExclamationCircleFilled style={{ color: colors.iconWarning, fontSize: 28 }} />;
     }
-    return <CloseCircleFilled style={{ color: FAILURE_COLOR_HEX, fontSize: 28 }} />;
+    return <CloseCircleFilled style={{ color: colors.iconError, fontSize: 28 }} />;
 };
 
 const getSummaryMessage = (summary: AssertionsSummary) => {
@@ -73,7 +73,7 @@ const getSummaryMessage = (summary: AssertionsSummary) => {
 
 export const DatasetAssertionsSummary = ({ summary }: Props) => {
     const theme = useTheme();
-    const summaryIcon = getSummaryIcon(summary, theme.colors.textDisabled);
+    const summaryIcon = getSummaryIcon(summary, theme.colors);
     const summaryMessage = getSummaryMessage(summary);
     const errorMessage = summary.erroredRuns
         ? `, ${summary.erroredRuns} error${summary.erroredRuns > 1 ? 's' : ''}`

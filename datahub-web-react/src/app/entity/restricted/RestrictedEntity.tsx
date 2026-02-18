@@ -21,14 +21,14 @@ export class RestrictedEntity implements Entity<Restricted> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <QuestionOutlined style={{ fontSize, color: color || '#B37FEB' }} />;
+            return <QuestionOutlined style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }} />;
         }
 
         return (
             <QuestionOutlined
                 style={{
                     fontSize,
-                    color: color || '#BFBFBF',
+                    color: color || 'var(--theme-icon, #BFBFBF)',
                 }}
             />
         );

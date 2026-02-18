@@ -1,21 +1,5 @@
 import styled from 'styled-components';
 
-// Helper functions to simplify logic
-const getBackgroundColor = ({ isExpandedView, primary }: { isExpandedView?: boolean; primary?: boolean }) => {
-    if (isExpandedView) return 'inherit';
-    return primary ? '#5280e8' : '#ffffff';
-};
-
-const getColor = ({ isExpandedView, primary }: { isExpandedView?: boolean; primary?: boolean }) => {
-    if (primary) return '#fff';
-    return isExpandedView ? '#000' : '#5280e8';
-};
-
-const getBorder = ({ isExpandedView, primary }: { isExpandedView?: boolean; primary?: boolean }) => {
-    if (isExpandedView) return 'none';
-    return primary ? '1px solid #5280e8' : '1px solid #f0f0f0';
-};
-
 export const ActionItemButton = styled.button<{ disabled?: boolean; primary?: boolean; isExpandedView?: boolean }>`
     border-radius: ${(props) => (props.isExpandedView ? `0px` : `20px`)};
     width: 28px;
@@ -26,13 +10,22 @@ export const ActionItemButton = styled.button<{ disabled?: boolean; primary?: bo
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    background-color: ${(props) => getBackgroundColor(props)};
-    color: ${(props) => getColor(props)};
+    background-color: ${(props) => {
+        if (props.isExpandedView) return 'inherit';
+        return props.primary ? props.theme.colors.buttonFillBrand : props.theme.colors.bg;
+    }};
+    color: ${(props) => {
+        if (props.primary) return props.theme.colors.textOnFillBrand;
+        return props.isExpandedView ? props.theme.colors.text : props.theme.colors.textBrand;
+    }};
     box-shadow: none;
     cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
     &&:hover {
         ${(props) => !props.disabled && 'opacity: 0.8;'}
     }
     ${(props) => props.disabled && 'opacity: 0.5'};
-    border: ${(props) => getBorder(props)};
+    border: ${(props) => {
+        if (props.isExpandedView) return 'none';
+        return props.primary ? `1px solid ${props.theme.colors.borderBrand}` : `1px solid ${props.theme.colors.border}`;
+    }};
 `;

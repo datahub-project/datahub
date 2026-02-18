@@ -20,19 +20,19 @@ export const IncidentStagePill = ({ stage, showLabel = false }: { stage: string;
                 icon: <Hexagon size={16} fill={tc?.iconBrand ?? colors.violet[500]} />,
             },
             [IncidentStage.Investigation]: {
-                bgColor: colors.yellow[1200],
-                color: colors.yellow[1000],
-                icon: <Circle size={16} fill={colors.yellow[1000]} />,
+                bgColor: tc?.bgSurfaceWarning ?? colors.yellow[1200],
+                color: tc?.iconWarning ?? colors.yellow[1000],
+                icon: <Circle size={16} fill={tc?.iconWarning ?? colors.yellow[1000]} />,
             },
             [IncidentStage.WorkInProgress]: {
-                bgColor: colors.gray[1100],
-                color: colors.blue[1000],
-                icon: <CircleHalf size={16} fill={colors.blue[1000]} />,
+                bgColor: tc?.bgSurfaceInfo ?? colors.gray[1100],
+                color: tc?.iconInformation ?? colors.blue[1000],
+                icon: <CircleHalf size={16} fill={tc?.iconInformation ?? colors.blue[1000]} />,
             },
             [IncidentStage.Fixed]: {
-                bgColor: colors.gray[1300],
-                color: colors.green[1000],
-                icon: <CheckCircle size={16} fill={colors.green[1000]} />,
+                bgColor: tc?.bgSurfaceSuccess ?? colors.gray[1300],
+                color: tc?.iconSuccess ?? colors.green[1000],
+                icon: <CheckCircle size={16} fill={tc?.iconSuccess ?? colors.green[1000]} />,
             },
             [IncidentStage.NoActionRequired]: {
                 bgColor: tc?.border ?? colors.gray[100],

@@ -81,8 +81,8 @@ const lightTheme: ColorTheme = {
     iconDisabled: colors.gray500,
     bgSurfaceDisabled: colors.gray300,
     // Shadows
-    shadowXs: '0 4px 8px 0 rgba(33, 23, 95, 0.04)',
-    shadowSm: '0 4px 8px 0 rgba(33, 23, 95, 0.08)',
+    shadowXs: '0 1px 2px 0 rgba(33, 23, 95, 0.04)',
+    shadowSm: '0 2px 4px 0 rgba(33, 23, 95, 0.06)',
     shadowMd: '0 0 24px 0 rgba(0, 0, 0, 0.10)',
     shadowLg: '0 4px 12px 0 rgba(9, 1, 61, 0.12)',
     shadowXl: '0 4px 28px 0 rgba(9, 1, 61, 0.14)',
@@ -94,6 +94,7 @@ const lightTheme: ColorTheme = {
     overlayLight: 'rgba(0, 0, 0, 0.05)',
     overlayMedium: 'rgba(0, 0, 0, 0.15)',
     overlayHeavy: 'rgba(0, 0, 0, 0.45)',
+    overlayOnBrand: 'rgba(255, 255, 255, 0.2)',
     // Inputs / Forms
     bgInput: colors.gray0,
     bgInputDisabled: colors.gray300,
@@ -111,6 +112,9 @@ const lightTheme: ColorTheme = {
     bgHighlight: '#ffe58f',
     // Tooltip
     bgTooltip: colors.gray800,
+    // Brand gradients
+    brandGradient: 'radial-gradient(115.48% 144.44% at 50% -44.44%, #705EE4 38.97%, #533FD1 100%)',
+    brandGradientSelected: 'linear-gradient(180deg, #7565d6 20%, #5340cc 80%)',
     // Skeleton / Loading
     bgSkeleton: colors.gray300,
     bgSkeletonShimmer: colors.gray200,

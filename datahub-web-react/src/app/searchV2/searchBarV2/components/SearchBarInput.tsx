@@ -9,8 +9,6 @@ import { CommandK } from '@app/searchV2/CommandK';
 import { Icon, SearchBar, radius, transition } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
-const PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND = '#343444';
-
 const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
     border-width: 2px !important;
     border-color: ${(props) => props.theme.colors.border};
@@ -18,8 +16,8 @@ const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        background: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
-        border-color: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
+        background: ${props.theme.colors.bgSurfaceDarker};
+        border-color: ${props.theme.colors.bgSurfaceDarker};
 
         &:hover,
         &:focus,
@@ -29,7 +27,7 @@ const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
 
         .ant-input, .ant-input-clear-icon {
             color: ${props.theme.colors.bg};
-            background: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
+            background: ${props.theme.colors.bgSurfaceDarker};
         }
     `}
 `;

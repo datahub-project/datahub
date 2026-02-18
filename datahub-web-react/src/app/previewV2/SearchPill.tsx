@@ -51,18 +51,18 @@ export const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; i
     }
 
     :hover {
-        color: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.textDisabled)};
+        color: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.iconDisabled)};
         background-color: ${({ enabled, theme }) =>
             enabled ? `${theme.styles['primary-color']}` : theme.colors.bgSurface};
 
         svg {
-            color: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.textDisabled)};
-            fill: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.textDisabled)};
+            color: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.iconDisabled)};
+            fill: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.iconDisabled)};
         }
 
         >div: last-child {
             color: ${({ theme }) => theme.colors.textOnFillBrand};
-            background-color: rgba(255, 255, 255, 0.2);
+            background-color: ${({ theme }) => theme.colors.overlayOnBrand};
         }
     }
 `;
@@ -74,7 +74,7 @@ const Container = styled.div`
 `;
 
 const CountContainer = styled.div<{ active?: boolean }>`
-    background-color: ${({ active, theme }) => (active ? 'rgba(255, 255, 255, 0.2)' : theme.colors.border)};
+    background-color: ${({ active, theme }) => (active ? theme.colors.overlayOnBrand : theme.colors.border)};
     border-radius: 20px;
     height: 24px;
     min-width: 35px;

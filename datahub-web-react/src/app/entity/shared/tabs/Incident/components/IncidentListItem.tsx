@@ -2,13 +2,13 @@ import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@
 import { Button, Dropdown, List, Popover, Tag, Tooltip, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import MarkdownViewer from '@app/entity/shared/components/legacy/MarkdownViewer';
 import { ResolveIncidentModal } from '@app/entity/shared/tabs/Incident/components/ResolveIncidentModal';
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, getNameFromType } from '@app/entity/shared/tabs/Incident/incidentUtils';
+import { getNameFromType } from '@app/entity/shared/tabs/Incident/incidentUtils';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
@@ -146,6 +146,7 @@ const MenuIcon = styled(MoreOutlined)`
 `;
 
 export default function IncidentListItem({ incident, refetch }: Props) {
+    const theme = useTheme();
     const { entityType } = useEntityData();
     const refetchEntity = useRefetch();
     const entityRegistry = useEntityRegistry();
@@ -297,7 +298,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 </IncidentResolvedText>
                             </Popover>
                             <CheckCircleFilled
-                                style={{ fontSize: '28px', color: SUCCESS_COLOR_HEX, marginLeft: '16px' }}
+                                style={{ fontSize: '28px', color: theme.colors.iconSuccess, marginLeft: '16px' }}
                             />
                             <Dropdown menu={{ items }} trigger={['click']}>
                                 <MenuIcon data-testid="incident-menu" />
@@ -312,7 +313,9 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             >
                                 Resolve
                             </IncidentResolvedButton>
-                            <WarningFilled style={{ fontSize: '28px', marginLeft: '16px', color: FAILURE_COLOR_HEX }} />
+                            <WarningFilled
+                                style={{ fontSize: '28px', marginLeft: '16px', color: theme.colors.iconError }}
+                            />
                         </IncidentResolvedContainer>
                     )}
                 </IncidentItemContainer>

@@ -50,7 +50,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             return (
                 <ChartScatter
                     className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || '#9633b9' }}
+                    style={{ fontSize, color: color || 'var(--theme-icon, #9633b9)' }}
                     weight="regular"
                 />
             );
@@ -59,7 +59,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
         return (
             <ChartScatter
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'var(--theme-icon)' }}
                 weight="regular"
             />
         );

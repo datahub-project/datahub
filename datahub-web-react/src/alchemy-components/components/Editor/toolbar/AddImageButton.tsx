@@ -14,7 +14,7 @@ export const AddImageButton = () => {
     const [form] = Form.useForm();
     const { insertImage } = useCommands();
     const styledTheme = useTheme() as any;
-    const iconColor = styledTheme?.colors?.textTertiary ?? colors.gray[1800];
+    const iconColor = styledTheme?.colors?.icon ?? colors.gray[1800];
 
     const handleButtonClick = () => {
         setModalVisible(true);

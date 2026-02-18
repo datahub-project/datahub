@@ -22,7 +22,7 @@ export class QueryEntity implements Entity<Query> {
                 className={TYPE_ICON_CLASS_NAME}
                 style={{
                     fontSize,
-                    color: color || '#BFBFBF',
+                    color: color || 'var(--theme-icon, #BFBFBF)',
                 }}
             />
         );

@@ -11,6 +11,7 @@ const EditIcon = styled(EditOutlined)`
     top: 0;
     right: -8px;
     display: none;
+    color: ${(props) => props.theme.colors.iconSuccess};
 `;
 
 const MarkdownContainer = styled.div<{ editable?: string }>`
@@ -113,7 +114,7 @@ export default function MarkdownViewer({ source, limit = 150, editable, onEditCl
                     {showAll ? 'show less' : 'show more'}
                 </CustomButton>
             )}
-            {editable && <EditIcon twoToneColor="#52c41a" onClick={onEditClicked} />}
+            {editable && <EditIcon onClick={onEditClicked} />}
         </MarkdownContainer>
     );
 }

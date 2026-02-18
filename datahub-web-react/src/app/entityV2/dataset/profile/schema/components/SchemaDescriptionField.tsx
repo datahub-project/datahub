@@ -19,6 +19,7 @@ import { MetadataAttribution } from '@types';
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
     display: none;
+    color: ${(props) => props.theme.colors.iconSuccess};
 `;
 
 const AddNewDescription = styled(Button)`
@@ -159,9 +160,7 @@ export default function DescriptionField({
     };
 
     const enableEdits = isSchemaEditable && !isReadOnly;
-    const EditButton =
-        (enableEdits && description && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />) ||
-        undefined;
+    const EditButton = (enableEdits && description && <EditIcon onClick={() => setShowAddModal(true)} />) || undefined;
 
     const showAddButton = enableEdits && !description;
 

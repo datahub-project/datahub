@@ -65,7 +65,7 @@ export const PaginationContainer = styled.div`
         &.ant-select-focused:not(.ant-select-disabled) {
             .ant-select-selector {
                 border: 1px solid ${(props) => props.theme.colors.border};
-                box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+                box-shadow: ${(props) => props.theme.colors.shadowXs};
 
                 :hover {
                     color: ${({ theme }) => theme.styles?.['primary-color']};
@@ -77,7 +77,7 @@ export const PaginationContainer = styled.div`
     .ant-pagination-next,
     .ant-pagination-prev {
         :hover {
-            box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+            box-shadow: ${(props) => props.theme.colors.shadowXs};
 
             button {
                 color: ${({ theme }) => theme.styles?.['primary-color']};

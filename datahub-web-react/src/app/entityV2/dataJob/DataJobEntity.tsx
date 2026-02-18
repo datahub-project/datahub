@@ -65,14 +65,17 @@ export class DataJobEntity implements Entity<DataJob> {
 
         if (styleType === IconStyleType.HIGHLIGHT) {
             return (
-                <ConsoleSqlOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />
+                <ConsoleSqlOutlined
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }}
+                />
             );
         }
 
         return (
             <ConsoleSqlOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'var(--theme-icon)' }}
             />
         );
     };

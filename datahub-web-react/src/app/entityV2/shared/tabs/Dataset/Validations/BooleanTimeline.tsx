@@ -6,8 +6,6 @@ import { Bar } from '@visx/shape';
 import React, { useMemo } from 'react';
 import { useTheme } from 'styled-components';
 
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
-
 export type BooleanResult = {
     isSuccess: boolean;
     title: React.ReactNode;
@@ -67,7 +65,7 @@ export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
                         const barHeight = 18;
                         const barX = xScale(new Date(d.time));
                         const barY = yMax - barHeight;
-                        const fillColor = d.isSuccess ? SUCCESS_COLOR_HEX : FAILURE_COLOR_HEX;
+                        const fillColor = d.isSuccess ? theme.colors.iconSuccess : theme.colors.iconError;
                         return (
                             <Popover
                                 key={d.time}

@@ -5,8 +5,6 @@ import * as moment from 'moment-timezone';
 import React from 'react';
 import styled from 'styled-components';
 
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '@components/theme/foundations/colors';
-
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { AssertionGroup, AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import { sortAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
@@ -27,7 +25,7 @@ const StyledApiOutlined = styled(ApiOutlined)`
 
 const StyledCheckOutlined = styled(CheckOutlined)`
     && {
-        color: ${SUCCESS_COLOR_HEX};
+        color: ${(props) => props.theme.colors.iconSuccess};
         font-size: 14px;
         padding: 0px;
         margin: 0px;
@@ -36,7 +34,7 @@ const StyledCheckOutlined = styled(CheckOutlined)`
 
 const StyledCloseOutlined = styled(CloseOutlined)`
     && {
-        color: ${FAILURE_COLOR_HEX};
+        color: ${(props) => props.theme.colors.iconError};
         font-size: 14px;
         padding: 0px;
         margin: 0px;
@@ -45,7 +43,7 @@ const StyledCloseOutlined = styled(CloseOutlined)`
 
 const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
     && {
-        color: ${WARNING_COLOR_HEX};
+        color: ${(props) => props.theme.colors.iconWarning};
         font-size: 14px;
         padding: 0px;
         margin: 0px;

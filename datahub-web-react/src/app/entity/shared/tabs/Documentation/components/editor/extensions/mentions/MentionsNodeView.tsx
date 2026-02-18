@@ -22,13 +22,12 @@ const ValidEntityText = styled(Text)`
     font-weight: 500;
     margin-left: 4px !important;
     word-break: break-all;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.textBrand};
 `;
 
-// !important is needed to override inline styles
 const Container = styled.span`
     & > .anticon {
-        color: ${(props) => props.theme.styles['primary-color']} !important;
+        color: ${(props) => props.theme.colors.icon} !important;
     }
 `;
 

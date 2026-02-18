@@ -4,7 +4,7 @@ import { LinkStyleProps } from '@components/components/Link/types';
 import { getColor } from '@components/theme/utils';
 
 export const StyledLink = styled.a<LinkStyleProps>`
-    color: ${(props) => getColor(props.color, props.colorLevel)};
+    color: ${(props) => getColor(props.color, props.colorLevel, props.theme)};
     text-decoration: none;
     cursor: pointer;
     transition: opacity 0.2s ease;

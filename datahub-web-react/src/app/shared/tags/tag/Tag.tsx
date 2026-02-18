@@ -17,7 +17,7 @@ const TagLink = styled.span`
     margin-bottom: 8px;
 `;
 
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
+const highlightMatchStyle = { background: 'var(--theme-bgHighlight, #ffe58f)', padding: '0' };
 
 interface Props {
     tag: TagAssociation;

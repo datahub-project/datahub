@@ -11,7 +11,7 @@ export const CardContainer = styled.div<{ isClickable?: boolean; width?: string;
         display: 'flex',
         flex: `1 1 ${maxWidth}`,
         minWidth: '150px',
-        boxShadow: '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
+        boxShadow: theme.colors.shadowXs,
         backgroundColor: theme.colors.bg,
         flexDirection: 'column',
         gap: spacing.md,
@@ -21,7 +21,7 @@ export const CardContainer = styled.div<{ isClickable?: boolean; width?: string;
 
         '&:hover': isClickable
             ? {
-                  border: `1px solid ${theme.styles['primary-color']}`,
+                  border: `1px solid ${theme.colors.borderBrand}`,
                   cursor: 'pointer',
               }
             : {},

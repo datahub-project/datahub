@@ -3,13 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 const DARK_MODE_KEY = 'isDarkModeEnabled';
 const DARK_MODE_CHANGE_EVENT = 'datahub-darkmode-change';
 
-function getSystemPrefersDark(): boolean {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-
 function loadDarkModeFromLocalStorage(): boolean {
     const item = localStorage.getItem(DARK_MODE_KEY);
-    if (item === null) return getSystemPrefersDark();
+    if (item === null) return false;
     return item === 'true';
 }
 

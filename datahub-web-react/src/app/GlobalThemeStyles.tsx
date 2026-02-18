@@ -16,11 +16,15 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         --theme-bgSurface: ${(props) => props.theme.colors.bgSurface};
         --theme-bgSelected: ${(props) => props.theme.colors.bgSelected};
         --theme-bgSelectedSubtle: ${(props) => props.theme.colors.bgSelectedSubtle};
+        --theme-bgHighlight: ${(props) => props.theme.colors.bgHighlight};
         --theme-shadowFocus: ${(props) => props.theme.colors.shadowFocus};
         --theme-shadowFocusBrand: ${(props) => props.theme.colors.shadowFocusBrand};
         --theme-overlayLight: ${(props) => props.theme.colors.overlayLight};
         --theme-overlayMedium: ${(props) => props.theme.colors.overlayMedium};
         --theme-overlayHeavy: ${(props) => props.theme.colors.overlayHeavy};
+        --theme-icon: ${(props) => props.theme.colors.icon};
+        --theme-iconBrand: ${(props) => props.theme.colors.iconBrand};
+        --theme-textOnFillBrand: ${(props) => props.theme.colors.textOnFillBrand};
     }
 
     body {
@@ -111,9 +115,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
 
     /* ── Inputs ───────────────────────────────────────────── */
     .ant-input {
-        background-color: ${(props) => props.theme.colors.bgInput};
         color: ${(props) => props.theme.colors.text};
-        border-color: ${(props) => props.theme.colors.borderInput};
     }
     .ant-input:hover {
         border-color: ${(props) => props.theme.colors.borderHover};
@@ -135,10 +137,12 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         background-color: ${(props) => props.theme.colors.bgInput};
         color: ${(props) => props.theme.colors.text};
         border-color: ${(props) => props.theme.colors.borderInput};
+        box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
     .ant-input-affix-wrapper {
         background-color: ${(props) => props.theme.colors.bgInput};
         border-color: ${(props) => props.theme.colors.borderInput};
+        box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
     .ant-input-affix-wrapper:hover {
         border-color: ${(props) => props.theme.colors.borderHover};

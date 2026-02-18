@@ -7,9 +7,8 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { useMemo } from 'react';
 import { useTheme } from 'styled-components';
 
-import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
-
 import { LinkWrapper } from '@app/shared/LinkWrapper';
+import ColorTheme from '@src/conf/theme/colorThemes/types';
 
 import { AssertionResultType } from '@types';
 
@@ -36,16 +35,16 @@ type Props = {
     width: number;
 };
 
-const getFillColor = (type: AssertionResultType, initColor: string) => {
+const getFillColor = (type: AssertionResultType, colors: ColorTheme) => {
     switch (type) {
         case AssertionResultType.Success:
-            return SUCCESS_COLOR_HEX;
+            return colors.iconSuccess;
         case AssertionResultType.Failure:
-            return FAILURE_COLOR_HEX;
+            return colors.iconError;
         case AssertionResultType.Error:
-            return ERROR_COLOR_HEX;
+            return colors.iconWarning;
         case AssertionResultType.Init:
-            return initColor;
+            return colors.iconDisabled;
         default:
             throw new Error(`Unsupported Assertion Result Type ${type} provided.`);
     }
@@ -88,7 +87,7 @@ export const AssertionResultTimeline = ({ data, timeRange, width }: Props) => {
                         const barHeight = 18;
                         const barX = xScale(new Date(d.time));
                         const barY = yMax - barHeight;
-                        const fillColor = getFillColor(d.type, theme.colors.textDisabled);
+                        const fillColor = getFillColor(d.type, theme.colors);
                         return (
                             <LinkWrapper to={d.url} target="_blank">
                                 <Popover

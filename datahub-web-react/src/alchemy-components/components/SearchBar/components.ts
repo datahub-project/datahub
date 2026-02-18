@@ -1,8 +1,6 @@
 import { Input } from 'antd';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { typography } from '@src/alchemy-components/theme';
 
 export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string }>`
@@ -13,7 +11,7 @@ export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string
     border-radius: 8px;
     border: 1px solid ${(props) => props.theme.colors.border};
     background-color: ${(props) => props.theme.colors.bg};
-    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     transition: all 0.1s ease;
 
     &.ant-input-affix-wrapper {
@@ -57,7 +55,7 @@ export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string
     &:hover,
     &:focus,
     &:focus-within {
-        border-color: ${({ theme }) => getColor('primary', 300, theme)} !important;
+        border-color: ${({ theme }) => theme.colors.borderBrandFocused} !important;
         box-shadow: none !important;
     }
 

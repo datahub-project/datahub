@@ -1,6 +1,5 @@
 import styled from 'styled-components';
 
-import type { InputProps } from '@components/components/Input/types';
 import {
     INPUT_MAX_HEIGHT,
     formLabelTextStyles,
@@ -28,25 +27,29 @@ export const InputWrapper = styled.div({
     width: '100%',
 });
 
-export const InputContainer = styled.div(
-    ({ isSuccess, warning, isDisabled, isInvalid, theme }: InputProps & { theme: any }) => ({
-        border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid)}`,
-        backgroundColor: isDisabled ? theme.colors.bgSurface : theme.colors.bg,
-        paddingRight: spacing.md,
-        ...defaultFlexStyles,
-        width: '100%',
-        maxHeight: INPUT_MAX_HEIGHT,
-        overflow: 'hidden',
-        borderRadius: radius.md,
-        flex: 1,
-        color: theme.colors.icon,
+export const InputContainer = styled.div<{
+    isSuccess?: boolean;
+    warning?: string;
+    isDisabled?: boolean;
+    isInvalid?: boolean;
+}>(({ isSuccess, warning, isDisabled, isInvalid, theme }) => ({
+    border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid, theme.colors)}`,
+    backgroundColor: isDisabled ? theme.colors.bgSurface : theme.colors.bg,
+    paddingRight: spacing.md,
+    ...defaultFlexStyles,
+    width: '100%',
+    maxHeight: INPUT_MAX_HEIGHT,
+    overflow: 'hidden' as const,
+    borderRadius: radius.md,
+    flex: 1,
+    color: theme.colors.icon,
+    boxShadow: theme.colors.shadowXs,
 
-        '&:focus-within': {
-            borderColor: theme.colors.borderBrandFocused,
-            outline: `${borders['1px']} ${theme.colors.borderBrandFocused}`,
-        },
-    }),
-);
+    '&:focus-within': {
+        borderColor: theme.colors.borderBrandFocused,
+        outline: `${borders['1px']} ${theme.colors.borderBrandFocused}`,
+    },
+}));
 
 export const InputField = styled.input(({ theme }) => ({
     padding: `${spacing.sm} ${spacing.md}`,
@@ -55,9 +58,9 @@ export const InputField = styled.input(({ theme }) => ({
     border: borders.none,
     width: '100%',
     backgroundColor: 'transparent',
-    color: theme.colors.text,
 
     ...inputValueTextStyles(),
+    color: theme.colors.text,
 
     '&::placeholder': {
         ...inputPlaceholderTextStyles,

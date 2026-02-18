@@ -156,7 +156,7 @@ export default function EmbeddedListSearchHeader({
             )}
             {showLightningWarning && lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">
-                    <ExclamationCircleFilled style={{ color: theme.colors.textWarning, fontSize: 16 }} />
+                    <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
                     Some results shown may not exist yet in DataHub
                     <StyledButton
                         onClick={() => setShowLightningWarning(false)}

@@ -3,8 +3,6 @@ import { Location } from 'history';
 import QueryString from 'query-string';
 import React from 'react';
 
-import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
-
 import {
     AssertionResult,
     AssertionResultErrorType,
@@ -67,11 +65,11 @@ export const getResultColor = (result?: AssertionResultType, theme?: { colors: R
     }
     switch (result) {
         case AssertionResultType.Success:
-            return SUCCESS_COLOR_HEX;
+            return theme?.colors?.iconSuccess ?? '#52C41A';
         case AssertionResultType.Failure:
-            return FAILURE_COLOR_HEX;
+            return theme?.colors?.iconError ?? '#F5222D';
         case AssertionResultType.Error:
-            return ERROR_COLOR_HEX;
+            return theme?.colors?.iconWarning ?? '#FAAD14';
         case AssertionResultType.Init:
             return initColor;
         default:

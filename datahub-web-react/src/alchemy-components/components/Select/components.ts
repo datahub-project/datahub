@@ -218,21 +218,21 @@ export const ClearIcon = styled.span({
     marginLeft: '8px',
 });
 
-export const ArrowIcon = styled.span<{ isOpen: boolean }>(({ isOpen }) => ({
+export const ArrowIcon = styled.span<{ isOpen: boolean }>(({ isOpen, theme }) => ({
     marginLeft: 'auto',
-    border: 'solid black',
+    border: `solid ${theme.colors.icon}`,
     borderWidth: '0 1px 1px 0',
     display: 'inline-block',
     padding: '3px',
     transform: isOpen ? 'rotate(-135deg)' : 'rotate(45deg)',
 }));
 
-export const StyledCheckbox = styled(Checkbox)({
+export const StyledCheckbox = styled(Checkbox)(({ theme }) => ({
     '.ant-checkbox-checked:not(.ant-checkbox-disabled) .ant-checkbox-inner': {
-        backgroundColor: `${(props) => props.theme.styles['primary-color']}`,
-        borderColor: `${(props) => props.theme.styles['primary-color']} !important`,
+        backgroundColor: theme.colors.buttonFillBrand,
+        borderColor: `${theme.colors.borderBrand} !important`,
     },
-});
+}));
 
 export const StyledBubbleButton = styled(Button)(({ theme }) => ({
     backgroundColor: theme.colors.bgHover,

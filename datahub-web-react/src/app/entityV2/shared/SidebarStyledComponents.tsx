@@ -281,8 +281,7 @@ export const SocialInfo = styled.div`
 
 export const GradientContainer = styled.div<{ gradient?: string; height?: number }>`
     border-radius: 10px 10px 0px 0px;
-    background: ${(props) =>
-        props.gradient ? props.gradient : 'linear-gradient(93deg, #705EE4 5.11%, #533FD1 112.87%), #4C39BE'};
+    background: ${(props) => (props.gradient ? props.gradient : props.theme.colors.brandGradient)};
     height: 65px;
     width: 100%;
     z-index: 1;

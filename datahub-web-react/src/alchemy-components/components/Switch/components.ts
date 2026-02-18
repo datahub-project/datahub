@@ -10,7 +10,7 @@ import {
     getToggleSize,
 } from '@components/components/Switch/utils';
 import { formLabelTextStyles } from '@components/components/commonStyles';
-import { borders, colors, shadows, spacing, transition } from '@components/theme';
+import { borders, shadows, spacing, transition } from '@components/theme';
 import { ColorOptions, SizeOptions } from '@components/theme/config';
 import { getColor } from '@components/theme/utils';
 
@@ -58,10 +58,7 @@ export const Slider = styled.div<{ size?: SizeOptions; isSquare?: boolean; isDis
             left: '2px',
             transform: 'translate(0, -50%)',
             backgroundColor: !isDisabled ? theme.colors.bg : theme.colors.border,
-            boxShadow: `
-				0px 1px 2px 0px rgba(16, 24, 40, 0.06),
-				0px 1px 3px 0px rgba(16, 24, 40, 0.12)
-			`,
+            boxShadow: theme.colors.shadowXs,
         },
         borderRadius: !isSquare ? '32px' : '0px',
         minWidth: getToggleSize(size || 'md', 'input'),
@@ -92,10 +89,7 @@ export const StyledInput = styled.input<{
     position: absolute;
 
     &:checked + ${Slider} {
-        background: ${(props) =>
-            !props.disabled
-                ? 'linear-gradient(180deg, rgba(255, 255, 255, 0.20) 0%, rgba(83.44, 63, 209, 0.20) 100%), #533FD1'
-                : colors.gray[100]};
+        background: ${(props) => (!props.disabled ? props.theme.colors.brandGradient : props.theme.colors.bgDisabled)};
 
         &:before {
             transform: ${({ customSize }) => getSliderTransformPosition(customSize || 'md')};
@@ -113,7 +107,7 @@ export const StyledInput = styled.input<{
 export const StyledIcon = styled(Icon)<{ checked?: boolean; size: SizeOptions }>(({ checked, size, theme }) => ({
     left: getIconTransformPositionLeft(size, checked || false),
     top: getIconTransformPositionTop(size),
-    color: checked ? theme.colors.iconBrand : theme.colors.textSecondary,
+    color: checked ? theme.colors.iconBrand : theme.colors.icon,
     transition: `${transition.duration.normal} all`,
     position: 'absolute',
     display: 'flex',

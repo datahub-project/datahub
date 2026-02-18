@@ -117,19 +117,36 @@ export const getExecutionRequestSummaryText = (status: string) => {
     }
 };
 
-export const getExecutionRequestStatusDisplayColor = (status?: string) => {
+export const getExecutionRequestStatusDisplayColor = (
+    status?: string,
+    themeColors?: {
+        textInformation?: string;
+        textSuccess?: string;
+        textWarning?: string;
+        textError?: string;
+        iconBrand?: string;
+        textSecondary?: string;
+    },
+) => {
+    const info = themeColors?.textInformation ?? '#09739A';
+    const success = themeColors?.textSuccess ?? '#77B750';
+    const warning = themeColors?.textWarning ?? '#EEAE09';
+    const error = themeColors?.textError ?? '#CD0D24';
+    const brand = themeColors?.iconBrand ?? '#4C39BE';
+    const neutral = themeColors?.textSecondary ?? '#5F6685';
+
     return (
-        (status === RUNNING && '#09739A') ||
-        (status === SUCCESS && '#77B750') ||
-        (status === SUCCEEDED_WITH_WARNINGS && '#EEAE09') ||
-        (status === FAILURE && '#CD0D24') ||
-        (status === UP_FOR_RETRY && '#4C39BE') ||
-        (status === CANCELLED && '#5F6685') ||
-        (status === ROLLED_BACK && '#EEAE09') ||
-        (status === ROLLING_BACK && '#EEAE09') ||
-        (status === ROLLBACK_FAILED && '#CD0D24') ||
-        (status === ABORTED && '#CD0D24') ||
-        '#5F6685'
+        (status === RUNNING && info) ||
+        (status === SUCCESS && success) ||
+        (status === SUCCEEDED_WITH_WARNINGS && warning) ||
+        (status === FAILURE && error) ||
+        (status === UP_FOR_RETRY && brand) ||
+        (status === CANCELLED && neutral) ||
+        (status === ROLLED_BACK && warning) ||
+        (status === ROLLING_BACK && warning) ||
+        (status === ROLLBACK_FAILED && error) ||
+        (status === ABORTED && error) ||
+        neutral
     );
 };
 

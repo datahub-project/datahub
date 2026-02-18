@@ -227,7 +227,7 @@ export const EmbeddedListSearchResults = ({
                     )}
                     {isViewAllMode && (
                         <WarningMessage>
-                            <ExclamationCircleFilled style={{ color: theme.colors.textWarning, fontSize: 16 }} />
+                            <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
                             <Text weight="bold" style={{ lineHeight: 'normal' }}>
                                 Results may be incomplete.{' '}
                                 {platform && (

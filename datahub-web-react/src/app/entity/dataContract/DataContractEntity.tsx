@@ -18,7 +18,12 @@ export class DataContractEntity implements Entity<DataContract> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FileOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#d6246c' }} />;
+            return (
+                <FileOutlined
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || 'var(--theme-icon, #d6246c)' }}
+                />
+            );
         }
 
         return (
@@ -26,7 +31,7 @@ export class DataContractEntity implements Entity<DataContract> {
                 className={TYPE_ICON_CLASS_NAME}
                 style={{
                     fontSize,
-                    color: color || '#BFBFBF',
+                    color: color || 'var(--theme-icon, #BFBFBF)',
                 }}
             />
         );

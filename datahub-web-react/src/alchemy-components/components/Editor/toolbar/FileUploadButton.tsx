@@ -9,7 +9,7 @@ import { CommandButton } from '@components/components/Editor/toolbar/CommandButt
 import { FileUploadContent } from '@components/components/Editor/toolbar/FileUploadContent';
 
 const DropdownContainer = styled.div`
-    box-shadow: 0 4px 12px 0 rgba(9, 1, 61, 0.12);
+    box-shadow: ${({ theme }) => theme.colors.shadowMd};
     display: flex;
     flex-direction: column;
     padding: 8px;
@@ -23,7 +23,7 @@ export const FileUploadButton = () => {
     const remirrorContext = useRemirrorContext();
     const fileExtension = remirrorContext.getExtension(FileDragDropExtension);
     const styledTheme = useTheme() as any;
-    const iconColor = styledTheme?.colors?.textTertiary ?? colors.gray[1800];
+    const iconColor = styledTheme?.colors?.icon ?? colors.gray[1800];
 
     const [showDropdown, setShowDropdown] = useState(false);
 

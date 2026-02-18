@@ -1,7 +1,7 @@
 import { Button } from 'antd';
 import React from 'react';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { Event, EventType } from '@app/analytics';
 import { getQuickFilterDetails } from '@app/searchV2/autoComplete/quickFilters/utils';
@@ -53,9 +53,10 @@ export default function QuickFilter({ quickFilter, searchQuery, setIsDropdownVis
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const { selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
+    const theme = useTheme();
 
     const isSelected = selectedQuickFilter?.value === quickFilter.value;
-    const { label, icon } = getQuickFilterDetails(quickFilter, entityRegistry);
+    const { label, icon } = getQuickFilterDetails(quickFilter, entityRegistry, theme.colors.icon);
 
     function emitTrackingEvent(isSelecting: boolean) {
         analytics.event({

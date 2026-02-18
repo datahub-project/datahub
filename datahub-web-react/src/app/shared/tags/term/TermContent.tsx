@@ -10,7 +10,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useRemoveTermMutation } from '@graphql/mutations.generated';
 import { EntityType, GlossaryTermAssociation, SubResourceType } from '@types';
 
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
+const highlightMatchStyle = { background: 'var(--theme-bgHighlight, #ffe58f)', padding: '0' };
 
 const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean }>`
     &&& {

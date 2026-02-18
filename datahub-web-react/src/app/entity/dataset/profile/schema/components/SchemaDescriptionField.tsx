@@ -18,6 +18,7 @@ import { StringMapEntry } from '@types';
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
     display: none;
+    color: ${(props) => props.theme.colors.iconSuccess};
 `;
 
 const AddNewDescription = styled(Button)`
@@ -165,10 +166,7 @@ export default function DescriptionField({
     };
 
     const EditButton =
-        (isSchemaEditable && description && (
-            <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />
-        )) ||
-        undefined;
+        (isSchemaEditable && description && <EditIcon onClick={() => setShowAddModal(true)} />) || undefined;
 
     const showAddDescription = isSchemaEditable && !description;
 

@@ -80,12 +80,11 @@ const StyledSearchBar = styled(Input)<{
     }
 
     > .ant-input::placeholder {
-        color: ${(props) =>
-            props.$placeholderColor || (props.$isShowNavBarRedesign ? props.theme.colors.textTertiary : '#dcdcdc')};
+        color: ${(props) => props.$placeholderColor || props.theme.colors.textTertiary};
     }
 
     > .ant-input {
-        color: ${(props) => props.$textColor || (props.$isShowNavBarRedesign ? props.theme.colors.text : '#fff')};
+        color: ${(props) => props.$textColor || props.theme.colors.text};
     }
 
     .ant-input-clear-icon {
@@ -112,7 +111,7 @@ const ViewSelectContainer = styled.div`
 `;
 
 const SearchIcon = styled(SearchOutlined)<{ $isShowNavBarRedesign?: boolean }>`
-    color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textTertiary : '#dcdcdc')};
+    color: ${(props) => props.theme.colors.icon};
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `

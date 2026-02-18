@@ -1,7 +1,6 @@
 import styled from 'styled-components';
 
 import { Icon, IconNames } from '@components/components/Icon';
-import { TextAreaProps } from '@components/components/TextArea/types';
 import {
     formLabelTextStyles,
     inputPlaceholderTextStyles,
@@ -35,25 +34,29 @@ export const StyledIcon = styled(Icon)({
     marginTop: spacing.sm,
 });
 
-export const TextAreaContainer = styled.div(
-    ({ isSuccess, warning, isDisabled, isInvalid, theme }: TextAreaProps & { theme: any }) => ({
-        border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid)}`,
-        backgroundColor: isDisabled ? theme.colors.bgSurface : theme.colors.bg,
-        ...defaultFlexStyles,
-        position: 'relative',
-        minWidth: '160px',
-        minHeight,
-        width: sizes.full,
-        borderRadius: radius.md,
-        flex: 1,
-        color: theme.colors.icon,
+export const TextAreaContainer = styled.div<{
+    isSuccess?: boolean;
+    warning?: string;
+    isDisabled?: boolean;
+    isInvalid?: boolean;
+}>(({ isSuccess, warning, isDisabled, isInvalid, theme }) => ({
+    border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid, theme.colors)}`,
+    backgroundColor: isDisabled ? theme.colors.bgSurface : theme.colors.bg,
+    ...defaultFlexStyles,
+    position: 'relative' as const,
+    minWidth: '160px',
+    minHeight,
+    width: sizes.full,
+    borderRadius: radius.md,
+    flex: 1,
+    color: theme.colors.icon,
+    boxShadow: theme.colors.shadowXs,
 
-        '&:focus-within': {
-            borderColor: theme.colors.borderBrandFocused,
-            outline: `${borders['1px']} ${theme.colors.borderBrandFocused}`,
-        },
-    }),
-);
+    '&:focus-within': {
+        borderColor: theme.colors.borderBrandFocused,
+        outline: `${borders['1px']} ${theme.colors.borderBrandFocused}`,
+    },
+}));
 
 export const TextAreaField = styled.textarea<{ icon?: IconNames }>(({ icon, theme }) => ({
     padding: `${spacing.sm} ${spacing.md}`,
@@ -62,9 +65,9 @@ export const TextAreaField = styled.textarea<{ icon?: IconNames }>(({ icon, them
     width: '100%',
     minHeight,
     backgroundColor: 'transparent',
-    color: theme.colors.text,
 
     ...inputValueTextStyles(),
+    color: theme.colors.text,
 
     ...(icon && {
         paddingLeft: spacing.xsm,

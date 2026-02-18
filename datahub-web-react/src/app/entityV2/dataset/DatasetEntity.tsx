@@ -103,7 +103,7 @@ export class DatasetEntity implements Entity<Dataset> {
             return (
                 <ViewComfyOutlinedIcon
                     className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || '#B37FEB' }}
+                    style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }}
                 />
             );
         }
@@ -115,7 +115,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return (
             <ViewComfyOutlinedIcon
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'var(--theme-icon)' }}
             />
         );
     };

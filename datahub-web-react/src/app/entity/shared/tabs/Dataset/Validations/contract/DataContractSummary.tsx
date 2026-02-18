@@ -76,7 +76,7 @@ type Props = {
 
 export const DataContractSummary = ({ state, summary, showContractBuilder }: Props) => {
     const theme = useTheme();
-    const summaryIcon = getContractSummaryIcon(state, summary, theme.colors.textDisabled);
+    const summaryIcon = getContractSummaryIcon(state, summary, theme.colors);
     const summaryTitle = getContractSummaryTitle(state, summary);
     const summaryMessage = getContractSummaryMessage(state, summary);
     return (

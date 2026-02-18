@@ -84,8 +84,8 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
                 y={centerY + 60 + titleAndToggleHeight + index * COLUMN_HEIGHT}
                 width={width - 2}
                 height="29"
-                fill={isFieldSelected ? '#e7f3ff' : 'white'}
-                stroke={isFieldHighlighted && hasEdge ? '#1890FF' : 'transparent'}
+                fill={isFieldSelected ? theme.colors.bgSurfaceBrand : theme.colors.bg}
+                stroke={isFieldHighlighted && hasEdge ? theme.colors.borderBrand : 'transparent'}
                 strokeWidth="1px"
                 ry="4"
                 rx="4"

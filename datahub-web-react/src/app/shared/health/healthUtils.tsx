@@ -15,8 +15,6 @@ import { GenericEntityProperties } from '@src/app/entity/shared/types';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
 
-const HEALTH_INDICATOR_COLOR = '#CD0D24';
-
 const UnhealthyIconFilled = styled(ExclamationCircleTwoTone)<{ fontSize: number }>`
     && {
         font-size: ${(props) => props.fontSize}px;
@@ -24,7 +22,7 @@ const UnhealthyIconFilled = styled(ExclamationCircleTwoTone)<{ fontSize: number 
 `;
 
 const UnhealthyIconOutlined = styled(ExclamationCircleOutlined)<{ fontSize: number }>`
-    color: ${HEALTH_INDICATOR_COLOR};
+    color: ${(props) => props.theme.colors.iconError};
     && {
         font-size: ${(props) => props.fontSize}px;
     }

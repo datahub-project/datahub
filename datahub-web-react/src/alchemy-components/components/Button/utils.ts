@@ -95,9 +95,9 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
     if (variant === 'secondary') {
         return {
             ...base,
-            bgColor: getColor('violet', 0),
-            hoverBgColor: getColor('violet', 100),
-            activeBgColor: getColor('violet', 200),
+            bgColor: getColor('violet', 0, theme),
+            hoverBgColor: getColor('violet', 100, theme),
+            activeBgColor: getColor('violet', 200, theme),
             textColor: color500,
             borderColor: 'transparent',
             disabledBgColor: 'transparent',
@@ -270,10 +270,10 @@ const getButtonPadding = (size: SizeOptions, hasChildren: boolean, isCircle: boo
 };
 
 // Generate active styles for button
-const getButtonActiveStyles = (colorStyles: ColorStyles) => ({
+const getButtonActiveStyles = (colorStyles: ColorStyles, theme?: Theme) => ({
     borderColor: 'transparent',
-    backgroundColor: colorStyles.activeBgColor, // TODO: Figure out how to make the #fff interior border transparent
-    boxShadow: `0 0 0 2px #fff, 0 0 0 4px ${colorStyles.activeBgColor}`,
+    backgroundColor: colorStyles.activeBgColor,
+    boxShadow: `0 0 0 2px ${theme?.colors?.bg ?? '#fff'}, 0 0 0 4px ${colorStyles.activeBgColor}`,
 });
 
 // Generate loading styles for button
@@ -306,7 +306,7 @@ export const getButtonStyle = (props: ButtonStyleProps & ButtonHTMLAttributes<HT
     };
 
     // Focus & Active styles are the same, but active styles are applied conditionally & override prevs styles
-    const activeStyles = { ...getButtonActiveStyles(colorStyles) };
+    const activeStyles = { ...getButtonActiveStyles(colorStyles, theme) };
     if (!disabled && isActive) {
         styles['&:focus'] = activeStyles;
         styles['&:active'] = activeStyles;

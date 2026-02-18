@@ -3,8 +3,6 @@ import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { NavBarMenuBaseItem } from '@app/homeV2/layout/navBarRedesign/types';
 import { Badge, Text } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
@@ -81,11 +79,7 @@ const StyledText = styled(Text)<{ $isSelected?: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(${getColor('primary', 300, props.theme)} 1%, ${getColor(
-            'primary',
-            500,
-            props.theme,
-        )} 99%);
+        background: ${props.theme.colors.brandGradientSelected};
         background-clip: text;
         -webkit-text-fill-color: transparent;
     `}

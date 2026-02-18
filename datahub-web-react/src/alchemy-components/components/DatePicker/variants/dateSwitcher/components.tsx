@@ -20,7 +20,7 @@ const StyledContainer = styled.div<{ $opened?: boolean; $disabled?: boolean }>`
     width: 100%;
     background: ${(props) => props.theme.colors.bg};
 
-    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
 
     ${(props) =>
         props.$disabled &&
@@ -32,7 +32,7 @@ const StyledContainer = styled.div<{ $opened?: boolean; $disabled?: boolean }>`
     :hover,
     :focus,
     :active {
-        ${(props) => !props.$disabled && 'box-shadow: 0px 1px 2px 1px rgba(33, 23, 95, 0.07);'}
+        ${(props) => !props.$disabled && `box-shadow: ${props.theme.colors.shadowSm};`}
     }
 `;
 

@@ -21,7 +21,7 @@ import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.
 const DropdownWrapper = styled.div`
     background: ${(props) => props.theme.colors.bg};
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     overflow: hidden;
 
     .ant-spin-container {

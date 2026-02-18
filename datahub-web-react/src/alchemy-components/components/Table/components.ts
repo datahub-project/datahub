@@ -72,7 +72,7 @@ export const TableRow = styled.tr<{
     background: canExpand ? theme.colors.bgHover : 'transparent',
     ...(isFocused
         ? {
-              background: `linear-gradient(180deg, rgba(83,63,209,0.04) -3.99%, rgba(112,94,228,0.04) 53.04%, rgba(112,94,228,0.04) 100%)`,
+              background: theme.colors.bgSelectedSubtle,
           }
         : {}),
     '&:hover': canHover ? { backgroundColor: theme.colors.bgHover } : {},
@@ -94,7 +94,6 @@ export const TableCell = styled.td<{
     width?: string;
     alignment?: AlignmentOptions;
     isGroupHeader?: boolean;
-    isExpanded?: boolean;
 }>(({ width, alignment, isGroupHeader, theme }) => ({
     padding: isGroupHeader
         ? `${spacing.xsm} ${spacing.xsm} ${spacing.xsm} ${spacing.md}`

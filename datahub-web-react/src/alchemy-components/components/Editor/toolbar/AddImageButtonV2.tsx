@@ -20,7 +20,7 @@ const URL_KEY = 'url';
 const ContentWrapper = styled.div`
     width: 300px;
     background-color: ${({ theme }) => theme.colors.bg};
-    box-shadow: 0 4px 12px 0 rgba(9, 1, 61, 0.12);
+    box-shadow: ${({ theme }) => theme.colors.shadowMd};
     display: flex;
     flex-direction: column;
     padding: 8px;
@@ -70,7 +70,7 @@ export const AddImageButtonV2 = () => {
     const [showDropdown, setShowDropdown] = useState(false);
     const [form] = Form.useForm();
     const styledTheme = useTheme() as any;
-    const iconColor = styledTheme?.colors?.textTertiary ?? colors.gray[1800];
+    const iconColor = styledTheme?.colors?.icon ?? colors.gray[1800];
 
     const tabs = [
         {

@@ -9,7 +9,7 @@ export const BarContainer = styled.div`
 export const IndividualBar = styled.div<{ height: number; isColored: boolean; color: string; size: string }>`
     width: ${(props) => (props.size === 'default' ? '5px' : '3px')};
     height: ${(props) => props.height}px;
-    background-color: ${(props) => (props.isColored ? props.color : '#C6C0E0')};
+    background-color: ${(props) => (props.isColored ? props.color : props.theme.colors.border)};
     border-radius: 20px;
     transition:
         background-color 0.3s ease,

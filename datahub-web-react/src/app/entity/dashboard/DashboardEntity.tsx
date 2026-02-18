@@ -43,7 +43,7 @@ export class DashboardEntity implements Entity<Dashboard> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DashboardFilled style={{ fontSize, color: color || 'rgb(144 163 236)' }} />;
+            return <DashboardFilled style={{ fontSize, color: color || 'var(--theme-icon, rgb(144 163 236))' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -56,7 +56,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             <DashboardOutlined
                 style={{
                     fontSize,
-                    color: color || '#BFBFBF',
+                    color: color || 'var(--theme-icon, #BFBFBF)',
                 }}
             />
         );

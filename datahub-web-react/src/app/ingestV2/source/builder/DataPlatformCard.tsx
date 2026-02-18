@@ -11,10 +11,10 @@ const Container = styled(Button)`
     align-items: start;
     flex-direction: column;
     border: 1px solid ${(props) => props.theme.colors.border};
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     &&:hover {
-        border: 1px solid ${(props) => props.theme.colors.textInformation};
-        background-color: ${(props) => props.theme.colors.bgSurface};
+        border: 1px solid ${(props) => props.theme.colors.borderBrand};
+        background-color: ${(props) => props.theme.colors.bg};
     }
     white-space: unset;
 `;

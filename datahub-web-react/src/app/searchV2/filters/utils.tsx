@@ -125,6 +125,7 @@ function getDataPlatformInstanceIconAndLabel(
     filterEntity: Entity | null,
     entityRegistry: EntityRegistry,
     size?: number,
+    iconColor?: string,
 ) {
     let icon: React.ReactNode = null;
     let label: string | null = null;
@@ -132,7 +133,7 @@ function getDataPlatformInstanceIconAndLabel(
     icon = logoUrl ? (
         <PlatformIcon src={logoUrl} size={size} />
     ) : (
-        entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, '#434343')
+        entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, iconColor ?? '#434343')
     );
     label = (filterEntity as DataPlatformInstance).instanceId
         ? (filterEntity as DataPlatformInstance).instanceId
@@ -148,21 +149,30 @@ export function getLastBrowseEntryFromFilterValue(filterValue: string) {
 
 const SubTypeIcon = styled.span<{ $fontSize?: number }>`
     display: inline-flex;
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${(props) => props.theme.colors.icon};
     font-size: ${({ $fontSize }) => $fontSize || 12}px;
 `;
 
-function getEntitySubtypeFilterIconAndLabel(filterValue: string, entityRegistry: EntityRegistry, size?: number) {
+function getEntitySubtypeFilterIconAndLabel(
+    filterValue: string,
+    entityRegistry: EntityRegistry,
+    size?: number,
+    iconColor?: string,
+) {
     let icon: React.ReactNode;
     let label: string | undefined;
 
-    // If this includes a delimiter, it is a subType
     if (filterValue.includes(FILTER_DELIMITER)) {
         const [type, subType] = filterValue.split(FILTER_DELIMITER);
         label = capitalizeFirstLetterOnly(pluralizeIfIrregular(subType));
         icon = <SubTypeIcon $fontSize={size}>{getTypeIcon(entityRegistry, type as EntityType, subType)}</SubTypeIcon>;
     } else {
-        icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, '#434343');
+        icon = entityRegistry.getIcon(
+            filterValue as EntityType,
+            size || 12,
+            IconStyleType.ACCENT,
+            iconColor ?? '#434343',
+        );
         label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
     }
 
@@ -174,6 +184,7 @@ function getFilterWithEntityIconAndLabel(
     entityRegistry: EntityRegistry,
     filterEntity: Entity,
     size?: number,
+    iconColor?: string,
 ) {
     let icon: React.ReactNode = null;
     let label: string | undefined;
@@ -183,11 +194,12 @@ function getFilterWithEntityIconAndLabel(
             filterEntity,
             entityRegistry,
             size,
+            iconColor,
         );
         icon = newIcon;
         label = newLabel;
     } else if (entityRegistry.hasEntity(filterEntity.type)) {
-        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, '#434343');
+        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, iconColor ?? '#434343');
         label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
     } else {
         label = filterValue;
@@ -203,18 +215,21 @@ export function getFilterIconAndLabel(
     filterEntity: Entity | null,
     size?: number,
     filterLabelOverride?: string | null,
+    iconColor?: string,
 ) {
     let icon: React.ReactNode = null;
     let label: string | undefined;
+    const color = iconColor ?? '#434343';
 
     if (filterField === ENTITY_FILTER_NAME || filterField === LEGACY_ENTITY_FILTER_NAME) {
-        icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, '#434343');
+        icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, color);
         label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
     } else if (filterField === ENTITY_SUB_TYPE_FILTER_NAME) {
         const { icon: newIcon, label: newLabel } = getEntitySubtypeFilterIconAndLabel(
             filterValue,
             entityRegistry,
             size,
+            iconColor,
         );
         icon = newIcon;
         label = newLabel;
@@ -226,11 +241,11 @@ export function getFilterIconAndLabel(
         icon = logoUrl ? (
             <PlatformIcon src={logoUrl} size={size} />
         ) : (
-            entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, '#434343')
+            entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, color)
         );
         label = filterEntity ? entityRegistry.getDisplayName(EntityType.DataPlatform, filterEntity) : filterValue;
     } else if (filterField === BROWSE_PATH_V2_FILTER_NAME) {
-        icon = <FolderFilled size={size} color="black" />;
+        icon = <FolderFilled size={size} color={color} />;
         label = getLastBrowseEntryFromFilterValue(filterValue);
     } else if (filterEntity) {
         const { icon: newIcon, label: newLabel } = getFilterWithEntityIconAndLabel(
@@ -238,6 +253,7 @@ export function getFilterIconAndLabel(
             entityRegistry,
             filterEntity,
             size,
+            iconColor,
         );
         icon = newIcon;
         label = newLabel;

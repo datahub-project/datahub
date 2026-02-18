@@ -7,34 +7,33 @@ import {
 } from '@ant-design/icons';
 import React from 'react';
 
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '@components/theme/foundations/colors';
-
 import { AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import { DataContractCategoryType } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
+import ColorTheme from '@src/conf/theme/colorThemes/types';
 
 import { Assertion, AssertionType, DataContract, DataContractState } from '@types';
 
 export const getContractSummaryIcon = (
     state: DataContractState,
     summary: AssertionStatusSummary,
-    disabledColor = '#BFBFBF',
+    colors: ColorTheme,
 ) => {
     if (state === DataContractState.Pending) {
-        return <ClockCircleOutlined style={{ color: disabledColor, fontSize: 28 }} />;
+        return <ClockCircleOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
     }
     if (summary.total === 0) {
-        return <StopOutlined style={{ color: disabledColor, fontSize: 28 }} />;
+        return <StopOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
     }
     if (summary.passing === summary.total) {
-        return <CheckOutlined style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;
+        return <CheckOutlined style={{ color: colors.iconSuccess, fontSize: 28 }} />;
     }
     if (summary.failing > 0) {
-        return <CloseOutlined style={{ color: FAILURE_COLOR_HEX, fontSize: 28 }} />;
+        return <CloseOutlined style={{ color: colors.iconError, fontSize: 28 }} />;
     }
     if (summary.erroring > 0) {
-        return <ExclamationCircleFilled style={{ color: WARNING_COLOR_HEX, fontSize: 28 }} />;
+        return <ExclamationCircleFilled style={{ color: colors.iconWarning, fontSize: 28 }} />;
     }
-    return <StopOutlined style={{ color: disabledColor, fontSize: 28 }} />;
+    return <StopOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
 };
 
 export const getContractSummaryTitle = (state: DataContractState, summary: AssertionStatusSummary) => {

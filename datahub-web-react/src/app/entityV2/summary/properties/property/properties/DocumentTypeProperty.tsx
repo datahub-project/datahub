@@ -10,9 +10,7 @@ import { SimpleSelect } from '@src/alchemy-components';
 
 import { Document } from '@types';
 
-const TypeSelectWrapper = styled.div`
-    overflow: hidden;
-`;
+const TypeSelectWrapper = styled.div``;
 
 const NONE_VALUE = '';
 

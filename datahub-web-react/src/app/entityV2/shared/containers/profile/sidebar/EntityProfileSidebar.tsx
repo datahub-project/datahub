@@ -52,7 +52,7 @@ export const StyledEntitySidebarContainer = styled.div<{
 
 export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};
-    box-shadow: ${(props) => (props.isCard ? props.theme.colors.shadowXs : 'none')};
+    box-shadow: ${(props) => (props.isCard ? props.theme.colors.shadowSm : 'none')};
     border-radius: ${(props) => {
         if (!props.isCard) return 'none';
         return props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px';

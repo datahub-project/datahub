@@ -27,7 +27,7 @@ export class UserEntity implements Entity<CorpUser> {
             <UserOutlined
                 style={{
                     fontSize,
-                    color: color || '#BFBFBF',
+                    color: color || 'var(--theme-icon, #BFBFBF)',
                 }}
             />
         );

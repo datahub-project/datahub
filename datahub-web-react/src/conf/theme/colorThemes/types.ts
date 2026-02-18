@@ -91,6 +91,7 @@ export default interface ColorTheme {
     overlayLight: string;
     overlayMedium: string;
     overlayHeavy: string;
+    overlayOnBrand: string;
     // Inputs / Forms
     bgInput: string;
     bgInputDisabled: string;
@@ -108,6 +109,9 @@ export default interface ColorTheme {
     bgHighlight: string;
     // Tooltip
     bgTooltip: string;
+    // Brand gradients
+    brandGradient: string;
+    brandGradientSelected: string;
     // Skeleton / Loading
     bgSkeleton: string;
     bgSkeletonShimmer: string;
@@ -153,7 +157,9 @@ export default interface ColorTheme {
     chartsBrandLowAlpha: string;
     chartsBrandBaseAlpha: string;
     chartsInformationHigh: string;
+    /** @deprecated Remove — unused. Kept for type compat only. */
     navBgGradientTop: string;
+    /** @deprecated Remove — unused. Kept for type compat only. */
     navBgGradientBottom: string;
     chartsInformationMedium: string;
     chartsInformationLow: string;

@@ -15,12 +15,12 @@ export const percentileToLabel = (pct: number) => {
 /**
  * Normalizes a percentile to a color.
  */
-export const percentileToColor = (pct: number) => {
+export const percentileToColor = (pct: number, themeColors?: { bgSurface?: string; bgSurfaceSuccess?: string }) => {
     /* eslint-disable no-else-return */
     if (pct <= 30) {
-        return '#F5F5F5';
+        return themeColors?.bgSurface ?? '#F5F5F5';
     } else if (pct > 30 && pct <= 80) {
-        return '#EBF3F2';
+        return themeColors?.bgSurfaceSuccess ?? '#EBF3F2';
     }
-    return '#cef5f0';
+    return themeColors?.bgSurfaceSuccess ?? '#cef5f0';
 };

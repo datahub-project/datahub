@@ -28,9 +28,6 @@ type Props = {
     width: number;
 };
 
-const SUCCESS_COLOR_HEX = '#52C41A';
-const FAILURE_COLOR_HEX = '#F5222D';
-
 /**
  * True / false results displayed on a horizontal timeline.
  */
@@ -67,7 +64,7 @@ export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
                         const barHeight = 18;
                         const barX = xScale(new Date(d.time));
                         const barY = yMax - barHeight;
-                        const fillColor = d.result ? SUCCESS_COLOR_HEX : FAILURE_COLOR_HEX;
+                        const fillColor = d.result ? theme.colors.iconSuccess : theme.colors.iconError;
                         return (
                             <Popover
                                 key={d.time}

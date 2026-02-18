@@ -13,7 +13,6 @@ export const PageWrapper = styled.div`
     }
     display: flex;
     flex-direction: column;
-    box-shadow: ${(props) => props.theme.colors.shadowSm};
     align-items: center;
 `;
 
@@ -22,9 +21,9 @@ export const HomePageContainer = styled.div`
     flex: 1;
     overflow: hidden;
     margin: 5px;
-    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
-    position: relative;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
+    background-color: ${(props) => props.theme.colors.bg};
 `;
 
 export const StyledVectorBackground = styled(VectorBackground)`

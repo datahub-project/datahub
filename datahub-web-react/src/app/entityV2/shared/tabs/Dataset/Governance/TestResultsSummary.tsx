@@ -4,7 +4,7 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
+import ColorTheme from '@src/conf/theme/colorThemes/types';
 
 const SummaryHeader = styled.div`
     width: 100%;
@@ -40,14 +40,14 @@ type Props = {
     summary: TestsSummary;
 };
 
-const getSummaryIcon = (summary: TestsSummary, disabledColor: string) => {
+const getSummaryIcon = (summary: TestsSummary, colors: ColorTheme) => {
     if (summary.total === 0) {
-        return <StopOutlined style={{ color: disabledColor, fontSize: 28 }} />;
+        return <StopOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
     }
     if (summary.passing === summary.total) {
-        return <CheckCircleFilled style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;
+        return <CheckCircleFilled style={{ color: colors.iconSuccess, fontSize: 28 }} />;
     }
-    return <CloseCircleFilled style={{ color: FAILURE_COLOR_HEX, fontSize: 28 }} />;
+    return <CloseCircleFilled style={{ color: colors.iconError, fontSize: 28 }} />;
 };
 
 const getSummaryMessage = (summary: TestsSummary) => {
@@ -65,7 +65,7 @@ const getSummaryMessage = (summary: TestsSummary) => {
 
 export const TestResultsSummary = ({ summary }: Props) => {
     const theme = useTheme();
-    const summaryIcon = getSummaryIcon(summary, theme.colors.textDisabled);
+    const summaryIcon = getSummaryIcon(summary, theme.colors);
     const summaryMessage = getSummaryMessage(summary);
     const subtitleMessage = `${summary.passing} passing tests, ${summary.failing} failing tests`;
     return (

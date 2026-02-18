@@ -3,7 +3,7 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
+import ColorTheme from '@src/conf/theme/colorThemes/types';
 
 const SummaryHeader = styled.div`
     width: 100%;
@@ -40,14 +40,14 @@ type Props = {
     summary: IncidentsSummary;
 };
 
-const getSummaryIcon = (summary: IncidentsSummary, noIncidentColor: string) => {
+const getSummaryIcon = (summary: IncidentsSummary, colors: ColorTheme) => {
     if (summary.totalIncident === 0) {
-        return <StopOutlined style={{ color: noIncidentColor, fontSize: 28 }} />;
+        return <StopOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
     }
     if (summary.resolvedIncident === summary.totalIncident) {
-        return <CheckCircleFilled style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;
+        return <CheckCircleFilled style={{ color: colors.iconSuccess, fontSize: 28 }} />;
     }
-    return <WarningFilled style={{ color: FAILURE_COLOR_HEX, fontSize: 28 }} />;
+    return <WarningFilled style={{ color: colors.iconError, fontSize: 28 }} />;
 };
 
 const getSummaryMessage = (summary: IncidentsSummary) => {
@@ -68,7 +68,7 @@ const getSummaryMessage = (summary: IncidentsSummary) => {
 
 export const IncidentSummary = ({ summary }: Props) => {
     const theme = useTheme();
-    const summaryIcon = getSummaryIcon(summary, theme.colors.textDisabled);
+    const summaryIcon = getSummaryIcon(summary, theme.colors);
     const summaryMessage = getSummaryMessage(summary);
     const subtitleMessage = `${summary.activeIncident} active incidents, ${summary.resolvedIncident} resolved incidents`;
     return (

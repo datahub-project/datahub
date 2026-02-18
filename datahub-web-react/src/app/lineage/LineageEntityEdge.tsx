@@ -73,7 +73,7 @@ export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Prop
                         }}
                         curve={curveBasis}
                         data={edge.curve}
-                        stroke={isHighlighted ? '#1890FF' : theme.colors.textDisabled}
+                        stroke={isHighlighted ? theme.colors.borderBrand : theme.colors.textDisabled}
                         strokeWidth="1"
                         markerEnd={`url(#triangle-downstream${isHighlighted ? '-highlighted' : ''})`}
                         markerStart={`url(#triangle-upstream${isHighlighted ? '-highlighted' : ''})`}

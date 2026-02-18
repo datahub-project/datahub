@@ -45,10 +45,7 @@ const Container = styled.div<{ $fixedBottom?: boolean }>`
     display: flex;
     justify-content: start;
     align-items: center;
-    ${(props) =>
-        props.$fixedBottom
-            ? 'box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.12), 0px 2px 6px rgba(0, 0, 0, 0.08);'
-            : 'box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.1);'}
+    box-shadow: ${(props) => (props.$fixedBottom ? props.theme.colors.shadowLg : props.theme.colors.shadowSm)};
 `;
 
 const InnerContainer = styled.div`
@@ -75,7 +72,7 @@ export const Toolbar = ({ styles, fixedBottom }: Props) => {
     const remirrorContext = useRemirrorContext();
     const fileExtension = remirrorContext.getExtension(FileDragDropExtension);
     const themeConfig = useTheme() as any;
-    const iconColor = themeConfig?.colors?.textTertiary ?? '#8088A3';
+    const iconColor = themeConfig?.colors?.icon ?? '#8088A3';
 
     const shouldShowImageButtonV2 = documentationFileUploadV1 && fileExtension.options.uploadFileProps?.onFileUpload;
 

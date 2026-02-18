@@ -48,14 +48,17 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
 
         if (styleType === IconStyleType.HIGHLIGHT) {
             return (
-                <CodeSandboxOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#9633b9' }} />
+                <CodeSandboxOutlined
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || 'var(--theme-icon, #9633b9)' }}
+                />
             );
         }
 
         return (
             <CodeSandboxOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'var(--theme-icon)' }}
             />
         );
     };

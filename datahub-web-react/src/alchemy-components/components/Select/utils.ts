@@ -122,6 +122,8 @@ export const getSelectStyle = (
         textDisabled: string;
         textTertiary: string;
         borderBrandFocused: string;
+        shadowXs: string;
+        shadowSm: string;
     },
 ) => {
     const { isDisabled, isReadOnly, fontSize, isOpen } = props;
@@ -133,7 +135,7 @@ export const getSelectStyle = (
         backgroundColor: isDisabled ? (themeColors?.bgSurface ?? colors.gray[1500]) : (themeColors?.bg ?? colors.white),
         color: isDisabled ? (themeColors?.textDisabled ?? colors.gray[300]) : (themeColors?.text ?? colors.gray[600]),
         cursor: isDisabled || isReadOnly ? 'not-allowed' : 'pointer',
-        boxShadow: '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
+        boxShadow: themeColors?.shadowXs ?? '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
         textWrap: 'nowrap',
 
         '&::placeholder': {
@@ -153,7 +155,7 @@ export const getSelectStyle = (
             ? {}
             : {
                   '&:hover': {
-                      boxShadow: '0px 1px 2px 1px rgba(33, 23, 95, 0.07)',
+                      boxShadow: themeColors?.shadowSm ?? '0px 1px 2px 1px rgba(33, 23, 95, 0.07)',
                   },
               }),
     };

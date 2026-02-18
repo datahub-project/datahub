@@ -4,8 +4,8 @@ import { useTheme } from 'styled-components';
 
 export default function DataHubTooltip(props: TooltipProps & React.RefAttributes<unknown>) {
     const themeConfig = useTheme() as any;
-    const bgColor = themeConfig?.colors?.bg ?? 'white';
-    const textColor = themeConfig?.colors?.textSecondary ?? '#374066';
+    const bgColor = themeConfig?.colors?.bg ?? 'inherit';
+    const textColor = themeConfig?.colors?.textSecondary ?? 'inherit';
 
     return (
         <Tooltip
