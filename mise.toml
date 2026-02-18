@@ -1,4 +1,5 @@
 [tools]
+actionlint = "1.7.11"
 java = "17"
 node = "22"
 python = "3.11"
