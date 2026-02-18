@@ -12,7 +12,6 @@ from datahub.ingestion.source.sql.mssql.lineage import (
 from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
-from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 from datahub.sql_parsing.sqlglot_lineage import SqlUnderstandingError
 
@@ -556,7 +555,6 @@ def test_mssql_lineage_extractor_populate_lineage():
             query_text="SELECT * FROM users",
             execution_count=5,
             total_exec_time_ms=100.0,
-            user_name="test_user",
             database_name="TestDB",
         )
     ]
@@ -568,7 +566,7 @@ def test_mssql_lineage_extractor_populate_lineage():
         sql_aggregator_mock.add_observed_query.assert_called_once()
         call_args = sql_aggregator_mock.add_observed_query.call_args[0][0]
         assert call_args.query == "SELECT * FROM users"
-        assert call_args.user.urn() == "urn:li:corpuser:test_user"
+        assert call_args.user is None
 
 
 def test_mssql_query_entry_avg_exec_time():
@@ -578,7 +576,6 @@ def test_mssql_query_entry_avg_exec_time():
         query_text="SELECT 1",
         execution_count=10,
         total_exec_time_ms=500.0,
-        user_name="user",
         database_name="db",
     )
 
@@ -589,7 +586,6 @@ def test_mssql_query_entry_avg_exec_time():
         query_text="SELECT 1",
         execution_count=0,
         total_exec_time_ms=0.0,
-        user_name="user",
         database_name="db",
     )
 
@@ -898,7 +894,6 @@ def test_mssql_populate_lineage_from_queries_integration():
             query_text="SELECT * FROM users",
             execution_count=100,
             total_exec_time_ms=500.0,
-            user_name="admin",
             database_name="TestDB",
         ),
         MSSQLQueryEntry(
@@ -906,7 +901,6 @@ def test_mssql_populate_lineage_from_queries_integration():
             query_text="INSERT INTO orders SELECT * FROM staging",
             execution_count=50,
             total_exec_time_ms=300.0,
-            user_name="etl_user",
             database_name="TestDB",
         ),
     ]
@@ -948,7 +942,6 @@ def test_mssql_populate_lineage_handles_parse_failures():
             query_text="SELECT * FROM users",
             execution_count=100,
             total_exec_time_ms=500.0,
-            user_name="admin",
             database_name="TestDB",
         ),
         MSSQLQueryEntry(
@@ -956,7 +949,6 @@ def test_mssql_populate_lineage_handles_parse_failures():
             query_text="INVALID SQL SYNTAX HERE",
             execution_count=50,
             total_exec_time_ms=300.0,
-            user_name="admin",
             database_name="TestDB",
         ),
         MSSQLQueryEntry(
@@ -964,7 +956,6 @@ def test_mssql_populate_lineage_handles_parse_failures():
             query_text="SELECT * FROM orders",
             execution_count=25,
             total_exec_time_ms=100.0,
-            user_name="admin",
             database_name="TestDB",
         ),
     ]
@@ -1006,7 +997,6 @@ def test_mssql_populate_lineage_handles_unexpected_errors():
             query_text="SELECT * FROM users",
             execution_count=100,
             total_exec_time_ms=500.0,
-            user_name="admin",
             database_name="TestDB",
         ),
         MSSQLQueryEntry(
@@ -1014,7 +1004,6 @@ def test_mssql_populate_lineage_handles_unexpected_errors():
             query_text="SELECT * FROM error_table",
             execution_count=50,
             total_exec_time_ms=300.0,
-            user_name="admin",
             database_name="TestDB",
         ),
     ]
@@ -1074,7 +1063,6 @@ def test_mssql_lineage_extractor_creates_correct_observed_query():
             query_text="SELECT * FROM users WHERE id > 100",
             execution_count=42,
             total_exec_time_ms=250.5,
-            user_name="test_user",
             database_name="ProductionDB",
         )
     ]
@@ -1089,7 +1077,7 @@ def test_mssql_lineage_extractor_creates_correct_observed_query():
     assert observed_query.default_db == "ProductionDB"
     assert observed_query.default_schema == "dbo"
     assert observed_query.session_id == "queryid:test123"
-    assert observed_query.user == CorpUserUrn("test_user")
+    assert observed_query.user is None
     assert observed_query.timestamp is None
 
 
