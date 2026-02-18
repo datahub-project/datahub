@@ -802,16 +802,18 @@ jobs:
         with:
           name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: smoke-test/tests/cypress/cypress/screenshots/
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
         with:
-          name: Test Results (smoke tests) ${{ matrix.test_strategy }} ${{ matrix.batch }}
-          path: |
-            **/build/reports/tests/test/**
-            **/build/test-results/test/**
+          artifact-name: Test Results (smoke tests) ${{ matrix.test_strategy }} ${{ matrix.batch }}
+          test-results-paths: |
             **/smoke-test-results/cypress-test-*.xml
             **/junit.*.xml
             !**/binary/**
+          junit-file-globs: |
+            **/smoke-test-results/cypress-test-*.xml
+            **/junit.*.xml
       - name: Send failed test metrics to PostHog
         if: failure()
         continue-on-error: true
