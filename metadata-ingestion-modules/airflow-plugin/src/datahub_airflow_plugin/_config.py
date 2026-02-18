@@ -262,3 +262,32 @@ def get_configured_env() -> str:
         "Listener or config not available, falling back to get_lineage_config()"
     )
     return get_lineage_config().cluster
+
+
+def get_enable_multi_statement() -> bool:
+    """
+    Get the enable_multi_statement_sql_parsing flag from config.
+
+    Uses cached config from the listener when available, otherwise reads
+    directly from config. Returns False if config loading fails.
+
+    Returns:
+        True if multi-statement SQL parsing is enabled, False otherwise
+    """
+    try:
+        from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
+
+        listener = get_airflow_plugin_listener()
+        if listener and listener.config:
+            return listener.config.enable_multi_statement_sql_parsing
+
+        # Fallback: listener disabled or failed to initialize
+        logger.debug(
+            "Listener or config not available, falling back to get_lineage_config()"
+        )
+        return get_lineage_config().enable_multi_statement_sql_parsing
+    except Exception as e:
+        logger.warning(
+            f"Could not load config to check enable_multi_statement_sql_parsing: {e}"
+        )
+        return False
