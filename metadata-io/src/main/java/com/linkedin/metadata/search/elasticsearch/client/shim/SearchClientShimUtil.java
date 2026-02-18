@@ -125,6 +125,13 @@ import org.opensearch.search.aggregations.pipeline.ParsedSimpleValue;
 import org.opensearch.search.aggregations.pipeline.ParsedStatsBucket;
 import org.opensearch.search.aggregations.pipeline.PercentilesBucketPipelineAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.StatsBucketPipelineAggregationBuilder;
+import org.opensearch.search.suggest.Suggest;
+import org.opensearch.search.suggest.completion.CompletionSuggestion;
+import org.opensearch.search.suggest.completion.CompletionSuggestionBuilder;
+import org.opensearch.search.suggest.phrase.PhraseSuggestion;
+import org.opensearch.search.suggest.phrase.PhraseSuggestionBuilder;
+import org.opensearch.search.suggest.term.TermSuggestion;
+import org.opensearch.search.suggest.term.TermSuggestionBuilder;
 
 /**
  * Factory for creating appropriate SearchClientShim implementations based on the target search
@@ -135,6 +142,8 @@ public class SearchClientShimUtil {
 
   private static final Map<String, ContextParser<Object, ? extends Aggregation>>
       AGGREGATION_TYPE_MAP = new HashMap<>();
+  private static final Map<String, ContextParser<Object, ? extends Suggest.Suggestion<?>>>
+      SUGGESTION_TYPE_MAP = new HashMap<>();
   public static final NamedXContentRegistry X_CONTENT_REGISTRY;
 
   static {
@@ -337,6 +346,19 @@ public class SearchClientShimUtil {
         MatrixStatsAggregationBuilder.NAME,
         (parser, context) -> ParsedMatrixStats.fromXContent(parser, (String) context));
 
+    // ============ SUGGESTIONS ============
+    // Required for ES8 shim to parse search responses containing suggestions
+
+    SUGGESTION_TYPE_MAP.put(
+        TermSuggestionBuilder.SUGGESTION_NAME,
+        (parser, context) -> TermSuggestion.fromXContent(parser, (String) context));
+    SUGGESTION_TYPE_MAP.put(
+        PhraseSuggestionBuilder.SUGGESTION_NAME,
+        (parser, context) -> PhraseSuggestion.fromXContent(parser, (String) context));
+    SUGGESTION_TYPE_MAP.put(
+        CompletionSuggestionBuilder.SUGGESTION_NAME,
+        (parser, context) -> CompletionSuggestion.fromXContent(parser, (String) context));
+
     SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
     List<NamedXContentRegistry.Entry> namedXContents = searchModule.getNamedXContents();
     List<NamedXContentRegistry.Entry> aggregationEntries =
@@ -354,6 +376,23 @@ public class SearchClientShimUtil {
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
     namedXContents.addAll(aggregationEntries);
+
+    List<NamedXContentRegistry.Entry> suggestionEntries =
+        SUGGESTION_TYPE_MAP.entrySet().stream()
+            .map(
+                entry -> {
+                  try {
+                    return new NamedXContentRegistry.Entry(
+                        Suggest.Suggestion.class, new ParseField(entry.getKey()), entry.getValue());
+                  } catch (Exception e) {
+                    log.warn("Unable to get PARSER for suggestion type: {}", entry.getKey());
+                    return null;
+                  }
+                })
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+    namedXContents.addAll(suggestionEntries);
+
     X_CONTENT_REGISTRY = new NamedXContentRegistry(namedXContents);
   }
 

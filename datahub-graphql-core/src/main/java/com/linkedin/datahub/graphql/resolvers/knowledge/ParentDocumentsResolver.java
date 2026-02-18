@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.knowledge;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
@@ -17,7 +18,9 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public class ParentDocumentsResolver
@@ -30,7 +33,14 @@ public class ParentDocumentsResolver
   }
 
   private void aggregateParentDocuments(
-      List<Document> documents, String urn, QueryContext context) {
+      List<Document> documents,
+      String urn,
+      QueryContext context,
+      Set<String> visitedUrns,
+      int depth) {
+    if (depth >= context.getMaxParentDepth() || !visitedUrns.add(urn)) {
+      return;
+    }
     try {
       Urn entityUrn = new Urn(urn);
       EntityResponse entityResponse =
@@ -48,32 +58,36 @@ public class ParentDocumentsResolver
             new com.linkedin.knowledge.DocumentInfo(dataMap);
         if (documentInfo.hasParentDocument()) {
           Urn parentUrn = documentInfo.getParentDocument().getDocument();
+          if (visitedUrns.contains(parentUrn.toString())) {
+            return;
+          }
           EntityResponse response =
               _entityClient.getV2(
                   context.getOperationContext(), parentUrn.getEntityType(), parentUrn, null);
           if (response != null) {
             Document mappedDocument = DocumentMapper.map(context, response);
             documents.add(mappedDocument);
-            aggregateParentDocuments(documents, mappedDocument.getUrn(), context);
+            aggregateParentDocuments(
+                documents, mappedDocument.getUrn(), context, visitedUrns, depth + 1);
           }
         }
       }
     } catch (Exception e) {
-      e.printStackTrace();
+      throw new RuntimeException("Failed to retrieve parent documents from GMS", e);
     }
   }
 
   @Override
   public CompletableFuture<ParentDocumentsResult> get(DataFetchingEnvironment environment) {
 
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
     final String urn = ((Entity) environment.getSource()).getUrn();
     final List<Document> documents = new ArrayList<>();
-
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            aggregateParentDocuments(documents, urn, context);
+            Set<String> visitedUrns = new HashSet<>();
+            aggregateParentDocuments(documents, urn, context, visitedUrns, 0);
             final ParentDocumentsResult result = new ParentDocumentsResult();
 
             List<Document> viewable = new ArrayList<>(documents);

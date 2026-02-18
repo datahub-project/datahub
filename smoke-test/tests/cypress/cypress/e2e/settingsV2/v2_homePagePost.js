@@ -32,8 +32,10 @@ const clickOnMoreOption = () => {
 
 describe("create announcement and link post", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-    cy.loginWithCredentials();
+    cy.setFeatureFlags(true, (res) => {
+      res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
+    });
+    cy.login();
     cy.skipIntroducePage();
     cy.goToHomePagePostSettingsV2();
     cy.waitTestIdVisible("posts-create-post-v2");

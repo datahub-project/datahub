@@ -104,7 +104,7 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
             <CustomHandle type="target" position={Position.Left} isConnectable={false} />
             <CustomHandle type="source" position={Position.Right} isConnectable={false} />
             <TitleWrapper>
-                <Title>
+                <Title data-testid="title">
                     <TitleCount>{Math.min(numerator, denominator)}</TitleCount> of{' '}
                     <TitleCount>
                         {denominator}
@@ -135,11 +135,11 @@ interface EntryProps<T> {
 }
 
 function PlatformEntry({ agg, index }: EntryProps<PlatformAggregate>) {
-    return LineageFilterEntry(PLATFORM_FILTER_NAME, agg, index);
+    return LineageFilterEntry(PLATFORM_FILTER_NAME, agg, index, 'platform');
 }
 
 function SubtypeEntry({ agg, index }: EntryProps<SubtypeAggregate>) {
-    return LineageFilterEntry(ENTITY_SUB_TYPE_FILTER_NAME, agg, index);
+    return LineageFilterEntry(ENTITY_SUB_TYPE_FILTER_NAME, agg, index, 'subtype');
 }
 
 const EntryWrapper = styled.span<{ includeBefore: boolean }>`
@@ -162,6 +162,7 @@ function LineageFilterEntry(
     filterName: string,
     [filterValue, count, entity]: PlatformAggregate | SubtypeAggregate,
     index: number,
+    dataTestIdPrefix: string,
 ) {
     const entityRegistry = useEntityRegistryV2();
     const { icon, label } = getFilterIconAndLabel(filterName, filterValue, entityRegistry, entity || null, 12);
@@ -169,7 +170,7 @@ function LineageFilterEntry(
     return (
         <EntryWrapper title={label} includeBefore={index > 0}>
             {icon}
-            <CountWrapper>{count}</CountWrapper>
+            <CountWrapper data-testid={`filter-counter-${dataTestIdPrefix}-${label}`}>{count}</CountWrapper>
         </EntryWrapper>
     );
 }

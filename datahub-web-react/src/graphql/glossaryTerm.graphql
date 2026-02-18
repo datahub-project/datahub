@@ -97,9 +97,6 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         ...notes
         settings {
             ...AssetSettingsFields
