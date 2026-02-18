@@ -1,5 +1,3 @@
-"""Integration tests for Vertex AI ML Metadata with mocked APIs."""
-
 from unittest.mock import Mock, patch
 
 import pytest

@@ -7,6 +7,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
@@ -77,6 +78,8 @@ class VertexAIConfig(
             "[deprecated] Single Vertex AI region. Prefer 'regions' or 'discover_regions'."
         ),
     )
+    _deprecate_region = pydantic_field_deprecated("region")
+
     # Feature flags to control ingestion scope
     include_models: bool = Field(
         default=True,
@@ -202,7 +205,7 @@ class VertexAIConfig(
         description=("VertexUI URI"),
     )
 
-    platform_to_instance_map: Dict[str, PlatformDetail] = Field(
+    platform_instance_map: Dict[str, PlatformDetail] = Field(
         default_factory=dict,
         description="Map external platform names (gcs, bigquery, s3, azure_blob_storage, snowflake) "
         "to their platform instance and env. Ensures URNs match native connectors for lineage connectivity.",

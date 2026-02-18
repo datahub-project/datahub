@@ -1,5 +1,3 @@
-import re
-
 import pytest
 
 from datahub.ingestion.source.vertexai.vertexai_builder import VertexAIURIParser
@@ -68,26 +66,6 @@ def test_partition_normalization_disabled_preserves_full_path(uri: str) -> None:
 
     result = parser._strip_partition_segments(uri)
     assert result == uri
-
-
-def test_compiled_patterns_cached() -> None:
-    """Verify regex patterns are pre-compiled during initialization."""
-    patterns = [
-        r"/[^/]+=([^/]+)",
-        r"/dt=\d{4}-\d{2}-\d{2}",
-        r"/\d{4}/\d{2}/\d{2}",
-    ]
-
-    parser = VertexAIURIParser(
-        env="PROD",
-        normalize_paths=True,
-        partition_patterns=patterns,
-    )
-
-    assert len(parser.compiled_partition_patterns) == len(patterns)
-
-    for pattern in parser.compiled_partition_patterns:
-        assert isinstance(pattern, re.Pattern)
 
 
 def test_invalid_regex_pattern_skipped() -> None:

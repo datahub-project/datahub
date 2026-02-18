@@ -1,5 +1,5 @@
 import logging
-from typing import FrozenSet, List, Optional
+from typing import FrozenSet, List, Optional, Protocol
 
 from google.cloud.resourcemanager_v3 import ProjectsClient
 from pydantic import BaseModel, Field
@@ -34,22 +34,45 @@ class GcpProjectFilterConfig(ConfigModel):
     )
 
 
-class GcpProjectFilter:
-    def __init__(
-        self, filter_config: GcpProjectFilterConfig, report: SourceReport
-    ) -> None:
-        self.filter_config = filter_config
-        self.report = report
+class ProjectFilterProtocol(Protocol):
+    """Protocol for filter configs that support project filtering."""
 
-    def is_project_allowed(self, project_id: str) -> bool:
-        if self.filter_config.project_ids:
-            return project_id in self.filter_config.project_ids
-        return self.filter_config.project_id_pattern.allowed(project_id)
+    project_ids: List[str]
+    project_id_pattern: AllowDenyPattern
+
+
+def is_project_allowed(filter_config: ProjectFilterProtocol, project_id: str) -> bool:
+    """
+    Check if a GCP project is allowed based on filter configuration.
+
+    This function works with any config that has project_ids and project_id_pattern fields,
+    including GcpProjectFilterConfig and BigQueryFilterConfig.
+
+    Args:
+        filter_config: Configuration containing project_ids list or project_id_pattern
+        project_id: The GCP project ID to check
+
+    Returns:
+        True if the project is allowed, False otherwise
+
+    Logic:
+        - If project_ids is specified, checks if project_id is in the list
+        - Otherwise, checks if project_id matches the project_id_pattern
+    """
+    if filter_config.project_ids:
+        return project_id in filter_config.project_ids
+    return filter_config.project_id_pattern.allowed(project_id)
 
 
 def _search_projects_by_labels(
     labels: FrozenSet[str], projects_client: Optional[ProjectsClient] = None
 ) -> List[GcpProject]:
+    """
+    Search for GCP projects matching any of the provided labels.
+
+    Note: GCP API errors are caught by the calling function (resolve_gcp_projects)
+    which wraps all project resolution logic in a try-except block.
+    """
     if projects_client is None:
         projects_client = ProjectsClient()
     labels_query = " OR ".join([f"labels.{label}" for label in labels])
@@ -107,20 +130,16 @@ def resolve_gcp_projects(
             labeled = _search_projects_by_labels(
                 frozenset(filter_config.project_labels), projects_client
             )
-            allowed = [
-                p for p in labeled if filter_config.project_id_pattern.allowed(p.id)
-            ]
+            allowed = [p for p in labeled if is_project_allowed(filter_config, p.id)]
             if not allowed and report:
-                report.report_failure(
-                    "metadata-extraction",
-                    "No projects matched provided labels after applying project_id_pattern.",
+                report.warning(
+                    title="Project Filter",
+                    message="No projects matched provided labels after applying project_id_pattern.",
                 )
             return allowed
 
         all_projects = _list_all_projects(projects_client)
-        allowed = [
-            p for p in all_projects if filter_config.project_id_pattern.allowed(p.id)
-        ]
+        allowed = [p for p in all_projects if is_project_allowed(filter_config, p.id)]
         if not allowed and report:
             report.failure(
                 title="No GCP projects resolved",

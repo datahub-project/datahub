@@ -1,5 +1,3 @@
-"""Test container key GUID generation for Vertex AI"""
-
 from datahub.emitter.mcp_builder import ProjectIdKey
 from datahub.ingestion.source.vertexai.vertexai_constants import ResourceCategory
 from datahub.ingestion.source.vertexai.vertexai_models import (

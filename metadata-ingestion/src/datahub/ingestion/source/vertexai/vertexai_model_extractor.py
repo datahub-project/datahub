@@ -1,18 +1,8 @@
 import logging
-from datetime import datetime, timezone
 from numbers import Real
 from operator import attrgetter
 from typing import Any, Dict, Iterable, List, Optional
 
-from google.api_core.exceptions import (
-    DeadlineExceeded,
-    GoogleAPICallError,
-    NotFound,
-    PermissionDenied,
-    ResourceExhausted,
-    ServiceUnavailable,
-    Unauthenticated,
-)
 from google.cloud.aiplatform import Endpoint, ModelEvaluation
 from google.cloud.aiplatform.models import Model, VersionInfo
 
@@ -48,8 +38,12 @@ from datahub.ingestion.source.vertexai.vertexai_state import (
     VertexAIStateHandler,
 )
 from datahub.ingestion.source.vertexai.vertexai_utils import (
+    filter_by_update_time,
     get_actor_from_labels,
     get_resource_category_container,
+    handle_google_api_errors,
+    log_checkpoint_time,
+    log_progress,
 )
 from datahub.metadata.schema_classes import (
     BaseDataClass,
@@ -71,8 +65,6 @@ logger = logging.getLogger(__name__)
 
 
 class VertexAIModelExtractor:
-    """Extracts model, model version, evaluation, and endpoint metadata from Vertex AI."""
-
     def __init__(
         self,
         config: VertexAIConfig,
@@ -106,12 +98,7 @@ class VertexAIModelExtractor:
             ResourceTypes.MODEL
         )
         if last_checkpoint_millis:
-            checkpoint_time = datetime.fromtimestamp(
-                last_checkpoint_millis / 1000, tz=timezone.utc
-            ).strftime("%Y-%m-%d %H:%M:%S")
-            logger.info(
-                f"Incremental mode: Only processing Models updated after {checkpoint_time} UTC"
-            )
+            log_checkpoint_time(last_checkpoint_millis, "Model")
 
         registered_models = self.client.Model.list(order_by=ORDER_BY_UPDATE_TIME_DESC)
         total_versions = 0
@@ -134,10 +121,7 @@ class VertexAIModelExtractor:
             model_versions = model.versioning_registry.list_versions()
             for model_version in model_versions:
                 total_versions += 1
-                if total_versions % 100 == 0:
-                    logger.info(
-                        f"Processed {total_versions} model versions from Vertex AI"
-                    )
+                log_progress(total_versions, None, "model versions")
                 logger.debug(
                     f"Ingesting model version (name: {model.display_name} id:{model.name} version:{model_version.version_id})"
                 )
@@ -163,12 +147,7 @@ class VertexAIModelExtractor:
             ResourceTypes.MODEL_EVALUATION
         )
         if last_checkpoint_millis:
-            checkpoint_time = datetime.fromtimestamp(
-                last_checkpoint_millis / 1000, tz=timezone.utc
-            ).strftime("%Y-%m-%d %H:%M:%S")
-            logger.info(
-                f"Incremental mode: Only processing ModelEvaluations created after {checkpoint_time} UTC"
-            )
+            log_checkpoint_time(last_checkpoint_millis, "ModelEvaluation")
 
         registered_models = self.client.Model.list(order_by=ORDER_BY_UPDATE_TIME_DESC)
         total_evaluations = 0
@@ -177,7 +156,9 @@ class VertexAIModelExtractor:
             if not self.config.model_name_pattern.allowed(model.display_name or ""):
                 continue
 
-            try:
+            with handle_google_api_errors(
+                "fetch model evaluations", "model", model.name
+            ):
                 evaluations: List[ModelEvaluation] = list(
                     model.list_model_evaluations()
                 )
@@ -185,17 +166,12 @@ class VertexAIModelExtractor:
                 evaluations.sort(key=attrgetter(CREATE_TIME_FIELD), reverse=True)
 
                 if last_checkpoint_millis:
-                    original_count = len(evaluations)
-                    evaluations = [
-                        e
-                        for e in evaluations
-                        if int(e.create_time.timestamp() * 1000)
-                        > last_checkpoint_millis
-                    ]
-                    if original_count > len(evaluations):
-                        logger.debug(
-                            f"Filtered to {len(evaluations)} new evaluations for model {model.display_name} (out of {original_count} total)"
-                        )
+                    evaluations = filter_by_update_time(
+                        evaluations,
+                        last_checkpoint_millis,
+                        time_field="create_time",
+                        resource_type="model evaluations",
+                    )
 
                 if self.config.max_evaluations_per_model is not None:
                     evaluations = evaluations[: self.config.max_evaluations_per_model]
@@ -211,36 +187,11 @@ class VertexAIModelExtractor:
                         )
 
                     total_evaluations += 1
-                    if total_evaluations % 100 == 0:
-                        logger.info(
-                            f"Processed {total_evaluations} model evaluations from Vertex AI"
-                        )
+                    log_progress(total_evaluations, None, "model evaluations")
                     logger.debug(
                         f"Ingesting evaluation for model {model.display_name}: {evaluation.name}"
                     )
                     yield from self._gen_model_evaluation_mcps(model, evaluation)
-
-            except (PermissionDenied, Unauthenticated) as e:
-                logger.warning(
-                    f"Failed to fetch evaluations for model {model.display_name} due to permission issue | resource_type=model | resource_name={model.name} | cause={type(e).__name__}: {e}"
-                )
-            except ResourceExhausted as e:
-                logger.warning(
-                    f"Failed to fetch evaluations for model {model.display_name} due to quota exceeded | resource_type=model | resource_name={model.name} | cause={type(e).__name__}: {e}"
-                )
-            except (DeadlineExceeded, ServiceUnavailable) as e:
-                logger.warning(
-                    f"Failed to fetch evaluations for model {model.display_name} due to timeout or service unavailable | resource_type=model | resource_name={model.name} | cause={type(e).__name__}: {e}"
-                )
-            except NotFound as e:
-                logger.debug(
-                    f"Model evaluations not found for model {model.display_name} | resource_type=model | resource_name={model.name} | cause={type(e).__name__}: {e}"
-                )
-            except GoogleAPICallError as e:
-                logger.warning(
-                    f"Failed to fetch evaluations for model {model.display_name} | resource_type=model | resource_name={model.name} | cause={type(e).__name__}: {e}"
-                )
-                continue
 
         if total_evaluations > 0:
             logger.info(
@@ -302,24 +253,23 @@ class VertexAIModelExtractor:
 
     def _get_evaluation_model_urn(self, model: Model) -> Optional[str]:
         try:
-            versions: List[VersionInfo] = list(
-                model.versioning_registry.list_versions()
-            )
-            if versions:
-                latest_version = max(versions, key=attrgetter(VERSION_ID_FIELD))
-                model_name = self.name_formatter.format_model_name(entity_id=model.name)
-                return self.urn_builder.make_ml_model_urn(latest_version, model_name)
-        except (PermissionDenied, Unauthenticated) as e:
-            logger.debug(
-                f"Could not get versioned URN for model {model.name} due to permission issue, using simple URN | resource_type=model | resource_name={model.name} | cause={type(e).__name__}: {e}"
-            )
-        except (NotFound, AttributeError) as e:
+            with handle_google_api_errors(
+                "get model versions", "model", model.name, log_level="debug"
+            ):
+                versions: List[VersionInfo] = list(
+                    model.versioning_registry.list_versions()
+                )
+                if versions:
+                    latest_version = max(versions, key=attrgetter(VERSION_ID_FIELD))
+                    model_name = self.name_formatter.format_model_name(
+                        entity_id=model.name
+                    )
+                    return self.urn_builder.make_ml_model_urn(
+                        latest_version, model_name
+                    )
+        except AttributeError as e:
             logger.debug(
                 f"Could not get versioned URN for model {model.name} (versioning not available), using simple URN | resource_type=model | resource_name={model.name} | cause={type(e).__name__}: {e}"
-            )
-        except GoogleAPICallError as e:
-            logger.debug(
-                f"Could not get versioned URN for model {model.name}, using simple URN | resource_type=model | resource_name={model.name} | cause={type(e).__name__}: {e}"
             )
 
         model_name = self.name_formatter.format_model_name(entity_id=model.name)
@@ -495,7 +445,7 @@ class VertexAIModelExtractor:
                     builder.make_ml_model_deployment_urn(
                         platform=self.platform,
                         deployment_name=self.name_formatter.format_endpoint_name(
-                            entity_id=endpoint.display_name
+                            entity_id=endpoint.name
                         ),
                         env=self.config.env,
                     )
@@ -543,7 +493,7 @@ class VertexAIModelExtractor:
                 downstreamJobs=(downstream_job_urns if downstream_job_urns else None),
                 deployments=endpoint_urns,
                 externalUrl=self.url_builder.make_model_version_url(
-                    model.name, model.version_id
+                    model.name, model_version.version_id
                 ),
                 type=MLModelType.ML_MODEL,
             ),
@@ -588,12 +538,12 @@ class VertexAIModelExtractor:
         ).as_workunit()
 
     def _gen_ml_model_mcps(
-        self, ModelMetadata: ModelMetadata
+        self, model_metadata: ModelMetadata
     ) -> Iterable[MetadataWorkUnit]:
-        model: Model = ModelMetadata.model
-        model_version: VersionInfo = ModelMetadata.model_version
-        training_job_urn: Optional[str] = ModelMetadata.training_job_urn
-        endpoints: Optional[List[Endpoint]] = ModelMetadata.endpoints
+        model: Model = model_metadata.model
+        model_version: VersionInfo = model_metadata.model_version
+        training_job_urn: Optional[str] = model_metadata.training_job_urn
+        endpoints: Optional[List[Endpoint]] = model_metadata.endpoints
 
         logging.info(f"generating model mcp for {model.name}")
 
@@ -629,7 +579,7 @@ class VertexAIModelExtractor:
 
         yield self._create_version_properties_aspect(model, model_version, model_urn)
 
-        training_data_urns = ModelMetadata.training_data_urns
+        training_data_urns = model_metadata.training_data_urns
         if training_data_urns:
             yield self._create_training_data_aspect(model_urn, training_data_urns)
 

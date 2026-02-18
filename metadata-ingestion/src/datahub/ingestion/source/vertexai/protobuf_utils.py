@@ -20,11 +20,11 @@ def extract_protobuf_value(value: Value) -> Optional[str]:
         String representation of the value, or None if extraction fails
     """
     try:
-        if getattr(value, "string_value", None):
+        if hasattr(value, "string_value") and value.string_value:
             return value.string_value
-        elif getattr(value, "number_value", None) is not None:
+        elif hasattr(value, "number_value"):
             return str(value.number_value)
-        elif getattr(value, "bool_value", None) is not None:
+        elif hasattr(value, "bool_value"):
             return str(value.bool_value)
         else:
             return str(value)
@@ -52,9 +52,9 @@ def extract_numeric_value(value: Value) -> Optional[str]:
         String representation of the numeric value, or None if not numeric
     """
     try:
-        if getattr(value, "number_value", None) is not None:
+        if hasattr(value, "number_value"):
             return str(value.number_value)
-        elif getattr(value, "string_value", None):
+        elif hasattr(value, "string_value") and value.string_value:
             try:
                 float(value.string_value)
                 return value.string_value

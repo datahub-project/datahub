@@ -1,6 +1,9 @@
-from typing import Set
+from typing import Literal, Set
 
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
+
+# Platform identifier
+PLATFORM: Literal["vertexai"] = "vertexai"
 
 # Progress logging configuration
 PROGRESS_LOG_INTERVAL = 100
@@ -27,10 +30,14 @@ class ResourceTypes:
     HYPERPARAMETER_TUNING_JOB = "HyperparameterTuningJob"
 
 
+# Type for external data platforms referenced in Vertex AI lineage
+ExternalPlatform = Literal["gcs", "bigquery", "s3", "abs", "snowflake"]
+
+
 class ExternalPlatforms:
     """
     Constants for external data platforms that may be referenced in Vertex AI lineage.
-    Used for platform_to_instance_map configuration.
+    Used for platform_instance_map configuration.
 
     Supported Platforms:
     - GCS: Google Cloud Storage (gs:// URIs)
@@ -40,23 +47,35 @@ class ExternalPlatforms:
     - SNOWFLAKE: Snowflake tables (snowflake:// URIs or table references)
     """
 
-    GCS = "gcs"
-    BIGQUERY = "bigquery"
-    S3 = "s3"
-    AZURE_BLOB_STORAGE = "abs"
-    SNOWFLAKE = "snowflake"
+    GCS: ExternalPlatform = "gcs"
+    BIGQUERY: ExternalPlatform = "bigquery"
+    S3: ExternalPlatform = "s3"
+    AZURE_BLOB_STORAGE: ExternalPlatform = "abs"
+    SNOWFLAKE: ExternalPlatform = "snowflake"
+
+
+# Type for resource category folder names
+ResourceCategoryType = Literal[
+    "Models",
+    "Training Jobs",
+    "Datasets",
+    "Endpoints",
+    "Pipelines",
+    "Experiments",
+    "Evaluations",
+]
 
 
 class ResourceCategory:
     """Container categories for organizing Vertex AI resources."""
 
-    MODELS = "Models"
-    TRAINING_JOBS = "Training Jobs"
-    DATASETS = "Datasets"
-    ENDPOINTS = "Endpoints"
-    PIPELINES = "Pipelines"
-    EXPERIMENTS = "Experiments"
-    EVALUATIONS = "Evaluations"
+    MODELS: ResourceCategoryType = "Models"
+    TRAINING_JOBS: ResourceCategoryType = "Training Jobs"
+    DATASETS: ResourceCategoryType = "Datasets"
+    ENDPOINTS: ResourceCategoryType = "Endpoints"
+    PIPELINES: ResourceCategoryType = "Pipelines"
+    EXPERIMENTS: ResourceCategoryType = "Experiments"
+    EVALUATIONS: ResourceCategoryType = "Evaluations"
 
 
 class VertexAISubTypes:

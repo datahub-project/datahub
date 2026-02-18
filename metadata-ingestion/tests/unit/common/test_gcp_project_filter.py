@@ -9,8 +9,8 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.common.gcp_project_filter import (
     GcpProject,
-    GcpProjectFilter,
     GcpProjectFilterConfig,
+    is_project_allowed,
     resolve_gcp_projects,
 )
 
@@ -51,17 +51,16 @@ class TestGcpProjectFilterConfig:
         assert not config.project_id_pattern.allowed("prod-ml-test")
 
 
-class TestGcpProjectFilter:
-    """Test GcpProjectFilter class."""
+class TestIsProjectAllowed:
+    """Test is_project_allowed function."""
 
     def test_is_project_allowed_with_explicit_ids(self):
         """Test project filtering with explicit IDs."""
         config = GcpProjectFilterConfig(project_ids=["proj-1", "proj-2"])
-        filter = GcpProjectFilter(config, SourceReport())
 
-        assert filter.is_project_allowed("proj-1")
-        assert filter.is_project_allowed("proj-2")
-        assert not filter.is_project_allowed("proj-3")
+        assert is_project_allowed(config, "proj-1")
+        assert is_project_allowed(config, "proj-2")
+        assert not is_project_allowed(config, "proj-3")
 
     def test_is_project_allowed_with_pattern(self):
         """Test project filtering with pattern."""
@@ -71,11 +70,32 @@ class TestGcpProjectFilter:
                 deny=[".*-test$"],
             )
         )
-        filter = GcpProjectFilter(config, SourceReport())
 
-        assert filter.is_project_allowed("prod-ml")
-        assert not filter.is_project_allowed("dev-ml")
-        assert not filter.is_project_allowed("prod-ml-test")
+        assert is_project_allowed(config, "prod-ml")
+        assert not is_project_allowed(config, "dev-ml")
+        assert not is_project_allowed(config, "prod-ml-test")
+
+    def test_is_project_allowed_empty_list_uses_pattern(self):
+        """Test that empty project_ids list falls back to pattern."""
+        config = GcpProjectFilterConfig(
+            project_ids=[],
+            project_id_pattern=AllowDenyPattern(allow=["^prod-.*"]),
+        )
+
+        assert is_project_allowed(config, "prod-ml")
+        assert not is_project_allowed(config, "dev-ml")
+
+    def test_is_project_allowed_explicit_ids_override_pattern(self):
+        """Test that explicit project_ids override pattern."""
+        config = GcpProjectFilterConfig(
+            project_ids=["dev-specific"],
+            project_id_pattern=AllowDenyPattern(allow=["^prod-.*"]),
+        )
+
+        # Pattern would deny dev-specific, but explicit ID allows it
+        assert is_project_allowed(config, "dev-specific")
+        # Pattern would allow prod-ml, but not in explicit list
+        assert not is_project_allowed(config, "prod-ml")
 
 
 class TestResolveGcpProjects:

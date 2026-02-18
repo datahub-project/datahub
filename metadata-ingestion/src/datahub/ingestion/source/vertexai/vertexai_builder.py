@@ -12,6 +12,7 @@ from datahub.ingestion.source.azure.abs_utils import strip_abs_prefix
 from datahub.ingestion.source.gcs.gcs_utils import GCS_PREFIX, strip_gcs_prefix
 from datahub.ingestion.source.vertexai.vertexai_config import PlatformDetail
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    PLATFORM,
     ExternalPlatforms,
     ExternalURLs,
     URIPatterns,
@@ -22,8 +23,6 @@ logger = logging.getLogger(__name__)
 
 
 class VertexAIUrnBuilder:
-    """Builder for DataHub URNs from Vertex AI resources."""
-
     def __init__(
         self,
         platform: str,
@@ -74,8 +73,6 @@ class VertexAIUrnBuilder:
 
 
 class VertexAINameFormatter:
-    """Formatter for Vertex AI entity names used in DataHub."""
-
     def __init__(self, project_id: str):
         self.project_id = project_id
 
@@ -92,37 +89,59 @@ class VertexAINameFormatter:
         return f"{self.project_id}.dataset.{entity_id}"
 
     def format_job_name(self, entity_id: Optional[str]) -> str:
+        if entity_id is None:
+            raise ValueError("entity_id cannot be None for job name formatting")
         return f"{self.project_id}.job.{entity_id}"
 
     def format_experiment_id(self, entity_id: Optional[str]) -> str:
+        if entity_id is None:
+            raise ValueError("entity_id cannot be None for experiment ID formatting")
         return f"{self.project_id}.experiment.{entity_id}"
 
     def format_experiment_run_name(self, entity_id: Optional[str]) -> str:
+        if entity_id is None:
+            raise ValueError(
+                "entity_id cannot be None for experiment run name formatting"
+            )
         return f"{self.project_id}.experiment_run.{entity_id}"
 
     def format_run_execution_name(self, entity_id: Optional[str]) -> str:
+        if entity_id is None:
+            raise ValueError(
+                "entity_id cannot be None for run execution name formatting"
+            )
         return f"{self.project_id}.execution.{entity_id}"
 
     def format_pipeline_id(self, entity_id: Optional[str]) -> str:
+        if entity_id is None:
+            raise ValueError("entity_id cannot be None for pipeline ID formatting")
         return f"{self.project_id}.pipeline.{entity_id}"
 
     def format_pipeline_run_id(self, entity_id: Optional[str]) -> str:
         """Format ID for a pipeline run (execution instance)."""
+        if entity_id is None:
+            raise ValueError("entity_id cannot be None for pipeline run ID formatting")
         return f"{self.project_id}.pipeline_run.{entity_id}"
 
     def format_pipeline_task_id(self, entity_id: Optional[str]) -> str:
+        if entity_id is None:
+            raise ValueError("entity_id cannot be None for pipeline task ID formatting")
         return f"{self.project_id}.pipeline_task.{entity_id}"
 
     def format_pipeline_task_run_id(self, entity_id: Optional[str]) -> str:
+        if entity_id is None:
+            raise ValueError(
+                "entity_id cannot be None for pipeline task run ID formatting"
+            )
         return f"{self.project_id}.pipeline_task_run.{entity_id}"
 
     def format_evaluation_name(self, entity_id: Optional[str]) -> str:
+        if entity_id is None:
+            raise ValueError("entity_id cannot be None for evaluation name formatting")
         return f"{self.project_id}.model_evaluation.{entity_id}"
 
 
 class VertexAIExternalURLBuilder:
-    """Builder for external URLs to Vertex AI console."""
-
     def __init__(self, base_url: str, project_id: str, region: str):
         self.base_url = base_url
         self.project_id = project_id
@@ -183,12 +202,10 @@ class VertexAIExternalURLBuilder:
 
 
 class VertexAIURIParser:
-    """Parser for Vertex AI URIs and converter to DataHub dataset and model URNs."""
-
     def __init__(
         self,
         env: str,
-        platform: str = "vertexai",
+        platform: str = PLATFORM,
         platform_instance: Optional[str] = None,
         platform_to_instance_map: Optional[Dict[str, PlatformDetail]] = None,
         normalize_paths: bool = False,
@@ -254,9 +271,8 @@ class VertexAIURIParser:
         for compiled_pattern in self.compiled_partition_patterns:
             normalized_path = compiled_pattern.sub("", normalized_path)
 
-        # Clean up path
-        while "//" in normalized_path:
-            normalized_path = normalized_path.replace("//", "/")
+        # Clean up path - replace multiple consecutive slashes with single slash
+        normalized_path = re.sub(r"/+", "/", normalized_path)
 
         # Remove trailing slashes
         normalized_path = normalized_path.rstrip("/")
@@ -291,21 +307,15 @@ class VertexAIURIParser:
             abfss://container@account.dfs.core.windows.net/path
               → https://account.blob.core.windows.net/container/path
         """
+        # Extract prefix if it's an Azure URI
+        prefix = None
         if uri.startswith("wasbs://"):
-            uri_without_prefix = uri[len("wasbs://") :]
-            container_and_rest = uri_without_prefix.split("@", 1)
-            if len(container_and_rest) == 2:
-                container = container_and_rest[0]
-                rest = container_and_rest[1]
-                account_and_path = rest.split("/", 1)
-                account_domain = account_and_path[0]
-                path = account_and_path[1] if len(account_and_path) > 1 else ""
-                account_name = account_domain.split(".")[0]
-                return (
-                    f"https://{account_name}.blob.core.windows.net/{container}/{path}"
-                )
+            prefix = "wasbs://"
         elif uri.startswith("abfss://"):
-            uri_without_prefix = uri[len("abfss://") :]
+            prefix = "abfss://"
+
+        if prefix:
+            uri_without_prefix = uri[len(prefix) :]
             container_and_rest = uri_without_prefix.split("@", 1)
             if len(container_and_rest) == 2:
                 container = container_and_rest[0]
@@ -317,6 +327,7 @@ class VertexAIURIParser:
                 return (
                     f"https://{account_name}.blob.core.windows.net/{container}/{path}"
                 )
+
         return uri
 
     def _make_external_dataset_urn(

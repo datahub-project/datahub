@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Literal, Optional
 
 from google.api_core.exceptions import (
     DeadlineExceeded,
@@ -10,11 +10,7 @@ from google.api_core.exceptions import (
     Unauthenticated,
 )
 from google.cloud import aiplatform, aiplatform_v1
-from google.cloud.aiplatform import (
-    Endpoint,
-)
 from google.cloud.aiplatform.base import VertexAiResourceNoun
-from google.cloud.aiplatform.metadata.experiment_resources import Experiment
 from google.cloud.aiplatform.models import Model
 from google.cloud.aiplatform_v1 import MetadataServiceClient
 from google.oauth2 import service_account
@@ -52,9 +48,11 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 )
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    PLATFORM,
     ExternalURLs,
     MLMetadataDefaults,
     ResourceCategory,
+    ResourceCategoryType,
     VertexAISubTypes,
 )
 from datahub.ingestion.source.vertexai.vertexai_experiment_extractor import (
@@ -96,7 +94,7 @@ from datahub.metadata.urns import DataPlatformUrn, VersionSetUrn
 logger = logging.getLogger(__name__)
 
 
-@platform_name("Vertex AI", id="vertexai")
+@platform_name("Vertex AI", id=PLATFORM)
 @config_class(VertexAIConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(
@@ -104,7 +102,7 @@ logger = logging.getLogger(__name__)
     "Extract descriptions for Vertex AI Registered Models and Model Versions",
 )
 class VertexAISource(StatefulIngestionSourceBase):
-    platform: str = "vertexai"
+    platform: Literal["vertexai"] = PLATFORM
 
     def __init__(self, ctx: PipelineContext, config: VertexAIConfig):
         super().__init__(config, ctx)
@@ -152,11 +150,12 @@ class VertexAISource(StatefulIngestionSourceBase):
                     regions if regions else [self.config.region]
                 )
         else:
-            regions_from_config = (
-                self.config.regions
-                if self.config.regions
-                else ([self.config.region] if self.config.region else [])
-            )
+            if self.config.regions:
+                regions_from_config = self.config.regions
+            elif self.config.region:
+                regions_from_config = [self.config.region]
+            else:
+                regions_from_config = []
             for project_id in self._projects:
                 self._project_to_regions[project_id] = regions_from_config
 
@@ -165,9 +164,6 @@ class VertexAISource(StatefulIngestionSourceBase):
         self._current_region: Optional[str] = None
 
         self.client = aiplatform
-        self.endpoints: Optional[Dict[str, List[Endpoint]]] = None
-        self.datasets: Optional[Dict[str, VertexAiResourceNoun]] = None
-        self.experiments: Optional[List[Experiment]] = None
 
         self._metadata_client: Optional[MetadataServiceClient] = None
         self._ml_metadata_helper: Optional[MLMetadataHelper] = None
@@ -188,7 +184,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             env=self.config.env,
             platform=self.platform,
             platform_instance=self.config.platform_instance,
-            platform_to_instance_map=self.config.platform_to_instance_map,
+            platform_to_instance_map=self.config.platform_instance_map,
         )
 
         self.pipeline_extractor = VertexAIPipelineExtractor(
@@ -261,7 +257,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         subtype: str,
         include_container: bool = True,
         include_platform: bool = True,
-        resource_category: Optional[str] = None,
+        resource_category: Optional[ResourceCategoryType] = None,
         include_subtypes: bool = True,
     ) -> Iterable[MetadataWorkUnit]:
         if include_container:
@@ -293,11 +289,6 @@ class VertexAISource(StatefulIngestionSourceBase):
             ).as_workunit()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        """
-        Main Function to fetch and yields mcps for various VertexAI resources.
-        - Models and Model Versions from the Model Registry
-        - Training Jobs
-        """
         for project_id in self._projects:
             self._current_project_id = project_id
 
@@ -316,9 +307,6 @@ class VertexAISource(StatefulIngestionSourceBase):
                     credentials=self._credentials,
                 )
                 self._current_region = region
-                self.endpoints = None
-                self.datasets = None
-                self.experiments = None
 
                 if (
                     self.config.use_ml_metadata_for_lineage
@@ -346,33 +334,28 @@ class VertexAISource(StatefulIngestionSourceBase):
                             config=ml_metadata_config,
                             uri_parser=self.uri_parser,
                         )
-                    except (PermissionDenied, Unauthenticated) as e:
+                    except (
+                        PermissionDenied,
+                        Unauthenticated,
+                        DeadlineExceeded,
+                        ServiceUnavailable,
+                        InvalidArgument,
+                        ValueError,
+                        GoogleAPICallError,
+                    ) as e:
+                        error_type = type(e).__name__
+                        if isinstance(e, (PermissionDenied, Unauthenticated)):
+                            reason = "permission issue"
+                        elif isinstance(e, (DeadlineExceeded, ServiceUnavailable)):
+                            reason = "timeout or service unavailable"
+                        elif isinstance(e, InvalidArgument):
+                            reason = "invalid configuration"
+                        elif isinstance(e, ValueError):
+                            reason = "configuration error"
+                        else:
+                            reason = "API error"
                         logger.warning(
-                            f"Failed to initialize ML Metadata client for project {project_id} region {region} due to permission issue | cause={type(e).__name__}: {e}"
-                        )
-                        self._metadata_client = None
-                        self._ml_metadata_helper = None
-                    except (DeadlineExceeded, ServiceUnavailable) as e:
-                        logger.warning(
-                            f"Failed to initialize ML Metadata client for project {project_id} region {region} due to timeout or service unavailable | cause={type(e).__name__}: {e}"
-                        )
-                        self._metadata_client = None
-                        self._ml_metadata_helper = None
-                    except InvalidArgument as e:
-                        logger.warning(
-                            f"Failed to initialize ML Metadata client for project {project_id} region {region} due to invalid configuration | cause={type(e).__name__}: {e}"
-                        )
-                        self._metadata_client = None
-                        self._ml_metadata_helper = None
-                    except ValueError as e:
-                        logger.warning(
-                            f"Failed to initialize ML Metadata client for project {project_id} region {region} due to configuration error | cause={type(e).__name__}: {e}"
-                        )
-                        self._metadata_client = None
-                        self._ml_metadata_helper = None
-                    except GoogleAPICallError as e:
-                        logger.warning(
-                            f"Failed to initialize ML Metadata client for project {project_id} region {region} | cause={type(e).__name__}: {e}"
+                            f"Failed to initialize ML Metadata client for project {project_id} region {region} due to {reason} | cause={error_type}: {e}"
                         )
                         self._metadata_client = None
                         self._ml_metadata_helper = None
@@ -413,17 +396,14 @@ class VertexAISource(StatefulIngestionSourceBase):
         yield from self._generate_resource_category_containers()
 
     def _gen_ml_model_mcps(
-        self, ModelMetadata: ModelMetadata
+        self, model_metadata: ModelMetadata
     ) -> Iterable[MetadataWorkUnit]:
-        """Delegate to model extractor."""
-        return self.model_extractor._gen_ml_model_mcps(ModelMetadata)
+        return self.model_extractor._gen_ml_model_mcps(model_metadata)
 
     def _get_version_set_urn(self, model: Model) -> VersionSetUrn:
-        """Delegate to model extractor."""
         return self.model_extractor._get_version_set_urn(model)
 
     def _get_project_container(self) -> ProjectIdKey:
-        """Get project container key."""
         return get_project_container(
             self._get_project_id(),
             self.platform,
@@ -432,9 +412,8 @@ class VertexAISource(StatefulIngestionSourceBase):
         )
 
     def _get_resource_category_container(
-        self, category: str
+        self, category: ResourceCategoryType
     ) -> VertexAIResourceCategoryKey:
-        """Get resource category container key."""
         return get_resource_category_container(
             self._get_project_id(),
             self.platform,
@@ -444,7 +423,6 @@ class VertexAISource(StatefulIngestionSourceBase):
         )
 
     def _generate_resource_category_containers(self) -> Iterable[MetadataWorkUnit]:
-        """Generate all resource category containers for the current project."""
         categories = [
             ResourceCategory.MODELS,
             ResourceCategory.TRAINING_JOBS,

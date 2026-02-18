@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import (
     Any,
     Dict,
@@ -15,7 +15,6 @@ from google.cloud.aiplatform_v1.types import (
     PipelineJob as PipelineJobType,
     PipelineTaskDetail,
 )
-from google.protobuf.timestamp_pb2 import Timestamp
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import UNKNOWN_USER
@@ -59,6 +58,7 @@ from datahub.ingestion.source.vertexai.vertexai_state import (
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     get_resource_category_container,
+    log_checkpoint_time,
     log_progress,
 )
 from datahub.metadata.schema_classes import (
@@ -80,20 +80,14 @@ from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DataJobUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.specific.datajob import DataJobPatchBuilder
+from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
 
-def datetime_to_ts_millis(dt: Union[datetime, Timestamp]) -> int:
-    """Convert datetime or protobuf Timestamp to milliseconds timestamp."""
-    return int(dt.timestamp() * 1000)
-
-
 class VertexAIPipelineExtractor:
-    """Extracts pipeline metadata from Vertex AI."""
-
     def __init__(
         self,
         config: VertexAIConfig,
@@ -167,12 +161,7 @@ class VertexAIPipelineExtractor:
             ResourceTypes.PIPELINE_JOB
         )
         if last_checkpoint_millis:
-            checkpoint_time = datetime.fromtimestamp(
-                last_checkpoint_millis / 1000, tz=timezone.utc
-            ).strftime("%Y-%m-%d %H:%M:%S")
-            logger.info(
-                f"Incremental mode: Only processing PipelineJobs updated after {checkpoint_time} UTC"
-            )
+            log_checkpoint_time(last_checkpoint_millis, "PipelineJob")
 
         pipeline_jobs_pager = self.client.PipelineJob.list(
             order_by=ORDER_BY_UPDATE_TIME_DESC

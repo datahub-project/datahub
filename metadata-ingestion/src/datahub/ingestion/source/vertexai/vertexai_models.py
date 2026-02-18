@@ -6,11 +6,14 @@ from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import VersionInfo
 from google.cloud.aiplatform_v1.types import PipelineTaskDetail
 from google.protobuf import timestamp_pb2
-from pydantic import BaseModel, ConfigDict, Field, SkipValidation, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation
 
 from datahub.emitter.mcp_builder import ProjectIdKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.vertexai.vertexai_constants import MLMetadataDefaults
+from datahub.ingestion.source.vertexai.vertexai_constants import (
+    MLMetadataDefaults,
+    ResourceCategoryType,
+)
 from datahub.metadata.schema_classes import EdgeClass, MLHyperParamClass, MLMetricClass
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 
@@ -24,7 +27,7 @@ class YieldCommonAspectsProtocol(Protocol):
         subtype: str,
         include_container: bool = True,
         include_platform: bool = True,
-        resource_category: Optional[str] = None,
+        resource_category: Optional[ResourceCategoryType] = None,
         include_subtypes: bool = True,
     ) -> Iterable[MetadataWorkUnit]:
         pass
@@ -33,7 +36,7 @@ class YieldCommonAspectsProtocol(Protocol):
 class VertexAIResourceCategoryKey(ProjectIdKey):
     """Container key for Vertex AI resource categories (Models, Training Jobs, etc.)."""
 
-    category: str
+    category: ResourceCategoryType
 
 
 class ModelGroupKey(ProjectIdKey):
@@ -111,36 +114,6 @@ class MLMetadataConfig(BaseModel):
             region=self.region,
             metadata_store=self.metadata_store,
         )
-
-
-class ArtifactInfo(BaseModel):
-    """Information about an artifact."""
-
-    name: str
-    uri: Optional[str] = None
-    schema_title: Optional[str] = None
-    display_name: Optional[str] = None
-
-    @model_validator(mode="after")
-    def validate_name(self) -> "ArtifactInfo":
-        if not self.name:
-            raise ValueError("Artifact name cannot be empty")
-        return self
-
-
-class ExecutionInfo(BaseModel):
-    """Information about an execution."""
-
-    name: str
-    display_name: Optional[str] = None
-    schema_title: Optional[str] = None
-    metadata: Optional[Dict] = None
-
-    @model_validator(mode="after")
-    def validate_name(self) -> "ExecutionInfo":
-        if not self.name:
-            raise ValueError("Execution name cannot be empty")
-        return self
 
 
 class TrainingJobMetadata(BaseModel):

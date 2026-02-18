@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from google.api_core.exceptions import (
@@ -53,6 +52,7 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
 from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
+    log_checkpoint_time,
     log_progress,
 )
 from datahub.metadata.schema_classes import (
@@ -76,8 +76,6 @@ logger = logging.getLogger(__name__)
 
 
 class VertexAITrainingExtractor:
-    """Extracts training job metadata from Vertex AI."""
-
     def __init__(
         self,
         config: VertexAIConfig,
@@ -121,12 +119,7 @@ class VertexAITrainingExtractor:
 
             last_checkpoint_millis = self.state_handler.get_last_update_time(class_name)
             if last_checkpoint_millis:
-                checkpoint_time = datetime.fromtimestamp(
-                    last_checkpoint_millis / 1000, tz=timezone.utc
-                ).strftime("%Y-%m-%d %H:%M:%S")
-                logger.info(
-                    f"Incremental mode: Only processing {class_name}s updated after {checkpoint_time} UTC"
-                )
+                log_checkpoint_time(last_checkpoint_millis, class_name)
 
             jobs_pager = getattr(self.client, class_name).list(
                 order_by=ORDER_BY_UPDATE_TIME_DESC
@@ -202,7 +195,6 @@ class VertexAITrainingExtractor:
             )
 
     def _get_job_duration_millis(self, job: VertexAiResourceNoun) -> Optional[int]:
-        """Calculate job duration in milliseconds."""
         create_time = job.create_time
         duration = None
         if isinstance(job, _TrainingJob) and job.create_time and job.end_time:
@@ -366,7 +358,8 @@ class VertexAITrainingExtractor:
                 ),
             ).as_workunit()
 
-    def _search_dataset(self, dataset_id: str) -> Optional[VertexAiResourceNoun]:
+    def _ensure_datasets_cached(self) -> None:
+        """Fetch and cache all datasets from Vertex AI (one-time operation)."""
         if self.datasets is None:
             logger.info("Fetching Datasets from Vertex AI (one-time cache)")
             self.datasets = {}
@@ -378,21 +371,17 @@ class VertexAITrainingExtractor:
 
             logger.info(f"Cached {len(self.datasets)} datasets")
 
+    def _search_dataset(self, dataset_id: str) -> Optional[VertexAiResourceNoun]:
+        self._ensure_datasets_cached()
+        assert self.datasets is not None
         return self.datasets.get(dataset_id)
 
     def _get_input_dataset_mcps(
         self, job_meta: TrainingJobMetadata
     ) -> Iterable[MetadataWorkUnit]:
-        """Cache all datasets from Vertex AI."""
-        if self.datasets is None:
-            self.datasets = {}
-
-            for dtype in DatasetTypes.all():
-                dataset_class = getattr(self.client.datasets, dtype)
-                for ds in dataset_class.list():
-                    self.datasets[ds.name] = ds
-
-        return []
+        """Cache all datasets from Vertex AI and yield dataset workunits for this job."""
+        self._ensure_datasets_cached()
+        yield from self._get_dataset_workunits_from_job_metadata(job_meta)
 
     def _get_dataset_workunits_from_job_metadata(
         self, job_meta: TrainingJobMetadata

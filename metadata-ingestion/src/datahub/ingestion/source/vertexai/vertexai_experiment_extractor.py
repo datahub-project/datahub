@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 from google.cloud import aiplatform
 from google.cloud.aiplatform import ExperimentRun
@@ -33,11 +33,17 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_execution_result_status,
     is_status_for_run_event_class,
 )
-from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
+from datahub.ingestion.source.vertexai.vertexai_state import (
+    ModelUsageTracker,
+    VertexAIStateHandler,
+)
 from datahub.ingestion.source.vertexai.vertexai_utils import (
+    filter_by_update_time,
     get_actor_from_labels,
     get_resource_category_container,
+    log_checkpoint_time,
     log_progress,
+    sort_by_update_time,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -61,8 +67,6 @@ logger = logging.getLogger(__name__)
 
 
 class VertexAIExperimentExtractor:
-    """Extracts experiment and experiment run metadata from Vertex AI."""
-
     def __init__(
         self,
         config: VertexAIConfig,
@@ -72,7 +76,7 @@ class VertexAIExperimentExtractor:
         uri_parser: VertexAIURIParser,
         project_id: str,
         yield_common_aspects_fn: YieldCommonAspectsProtocol,
-        model_usage_tracker: Any,
+        model_usage_tracker: ModelUsageTracker,
         platform: str,
         state_handler: VertexAIStateHandler,
     ):
@@ -96,16 +100,13 @@ class VertexAIExperimentExtractor:
             ResourceTypes.EXPERIMENT
         )
         if last_checkpoint_millis:
-            checkpoint_time = datetime.fromtimestamp(
-                last_checkpoint_millis / 1000, tz=timezone.utc
-            ).strftime("%Y-%m-%d %H:%M:%S")
-            logger.info(
-                f"Incremental mode: Only processing Experiments updated after {checkpoint_time} UTC"
-            )
+            log_checkpoint_time(last_checkpoint_millis, "Experiment")
 
-        exps = aiplatform.Experiment.list()
+        experiments = aiplatform.Experiment.list()
         filtered = [
-            e for e in exps if self.config.experiment_name_pattern.allowed(e.name)
+            e
+            for e in experiments
+            if self.config.experiment_name_pattern.allowed(e.name)
         ]
 
         experiment_metadata = [
@@ -116,21 +117,13 @@ class VertexAIExperimentExtractor:
             )
             for e in filtered
         ]
-        experiment_metadata.sort(
-            key=lambda e: e.update_time or datetime.min.replace(tzinfo=timezone.utc),
-            reverse=True,
-        )
+        sort_by_update_time(experiment_metadata)
 
         if last_checkpoint_millis:
-            original_count = len(experiment_metadata)
-            experiment_metadata = [
-                e
-                for e in experiment_metadata
-                if e.update_time
-                and int(e.update_time.timestamp() * 1000) > last_checkpoint_millis
-            ]
-            logger.info(
-                f"Filtered to {len(experiment_metadata)} new experiments (out of {original_count} total)"
+            experiment_metadata = filter_by_update_time(
+                experiment_metadata,
+                last_checkpoint_millis,
+                resource_type="experiments",
             )
 
         if self.config.max_experiments is not None:
@@ -177,12 +170,7 @@ class VertexAIExperimentExtractor:
             ResourceTypes.EXPERIMENT_RUN
         )
         if last_checkpoint_millis:
-            checkpoint_time = datetime.fromtimestamp(
-                last_checkpoint_millis / 1000, tz=timezone.utc
-            ).strftime("%Y-%m-%d %H:%M:%S")
-            logger.info(
-                f"Incremental mode: Only processing ExperimentRuns updated after {checkpoint_time} UTC"
-            )
+            log_checkpoint_time(last_checkpoint_millis, "ExperimentRun")
 
         for experiment_meta in self.experiments:
             logger.info(
@@ -199,24 +187,14 @@ class VertexAIExperimentExtractor:
                 )
                 for r in runs
             ]
-            run_metadata.sort(
-                key=lambda r: r.update_time
-                or datetime.min.replace(tzinfo=timezone.utc),
-                reverse=True,
-            )
+            sort_by_update_time(run_metadata)
 
             if last_checkpoint_millis:
-                original_count = len(run_metadata)
-                run_metadata = [
-                    r
-                    for r in run_metadata
-                    if r.update_time
-                    and int(r.update_time.timestamp() * 1000) > last_checkpoint_millis
-                ]
-                if original_count > len(run_metadata):
-                    logger.debug(
-                        f"Filtered to {len(run_metadata)} new runs for experiment {experiment_meta.name} (out of {original_count} total)"
-                    )
+                run_metadata = filter_by_update_time(
+                    run_metadata,
+                    last_checkpoint_millis,
+                    resource_type="experiment runs",
+                )
 
             if self.config.max_runs_per_experiment is not None:
                 run_metadata = run_metadata[: self.config.max_runs_per_experiment]
@@ -306,7 +284,7 @@ class VertexAIExperimentExtractor:
         for exec in run.get_executions():
             exec_name = exec.name
             properties[f"created time ({exec_name})"] = str(exec.create_time)
-            properties[f"update time ({exec_name}) "] = str(exec.update_time)
+            properties[f"update time ({exec_name})"] = str(exec.update_time)
         return properties
 
     def _make_custom_properties_for_execution(self, execution: Execution) -> dict:
