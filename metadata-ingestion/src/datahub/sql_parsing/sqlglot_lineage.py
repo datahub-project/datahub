@@ -2313,9 +2313,6 @@ def create_lineage_from_sql_statements(
         try:
             session_id = str(uuid.uuid4())
             for query in queries:
-                query = query.strip()
-                if not query:
-                    continue
                 aggregator.add_observed_query(
                     observed=ObservedQuery(
                         query=query,
@@ -2356,7 +2353,7 @@ def create_lineage_from_sql_statements(
             in_tables: OrderedSet[str] = OrderedSet()
             min_confidence = 1.0
             has_resolved_queries = False
-            cll_by_key: Dict[Tuple[Optional[str], str], ColumnLineageInfo] = {}
+            all_column_lineage: List[ColumnLineageInfo] = []
 
             for query_id, resolved in resolved_by_id.items():
                 if query_id in temp_creator_ids:
@@ -2368,35 +2365,14 @@ def create_lineage_from_sql_statements(
                     in_tables.add(upstream)
                 min_confidence = min(min_confidence, resolved.confidence_score)
 
-                # downstream_urn is None for SELECT-only queries (no output table).
+                # Skip CLL for SELECT-only queries (no output table).
                 downstream_urn: Optional[str] = query_to_downstream.get(query_id)
-                for col_lineage in resolved.column_lineage:
-                    key = (downstream_urn, col_lineage.downstream.column)
-                    existing = cll_by_key.get(key)
-                    if existing is None:
-                        cll_by_key[key] = col_lineage
-                        continue
-
-                    # Multiple queries can INSERT into the same target column
-                    # (e.g. two INSERTs to the same table). Merge their upstream
-                    # sources so none are lost.
-                    existing_upstream_set = {
-                        (u.table, u.column) for u in existing.upstreams
-                    }
-                    merged_upstreams = list(existing.upstreams)
-                    for u in col_lineage.upstreams:
-                        if (u.table, u.column) not in existing_upstream_set:
-                            merged_upstreams.append(u)
-                    cll_by_key[key] = ColumnLineageInfo(
-                        downstream=existing.downstream,
-                        upstreams=merged_upstreams,
-                        logic=existing.logic,
-                    )
+                if downstream_urn is not None:
+                    all_column_lineage.extend(resolved.column_lineage)
         finally:
             aggregator.close()
 
         all_in_tables = list(in_tables)
-        all_column_lineage = list(cll_by_key.values())
 
         if not all_in_tables and not all_out_tables:
             return SqlParsingResult(

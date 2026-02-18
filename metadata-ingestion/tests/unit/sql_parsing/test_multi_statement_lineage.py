@@ -453,8 +453,10 @@ class TestPersistentTableColumnLineage:
 
 
 class TestSelectOnlyQueries:
-    """SELECT-only queries (no downstream tables) should return lineage showing
-    which tables were read, even though there's no output table.
+    """SELECT-only queries (no downstream tables) should capture table-level
+    lineage (in_tables) but NOT produce column-level lineage.
+
+    CLL is skipped for SELECT-only queries because downstream field URN is None
     """
 
     def test_single_select_returns_input_tables(self) -> None:
@@ -509,66 +511,33 @@ class TestSelectOnlyQueries:
         assert _table_short_names(result.in_tables) == {"source1", "source2"}
         assert _table_short_names(result.out_tables) == {"target"}
 
-    def test_select_column_lineage_with_no_downstream_table(self) -> None:
-        """SELECT query should capture column lineage with downstream.table=None."""
+    def test_select_only_produces_no_column_lineage(self) -> None:
         result = _parse(["SELECT id, name FROM source"])
-        assert result.column_lineage is not None
-        assert len(result.column_lineage) == 2
+        assert result.column_lineage is None
 
-        # Check that column lineage has None as downstream table
-        for cll in result.column_lineage:
-            assert cll.downstream.table is None
-            assert cll.downstream.column in ["id", "name"]
-
-        # Extract upstream columns
-        cll_map = {}
-        for cll in result.column_lineage:
-            cll_map[cll.downstream.column] = [
-                f"{_urn_to_table_name(str(u.table))}.{u.column}" for u in cll.upstreams
-            ]
-
-        assert "source.id" in cll_map["id"]
-        assert "source.name" in cll_map["name"]
-
-    def test_select_join_column_lineage_resolves_correctly(self) -> None:
-        """SELECT with JOIN should show which columns come from which table."""
-        result = _parse(
-            ["SELECT s1.id, s2.name FROM source1 s1 JOIN source2 s2 ON s1.id = s2.id"]
-        )
-        assert result.column_lineage is not None
-
-        # Extract column lineage
-        cll_map = {}
-        for cll in result.column_lineage:
-            assert cll.downstream.table is None
-            cll_map[cll.downstream.column] = [
-                f"{_urn_to_table_name(str(u.table))}.{u.column}" for u in cll.upstreams
-            ]
-
-        assert "source1.id" in cll_map["id"]
-        assert "source2.name" in cll_map["name"]
-
-    def test_select_from_temp_resolves_column_lineage_to_source(self) -> None:
-        """SELECT from temp table should resolve column lineage to original source."""
+    def test_select_from_temp_produces_no_column_lineage(self) -> None:
+        """SELECT from temp table produces no CLL (no downstream target)."""
         result = _parse(
             [
                 "CREATE TEMP TABLE staging AS SELECT id, name FROM source",
                 "SELECT id, name FROM staging",
             ]
         )
-        assert result.column_lineage is not None
+        assert result.column_lineage is None
 
-        # Extract column lineage
-        cll_map = {}
-        for cll in result.column_lineage:
-            assert cll.downstream.table is None
-            cll_map[cll.downstream.column] = [
-                f"{_urn_to_table_name(str(u.table))}.{u.column}" for u in cll.upstreams
+    def test_mixed_select_and_insert_only_has_insert_cll(self) -> None:
+        """Only the INSERT produces CLL; the SELECT does not."""
+        result = _parse(
+            [
+                "SELECT id FROM source1",
+                "INSERT INTO target SELECT name FROM source2",
             ]
-
-        # Temp table resolved: columns trace back to source
-        assert "source.id" in cll_map["id"]
-        assert "source.name" in cll_map["name"]
+        )
+        assert result.column_lineage is not None
+        # Only the INSERT's CLL is present
+        for cll in result.column_lineage:
+            assert cll.downstream.table is not None
+            assert _urn_to_table_name(str(cll.downstream.table)) == "target"
 
 
 class TestMixed_TempAndPersistentLineage:
@@ -663,21 +632,15 @@ class TestNoPhantomTempTableLineage:
         ]
         assert len(target_cll) == 2
 
-    def test_select_from_temp_has_no_phantom_temp_downstream(self) -> None:
-        """SELECT from temp should have CLL with downstream.table=None,
-        not the temp table URN."""
+    def test_select_from_temp_produces_no_cll(self) -> None:
+        """SELECT from temp produces no CLL — no downstream"""
         result = _parse(
             [
                 "CREATE TEMP TABLE staging AS SELECT id, name FROM source",
                 "SELECT id, name FROM staging",
             ]
         )
-        assert result.column_lineage is not None
-        for cll in result.column_lineage:
-            assert cll.downstream.table is None, (
-                f"SELECT query CLL should have downstream.table=None, "
-                f"got {cll.downstream.table}"
-            )
+        assert result.column_lineage is None
 
 
 class TestEdgeCasePatterns:
@@ -711,8 +674,8 @@ class TestEdgeCasePatterns:
         assert set(cll["target"]["id"]) == {"source.id"}
         assert set(cll["target"]["name"]) == {"source.name"}
 
-    def test_multiple_inserts_to_same_target_merge_lineage(self) -> None:
-        """Multiple INSERTs to same target should merge upstream sources."""
+    def test_multiple_inserts_to_same_target_capture_all_sources(self) -> None:
+        """Multiple INSERTs to same target should capture all upstream sources."""
         result = _parse(
             [
                 "INSERT INTO target SELECT id FROM source1",
