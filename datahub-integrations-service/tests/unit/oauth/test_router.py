@@ -2070,3 +2070,540 @@ class TestExecuteGraphqlAsUser:
                     auth_token="user-jwt-token",
                     query="mutation { doThing }",
                 )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for test_oauth_connect endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestTestOAuthConnect:
+    """Test test_oauth_connect endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_successful_test_connect(self) -> None:
+        """Test successful test OAuth connect returns authorization URL."""
+        from datahub_integrations.oauth.router import (
+            TestOAuthConnectRequest,
+            test_oauth_connect,
+        )
+        from datahub_integrations.oauth.state_store import InMemoryOAuthStateStore
+
+        state_store = InMemoryOAuthStateStore(ttl_seconds=60)
+
+        body = TestOAuthConnectRequest(
+            oauth_config={
+                "clientId": "test-client",
+                "clientSecret": "test-secret",
+                "authorizationUrl": "https://provider.com/authorize",
+                "tokenUrl": "https://provider.com/token",
+            },
+            mcp_config={"url": "https://mcp.example.com", "transport": "HTTP"},
+        )
+
+        with patch(
+            "datahub_integrations.oauth.router.DATAHUB_FRONTEND_URL",
+            "https://datahub.example.com",
+        ):
+            response = await test_oauth_connect(
+                body=body,
+                user_urn="urn:li:corpuser:admin",
+                auth_token="jwt-token",
+                state_store=state_store,
+            )
+
+        assert response.authorization_url is not None
+        assert "client_id=test-client" in response.authorization_url
+        assert "state=" in response.authorization_url
+        assert len(state_store) == 1
+
+    @pytest.mark.asyncio
+    async def test_rejects_missing_client_id(self) -> None:
+        """Test rejects request without clientId."""
+        from datahub_integrations.oauth.router import (
+            TestOAuthConnectRequest,
+            test_oauth_connect,
+        )
+
+        body = TestOAuthConnectRequest(
+            oauth_config={"authorizationUrl": "https://provider.com/authorize"},
+            mcp_config={"url": "https://mcp.example.com"},
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await test_oauth_connect(
+                body=body,
+                user_urn="urn:li:corpuser:admin",
+                auth_token="jwt-token",
+                state_store=MagicMock(),
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "clientId" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_rejects_missing_authorization_url(self) -> None:
+        """Test rejects request without authorizationUrl."""
+        from datahub_integrations.oauth.router import (
+            TestOAuthConnectRequest,
+            test_oauth_connect,
+        )
+
+        body = TestOAuthConnectRequest(
+            oauth_config={"clientId": "test-client"},
+            mcp_config={"url": "https://mcp.example.com"},
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await test_oauth_connect(
+                body=body,
+                user_urn="urn:li:corpuser:admin",
+                auth_token="jwt-token",
+                state_store=MagicMock(),
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "clientId" in str(exc_info.value.detail) or "authorizationUrl" in str(
+            exc_info.value.detail
+        )
+
+    @pytest.mark.asyncio
+    async def test_rejects_missing_mcp_url(self) -> None:
+        """Test rejects request without MCP URL."""
+        from datahub_integrations.oauth.router import (
+            TestOAuthConnectRequest,
+            test_oauth_connect,
+        )
+
+        body = TestOAuthConnectRequest(
+            oauth_config={
+                "clientId": "test-client",
+                "authorizationUrl": "https://provider.com/authorize",
+            },
+            mcp_config={},
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await test_oauth_connect(
+                body=body,
+                user_urn="urn:li:corpuser:admin",
+                auth_token="jwt-token",
+                state_store=MagicMock(),
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "url" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_stores_mcp_discovery_flow_mode(self) -> None:
+        """Test that state is stored with McpDiscoveryFlow mode."""
+        from datahub_integrations.oauth.router import (
+            TestOAuthConnectRequest,
+            test_oauth_connect,
+        )
+        from datahub_integrations.oauth.state_store import (
+            InMemoryOAuthStateStore,
+            McpDiscoveryFlow,
+        )
+
+        state_store = InMemoryOAuthStateStore(ttl_seconds=60)
+        oauth_config = {
+            "clientId": "test-client",
+            "authorizationUrl": "https://provider.com/authorize",
+        }
+        mcp_config = {"url": "https://mcp.example.com"}
+
+        body = TestOAuthConnectRequest(oauth_config=oauth_config, mcp_config=mcp_config)
+
+        with patch(
+            "datahub_integrations.oauth.router.DATAHUB_FRONTEND_URL",
+            "https://datahub.example.com",
+        ):
+            response = await test_oauth_connect(
+                body=body,
+                user_urn="urn:li:corpuser:admin",
+                auth_token="jwt-token",
+                state_store=state_store,
+            )
+
+        # Extract nonce from URL and consume the state
+        url = response.authorization_url
+        nonce = url.split("state=")[1]
+        state = state_store.get_and_consume_state(nonce)
+
+        assert state is not None
+        assert isinstance(state.flow_mode, McpDiscoveryFlow)
+        assert state.flow_mode.oauth_config == oauth_config
+        assert state.flow_mode.mcp_config == mcp_config
+        assert state.plugin_id == "__test__"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for corrupt_credentials endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestCorruptCredentials:
+    """Test corrupt_credentials endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_admin_can_corrupt_credentials(self) -> None:
+        """Test admin user can corrupt credentials."""
+        from datahub_integrations.oauth.credential_store import OAuthTokens
+        from datahub_integrations.oauth.router import corrupt_credentials
+
+        mock_creds = MagicMock()
+        mock_creds.oauth_tokens = OAuthTokens(
+            access_token="valid-token", refresh_token="valid-refresh", expires_at=None
+        )
+
+        mock_credential_store = MagicMock()
+        mock_credential_store.get_credentials.return_value = mock_creds
+
+        response = await corrupt_credentials(
+            plugin_id="test-plugin",
+            user_urn="urn:li:corpuser:admin",
+            credential_store=mock_credential_store,
+        )
+
+        assert response.success is True
+        assert "corrupted" in response.message.lower()
+        mock_credential_store.save_oauth_tokens.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_non_admin_rejected(self) -> None:
+        """Test non-admin user is rejected with 403."""
+        from datahub_integrations.oauth.router import corrupt_credentials
+
+        with pytest.raises(HTTPException) as exc_info:
+            await corrupt_credentials(
+                plugin_id="test-plugin",
+                user_urn="urn:li:corpuser:regularuser",
+                credential_store=MagicMock(),
+            )
+
+        assert exc_info.value.status_code == 403
+        assert "admin" in str(exc_info.value.detail).lower()
+
+    @pytest.mark.asyncio
+    async def test_no_credentials_returns_404(self) -> None:
+        """Test returns 404 when no credentials exist."""
+        from datahub_integrations.oauth.router import corrupt_credentials
+
+        mock_credential_store = MagicMock()
+        mock_credential_store.get_credentials.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            await corrupt_credentials(
+                plugin_id="nonexistent-plugin",
+                user_urn="urn:li:corpuser:admin",
+                credential_store=mock_credential_store,
+            )
+
+        assert exc_info.value.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_no_oauth_tokens_returns_404(self) -> None:
+        """Test returns 404 when credentials exist but no OAuth tokens."""
+        from datahub_integrations.oauth.router import corrupt_credentials
+
+        mock_creds = MagicMock()
+        mock_creds.oauth_tokens = None
+
+        mock_credential_store = MagicMock()
+        mock_credential_store.get_credentials.return_value = mock_creds
+
+        with pytest.raises(HTTPException) as exc_info:
+            await corrupt_credentials(
+                plugin_id="test-plugin",
+                user_urn="urn:li:corpuser:admin",
+                credential_store=mock_credential_store,
+            )
+
+        assert exc_info.value.status_code == 404
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for _handle_test_mcp_discovery_callback
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestHandleTestMcpDiscoveryCallback:
+    """Test _handle_test_mcp_discovery_callback helper."""
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router.exchange_code_for_tokens")
+    async def test_successful_discovery(self, mock_exchange: MagicMock) -> None:
+        """Test successful OAuth + MCP discovery."""
+        from datahub_integrations.mcp_integration.connection_tester import McpTestResult
+        from datahub_integrations.oauth.router import (
+            _handle_test_mcp_discovery_callback,
+        )
+        from datahub_integrations.oauth.state_store import McpDiscoveryFlow, OAuthState
+
+        mock_exchange.return_value = MagicMock(access_token="test-token")
+
+        oauth_state = OAuthState(
+            user_urn="urn:li:corpuser:admin",
+            plugin_id="__test__",
+            redirect_uri="https://example.com/callback",
+            code_verifier="verifier",
+            created_at=time.time(),
+            flow_mode=McpDiscoveryFlow(
+                oauth_config={
+                    "tokenUrl": "https://provider.com/token",
+                    "clientId": "test-client",
+                },
+                mcp_config={"url": "https://mcp.example.com"},
+            ),
+        )
+
+        mock_mcp_result = McpTestResult(
+            success=True,
+            tool_count=3,
+            tool_names=["search", "get", "list"],
+            duration_seconds=1.0,
+        )
+
+        with patch(
+            "datahub_integrations.mcp_integration.connection_tester.check_mcp_connection",
+            return_value=mock_mcp_result,
+        ):
+            response = await _handle_test_mcp_discovery_callback(
+                oauth_state=oauth_state, code="auth-code"
+            )
+
+        body = _get_response_body_str(response)
+        assert "Discovered 3 tools" in body
+        assert "search" in body
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router.exchange_code_for_tokens")
+    async def test_mcp_connection_failure(self, mock_exchange: MagicMock) -> None:
+        """Test MCP connection failure after successful token exchange."""
+        from datahub_integrations.mcp_integration.connection_tester import McpTestResult
+        from datahub_integrations.oauth.router import (
+            _handle_test_mcp_discovery_callback,
+        )
+        from datahub_integrations.oauth.state_store import McpDiscoveryFlow, OAuthState
+
+        mock_exchange.return_value = MagicMock(access_token="test-token")
+
+        oauth_state = OAuthState(
+            user_urn="urn:li:corpuser:admin",
+            plugin_id="__test__",
+            redirect_uri="https://example.com/callback",
+            code_verifier="verifier",
+            created_at=time.time(),
+            flow_mode=McpDiscoveryFlow(
+                oauth_config={
+                    "tokenUrl": "https://provider.com/token",
+                    "clientId": "c",
+                },
+                mcp_config={"url": "https://mcp.example.com"},
+            ),
+        )
+
+        mock_mcp_result = McpTestResult(
+            success=False,
+            error="Connection refused",
+            error_type="ConnectionError",
+        )
+
+        with patch(
+            "datahub_integrations.mcp_integration.connection_tester.check_mcp_connection",
+            return_value=mock_mcp_result,
+        ):
+            response = await _handle_test_mcp_discovery_callback(
+                oauth_state=oauth_state, code="auth-code"
+            )
+
+        body = _get_response_body_str(response)
+        assert "MCP Connection Failed" in body
+        assert "Connection refused" in body
+
+    @pytest.mark.asyncio
+    async def test_token_exchange_failure(self) -> None:
+        """Test failure during token exchange."""
+        from datahub_integrations.oauth.router import (
+            _handle_test_mcp_discovery_callback,
+        )
+        from datahub_integrations.oauth.state_store import McpDiscoveryFlow, OAuthState
+
+        oauth_state = OAuthState(
+            user_urn="urn:li:corpuser:admin",
+            plugin_id="__test__",
+            redirect_uri="https://example.com/callback",
+            code_verifier="verifier",
+            created_at=time.time(),
+            flow_mode=McpDiscoveryFlow(
+                oauth_config={
+                    "tokenUrl": "https://provider.com/token",
+                    "clientId": "c",
+                },
+                mcp_config={"url": "https://mcp.example.com"},
+            ),
+        )
+
+        with patch(
+            "datahub_integrations.oauth.router.exchange_code_for_tokens",
+            side_effect=HTTPException(status_code=400, detail="Invalid grant"),
+        ):
+            response = await _handle_test_mcp_discovery_callback(
+                oauth_state=oauth_state, code="expired-code"
+            )
+
+        body = _get_response_body_str(response)
+        assert "Token Exchange Failed" in body
+        assert "Invalid grant" in body
+
+    @pytest.mark.asyncio
+    async def test_unexpected_error(self) -> None:
+        """Test unexpected error during callback."""
+        from datahub_integrations.oauth.router import (
+            _handle_test_mcp_discovery_callback,
+        )
+        from datahub_integrations.oauth.state_store import McpDiscoveryFlow, OAuthState
+
+        oauth_state = OAuthState(
+            user_urn="urn:li:corpuser:admin",
+            plugin_id="__test__",
+            redirect_uri="https://example.com/callback",
+            code_verifier="verifier",
+            created_at=time.time(),
+            flow_mode=McpDiscoveryFlow(
+                oauth_config={
+                    "tokenUrl": "https://provider.com/token",
+                    "clientId": "c",
+                },
+                mcp_config={"url": "https://mcp.example.com"},
+            ),
+        )
+
+        with patch(
+            "datahub_integrations.oauth.router.exchange_code_for_tokens",
+            side_effect=RuntimeError("Unexpected database error"),
+        ):
+            response = await _handle_test_mcp_discovery_callback(
+                oauth_state=oauth_state, code="code"
+            )
+
+        body = _get_response_body_str(response)
+        assert "Test Failed" in body
+        assert "unexpected" in body.lower()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for _create_test_result_popup and _create_popup_response
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestCreateTestResultPopup:
+    """Test _create_test_result_popup HTML generation."""
+
+    def test_success_popup_contains_tool_info(self) -> None:
+        """Test success popup shows tool count and names."""
+        from datahub_integrations.oauth.router import _create_test_result_popup
+
+        response = _create_test_result_popup(
+            success=True,
+            message="Discovered 3 tools",
+            details="search, get, list",
+            result={"type": "oauth_test_result", "success": True, "toolCount": 3},
+        )
+
+        body = _get_response_body_str(response)
+        assert "Discovered 3 tools" in body
+        assert "search, get, list" in body
+        assert "Test Passed" in body
+        assert "postMessage" in body
+
+    def test_failure_popup_contains_error(self) -> None:
+        """Test failure popup shows error details."""
+        from datahub_integrations.oauth.router import _create_test_result_popup
+
+        response = _create_test_result_popup(
+            success=False,
+            message="Connection Failed",
+            details="Server returned 401",
+            result={"type": "oauth_test_result", "success": False},
+        )
+
+        body = _get_response_body_str(response)
+        assert "Connection Failed" in body
+        assert "Server returned 401" in body
+        assert "Test Failed" in body
+
+    def test_xss_escape_in_details(self) -> None:
+        """Test XSS is escaped in tool names / details."""
+        from datahub_integrations.oauth.router import _create_test_result_popup
+
+        response = _create_test_result_popup(
+            success=True,
+            message="Test",
+            details='<img src=x onerror="alert(1)">',
+            result={"type": "oauth_test_result", "success": True},
+        )
+
+        body = _get_response_body_str(response)
+        # The malicious input should be escaped
+        assert 'onerror="alert(1)"' not in body
+        assert "&lt;img" in body
+
+
+class TestCreatePopupResponse:
+    """Test _create_popup_response HTML generation."""
+
+    def test_success_popup(self) -> None:
+        """Test success popup content."""
+        from datahub_integrations.oauth.router import _create_popup_response
+
+        response = _create_popup_response(
+            success=True,
+            plugin_id="test-plugin",
+            connection_urn="urn:li:dataHubConnection:test",
+        )
+
+        body = _get_response_body_str(response)
+        assert "Connected Successfully" in body
+        assert "postMessage" in body
+
+    def test_failure_popup_with_error(self) -> None:
+        """Test failure popup with error message."""
+        from datahub_integrations.oauth.router import _create_popup_response
+
+        response = _create_popup_response(
+            success=False,
+            plugin_id="test-plugin",
+            error="Token exchange failed",
+        )
+
+        body = _get_response_body_str(response)
+        assert "Connection Failed" in body
+        assert "Token exchange failed" in body
+
+    def test_xss_escape_in_error(self) -> None:
+        """Test XSS is escaped in error messages."""
+        from datahub_integrations.oauth.router import _create_popup_response
+
+        response = _create_popup_response(
+            success=False,
+            plugin_id="test-plugin",
+            error='<img src=x onerror="alert(1)">',
+        )
+
+        body = _get_response_body_str(response)
+        assert 'onerror="alert(1)"' not in body
+        assert "&lt;img" in body
+
+    def test_failure_popup_without_error_shows_default(self) -> None:
+        """Test failure popup shows default message when no error provided."""
+        from datahub_integrations.oauth.router import _create_popup_response
+
+        response = _create_popup_response(
+            success=False,
+            plugin_id="test-plugin",
+        )
+
+        body = _get_response_body_str(response)
+        assert "Please try again" in body

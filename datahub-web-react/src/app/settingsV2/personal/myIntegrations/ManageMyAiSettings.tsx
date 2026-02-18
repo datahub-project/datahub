@@ -43,7 +43,7 @@ interface CustomHeadersModalState {
 
 export const ManageMyAiSettings: React.FC = () => {
     const { data, loading, refetch } = useGetAiPluginsWithUserStatusQuery({
-        fetchPolicy: 'cache-and-network',
+        fetchPolicy: 'network-only',
     });
 
     const [updateUserSettings] = useUpdateUserAiPluginSettingsMutation();

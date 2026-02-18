@@ -22,12 +22,81 @@ Known Limitations (Phase 2):
 import hashlib
 import secrets
 import time
-from typing import NamedTuple, Optional, Protocol
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, NamedTuple, Optional, Protocol, Union
 
 from cachetools import TTLCache
+from typing_extensions import TypedDict
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# OAuth Flow Modes (discriminated union)
+#
+# Each variant carries its own payload. The callback branches on the variant
+# type to decide what to do with the tokens after exchange.
+# ═══════════════════════════════════════════════════════════════════════════════
 
 
-class OAuthState(NamedTuple):
+class TestOAuthConfig(TypedDict, total=False):
+    """Raw OAuth server config for test connection flows.
+
+    These values come directly from the admin form, not from a persisted entity.
+    """
+
+    clientId: str
+    clientSecret: str
+    authorizationUrl: str
+    tokenUrl: str
+    scopes: List[str]
+    tokenAuthMethod: str  # POST_BODY, BASIC, CUSTOM, NONE
+    authScheme: str
+    authHeaderName: str
+
+
+class TestMcpConfig(TypedDict, total=False):
+    """MCP server config for test connection flows.
+
+    These values come directly from the admin form, not from a persisted entity.
+    """
+
+    url: str
+    transport: str  # HTTP, SSE
+    timeout: float
+    customHeaders: Dict[str, str]
+
+
+@dataclass(frozen=True)
+class NormalOAuthFlow:
+    """Normal flow: save credentials to DataHubConnection, update CorpUserSettings."""
+
+    type: str = "normal"
+
+
+@dataclass(frozen=True)
+class McpDiscoveryFlow:
+    """Test flow: exchange tokens, test MCP list_tools(), discard tokens.
+
+    Attributes:
+        oauth_config: Raw OAuth server config (clientId, clientSecret, tokenUrl, etc.).
+                      Used instead of loading from an entity (which may not exist yet).
+        mcp_config: MCP server config (url, transport, timeout, customHeaders).
+                    Used to test tool discovery after token exchange.
+    """
+
+    oauth_config: Dict[str, Any]
+    mcp_config: Dict[str, Any]
+    type: str = "mcp_discovery"
+
+
+OAuthFlowMode = Union[NormalOAuthFlow, McpDiscoveryFlow]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# OAuth State
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@dataclass(frozen=True)
+class OAuthState:
     """
     OAuth state stored during the authorization flow.
 
@@ -42,6 +111,9 @@ class OAuthState(NamedTuple):
         created_at: Unix timestamp when the state was created.
         auth_token: The user's authentication token (JWT) captured at connect time.
                     Used to make API calls on behalf of the user in the callback.
+        flow_mode: Controls post-token-exchange behavior. NormalOAuthFlow saves
+                   credentials; McpDiscoveryFlow tests MCP and discards tokens.
+                   Each variant carries its own mode-specific payload.
     """
 
     user_urn: str
@@ -50,6 +122,7 @@ class OAuthState(NamedTuple):
     code_verifier: str
     created_at: float
     auth_token: Optional[str] = None
+    flow_mode: OAuthFlowMode = field(default_factory=NormalOAuthFlow)
 
 
 class CreateStateResult(NamedTuple):
@@ -82,6 +155,7 @@ class OAuthStateStore(Protocol):
         authorization_url: str,
         code_verifier: str,
         auth_token: Optional[str] = None,
+        flow_mode: Optional[OAuthFlowMode] = None,
     ) -> CreateStateResult:
         """
         Create and store a new OAuth state.
@@ -93,6 +167,7 @@ class OAuthStateStore(Protocol):
             authorization_url: The base authorization URL (without state param).
             code_verifier: PKCE code verifier for the token exchange.
             auth_token: The user's auth token to use for API calls in the callback.
+            flow_mode: Controls post-token-exchange behavior. Defaults to NormalOAuthFlow.
 
         Returns:
             CreateStateResult with the nonce and full authorization URL.
@@ -175,6 +250,7 @@ class InMemoryOAuthStateStore:
         authorization_url: str,
         code_verifier: str,
         auth_token: Optional[str] = None,
+        flow_mode: Optional[OAuthFlowMode] = None,
     ) -> CreateStateResult:
         """
         Create and store a new OAuth state.
@@ -189,6 +265,7 @@ class InMemoryOAuthStateStore:
             authorization_url: The base authorization URL (may already have params).
             code_verifier: PKCE code verifier for the token exchange.
             auth_token: The user's auth token to use for API calls in the callback.
+            flow_mode: Controls post-token-exchange behavior. Defaults to NormalOAuthFlow.
 
         Returns:
             CreateStateResult with the nonce and full authorization URL.
@@ -204,6 +281,7 @@ class InMemoryOAuthStateStore:
             code_verifier=code_verifier,
             created_at=time.time(),
             auth_token=auth_token,
+            flow_mode=flow_mode or NormalOAuthFlow(),
         )
 
         # Store the state

@@ -34,7 +34,7 @@ Two separate but connected features:
 | mcp-manager           | Update ExternalMCPManager to load from GlobalSettings + CorpUserSettings  | complete | 3     |
 | chat-integration      | Integrate external MCP tools into chat session                            | complete | 3     |
 | test-coverage         | Improve test coverage (token refresh, OAuth errors, resolvers, deletes)   | pending  | 4     |
-| operational-metrics   | MCP tool call metrics, OAuth flow metrics, latency logging                | pending  | 4     |
+| operational-metrics   | MCP tool call metrics, OAuth flow metrics, latency logging                | complete | 4     |
 | test-connectivity     | Admin "Test Connection" flow to validate MCP server config                | pending  | 4     |
 | cascading-deletes     | Proper cascading delete via deletion hook or GC (not in resolvers)        | pending  | 4     |
 | dcr                   | Dynamic Client Registration (RFC 7591) for providers like Glean           | pending  | 4     |
@@ -1828,14 +1828,80 @@ _None currently._
 
 ### Phase 4 Log
 
-_Not started._
+**Started:** 2026-02-12
+
+#### Implementation Notes
+
+| Date       | Note                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-02-12 | **4.2 Operational metrics implemented.** Two existing observability systems enriched (OTel/Prometheus and Mixpanel telemetry). No new systems created.                                                                                                                                                                                                                                               |
+| 2026-02-12 | **Fixed latency gap**: `genai_tool_call_duration_seconds` histogram was defined but never populated. Added `record_tool_call_latency()` call in `agent_runner._execute_tool()`.                                                                                                                                                                                                                      |
+| 2026-02-12 | **`is_external` label on OTel tool metrics**: Added `is_external` boolean label to `genai_tool_calls_total` and `genai_tool_call_duration_seconds`. Plugin-level breakdown available via PromQL regex on tool name prefix (e.g., `tool=~"github__.*"`). No `plugin_id` label on OTel metrics — plugin IDs are GUIDs and not human-readable; the tool name prefix is the natural dashboard dimension. |
+| 2026-02-12 | **Plugin context on telemetry events**: Added `plugin_id`, `plugin_name`, `is_external` fields to `ChatbotToolCallEvent` for Mixpanel/analytics joins.                                                                                                                                                                                                                                               |
+| 2026-02-12 | **Plugin discovery metrics**: New `external_mcp_plugin_discovery_total` / `external_mcp_plugin_discovery_duration_seconds` with `{plugin_name, status}` labels. Recorded per-plugin in `ExternalMCPManager._discover_all_tools()`.                                                                                                                                                                   |
+| 2026-02-12 | **AI plugin OAuth metrics separate from bot OAuth**: Created dedicated `ai_plugin_oauth_total` / `ai_plugin_oauth_duration_seconds` with `{step, status}` labels (step = connect/callback/refresh). These are separate from `bot_oauth_*` metrics which track Slack/Teams bot installation flows. `BotPlatform` enum stays clean as bot platforms only.                                              |
+| 2026-02-12 | **Credential store kept reusable**: OAuth refresh metrics recorded in `ExternalMCPManager._get_auth_headers()` (the AI-plugin-specific caller), not inside `credential_store.get_access_token()`. The store accepts an optional `on_refresh(duration_seconds, success)` callback invoked only when an actual refresh occurs. This keeps the store reusable for Slack, Teams, or any future consumer. |
+| 2026-02-12 | **Keyword-only parameters**: `record_tool_call()` and `record_tool_call_latency()` on `CostTracker` now use `*` separator to enforce keyword-only arguments, preventing ambiguous positional boolean calls.                                                                                                                                                                                          |
+| 2026-02-12 | **OAuth router test coverage expanded**: Added 24 new tests covering `initiate_oauth_connect`, `save_api_key`, `disconnect_plugin`, `_update_user_plugin_settings`, `_remove_user_plugin_connection`, and `_execute_graphql_as_user`. Total OAuth router tests: 81.                                                                                                                                  |
+
+#### Files Created
+
+| File                                            | Status   | Notes                                                          |
+| ----------------------------------------------- | -------- | -------------------------------------------------------------- |
+| `tests/observability/test_ai_plugin_metrics.py` | complete | 20 tests for tool metrics, discovery, OAuth flow, cost tracker |
+
+#### Files Modified
+
+| File                                      | Status   | Notes                                                                                                                      |
+| ----------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `observability/metrics_constants.py`      | complete | Added `LABEL_IS_EXTERNAL`, `EXTERNAL_MCP_PLUGIN_DISCOVERY_*`, `AI_PLUGIN_OAUTH_*`, `LABEL_PLUGIN_NAME`, `LABEL_OAUTH_STEP` |
+| `observability/bot_metrics.py`            | complete | Added `AiPluginOAuthStep` enum, `record_ai_plugin_oauth_flow()`, `record_plugin_discovery()`, discovery metrics            |
+| `observability/cost.py`                   | complete | Added `is_external` param to `record_tool_call()` / `record_tool_call_latency()`, keyword-only enforcement                 |
+| `chat/agent/agent_runner.py`              | complete | Added `record_tool_call_latency()` calls, `is_external` detection, plugin context on `ChatbotToolCallEvent`                |
+| `telemetry/chat_events.py`                | complete | Added `is_external`, `plugin_id`, `plugin_name` to `ChatbotToolCallEvent`                                                  |
+| `mcp_integration/external_mcp_manager.py` | complete | Added discovery metrics, OAuth refresh metrics via `on_refresh` callback                                                   |
+| `oauth/router.py`                         | complete | Added `record_ai_plugin_oauth_flow()` for connect and callback endpoints                                                   |
+| `oauth/credential_store.py`               | complete | Added `on_refresh` callback parameter to `get_access_token()`                                                              |
+| `tests/unit/oauth/test_router.py`         | complete | Added 24 tests for endpoints and helpers                                                                                   |
 
 #### Remaining Work
 
-| Task                             | Status  | Notes                                                                                |
-| -------------------------------- | ------- | ------------------------------------------------------------------------------------ |
-| 4.1 Improve test coverage        | pending | Token refresh, OAuth errors, resolver smoke tests, cascading delete tests            |
-| 4.2 Improve operational metrics  | pending | MCP tool call success/failure/latency, OAuth flow metrics, token refresh metrics     |
-| 4.3 Test connectivity for admins | pending | "Test Connection" button: ping MCP server, list tools, report success/failure        |
-| 4.4 Cascading deletes rework     | pending | Deletion hook or GC, `@Relationship` annotations, searchable reference fields        |
-| 4.5 Dynamic Client Registration  | pending | RFC 7591 for Glean etc., admin-time registration, auto-register button in OAuth form |
+| Task                             | Status   | Notes                                                                                                               |
+| -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
+| 4.1 Improve test coverage        | pending  | Token refresh, OAuth errors, resolver smoke tests, cascading delete tests                                           |
+| 4.2 Improve operational metrics  | complete | Implemented and verified against running Docker container                                                           |
+| 4.3 Test connectivity for admins | complete | See Phase 4.3 Log below. TODO: apply synchronous popup pattern to existing useOAuthConnect hook (user connect flow) |
+| 4.4 Cascading deletes rework     | pending  | Deletion hook or GC, `@Relationship` annotations, searchable reference fields                                       |
+| 4.5 Dynamic Client Registration  | pending  | RFC 7591 for Glean etc., admin-time registration, auto-register button in OAuth form                                |
+
+#### Phase 4.3 Log: Test Connectivity for Admins
+
+**Scope:** OAuth auth type only. "Test Connection" button inside the OAuth configuration section of the Create/Edit MCP Server dialog.
+
+**Key Decisions:**
+
+| Date       | Decision                                                                                                                                                                                                                                                                                                                                                 |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-02-13 | Test connection scoped to USER_OAUTH only. Other auth types (NONE, SHARED_API_KEY, USER_API_KEY) deferred -- they are simpler (synchronous, no OAuth popup).                                                                                                                                                                                             |
+| 2026-02-13 | Admin must go through OAuth flow to test. The callback exchanges tokens transiently and tests MCP tool discovery, then discards tokens. No persistent side effects.                                                                                                                                                                                      |
+| 2026-02-13 | OAuthState uses discriminated union (`OAuthFlowMode`) instead of flat enum + optional fields. `NormalOAuthFlow` (empty payload) vs `McpDiscoveryFlow` (carries raw OAuth + MCP config). Future flow modes just add a new dataclass.                                                                                                                      |
+| 2026-02-13 | Raw OAuth config (clientId, clientSecret, tokenUrl) stored in OAuthState so the callback can exchange tokens without loading from an entity that may not exist yet.                                                                                                                                                                                      |
+| 2026-02-13 | TypedDicts (`TestOAuthConfig`, `TestMcpConfig`) used for the flow mode payloads to document expected fields.                                                                                                                                                                                                                                             |
+| 2026-02-13 | **Safari popup fix:** `window.open()` must be called synchronously in the click handler's call stack. Safari blocks popups opened after async operations (fetch). Solution: open `about:blank` synchronously, then navigate via `popup.location.href` after fetch completes. This pattern should also be applied to the existing `useOAuthConnect` hook. |
+| 2026-02-13 | Polling fallback (OAuthResultStore) was built, tested, then removed. With synchronous popup opening, `postMessage` works reliably and polling adds complexity without benefit. Backend result store and polling endpoint were removed.                                                                                                                   |
+| 2026-02-13 | XSS protection: `html.escape()` applied to all user-controlled strings (tool names, error messages) before interpolation into popup HTML templates.                                                                                                                                                                                                      |
+
+**Files Created:**
+
+| File                                                    | Notes                                                                                                         |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `mcp_integration/connection_tester.py`                  | Standalone `check_mcp_connection()` helper -- creates MCP client, calls list_tools(), returns `McpTestResult` |
+| `datahub-web-react/.../hooks/useTestOAuthConnection.ts` | React hook for test connection flow with synchronous popup, postMessage listener, popup close monitoring      |
+
+**Files Modified:**
+
+| File                                                        | Notes                                                                                                                                                                                                                 |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `oauth/state_store.py`                                      | Added `OAuthFlowMode` discriminated union (`NormalOAuthFlow`, `McpDiscoveryFlow`), `TestOAuthConfig`/`TestMcpConfig` TypedDicts, `flow_mode` field on `OAuthState`, converted from NamedTuple to frozen dataclass     |
+| `oauth/router.py`                                           | Added `test-oauth-connect` endpoint, `McpDiscoveryFlow` branch in callback, `_handle_test_mcp_discovery_callback` helper, `_create_test_result_popup` with XSS escaping, XSS fix in existing `_create_popup_response` |
+| `datahub-web-react/.../sources/PluginConfigurationStep.tsx` | Added Test Connection button + result display inside OAuth grey section                                                                                                                                               |

@@ -106,6 +106,8 @@ from datahub_integrations.oauth.credential_store import (
 )
 from datahub_integrations.oauth.state_store import (
     InMemoryOAuthStateStore,
+    McpDiscoveryFlow,
+    OAuthState,
     generate_code_challenge,
     generate_code_verifier,
 )
@@ -208,6 +210,25 @@ class CallbackSuccessResponse(BaseModel):
     success: bool
     plugin_id: str
     connection_urn: str
+
+
+class TestOAuthConnectRequest(BaseModel):
+    """Request to test an OAuth connection to an MCP server.
+
+    Contains the raw OAuth and MCP config from the admin form.
+    No entities need to exist -- the config is used transiently for the test.
+    """
+
+    oauth_config: Dict[
+        str, Any
+    ]  # clientId, clientSecret, authorizationUrl, tokenUrl, scopes, tokenAuthMethod
+    mcp_config: Dict[str, Any]  # url, transport, timeout, customHeaders
+
+
+class TestOAuthConnectResponse(BaseModel):
+    """Response with authorization URL for test OAuth flow."""
+
+    authorization_url: str
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1035,6 +1056,80 @@ async def initiate_oauth_connect(
         raise
 
 
+@authenticated_router.post(
+    "/test-oauth-connect", response_model=TestOAuthConnectResponse
+)
+async def test_oauth_connect(
+    body: TestOAuthConnectRequest,
+    user_urn: Annotated[str, Depends(get_authenticated_user)],
+    auth_token: Annotated[str, Depends(get_auth_token)],
+    state_store: Annotated[InMemoryOAuthStateStore, Depends(get_state_store)],
+) -> TestOAuthConnectResponse:
+    """
+    Initiate an OAuth test connection flow.
+
+    Similar to initiate_oauth_connect but uses raw config from the request body
+    instead of loading from entities. After OAuth completes, the callback will
+    test MCP tool discovery and discard the tokens (no persistent side effects).
+
+    This allows admins to validate OAuth + MCP connectivity before saving.
+    """
+    oauth_config = body.oauth_config
+    mcp_config = body.mcp_config
+
+    # Validate required OAuth fields
+    if not oauth_config.get("clientId") or not oauth_config.get("authorizationUrl"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OAuth config must include clientId and authorizationUrl",
+        )
+
+    if not mcp_config.get("url"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="MCP config must include url",
+        )
+
+    # Generate PKCE
+    code_verifier = generate_code_verifier()
+    code_challenge = generate_code_challenge(code_verifier)
+
+    # Build callback URL (same as normal flow -- single callback URL for all)
+    redirect_uri = build_oauth_callback_url()
+
+    # Build authorization URL from raw config
+    server_config = {
+        "clientId": oauth_config["clientId"],
+        "authorizationUrl": oauth_config["authorizationUrl"],
+        "scopes": oauth_config.get("scopes", []),
+    }
+    base_auth_url = build_authorization_url(
+        server_config=server_config,
+        redirect_uri=redirect_uri,
+        code_challenge=code_challenge,
+    )
+
+    # Store state with MCP discovery flow mode (carries the raw configs)
+    result = state_store.create_state(
+        user_urn=user_urn,
+        plugin_id="__test__",  # Placeholder -- no real plugin entity
+        redirect_uri=redirect_uri,
+        authorization_url=base_auth_url,
+        code_verifier=code_verifier,
+        auth_token=auth_token,
+        flow_mode=McpDiscoveryFlow(
+            oauth_config=oauth_config,
+            mcp_config=mcp_config,
+        ),
+    )
+
+    logger.info(f"Initiated OAuth test connection for user {user_urn}")
+
+    return TestOAuthConnectResponse(
+        authorization_url=result.authorization_url,
+    )
+
+
 @callback_router.get("/callback")
 async def handle_oauth_callback_unified(
     state_store: Annotated[InMemoryOAuthStateStore, Depends(get_state_store)],
@@ -1064,23 +1159,19 @@ async def handle_oauth_callback_unified(
     Register this URL with your OAuth provider:
         https://your-datahub.com/integrations/oauth/callback
 
-    This endpoint:
-    1. Validates the state parameter and extracts the plugin_id
-    2. Exchanges the authorization code for tokens
-    3. Stores the tokens in DataHubConnection
-    4. Updates the user's CorpUserSettings
-    5. Returns a success page for the popup window
+    This endpoint handles different flow modes (determined by OAuthState.flow_mode):
 
-    Args:
-        code: The authorization code from the OAuth provider.
-        state: The state nonce from the OAuth callback (contains plugin_id).
-        error: Error code if authorization failed.
-        error_description: Error description if authorization failed.
-        state_store: The OAuth state store (injected).
-        credential_store: The credential store (injected).
+    NormalOAuthFlow:
+    1. Exchanges the authorization code for tokens
+    2. Stores the tokens in DataHubConnection
+    3. Updates the user's CorpUserSettings
+    4. Returns a success page for the popup window
 
-    Returns:
-        HTML page for popup window communication.
+    McpDiscoveryFlow:
+    1. Exchanges the authorization code for tokens (using raw config from state)
+    2. Uses tokens to test MCP server tool discovery
+    3. Discards tokens (nothing persisted)
+    4. Returns test result page for the popup window
     """
     start_time = time.perf_counter()
 
@@ -1116,6 +1207,16 @@ async def handle_oauth_callback_unified(
 
     plugin_id = oauth_state.plugin_id
 
+    # ── Test mode: MCP_DISCOVERY ──────────────────────────────────────────────
+    # Exchange tokens using raw config from state, test MCP server, discard tokens.
+    if isinstance(oauth_state.flow_mode, McpDiscoveryFlow):
+        return await _handle_test_mcp_discovery_callback(
+            oauth_state=oauth_state,
+            code=code,
+        )
+
+    # ── Normal mode: NONE ─────────────────────────────────────────────────────
+    # Exchange tokens, save credentials, update user settings.
     try:
         # Get OAuth server config for token exchange
         plugin_config = get_plugin_config(plugin_id)
@@ -1436,18 +1537,22 @@ async def disconnect_plugin(
         DisconnectResponse with success status.
     """
 
-    # Delete credentials from DataHubConnection
-    deleted = credential_store.delete_credentials(
-        user_urn=user_urn,
-        plugin_id=plugin_id,
-    )
-
-    # Always try to update user's CorpUserSettings to remove connection reference
-    # Even if credentials weren't found, the reference might still exist in user settings
+    # Remove connection reference from user settings FIRST.
+    # If this fails, credentials remain intact and user can retry.
+    # If we deleted credentials first and this failed, the user would
+    # lose credentials but settings would still reference them (broken state).
     await _remove_user_plugin_connection(
         user_urn=user_urn,
         plugin_id=plugin_id,
         auth_token=auth_token,
+    )
+
+    # Then delete the actual credentials from DataHubConnection.
+    # If this fails after settings are updated, orphaned credentials
+    # are harmless (unused, will be cleaned up by GC eventually).
+    deleted = credential_store.delete_credentials(
+        user_urn=user_urn,
+        plugin_id=plugin_id,
     )
 
     logger.info(
@@ -1543,6 +1648,210 @@ async def corrupt_credentials(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Helper Functions for User Settings Updates
 # ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def _handle_test_mcp_discovery_callback(
+    *,
+    oauth_state: OAuthState,
+    code: str,
+) -> HTMLResponse:
+    """Handle the callback for McpDiscoveryFlow.
+
+    Exchanges the authorization code for tokens using the raw OAuth config
+    from the flow mode (not from an entity), then tests MCP tool discovery
+    using those tokens. Tokens are discarded -- nothing is persisted.
+    """
+    from datahub_integrations.mcp_integration.connection_tester import (
+        check_mcp_connection,
+    )
+
+    assert isinstance(oauth_state.flow_mode, McpDiscoveryFlow)
+    flow = oauth_state.flow_mode
+    test_oauth_config = flow.oauth_config
+    test_mcp_config = flow.mcp_config
+
+    try:
+        # Build server config from raw values in state
+        server_config = {
+            "tokenUrl": test_oauth_config.get("tokenUrl"),
+            "clientId": test_oauth_config.get("clientId"),
+            "clientSecret": test_oauth_config.get("clientSecret"),
+            "tokenAuthMethod": test_oauth_config.get("tokenAuthMethod", "POST_BODY"),
+            "authScheme": test_oauth_config.get("authScheme"),
+            "authHeaderName": test_oauth_config.get("authHeaderName", "Authorization"),
+        }
+
+        # Exchange code for tokens using raw config
+        tokens = await exchange_code_for_tokens(
+            server_config=server_config,
+            code=code,
+            redirect_uri=oauth_state.redirect_uri,
+            code_verifier=oauth_state.code_verifier,
+        )
+
+        logger.info("OAuth test: token exchange succeeded, testing MCP connection")
+
+        # Build headers for MCP test
+        mcp_headers: Dict[str, str] = {}
+        custom_headers = test_mcp_config.get("customHeaders")
+        if custom_headers and isinstance(custom_headers, dict):
+            mcp_headers.update(custom_headers)
+        mcp_headers["Authorization"] = f"Bearer {tokens.access_token}"
+
+        # Test MCP server connectivity
+        mcp_result = await check_mcp_connection(
+            url=test_mcp_config.get("url", ""),
+            transport=test_mcp_config.get("transport", "HTTP"),
+            connection_timeout=test_mcp_config.get("timeout", 30.0),
+            headers=mcp_headers,
+        )
+
+        if mcp_result.success:
+            tool_list = ", ".join(mcp_result.tool_names[:10])
+            if len(mcp_result.tool_names) > 10:
+                tool_list += f", ... (+{len(mcp_result.tool_names) - 10} more)"
+
+            test_result: Dict[str, Any] = {
+                "type": "oauth_test_result",
+                "success": True,
+                "toolCount": mcp_result.tool_count,
+                "toolNames": mcp_result.tool_names,
+                "durationSeconds": mcp_result.duration_seconds,
+                "message": f"Discovered {mcp_result.tool_count} tools: {tool_list}",
+            }
+            return _create_test_result_popup(
+                success=True,
+                message=f"Discovered {mcp_result.tool_count} tools",
+                details=tool_list,
+                result=test_result,
+            )
+        else:
+            error_msg = (
+                f"OAuth succeeded but MCP server returned an error: {mcp_result.error}"
+            )
+            if mcp_result.status_code:
+                error_msg = f"OAuth succeeded but MCP server returned {mcp_result.status_code}: {mcp_result.error}"
+
+            test_result = {
+                "type": "oauth_test_result",
+                "success": False,
+                "error": error_msg,
+                "errorType": mcp_result.error_type,
+                "statusCode": mcp_result.status_code,
+            }
+            return _create_test_result_popup(
+                success=False,
+                message="MCP Connection Failed",
+                details=error_msg,
+                result=test_result,
+            )
+
+    except HTTPException as e:
+        error_msg = f"OAuth token exchange failed: {e.detail}"
+        test_result = {
+            "type": "oauth_test_result",
+            "success": False,
+            "error": error_msg,
+        }
+        return _create_test_result_popup(
+            success=False,
+            message="OAuth Token Exchange Failed",
+            details=error_msg,
+            result=test_result,
+        )
+
+    except Exception as e:
+        logger.exception(f"Unexpected error in test MCP discovery callback: {e}")
+        error_msg = f"An unexpected error occurred: {e}"
+        test_result = {
+            "type": "oauth_test_result",
+            "success": False,
+            "error": error_msg,
+            "errorType": type(e).__name__,
+        }
+        return _create_test_result_popup(
+            success=False,
+            message="Test Failed",
+            details=error_msg,
+            result=test_result,
+        )
+
+
+def _create_test_result_popup(
+    *,
+    success: bool,
+    message: str,
+    details: str,
+    result: Dict[str, Any],
+) -> HTMLResponse:
+    """Create an HTML popup page showing test connection results."""
+    import html
+
+    result_json = json.dumps(result)
+    message = html.escape(message)
+    details = html.escape(details)
+    status_color = "#22c55e" if success else "#ef4444"
+    icon = "&#10003;" if success else "&#10007;"
+
+    html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{"Test Passed" if success else "Test Failed"}</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #f5f5f5;
+        }}
+        .container {{
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 500px;
+        }}
+        .icon {{
+            font-size: 48px;
+            margin-bottom: 16px;
+            color: {status_color};
+        }}
+        .message {{
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 18px;
+            font-weight: 600;
+        }}
+        .details {{
+            color: #666;
+            font-size: 14px;
+            word-break: break-word;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">{icon}</div>
+        <p class="message">{message}</p>
+        <p class="details">{details}</p>
+    </div>
+    <script>
+        if (window.opener) {{
+            window.opener.postMessage({result_json}, '*');
+        }}
+        setTimeout(function() {{
+            window.close();
+        }}, 3000);
+    </script>
+</body>
+</html>
+"""
+    return HTMLResponse(content=html_content)
 
 
 def _execute_graphql_as_user(
@@ -1753,6 +2062,11 @@ def _create_popup_response(
     Returns:
         HTMLResponse with JavaScript for popup communication.
     """
+    import html
+
+    # Escape user-controlled strings to prevent XSS
+    safe_error = html.escape(error) if error else error
+
     result = {
         "type": "oauth_callback",
         "success": success,
@@ -1807,7 +2121,7 @@ def _create_popup_response(
         <div class="icon">{"✓" if success else "✕"}</div>
         <h2 class="status">{"Connected Successfully!" if success else "Connection Failed"}</h2>
         <p class="message">
-            {"You can now close this window." if success else (error or "Please try again.")}
+            {"You can now close this window." if success else (safe_error or "Please try again.")}
         </p>
     </div>
     <script>

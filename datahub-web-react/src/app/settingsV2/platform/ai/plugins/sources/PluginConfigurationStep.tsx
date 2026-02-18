@@ -1,7 +1,8 @@
-import { CaretDown, CaretRight, CheckCircle } from '@phosphor-icons/react';
+import { CaretDown, CaretRight, CheckCircle, WarningCircle } from '@phosphor-icons/react';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { useTestOAuthConnection } from '@app/settingsV2/platform/ai/plugins/hooks/useTestOAuthConnection';
 import { CustomHeadersEditor } from '@app/settingsV2/platform/ai/plugins/sources/CustomHeadersEditor';
 import { OAuthAdvancedFields } from '@app/settingsV2/platform/ai/plugins/sources/OAuthAdvancedFields';
 import { StructuredHeadersSection } from '@app/settingsV2/platform/ai/plugins/sources/StructuredHeadersSection';
@@ -80,6 +81,23 @@ const CardHeaderRow = styled.div`
     margin-bottom: 12px;
 `;
 
+const TestConnectionRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid ${colors.gray[100]};
+`;
+
+const TestResultMessage = styled.div<{ $success: boolean }>`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: ${(props) => (props.$success ? colors.green[500] : colors.red[500])};
+`;
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -132,6 +150,7 @@ export const PluginConfigurationStep: React.FC<PluginConfigurationStepProps> = (
     const callbackUrl = useMemo(() => `${window.location.origin}/integrations/oauth/callback`, []);
     const [copied, setCopied] = useState(false);
     const [showOAuthAdvanced, setShowOAuthAdvanced] = useState(false);
+    const { testConnection, isTestingConnection, testResult, clearTestResult } = useTestOAuthConnection();
 
     // Pre-compute field overrides to avoid repeated lookups during render
     const overrides = useMemo(
@@ -511,6 +530,44 @@ export const PluginConfigurationStep: React.FC<PluginConfigurationStepProps> = (
                                 />
                             </FormField>
                         )}
+
+                        {/* Test Connection */}
+                        <TestConnectionRow>
+                            <Button
+                                icon={{ icon: 'PlugsConnected', source: 'phosphor' }}
+                                onClick={() => {
+                                    clearTestResult();
+                                    testConnection(formState);
+                                }}
+                                disabled={
+                                    isTestingConnection ||
+                                    !formState.oauthClientId ||
+                                    !formState.oauthAuthorizationUrl ||
+                                    !formState.oauthTokenUrl ||
+                                    !formState.url
+                                }
+                                isLoading={isTestingConnection}
+                                variant="outline"
+                                size="sm"
+                            >
+                                {isTestingConnection ? 'Testing...' : 'Test Connection'}
+                            </Button>
+                            {testResult && (
+                                <TestResultMessage $success={testResult.success}>
+                                    {testResult.success ? (
+                                        <>
+                                            <CheckCircle size={16} weight="fill" />
+                                            Discovered {testResult.toolCount} tools
+                                        </>
+                                    ) : (
+                                        <>
+                                            <WarningCircle size={16} weight="fill" />
+                                            {testResult.error || 'Connection failed'}
+                                        </>
+                                    )}
+                                </TestResultMessage>
+                            )}
+                        </TestConnectionRow>
 
                         {/* OAuth Advanced Settings (Custom source) */}
                         {isCustom && (

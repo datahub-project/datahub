@@ -1,29 +1,28 @@
 import { act, renderHook } from '@testing-library/react-hooks';
-import { message } from 'antd';
 import { vi } from 'vitest';
 
 import { useOAuthConnect } from '@app/settingsV2/personal/aiConnections/useOAuthConnect';
 
-// Mock console.log to avoid noise in tests
-const mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+// vi.hoisted ensures the variable is available when vi.mock is hoisted to the top
+const mockNotification = vi.hoisted(() => ({
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+}));
 
-// Mock Ant Design message
-vi.mock('antd', () => ({
-    message: {
-        success: vi.fn(),
-        error: vi.fn(),
-    },
+vi.mock('@src/alchemy-components', () => ({
+    notification: mockNotification,
 }));
 
 describe('useOAuthConnect', () => {
     const mockOnSuccess = vi.fn();
     let messageListeners: ((event: MessageEvent) => void)[] = [];
-    let mockPopup: { closed: boolean; close: ReturnType<typeof vi.fn> };
+    let mockPopup: { closed: boolean; close: ReturnType<typeof vi.fn>; location: { href: string } };
 
     beforeEach(() => {
         vi.clearAllMocks();
         vi.useFakeTimers();
-        mockConsoleLog.mockClear();
         messageListeners = [];
 
         // Mock window.addEventListener for 'message' events
@@ -39,8 +38,8 @@ describe('useOAuthConnect', () => {
             }
         });
 
-        // Mock popup window
-        mockPopup = { closed: false, close: vi.fn() };
+        // Mock popup window (with location for navigation)
+        mockPopup = { closed: false, close: vi.fn(), location: { href: '' } };
         vi.spyOn(window, 'open').mockReturnValue(mockPopup as unknown as Window);
 
         // Mock fetch
@@ -53,10 +52,6 @@ describe('useOAuthConnect', () => {
     afterEach(() => {
         vi.useRealTimers();
         vi.restoreAllMocks();
-    });
-
-    afterAll(() => {
-        mockConsoleLog.mockRestore();
     });
 
     describe('Initialization', () => {
@@ -83,43 +78,9 @@ describe('useOAuthConnect', () => {
     });
 
     describe('OAuth Message Handling', () => {
-        it('should log received postMessage', () => {
-            // Create a fresh spy for this test
-            const consoleSpy = vi.spyOn(console, 'log');
-
-            renderHook(() => useOAuthConnect());
-
-            const messageEvent = new MessageEvent('message', {
-                data: {
-                    type: 'oauth_callback',
-                    success: true,
-                    pluginId: 'test-plugin',
-                },
-                origin: 'https://example.com',
-            });
-
-            act(() => {
-                messageListeners.forEach((listener) => listener(messageEvent));
-            });
-
-            // Verify the log was called with the expected message
-            expect(consoleSpy).toHaveBeenCalledWith(
-                '[OAuth] Received postMessage:',
-                expect.objectContaining({
-                    type: 'oauth_callback',
-                    success: true,
-                    pluginId: 'test-plugin',
-                    origin: 'https://example.com',
-                }),
-            );
-
-            consoleSpy.mockRestore();
-        });
-
         it('should handle successful oauth_callback message', async () => {
             const { result } = renderHook(() => useOAuthConnect(mockOnSuccess));
 
-            // Simulate receiving a successful OAuth callback
             const messageEvent = new MessageEvent('message', {
                 data: {
                     type: 'oauth_callback',
@@ -133,7 +94,6 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.success).not.toHaveBeenCalled();
 
             // Fast-forward the 500ms delay for onSuccess
             await act(async () => {
@@ -158,7 +118,6 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.success).not.toHaveBeenCalled();
         });
 
         it('should handle failed oauth_callback message with error', () => {
@@ -177,7 +136,10 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('User denied access');
+            expect(mockNotification.error).toHaveBeenCalledWith({
+                message: 'Connection Failed',
+                description: 'User denied access',
+            });
             expect(mockOnSuccess).not.toHaveBeenCalled();
         });
 
@@ -196,7 +158,10 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('Failed to connect. Please try again.');
+            expect(mockNotification.error).toHaveBeenCalledWith({
+                message: 'Connection Failed',
+                description: 'Failed to connect. Please try again.',
+            });
         });
 
         it('should ignore messages with different type', () => {
@@ -213,9 +178,7 @@ describe('useOAuthConnect', () => {
                 messageListeners.forEach((listener) => listener(messageEvent));
             });
 
-            // Should not call success/error or onSuccess
-            expect(message.success).not.toHaveBeenCalled();
-            expect(message.error).not.toHaveBeenCalled();
+            expect(mockNotification.error).not.toHaveBeenCalled();
             expect(mockOnSuccess).not.toHaveBeenCalled();
         });
 
@@ -230,8 +193,7 @@ describe('useOAuthConnect', () => {
                 messageListeners.forEach((listener) => listener(messageEvent));
             });
 
-            expect(message.success).not.toHaveBeenCalled();
-            expect(message.error).not.toHaveBeenCalled();
+            expect(mockNotification.error).not.toHaveBeenCalled();
         });
 
         it('should close popup when receiving oauth_callback', async () => {
@@ -259,16 +221,22 @@ describe('useOAuthConnect', () => {
     });
 
     describe('initiateOAuthConnect', () => {
-        it('should set isConnecting to true when called', async () => {
+        it('should open popup synchronously with about:blank then navigate', async () => {
             const { result } = renderHook(() => useOAuthConnect());
 
-            expect(result.current.isConnecting).toBe(false);
-
             await act(async () => {
-                result.current.initiateOAuthConnect('test-plugin');
+                await result.current.initiateOAuthConnect('test-plugin');
             });
 
-            expect(result.current.isConnecting).toBe(true);
+            // Popup opens with about:blank first (Safari-safe)
+            expect(window.open).toHaveBeenCalledWith(
+                'about:blank',
+                'oauth_connect',
+                expect.stringContaining('width=600,height=700'),
+            );
+
+            // Then navigated to the auth URL
+            expect(mockPopup.location.href).toBe('https://oauth.example.com/authorize');
         });
 
         it('should call fetch with correct URL and options', async () => {
@@ -280,9 +248,7 @@ describe('useOAuthConnect', () => {
 
             expect(fetch).toHaveBeenCalledWith('/integrations/oauth/plugins/test-plugin/connect', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
             });
         });
@@ -300,18 +266,22 @@ describe('useOAuthConnect', () => {
             );
         });
 
-        it('should open popup with authorization URL', async () => {
+        it('should handle popup blocked before fetch', async () => {
+            vi.spyOn(window, 'open').mockReturnValue(null);
+
             const { result } = renderHook(() => useOAuthConnect());
 
             await act(async () => {
                 await result.current.initiateOAuthConnect('test-plugin');
             });
 
-            expect(window.open).toHaveBeenCalledWith(
-                'https://oauth.example.com/authorize',
-                'oauth_connect',
-                expect.stringContaining('width=600,height=700'),
-            );
+            expect(result.current.isConnecting).toBe(false);
+            expect(mockNotification.error).toHaveBeenCalledWith({
+                message: 'Popup Blocked',
+                description: 'Please allow popups for this site and try again.',
+            });
+            // Fetch should NOT be called when popup is blocked
+            expect(fetch).not.toHaveBeenCalled();
         });
 
         it('should handle fetch error with error response', async () => {
@@ -328,7 +298,12 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('Plugin not found');
+            expect(mockNotification.error).toHaveBeenCalledWith({
+                message: 'Connection Failed',
+                description: 'Plugin not found',
+            });
+            // Blank popup should be closed on error
+            expect(mockPopup.close).toHaveBeenCalled();
         });
 
         it('should handle fetch error without error response', async () => {
@@ -345,7 +320,10 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('Failed to initiate OAuth: 500');
+            expect(mockNotification.error).toHaveBeenCalledWith({
+                message: 'Connection Failed',
+                description: 'Failed to initiate OAuth: 500',
+            });
         });
 
         it('should handle missing authorization URL', async () => {
@@ -361,20 +339,10 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('No authorization URL returned from server');
-        });
-
-        it('should handle popup blocked', async () => {
-            vi.spyOn(window, 'open').mockReturnValue(null);
-
-            const { result } = renderHook(() => useOAuthConnect());
-
-            await act(async () => {
-                await result.current.initiateOAuthConnect('test-plugin');
+            expect(mockNotification.error).toHaveBeenCalledWith({
+                message: 'Connection Failed',
+                description: 'No authorization URL returned from server',
             });
-
-            expect(result.current.isConnecting).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('Failed to open popup. Please allow popups for this site.');
         });
 
         it('should handle network error', async () => {
@@ -387,7 +355,10 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('Network error');
+            expect(mockNotification.error).toHaveBeenCalledWith({
+                message: 'Connection Failed',
+                description: 'Network error',
+            });
         });
 
         it('should handle non-Error thrown', async () => {
@@ -400,7 +371,10 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('Failed to connect. Please try again.');
+            expect(mockNotification.error).toHaveBeenCalledWith({
+                message: 'Connection Failed',
+                description: 'Failed to connect. Please try again.',
+            });
         });
     });
 
@@ -454,7 +428,6 @@ describe('useOAuthConnect', () => {
         it('should not close popup on unmount if no popup was opened', () => {
             const { unmount } = renderHook(() => useOAuthConnect());
 
-            // Just unmount without initiating any connection
             expect(() => unmount()).not.toThrow();
             expect(mockPopup.close).not.toHaveBeenCalled();
         });
@@ -462,7 +435,6 @@ describe('useOAuthConnect', () => {
 
     describe('Popup Position Calculation', () => {
         it('should calculate popup position based on window properties', async () => {
-            // Mock window properties for position calculation
             Object.defineProperty(window, 'screenX', { value: 100, writable: true });
             Object.defineProperty(window, 'screenY', { value: 50, writable: true });
             Object.defineProperty(window, 'outerWidth', { value: 1200, writable: true });
@@ -474,15 +446,14 @@ describe('useOAuthConnect', () => {
                 await result.current.initiateOAuthConnect('test-plugin');
             });
 
-            // Expected: left = 100 + (1200 - 600) / 2 = 400
-            // Expected: top = 50 + (800 - 700) / 2 = 100
+            // Popup opens with about:blank at calculated position
             expect(window.open).toHaveBeenCalledWith(
-                'https://oauth.example.com/authorize',
+                'about:blank',
                 'oauth_connect',
                 expect.stringContaining('left=400'),
             );
             expect(window.open).toHaveBeenCalledWith(
-                'https://oauth.example.com/authorize',
+                'about:blank',
                 'oauth_connect',
                 expect.stringContaining('top=100'),
             );
@@ -511,7 +482,6 @@ describe('useOAuthConnect', () => {
         it('should handle calling initiateOAuthConnect multiple times', async () => {
             const { result } = renderHook(() => useOAuthConnect());
 
-            // First call
             await act(async () => {
                 await result.current.initiateOAuthConnect('plugin-1');
             });
@@ -519,7 +489,6 @@ describe('useOAuthConnect', () => {
             expect(fetch).toHaveBeenCalledTimes(1);
             expect(window.open).toHaveBeenCalledTimes(1);
 
-            // Second call
             await act(async () => {
                 await result.current.initiateOAuthConnect('plugin-2');
             });
@@ -563,12 +532,11 @@ describe('useOAuthConnect', () => {
                 await result.current.initiateOAuthConnect('test-plugin');
             });
 
-            // Advance multiple intervals while popup stays open (2500ms total)
+            // Advance multiple intervals while popup stays open
             await act(async () => {
                 vi.advanceTimersByTime(2500);
             });
 
-            // Should still be connecting since popup is open
             expect(result.current.isConnecting).toBe(true);
 
             // Finally close the popup
@@ -584,7 +552,7 @@ describe('useOAuthConnect', () => {
 
     describe('onSuccess Callback', () => {
         it('should work without onSuccess callback provided', async () => {
-            const { result } = renderHook(() => useOAuthConnect()); // No callback
+            const { result } = renderHook(() => useOAuthConnect());
 
             const messageEvent = new MessageEvent('message', {
                 data: {
@@ -599,15 +567,13 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.success).not.toHaveBeenCalled();
 
             // Advance timer - should not throw even without callback
             await act(async () => {
                 vi.advanceTimersByTime(500);
             });
 
-            // No error should occur
-            expect(message.error).not.toHaveBeenCalled();
+            expect(mockNotification.error).not.toHaveBeenCalled();
         });
 
         it('should call onSuccess with proper delay after success', async () => {
@@ -625,16 +591,13 @@ describe('useOAuthConnect', () => {
                 messageListeners.forEach((listener) => listener(messageEvent));
             });
 
-            // onSuccess should not be called immediately
             expect(mockOnSuccess).not.toHaveBeenCalled();
 
-            // Advance 250ms - still not called
             await act(async () => {
                 vi.advanceTimersByTime(250);
             });
             expect(mockOnSuccess).not.toHaveBeenCalled();
 
-            // Advance another 250ms (total 500ms) - now called
             await act(async () => {
                 vi.advanceTimersByTime(250);
             });
@@ -654,21 +617,18 @@ describe('useOAuthConnect', () => {
                 messageListeners.forEach((listener) => listener(messageEvent));
             });
 
-            expect(message.success).not.toHaveBeenCalled();
-            expect(message.error).not.toHaveBeenCalled();
+            expect(mockNotification.error).not.toHaveBeenCalled();
         });
 
         it('should handle oauth_callback while popup is already closed', async () => {
             const { result } = renderHook(() => useOAuthConnect());
 
-            // Initiate connection and close popup
             await act(async () => {
                 await result.current.initiateOAuthConnect('test-plugin');
             });
 
             mockPopup.closed = true;
 
-            // Receive callback - should still process but not try to close again
             const messageEvent = new MessageEvent('message', {
                 data: {
                     type: 'oauth_callback',
@@ -682,14 +642,11 @@ describe('useOAuthConnect', () => {
             });
 
             expect(result.current.isConnecting).toBe(false);
-            expect(message.success).not.toHaveBeenCalled();
-            // close() should only be called once (during the callback processing check)
         });
 
         it('should handle oauth_callback when no popup was opened', () => {
             const { result } = renderHook(() => useOAuthConnect());
 
-            // Receive callback without ever opening a popup
             const messageEvent = new MessageEvent('message', {
                 data: {
                     type: 'oauth_callback',
@@ -702,9 +659,7 @@ describe('useOAuthConnect', () => {
                 messageListeners.forEach((listener) => listener(messageEvent));
             });
 
-            // Should still handle the message gracefully
             expect(result.current.isConnecting).toBe(false);
-            expect(message.success).not.toHaveBeenCalled();
         });
     });
 
@@ -718,10 +673,8 @@ describe('useOAuthConnect', () => {
 
             expect(result.current.isConnecting).toBe(true);
 
-            // Re-render the hook
             rerender();
 
-            // State should be preserved
             expect(result.current.isConnecting).toBe(true);
         });
 
@@ -733,11 +686,8 @@ describe('useOAuthConnect', () => {
                 initialProps: { onSuccess: onSuccess1 },
             });
 
-            // Re-render with new callback
             rerender({ onSuccess: onSuccess2 });
 
-            // The message listener should have been updated
-            // (This tests the useEffect dependency on onSuccess)
             expect(window.removeEventListener).toHaveBeenCalled();
             expect(window.addEventListener).toHaveBeenCalled();
         });
