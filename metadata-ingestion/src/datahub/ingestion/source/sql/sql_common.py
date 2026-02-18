@@ -396,6 +396,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(cls, config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
+            if config_dict.get("stateful_ingestion", {}).get("enabled", False):
+                # Connection test should only care about config for connecting to the source
+                # Ingestion-only details like whether stateful_ingestion is enabled are irrelevant
+                # And specifically, stateful_ingestion requires a connection to DataHub
+                # which should not be required to test a connection
+                config_dict = {
+                    **config_dict,
+                    "stateful_ingestion": {"enabled": False},
+                }
             source = cast(
                 SQLAlchemySource,
                 cls.create(config_dict, PipelineContext(run_id="test_connection")),
