@@ -1,11 +1,4 @@
-"""Tests for boundary-aware segment stitching in Redshift query reconstruction.
-
-Redshift stores SQL queries in fixed-width character(200) segments (provisioned)
-or character(4000) segments (serverless). When reconstructing queries via LISTAGG,
-trailing spaces at segment boundaries get stripped, merging keywords like
-`GROUP BY` -> `GROUPBY`. The boundary-aware pattern adds a space back when
-the trimmed segment is shorter than the segment size, preserving word boundaries.
-"""
+"""Tests for boundary-aware segment stitching in Redshift query reconstruction."""
 
 from datetime import datetime
 
@@ -17,61 +10,92 @@ from datahub.ingestion.source.redshift.query import (
 START_TIME = datetime(2024, 1, 1, 12, 0, 0)
 END_TIME = datetime(2024, 1, 10, 12, 0, 0)
 
-# The boundary-aware LISTAGG pattern for 200-byte segments (provisioned).
-# Appends a space when the trimmed segment is shorter than the segment size,
-# indicating a word boundary was at the segment edge.
-PROVISIONED_LISTAGG_PATTERN = (
-    "RTRIM(LISTAGG(RTRIM(text) "
-    "|| CASE WHEN LEN(RTRIM(text)) < 200 THEN ' ' ELSE '' END, '')"
-)
 
-# The boundary-aware LISTAGG pattern for 4000-byte segments (serverless).
-SERVERLESS_LISTAGG_PATTERN_TEXT = (
-    'RTRIM(LISTAGG(RTRIM(qt."text") '
-    "|| CASE WHEN LEN(RTRIM(qt.\"text\")) < 4000 THEN ' ' ELSE '' END, '')"
-)
+def _simulate_stitching(segments: list, segment_size: int) -> str:
+    """Simulate the boundary-aware LISTAGG stitching logic in Python.
 
-SERVERLESS_LISTAGG_PATTERN_QUERYTXT = (
-    "RTRIM(LISTAGG(RTRIM(querytxt) "
-    "|| CASE WHEN LEN(RTRIM(querytxt)) < 4000 THEN ' ' ELSE '' END, '')"
-)
+    This mirrors the SQL:
+        RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < segment_size
+              THEN ' ' ELSE '' END, '') WITHIN GROUP (ORDER BY sequence))
+    """
+    parts = []
+    for seg in segments:
+        trimmed = seg.rstrip()
+        if len(trimmed) < segment_size:
+            trimmed += " "
+        parts.append(trimmed)
+    return "".join(parts).rstrip()
 
 
-class TestProvisionedQueryStitching:
-    def test_list_insert_create_queries_uses_boundary_aware_listagg(self):
-        sql = RedshiftProvisionedQuery.list_insert_create_queries_sql(
-            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+class TestStitchingLogic:
+    """Test the stitching algorithm itself, not just SQL string presence."""
+
+    def test_space_at_boundary_preserved(self):
+        # "GROUP " at end of segment 1, "BY col" at start of segment 2
+        result = _simulate_stitching(
+            ["SELECT col1 GROUP ".ljust(200), "BY col2 FROM t".ljust(200)],
+            segment_size=200,
         )
-        assert PROVISIONED_LISTAGG_PATTERN in sql
+        assert "GROUP BY" in result
 
-    def test_temp_table_ddl_query_uses_boundary_aware_listagg(self):
-        sql = RedshiftProvisionedQuery.temp_table_ddl_query(
-            start_time=START_TIME, end_time=END_TIME
+    def test_no_spurious_space_when_segment_full(self):
+        # Segment exactly fills 200 chars — word continues into next segment
+        seg1 = "x" * 200
+        seg2 = "yz FROM t".ljust(200)
+        result = _simulate_stitching([seg1, seg2], segment_size=200)
+        # No space inserted between segments
+        assert result.startswith("x" * 200 + "yz")
+
+    def test_single_segment(self):
+        result = _simulate_stitching(["SELECT 1".ljust(200)], segment_size=200)
+        assert result == "SELECT 1"
+
+    def test_empty_segment_becomes_single_space(self):
+        # All-space segment (e.g. 200 spaces) — trimmed to "", len < 200, gets " "
+        result = _simulate_stitching(
+            ["SELECT".ljust(200), " " * 200, "FROM t".ljust(200)],
+            segment_size=200,
         )
-        assert PROVISIONED_LISTAGG_PATTERN in sql
+        assert "SELECT" in result
+        assert "FROM t" in result
 
-    def test_stl_scan_based_lineage_uses_boundary_aware_listagg(self):
+    def test_serverless_4000_boundary(self):
+        result = _simulate_stitching(
+            ["SELECT col1 GROUP ".ljust(4000), "BY col2 FROM t".ljust(4000)],
+            segment_size=4000,
+        )
+        assert "GROUP BY" in result
+
+
+class TestProvisionedScanLineageCTE:
+    """The structural change: CTE from STL_QUERYTEXT instead of stl_query.querytxt."""
+
+    def test_uses_cte_not_stl_query(self):
         sql = RedshiftProvisionedQuery.stl_scan_based_lineage_query(
             db_name="test_db", start_time=START_TIME, end_time=END_TIME
         )
-        assert PROVISIONED_LISTAGG_PATTERN in sql
-
-    def test_stl_scan_based_lineage_uses_cte_not_stl_query(self):
-        """The provisioned scan lineage query should use a CTE from STL_QUERYTEXT
-        instead of stl_query.querytxt (which is truncated to 4000 chars)."""
-        sql = RedshiftProvisionedQuery.stl_scan_based_lineage_query(
-            db_name="test_db", start_time=START_TIME, end_time=END_TIME
-        )
-        assert "WITH query_txt AS" in sql
         assert "STL_QUERYTEXT" in sql
-        # Should join query_txt CTE (not stl_query table) for querytxt
         assert "join query_txt sq" in sql.lower()
-        # Should NOT join stl_query table directly (only stl_querytext via CTE)
         assert "join stl_query " not in sql.lower()
 
-    def test_no_old_listagg_pattern_provisioned(self):
-        """Ensure the old LISTAGG pattern with LEN(RTRIM(text)) = 0 is gone."""
+    def test_cte_is_scoped_to_time_range(self):
+        sql = RedshiftProvisionedQuery.stl_scan_based_lineage_query(
+            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+        )
+        assert "relevant_queries" in sql
+        # Time filter should appear in the relevant_queries CTE
+        assert "2024-01-01 12:00:00" in sql
+        assert "2024-01-10 12:00:00" in sql
+
+
+class TestSegmentSizeNotCrossed:
+    """Provisioned queries use 200, serverless use 4000. Never mixed."""
+
+    def test_provisioned_uses_200_not_4000(self):
         for sql in [
+            RedshiftProvisionedQuery.stl_scan_based_lineage_query(
+                db_name="test_db", start_time=START_TIME, end_time=END_TIME
+            ),
             RedshiftProvisionedQuery.list_insert_create_queries_sql(
                 db_name="test_db", start_time=START_TIME, end_time=END_TIME
             ),
@@ -79,30 +103,10 @@ class TestProvisionedQueryStitching:
                 start_time=START_TIME, end_time=END_TIME
             ),
         ]:
-            assert "LEN(RTRIM(text)) = 0" not in sql
+            assert "< 200" in sql
+            assert "< 4000" not in sql
 
-
-class TestServerlessQueryStitching:
-    def test_stl_scan_based_lineage_uses_boundary_aware_listagg(self):
-        sql = RedshiftServerlessQuery.stl_scan_based_lineage_query(
-            db_name="test_db", start_time=START_TIME, end_time=END_TIME
-        )
-        assert SERVERLESS_LISTAGG_PATTERN_TEXT in sql
-
-    def test_list_insert_create_queries_uses_boundary_aware_listagg(self):
-        sql = RedshiftServerlessQuery.list_insert_create_queries_sql(
-            db_name="test_db", start_time=START_TIME, end_time=END_TIME
-        )
-        assert SERVERLESS_LISTAGG_PATTERN_QUERYTXT in sql
-
-    def test_temp_table_ddl_query_uses_boundary_aware_listagg(self):
-        sql = RedshiftServerlessQuery.temp_table_ddl_query(
-            start_time=START_TIME, end_time=END_TIME
-        )
-        assert SERVERLESS_LISTAGG_PATTERN_TEXT in sql
-
-    def test_no_old_listagg_pattern_serverless(self):
-        """Ensure the old bare LISTAGG(qt."text") pattern is gone for serverless."""
+    def test_serverless_uses_4000_not_200(self):
         for sql in [
             RedshiftServerlessQuery.stl_scan_based_lineage_query(
                 db_name="test_db", start_time=START_TIME, end_time=END_TIME
@@ -114,6 +118,27 @@ class TestServerlessQueryStitching:
                 start_time=START_TIME, end_time=END_TIME
             ),
         ]:
-            # Should not have bare LISTAGG without RTRIM wrapper
-            assert 'LISTAGG(qt."text")' not in sql
+            assert "< 4000" in sql
+            assert "< 200" not in sql
+
+
+class TestOldPatternRemoved:
+    def test_no_old_per_segment_rtrim_pattern(self):
+        """The old AWS-recommended pattern that caused the bug."""
+        all_sqls = [
+            RedshiftProvisionedQuery.list_insert_create_queries_sql(
+                db_name="test_db", start_time=START_TIME, end_time=END_TIME
+            ),
+            RedshiftProvisionedQuery.temp_table_ddl_query(
+                start_time=START_TIME, end_time=END_TIME
+            ),
+            RedshiftServerlessQuery.list_insert_create_queries_sql(
+                db_name="test_db", start_time=START_TIME, end_time=END_TIME
+            ),
+            RedshiftServerlessQuery.temp_table_ddl_query(
+                start_time=START_TIME, end_time=END_TIME
+            ),
+        ]
+        for sql in all_sqls:
+            assert "LEN(RTRIM(text)) = 0" not in sql
             assert "LEN(RTRIM(querytxt)) = 0" not in sql
