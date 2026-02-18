@@ -4,8 +4,10 @@ import click
 import pytest
 from docker import DockerClient
 
+from datahub.cli.docker_check import DockerComposeVersionError
 from datahub.cli.docker_cli import (
     _check_upgrade_and_show_instructions,
+    _docker_compose_v2,
     check,
     download_compose_files,
     get_github_file_url,
@@ -262,3 +264,86 @@ def test_check_upgrade_and_show_instructions_upgrade_not_supported_repair():
 
         # Verify that the function returns False
         assert result is False
+
+
+def test_docker_compose_v2_plugin_v2():
+    """Test _docker_compose_v2 with Docker Compose v2 plugin"""
+    with patch("subprocess.check_output") as mock_check_output:
+        mock_check_output.return_value = b"2.24.0\n"
+        result = _docker_compose_v2()
+        assert result == ["docker", "compose"]
+
+
+def test_docker_compose_v2_plugin_v5():
+    """Test _docker_compose_v2 with Docker Compose v5 plugin"""
+    with patch("subprocess.check_output") as mock_check_output:
+        mock_check_output.return_value = b"5.0.1\n"
+        result = _docker_compose_v2()
+        assert result == ["docker", "compose"]
+
+
+def test_docker_compose_v2_plugin_v2_with_v_prefix():
+    """Test _docker_compose_v2 with Docker Compose v2 plugin (with v prefix)"""
+    with patch("subprocess.check_output") as mock_check_output:
+        mock_check_output.return_value = b"v2.20.0\n"
+        result = _docker_compose_v2()
+        assert result == ["docker", "compose"]
+
+
+def test_docker_compose_v2_standalone_v2():
+    """Test _docker_compose_v2 with Docker Compose v2 standalone binary"""
+    with patch("subprocess.check_output") as mock_check_output:
+        # First call for docker compose plugin fails, second succeeds for standalone
+        mock_check_output.side_effect = [
+            FileNotFoundError("docker compose not found"),
+            b"2.24.0\n",
+        ]
+        result = _docker_compose_v2()
+        assert result == ["docker-compose"]
+
+
+def test_docker_compose_v2_reject_v1_plugin():
+    """Test _docker_compose_v2 rejects v1.x as plugin (should never happen but test defensive logic)"""
+    with patch("subprocess.check_output") as mock_check_output:
+        mock_check_output.return_value = b"1.29.2\n"
+        with pytest.raises(DockerComposeVersionError) as exc_info:
+            _docker_compose_v2()
+        assert "require Docker Compose v2 or later" in str(exc_info.value)
+
+
+def test_docker_compose_v2_reject_v1_standalone():
+    """Test _docker_compose_v2 rejects v1.x standalone"""
+    with patch("subprocess.check_output") as mock_check_output:
+        # First call for plugin fails, second returns v1.x for standalone
+        mock_check_output.side_effect = [
+            FileNotFoundError("docker compose not found"),
+            b"1.29.2\n",
+        ]
+        with pytest.raises(DockerComposeVersionError) as exc_info:
+            _docker_compose_v2()
+        assert "require Docker Compose v2 or later" in str(exc_info.value)
+        assert "1.29.2" in str(exc_info.value)
+
+
+def test_docker_compose_v2_reject_v1_with_v_prefix():
+    """Test _docker_compose_v2 rejects v1.x with v prefix"""
+    with patch("subprocess.check_output") as mock_check_output:
+        mock_check_output.side_effect = [
+            FileNotFoundError("docker compose not found"),
+            b"v1.29.2\n",
+        ]
+        with pytest.raises(DockerComposeVersionError) as exc_info:
+            _docker_compose_v2()
+        assert "require Docker Compose v2 or later" in str(exc_info.value)
+
+
+def test_docker_compose_v2_not_installed():
+    """Test _docker_compose_v2 when Docker Compose is not installed at all"""
+    with patch("subprocess.check_output") as mock_check_output:
+        mock_check_output.side_effect = [
+            FileNotFoundError("docker compose not found"),
+            FileNotFoundError("docker-compose not found"),
+        ]
+        with pytest.raises(DockerComposeVersionError) as exc_info:
+            _docker_compose_v2()
+        assert "don't have Docker Compose installed" in str(exc_info.value)

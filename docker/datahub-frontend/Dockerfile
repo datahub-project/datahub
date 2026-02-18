@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM alpine:3.22 AS base
+FROM alpine:3.23 AS base
 
 # Configurable repositories
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
@@ -18,7 +18,8 @@ RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then
 ENV JMX_VERSION=0.20.0
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add 'c-ares>1.34.5'  --repository=${ALPINE_REPO_URL}/edge/main \
-    && apk --no-cache add curl sqlite libc6-compat \
+    && apk --no-cache add 'curl>8.17.0' --repository=${ALPINE_REPO_URL}/edge/main \
+    && apk --no-cache add sqlite libc6-compat \
     && apk --no-cache add snappy=~1.2 --repository=${ALPINE_REPO_URL}/edge/main \
     && apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
     && apk --no-cache add jattach --repository ${ALPINE_REPO_URL}/edge/community/ \

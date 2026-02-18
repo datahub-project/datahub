@@ -51,6 +51,7 @@ export const EditorContainer = styled.div<{
     $readOnly?: boolean;
     $hideBorder?: boolean;
     $fixedBottomToolbar?: boolean;
+    $compact?: boolean;
 }>`
     ${extensionBlockquoteStyledCss}
     ${extensionCalloutStyledCss}
@@ -83,13 +84,16 @@ export const EditorContainer = styled.div<{
         flex: 1 1 100%;
         border: 0;
         font-size: 14px;
-        padding: 16px;
+        padding: ${(props) => (props.$compact ? '12px 16px 0 16px' : '16px')};
         position: relative;
         outline: 0;
-        line-height: 1.5;
+        line-height: ${(props) => (props.$compact ? '20px' : '1.5')};
         white-space: pre-wrap;
         margin: 0;
         color: ${colors.gray[600]};
+        min-height: ${(props) => (props.$compact ? '80px' : 'auto')};
+        max-height: ${(props) => (props.$compact ? '80px' : 'auto')};
+        overflow-y: ${(props) => (props.$compact ? 'auto' : 'visible')};
 
         a {
             font-weight: 500;
@@ -134,6 +138,16 @@ export const EditorContainer = styled.div<{
                 padding: 16px;
                 min-width: 120px;
             }
+        }
+
+        /* Scrollbar styling (only visible when overflow is auto, i.e. compact mode) */
+        &::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background-color: ${colors.gray[300]};
+            border-radius: 2px;
         }
     }
 

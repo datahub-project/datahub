@@ -54,7 +54,7 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
     password || Cypress.env("ADMIN_PASSWORD"),
     { delay: 0 },
   );
-  cy.contains("Sign In").click();
+  cy.get("[data-testid='sign-in']").click();
   cy.get(".ant-avatar-circle").should("be.visible");
   notFirstTimeVisit();
 });
@@ -64,7 +64,7 @@ Cypress.Commands.add("visitWithLogin", (url) => {
   cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
   cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
   notFirstTimeVisit();
-  cy.contains("Sign In").click();
+  cy.get("[data-testid='sign-in']").click();
 });
 
 // Login commands for onboarding tour testing (without setting skipOnboardingTour)
@@ -297,7 +297,13 @@ Cypress.Commands.add("clickOptionInScrollView", (text, selector) => {
 
 Cypress.Commands.add("deleteFromDropdown", () => {
   cy.openThreeDotDropdown();
+  cy.waitTextVisible("Delete");
+  // Wait for button is enabled
+  cy.getWithTestId("entity-menu-delete-button")
+    .closest("li")
+    .should("have.attr", "aria-disabled", "false");
   cy.clickOptionWithText("Delete");
+  cy.waitTextVisible("Yes");
   cy.clickOptionWithText("Yes");
 });
 
@@ -519,9 +525,7 @@ Cypress.Commands.add("createUser", (name, password, email) => {
     cy.enterTextInTestId("name", name);
     cy.enterTextInTestId("password", password);
     cy.enterTextInTestId("confirmPassword", password);
-    cy.mouseover("#title").click();
-    cy.waitTextVisible("Other").click();
-    cy.get("[type=submit]").click();
+    cy.get('[data-testid="sign-up"]').click();
     cy.waitTextVisible("Welcome back");
     cy.hideOnboardingTour();
     cy.waitTextVisible(name);
@@ -626,6 +630,33 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
     }
   });
 });
+
+Cypress.Commands.add(
+  "setFeatureFlags",
+  (itThemeV2Enabled, updateFeatureFlags) => {
+    cy.intercept("POST", "/api/v2/graphql", (req) => {
+      if (hasOperationName(req, "appConfig")) {
+        req.alias = "gqlappConfigQuery";
+
+        req.on("response", (res) => {
+          res.body.data.appConfig.featureFlags.themeV2Enabled =
+            itThemeV2Enabled;
+          res.body.data.appConfig.featureFlags.themeV2Default =
+            itThemeV2Enabled;
+          res.body.data.appConfig.featureFlags.showNavBarRedesign =
+            itThemeV2Enabled;
+          updateFeatureFlags(res);
+        });
+      } else if (hasOperationName(req, "getMe")) {
+        req.alias = "gqlgetMeQuery";
+        req.on("response", (res) => {
+          res.body.data.me.corpUser.settings.appearance.showThemeV2 =
+            itThemeV2Enabled;
+        });
+      }
+    });
+  },
+);
 
 Cypress.Commands.add("interceptGraphQLOperation", (operationName) => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {

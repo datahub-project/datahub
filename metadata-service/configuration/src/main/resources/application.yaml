@@ -45,10 +45,10 @@ authentication:
 
         # Option 2: Discovery URI to auto-derive JWKS URI (alternative to jwksUri)
         discoveryUri: ${EXTERNAL_OAUTH_DISCOVERY_URI:}
-        
+
         # JWT claim to use as user identifier (defaults to 'sub')
         userIdClaim: ${EXTERNAL_OAUTH_USER_ID_CLAIM:sub}
-        
+
         # JWT signing algorithm (defaults to 'RS256')
         algorithm: ${EXTERNAL_OAUTH_ALGORITHM:RS256}
     - type: com.datahub.authentication.authenticator.DataHubGuestAuthenticator
@@ -74,6 +74,9 @@ authentication:
 
   # The max duration of a UI session in milliseconds. Defaults to 1 day.
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
+
+  # The max duration of a password reset token in milliseconds. Defaults to 1 day.
+  passwordResetTokenExpirationMs: ${PASSWORD_RESET_TOKEN_EXPIRATION_MS:86400000}
 
 # Authorization-related configurations.
 authorization:
@@ -166,6 +169,23 @@ datahub:
     presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
     assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
 
+  validation:
+    aspectSize:
+      prePatch:
+        enabled: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED:false}
+        warnSizeBytes: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_WARN_SIZE_BYTES:}
+        maxSizeBytes: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES:16000000}
+        oversizedRemediation: ${DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED_REMEDIATION:IGNORE}
+      postPatch:
+        enabled: ${DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_ENABLED:false}
+        warnSizeBytes: ${DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_WARN_SIZE_BYTES:}
+        maxSizeBytes: ${DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_MAX_SIZE_BYTES:16000000}
+        oversizedRemediation: ${DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED_REMEDIATION:IGNORE}
+      metrics:
+        # Size bucket boundaries for distribution tracking (in bytes)
+        # Default: 1MB, 5MB, 10MB, 15MB creates buckets: 0-1MB, 1-5MB, 5-10MB, 10-15MB, 15MB+
+        sizeBuckets: ${DATAHUB_ASPECT_SIZE_METRICS_BUCKETS:1048576,5242880,10485760,15728640}
+
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
   retention:
@@ -185,6 +205,7 @@ searchService:
   enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
   enableEviction: ${SEARCH_SERVICE_ENABLE_CACHE_EVICTION:false}
   cacheImplementation: ${SEARCH_SERVICE_CACHE_IMPLEMENTATION:caffeine}
+  semanticSearchEnabled: ${SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED:false}
   cache:
     hazelcast:
       serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
@@ -241,7 +262,7 @@ mclProcessing:
   cdcSource:
     enabled: ${CDC_MCL_PROCESSING_ENABLED:false} # Enable CDC Processing.
     configureSource: ${CDC_CONFIGURE_SOURCE:false} # Set to false if externally configured.
-    type: debezium-kafka-connector  # Only supported type for now.
+    type: debezium-kafka-connector # Only supported type for now.
     debeziumConfig: # Debezium-specific configuration
       type: ${CDC_DB_TYPE:mysql} # Set to one of mysql or postgres to load additional db specific config.
       name: ${DATAHUB_CDC_CONNECTOR_NAME:datahub-cdc-connector}
@@ -362,6 +383,56 @@ elasticsearch:
       analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
       mappingConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAPPING_CONFIG:search_entity_mapping_config.yaml}
       maxFieldsLimit: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAX_FIELDS_LIMIT:5000}
+    semanticSearch:
+      enabled: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED:false}
+      enabledEntities: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES:document}
+      # Multi-model configuration: map of model name to embedding config
+      # Example with multiple models:
+      # models:
+      #   text_embedding_3_large:
+      #     vectorDimension: 3072
+      #     knnEngine: faiss
+      #     spaceType: cosinesimil
+      #     efConstruction: 128
+      #     m: 16
+      #   cohere_embed_v3:
+      #     vectorDimension: 1024
+      #     knnEngine: faiss
+      #     spaceType: cosinesimil
+      #     efConstruction: 128
+      #     m: 16
+      models:
+        text_embedding_3_large:
+          vectorDimension: ${ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION:3072}
+          knnEngine: ${ELASTICSEARCH_SEMANTIC_KNN_ENGINE:faiss}
+          spaceType: ${ELASTICSEARCH_SEMANTIC_SPACE_TYPE:cosinesimil}
+          efConstruction: ${ELASTICSEARCH_SEMANTIC_EF_CONSTRUCTION:128}
+          m: ${ELASTICSEARCH_SEMANTIC_M:16}
+      # Embedding provider configuration for generating query embeddings
+      # Supports three providers: "aws-bedrock", "openai", "cohere"
+      embeddingProvider:
+        # Provider type: "aws-bedrock", "openai", or "cohere"
+        type: ${EMBEDDING_PROVIDER_TYPE:openai}
+
+        # AWS Bedrock configuration (used when type is "aws-bedrock")
+        # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
+        awsRegion: ${EMBEDDING_PROVIDER_AWS_REGION:us-west-2}
+        # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions)
+        modelId: ${EMBEDDING_PROVIDER_MODEL_ID:cohere.embed-english-v3}
+        # Maximum text length before truncation (Cohere enforces 2048 character limit)
+        maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
+
+        # OpenAI configuration (used when type is "openai")
+        openai:
+          apiKey: ${OPENAI_API_KEY:}
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-large}
+          endpoint: ${OPENAI_EMBEDDING_ENDPOINT:https://api.openai.com/v1/embeddings}
+
+        # Cohere configuration (used when type is "cohere")
+        cohere:
+          apiKey: ${COHERE_API_KEY:}
+          model: ${COHERE_EMBEDDING_MODEL:embed-english-v3.0}
+          endpoint: ${COHERE_EMBEDDING_ENDPOINT:https://api.cohere.ai/v1/embed}
   # Multi-client shim configuration
   shim:
     # Enable the search client shim (false = use legacy RestHighLevelClient)
@@ -421,6 +492,9 @@ elasticsearch:
     retentionUnit: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT:DAYS}
     retentionValue: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE:60}
     reindexOptimizationEnabled: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED:true} # Disable when Multi-AZ zone replication is set to required, will prevent index from setting zero replicas during reindexing
+    reindexBatchSize: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE:5000} # documents per scroll batch during reindex
+    reindexMaxSlices: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES:256} # max parallel slices (capped from target shard count)
+    reindexNoProgressRetryMinutes: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES:5} # minutes without doc-count progress before re-triggering reindex
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.
@@ -473,6 +547,7 @@ elasticsearch:
 kafka:
   setup:
     preCreateTopics: ${DATAHUB_PRECREATE_TOPICS:true}
+    autoIncreasePartitions: ${DATAHUB_AUTO_INCREASE_PARTITIONS:false}
     useConfluentSchemaRegistry: ${USE_CONFLUENT_SCHEMA_REGISTRY:false}
 
   # Topic defaults applied when individual topic configuration is missing
@@ -561,6 +636,7 @@ kafka:
         delegateDeserializer: ${KAFKA_SERDE_EVENT_VALUE_DELEGATE_DESERIALIZER:org.apache.kafka.common.serialization.StringDeserializer}
 
   producer:
+    bootstrapServers: ${KAFKA_PRODUCER_BOOTSTRAP_SERVER:} # Used as an override for the base setting for when split producer/consumer is desired
     retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:3}
     deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:30000}
     requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:3000}
@@ -568,6 +644,7 @@ kafka:
     compressionType: ${KAFKA_PRODUCER_COMPRESSION_TYPE:snappy} # producer's compression algorithm
     maxRequestSize: ${KAFKA_PRODUCER_MAX_REQUEST_SIZE:5242880} # the max bytes sent by the producer, also see kafka-setup MAX_MESSAGE_BYTES for matching value
   consumer:
+    bootstrapServers: ${KAFKA_CONSUMER_BOOTSTRAP_SERVER:} # Used as an override for the base setting for when split producer/consumer is desired
     maxPartitionFetchBytes: ${KAFKA_CONSUMER_MAX_PARTITION_FETCH_BYTES:5242880} # the max bytes consumed per partition
     stopOnDeserializationError: ${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:true} # Stops kafka listener container on deserialization error, allows user to fix problems before moving past problematic offset. If false will log and move forward past the offset
     healthCheckEnabled: ${KAFKA_CONSUMER_HEALTH_CHECK_ENABLED:true} # Sets the health indicator to down when a message listener container has stopped due to a deserialization failure, will force consumer apps to restart through k8s and docker-compose health mechanisms
@@ -601,7 +678,6 @@ kafka:
     registry:
       security:
         protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
-
 
 # Only required if GraphService type is neo4j
 neo4j:
@@ -834,11 +910,36 @@ systemUpdate:
   removeQueryEdges:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_ENABLED:true}
     numRetries: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_RETRIES:20}
+  entityConsistency:
+    enabled: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ENABLED:true}
+    dryRun: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DRY_RUN:true}  # Set to false to apply fixes
+    batchSize: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_BATCH_SIZE:100}
+    delayMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DELAY_MS:1000}
+    gracePeriodSeconds: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_GRACE_PERIOD_SECONDS:14400}  # 4 hours - exclude recently modified entities to avoid eventual consistency false positives
+    limit: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LIMIT:0}
+    entityTypes: []  # Entity types to check. Empty = all types with registered checks.
+    checkIds: []  # Check IDs to run. Empty = all default checks for the entity types.
+    reprocess:
+      enabled: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_REPROCESS:false}
+    systemMetadataFilterConfig:  # Optional filtering via system metadata index
+      gePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_GE_PIT_EPOCH_MS:}  # Only entities modified >= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
+      lePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LE_PIT_EPOCH_MS:}  # Only entities modified <= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
+      aspectFilters: []  # Only entities with ANY of these aspects (OR semantics)
+      includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
   systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # applies structured property mappings in system update job
+
+# Consistency check configuration (shared by upgrade job and API endpoints)
+consistencyChecks:
+  gracePeriodSeconds: ${CONSISTENCY_CHECKS_GRACE_PERIOD_SECONDS:300}  # 5 minutes - default for API endpoints
+  checks:
+    # Per-check configuration, keyed by check ID
+    assertion-monitor-missing:
+      defaultCronSchedule: ${CONSISTENCY_CHECK_ASSERTION_MONITOR_MISSING_CRON:0 0 0 * * ?}
+      defaultCronTimezone: ${CONSISTENCY_CHECK_ASSERTION_MONITOR_MISSING_TIMEZONE:UTC}
 
 healthCheck:
   cacheDurationSeconds: ${HEALTH_CHECK_CACHE_DURATION_SECONDS:5}
@@ -868,7 +969,7 @@ featureFlags:
   alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false} # Enables alternate MCP validation flow
   themeV2Enabled: ${THEME_V2_ENABLED:true} # Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be false for this to have any effect.
   themeV2Default: ${THEME_V2_DEFAULT:true} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
-  themeV2Toggleable: ${THEME_V2_TOGGLEABLE:true} # Acryl only! Allows theme v2 to be toggled on / off by users.
+  themeV2Toggleable: ${THEME_V2_TOGGLEABLE:false} # Acryl only! Allows theme v2 to be toggled on / off by users.
   schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
   schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
@@ -879,24 +980,26 @@ featureFlags:
   showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
   entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects
   showHasSiblingsFilter: ${SHOW_HAS_SIBLINGS_FILTER:false} # If turned on, the "has siblings" filter will be visible in search results page
-  showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:false} # If turned on, show the redesigned search bar's autocomplete
+  showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:true} # If turned on, show the redesigned search bar's autocomplete
   showManageTags: ${SHOW_MANAGE_TAGS:true} # If turned on, allow users to manage tags in the UI
   showIntroducePage: ${SHOW_INTRODUCE_PAGE:true} # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms
-  showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false} # If turned on, show the re-designed Ingestion page
+  showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:true} # If turned on, show the re-designed Ingestion page
   ingestionOnboardingRedesignV1: ${INGESTION_ONBOARDING_REDESIGN_V1:false} # If turned on, show the redesigned ingestion onboarding experience
   showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true} # If turned on, show the re-designed Stats tab on the entity page
-  showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:false} # If turned on, show the re-designed home page
-  lineageGraphV3: ${LINEAGE_GRAPH_V3:false}  # Enables the redesign of the lineage v2 graph
+  showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:true} # If turned on, show the re-designed home page
+  lineageGraphV3: ${LINEAGE_GRAPH_V3:true} # Enables the redesign of the lineage v2 graph
   showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
-  productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-core} # URL to fetch product updates JSON from remote source.
-  # for Saas:
-  #productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-cloud} # URL to fetch product updates JSON from remote source.
+  # product updates for OSS (master):
+  productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-core/} # URL to fetch product updates JSON from remote source.
   productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update.json} # Classpath resource to use as fallback when remote fetch fails.
-  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false}  # Enables logical models feature
-  showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
+  # product updates for Saas (acryl-main):
+  #productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-cloud/} # URL to fetch product updates JSON from remote source.
+  #productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update-saas.json} # Classpath resource to use as fallback when remote fetch fails.
+  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false} # Enables logical models feature
+  showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false} # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
-  assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:false} # Enables displaying the asset summary page
+  assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:true} # Enables displaying the asset summary page
   datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:false} # Enables displaying the dataset summary page
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
@@ -911,7 +1014,7 @@ views:
   enabled: ${VIEWS_ENABLED:true}
 
 searchBar:
-  apiVariant: ${SEARCH_BAR_API_VARIANT:AUTOCOMPLETE_FOR_MULTIPLE}
+  apiVariant: ${SEARCH_BAR_API_VARIANT:SEARCH_ACROSS_ENTITIES}
 
 searchCard:
   showDescription: ${SEARCH_CARD_SHOW_DESCRIPTION:false}
@@ -1013,6 +1116,10 @@ graphQL:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
     introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
+    # Parent chain traversal (glossary, domains, containers, documents)
+    maxParentDepth: ${GRAPHQL_QUERY_MAX_PARENT_DEPTH:50}
+    # Relationship resolution cap per request (cycle/unbounded protection)
+    maxVisitedUrns: ${GRAPHQL_QUERY_MAX_VISITED_URNS:20000}
   metrics:
     # Master switch for all GraphQL metrics collection via Micrometer
     # When false, no GraphQL metrics are collected (request-level or field-level)
@@ -1114,7 +1221,7 @@ metadataChangeProposal:
       maxAttempts: ${MCP_TIMESERIES_MAX_ATTEMPTS:1000}
       initialIntervalMs: ${MCP_TIMESERIES_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
-      maxIntervalMs:  ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
+      maxIntervalMs: ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
 
 metadataChangeLog:
   consumer:

@@ -2,7 +2,7 @@ import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import backgroundVideo from '@images/signup-animation.mp4';
+import backgroundVideo from '@images/login-signup-animation.mp4';
 
 export const VideoWrapper = styled.div`
     position: relative;
@@ -20,7 +20,7 @@ const BackgroundVideo = styled.video`
     height: 100vh;
     transform: translate(-50%, -50%);
     z-index: 1;
-    object-fit: contain;
+    object-fit: cover;
 `;
 
 export const Content = styled.div`

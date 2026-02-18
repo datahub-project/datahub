@@ -1,32 +1,35 @@
-import { message } from 'antd';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Form, message } from 'antd';
+import React, { useCallback, useMemo, useState } from 'react';
 import YAML from 'yamljs';
 
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 
-import { CONNECTORS_WITH_FORM } from '@app/ingestV2/source/builder/RecipeForm/constants';
+import { CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { YamlEditor } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/YamlEditor';
 import RecipeForm from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/RecipeForm';
-import { MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
+import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
+import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 
 interface Props {
     state: MultiStepSourceBuilderState;
     displayRecipe: string;
     sourceConfigs?: SourceConfig;
     setStagedRecipe: (recipe: string) => void;
-    setIsRecipeValid?: (isValid: boolean) => void;
 }
 
-export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRecipe, setIsRecipeValid }: Props) {
+export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRecipe }: Props) {
     const { type } = state;
-    const isEditing = !!state.isEditing;
-    const hasForm = useMemo(() => type && CONNECTORS_WITH_FORM.has(type), [type]);
+    const hasForm = useMemo(() => type && CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS.has(type), [type]);
     const [selectedTabKey, setSelectedTabKey] = useState<string>('form');
-    // FYI: We don't have form validation for sources without a form
-    useEffect(() => {
-        setIsRecipeValid?.(!hasForm || isEditing || !!state.isConnectionDetailsValid);
-    }, [hasForm, isEditing, setIsRecipeValid, state.isConnectionDetailsValid]);
+    const {
+        state: { ingestionSource: existingIngestionSource },
+    } = useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep>();
+
+    const [form] = Form.useForm();
+    const runFormValidation = useCallback(() => {
+        form.validateFields();
+    }, [form]);
 
     const onTabClick = useCallback(
         (activeKey) => {
@@ -35,19 +38,36 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                 return;
             }
 
+            let parsedYaml: Record<string, any> | null = null;
             // Validate yaml content when switching from yaml tab to form
             try {
-                YAML.parse(displayRecipe);
+                try {
+                    parsedYaml = YAML.parse(displayRecipe);
+                    setTimeout(runFormValidation, 0); // let form remount and then run validation
+                } catch (e) {
+                    const messageText = (e as any).parsedLine
+                        ? `Fix line ${(e as any).parsedLine} in your recipe`
+                        : 'Please fix your recipe';
+                    throw new Error(`Found invalid YAML. ${messageText} in order to switch views.`);
+                }
+
+                if (
+                    parsedYaml &&
+                    !!existingIngestionSource &&
+                    parsedYaml?.source?.config?.type !== existingIngestionSource.type
+                ) {
+                    throw new Error("It's not possible to change source type for existing ingestion source");
+                }
+
                 setSelectedTabKey(activeKey);
-            } catch (e) {
+            } catch (e: unknown) {
                 message.destroy();
-                const messageText = (e as any).parsedLine
-                    ? `Fix line ${(e as any).parsedLine} in your recipe`
-                    : 'Please fix your recipe';
-                message.warn(`Found invalid YAML. ${messageText} in order to switch views.`);
+                if (e instanceof Error) {
+                    message.warn(e.message);
+                }
             }
         },
-        [displayRecipe],
+        [displayRecipe, runFormValidation, existingIngestionSource],
     );
 
     const tabs: Tab[] = useMemo(
@@ -58,10 +78,11 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                 component: (
                     <RecipeForm
                         state={state}
+                        form={form}
+                        runFormValidation={runFormValidation}
                         displayRecipe={displayRecipe}
                         sourceConfigs={sourceConfigs}
                         setStagedRecipe={setStagedRecipe}
-                        setIsRecipeValid={setIsRecipeValid}
                     />
                 ),
             },
@@ -69,9 +90,10 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                 key: 'yaml',
                 name: 'YAML',
                 component: <YamlEditor value={displayRecipe} onChange={setStagedRecipe} />,
+                dataTestId: 'yaml-editor-tab',
             },
         ],
-        [displayRecipe, state, sourceConfigs, setStagedRecipe, setIsRecipeValid],
+        [displayRecipe, state, sourceConfigs, setStagedRecipe, form, runFormValidation],
     );
 
     if (hasForm) {

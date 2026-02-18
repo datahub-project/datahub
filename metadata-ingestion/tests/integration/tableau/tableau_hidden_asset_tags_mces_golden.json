@@ -36319,7 +36319,7 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "Custom SQL Query",
+            "name": "Customer Payment Query",
             "tags": []
         }
     },
@@ -36617,7 +36617,7 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "Custom SQL Query",
+            "name": "test publish datasource",
             "tags": []
         }
     },
@@ -36846,7 +36846,7 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "Custom SQL Query",
+            "name": "AbcJoinWorkbook",
             "tags": []
         }
     },

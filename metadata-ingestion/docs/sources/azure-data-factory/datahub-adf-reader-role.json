@@ -1,0 +1,22 @@
+{
+  "Name": "DataHub ADF Reader",
+  "Description": "Custom role for DataHub Azure Data Factory connector with minimal read permissions. This role grants only the specific permissions needed to extract metadata from Azure Data Factory without any write or modify capabilities.",
+  "IsCustom": true,
+  "Actions": [
+    "Microsoft.DataFactory/factories/read",
+    "Microsoft.DataFactory/factories/pipelines/read",
+    "Microsoft.DataFactory/factories/datasets/read",
+    "Microsoft.DataFactory/factories/linkedservices/read",
+    "Microsoft.DataFactory/factories/dataflows/read",
+    "Microsoft.DataFactory/factories/triggers/read",
+    "Microsoft.DataFactory/factories/pipelineruns/read",
+    "Microsoft.DataFactory/factories/pipelineruns/activityruns/read"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": [
+    "/subscriptions/{subscription-id}"
+  ]
+}
+

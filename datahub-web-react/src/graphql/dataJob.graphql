@@ -19,9 +19,6 @@ query getDataJob($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         browsePathV2 {
             ...browsePathV2Fields
         }
@@ -35,13 +32,5 @@ query getDataJob($urn: String!) {
 mutation updateDataJob($urn: String!, $input: DataJobUpdateInput!) {
     updateDataJob(urn: $urn, input: $input) {
         urn
-    }
-}
-
-query getDataJobRuns($urn: String!, $start: Int!, $count: Int!) {
-    dataJob(urn: $urn) {
-        runs(start: $start, count: $count) {
-            ...runResults
-        }
     }
 }

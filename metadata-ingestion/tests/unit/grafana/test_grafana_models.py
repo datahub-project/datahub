@@ -51,8 +51,8 @@ def test_dashboard_basic():
             "tags": ["test"],
             "timezone": "utc",
             "schemaVersion": "1.0",
-            "meta": {"folderId": "123"},
-        }
+        },
+        "meta": {"folderId": "123", "createdBy": "admin"},
     }
 
     dashboard = Dashboard.model_validate(dashboard_data)
@@ -60,6 +60,8 @@ def test_dashboard_basic():
     assert dashboard.title == "Test Dashboard"
     assert dashboard.version == "1"
     assert dashboard.tags == ["test"]
+    assert dashboard.folder_id == "123"
+    assert dashboard.created_by == "admin"
 
 
 def test_dashboard_nested_panels():
@@ -252,7 +254,46 @@ def test_dashboard_missing_optional_fields():
     assert dashboard.version is None
     assert dashboard.timezone is None
     assert dashboard.refresh is None
+    assert dashboard.folder_id is None
     assert dashboard.created_by is None
+
+
+def test_dashboard_missing_created_by():
+    dashboard_data = {
+        "dashboard": {
+            "uid": "dash1",
+            "title": "Test Dashboard",
+            "description": "Test Description",
+            "panels": [],
+            "timezone": "utc",
+            "schemaVersion": "1.0",
+        },
+        "meta": {"folderId": "123"},
+    }
+
+    dashboard = Dashboard.model_validate(dashboard_data)
+    assert dashboard.uid == "dash1"
+    assert dashboard.folder_id == "123"
+    assert dashboard.created_by is None
+
+
+def test_dashboard_missing_folder_id():
+    dashboard_data = {
+        "dashboard": {
+            "uid": "dash1",
+            "title": "Test Dashboard",
+            "description": "Test Description",
+            "panels": [],
+            "timezone": "utc",
+            "schemaVersion": "1.0",
+        },
+        "meta": {"createdBy": "admin"},
+    }
+
+    dashboard = Dashboard.model_validate(dashboard_data)
+    assert dashboard.uid == "dash1"
+    assert dashboard.folder_id is None
+    assert dashboard.created_by == "admin"
 
 
 def test_panel_missing_optional_fields():
@@ -328,6 +369,29 @@ def test_dashboard_from_grafana_api_response():
     """Test parsing a realistic Grafana API response with missing fields."""
     # Simulates a real Grafana API response that might be missing some fields
     api_response = {
+        "meta": {
+            "type": "db",
+            "canSave": True,
+            "canEdit": True,
+            "canAdmin": True,
+            "canStar": True,
+            "slug": "production-dashboard",
+            "url": "/d/abc123/production-dashboard",
+            "expires": "0001-01-01T00:00:00Z",
+            "created": "2024-01-01T10:00:00Z",
+            "updated": "2024-01-02T15:30:00Z",
+            "updatedBy": "admin@localhost",
+            "createdBy": "admin@localhost",
+            "version": 1,
+            "hasAcl": False,
+            "isFolder": False,
+            "folderId": 0,
+            "folderUid": "",
+            "folderTitle": "General",
+            "folderUrl": "",
+            "provisioned": False,
+            "provisionedExternalId": "",
+        },
         "dashboard": {
             "uid": "abc123",
             "title": "Production Dashboard",
@@ -350,31 +414,8 @@ def test_dashboard_from_grafana_api_response():
             "refresh": "5s",
             "schemaVersion": 30,
             "version": 1,
-            "meta": {
-                "type": "db",
-                "canSave": True,
-                "canEdit": True,
-                "canAdmin": True,
-                "canStar": True,
-                "slug": "production-dashboard",
-                "url": "/d/abc123/production-dashboard",
-                "expires": "0001-01-01T00:00:00Z",
-                "created": "2024-01-01T10:00:00Z",
-                "updated": "2024-01-02T15:30:00Z",
-                "updatedBy": "admin",
-                "createdBy": "admin",
-                "version": 1,
-                "hasAcl": False,
-                "isFolder": False,
-                "folderId": 0,
-                "folderUid": "",
-                "folderTitle": "General",
-                "folderUrl": "",
-                "provisioned": False,
-                "provisionedExternalId": "",
-            },
             # Notice: missing 'tags' field entirely
-        }
+        },
     }
 
     dashboard = Dashboard.model_validate(api_response)
@@ -384,6 +425,7 @@ def test_dashboard_from_grafana_api_response():
     assert dashboard.version == "1"  # Should be converted to string
     assert dashboard.refresh == "5s"
     assert dashboard.folder_id == "0"  # Extracted from meta.folderId
+    assert dashboard.created_by == "admin@localhost"  # Extracted from meta.createdBy
     assert len(dashboard.panels) == 2
 
     # First panel should have defaults applied

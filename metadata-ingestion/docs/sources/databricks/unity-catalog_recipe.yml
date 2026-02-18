@@ -3,8 +3,9 @@ source:
   config:
     workspace_url: https://my-workspace.cloud.databricks.com
     
-    # Authentication Option 1: Personal Access Token
-    token: "<token>"
+    # Authentication Option 1: OAuth
+    client_id: "<client_id>"
+    client_secret: "<client_secret>"
     
     # Authentication Option 2: Azure Authentication (for Azure Databricks)
     # Uncomment the following section and comment out the token above to use Azure auth
@@ -12,6 +13,15 @@ source:
     #   client_id: "<azure_client_id>"
     #   tenant_id: "<azure_tenant_id>" 
     #   client_secret: "<azure_client_secret>"
+
+    # Authentication Option 3: Personal Access Token
+    # Uncomment the following section and comment out client_id/client_secret above
+    # token: "<token>"
+
+    # Authentication Option 4: Databricks unified auth
+    # Comment out client_id/client_secret above to use Databricks unified auth (reads environment variables
+    # and local Databricks configuration profiles)
+
     include_metastore: false
     include_ownership: true
     include_ml_model_aliases: false

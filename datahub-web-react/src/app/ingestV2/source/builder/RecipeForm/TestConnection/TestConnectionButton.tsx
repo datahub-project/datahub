@@ -18,16 +18,18 @@ import {
 } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult, IngestionSource } from '@types';
 
-export function getRecipeJson(recipeYaml: string) {
+export function getRecipeJson(recipeYaml: string, hideWarnings?: boolean) {
     // Convert the recipe into it's json representation, and catch + report exceptions while we do it.
     let recipeJson;
     try {
         recipeJson = yamlToJson(recipeYaml);
     } catch (e) {
-        const messageText = (e as any).parsedLine
-            ? `Please fix line ${(e as any).parsedLine} in your recipe.`
-            : 'Please check your recipe configuration.';
-        message.warn(`Found invalid YAML. ${messageText}`);
+        if (!hideWarnings) {
+            const messageText = (e as any).parsedLine
+                ? `Please fix line ${(e as any).parsedLine} in your recipe.`
+                : 'Please check your recipe configuration.';
+            message.warn(`Found invalid YAML. ${messageText}`);
+        }
         return null;
     }
     return recipeJson;
@@ -77,6 +79,7 @@ function TestConnectionButton({
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [pollingInterval, setPollingInterval] = useState<null | NodeJS.Timeout>(null);
     const [testConnectionResult, setTestConnectionResult] = useState<null | TestConnectionResult>(null);
+    const [duration, setDuration] = useState<number | undefined>(undefined);
     const [hasEmittedAnalytics, setHasEmittedAnalytics] = useState(false);
     const [createTestConnectionRequest, { data: requestData }] = useCreateTestConnectionRequestMutation();
     const [getIngestionExecutionRequest, { data: resultData, loading }] = useGetIngestionExecutionRequestLazyQuery();
@@ -122,6 +125,9 @@ function TestConnectionButton({
                 if (result.structuredReport) {
                     const testConnectionReport = JSON.parse(result.structuredReport.serializedValue);
                     setTestConnectionResult(testConnectionReport);
+                }
+                if (result.durationMs) {
+                    setDuration(result.durationMs);
                 }
                 if (pollingInterval) clearInterval(pollingInterval);
                 setIsLoading(false);
@@ -194,8 +200,9 @@ function TestConnectionButton({
             hasCompleted,
             status,
             ingestionOnboardingRedesignV1,
+            durationMs: duration,
         });
-
+        setDuration(undefined);
         setIsModalVisible(false);
     }
 

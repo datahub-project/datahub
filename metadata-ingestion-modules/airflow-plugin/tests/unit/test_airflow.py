@@ -60,11 +60,22 @@ def test_airflow_provider_info():
 
 @pytest.mark.filterwarnings("ignore:.*is deprecated.*")
 def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
+    from packaging import version
+
+    from datahub_airflow_plugin._airflow_shims import AIRFLOW_VERSION
+
     airflow_examples_folder = (
         pytestconfig.rootpath / "src/datahub_airflow_plugin/example_dags"
     )
 
-    # Note: the .airflowignore file skips the snowflake DAG.
+    # Root-level example DAGs use Airflow 2 APIs and don't work on Airflow 3
+    # Airflow 3 should use the airflow3/ subdirectory
+    if AIRFLOW_VERSION >= version.parse("3.0.0"):
+        pytest.skip(
+            "Example DAGs in this folder use Airflow 2 APIs. Airflow 3 uses airflow3/ subdirectory."
+        )
+
+    # Note: the .airflowignore file skips the snowflake DAG and version-specific subdirectories.
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
 
     import_errors = dag_bag.import_errors
@@ -150,7 +161,7 @@ def test_datahub_lineage_operator(mock_emit):
                 )
             ],
         )
-        task.execute(None)
+        task.execute({})
 
         mock_emit.assert_called()
 

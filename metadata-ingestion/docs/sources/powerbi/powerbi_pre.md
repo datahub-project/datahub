@@ -1,3 +1,50 @@
+## User and Ownership Handling
+
+PowerBI Source supports two modes for handling user ownership:
+
+### Soft References Mode (Recommended - Default)
+
+When `ownership.create_corp_user: false` (default), PowerBI will:
+
+- Extract ownership information as URN references only
+- NOT create user entities in DataHub
+- User profiles must come from your identity provider (LDAP/SCIM/Okta)
+
+This is the recommended approach as it prevents PowerBI from overwriting user profiles from your identity provider.
+
+```yaml
+ownership:
+  create_corp_user: false # Default - soft references only
+```
+
+### Full User Creation Mode (Opt-in)
+
+When `ownership.create_corp_user: true`, PowerBI will:
+
+- Create user entities with `displayName` and `email` from PowerBI
+- This may overwrite existing user profiles from LDAP/Okta/SCIM
+
+**Warning**: Only use this if PowerBI is your authoritative source for user information.
+
+```yaml
+ownership:
+  create_corp_user: true # Opt-in - creates user entities
+```
+
+### Filtering Owners by Access Rights
+
+You can limit which users become owners using `owner_criteria`. Only users with at least one of the specified access rights will be assigned as owners:
+
+```yaml
+ownership:
+  owner_criteria:
+    - ReadWriteReshareExplore
+    - Owner
+    - Admin
+```
+
+Valid values depend on the PowerBI access right types for your resources (e.g., dataset, report, dashboard). If `owner_criteria` is not set or is an empty list, all users with `principalType: User` qualify as owners.
+
 ## Configuration Notes
 
 1. Refer [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) to create a Microsoft AD Application. Once Microsoft AD Application is created you can configure client-credential i.e. client_id and client_secret in recipe for ingestion.
@@ -47,8 +94,39 @@ PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 5.  Google BigQuery
 6.  Databricks
 7.  MySQL
+8.  Amazon Redshift
+9.  Amazon Athena
 
 Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, and ODBC data sources.
+
+### Athena Federated Query Platform Override
+
+When using Amazon Athena via ODBC that queries federated data sources (e.g., Athena querying MySQL or PostgreSQL via federated connectors), the lineage URNs will default to the Athena platform. Use `athena_table_platform_override` to point lineage to the actual source platform instead of Athena.
+
+**Configuration:**
+
+```yaml
+source:
+  type: powerbi
+  config:
+    # ... other config ...
+    dsn_to_platform_name:
+      MyAthenaDSN: athena
+    athena_table_platform_override:
+      # DSN-scoped key (takes precedence)
+      "MyAthenaDSN:analytics.users": mysql
+      # Global key (fallback for any DSN)
+      "reporting.orders": postgres
+```
+
+**Key format:**
+
+- **DSN-scoped**: `"DSN_NAME:database.table"` - applies only to specific DSN
+- **Global**: `"database.table"` - applies to all DSNs
+
+DSN-scoped keys take precedence over global keys, allowing different overrides for the same table name across different Athena data sources.
+
+**Note:** This override only applies to Athena ODBC connections. For other ODBC platforms, lineage will use the platform determined from the DSN configuration.
 
 For example, consider the SQL query shown below. The table `OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_UNIT_TARGET` will be ingested as an upstream table.
 

@@ -2,6 +2,8 @@ import { Modal, Text, typography } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
+import { ModalButton } from '@components/components/Modal/Modal';
+
 export const StyledModal = styled(Modal)`
     font-family: ${typography.fonts.body};
 
@@ -28,8 +30,10 @@ interface Props {
     modalTitle?: string;
     modalText?: string | React.ReactNode;
     closeButtonText?: string;
+    closeButtonColor?: ModalButton['color'];
     confirmButtonText?: string;
     isDeleteModal?: boolean;
+    closeOnPrimaryAction?: boolean;
 }
 
 export const ConfirmationModal = ({
@@ -39,13 +43,15 @@ export const ConfirmationModal = ({
     modalTitle,
     modalText,
     closeButtonText,
+    closeButtonColor,
     confirmButtonText,
     isDeleteModal,
+    closeOnPrimaryAction,
 }: Props) => {
     return (
         <StyledModal
             open={isOpen}
-            onCancel={handleClose}
+            onCancel={closeOnPrimaryAction ? handleConfirm : handleClose}
             centered
             buttons={[
                 {
@@ -53,6 +59,7 @@ export const ConfirmationModal = ({
                     onClick: handleClose,
                     buttonDataTestId: 'modal-cancel-button',
                     text: closeButtonText || 'Cancel',
+                    color: closeButtonColor,
                 },
                 {
                     variant: 'filled',

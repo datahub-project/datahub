@@ -23,23 +23,30 @@ interface Props {
     form: FormInstance;
     handleSubmit: (values: LoginFormValues) => void;
     onFormChange: () => void;
+    isSubmitDisabled: boolean;
 }
 
-export default function LoginForm({ form, handleSubmit, onFormChange }: Props) {
+export default function LoginForm({ form, handleSubmit, onFormChange, isSubmitDisabled }: Props) {
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !isSubmitDisabled) {
+            form.submit();
+        }
+    };
+
     return (
         <FormContainer>
-            <Form form={form} onFinish={handleSubmit} onFieldsChange={onFormChange}>
+            <Form form={form} onFinish={handleSubmit} onFieldsChange={onFormChange} onKeyDown={handleKeyDown}>
                 <ItemContainer>
                     <FieldLabel label="Username" required />
                     <Form.Item rules={[{ required: true, message: 'Please fill in your username' }]} name="username">
-                        <Input placeholder="Enter username" />
+                        <Input placeholder="Enter username" inputTestId="username" />
                     </Form.Item>
                 </ItemContainer>
 
                 <ItemContainer>
                     <FieldLabel label="Password" required />
                     <Form.Item rules={[{ required: true, message: 'Please fill in your password' }]} name="password">
-                        <Input placeholder="********" type="password" />
+                        <Input placeholder="********" type="password" inputTestId="password" />
                     </Form.Item>
                 </ItemContainer>
             </Form>

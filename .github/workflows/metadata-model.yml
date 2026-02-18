@@ -24,7 +24,7 @@ jobs:
         id: publish
         run: |
           echo "Enable publish: ${{ github.repository == 'datahub-project/datahub' }}"
-          echo "publish=${{ github.repository == 'datahub-project/datahub' }}" >> $GITHUB_OUTPUT
+          echo "publish=${{ github.repository == 'datahub-project/datahub' }}" >> "$GITHUB_OUTPUT"
   metadata-ingestion-docgen:
     runs-on: ubuntu-latest
     needs: setup
