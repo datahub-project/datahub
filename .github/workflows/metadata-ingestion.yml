@@ -117,8 +117,8 @@ jobs:
         uses: ./.github/actions/report-test-results
         with:
           artifact-name: metadata-ingestion-test-results-${{ strategy.job-index }}
-          test-results-path: "metadata-ingestion/test-results/**"
-          junit-file-glob: "metadata-ingestion/test-results/*.xml"
+          test-results-paths: "metadata-ingestion/test-results/**"
+          junit-file-globs: "metadata-ingestion/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag
         if: ${{ always() && matrix.python-version == '3.11' }}
         uses: codecov/codecov-action@v5
