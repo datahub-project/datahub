@@ -60,10 +60,16 @@ export default function IngestionSourceNavigationButtons() {
                     variant="outline"
                     disabled={!isCurrentStepCompleted() || isSaveAndRunInProgress}
                     onClick={onSave}
+                    data-testid="save-button"
                 >
                     Save
                 </Button>,
-                <Button size="sm" disabled={!isCurrentStepCompleted() || isSaveAndRunInProgress} onClick={onSaveAndRun}>
+                <Button
+                    size="sm"
+                    disabled={!isCurrentStepCompleted() || isSaveAndRunInProgress}
+                    onClick={onSaveAndRun}
+                    data-testid="save-and-run-button"
+                >
                     Save and Run
                 </Button>,
             );

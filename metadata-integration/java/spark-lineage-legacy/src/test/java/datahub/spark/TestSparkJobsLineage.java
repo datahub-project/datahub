@@ -35,9 +35,9 @@ import org.apache.spark.sql.SparkSession;
 import org.apache.spark.storage.StorageLevel;
 import org.junit.After;
 import org.junit.AfterClass;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.ClassRule;
 import org.junit.FixMethodOrder;
 import org.junit.Rule;
 import org.junit.Test;
@@ -85,12 +85,7 @@ public class TestSparkJobsLineage {
   private static final String DATASET_PLATFORM_INSTANCE = "test_dev_dataset";
   private static final String TABLE_PLATFORM = "hive";
 
-  @ClassRule public static PostgreSQLContainer<?> db;
-
-  static {
-    db = new PostgreSQLContainer<>("postgres:9.6.12").withDatabaseName("sparktestdb");
-    db.waitingFor(Wait.forListeningPort()).withStartupTimeout(Duration.ofMinutes(15)).start();
-  }
+  private static PostgreSQLContainer<?> db;
 
   private static SparkSession spark;
   private static Properties jdbcConnnProperties;
@@ -178,6 +173,21 @@ public class TestSparkJobsLineage {
 
   @BeforeClass
   public static void setup() {
+    try {
+      db =
+          new PostgreSQLContainer<>("postgres:9.6.12")
+              .withDatabaseName("sparktestdb")
+              .waitingFor(Wait.forListeningPort())
+              .withStartupTimeout(Duration.ofMinutes(15));
+      db.start();
+    } catch (IllegalStateException e) {
+      if (e.getMessage() != null
+          && e.getMessage().contains("Could not find a valid Docker environment")) {
+        Assume.assumeTrue(
+            "Docker/Testcontainers not available (e.g. CI without Docker or API too old)", false);
+      }
+      throw e;
+    }
 
     acc = new DatasetLineageAccumulator();
     LineageUtils.registerConsumer("accumulator", acc);
@@ -227,6 +237,9 @@ public class TestSparkJobsLineage {
     }
     if (mockServer != null) {
       mockServer.stop();
+    }
+    if (db != null) {
+      db.stop();
     }
   }
 

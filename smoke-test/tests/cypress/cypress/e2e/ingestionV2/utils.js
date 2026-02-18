@@ -8,6 +8,7 @@ export const setThemeV2AndIngestionRedesignFlags = (isOn) => {
     if (hasOperationName(req, "appConfig")) {
       req.reply((res) => {
         res.body.data.appConfig.featureFlags.showIngestionPageRedesign = isOn;
+        res.body.data.appConfig.featureFlags.ingestionOnboardingRedesignV1 = false;
         res.body.data.appConfig.featureFlags.themeV2Enabled = isOn;
         res.body.data.appConfig.featureFlags.themeV2Default = isOn;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isOn;
