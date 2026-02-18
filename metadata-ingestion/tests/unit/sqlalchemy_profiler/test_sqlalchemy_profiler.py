@@ -8,10 +8,12 @@ from sqlalchemy import Column, Float, Integer, String, create_engine
 
 from datahub.ingestion.source.ge_data_profiler import ProfilerRequest
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.profiling.common import Cardinality
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
+from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
 
 
 @pytest.fixture
@@ -448,3 +450,218 @@ class TestSQLAlchemyProfiler:
 
             # Cleanup should have been called even though profiling failed
             mock_adapter.cleanup.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "stat_name,expected_title",
+        [
+            ("min", "Profiling: Unable to Calculate Min"),
+            ("max", "Profiling: Unable to Calculate Max"),
+            ("mean", "Profiling: Unable to Calculate Mean"),
+            ("stdev", "Profiling: Unable to Calculate Standard Deviation"),
+            ("median", "Profiling: Unable to Calculate Median"),
+        ],
+    )
+    def test_batchable_numeric_stats_exception_caught(
+        self, profiler, mock_report, stat_name, expected_title
+    ):
+        """Test that batchable numeric stats exceptions are caught in _process_numeric_column_stats."""
+        mock_runner = MagicMock()
+        mock_table = MagicMock()
+        mock_column_profile = MagicMock()
+
+        # Create a FutureResult that raises an exception when .result() is called
+        mock_future = MagicMock()
+        mock_future.result.side_effect = Exception(f"{stat_name} error")
+
+        # Pass the future in numeric_stats_futures (nested dict: {col_name: {stat_name: future}})
+        numeric_stats_futures = {"value_col": {stat_name: mock_future}}
+
+        # Should not raise, should log warning
+        profiler._process_numeric_column_stats(
+            runner=mock_runner,
+            sql_table=mock_table,
+            col_name="value_col",
+            column_profile=mock_column_profile,
+            col_type=ProfilerDataType.FLOAT,
+            cardinality=Cardinality.MANY,
+            numeric_stats_futures=numeric_stats_futures,
+            pretty_name="test.table",
+            platform="sqlite",
+        )
+
+        # Verify warning was logged
+        mock_report.warning.assert_called()
+        call_args = mock_report.warning.call_args
+        assert call_args.kwargs["title"] == expected_title
+        assert "test.table.value_col" in call_args.kwargs["context"]
+
+    @pytest.mark.parametrize(
+        "test_case",
+        [
+            {
+                "name": "sample_values",
+                "config_overrides": {},
+                "mock_method": "get_column_sample_values",
+                "profiler_method": "_add_sample_values",
+                "method_kwargs": {
+                    "col_name": "test_col",
+                    "non_null_count": 10,
+                    "row_count": 100,
+                    "pretty_name": "test.table",
+                },
+                "expected_title": "Profiling: Unable to Calculate Sample Values",
+                "expected_context": "test.table.test_col",
+            },
+            {
+                "name": "histogram",
+                "config_overrides": {"include_field_histogram": True},
+                "mock_method": "get_column_histogram",
+                "profiler_method": "_process_numeric_column_stats",
+                "method_kwargs": {
+                    "col_name": "value_col",
+                    "col_type": ProfilerDataType.FLOAT,
+                    "cardinality": Cardinality.MANY,
+                    "numeric_stats_futures": {},
+                    "pretty_name": "test.table",
+                    "platform": "sqlite",
+                },
+                "expected_title": "Profiling: Unable to Calculate Histogram",
+                "expected_context": "test.table.value_col",
+            },
+            {
+                "name": "quantiles",
+                "config_overrides": {"include_field_quantiles": True},
+                "mock_method": "get_column_quantiles",
+                "profiler_method": "_process_numeric_column_stats",
+                "method_kwargs": {
+                    "col_name": "value_col",
+                    "col_type": ProfilerDataType.FLOAT,
+                    "cardinality": Cardinality.MANY,
+                    "numeric_stats_futures": {},
+                    "pretty_name": "test.table",
+                    "platform": "sqlite",
+                },
+                "expected_title": "Profiling: Unable to Calculate Quantiles",
+                "expected_context": "test.table.value_col",
+            },
+            {
+                "name": "distinct_value_frequencies",
+                "config_overrides": {"include_field_distinct_value_frequencies": True},
+                "mock_method": "get_column_distinct_value_frequencies",
+                "profiler_method": "_maybe_add_distinct_value_frequencies",
+                "method_kwargs": {
+                    "col_name": "status_col",
+                    "cardinality": Cardinality.ONE,
+                    "allowed_cardinalities": {Cardinality.ONE, Cardinality.TWO},
+                    "pretty_name": "test.table",
+                },
+                "expected_title": "Profiling: Unable to Calculate Distinct Value Frequencies",
+                "expected_context": "test.table.status_col",
+            },
+        ],
+        ids=lambda tc: tc["name"],
+    )
+    def test_non_batchable_query_exceptions_caught(
+        self, sqlite_engine, mock_report, test_case
+    ):
+        """Test that non-batchable query exceptions are caught and logged."""
+        # Create profiler with appropriate config
+        config = ProfilingConfig(
+            enabled=True, catch_exceptions=True, **test_case["config_overrides"]
+        )
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+
+        # Set up mocks
+        mock_runner = MagicMock()
+        mock_table = MagicMock()
+        mock_column_profile = MagicMock()
+
+        # Make the runner method raise an exception
+        getattr(mock_runner, test_case["mock_method"]).side_effect = Exception(
+            f"{test_case['name']} error"
+        )
+
+        # Call the profiler method
+        method = getattr(profiler, test_case["profiler_method"])
+        method(
+            runner=mock_runner,
+            sql_table=mock_table,
+            column_profile=mock_column_profile,
+            **test_case["method_kwargs"],
+        )
+
+        # Verify warning was logged
+        assert mock_report.warning.called
+        warning_calls = [
+            call.kwargs for call in mock_report.warning.call_args_list if call.kwargs
+        ]
+        matching_warnings = [
+            w
+            for w in warning_calls
+            if w.get("title") == test_case["expected_title"]
+            and test_case["expected_context"] in w.get("context", "")
+        ]
+        assert len(matching_warnings) > 0, (
+            f"Expected warning with title '{test_case['expected_title']}' "
+            f"and context '{test_case['expected_context']}' not found. "
+            f"Got warnings: {warning_calls}"
+        )
+
+    def test_row_count_failure_returns_none(self, profiler, mock_report, sqlite_engine):
+        """
+        Test that profiling returns None when row_count metric fails.
+
+        This prevents empty profiles from being emitted when we can't get basic
+        metrics like row count (e.g., due to permission errors). This matches
+        GE profiler behavior which asserts that profile.rowCount is not None.
+
+        The row_count extraction includes explicit exception handling and early
+        return logic to prevent emitting profiles without this critical metric.
+        """
+        profiler.config.catch_exceptions = True
+
+        request = ProfilerRequest(
+            pretty_name="test.table",
+            batch_kwargs={"table": "test_table", "schema": "test_schema"},
+        )
+
+        # Mock the profiling to fail during row count extraction
+        # This simulates permission errors or other database failures
+        with (
+            sqlite_engine.connect() as conn,
+            patch.object(profiler, "base_engine") as mock_engine,
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+            ) as mock_get_adapter,
+        ):
+            mock_engine.connect.return_value.__enter__.return_value = conn
+            mock_adapter = MagicMock()
+
+            # Setup succeeds but subsequent profiling will fail
+            # We raise an exception that will propagate through the profiling pipeline
+            mock_adapter.setup_profiling.side_effect = Exception(
+                "Simulated row count failure"
+            )
+
+            mock_get_adapter.return_value = mock_adapter
+
+            # Attempt to profile - should return None for failed profiling
+            result_request, result_profile = profiler._generate_profile_from_request(
+                None, request
+            )
+
+            # Verify that None is returned (no profile emitted on failure)
+            assert result_request == request
+            assert result_profile is None, (
+                "Expected None to be returned when profiling fails, "
+                "preventing incomplete profiles from being emitted"
+            )
+
+            # Verify warning was logged
+            assert mock_report.warning.called

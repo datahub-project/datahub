@@ -546,6 +546,7 @@ class SQLAlchemyProfiler:
         column_profile: DatasetFieldProfileClass,
         cardinality: Optional["Cardinality"],
         allowed_cardinalities: set,
+        pretty_name: str,
     ) -> None:
         """
         Add distinct value frequencies if configured and cardinality is in allowed set.
@@ -560,19 +561,31 @@ class SQLAlchemyProfiler:
             column_profile: Profile object to update
             cardinality: Column cardinality (ONE, TWO, VERY_FEW, FEW, etc.)
             allowed_cardinalities: Set of cardinalities for which to add frequencies
+            pretty_name: Table name for error reporting
         """
         if (
             self.config.include_field_distinct_value_frequencies
             and cardinality
             and cardinality in allowed_cardinalities
         ):
-            frequencies = runner.get_column_distinct_value_frequencies(
-                sql_table, col_name
-            )
-            column_profile.distinctValueFrequencies = [
-                ValueFrequencyClass(value=str(value), frequency=freq)
-                for value, freq in frequencies
-            ]
+            try:
+                frequencies = runner.get_column_distinct_value_frequencies(
+                    sql_table, col_name
+                )
+                column_profile.distinctValueFrequencies = [
+                    ValueFrequencyClass(value=str(value), frequency=freq)
+                    for value, freq in frequencies
+                ]
+            except Exception as e:
+                logger.debug(
+                    f"Caught exception while attempting to get distinct value frequencies for column {col_name}. {e}"
+                )
+                self.report.warning(
+                    title="Profiling: Unable to Calculate Distinct Value Frequencies",
+                    message="Distinct value frequencies for the column will not be accessible",
+                    context=f"{pretty_name}.{col_name}",
+                    exc=e,
+                )
 
     def _add_sample_values(
         self,
@@ -582,6 +595,7 @@ class SQLAlchemyProfiler:
         column_profile: DatasetFieldProfileClass,
         non_null_count: Optional[int],
         row_count: Optional[int],
+        pretty_name: str,
     ) -> None:
         """
         Add sample values to column profile.
@@ -593,26 +607,38 @@ class SQLAlchemyProfiler:
             column_profile: Profile object to update
             non_null_count: Number of non-null values (None if unavailable)
             row_count: Total row count in table
+            pretty_name: Table name for error reporting
         """
-        sample_values = runner.get_column_sample_values(
-            sql_table,
-            col_name,
-            limit=self.config.field_sample_values_limit,
-        )
-        # Convert to strings (GE does: str(v) for v in partial_unexpected_list)
-        sample_list = [str(value) for value in sample_values if value is not None]
-        # Only set sampleValues if there are actual values (match GE behavior)
-        if sample_list:
-            column_profile.sampleValues = sample_list
-        # For null-only columns (rows exist but all null), set empty list to match GE behavior
-        # But don't set it for empty tables (row_count == 0) - GE doesn't set it in that case
-        elif (
-            non_null_count is not None
-            and non_null_count == 0
-            and row_count is not None
-            and row_count > 0
-        ):
-            column_profile.sampleValues = []
+        try:
+            sample_values = runner.get_column_sample_values(
+                sql_table,
+                col_name,
+                limit=self.config.field_sample_values_limit,
+            )
+            # Convert to strings (GE does: str(v) for v in partial_unexpected_list)
+            sample_list = [str(value) for value in sample_values if value is not None]
+            # Only set sampleValues if there are actual values (match GE behavior)
+            if sample_list:
+                column_profile.sampleValues = sample_list
+            # For null-only columns (rows exist but all null), set empty list to match GE behavior
+            # But don't set it for empty tables (row_count == 0) - GE doesn't set it in that case
+            elif (
+                non_null_count is not None
+                and non_null_count == 0
+                and row_count is not None
+                and row_count > 0
+            ):
+                column_profile.sampleValues = []
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get sample values for column {col_name}. {e}"
+            )
+            self.report.warning(
+                title="Profiling: Unable to Calculate Sample Values",
+                message="The sample values for the column will not be accessible",
+                context=f"{pretty_name}.{col_name}",
+                exc=e,
+            )
 
     def _process_numeric_column_stats(
         self,
@@ -734,24 +760,35 @@ class SQLAlchemyProfiler:
                 Cardinality.MANY,
                 Cardinality.VERY_MANY,
             }:
-                quantiles = runner.get_column_quantiles(
-                    sql_table,
-                    col_name,
-                    [0.05, 0.25, 0.5, 0.75, 0.95],
-                )
-                logger.debug(
-                    f"Quantiles for {col_name}: type={type(quantiles)}, "
-                    f"len={len(quantiles) if quantiles else 0}, value={quantiles}"
-                )
-                column_profile.quantiles = [
-                    QuantileClass(quantile=str(q), value=str(v))
-                    for q, v in zip(
+                try:
+                    quantiles = runner.get_column_quantiles(
+                        sql_table,
+                        col_name,
                         [0.05, 0.25, 0.5, 0.75, 0.95],
-                        quantiles,
-                        strict=False,
                     )
-                    if v is not None
-                ]
+                    logger.debug(
+                        f"Quantiles for {col_name}: type={type(quantiles)}, "
+                        f"len={len(quantiles) if quantiles else 0}, value={quantiles}"
+                    )
+                    column_profile.quantiles = [
+                        QuantileClass(quantile=str(q), value=str(v))
+                        for q, v in zip(
+                            [0.05, 0.25, 0.5, 0.75, 0.95],
+                            quantiles,
+                            strict=False,
+                        )
+                        if v is not None
+                    ]
+                except Exception as e:
+                    logger.debug(
+                        f"Caught exception while attempting to get column quantiles for column {col_name}. {e}"
+                    )
+                    self.report.warning(
+                        title="Profiling: Unable to Calculate Quantiles",
+                        message="The quantiles for the column will not be accessible",
+                        context=f"{pretty_name}.{col_name}",
+                        exc=e,
+                    )
             else:
                 logger.info(
                     f"Skipping quantiles for {pretty_name}.{col_name}: "
@@ -766,18 +803,29 @@ class SQLAlchemyProfiler:
                 Cardinality.MANY,
                 Cardinality.VERY_MANY,
             }:
-                histogram = runner.get_column_histogram(sql_table, col_name)
-                if histogram:
-                    # Convert to HistogramClass format
-                    # boundaries: bucket boundaries (k+1 values for k buckets)
-                    # heights: counts per bucket (k values)
-                    boundaries = [str(start) for start, _, _ in histogram]
-                    # Add the last bucket end as final boundary
+                try:
+                    histogram = runner.get_column_histogram(sql_table, col_name)
                     if histogram:
-                        boundaries.append(str(histogram[-1][1]))
-                    heights = [float(count) for _, _, count in histogram]
-                    column_profile.histogram = HistogramClass(
-                        boundaries=boundaries, heights=heights
+                        # Convert to HistogramClass format
+                        # boundaries: bucket boundaries (k+1 values for k buckets)
+                        # heights: counts per bucket (k values)
+                        boundaries = [str(start) for start, _, _ in histogram]
+                        # Add the last bucket end as final boundary
+                        if histogram:
+                            boundaries.append(str(histogram[-1][1]))
+                        heights = [float(count) for _, _, count in histogram]
+                        column_profile.histogram = HistogramClass(
+                            boundaries=boundaries, heights=heights
+                        )
+                except Exception as e:
+                    logger.debug(
+                        f"Caught exception while attempting to get column histogram for column {col_name}. {e}"
+                    )
+                    self.report.warning(
+                        title="Profiling: Unable to Calculate Histogram",
+                        message="The histogram for the column will not be accessible",
+                        context=f"{pretty_name}.{col_name}",
+                        exc=e,
                     )
             else:
                 logger.info(
@@ -788,16 +836,17 @@ class SQLAlchemyProfiler:
 
         # Add distinct value frequencies for low cardinality numeric columns
         self._maybe_add_distinct_value_frequencies(
-            runner,
-            sql_table,
-            col_name,
-            column_profile,
-            cardinality,
-            {
+            runner=runner,
+            sql_table=sql_table,
+            col_name=col_name,
+            column_profile=column_profile,
+            cardinality=cardinality,
+            allowed_cardinalities={
                 Cardinality.ONE,
                 Cardinality.TWO,
                 Cardinality.VERY_FEW,
             },
+            pretty_name=pretty_name,
         )
 
     def _process_string_column_stats(
@@ -807,6 +856,7 @@ class SQLAlchemyProfiler:
         col_name: str,
         column_profile: DatasetFieldProfileClass,
         cardinality: Optional["Cardinality"],
+        pretty_name: str,
     ) -> None:
         """
         Process string column statistics.
@@ -817,20 +867,22 @@ class SQLAlchemyProfiler:
             col_name: Column name
             column_profile: Profile object to update
             cardinality: Column cardinality
+            pretty_name: Table name for error reporting
         """
         # For string columns, add distinct value frequencies for low cardinality
         self._maybe_add_distinct_value_frequencies(
-            runner,
-            sql_table,
-            col_name,
-            column_profile,
-            cardinality,
-            {
+            runner=runner,
+            sql_table=sql_table,
+            col_name=col_name,
+            column_profile=column_profile,
+            cardinality=cardinality,
+            allowed_cardinalities={
                 Cardinality.ONE,
                 Cardinality.TWO,
                 Cardinality.VERY_FEW,
                 Cardinality.FEW,
             },
+            pretty_name=pretty_name,
         )
 
     def _process_datetime_column_stats(
@@ -890,17 +942,18 @@ class SQLAlchemyProfiler:
 
         # Add distinct value frequencies for low cardinality datetime columns
         self._maybe_add_distinct_value_frequencies(
-            runner,
-            sql_table,
-            col_name,
-            column_profile,
-            cardinality,
-            {
+            runner=runner,
+            sql_table=sql_table,
+            col_name=col_name,
+            column_profile=column_profile,
+            cardinality=cardinality,
+            allowed_cardinalities={
                 Cardinality.ONE,
                 Cardinality.TWO,
                 Cardinality.VERY_FEW,
                 Cardinality.FEW,
             },
+            pretty_name=pretty_name,
         )
 
     def _process_other_column_stats(
@@ -910,6 +963,7 @@ class SQLAlchemyProfiler:
         col_name: str,
         column_profile: DatasetFieldProfileClass,
         cardinality: Optional["Cardinality"],
+        pretty_name: str,
     ) -> None:
         """
         Process statistics for other column types (boolean, binary, etc.).
@@ -920,20 +974,22 @@ class SQLAlchemyProfiler:
             col_name: Column name
             column_profile: Profile object to update
             cardinality: Column cardinality
+            pretty_name: Table name for error reporting
         """
         # For other types, add distinct value frequencies for low cardinality
         self._maybe_add_distinct_value_frequencies(
-            runner,
-            sql_table,
-            col_name,
-            column_profile,
-            cardinality,
-            {
+            runner=runner,
+            sql_table=sql_table,
+            col_name=col_name,
+            column_profile=column_profile,
+            cardinality=cardinality,
+            allowed_cardinalities={
                 Cardinality.ONE,
                 Cardinality.TWO,
                 Cardinality.VERY_FEW,
                 Cardinality.FEW,
             },
+            pretty_name=pretty_name,
         )
 
     def generate_profiles(
@@ -1069,13 +1125,26 @@ class SQLAlchemyProfiler:
         logger.debug(f"profiling {pretty_name}: flushing stage 1 (row count)")
         query_combiner.flush()
 
-        # Extract row count result
-        profile.rowCount = row_count_future.result()
-        row_count = profile.rowCount
-        logger.debug(
-            f"Row count result for {pretty_name}: {row_count}, type: {type(row_count)}"
-        )
-        self.total_row_count += row_count if row_count is not None else 0
+        # Extract row count result with exception handling
+        try:
+            profile.rowCount = row_count_future.result()
+            row_count = profile.rowCount
+            logger.debug(
+                f"Row count result for {pretty_name}: {row_count}, type: {type(row_count)}"
+            )
+            self.total_row_count += row_count if row_count is not None else 0
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get row count for {pretty_name}. {e}"
+            )
+            self.report.warning(
+                title="Profiling: Unable to Get Row Count",
+                message="Row count for the table will not be accessible",
+                context=pretty_name,
+                exc=e,
+            )
+            profile.rowCount = None
+            row_count = None
 
         # Update partition spec if sampling was applied by adapter
         if context.is_sampled:
@@ -1171,6 +1240,7 @@ class SQLAlchemyProfiler:
         columns_to_profile_set: set,
         row_count: Optional[int],
         platform: str,
+        pretty_name: str,
     ) -> Dict[
         str,
         Tuple[
@@ -1211,8 +1281,20 @@ class SQLAlchemyProfiler:
                     column.type, platform, str(column.type)
                 )
 
-            # Extract non-null count from FutureResult
-            non_null_count = cardinality_futures[col_name]["non_null"].result()
+            # Extract non-null count from FutureResult with exception handling
+            try:
+                non_null_count = cardinality_futures[col_name]["non_null"].result()
+            except Exception as e:
+                logger.debug(
+                    f"Caught exception while attempting to get non-null count for column {col_name}. {e}"
+                )
+                self.report.warning(
+                    title="Profiling: Unable to Calculate Non-Null Count",
+                    message="The non-null count for the column will not be accessible",
+                    context=f"{pretty_name}.{col_name}",
+                    exc=e,
+                )
+                non_null_count = None
 
             # Calculate null_count
             effective_row_count = row_count
@@ -1228,19 +1310,30 @@ class SQLAlchemyProfiler:
                 if row_count is not None and row_count > 0 and null_count is not None:
                     column_profile.nullProportion = min(1, null_count / row_count)
 
-            # Extract unique count from FutureResult if we scheduled it
+            # Extract unique count from FutureResult if we scheduled it with exception handling
             unique_count = None
             cardinality = None
             if self.config.include_field_distinct_count:
-                unique_count = cardinality_futures[col_name]["unique"].result()
-                column_profile.uniqueCount = unique_count
-                if (
-                    non_null_count is not None
-                    and non_null_count > 0
-                    and unique_count is not None
-                ):
-                    unique_proportion = min(1, unique_count / non_null_count)
-                    column_profile.uniqueProportion = unique_proportion
+                try:
+                    unique_count = cardinality_futures[col_name]["unique"].result()
+                    column_profile.uniqueCount = unique_count
+                    if (
+                        non_null_count is not None
+                        and non_null_count > 0
+                        and unique_count is not None
+                    ):
+                        unique_proportion = min(1, unique_count / non_null_count)
+                        column_profile.uniqueProportion = unique_proportion
+                except Exception as e:
+                    logger.debug(
+                        f"Caught exception while attempting to get unique count for column {col_name}. {e}"
+                    )
+                    self.report.warning(
+                        title="Profiling: Unable to Calculate Unique Count",
+                        message="The unique count for the column will not be accessible",
+                        context=f"{pretty_name}.{col_name}",
+                        exc=e,
+                    )
                 cardinality = convert_to_cardinality(
                     unique_count,
                     float(unique_count) / non_null_count
@@ -1383,52 +1476,55 @@ class SQLAlchemyProfiler:
             # Add sample values for all types (non-batchable)
             if self.config.include_field_sample_values:
                 self._add_sample_values(
-                    runner,
-                    sql_table,
-                    col_name,
-                    column_profile,
-                    non_null_count,
-                    row_count,
+                    runner=runner,
+                    sql_table=sql_table,
+                    col_name=col_name,
+                    column_profile=column_profile,
+                    non_null_count=non_null_count,
+                    row_count=row_count,
+                    pretty_name=pretty_name,
                 )
 
             # Process column stats by type
             if col_type in (ProfilerDataType.INT, ProfilerDataType.FLOAT):
                 self._process_numeric_column_stats(
-                    runner,
-                    sql_table,
-                    col_name,
-                    column_profile,
-                    col_type,
-                    cardinality,
-                    numeric_stats_futures,
-                    pretty_name,
-                    platform,
+                    runner=runner,
+                    sql_table=sql_table,
+                    col_name=col_name,
+                    column_profile=column_profile,
+                    col_type=col_type,
+                    cardinality=cardinality,
+                    numeric_stats_futures=numeric_stats_futures,
+                    pretty_name=pretty_name,
+                    platform=platform,
                 )
             elif col_type == ProfilerDataType.STRING:
                 self._process_string_column_stats(
-                    runner,
-                    sql_table,
-                    col_name,
-                    column_profile,
-                    cardinality,
+                    runner=runner,
+                    sql_table=sql_table,
+                    col_name=col_name,
+                    column_profile=column_profile,
+                    cardinality=cardinality,
+                    pretty_name=pretty_name,
                 )
             elif col_type == ProfilerDataType.DATETIME:
                 self._process_datetime_column_stats(
-                    runner,
-                    sql_table,
-                    col_name,
-                    column_profile,
-                    cardinality,
-                    numeric_stats_futures,
-                    pretty_name,
+                    runner=runner,
+                    sql_table=sql_table,
+                    col_name=col_name,
+                    column_profile=column_profile,
+                    cardinality=cardinality,
+                    numeric_stats_futures=numeric_stats_futures,
+                    pretty_name=pretty_name,
                 )
             else:
                 self._process_other_column_stats(
-                    runner,
-                    sql_table,
-                    col_name,
-                    column_profile,
-                    cardinality,
+                    runner=runner,
+                    sql_table=sql_table,
+                    col_name=col_name,
+                    column_profile=column_profile,
+                    cardinality=cardinality,
+                    pretty_name=pretty_name,
                 )
 
     def _generate_single_profile(
@@ -1569,6 +1665,15 @@ class SQLAlchemyProfiler:
                         platform=platform,
                     )
 
+                    # If row count failed and we got None, skip profiling entirely.
+                    # Emitting a profile without row count creates incomplete/misleading data.
+                    # This matches GE profiler behavior
+                    if row_count is None:
+                        logger.info(
+                            f"Skipping profile for {pretty_name}: row count unavailable"
+                        )
+                        return None
+
                     # ----------------------------------------------------------------
                     # SETUP: Get columns to profile and sampling configuration
                     # ----------------------------------------------------------------
@@ -1613,6 +1718,7 @@ class SQLAlchemyProfiler:
                         columns_to_profile_set=columns_to_profile_set,
                         row_count=row_count,
                         platform=platform,
+                        pretty_name=pretty_name,
                     )
 
                     # ----------------------------------------------------------------
