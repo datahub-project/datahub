@@ -149,10 +149,12 @@ jobs:
         #    and hence short queue times and higher parallelism of smoke tests
         run: |
           if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.IS_FORK }}" == "false" ]]; then
-            echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
-            echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
-            echo "test_runner_type_small=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
-            echo "use_depot_cache=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "build_runner_type=depot-ubuntu-24.04-4"
+              echo "test_runner_type=depot-ubuntu-24.04-4"
+              echo "test_runner_type_small=depot-ubuntu-24.04-small"
+              echo "use_depot_cache=true"
+            } >> "$GITHUB_OUTPUT"
           else
             echo "build_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
             if [[ "${{ env.HAS_DEPOT_LABEL }}" == "true" ]]; then
@@ -160,8 +162,10 @@ jobs:
             else
               echo "test_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
             fi
-            echo "test_runner_type_small=ubuntu-latest" >> "$GITHUB_OUTPUT"
-            echo "use_depot_cache=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "test_runner_type_small=ubuntu-latest"
+              echo "use_depot_cache=false"
+            } >> "$GITHUB_OUTPUT"
             # publishing is currently only supported via depot
           fi
 
@@ -497,10 +501,11 @@ jobs:
       - name: Detect workflow retry
         id: retry-detection
         run: |
-          if [[ "${{ github.run_attempt }}" -gt 1 ]]; then
-            echo "This is retry attempt ${{ github.run_attempt }}"
+          RUN_ATTEMPT="${{ github.run_attempt }}"
+          if [[ "$RUN_ATTEMPT" -gt 1 ]]; then
+            echo "This is retry attempt $RUN_ATTEMPT"
             echo "is_retry=true" >> "$GITHUB_OUTPUT"
-            PREVIOUS_ATTEMPT=$(($(echo "${{ github.run_attempt }}") - 1))
+            PREVIOUS_ATTEMPT=$((RUN_ATTEMPT - 1))
             echo "previous_attempt=${PREVIOUS_ATTEMPT}" >> "$GITHUB_OUTPUT"
           else
             echo "This is the first attempt"

@@ -157,25 +157,25 @@ jobs:
         id: check-changes
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
             echo "Running due to manual workflow dispatch"
           elif [ "${{ github.event_name }}" == "pull_request" ]; then
             # Check if any Python file in metadata-ingestion is in the changed files
-            git fetch origin ${{ github.base_ref }}
-            if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q '^metadata-ingestion/.*\.py$'; then
-              echo "should_run=true" >> $GITHUB_OUTPUT
+            git fetch origin "${{ github.base_ref }}"
+            if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -q '^metadata-ingestion/.*\.py$'; then
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
               echo "Python files were modified in metadata-ingestion, running plugin validation"
             else
-              echo "should_run=false" >> $GITHUB_OUTPUT
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
               echo "No Python files modified in metadata-ingestion, skipping plugin validation"
             fi
           else
             # For push events, check the commit
             if git diff --name-only HEAD~1 HEAD | grep -q '^metadata-ingestion/.*\.py$'; then
-              echo "should_run=true" >> $GITHUB_OUTPUT
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
               echo "Python files were modified in metadata-ingestion"
             else
-              echo "should_run=false" >> $GITHUB_OUTPUT
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
               echo "No Python files modified in metadata-ingestion, skipping plugin validation"
             fi
           fi
