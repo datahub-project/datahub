@@ -2,7 +2,7 @@ import contextlib
 import logging
 import sys
 import unittest.mock
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from openlineage.client.facet import (
     ExtractionError,
