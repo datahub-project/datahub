@@ -52,6 +52,15 @@ import {
     VIEW_DENY,
 } from '@app/ingest/source/builder/RecipeForm/common';
 import {
+    CONFLUENCE_API_TOKEN,
+    CONFLUENCE_PAGE_ALLOW,
+    CONFLUENCE_PAGE_DENY,
+    CONFLUENCE_SPACE_ALLOW,
+    CONFLUENCE_SPACE_DENY,
+    CONFLUENCE_URL,
+    CONFLUENCE_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/confluence';
+import {
     CSV_ARRAY_DELIMITER,
     CSV_DELIMITER,
     CSV_FILE_URL,
@@ -73,6 +82,13 @@ import {
     TARGET_PLATFORM,
     TARGET_PLATFORM_INSTANCE,
 } from '@app/ingest/source/builder/RecipeForm/dbt_cloud';
+import {
+    DORIS,
+    DORIS_DATABASE,
+    DORIS_HOST_PORT,
+    DORIS_PASSWORD,
+    DORIS_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/doris';
 import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,
@@ -125,6 +141,7 @@ import {
     MSSQL_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/mssql';
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from '@app/ingest/source/builder/RecipeForm/mysql';
+import { NOTION_API_KEY, NOTION_PAGE_IDS } from '@app/ingest/source/builder/RecipeForm/notion';
 import {
     INCLUDE_DEPROVISIONED_USERS,
     INCLUDE_SUSPENDED_USERS,
@@ -233,10 +250,12 @@ import {
 import {
     AZURE,
     BIGQUERY_BETA,
+    CONFLUENCE,
     CSV,
     DATABRICKS,
     DBT_CLOUD,
     MYSQL,
+    NOTION,
     OKTA,
     POWER_BI,
     SAC,
@@ -499,6 +518,18 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
+    [DORIS]: {
+        fields: [DORIS_HOST_PORT, DORIS_USERNAME, DORIS_PASSWORD, DORIS_DATABASE],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [
+            INCLUDE_TABLES,
+            INCLUDE_VIEWS,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
+    },
     [DATABRICKS]: {
         fields: [WORKSPACE_URL, TOKEN],
         filterFields: [
@@ -611,6 +642,18 @@ export const RECIPE_FIELDS: RecipeFields = {
             FOLDER_DENY,
         ],
         advancedFields: [STATEFUL_INGESTION_ENABLED],
+    },
+    [NOTION]: {
+        fields: [NOTION_API_KEY, NOTION_PAGE_IDS],
+        filterFields: [],
+        advancedFields: [],
+    },
+    [CONFLUENCE]: {
+        fields: [CONFLUENCE_URL, CONFLUENCE_USERNAME, CONFLUENCE_API_TOKEN],
+        filterFields: [CONFLUENCE_SPACE_ALLOW, CONFLUENCE_SPACE_DENY, CONFLUENCE_PAGE_ALLOW, CONFLUENCE_PAGE_DENY],
+        advancedFields: [],
+        filterSectionTooltip:
+            'Control which Confluence content is ingested by filtering spaces and pages. Leave empty to ingest all accessible content.',
     },
 };
 

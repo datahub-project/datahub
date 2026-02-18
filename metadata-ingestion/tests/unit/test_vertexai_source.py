@@ -421,7 +421,7 @@ def test_vertexai_config_init():
     assert config.credential is not None
     assert config.credential.private_key_id == "test-key-id"
     assert (
-        config.credential.private_key
+        config.credential.private_key.get_secret_value()
         == "-----BEGIN PRIVATE KEY-----\ntest-private-key\n-----END PRIVATE KEY-----\n"
     )
     assert (

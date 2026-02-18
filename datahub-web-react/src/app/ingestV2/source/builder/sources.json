@@ -200,6 +200,14 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:doris",
+        "name": "doris",
+        "displayName": "Apache Doris",
+        "description": "Import Tables, Views, Databases, Schemas, and statistics from Apache Doris.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/doris/",
+        "recipe": "source:\n    type: doris\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:mongodb",
         "name": "mongodb",
         "displayName": "MongoDB",
@@ -392,12 +400,13 @@
     {
         "urn": "urn:li:dataPlatform:custom",
         "name": "custom",
-        "displayName": "Other",
+        "displayName": "Custom",
         "description": "Configure a custom recipe using YAML.",
         "docsUrl": "https://docs.datahub.com/docs/metadata-ingestion/",
         "recipe": "source:\n  type: <source-type>\n  config:\n    # Source-type specifics config\n    <source-configs>",
         "category": "Miscellaneous",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 1
     },
     {
         "urn": "urn:li:dataPlatform:dremio",
@@ -486,6 +495,17 @@
         "description": "Import pages from Notion as Documents.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/notion/",
         "recipe": "source:\n  type: notion\n  config:\n    api_key: null\n    page_ids: []\n    recursive: true",
+        "category": "Context Document Sources",
+        "isPopular": false,
+        "isNew": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:confluence",
+        "name": "confluence",
+        "displayName": "Confluence",
+        "description": "Import pages and spaces from Confluence as Documents with semantic search support.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/confluence/",
+        "recipe": "source:\n  type: confluence\n  config:\n    url: null\n    username: null\n    api_token: null\n    cloud: true\n    stateful_ingestion:\n      enabled: true",
         "category": "Context Document Sources",
         "isPopular": false,
         "isNew": true

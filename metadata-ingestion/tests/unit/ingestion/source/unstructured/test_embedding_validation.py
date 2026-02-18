@@ -1,6 +1,7 @@
 """Unit tests for embedding configuration validation."""
 
 import pytest
+from pydantic import SecretStr
 
 from datahub.ingestion.source.unstructured.chunking_config import (
     EmbeddingConfig,
@@ -58,12 +59,14 @@ def test_from_server_cohere():
         model_embedding_key="cohere_embed_multilingual_v3",
     )
 
-    config = EmbeddingConfig.from_server(server_config, api_key="test-key")
+    config = EmbeddingConfig.from_server(server_config, api_key=SecretStr("test-key"))
 
     assert config.provider == "cohere"
     assert config.model == "embed-multilingual-v3.0"
     assert config.aws_region is None
-    assert config.api_key == "test-key"
+    assert (
+        config.api_key is not None and config.api_key.get_secret_value() == "test-key"
+    )
     assert config._server_config == server_config
 
 
@@ -253,10 +256,17 @@ def test_normalize_provider_from_server_cohere():
     assert EmbeddingConfig._normalize_provider_from_server("COHERE") == "cohere"
 
 
+def test_normalize_provider_from_server_openai():
+    """Test converting server provider format to local format (OpenAI)."""
+    assert EmbeddingConfig._normalize_provider_from_server("openai") == "openai"
+    assert EmbeddingConfig._normalize_provider_from_server("OpenAI") == "openai"
+    assert EmbeddingConfig._normalize_provider_from_server("OPENAI") == "openai"
+
+
 def test_normalize_provider_from_server_unsupported():
     """Test converting unsupported provider raises error."""
     with pytest.raises(ValueError, match="Unsupported provider from server"):
-        EmbeddingConfig._normalize_provider_from_server("openai")
+        EmbeddingConfig._normalize_provider_from_server("azure")
 
 
 def test_default_values():

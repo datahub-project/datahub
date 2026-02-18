@@ -1,10 +1,13 @@
 """Document tools for DataHub MCP server."""
 
+import logging
 import pathlib
 from typing import Any, Dict, List, Literal, Optional
 
 import re2  # type: ignore[import-untyped]
 
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.utilities.perf_timer import PerfTimer
 from datahub_agent_context.context import get_graph
 from datahub_agent_context.mcp_tools.base import (
     clean_gql_response,
@@ -23,9 +26,310 @@ read_documents_gql = (
     pathlib.Path(__file__).parent / "gql/read_documents.gql"
 ).read_text()
 
+logger = logging.getLogger(__name__)
+
+
+def _annotate_search_type(results: Dict[str, Any], search_type: str) -> Dict[str, Any]:
+    """Add searchType field to all results."""
+    for result in results.get("searchResults", []):
+        result["searchType"] = search_type
+    return results
+
+
+def _build_urn_lookup(results: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Build URN lookup map from search results."""
+    urn_map: Dict[str, Dict[str, Any]] = {}
+    for result in results:
+        entity = result.get("entity", {})
+        urn = entity.get("urn")
+        if urn:
+            urn_map[urn] = result
+    return urn_map
+
+
+def _add_top_results(
+    merged_results: List[Dict[str, Any]],
+    seen_urns: set,
+    keyword_results: List[Dict[str, Any]],
+    semantic_results: List[Dict[str, Any]],
+    both_urns: set,
+) -> None:
+    """Add top keyword and semantic results to merged list."""
+    # Position 1: Top keyword result (exact match priority)
+    if keyword_results:
+        top_keyword = keyword_results[0].copy()
+        urn = top_keyword.get("entity", {}).get("urn")
+        if urn:
+            top_keyword["searchType"] = "both" if urn in both_urns else "keyword"
+            merged_results.append(top_keyword)
+            seen_urns.add(urn)
+
+    # Position 2: Top semantic result (if not already added)
+    if semantic_results:
+        top_semantic = semantic_results[0].copy()
+        urn = top_semantic.get("entity", {}).get("urn")
+        if urn and urn not in seen_urns:
+            top_semantic["searchType"] = "both" if urn in both_urns else "semantic"
+            merged_results.append(top_semantic)
+            seen_urns.add(urn)
+
+
+def _interleave_remaining_results(
+    merged_results: List[Dict[str, Any]],
+    seen_urns: set,
+    keyword_remaining: List[Dict[str, Any]],
+    semantic_remaining: List[Dict[str, Any]],
+    both_urns: set,
+) -> None:
+    """Interleave remaining keyword and semantic results."""
+    ki, si = 0, 0
+    while ki < len(keyword_remaining) or si < len(semantic_remaining):
+        # Alternate between keyword and semantic
+        if ki < len(keyword_remaining):
+            result = keyword_remaining[ki].copy()
+            urn = result.get("entity", {}).get("urn")
+            if urn and urn not in seen_urns:
+                result["searchType"] = "both" if urn in both_urns else "keyword"
+                merged_results.append(result)
+                seen_urns.add(urn)
+            ki += 1
+
+        if si < len(semantic_remaining):
+            result = semantic_remaining[si].copy()
+            urn = result.get("entity", {}).get("urn")
+            if urn and urn not in seen_urns:
+                result["searchType"] = "both" if urn in both_urns else "semantic"
+                merged_results.append(result)
+                seen_urns.add(urn)
+            si += 1
+
+
+def _merge_search_results(
+    keyword_results: Optional[Dict[str, Any]],
+    semantic_results: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Merge keyword and semantic search results with deduplication and ranking.
+
+    Merge strategy:
+    1. If semantic search returned empty results (but keyword has results), log warning
+       and return keyword results only (empty semantic is suspicious)
+    2. Position 1: Top keyword result (exact match priority)
+    3. Position 2: Top semantic result (if score >= threshold)
+    4. Position 3-N: Interleave remaining by score, deduplicated
+    5. Results appearing in both searches get searchType="both"
+
+    Args:
+        keyword_results: Results from keyword search (may be None if search failed)
+        semantic_results: Results from semantic search (may be None if unavailable)
+
+    Returns:
+        Merged results with searchType field on each result
+    """
+    # Handle edge cases
+    if not keyword_results and not semantic_results:
+        return {"searchResults": [], "total": 0, "count": 0}
+
+    if not semantic_results:
+        if keyword_results:
+            _annotate_search_type(keyword_results, "keyword")
+        return keyword_results or {"searchResults": [], "total": 0, "count": 0}
+
+    if not keyword_results:
+        return _annotate_search_type(semantic_results, "semantic")
+
+    keyword_search_results = keyword_results.get("searchResults", [])
+    semantic_search_results = semantic_results.get("searchResults", [])
+
+    # Check for suspicious empty semantic results
+    if not semantic_search_results and keyword_search_results:
+        logger.warning(
+            "Semantic search returned 0 results while keyword search found %d results. "
+            "This may indicate an issue with semantic search indexing.",
+            len(keyword_search_results),
+        )
+        return _annotate_search_type(keyword_results, "keyword")
+
+    # Build URN lookups for deduplication
+    keyword_urns = _build_urn_lookup(keyword_search_results)
+    semantic_urns = _build_urn_lookup(semantic_search_results)
+    both_urns = set(keyword_urns.keys()) & set(semantic_urns.keys())
+
+    # Merge results with interleaving strategy
+    merged_results: List[Dict[str, Any]] = []
+    seen_urns: set = set()
+
+    # Add top results from both searches
+    _add_top_results(
+        merged_results,
+        seen_urns,
+        keyword_search_results,
+        semantic_search_results,
+        both_urns,
+    )
+
+    # Get remaining results (excluding already-added top results)
+    keyword_remaining = [
+        r
+        for r in keyword_search_results[1:]
+        if r.get("entity", {}).get("urn") not in seen_urns
+    ]
+    semantic_remaining = [
+        r
+        for r in semantic_search_results[1:]
+        if r.get("entity", {}).get("urn") not in seen_urns
+    ]
+
+    # Interleave remaining results
+    _interleave_remaining_results(
+        merged_results, seen_urns, keyword_remaining, semantic_remaining, both_urns
+    )
+
+    # Build merged response, preserving facets from keyword search
+    merged_response: Dict[str, Any] = {
+        "searchResults": merged_results,
+        "total": len(merged_results),
+        "count": len(merged_results),
+    }
+
+    # Include facets from keyword search (more reliable for filtering)
+    if "facets" in keyword_results:
+        merged_response["facets"] = keyword_results["facets"]
+
+    # Preserve start/offset if present
+    if "start" in keyword_results:
+        merged_response["start"] = keyword_results["start"]
+
+    return merged_response
+
+
+# Maximum number of results to fetch for hybrid search before applying offset
+# This ensures consistent merge behavior across pagination
+MAX_HYBRID_FETCH_RESULTS = 100
+
+
+def _hybrid_search_documents(
+    graph: DataHubGraph,
+    keyword_query: str,
+    semantic_query: str,
+    platforms: Optional[List[str]] = None,
+    domains: Optional[List[str]] = None,
+    tags: Optional[List[str]] = None,
+    glossary_terms: Optional[List[str]] = None,
+    owners: Optional[List[str]] = None,
+    num_results: int = 10,
+    offset: int = 0,
+) -> dict:
+    """Execute keyword and semantic searches in parallel and merge results.
+
+    This function runs both searches concurrently for better performance,
+    then merges the results using _merge_search_results().
+
+    Pagination strategy: To ensure consistent merge behavior, we fetch up to
+    (offset + num_results) results from both searches (capped at MAX_HYBRID_FETCH_RESULTS),
+    merge them, then apply the offset to the final merged results.
+
+    If semantic search fails (e.g., on older DataHub deployments), it gracefully
+    falls back to keyword-only results.
+
+    Args:
+        keyword_query: Query for keyword search
+        semantic_query: Query for semantic search
+        platforms: Filter by source platforms
+        domains: Filter by business domains
+        tags: Filter by tags
+        glossary_terms: Filter by glossary terms
+        owners: Filter by owners
+        num_results: Number of results per page (max: 50)
+        offset: Starting position for pagination
+
+    Returns:
+        Merged search results with searchType field on each result
+    """
+
+    keyword_results: Optional[Dict[str, Any]] = None
+    semantic_results: Optional[Dict[str, Any]] = None
+
+    # Calculate how many results to fetch from each search
+    # We need enough to cover offset + num_results after deduplication
+    fetch_count = min(offset + num_results, MAX_HYBRID_FETCH_RESULTS)
+    hit_fetch_limit = (offset + num_results) > MAX_HYBRID_FETCH_RESULTS
+
+    def run_keyword_search() -> Dict[str, Any]:
+        return _search_documents_impl(
+            graph=graph,
+            query=keyword_query,
+            search_strategy="keyword",
+            platforms=platforms,
+            domains=domains,
+            tags=tags,
+            glossary_terms=glossary_terms,
+            owners=owners,
+            num_results=fetch_count,
+            offset=0,  # Always fetch from beginning for consistent merge
+        )
+
+    def run_semantic_search() -> Optional[Dict[str, Any]]:
+        try:
+            return _search_documents_impl(
+                graph=graph,
+                query=semantic_query,
+                search_strategy="semantic",
+                platforms=platforms,
+                domains=domains,
+                tags=tags,
+                glossary_terms=glossary_terms,
+                owners=owners,
+                num_results=fetch_count,
+                offset=0,
+            )
+        except Exception as e:
+            # Semantic search may not be available on older DataHub deployments
+            logger.warning(
+                "Semantic search not available, falling back to keyword-only: %s",
+                e,
+                exc_info=True,
+            )
+            return None
+
+    # Run both searches sequentially
+    keyword_results = run_keyword_search()
+    semantic_results = run_semantic_search()
+
+    # Merge all results
+    merged = _merge_search_results(keyword_results, semantic_results)
+
+    # Apply pagination to merged results
+    all_results = merged.get("searchResults", [])
+    total_merged = len(all_results)
+
+    # Slice to get the requested page
+    paginated_results = all_results[offset : offset + num_results]
+
+    # Build final response
+    merged["searchResults"] = paginated_results
+    merged["start"] = offset
+    merged["count"] = len(paginated_results)
+    merged["total"] = total_merged
+
+    # Add metadata if we hit the fetch limit
+    if hit_fetch_limit:
+        merged["_hybridSearchLimitReached"] = True
+        merged["_hybridSearchMaxResults"] = MAX_HYBRID_FETCH_RESULTS
+        logger.info(
+            "Hybrid search pagination limit reached: requested offset=%d + num_results=%d "
+            "exceeds max fetch of %d results",
+            offset,
+            num_results,
+            MAX_HYBRID_FETCH_RESULTS,
+        )
+
+    # Clean the merged response
+    return clean_gql_response(merged)
+
 
 def search_documents(
     query: str = "*",
+    semantic_query: Optional[str] = None,
     platforms: Optional[List[str]] = None,
     domains: Optional[List[str]] = None,
     tags: Optional[List[str]] = None,
@@ -43,12 +347,34 @@ def search_documents(
     Use get_entities() with a document URN to retrieve full content when needed.
 
     KEYWORD SEARCH:
+    HYBRID SEARCH (recommended for natural language queries):
+    When both query and semantic_query are provided, runs keyword and semantic
+    searches in parallel and merges results intelligently:
+    - Results are deduplicated by URN
+    - Top keyword result appears first (exact match priority)
+    - Each result includes searchType: "keyword", "semantic", or "both"
+    - Results appearing in both searches are high-confidence matches
+
+    Example: search_documents(
+        query="kubernetes deployment",
+        semantic_query="how do I deploy applications to kubernetes cluster"
+    )
+
+    KEYWORD SEARCH (query parameter):
     - Full-text search with boolean logic
     - Use /q prefix for structured queries
+    - Best for: exact terms, known keywords, specific phrases
     - Examples:
       • /q deployment guide → documents containing both terms
       • /q kubernetes OR k8s → documents with either term
       • /q "production deployment" → exact phrase match
+
+
+    SEMANTIC SEARCH (semantic_query parameter):
+    - Uses AI embeddings to find conceptually related documents
+    - Best for: natural language questions, finding related topics
+    - Only use when the query expresses intent/meaning, not for keyword lookups
+    - Example: "how to deploy" finds deployment guides, CI/CD docs, release runbooks
 
     FILTERS - Narrow results by metadata:
 
@@ -77,14 +403,20 @@ def search_documents(
 
     EXAMPLE WORKFLOWS:
 
-    1. Find Notion docs about deployment:
+    1. Hybrid search for deployment docs:
+       search_documents(
+           query="kubernetes deployment",
+           semantic_query="how to deploy applications to production"
+       )
+
+    2. Keyword-only search (when you know exact terms):
        search_documents(query="deployment", platforms=["urn:li:dataPlatform:notion"])
 
-    2. Discover document sources:
+    3. Discover document sources:
        search_documents(num_results=0)
        → Examine facets to see available platforms, domains
 
-    3. Find engineering team's critical docs:
+    4. Find engineering team's critical docs:
        search_documents(
            domains=["urn:li:domain:engineering"],
            tags=["urn:li:tag:critical"]
@@ -110,18 +442,52 @@ def search_documents(
             result = search_documents(query="deployment")
     """
     graph = get_graph()
-    return _search_documents_impl(
-        graph,
-        query=query,
-        search_strategy="keyword",
-        platforms=platforms,
-        domains=domains,
-        tags=tags,
-        glossary_terms=glossary_terms,
-        owners=owners,
-        num_results=num_results,
-        offset=offset,
-    )
+    with PerfTimer() as timer:
+        # If semantic_query is provided, run hybrid search
+        if semantic_query:
+            result = _hybrid_search_documents(
+                graph=graph,
+                keyword_query=query,
+                semantic_query=semantic_query,
+                platforms=platforms,
+                domains=domains,
+                tags=tags,
+                glossary_terms=glossary_terms,
+                owners=owners,
+                num_results=num_results,
+                offset=offset,
+            )
+            logger.debug(
+                "Hybrid document search completed in %.3fs (keyword=%r, semantic=%r, results=%d)",
+                timer.elapsed_seconds(),
+                query,
+                semantic_query,
+                len(result.get("searchResults", [])),
+            )
+
+            return result
+
+        # Otherwise, run keyword-only search
+        result = _search_documents_impl(
+            graph=graph,
+            query=query,
+            search_strategy="keyword",
+            platforms=platforms,
+            domains=domains,
+            tags=tags,
+            glossary_terms=glossary_terms,
+            owners=owners,
+            num_results=num_results,
+            offset=offset,
+        )
+        logger.debug(
+            "Keyword document search completed in %.3fs (query=%r, results=%d)",
+            timer.elapsed_seconds(),
+            query,
+            len(result.get("searchResults", [])),
+        )
+
+    return result
 
 
 def _search_documents_impl(

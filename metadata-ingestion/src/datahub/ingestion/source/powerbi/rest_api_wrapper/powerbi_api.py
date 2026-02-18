@@ -67,14 +67,14 @@ class PowerBiAPI:
 
         self.__regular_api_resolver = RegularAPIResolver(
             client_id=self.__config.client_id,
-            client_secret=self.__config.client_secret,
+            client_secret=self.__config.client_secret.get_secret_value(),
             tenant_id=self.__config.tenant_id,
             metadata_api_timeout=self.__config.metadata_api_timeout,
         )
 
         self.__admin_api_resolver = AdminAPIResolver(
             client_id=self.__config.client_id,
-            client_secret=self.__config.client_secret,
+            client_secret=self.__config.client_secret.get_secret_value(),
             tenant_id=self.__config.tenant_id,
             metadata_api_timeout=self.__config.metadata_api_timeout,
         )

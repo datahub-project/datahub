@@ -4,7 +4,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import Field, field_validator
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, TransparentSecretStr
 
 
 class ServerEmbeddingConfig(ConfigModel):
@@ -45,9 +45,9 @@ class EmbeddingConfig(ConfigModel):
     """
 
     # Core configuration (Optional - loaded from server if not set)
-    provider: Optional[Literal["bedrock", "cohere"]] = Field(
+    provider: Optional[Literal["bedrock", "cohere", "openai"]] = Field(
         default=None,
-        description="Embedding provider (bedrock uses AWS, cohere uses API key). If not set, loads from server.",
+        description="Embedding provider (bedrock uses AWS, cohere/openai use API key). If not set, loads from server.",
     )
     model: Optional[str] = Field(
         default=None,
@@ -63,7 +63,7 @@ class EmbeddingConfig(ConfigModel):
     )
 
     # Credentials (can be provided locally even when using server config)
-    api_key: Optional[str] = Field(
+    api_key: Optional[TransparentSecretStr] = Field(
         default=None,
         description="API key for Cohere (not needed for Bedrock with IAM roles)",
     )
@@ -107,7 +107,9 @@ class EmbeddingConfig(ConfigModel):
 
     @classmethod
     def from_server(
-        cls, server_config: ServerEmbeddingConfig, api_key: Optional[str] = None
+        cls,
+        server_config: ServerEmbeddingConfig,
+        api_key: Optional[TransparentSecretStr] = None,
     ) -> "EmbeddingConfig":
         """Create EmbeddingConfig from server configuration.
 
@@ -202,18 +204,22 @@ class EmbeddingConfig(ConfigModel):
             return "bedrock"
         if "cohere" in provider_lower:
             return "cohere"
+        if "openai" in provider_lower:
+            return "openai"
         return provider_lower
 
     @staticmethod
     def _normalize_provider_from_server(
         server_provider: str,
-    ) -> Literal["bedrock", "cohere"]:  # type: ignore
+    ) -> Literal["bedrock", "cohere", "openai"]:  # type: ignore
         """Convert server provider format to local config format."""
         normalized = EmbeddingConfig._normalize_provider(server_provider)
         if normalized == "bedrock":
             return "bedrock"
         elif normalized == "cohere":
             return "cohere"
+        elif normalized == "openai":
+            return "openai"
         else:
             raise ValueError(f"Unsupported provider from server: {server_provider}")
 
@@ -243,7 +249,7 @@ class DataHubConnectionConfig(ConfigModel):
     server: str = Field(
         default="http://localhost:8080", description="DataHub GMS server URL"
     )
-    token: Optional[str] = Field(
+    token: Optional[TransparentSecretStr] = Field(
         default=None, description="DataHub API token for authentication"
     )
 

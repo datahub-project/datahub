@@ -12,7 +12,7 @@ import sqlalchemy.dialects.postgresql as custom_types
 # effects of the import. For more details, see here:
 # https://geoalchemy-2.readthedocs.io/en/latest/core_tutorial.html#reflecting-tables.
 from geoalchemy2 import Geometry  # noqa: F401
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.engine.reflection import Inspector
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter import mce_builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -37,6 +38,7 @@ from datahub.ingestion.source.aws.aws_common import (
     AwsConnectionConfig,
     RDSIAMTokenManager,
 )
+from datahub.ingestion.source.sql.postgres.lineage import PostgresLineageExtractor
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -47,11 +49,14 @@ from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
 )
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BytesTypeClass,
     MapTypeClass,
 )
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -138,7 +143,7 @@ class BasePostgresConfig(BasicSQLAlchemyConfig):
     )
 
 
-class PostgresConfig(BasePostgresConfig):
+class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
@@ -150,7 +155,7 @@ class PostgresConfig(BasePostgresConfig):
         default=None,
         description="database (catalog). If set to Null, all databases will be considered for ingestion.",
     )
-    initial_database: Optional[str] = Field(
+    initial_database: str = Field(
         default="postgres",
         description=(
             "Initial database used to query for the list of databases, when ingesting multiple databases. "
@@ -168,6 +173,110 @@ class PostgresConfig(BasePostgresConfig):
         description="Regex patterns for stored procedures to filter in ingestion."
         "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
+
+    include_query_lineage: bool = Field(
+        default=False,
+        description=(
+            "Enable query-based lineage extraction from pg_stat_statements. "
+            "Requires the pg_stat_statements extension to be installed and enabled. "
+            "See documentation for setup instructions."
+        ),
+    )
+
+    max_queries_to_extract: int = Field(
+        default=1000,
+        description=(
+            "Maximum number of queries to extract from pg_stat_statements "
+            "for lineage analysis. Queries are prioritized by execution time and frequency."
+        ),
+    )
+
+    min_query_calls: int = Field(
+        default=1,
+        description=(
+            "Minimum number of executions required for a query to be included. "
+            "Set higher to focus on frequently-used queries."
+        ),
+    )
+
+    query_exclude_patterns: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "SQL LIKE patterns to exclude from query extraction. "
+            "Example: ['%pg_catalog%', '%temp_%'] to exclude catalog and temp tables."
+        ),
+    )
+
+    include_usage_statistics: bool = Field(
+        default=False,
+        description=(
+            "Generate usage statistics from query history. Requires include_query_lineage to be enabled. "
+            "Collects metrics like unique user counts, query frequencies, and column access patterns. "
+            "Statistics appear in DataHub UI under the Dataset Profile > Usage tab."
+        ),
+    )
+
+    @field_validator("max_queries_to_extract")
+    @classmethod
+    def validate_max_queries_to_extract(cls, value: int) -> int:
+        """Validate max_queries_to_extract is within reasonable range."""
+        if value <= 0:
+            raise ValueError(
+                "max_queries_to_extract must be positive. "
+                "Please set it to a value >= 1 (e.g., 1000)."
+            )
+        if value > 10000:
+            raise ValueError(
+                "max_queries_to_extract must be <= 10000 to avoid memory issues. "
+                "Please reduce the value to 10000 or less."
+            )
+        return value
+
+    @field_validator("min_query_calls")
+    @classmethod
+    def validate_min_query_calls(cls, value: int) -> int:
+        """Validate min_query_calls is non-negative."""
+        if value < 0:
+            raise ValueError(
+                "min_query_calls must be non-negative. "
+                "Please set it to 0 or a positive integer (e.g., 1)."
+            )
+        return value
+
+    @field_validator("query_exclude_patterns")
+    @classmethod
+    def validate_query_exclude_patterns(
+        cls, value: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        """Validate query_exclude_patterns has reasonable limits."""
+        if value is None:
+            return value
+
+        if len(value) > 100:
+            raise ValueError(
+                "query_exclude_patterns must have <= 100 patterns to avoid performance issues. "
+                f"Please reduce from {len(value)} to 100 or fewer patterns."
+            )
+
+        for pattern in value:
+            if len(pattern) > 500:
+                raise ValueError(
+                    f"Pattern '{pattern[:50]}...' exceeds 500 characters (length: {len(pattern)}). "
+                    "Use shorter patterns to avoid performance issues. "
+                    "Please simplify your pattern or split it into multiple shorter patterns."
+                )
+
+        return value
+
+    @model_validator(mode="after")
+    def validate_usage_statistics_dependency(self) -> "PostgresConfig":
+        """Validate that include_usage_statistics requires include_query_lineage."""
+        if self.include_usage_statistics and not self.include_query_lineage:
+            raise ValueError(
+                "include_usage_statistics requires include_query_lineage to be enabled. "
+                "Please add 'include_query_lineage: true' to your configuration."
+            )
+        return self
 
 
 @platform_name("Postgres")
@@ -195,10 +304,16 @@ class PostgresSource(SQLAlchemySource):
         if config.auth_mode == PostgresAuthMode.AWS_IAM:
             hostname, port = parse_host_port(config.host_port, default_port=5432)
             if port is None:
-                raise ValueError("Port must be specified for RDS IAM authentication")
+                raise ValueError(
+                    "Port must be specified for RDS IAM authentication. "
+                    "Please provide host_port in the format 'hostname:port' (e.g., 'mydb.rds.amazonaws.com:5432')."
+                )
 
             if not config.username:
-                raise ValueError("username is required for RDS IAM authentication")
+                raise ValueError(
+                    "username is required for RDS IAM authentication. "
+                    "Please add 'username: <your_db_username>' to your configuration."
+                )
 
             self._rds_iam_token_manager = RDSIAMTokenManager(
                 endpoint=hostname,
@@ -207,7 +322,53 @@ class PostgresSource(SQLAlchemySource):
                 aws_config=config.aws_config,
             )
 
-    def get_platform(self):
+        self.sql_aggregator: Optional[SqlParsingAggregator] = None
+        if self.config.include_query_lineage:
+            # Validate graph connection requirement for usage statistics
+            if self.config.include_usage_statistics and self.ctx.graph is None:
+                error_message = (
+                    "Usage statistics generation requires a DataHub graph connection (ctx.graph). "
+                    "You have enabled 'include_usage_statistics: true' but no graph connection is available. "
+                    "Please provide a graph connection in your pipeline configuration or disable usage statistics."
+                )
+                logger.error(error_message)
+                self.report.report_failure(
+                    message=error_message,
+                    context="usage_statistics_graph_validation_failed",
+                )
+                raise ValueError(error_message)
+
+            try:
+                self.sql_aggregator = SqlParsingAggregator(
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                    graph=self.ctx.graph,
+                    generate_lineage=True,
+                    generate_queries=True,
+                    generate_usage_statistics=self.config.include_usage_statistics,
+                    usage_config=self.config
+                    if self.config.include_usage_statistics
+                    else None,
+                )
+                logger.info(
+                    "SQL parsing aggregator initialized for query-based lineage"
+                )
+            except Exception as e:
+                error_message = (
+                    f"Failed to initialize SQL parsing aggregator for query-based lineage: {e}. "
+                    f"You have explicitly enabled 'include_query_lineage: true' in your configuration. "
+                    f"Common causes: missing DataHub graph connection, insufficient permissions, "
+                    f"or missing dependencies. Please check your configuration and try again."
+                )
+                logger.error(error_message)
+                self.report.report_failure(
+                    message=error_message,
+                    context="sql_aggregator_init_failed",
+                )
+                raise RuntimeError(error_message) from e
+
+    def get_platform(self) -> str:
         return "postgres"
 
     @classmethod
@@ -227,7 +388,11 @@ class PostgresSource(SQLAlchemySource):
 
         def do_connect_listener(_dialect, _conn_rec, _cargs, cparams):
             if not self._rds_iam_token_manager:
-                raise RuntimeError("RDS IAM Token Manager is not initialized")
+                raise RuntimeError(
+                    "RDS IAM Token Manager is not initialized. "
+                    "This is an internal error. Please check your auth_mode configuration and ensure "
+                    "it is set to 'AWS_IAM' if you intend to use RDS IAM authentication."
+                )
             cparams["password"] = self._rds_iam_token_manager.get_token()
             if cparams.get("sslmode") not in ("require", "verify-ca", "verify-full"):
                 cparams["sslmode"] = "require"
@@ -277,6 +442,9 @@ class PostgresSource(SQLAlchemySource):
             for inspector in self.get_inspectors():
                 if self.config.include_view_lineage:
                     yield from self._get_view_lineage_workunits(inspector)
+
+        if self.config.include_query_lineage and self.sql_aggregator:
+            yield from self._get_query_based_lineage_workunits()
 
     def _get_view_lineage_elements(
         self, inspector: Inspector
@@ -328,11 +496,9 @@ class PostgresSource(SQLAlchemySource):
         lineage_elements = self._get_view_lineage_elements(inspector)
 
         if not lineage_elements:
-            return None
+            return
 
-        # Loop over the lineage elements dictionary.
         for key, source_tables in lineage_elements.items():
-            # Split the key into dependent view and dependent schema
             dependent_view, dependent_schema = key
 
             # Construct a lineage object.
@@ -340,7 +506,7 @@ class PostgresSource(SQLAlchemySource):
                 schema=dependent_schema, entity=dependent_view, inspector=inspector
             )
             if view_identifier not in self.views_failed_parsing:
-                return
+                continue
             urn = mce_builder.make_dataset_urn_with_platform_instance(
                 platform=self.platform,
                 name=view_identifier,
@@ -357,6 +523,84 @@ class PostgresSource(SQLAlchemySource):
 
             for item in mcps_from_mce(lineage_mce):
                 yield item.as_workunit()
+
+    def _get_query_based_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Extract and emit query-based lineage using pg_stat_statements.
+
+        This supplements view-based lineage with lineage extracted from
+        executed queries (INSERT INTO SELECT, CTAS, etc.).
+        """
+        logger.info("Starting query-based lineage extraction from pg_stat_statements")
+
+        for inspector in self.get_inspectors():
+            if self.sql_aggregator is None:
+                logger.warning(
+                    "SQL aggregator not initialized, skipping query-based lineage extraction. "
+                    "Check initialization errors above."
+                )
+                self.report.report_warning(
+                    message=(
+                        "Query-based lineage was enabled but SQL aggregator failed to initialize. "
+                        "No query-based lineage will be extracted. Check earlier error messages."
+                    ),
+                    context="query_lineage_skipped",
+                )
+                return
+
+            with inspector.engine.connect() as connection:
+                lineage_extractor = PostgresLineageExtractor(
+                    config=self.config,
+                    connection=connection,
+                    report=self.report,
+                    sql_aggregator=self.sql_aggregator,
+                    default_schema="public",
+                )
+
+                try:
+                    lineage_extractor.populate_lineage_from_queries()
+                except Exception as e:
+                    logger.error(
+                        "Failed to populate lineage from queries: %s. "
+                        "Continuing with other lineage sources.",
+                        e,
+                    )
+                    self.report.report_failure(
+                        message=(
+                            f"Query lineage extraction failed: {e}. "
+                            "Check that pg_stat_statements extension is properly configured and accessible. "
+                            "See documentation for setup instructions: "
+                            "https://datahubproject.io/docs/generated/ingestion/sources/postgres"
+                        ),
+                        context="query_lineage_extraction_failed",
+                    )
+
+        with PerfTimer() as timer:
+            mcp_count = 0
+            if self.sql_aggregator:
+                try:
+                    mcp: MetadataChangeProposalWrapper
+                    for mcp in self.sql_aggregator.gen_metadata():
+                        yield mcp.as_workunit()
+                        mcp_count += 1
+                except Exception as e:
+                    logger.error(
+                        "Failed to generate metadata from SQL aggregator: %s",
+                        e,
+                    )
+                    self.report.report_failure(
+                        message=(
+                            f"Lineage metadata generation failed: {e}. "
+                            "This may indicate issues with the DataHub graph connection or schema resolution. "
+                            "Check your graph configuration and ensure all required schemas are accessible."
+                        ),
+                        context="lineage_metadata_generation_failed",
+                    )
+
+        logger.info(
+            f"Generated {mcp_count} lineage workunits from queries "
+            f"in {timer.elapsed_seconds():.2f} seconds"
+        )
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
@@ -381,7 +625,11 @@ class PostgresSource(SQLAlchemySource):
                         )
                     ] = row.table_size
         except Exception as e:
-            logger.error(f"failed to fetch profile metadata: {e}")
+            logger.error(
+                f"Failed to fetch profile metadata: {e}. "
+                f"This may indicate insufficient permissions to query information_schema.TABLES or use pg_table_size(). "
+                f"Profiling will continue without storage size information."
+            )
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
@@ -428,3 +676,8 @@ class PostgresSource(SQLAlchemySource):
                     )
                 )
             return base_procedures
+
+    def close(self) -> None:
+        if self.sql_aggregator:
+            self.sql_aggregator.close()
+        super().close()
