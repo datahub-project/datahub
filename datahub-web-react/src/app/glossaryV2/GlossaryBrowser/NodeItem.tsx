@@ -44,9 +44,15 @@ const NodeWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
     align-items: center;
     display: flex;
     font-size: 16px;
-    padding: 13px 0;
     background-color: ${(props) => props.$isSelected && REDESIGN_COLORS.HIGHLIGHT_PURPLE};
     padding-left: calc(${(props) => (props.$depth ? props.$depth * 18 + 12 : 12)}px);
+
+    &:hover {
+        background-color: ${colors.gray[100]};
+        ${NameWrapper} {
+            color: ${(props) => props.theme.styles['primary-color']};
+        }
+    }
 `;
 
 const StyledRightOutlined = styled(KeyboardArrowRightRounded)<{ isSelected: boolean }>`

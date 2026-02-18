@@ -1,26 +1,35 @@
+import { colors } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { ANTD_GRAY, EDITING_DOCUMENTATION_URL_PARAM, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { EDITING_DOCUMENTATION_URL_PARAM, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
 
 const TermWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
-    padding: 13px 0;
-    padding-left: calc(${(props) => (props.$depth ? props.$depth * 18 + 12 : 18)}px);
+    padding-left: calc(${(props) => (props.$depth ? props.$depth * 24 + 12 : 18)}px);
     background-color: ${(props) => props.$isSelected && REDESIGN_COLORS.HIGHLIGHT_PURPLE};
     display: flex;
+
+    &:hover {
+        background-color: ${colors.gray[100]};
+        a,
+        span {
+            color: ${(props) => props.theme.styles['primary-color']};
+        }
+    }
 `;
 
 const nameStyles = `
+    padding: 16px 0;
     display: inline-block;
     height: 100%;
     width: 100%;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 400;
     line-height: normal;
     color: ${REDESIGN_COLORS.TEXT_HEADING};
@@ -56,7 +65,6 @@ export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
         ${(props) =>
             props.showSelectStyles &&
             `
-        background-color: ${ANTD_GRAY[3]};
         cursor: pointer;
         `}
     }
