@@ -106,6 +106,3 @@ log_file = "test-reports/test-run.log"
 log_file_level= "DEBUG"
 
 junit_log_passing_tests = false
-junit_suite_name = "smoke-tests"
-
-addopts = ["-ra", "--junit-xml=test-reports/junit.xml"]
