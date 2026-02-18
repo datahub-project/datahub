@@ -9,11 +9,13 @@ import {
   runIngestionSource,
   filterBySource,
   goToIngestionPage,
+  skipEducationSteps,
 } from "./utils";
 
 describe("run history tab in manage data sources", () => {
   beforeEach(() => {
     setThemeV2AndIngestionRedesignFlags(true);
+    skipEducationSteps();
     cy.loginWithCredentials();
     goToIngestionPage();
   });

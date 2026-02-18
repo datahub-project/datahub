@@ -156,7 +156,6 @@ export const updateIngestionSource = (
   cy.get("body .ant-dropdown-menu").contains("Edit").click();
   cy.waitForGraphQLOperation("getIngestionSource");
   cy.waitTextVisible("Edit Data Source");
-  cy.get("#password").type("password123");
   cy.get('[data-testid="recipe-builder-next-button"]').scrollIntoView().click();
 
   cy.waitTextVisible("Configure an Ingestion Schedule");

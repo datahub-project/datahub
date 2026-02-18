@@ -7,6 +7,7 @@ import {
   runIngestionSource,
   verifyScheduleIsAppliedOnTable,
   goToIngestionPage,
+  skipEducationSteps,
 } from "./utils";
 
 const number = crypto.getRandomValues(new Uint32Array(1))[0];
@@ -17,11 +18,13 @@ const ingestionSourceDetails = {
   username: `user${number}`,
   password: `password${number}`,
   role: `role${number}`,
+  authentication_type: "Username & Password",
 };
 
 describe("ingestion sources", () => {
   beforeEach(() => {
     setThemeV2AndIngestionRedesignFlags(true);
+    skipEducationSteps();
     cy.loginWithCredentials();
     goToIngestionPage();
   });
