@@ -81,7 +81,7 @@ dependencies {
   implementation externalDependency.typesafeConfig
   implementation externalDependency.opentracingJdbc
 
-  implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
+  implementation project(path: ':metadata-integration:java:datahub-client')
 
   provided(externalDependency.sparkSql)
   provided(externalDependency.sparkHive)
@@ -128,7 +128,7 @@ shadowJar {
   dependencies {
 
     exclude(dependency {
-            exclude_modules.contains(it.name)
+            exclude_modules.contains(it.name) && it.moduleGroup != 'org.slf4j'
         })
     exclude(dependency("org.scala-lang::"))
   }
