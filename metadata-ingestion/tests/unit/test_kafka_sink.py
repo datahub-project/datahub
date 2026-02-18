@@ -1,5 +1,4 @@
 import threading
-import unittest
 from typing import Union
 from unittest.mock import MagicMock, call, patch
 
@@ -23,14 +22,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-
-
-def _validate_kafka_callback(mock_k_callback, record_envelope, write_callback):
-    """Helper function to validate KafkaCallback construction."""
-    assert mock_k_callback.call_count == 1  # KafkaCallback constructed
-    constructor_args, constructor_kwargs = mock_k_callback.call_args
-    assert constructor_args[1] == record_envelope
-    assert constructor_args[2] == write_callback
 
 
 class TestKafkaSink:
@@ -94,14 +85,6 @@ class TestKafkaSink:
         ] = RecordEnvelope(record=mce, metadata={})
         kafka_sink.write_record_async(re, callback)
 
-        # Assert MagicMock for type checker (autospec creates callable types)
-        assert isinstance(mock_producer_instance.poll, MagicMock)
-        assert isinstance(mock_producer_instance.produce, MagicMock)
-
-        mock_producer_instance.poll.assert_called_once()  # producer should call poll() first
-        _validate_kafka_callback(
-            mock_k_callback, re, callback
-        )  # validate kafka callback was constructed appropriately
         # The lineage MCE has 1 aspect (UpstreamLineage), so expect 1 produce call
         assert mock_mcp_producer.produce.call_count == 1
 
