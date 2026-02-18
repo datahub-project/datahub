@@ -212,7 +212,7 @@ class PowerBiAPI:
                         self.reporter.info(
                             title="Missing Lineage For Report",
                             message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
-                            context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
+                            context=f"workspace-name: {workspace.name}, report-name: {report.name}, dataset-id: {report.dataset_id}",
                         )
         except Exception:
             self.log_http_error(
