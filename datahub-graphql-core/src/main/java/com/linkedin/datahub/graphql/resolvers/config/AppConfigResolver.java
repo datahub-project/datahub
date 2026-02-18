@@ -316,9 +316,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
         // Populate provider-specific configuration
         if ("aws-bedrock".equalsIgnoreCase(providerConfig.getType())
-            && providerConfig.getAwsRegion() != null) {
+            && providerConfig.getBedrock() != null
+            && providerConfig.getBedrock().getAwsRegion() != null) {
           final AwsProviderConfig awsProviderConfig = new AwsProviderConfig();
-          awsProviderConfig.setRegion(providerConfig.getAwsRegion());
+          awsProviderConfig.setRegion(providerConfig.getBedrock().getAwsRegion());
           embeddingConfig.setAwsProviderConfig(awsProviderConfig);
         }
 
