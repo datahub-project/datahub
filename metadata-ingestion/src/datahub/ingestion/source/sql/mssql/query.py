@@ -104,8 +104,7 @@ class MSSQLQuery:
                 qt.query_sql_text AS query_text,
                 SUM(rs.count_executions) AS execution_count,
                 SUM(rs.avg_duration * rs.count_executions) / 1000.0 AS total_exec_time_ms,
-                DB_NAME() AS database_name,
-                NULL AS user_name
+                DB_NAME() AS database_name
             FROM sys.query_store_query AS q
             INNER JOIN sys.query_store_query_text AS qt
                 ON q.query_text_id = qt.query_text_id
@@ -154,8 +153,7 @@ class MSSQLQuery:
                 CAST(st.text AS NVARCHAR(MAX)) AS query_text,
                 qs.execution_count AS execution_count,
                 qs.total_elapsed_time / 1000.0 AS total_exec_time_ms,
-                DB_NAME() AS database_name,
-                NULL AS user_name
+                DB_NAME() AS database_name
             FROM sys.dm_exec_query_stats AS qs
             CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) AS st
             WHERE 

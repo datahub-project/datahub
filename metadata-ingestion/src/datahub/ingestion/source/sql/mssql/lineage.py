@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Optional
 from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
 
 from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
-from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
@@ -33,7 +32,6 @@ class MSSQLQueryEntry:
     query_text: str
     execution_count: int
     total_exec_time_ms: float
-    user_name: Optional[str]
     database_name: str
 
     @property
@@ -213,7 +211,6 @@ class MSSQLLineageExtractor:
                             query_text=row["query_text"],
                             execution_count=row["execution_count"],
                             total_exec_time_ms=float(row["total_exec_time_ms"]),
-                            user_name=row["user_name"],
                             database_name=row["database_name"],
                         )
                     )
@@ -240,7 +237,7 @@ class MSSQLLineageExtractor:
             except (KeyError, TypeError) as e:
                 logger.error(
                     "Query result structure mismatch when extracting from %s: %s. "
-                    "Expected columns: query_id, query_text, execution_count, total_exec_time_ms, user_name, database_name. "
+                    "Expected columns: query_id, query_text, execution_count, total_exec_time_ms, database_name. "
                     "This likely indicates a SQL Server version incompatibility or query definition bug.",
                     method,
                     e,
@@ -287,11 +284,7 @@ class MSSQLLineageExtractor:
                             default_db=query_entry.database_name,
                             default_schema=self.default_schema,
                             timestamp=None,
-                            user=(
-                                CorpUserUrn(query_entry.user_name)
-                                if query_entry.user_name
-                                else None
-                            ),
+                            user=None,
                             session_id=f"queryid:{query_entry.query_id}",
                         )
                     )

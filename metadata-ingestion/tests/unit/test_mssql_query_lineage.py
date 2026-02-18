@@ -1601,12 +1601,12 @@ def test_mssql_min_query_calls_zero_boundary():
 # =============================================================================
 
 
-def test_mssql_user_attribution_currently_broken():
+def test_mssql_user_attribution_not_supported():
     """
-    MAJOR: Document that user_name extraction is currently broken.
+    Document that user_name extraction is not supported in MSSQL.
 
-    Query Store and DMV queries don't join to user tables, so user_name is NULL.
-    This breaks usage statistics feature.
+    Query Store and DMV queries don't preserve historical user session context.
+    The user_name field has been removed from MSSQLQueryEntry.
     """
     mock_connection = Mock()
 
@@ -1620,7 +1620,6 @@ def test_mssql_user_attribution_currently_broken():
     qs_result = Mock()
     qs_result.fetchone.return_value = {"is_enabled": 1}
 
-    # Mock row WITHOUT user_name (current broken state)
     query_result = Mock()
     query_result.__iter__ = Mock(
         return_value=iter(
@@ -1631,7 +1630,6 @@ def test_mssql_user_attribution_currently_broken():
                     "execution_count": 10,
                     "total_exec_time_ms": 100.0,
                     "database_name": "TestDB",
-                    "user_name": None,  # ❌ BROKEN: Always NULL
                 }
             ]
         )
@@ -1669,6 +1667,5 @@ def test_mssql_user_attribution_currently_broken():
 
     queries = extractor.extract_query_history()
 
-    # Document broken state
     assert len(queries) == 1
-    assert queries[0].user_name is None, "User attribution is broken - always None"
+    assert not hasattr(queries[0], "user_name")

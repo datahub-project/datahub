@@ -345,7 +345,6 @@ class TestMSSQLLineageIntegration:
             query_text="SELECT * FROM test_table",
             execution_count=50,
             total_exec_time_ms=5000.0,
-            user_name="testuser",
             database_name="testdb",
         )
 
@@ -357,7 +356,6 @@ class TestMSSQLLineageIntegration:
             query_text="SELECT 1",
             execution_count=0,
             total_exec_time_ms=0.0,
-            user_name="testuser",
             database_name="testdb",
         )
         assert entry_zero.avg_exec_time_ms == 0.0

@@ -83,6 +83,10 @@ DataHub can extract lineage and usage statistics by analyzing SQL queries execut
 - **Usage patterns**: Identify frequently accessed tables and user activity
 - **Query performance**: Monitor execution counts and timing
 
+### Known Limitations
+
+- **User attribution not supported**: SQL Server Query Store and DMVs do not preserve historical user session context. Query extraction focuses on query content, frequency, and performance metrics.
+
 ### Prerequisites for Query-Based Lineage
 
 #### SQL Server Version Requirements
