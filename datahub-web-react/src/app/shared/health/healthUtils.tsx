@@ -66,7 +66,7 @@ export const getHealthSummaryIcon = (
     if (unhealthy) {
         const iconComponent =
             type === HealthSummaryIconType.FILLED ? (
-                <UnhealthyIconFilled twoToneColor={HEALTH_INDICATOR_COLOR} fontSize={fontSize} />
+                <UnhealthyIconFilled twoToneColor={FAILURE_COLOR_HEX} fontSize={fontSize} />
             ) : (
                 <UnhealthyIconOutlined fontSize={fontSize} />
             );
