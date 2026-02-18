@@ -2680,6 +2680,7 @@ def test_dbt_common_semantic_model_subtype_assignment():
         )
 
         assert wu is not None
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
         aspect = wu.metadata.aspect
         assert isinstance(aspect, SubTypesClass)
         assert expected_subtype in aspect.typeNames, f"Failed for node_type={node_type}"
