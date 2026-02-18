@@ -38,6 +38,7 @@ public class MetronomeClientTest {
     mockConfig = mock(BillingConfiguration.MetronomeConfiguration.class);
     when(mockConfig.getBaseUrl()).thenReturn(TEST_BASE_URL);
     when(mockConfig.getApiKey()).thenReturn(TEST_API_KEY);
+    when(mockConfig.getPackageAlias()).thenReturn(TEST_PACKAGE_ALIAS);
   }
 
   @Test
@@ -73,7 +74,7 @@ public class MetronomeClientTest {
 
     metronomeClient = new MetronomeClient(mockHttpClient, mockConfig);
 
-    String result = metronomeClient.provisionCustomer(TEST_CUSTOMER_NAME, TEST_PACKAGE_ALIAS);
+    String result = metronomeClient.provisionCustomer(TEST_CUSTOMER_NAME);
 
     assertEquals(result, TEST_METRONOME_CUSTOMER_ID);
     verify(mockHttpClient, times(1)).execute(any(HttpGet.class));
@@ -96,7 +97,7 @@ public class MetronomeClientTest {
 
     metronomeClient = new MetronomeClient(mockHttpClient, mockConfig);
 
-    String result = metronomeClient.provisionCustomer(TEST_CUSTOMER_NAME, TEST_PACKAGE_ALIAS);
+    String result = metronomeClient.provisionCustomer(TEST_CUSTOMER_NAME);
 
     assertEquals(result, TEST_METRONOME_CUSTOMER_ID);
     verify(mockHttpClient, times(1)).execute(any(HttpGet.class));
@@ -106,13 +107,14 @@ public class MetronomeClientTest {
   @Test(expectedExceptions = NullPointerException.class)
   public void testProvisionCustomerWithNullCustomerName() throws Exception {
     metronomeClient = new MetronomeClient(mockHttpClient, mockConfig);
-    metronomeClient.provisionCustomer(null, TEST_PACKAGE_ALIAS);
+    metronomeClient.provisionCustomer(null);
   }
 
-  @Test(expectedExceptions = NullPointerException.class)
-  public void testProvisionCustomerWithNullPackageAlias() throws Exception {
+  @Test(expectedExceptions = BillingException.class)
+  public void testProvisionCustomerWithMissingPackageAliasConfig() throws Exception {
+    when(mockConfig.getPackageAlias()).thenReturn(null);
     metronomeClient = new MetronomeClient(mockHttpClient, mockConfig);
-    metronomeClient.provisionCustomer(TEST_CUSTOMER_NAME, null);
+    metronomeClient.provisionCustomer(TEST_CUSTOMER_NAME);
   }
 
   @Test(expectedExceptions = BillingException.class)
@@ -122,7 +124,7 @@ public class MetronomeClientTest {
     mockHttpResponse(HttpStatus.SC_OK, invalidResponse);
 
     metronomeClient = new MetronomeClient(mockHttpClient, mockConfig);
-    metronomeClient.provisionCustomer(TEST_CUSTOMER_NAME, TEST_PACKAGE_ALIAS);
+    metronomeClient.provisionCustomer(TEST_CUSTOMER_NAME);
   }
 
   @Test(expectedExceptions = BillingException.class)
@@ -131,7 +133,7 @@ public class MetronomeClientTest {
     mockHttpResponse(HttpStatus.SC_UNAUTHORIZED, errorResponse);
 
     metronomeClient = new MetronomeClient(mockHttpClient, mockConfig);
-    metronomeClient.provisionCustomer(TEST_CUSTOMER_NAME, TEST_PACKAGE_ALIAS);
+    metronomeClient.provisionCustomer(TEST_CUSTOMER_NAME);
   }
 
   @Test(expectedExceptions = BillingException.class)
@@ -154,7 +156,7 @@ public class MetronomeClientTest {
         .thenReturn(errorHttpResponse);
 
     metronomeClient = new MetronomeClient(mockHttpClient, mockConfig);
-    metronomeClient.provisionCustomer(TEST_CUSTOMER_NAME, TEST_PACKAGE_ALIAS);
+    metronomeClient.provisionCustomer(TEST_CUSTOMER_NAME);
   }
 
   // Helper methods

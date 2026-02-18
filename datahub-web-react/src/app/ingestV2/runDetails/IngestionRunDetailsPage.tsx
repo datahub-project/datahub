@@ -1,10 +1,10 @@
 import { Breadcrumb } from '@components';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router';
 
 import { VerticalDivider } from '@components/components/Breadcrumb/components';
 
-import { EmbeddedChat } from '@app/chat/EmbeddedChat';
+import CollapsibleChat from '@app/chat/CollapsibleChat';
 import RunDetailsContent from '@app/ingestV2/runDetails/RunDetailsContent';
 import { getSuggestedQuestions } from '@app/ingestV2/runDetails/utils';
 import { formatDateTime } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
@@ -24,6 +24,8 @@ export default function IngestionRunDetailsPage() {
     const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
 
     const [titlePill, setTitlePill] = React.useState<React.ReactNode>(null);
+
+    const [isChatOpen, setIsChatOpen] = useState(true);
 
     useEffect(() => {
         const sourceName = data?.executionRequest?.source?.name;
@@ -79,7 +81,8 @@ export default function IngestionRunDetailsPage() {
             title="Run Details"
             titlePill={titlePill}
             rightPanelContent={
-                <EmbeddedChat
+                <CollapsibleChat
+                    setIsChatOpen={setIsChatOpen}
                     context={chatContext}
                     agentName="IngestionTroubleshooter"
                     originType={DataHubAiConversationOriginType.IngestionUi}
@@ -90,6 +93,7 @@ export default function IngestionRunDetailsPage() {
                 />
             }
             topBreadcrumb={breadCrumb}
+            isRightPanelCollapsed={!isChatOpen}
         >
             <RunDetailsContent
                 urn={urn}
@@ -98,6 +102,8 @@ export default function IngestionRunDetailsPage() {
                 loading={loading}
                 error={error}
                 setTitlePill={setTitlePill}
+                isChatOpen={isChatOpen}
+                setIsChatOpen={setIsChatOpen}
             />
         </PageLayout>
     );

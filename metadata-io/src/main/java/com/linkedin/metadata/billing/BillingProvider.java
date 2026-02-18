@@ -26,20 +26,21 @@ public interface BillingProvider {
   String getCustomerId(@Nonnull String customerName) throws BillingException;
 
   /**
-   * Provision a customer with a billing package.
+   * Provision a customer in the billing system.
    *
    * <p>This method is idempotent. If the customer already exists in the billing system, it will add
-   * the specified package contract to the existing customer. If the customer does not exist, it
-   * will create the customer first and then add the contract.
+   * the appropriate contract to the existing customer. If the customer does not exist, it will
+   * create the customer first and then add the contract.
+   *
+   * <p>Provider-specific details (e.g., package alias, rate cards) are read from the provider's own
+   * configuration.
    *
    * @param customerName The customer name to use in the billing provider
-   * @param packageAlias The package alias identifying the billing package to assign
    * @return The billing provider's internal customer ID
    * @throws BillingException if customer provisioning or contract creation fails
    */
   @Nonnull
-  String provisionCustomer(@Nonnull String customerName, @Nonnull String packageAlias)
-      throws BillingException;
+  String provisionCustomer(@Nonnull String customerName) throws BillingException;
 
   /**
    * Check if customer has remaining credits/quota for a specific product.

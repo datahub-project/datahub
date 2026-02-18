@@ -15,7 +15,6 @@ public class BillingHandlerTest {
 
   private static final String TEST_CUSTOMER_NAME = "test.datahub.com";
   private static final String TEST_PROVIDER_CUSTOMER_ID = "test-customer-123";
-  private static final String TEST_PACKAGE_ALIAS = "standard";
 
   @BeforeMethod
   public void setUp() throws Exception {
@@ -51,28 +50,27 @@ public class BillingHandlerTest {
   public void testProvisionCustomerWhenDisabled() throws Exception {
     billingHandler = new BillingHandler(false, mockProvider, TEST_CUSTOMER_NAME);
 
-    billingHandler.provisionCustomer(TEST_PACKAGE_ALIAS);
+    billingHandler.provisionCustomer();
 
-    verify(mockProvider, never()).provisionCustomer(anyString(), anyString());
+    verify(mockProvider, never()).provisionCustomer(anyString());
   }
 
   @Test(expectedExceptions = BillingException.class)
   public void testProvisionCustomerProviderFailure() throws Exception {
-    when(mockProvider.provisionCustomer(anyString(), anyString()))
+    when(mockProvider.provisionCustomer(anyString()))
         .thenThrow(new BillingException("Provider API error"));
     billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
-    billingHandler.provisionCustomer(TEST_PACKAGE_ALIAS);
+    billingHandler.provisionCustomer();
   }
 
   @Test
   public void testGetProviderCustomerIdFromCache() throws Exception {
     // Provision customer first to populate cache
-    when(mockProvider.provisionCustomer(anyString(), anyString()))
-        .thenReturn(TEST_PROVIDER_CUSTOMER_ID);
+    when(mockProvider.provisionCustomer(anyString())).thenReturn(TEST_PROVIDER_CUSTOMER_ID);
     billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
-    billingHandler.provisionCustomer(TEST_PACKAGE_ALIAS);
+    billingHandler.provisionCustomer();
 
     String customerId = billingHandler.getProviderCustomerId();
 
@@ -93,15 +91,14 @@ public class BillingHandlerTest {
 
   @Test
   public void testProvisionCustomerIdempotency() throws Exception {
-    when(mockProvider.provisionCustomer(anyString(), anyString()))
-        .thenReturn(TEST_PROVIDER_CUSTOMER_ID);
+    when(mockProvider.provisionCustomer(anyString())).thenReturn(TEST_PROVIDER_CUSTOMER_ID);
 
     billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
-    billingHandler.provisionCustomer(TEST_PACKAGE_ALIAS);
-    billingHandler.provisionCustomer(TEST_PACKAGE_ALIAS);
+    billingHandler.provisionCustomer();
+    billingHandler.provisionCustomer();
 
-    verify(mockProvider, times(2)).provisionCustomer(anyString(), anyString());
+    verify(mockProvider, times(2)).provisionCustomer(anyString());
   }
 
   @Test(expectedExceptions = BillingException.class)
@@ -123,16 +120,14 @@ public class BillingHandlerTest {
 
   @Test
   public void testProvisionThenGetCustomerId() throws Exception {
-    when(mockProvider.provisionCustomer(anyString(), anyString()))
-        .thenReturn(TEST_PROVIDER_CUSTOMER_ID);
+    when(mockProvider.provisionCustomer(anyString())).thenReturn(TEST_PROVIDER_CUSTOMER_ID);
     billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
 
-    billingHandler.provisionCustomer(TEST_PACKAGE_ALIAS);
+    billingHandler.provisionCustomer();
     String customerId = billingHandler.getProviderCustomerId();
 
     assertEquals(customerId, TEST_PROVIDER_CUSTOMER_ID);
-    verify(mockProvider, times(1))
-        .provisionCustomer(eq(TEST_CUSTOMER_NAME), eq(TEST_PACKAGE_ALIAS));
+    verify(mockProvider, times(1)).provisionCustomer(eq(TEST_CUSTOMER_NAME));
   }
 
   @Test
@@ -190,13 +185,12 @@ public class BillingHandlerTest {
 
   @Test
   public void testHasRemainingCreditsWithBillingProduct() throws Exception {
-    when(mockProvider.provisionCustomer(anyString(), anyString()))
-        .thenReturn(TEST_PROVIDER_CUSTOMER_ID);
+    when(mockProvider.provisionCustomer(anyString())).thenReturn(TEST_PROVIDER_CUSTOMER_ID);
     when(mockProvider.hasRemainingCredits(
             eq(TEST_PROVIDER_CUSTOMER_ID), eq(BillingProduct.ASK_DATAHUB)))
         .thenReturn(true);
     billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
-    billingHandler.provisionCustomer(TEST_PACKAGE_ALIAS);
+    billingHandler.provisionCustomer();
 
     boolean hasCredits = billingHandler.hasRemainingCredits(BillingProduct.ASK_DATAHUB);
 
@@ -217,12 +211,11 @@ public class BillingHandlerTest {
 
   @Test
   public void testHasRemainingCreditsProviderFailure() throws Exception {
-    when(mockProvider.provisionCustomer(anyString(), anyString()))
-        .thenReturn(TEST_PROVIDER_CUSTOMER_ID);
+    when(mockProvider.provisionCustomer(anyString())).thenReturn(TEST_PROVIDER_CUSTOMER_ID);
     when(mockProvider.hasRemainingCredits(anyString(), any(BillingProduct.class)))
         .thenThrow(new BillingException("Provider API error"));
     billingHandler = new BillingHandler(true, mockProvider, TEST_CUSTOMER_NAME);
-    billingHandler.provisionCustomer(TEST_PACKAGE_ALIAS);
+    billingHandler.provisionCustomer();
 
     // Should fail open
     boolean hasCredits = billingHandler.hasRemainingCredits(BillingProduct.ASK_DATAHUB);

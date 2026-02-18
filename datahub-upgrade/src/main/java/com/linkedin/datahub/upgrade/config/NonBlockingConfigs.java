@@ -4,12 +4,12 @@ import com.datahub.authentication.invite.InviteTokenService;
 import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.assertions.GenerateAssertionEntityField;
+import com.linkedin.datahub.upgrade.system.billing.ProvisionBilling;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
-import com.linkedin.datahub.upgrade.system.freetrial.ProvisionFreeTrialBilling;
 import com.linkedin.datahub.upgrade.system.freetrial.SendAdminInviteToken;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
@@ -241,19 +241,13 @@ public class NonBlockingConfigs {
   }
 
   @Bean
-  public NonBlockingSystemUpgrade provisionFreeTrialBilling(
+  public NonBlockingSystemUpgrade provisionBilling(
       @Qualifier("systemOperationContext") final OperationContext opContext,
       final EntityService<?> entityService,
       @Autowired(required = false) final BillingHandler billingHandler,
-      final ConfigurationProvider configurationProvider,
-      @Value("${systemUpdate.provisionFreeTrialBilling.reprocess.enabled:false}")
+      @Value("${systemUpdate.provisionBilling.reprocess.enabled:false}")
           final boolean reprocessEnabled) {
-    return new ProvisionFreeTrialBilling(
-        opContext,
-        entityService,
-        billingHandler,
-        configurationProvider.getDatahub(),
-        reprocessEnabled);
+    return new ProvisionBilling(opContext, entityService, billingHandler, reprocessEnabled);
   }
 
   @Bean

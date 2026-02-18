@@ -105,6 +105,22 @@ public class MetronomeClient implements BillingProvider {
     return productId;
   }
 
+  /**
+   * Resolve the Metronome package alias from configuration.
+   *
+   * @return The configured package alias
+   * @throws BillingException if no package alias is configured
+   */
+  @Nonnull
+  private String resolvePackageAlias() throws BillingException {
+    String packageAlias = config.getPackageAlias();
+    if (packageAlias == null || packageAlias.trim().isEmpty()) {
+      throw new BillingException(
+          "No package alias configured for Metronome (metronome.packageAlias is missing)");
+    }
+    return packageAlias;
+  }
+
   @Override
   @javax.annotation.Nullable
   public String getCustomerId(@Nonnull String customerName) throws BillingException {
@@ -141,10 +157,10 @@ public class MetronomeClient implements BillingProvider {
 
   @Override
   @Nonnull
-  public String provisionCustomer(@Nonnull String customerName, @Nonnull String packageAlias)
-      throws BillingException {
+  public String provisionCustomer(@Nonnull String customerName) throws BillingException {
     Objects.requireNonNull(customerName, "customerName must not be null");
-    Objects.requireNonNull(packageAlias, "packageAlias must not be null");
+
+    String packageAlias = resolvePackageAlias();
 
     log.info("Provisioning Metronome customer '{}' with package '{}'", customerName, packageAlias);
 
