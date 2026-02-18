@@ -87,6 +87,31 @@ class PowerBiAPI:
         # reports and tiles across different workspaces.
         self.dataset_registry: Dict[str, PowerBIDataset] = {}
 
+    def _ensure_dataset_in_registry(
+        self, workspace: Workspace, dataset_id: str
+    ) -> Optional[PowerBIDataset]:
+        """
+        When there is no scan result (regular API path), fetch a dataset from the
+        workspace and add it to the registry so report/tile lineage can resolve.
+        Returns the dataset if found or already in registry, else None.
+        """
+        existing = self.dataset_registry.get(dataset_id)
+        if existing is not None:
+            return existing
+        if workspace.scan_result is not None:
+            return None
+        try:
+            dataset_instance = self._get_resolver().get_dataset(
+                workspace=workspace,
+                dataset_id=dataset_id,
+            )
+            if dataset_instance is not None:
+                self.dataset_registry[dataset_id] = dataset_instance
+                workspace.datasets[dataset_id] = dataset_instance
+            return dataset_instance
+        except Exception:
+            return None
+
     def _get_dataset_workspace_context(self, dataset_id: str) -> str:
         """
         Resolve dataset to its workspace via Admin API when available.
@@ -222,7 +247,9 @@ class PowerBiAPI:
             # Fill Report dataset
             for report in reports.values():
                 if report.dataset_id:
-                    report.dataset = self.dataset_registry.get(report.dataset_id)
+                    report.dataset = self._ensure_dataset_in_registry(
+                        workspace, report.dataset_id
+                    )
                     if report.dataset is None:
                         dataset_ctx = self._get_dataset_workspace_context(
                             report.dataset_id
@@ -778,7 +805,9 @@ class PowerBiAPI:
                     # https://learn.microsoft.com/en-us/fabric/admin/portal-workspace#use-semantic-models-across-workspaces
                     # That's why the global 'dataset_registry' is required
                     if tile.dataset_id:
-                        tile.dataset = self.dataset_registry.get(tile.dataset_id)
+                        tile.dataset = self._ensure_dataset_in_registry(
+                            workspace, tile.dataset_id
+                        ) or self.dataset_registry.get(tile.dataset_id)
                         if tile.dataset is None:
                             dataset_ctx = self._get_dataset_workspace_context(
                                 tile.dataset_id
