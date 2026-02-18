@@ -537,7 +537,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.gen_schema_containers(schema)
                 try:
                     yield from self.process_tables(schema)
-                    yield from self.process_ml_models(schema)
+                    if self.config.include_ml_models:
+                        yield from self.process_ml_models(schema)
                 except Exception as e:
                     logger.exception(f"Error parsing schema {schema}")
                     self.report.report_warning(
