@@ -98,7 +98,13 @@ class PowerBiAPI:
         existing = self.dataset_registry.get(dataset_id)
         if existing is not None:
             return existing
-        if workspace.scan_result is not None:
+        # Only skip on-demand fetch when we have a real scan result (registry was
+        # populated from scan). When scan failed, scan_result is {} so we fetch.
+        if (
+            workspace.scan_result
+            and isinstance(workspace.scan_result, dict)
+            and workspace.scan_result.get(Constant.DATASETS) is not None
+        ):
             return None
         try:
             dataset_instance = self._get_resolver().get_dataset(
