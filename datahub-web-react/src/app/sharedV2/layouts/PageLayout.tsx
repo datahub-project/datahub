@@ -59,6 +59,12 @@ const TopContainer = styled.div`
     justify-content: space-between;
 `;
 
+const TopRightContentContainer = styled.div`
+    flex: 1;
+    display: flex;
+    justify-content: end;
+`;
+
 interface Props {
     title?: string;
     titlePill?: React.ReactNode;
@@ -90,7 +96,7 @@ export function PageLayout({
                     {(topBreadcrumb || topRightContent) && (
                         <TopContainer>
                             {topBreadcrumb && <>{topBreadcrumb}</>}
-                            {topRightContent && <>{topRightContent}</>}
+                            {topRightContent && <TopRightContentContainer>{topRightContent}</TopRightContentContainer>}
                         </TopContainer>
                     )}
 
