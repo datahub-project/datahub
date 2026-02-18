@@ -131,6 +131,8 @@ shadowJar {
             exclude_modules.contains(it.name)
         })
     exclude(dependency("org.scala-lang::"))
+    // Spark provides SLF4J at runtime, so don't shade it
+    exclude(dependency("org.slf4j::"))
   }
 
   // preventing java multi-release JAR leakage
