@@ -90,6 +90,7 @@ For Docker Compose or non-Helm deployments, set these on the **datahub-gms** ser
 
 ```bash
 ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
+SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true
 ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document
 OPENAI_API_KEY=sk-your-api-key-here
 
@@ -101,6 +102,7 @@ That's it — OpenAI is the default provider, so no other variables are needed.
 
 ```bash
 ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
+SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true
 ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document
 EMBEDDING_PROVIDER_TYPE=aws-bedrock
 BEDROCK_EMBEDDING_AWS_REGION=us-west-2
@@ -113,6 +115,7 @@ Authentication uses the AWS SDK default credential chain (EC2/ECS instance crede
 
 ```bash
 ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
+SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true
 ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document
 EMBEDDING_PROVIDER_TYPE=cohere
 COHERE_API_KEY=your-cohere-api-key
