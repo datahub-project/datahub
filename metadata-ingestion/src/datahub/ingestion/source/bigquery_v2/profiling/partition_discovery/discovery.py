@@ -1,6 +1,7 @@
 """BigQuery partition discovery and filter generation with enhanced security."""
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -1351,6 +1352,109 @@ LIMIT 1"""
             partition_cols_with_types,
         )
 
+    def _test_date_candidate(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        test_date: datetime,
+        description: str,
+        required_columns: List[str],
+        column_types: Dict[str, str],
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+    ) -> Optional[List[str]]:
+        """
+        Test a single date candidate in parallel.
+
+        Returns the partition filters if data is found, None otherwise.
+        """
+        filters = []
+        for col in required_columns:
+            try:
+                col_data_type = column_types.get(col, "")
+
+                if self._is_date_like_column(col) or self._is_date_type_column(
+                    col_data_type
+                ):
+                    date_str = test_date.strftime("%Y-%m-%d")
+                    filters.append(
+                        self._create_safe_filter(col, date_str, col_data_type)
+                    )
+                elif col.lower() == "year":
+                    filters.append(
+                        self._create_safe_filter(
+                            col, str(test_date.year), col_data_type
+                        )
+                    )
+                elif col.lower() == "month":
+                    filters.append(
+                        self._create_safe_filter(
+                            col, f"{test_date.month:02d}", col_data_type
+                        )
+                    )
+                elif col.lower() == "day":
+                    filters.append(
+                        self._create_safe_filter(
+                            col, f"{test_date.day:02d}", col_data_type
+                        )
+                    )
+                else:
+                    # For other non-date columns, use fallback values from config
+                    if col in self.config.profiling.fallback_partition_values:
+                        fallback_val = self.config.profiling.fallback_partition_values[
+                            col
+                        ]
+                        filters.append(
+                            self._create_safe_filter(col, fallback_val, col_data_type)
+                        )
+                    else:
+                        # IS NOT NULL is safe and doesn't need the helper
+                        filters.append(f"`{col}` IS NOT NULL")
+            except ValueError as e:
+                logger.warning(f"Skipping invalid filter for column {col}: {e}")
+                # Use IS NOT NULL as fallback for problematic columns
+                filters.append(f"`{col}` IS NOT NULL")
+
+        # Verify these filters work
+        try:
+            if self._verify_partition_has_data(
+                table, project, schema, filters, execute_query_func
+            ):
+                logger.debug(
+                    f"Found valid date partition for {description}: {test_date.strftime('%Y-%m-%d')}"
+                )
+
+                # Now discover actual values for other partition columns using the valid date
+                enhanced_filters = self._enhance_partition_filters_with_actual_values(
+                    table,
+                    project,
+                    schema,
+                    required_columns,
+                    filters,
+                    execute_query_func,
+                )
+
+                if enhanced_filters:
+                    logger.info(
+                        f"Enhanced partition filters with actual values for table {table.name}: {len(enhanced_filters)} filters"
+                    )
+                    return enhanced_filters
+                else:
+                    logger.debug(
+                        "Failed to enhance filters, using original date-based filters"
+                    )
+                    return filters
+            else:
+                logger.debug(
+                    f"No data found for {description} ({test_date.strftime('%Y-%m-%d')})"
+                )
+                return None
+        except Exception as e:
+            logger.warning(
+                f"Error testing date candidate {description} for table {table.name}: {e}"
+            )
+            return None
+
     def _find_real_partition_values(
         self,
         table: BigqueryTable,
@@ -1359,7 +1463,20 @@ LIMIT 1"""
         required_columns: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Optional[List[str]]:
-        """Find real partition values that exist in the table."""
+        """
+        Find real partition values that exist in the table.
+
+        This method uses parallel execution to test multiple date candidates simultaneously,
+        dramatically reducing partition discovery time. Instead of testing dates sequentially
+        (today, then yesterday, then 2 days ago, etc.), all candidates are tested concurrently.
+
+        Performance impact:
+        - Sequential: 5 dates × 500ms each = 2.5 seconds
+        - Parallel: max(5 dates) = 500ms (5x faster)
+
+        The parallelization is I/O-bound (BigQuery API calls), so Python's GIL does not
+        impact performance - threads achieve genuine concurrency while waiting for queries.
+        """
         if not required_columns:
             return []
 
@@ -1426,88 +1543,47 @@ LIMIT 1"""
         )
         candidate_dates = self._get_strategic_candidate_dates()
 
-        for test_date, description in candidate_dates:
-            filters = []
-            for col in required_columns:
-                try:
-                    col_data_type = column_types.get(col, "")
+        # OPTIMIZATION: Test all date candidates in parallel instead of sequentially
+        # This dramatically reduces partition discovery time by running all queries concurrently
+        logger.info(
+            f"Testing {len(candidate_dates)} date candidates in parallel for table {table.name}"
+        )
 
-                    if self._is_date_like_column(col) or self._is_date_type_column(
-                        col_data_type
-                    ):
-                        date_str = test_date.strftime("%Y-%m-%d")
-                        filters.append(
-                            self._create_safe_filter(col, date_str, col_data_type)
-                        )
-                    elif col.lower() == "year":
-                        filters.append(
-                            self._create_safe_filter(
-                                col, str(test_date.year), col_data_type
-                            )
-                        )
-                    elif col.lower() == "month":
-                        filters.append(
-                            self._create_safe_filter(
-                                col, f"{test_date.month:02d}", col_data_type
-                            )
-                        )
-                    elif col.lower() == "day":
-                        filters.append(
-                            self._create_safe_filter(
-                                col, f"{test_date.day:02d}", col_data_type
-                            )
-                        )
-                    else:
-                        # For other non-date columns, use fallback values from config
-                        if col in self.config.profiling.fallback_partition_values:
-                            fallback_val = (
-                                self.config.profiling.fallback_partition_values[col]
-                            )
-                            filters.append(
-                                self._create_safe_filter(
-                                    col, fallback_val, col_data_type
-                                )
-                            )
-                        else:
-                            # IS NOT NULL is safe and doesn't need the helper
-                            filters.append(f"`{col}` IS NOT NULL")
-                except ValueError as e:
-                    logger.warning(f"Skipping invalid filter for column {col}: {e}")
-                    # Use IS NOT NULL as fallback for problematic columns
-                    filters.append(f"`{col}` IS NOT NULL")
-
-            # Verify these filters work
-            if self._verify_partition_has_data(
-                table, project, schema, filters, execute_query_func
-            ):
-                logger.debug(
-                    f"Found valid date partition for {description}: {test_date.strftime('%Y-%m-%d')}"
-                )
-
-                # Now discover actual values for other partition columns using the valid date
-                enhanced_filters = self._enhance_partition_filters_with_actual_values(
+        with ThreadPoolExecutor(max_workers=min(len(candidate_dates), 5)) as executor:
+            # Submit all date tests concurrently
+            future_to_date = {
+                executor.submit(
+                    self._test_date_candidate,
                     table,
                     project,
                     schema,
+                    test_date,
+                    description,
                     required_columns,
-                    filters,
+                    column_types,
                     execute_query_func,
-                )
+                ): (test_date, description)
+                for test_date, description in candidate_dates
+            }
 
-                if enhanced_filters:
-                    logger.info(
-                        f"Enhanced partition filters with actual values for table {table.name}: {len(enhanced_filters)} filters"
-                    )
-                    return enhanced_filters
-                else:
+            # Process results as they complete - return the first successful one
+            for future in as_completed(future_to_date):
+                test_date, description = future_to_date[future]
+                try:
+                    result = future.result()
+                    if result:
+                        logger.info(
+                            f"Successfully found partition data for {description} in table {table.name}"
+                        )
+                        # Cancel remaining futures since we found a valid result
+                        for remaining_future in future_to_date:
+                            if remaining_future != future:
+                                remaining_future.cancel()
+                        return result
+                except Exception as e:
                     logger.debug(
-                        "Failed to enhance filters, using original date-based filters"
+                        f"Exception testing date {description} for table {table.name}: {e}"
                     )
-                    return filters
-            else:
-                logger.debug(
-                    f"No data found for {description} ({test_date.strftime('%Y-%m-%d')}), trying next candidate..."
-                )
 
         logger.debug(
             f"No data found in any strategic date candidates for table {table.name}"
