@@ -1,0 +1,41 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project-123456.test_dataset.external_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643871600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT", 
+                "type": "FULL_TABLE"
+            },
+            "columnCount": 2,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "date_partition",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": ["2023-12-25", "2023-12-24"]
+                },
+                {
+                    "fieldPath": "transaction_id",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": ["txn_001", "txn_002"]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-profiling-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
