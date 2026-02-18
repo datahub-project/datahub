@@ -2,4 +2,3 @@
 import datahub._setproctitle_patch
 from datahub._version import __package_name__, __version__
 
-# CI test: trigger connector-tests-trigger workflow (safe to remove)
