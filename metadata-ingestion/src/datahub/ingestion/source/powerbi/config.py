@@ -325,12 +325,8 @@ class AthenaPlatformOverride(ConfigModel):
 
 
 class PowerBiEnvironment(ConfigEnum):
-    """
-    PowerBI environment options
-    """
-
-    COMMERCIAL = "COMMERCIAL"  # Commercial PowerBI environment
-    GOVERNMENT = "GOVERNMENT"  # Government PowerBI environment
+    COMMERCIAL = "COMMERCIAL"
+    GOVERNMENT = "GOVERNMENT"
 
 
 class PowerBiDashboardSourceConfig(
