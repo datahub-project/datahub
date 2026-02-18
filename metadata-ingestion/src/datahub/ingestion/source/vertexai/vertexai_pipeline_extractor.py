@@ -30,6 +30,7 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 )
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    KUBEFLOW_TIMESTAMP_SUFFIX_PATTERN,
     ORDER_BY_UPDATE_TIME_DESC,
     DateTimeFormat,
     DurationUnit,
@@ -120,12 +121,13 @@ class VertexAIPipelineExtractor:
         """
         Extract stable pipeline identifier.
 
-        Prefers display_name (user-defined, consistent across runs) over name (run-specific).
+        Prefers display_name if set. For Kubeflow Pipelines running on Vertex AI,
+        display_name often includes a timestamp suffix (e.g., -20241107083959).
+        This is stripped to get the stable pipeline name, allowing multiple runs to
+        be grouped under the same DataFlow and container.
         """
-        if pipeline.display_name:
-            return pipeline.display_name
-
-        return pipeline.name
+        name = pipeline.display_name or pipeline.name
+        return KUBEFLOW_TIMESTAMP_SUFFIX_PATTERN.sub("", name)
 
     def _get_pipeline_container(self, pipeline_name: str) -> PipelineContainerKey:
         return PipelineContainerKey(
@@ -282,6 +284,8 @@ class VertexAIPipelineExtractor:
             flow_urn=str(dataflow_urn),
             platform_instance=self.config.platform_instance,
         )
+
+        datajob._set_container(container_key)
 
         yield from self._yield_common_aspects(
             entity_urn=datajob.urn.urn(),

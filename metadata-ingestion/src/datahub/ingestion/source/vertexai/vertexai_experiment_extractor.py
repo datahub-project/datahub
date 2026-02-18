@@ -145,7 +145,7 @@ class VertexAIExperimentExtractor:
     def get_experiment_run_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.experiments is None:
             logger.info("Fetching Experiments from Vertex AI")
-            exps = [
+            filtered_experiments = [
                 e
                 for e in aiplatform.Experiment.list()
                 if self.config.experiment_name_pattern.allowed(e.name)
@@ -156,7 +156,7 @@ class VertexAIExperimentExtractor:
                     name=e.name,
                     update_time=getattr(e, "update_time", None),
                 )
-                for e in exps
+                for e in filtered_experiments
             ]
             experiment_metadata.sort(
                 key=lambda e: e.update_time

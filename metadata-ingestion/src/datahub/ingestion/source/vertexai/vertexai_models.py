@@ -12,6 +12,7 @@ from datahub.emitter.mcp_builder import ProjectIdKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     MLMetadataDefaults,
+    ResourceCategory,
     ResourceCategoryType,
 )
 from datahub.metadata.schema_classes import EdgeClass, MLHyperParamClass, MLMetricClass
@@ -49,6 +50,15 @@ class PipelineContainerKey(ProjectIdKey):
     """Container key for a Vertex AI pipeline."""
 
     pipeline_name: str
+
+    def parent_key(self) -> Optional[VertexAIResourceCategoryKey]:
+        return VertexAIResourceCategoryKey(
+            project_id=self.project_id,
+            platform=self.platform,
+            instance=self.instance,
+            env=self.env,
+            category=ResourceCategory.PIPELINES,
+        )
 
 
 class ExecutionMetadata(BaseModel):

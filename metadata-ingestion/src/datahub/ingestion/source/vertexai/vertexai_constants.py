@@ -1,3 +1,4 @@
+import re
 from typing import Literal, Set
 
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
@@ -7,6 +8,10 @@ PLATFORM: Literal["vertexai"] = "vertexai"
 
 # Progress logging configuration
 PROGRESS_LOG_INTERVAL = 100
+
+# Kubeflow Pipelines timestamp suffix pattern (appended to display_name for each run)
+# Example: "my-pipeline-20241107083959" -> extract "my-pipeline"
+KUBEFLOW_TIMESTAMP_SUFFIX_PATTERN = re.compile(r"-\d{14}$")
 
 # Field names for object attributes
 UPDATE_TIME_FIELD = "update_time"

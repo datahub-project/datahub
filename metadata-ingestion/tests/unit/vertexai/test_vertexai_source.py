@@ -144,3 +144,40 @@ def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
         ]
 
         assert len(run_mcps) > 0
+
+
+@pytest.mark.parametrize(
+    "pipeline_name,expected_stable_name",
+    [
+        (
+            "my-pipeline-20241107083959",
+            "my-pipeline",
+        ),
+        (
+            "training-pipeline-20240315120000",
+            "training-pipeline",
+        ),
+        (
+            "stable-pipeline-without-timestamp",
+            "stable-pipeline-without-timestamp",
+        ),
+        (
+            "pipeline-with-date-20240315-but-no-timestamp",
+            "pipeline-with-date-20240315-but-no-timestamp",
+        ),
+    ],
+)
+def test_pipeline_stable_name_strips_kubeflow_timestamp(
+    source: VertexAISource,
+    pipeline_name: str,
+    expected_stable_name: str,
+) -> None:
+    """Test that Kubeflow-appended timestamps are stripped from pipeline names."""
+    mock_pipeline_job = MagicMock(spec=PipelineJob)
+    mock_pipeline_job.name = "test_pipeline_name"
+    mock_pipeline_job.display_name = pipeline_name
+
+    stable_name = source.pipeline_extractor._get_stable_pipeline_id(mock_pipeline_job)
+    assert stable_name == expected_stable_name, (
+        f"Expected {expected_stable_name}, got {stable_name}"
+    )
