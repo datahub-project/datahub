@@ -11,7 +11,9 @@ concurrency:
 jobs:
   dispatch:
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success'
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     permissions:
       actions: read
       statuses: write
@@ -64,8 +66,8 @@ jobs:
             exit 1
           fi
 
-          echo "url=${DEPLOY_URL}/simple" >> "$GITHUB_OUTPUT"
-          echo "Cloudflare URL: ${DEPLOY_URL}/simple"
+          echo "url=${DEPLOY_URL}" >> "$GITHUB_OUTPUT"
+          echo "Cloudflare URL: ${DEPLOY_URL}"
 
       - name: Get PR info
         if: steps.check-both.outputs.both_passed == 'true'
@@ -103,19 +105,21 @@ jobs:
         if: steps.check-both.outputs.both_passed == 'true' && steps.pr-info.outputs.has_pr == 'true'
         env:
           GH_TOKEN: ${{ secrets.CONNECTOR_TESTS_DISPATCH_TOKEN }}
+          PR_NUMBER: ${{ steps.pr-info.outputs.pr_number }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_REPO: ${{ github.repository }}
+          WHEEL_URL: ${{ steps.cloudflare.outputs.url }}
         run: |
           jq -nc \
             --arg event "oss-pr-connector-tests" \
-            --argjson payload "$(jq -nc \
-              --arg pr "${{ steps.pr-info.outputs.pr_number }}" \
-              --arg sha "${{ github.event.workflow_run.head_sha }}" \
-              --arg repo "${{ github.repository }}" \
-              --arg url "${{ steps.cloudflare.outputs.url }}" \
-              '{pr_number: $pr, sha: $sha, source_repo: $repo, wheel_url: $url}')" \
-            '{event_type: $event, client_payload: $payload}' \
+            --arg pr "$PR_NUMBER" \
+            --arg sha "$COMMIT_SHA" \
+            --arg repo "$SOURCE_REPO" \
+            --arg url "$WHEEL_URL" \
+            '{event_type: $event, client_payload: {pr_number: $pr, sha: $sha, source_repo: $repo, wheel_url: $url}}' \
           | gh api "/repos/acryldata/connector-tests/dispatches" --input -
 
-          echo "Dispatched for PR #${{ steps.pr-info.outputs.pr_number }}"
+          echo "Dispatched for PR #${PR_NUMBER}"
 
       - name: On failure — set error commit status
         if: failure() && steps.pr-info.outputs.has_pr == 'true'
