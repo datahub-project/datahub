@@ -27,6 +27,7 @@ class _ResultContainer(Generic[T]):
     """Container for deferred query result. Internal implementation detail."""
 
     value: Any = _NOT_SET  # Use sentinel instead of Optional[T]
+    exc: Optional[Exception] = None  # Store exception if query fails
 
 
 class FutureResult(Generic[T]):
@@ -72,8 +73,13 @@ class FutureResult(Generic[T]):
             The query result value (can be None if query returned NULL)
 
         Raises:
+            Exception: The actual database exception if query failed
             ValueError: If flush() hasn't been called yet
         """
+        # Re-raise the actual exception if query failed
+        if self._container.exc is not None:
+            raise self._container.exc
+
         if self._container.value is _NOT_SET:
             raise ValueError(
                 "Result not available yet. Must call query_combiner.flush() first."
@@ -81,9 +87,11 @@ class FutureResult(Generic[T]):
         return self._container.value
 
     def __repr__(self) -> str:
+        if self._container.exc is not None:
+            return f"FutureResult(error={self._container.exc!r})"
         if self._container.value is _NOT_SET:
             return "FutureResult(pending)"
-        return f"FutureResult(value={self._container.value})"
+        return f"FutureResult(value={self._container.value!r})"
 
 
 class QueryCombinerRunner:
@@ -163,9 +171,12 @@ class QueryCombinerRunner:
         container = _ResultContainer[int]()
 
         def execute():
-            container.value = self.adapter.get_row_count(
-                table, self.conn, sample_clause, use_estimation
-            )
+            try:
+                container.value = self.adapter.get_row_count(
+                    table, self.conn, sample_clause, use_estimation
+                )
+            except Exception as e:
+                container.exc = e
 
         self.query_combiner.run(execute)
         return FutureResult(container=container)
@@ -181,9 +192,12 @@ class QueryCombinerRunner:
         container = _ResultContainer[int]()
 
         def execute():
-            container.value = self.adapter.get_column_non_null_count(
-                table, column, self.conn
-            )
+            try:
+                container.value = self.adapter.get_column_non_null_count(
+                    table, column, self.conn
+                )
+            except Exception as e:
+                container.exc = e
 
         self.query_combiner.run(execute)
         return FutureResult(container=container)
@@ -197,7 +211,10 @@ class QueryCombinerRunner:
         container = _ResultContainer[Any]()
 
         def execute():
-            container.value = self.adapter.get_column_min(table, column, self.conn)
+            try:
+                container.value = self.adapter.get_column_min(table, column, self.conn)
+            except Exception as e:
+                container.exc = e
 
         self.query_combiner.run(execute)
         return FutureResult(container=container)
@@ -211,7 +228,10 @@ class QueryCombinerRunner:
         container = _ResultContainer[Any]()
 
         def execute():
-            container.value = self.adapter.get_column_max(table, column, self.conn)
+            try:
+                container.value = self.adapter.get_column_max(table, column, self.conn)
+            except Exception as e:
+                container.exc = e
 
         self.query_combiner.run(execute)
         return FutureResult(container=container)
@@ -227,7 +247,10 @@ class QueryCombinerRunner:
         container = _ResultContainer[Optional[float]]()
 
         def execute():
-            container.value = self.adapter.get_column_mean(table, column, self.conn)
+            try:
+                container.value = self.adapter.get_column_mean(table, column, self.conn)
+            except Exception as e:
+                container.exc = e
 
         self.query_combiner.run(execute)
         return FutureResult(container=container)
@@ -243,7 +266,12 @@ class QueryCombinerRunner:
         container = _ResultContainer[Optional[float]]()
 
         def execute():
-            container.value = self.adapter.get_column_stdev(table, column, self.conn)
+            try:
+                container.value = self.adapter.get_column_stdev(
+                    table, column, self.conn
+                )
+            except Exception as e:
+                container.exc = e
 
         self.query_combiner.run(execute)
         return FutureResult(container=container)
@@ -259,9 +287,12 @@ class QueryCombinerRunner:
         container = _ResultContainer[int]()
 
         def execute():
-            container.value = self.adapter.get_column_unique_count(
-                table, column, self.conn, use_approx
-            )
+            try:
+                container.value = self.adapter.get_column_unique_count(
+                    table, column, self.conn, use_approx
+                )
+            except Exception as e:
+                container.exc = e
 
         self.query_combiner.run(execute)
         return FutureResult(container=container)
@@ -275,7 +306,12 @@ class QueryCombinerRunner:
         container = _ResultContainer[Any]()
 
         def execute():
-            container.value = self.adapter.get_column_median(table, column, self.conn)
+            try:
+                container.value = self.adapter.get_column_median(
+                    table, column, self.conn
+                )
+            except Exception as e:
+                container.exc = e
 
         self.query_combiner.run(execute)
         return FutureResult(container=container)

@@ -554,14 +554,14 @@ class TestQueryCombinerRunner:
         self, sqlite_engine, test_adapter, test_table
     ):
         """
-        Test that SQL exceptions are raised as SQLAlchemy errors, not generic ValueErrors.
+        Test that flush() raises SQLAlchemy errors when fallback is disabled.
 
-        This is the core concern: when a SQL query fails, the exception should be
-        the actual SQLAlchemy error (e.g., OperationalError) that describes what
-        went wrong, not a generic ValueError like "Result not available yet".
+        When serial_execution_fallback_enabled=False, flush() should raise
+        the actual SQLAlchemy error immediately when batch execution fails,
+        rather than falling back to serial execution.
 
         This test verifies that:
-        1. flush() raises the actual SQLAlchemy error when a query fails
+        1. flush() raises the actual SQLAlchemy error when batch execution fails
         2. The error message contains details about the SQL problem
         3. The exception type is correct (not a generic Python error)
         """
@@ -571,7 +571,7 @@ class TestQueryCombinerRunner:
                 enabled=True,
                 catch_exceptions=False,  # Fail fast on SQL errors
                 is_single_row_query_method=_is_single_row_query_method,
-                serial_execution_fallback_enabled=True,
+                serial_execution_fallback_enabled=False,  # Disable fallback so flush() raises
             ).activate() as query_combiner,
         ):
             runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
@@ -579,20 +579,17 @@ class TestQueryCombinerRunner:
             # Schedule a query that will fail (non-existent column)
             _ = runner.get_column_min(test_table, "nonexistent_column")
 
-            # flush() should raise the actual SQL exception, not a generic ValueError
+            # flush() should raise the actual SQL exception when batch execution fails
             with pytest.raises(
                 (sa.exc.SQLAlchemyError, sa.exc.OperationalError)
             ) as exc_info:
                 query_combiner.flush()
 
             # Verify it's the actual SQL error with meaningful details
-            assert "nonexistent_column" in str(exc_info.value)
+            assert "nonexistent_column" in str(exc_info.value).lower()
             assert isinstance(
                 exc_info.value, (sa.exc.SQLAlchemyError, sa.exc.OperationalError)
             )
-
-            # Note: After flush() raises, the FutureResult state is implementation-specific
-            # and depends on greenlet execution order, so we don't test it here
 
     def test_future_result_value_error_when_not_flushed(
         self, sqlite_engine, test_adapter, test_table
@@ -627,3 +624,171 @@ class TestQueryCombinerRunner:
             # After flush(), result should work
             query_combiner.flush()
             assert future.result() == 3
+
+    def test_exception_stored_in_future_result(
+        self, sqlite_engine, test_adapter, test_table
+    ):
+        """
+        Test that exceptions during greenlet execution are stored and re-raised.
+
+        When a batchable query fails inside the greenlet:
+        - The exception is caught and stored in the result container
+        - Calling result() should re-raise the actual database exception
+        - NOT raise a misleading ValueError("Result not available yet...")
+        """
+        with (
+            sqlite_engine.connect() as conn,
+            SQLAlchemyQueryCombiner(
+                enabled=True,
+                catch_exceptions=False,
+                is_single_row_query_method=_is_single_row_query_method,
+                serial_execution_fallback_enabled=True,  # Enable fallback for individual query execution
+            ).activate() as query_combiner,
+        ):
+            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+
+            # Schedule a query that will fail (non-existent column)
+            # This will trigger fallback execution where exception is caught and stored
+            future = runner.get_column_min(test_table, "nonexistent_column")
+
+            # Flush will catch the exception during fallback execution
+            # The exception should be stored in the container, not lost
+            query_combiner.flush()
+
+            # result() should re-raise the actual database exception
+            # NOT "ValueError: Result not available yet..."
+            with pytest.raises(
+                (sa.exc.SQLAlchemyError, sa.exc.OperationalError)
+            ) as exc_info:
+                future.result()
+
+            # Verify it's the actual SQL error with meaningful details
+            error_msg = str(exc_info.value).lower()
+            assert "nonexistent_column" in error_msg or "no such column" in error_msg
+            assert isinstance(
+                exc_info.value, (sa.exc.SQLAlchemyError, sa.exc.OperationalError)
+            )
+
+    def test_multiple_futures_with_mixed_success_and_failure(
+        self, sqlite_engine, test_adapter, test_table
+    ):
+        """
+        Test that when some queries succeed and others fail, each future correctly reports its state.
+
+        This ensures that:
+        1. Successful queries return their values
+        2. Failed queries raise their exceptions
+        3. One failure doesn't contaminate other futures
+        """
+        with (
+            sqlite_engine.connect() as conn,
+            SQLAlchemyQueryCombiner(
+                enabled=True,
+                catch_exceptions=False,
+                is_single_row_query_method=_is_single_row_query_method,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
+            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+
+            # Schedule mixed queries: some will succeed, some will fail
+            success_future_1 = runner.get_row_count(test_table)
+            failure_future = runner.get_column_min(test_table, "nonexistent_column")
+            success_future_2 = runner.get_column_max(test_table, "value")
+
+            # Flush - fallback will execute each query individually
+            query_combiner.flush()
+
+            # Successful futures should return values
+            assert success_future_1.result() == 3
+            assert success_future_2.result() == 30.5
+
+            # Failed future should raise the actual exception
+            with pytest.raises((sa.exc.SQLAlchemyError, sa.exc.OperationalError)):
+                failure_future.result()
+
+    def test_exception_details_preserved(self, sqlite_engine, test_adapter, test_table):
+        """
+        Test that the full exception details (type, message, traceback) are preserved.
+
+        When an exception occurs during query execution, the complete exception
+        should be available to the caller, not a wrapped or modified version.
+        """
+        with (
+            sqlite_engine.connect() as conn,
+            SQLAlchemyQueryCombiner(
+                enabled=True,
+                catch_exceptions=False,
+                is_single_row_query_method=_is_single_row_query_method,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
+            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+
+            # Trigger a specific type of exception
+            future = runner.get_column_min(test_table, "nonexistent_column")
+            query_combiner.flush()
+
+            # Verify the exception is exactly what SQLAlchemy raised
+            try:
+                future.result()
+                pytest.fail("Expected exception to be raised")
+            except Exception as e:
+                # Should be an SQLAlchemy exception, not ValueError
+                assert not isinstance(e, ValueError)
+                assert isinstance(e, (sa.exc.SQLAlchemyError, sa.exc.OperationalError))
+
+                # Exception message should contain meaningful details
+                error_str = str(e).lower()
+                assert (
+                    "nonexistent_column" in error_str or "no such column" in error_str
+                ), f"Exception message doesn't contain column name: {error_str}"
+
+    def test_future_result_repr_shows_state(
+        self, sqlite_engine, test_adapter, test_table
+    ):
+        """
+        Test that FutureResult.__repr__ correctly shows the current state.
+
+        The repr should distinguish between:
+        - pending: query not yet executed
+        - error: query failed with exception
+        - value: query succeeded with result
+        """
+        with (
+            sqlite_engine.connect() as conn,
+            SQLAlchemyQueryCombiner(
+                enabled=True,
+                catch_exceptions=False,
+                is_single_row_query_method=_is_single_row_query_method,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
+            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+
+            # State 1: Pending (before flush)
+            pending_future = runner.get_row_count(test_table)
+            repr_str = repr(pending_future)
+            assert "pending" in repr_str
+            assert "error" not in repr_str
+
+            # State 2: Success (after successful flush)
+            query_combiner.flush()
+            success_repr = repr(pending_future)
+            assert "value=" in success_repr
+            assert "3" in success_repr  # The actual row count
+            assert "error" not in success_repr
+            assert "pending" not in success_repr
+
+            # State 3: Error (after failed query)
+            error_future = runner.get_column_min(test_table, "nonexistent_column")
+            query_combiner.flush()
+            error_repr = repr(error_future)
+            assert "error=" in error_repr
+            assert "pending" not in error_repr
+            # Should show exception type or message
+            assert (
+                "OperationalError" in error_repr
+                or "SQLAlchemyError" in error_repr
+                or "nonexistent" in error_repr.lower()
+            )
