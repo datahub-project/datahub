@@ -94,14 +94,9 @@ In some cases, the Tableau Metadata API may not return column information for up
 - Tableau's internal metadata collection issues
 - Specific database connector behaviors
 
-By default (when `extract_table_lineage_without_columns: true`), DataHub will still create **table-level lineage** for these tables, even though column-level lineage cannot be generated. This ensures that upstream table relationships remain visible in lineage graphs.
+DataHub will still create **table-level lineage** for these tables, even though column-level lineage cannot be generated. This ensures that upstream table relationships remain visible in lineage graphs.
 
-To revert to the legacy behavior of skipping these tables entirely, set `extract_table_lineage_without_columns: false` in your ingestion recipe.
-
-**Observability**: The ingestion report tracks these tables separately:
-
-- `num_upstream_table_processed_without_columns` - Tables processed with table-level lineage despite missing column metadata (new behavior)
-- `num_upstream_table_skipped_no_columns` - Tables completely skipped due to missing column metadata (legacy behavior)
+**Observability**: The ingestion report tracks these tables using the counter `num_upstream_table_processed_without_columns`.
 
 #### Caveats
 

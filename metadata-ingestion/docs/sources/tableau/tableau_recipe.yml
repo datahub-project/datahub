@@ -17,10 +17,6 @@ source:
     default_schema_map:
       mydatabase: public
       anotherdatabase: anotherschema
-    
-    # Lineage Options
-    # extract_table_lineage_without_columns: true  # (default) Create table-level lineage even when column metadata is unavailable
-    # extract_table_lineage_without_columns: false  # Skip tables without column metadata (legacy behavior)
 
 sink:
   # sink configs

@@ -958,25 +958,12 @@ def test_custom_sql_datasource_naming_scenarios(
         assert dataset_properties.name == expected_name
 
 
-@pytest.mark.parametrize(
-    "extract_table_lineage_without_columns,expected_upstream_count,expected_processed_count,expected_skipped_count",
-    [
-        (True, 1, 1, 0),  # Flag enabled: create lineage, increment processed counter
-        (False, 0, 0, 1),  # Flag disabled: skip table, increment skipped counter
-    ],
-)
-def test_extract_table_lineage_without_columns_flag(
-    extract_table_lineage_without_columns,
-    expected_upstream_count,
-    expected_processed_count,
-    expected_skipped_count,
-):
-    """Test extract_table_lineage_without_columns flag behavior"""
+def test_table_lineage_without_columns():
+    """Test that tables without column metadata still create table-level lineage"""
     config = TableauConfig(
         connect_uri="http://test",
         username="test",
         password="test",
-        extract_table_lineage_without_columns=extract_table_lineage_without_columns,
         site="test",
     )
 
@@ -1022,12 +1009,7 @@ def test_extract_table_lineage_without_columns_flag(
                 is_custom_sql=False,
             )
 
-            assert len(upstream_tables) == expected_upstream_count
-            assert len(table_id_to_urn) == expected_upstream_count
-            assert (
-                report.num_upstream_table_processed_without_columns
-                == expected_processed_count
-            )
-            assert (
-                report.num_upstream_table_skipped_no_columns == expected_skipped_count
-            )
+            # Tables without columns should still create table-level lineage
+            assert len(upstream_tables) == 1
+            assert len(table_id_to_urn) == 1
+            assert report.num_upstream_table_processed_without_columns == 1
