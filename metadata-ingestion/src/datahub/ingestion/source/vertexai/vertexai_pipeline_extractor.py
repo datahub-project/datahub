@@ -707,7 +707,7 @@ class VertexAIPipelineExtractor:
             external_url=self.url_builder.make_pipeline_url(
                 pipeline_name=pipeline.name
             ),
-            parent_container=container_key.as_urn(),
+            parent_container=container_key,  # Pass ContainerKey itself, not URN string
         )
 
         yield from dataflow.as_workunits()
@@ -721,5 +721,5 @@ class VertexAIPipelineExtractor:
             entity_urn=dataflow.urn.urn(),
             subtype=VertexAISubTypes.PIPELINE,
             include_platform=False,
-            resource_category=ResourceCategory.PIPELINES,
+            include_container=False,  # DataFlow already sets container via parent_container parameter
         )
