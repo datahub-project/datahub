@@ -158,20 +158,119 @@ class TestGetEntitiesQueryEntity:
         urn = "urn:li:query:test123"
 
         mock_client._graph.exists.return_value = True
-        mock_client._graph.execute_graphql.return_value = {
-            "entity": {
-                "urn": urn,
-                "type": "QUERY",
-                "properties": {"statement": {"value": "SELECT * FROM table"}},
-            }
-        }
+        mock_client._graph.execute_graphql.side_effect = [
+            {
+                "entity": {
+                    "urn": urn,
+                    "type": "QUERY",
+                    "properties": {"statement": {"value": "SELECT * FROM table"}},
+                }
+            },
+            {"entity": {}},
+        ]
 
         with DataHubContext(mock_client):
             result = get_entities(urn)
         assert result["urn"] == urn
         # Verify the correct operation name was used
-        call_args = mock_client._graph.execute_graphql.call_args
-        assert call_args.kwargs.get("operation_name") == "GetQueryEntity"
+        assert mock_client._graph.execute_graphql.call_count == 2
+        call_args_list = mock_client._graph.execute_graphql.call_args_list
+        assert call_args_list[0].kwargs.get("operation_name") == "GetQueryEntity"
+        assert call_args_list[1].kwargs.get("operation_name") == "getRelatedDocuments"
+
+
+class TestGetEntitiesRelatedDocuments:
+    """Tests for related documents fetching in get_entities."""
+
+    def test_related_documents_included_when_present(self, mock_client):
+        """Test that relatedDocuments are added to result when returned by GraphQL."""
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.side_effect = [
+            {
+                "entity": {
+                    "urn": urn,
+                    "type": "DATASET",
+                    "name": "table",
+                }
+            },
+            {
+                "entity": {
+                    "relatedDocuments": {
+                        "total": 1,
+                        "searchResults": [
+                            {"entity": {"urn": "urn:li:post:doc1", "title": "Doc 1"}}
+                        ],
+                    }
+                }
+            },
+        ]
+
+        with DataHubContext(mock_client):
+            result = get_entities(urn)
+        assert "relatedDocuments" in result
+        assert result["relatedDocuments"]["total"] == 1
+
+    def test_related_documents_absent_when_empty(self, mock_client):
+        """Test that relatedDocuments key is not added when response has no relatedDocuments."""
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.side_effect = [
+            {"entity": {"urn": urn, "type": "DATASET", "name": "table"}},
+            {"entity": {}},
+        ]
+
+        with DataHubContext(mock_client):
+            result = get_entities(urn)
+        assert "relatedDocuments" not in result
+
+    def test_related_documents_absent_when_entity_missing(self, mock_client):
+        """Test that relatedDocuments key is not added when response has no entity."""
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.side_effect = [
+            {"entity": {"urn": urn, "type": "DATASET", "name": "table"}},
+            {},
+        ]
+
+        with DataHubContext(mock_client):
+            result = get_entities(urn)
+        assert "relatedDocuments" not in result
+
+    def test_related_documents_failure_does_not_raise(self, mock_client):
+        """Test that a failure fetching related documents does not fail the whole call."""
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.side_effect = [
+            {"entity": {"urn": urn, "type": "DATASET", "name": "table"}},
+            Exception("related docs query failed"),
+        ]
+
+        with DataHubContext(mock_client):
+            result = get_entities(urn)
+        assert result["urn"] == urn
+        assert "relatedDocuments" not in result
+
+    def test_related_documents_uses_correct_operation_name(self, mock_client):
+        """Test that related documents query uses the getRelatedDocuments operation name."""
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.side_effect = [
+            {"entity": {"urn": urn, "type": "DATASET", "name": "table"}},
+            {"entity": {}},
+        ]
+
+        with DataHubContext(mock_client):
+            get_entities(urn)
+        assert mock_client._graph.execute_graphql.call_count == 2
+        call_args_list = mock_client._graph.execute_graphql.call_args_list
+        assert call_args_list[0].kwargs.get("operation_name") == "GetEntity"
+        assert call_args_list[1].kwargs.get("operation_name") == "getRelatedDocuments"
 
 
 class TestListSchemaFields:

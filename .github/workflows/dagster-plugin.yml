@@ -66,8 +66,8 @@ jobs:
         uses: ./.github/actions/report-test-results
         with:
           artifact-name: ingestion-dagster-test-results-${{ strategy.job-index }}
-          test-results-path: "metadata-ingestion/dagster-plugin/test-results/**"
-          junit-file-glob: "metadata-ingestion/dagster-plugin/test-results/*.xml"
+          test-results-paths: "metadata-ingestion/dagster-plugin/test-results/**"
+          junit-file-globs: "metadata-ingestion/dagster-plugin/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag
         if: always()
         uses: codecov/codecov-action@v5

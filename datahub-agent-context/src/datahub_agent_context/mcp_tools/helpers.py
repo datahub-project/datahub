@@ -345,6 +345,24 @@ def clean_get_entities_response(
     return response
 
 
+def clean_related_documents_response(raw_response: dict) -> dict:
+    """
+    Clean and optimize related documents response for LLM consumption.
+
+    Applies basic GraphQL cleaning to remove __typename, null values, empty objects/arrays.
+    This is a simpler version of clean_get_entities_response focused on related documents.
+
+    Args:
+        raw_response: Raw related documents dict from GraphQL query (RelatedDocumentsResult)
+
+    Returns:
+        Cleaned related documents dict optimized for LLM consumption
+    """
+    from datahub_agent_context.mcp_tools.base import clean_gql_response
+
+    return clean_gql_response(raw_response)
+
+
 def _extract_lineage_columns_from_paths(search_results: List[dict]) -> List[dict]:
     """Extract column information from paths field for column-level lineage results.
 

@@ -1,4 +1,13 @@
+
 repos:
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.11
+    hooks:
+      - id: actionlint
+        name: Lint GitHub Actions workflow files
+        description: Runs actionlint to lint GitHub Actions workflow files
+        types: ["yaml"]
+        files: ^\.github/workflows/
   - repo: local
     hooks:
       - id: smoke-test-cypress-lint-fix
