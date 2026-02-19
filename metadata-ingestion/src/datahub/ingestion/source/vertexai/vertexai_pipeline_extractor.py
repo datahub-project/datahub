@@ -5,7 +5,6 @@ from typing import (
     Dict,
     Iterable,
     List,
-    Optional,
     Set,
     Union,
 )
@@ -424,6 +423,12 @@ class VertexAIPipelineExtractor:
             if task.output_dataset_urns
             else []
         )
+
+        if task.input_model_group_urns:
+            input_datasets.extend(task.input_model_group_urns)
+        if task.output_model_group_urns:
+            output_datasets.extend(task.output_model_group_urns)
+
         upstream_jobs = task.upstreams if task.upstreams else []
 
         if self.config.incremental_lineage:
@@ -454,11 +459,12 @@ class VertexAIPipelineExtractor:
 
     def _extract_pipeline_task_inputs(
         self, task_detail: PipelineTaskDetail, task_name: str, task_urn: str
-    ) -> Optional[List[str]]:
+    ) -> PipelineTaskArtifacts:
         if not task_detail.inputs:
-            return None
+            return PipelineTaskArtifacts()
 
-        input_urns: List[str] = []
+        input_dataset_urns: List[str] = []
+        input_model_group_urns: List[str] = []
         try:
             for input_entry in task_detail.inputs.values():
                 if input_entry.artifacts:
@@ -468,23 +474,34 @@ class VertexAIPipelineExtractor:
                                 artifact.uri
                             )
                             if model_urn:
-                                input_urns.append(model_urn)
                                 self.model_usage_tracker.track_model_usage(
                                     model_urn, task_urn
                                 )
+                                model_group_urn = (
+                                    self.uri_parser.model_group_urn_from_artifact_uri(
+                                        artifact.uri
+                                    )
+                                )
+                                if model_group_urn:
+                                    input_model_group_urns.append(model_group_urn)
                             else:
-                                input_urns.extend(
+                                input_dataset_urns.extend(
                                     self.uri_parser.dataset_urns_from_artifact_uri(
                                         artifact.uri
                                     )
                                 )
-            return input_urns if input_urns else None
+            return PipelineTaskArtifacts(
+                input_dataset_urns=input_dataset_urns if input_dataset_urns else None,
+                input_model_group_urns=input_model_group_urns
+                if input_model_group_urns
+                else None,
+            )
         except (AttributeError, TypeError, KeyError) as e:
             logger.debug(
                 f"Failed to extract input artifacts for task {task_name}: {e}",
                 exc_info=True,
             )
-            return None
+            return PipelineTaskArtifacts()
 
     def _extract_pipeline_task_outputs(
         self, task_detail: PipelineTaskDetail, task_name: str
@@ -494,6 +511,7 @@ class VertexAIPipelineExtractor:
 
         output_dataset_urns: List[str] = []
         output_model_urns: List[str] = []
+        output_model_group_urns: List[str] = []
         try:
             for output_entry in task_detail.outputs.values():
                 if output_entry.artifacts:
@@ -504,6 +522,13 @@ class VertexAIPipelineExtractor:
                             )
                             if model_urn:
                                 output_model_urns.append(model_urn)
+                                model_group_urn = (
+                                    self.uri_parser.model_group_urn_from_artifact_uri(
+                                        artifact.uri
+                                    )
+                                )
+                                if model_group_urn:
+                                    output_model_group_urns.append(model_group_urn)
                             else:
                                 output_dataset_urns.extend(
                                     self.uri_parser.dataset_urns_from_artifact_uri(
@@ -515,6 +540,9 @@ class VertexAIPipelineExtractor:
                 if output_dataset_urns
                 else None,
                 output_model_urns=output_model_urns if output_model_urns else None,
+                output_model_group_urns=output_model_group_urns
+                if output_model_group_urns
+                else None,
             )
         except (AttributeError, TypeError, KeyError) as e:
             logger.debug(
@@ -579,14 +607,18 @@ class VertexAIPipelineExtractor:
                                 * 1000
                             )
 
-                    task_meta.input_dataset_urns = self._extract_pipeline_task_inputs(
+                    inputs = self._extract_pipeline_task_inputs(
                         task_detail, task_name, dpi_urn
                     )
+                    task_meta.input_dataset_urns = inputs.input_dataset_urns
+                    task_meta.input_model_group_urns = inputs.input_model_group_urns
+
                     outputs = self._extract_pipeline_task_outputs(
                         task_detail, task_name
                     )
                     task_meta.output_dataset_urns = outputs.output_dataset_urns
                     task_meta.output_model_urns = outputs.output_model_urns
+                    task_meta.output_model_group_urns = outputs.output_model_group_urns
 
                 tasks.append(task_meta)
         return tasks

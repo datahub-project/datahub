@@ -284,8 +284,13 @@ class URIPatterns:
     GCS_PREFIX = "gs://"
     S3_PREFIX = "s3://"
     S3A_PREFIX = "s3a://"
+    S3N_PREFIX = "s3n://"
     AZURE_WASB_PREFIX = "wasbs://"
     AZURE_ABFS_PREFIX = "abfss://"
+
+    # Grouped prefixes for multi-scheme platforms
+    S3_PREFIXES = (S3_PREFIX, S3A_PREFIX, S3N_PREFIX)
+    ABS_PREFIXES = (AZURE_WASB_PREFIX, AZURE_ABFS_PREFIX)
 
     # Data warehouse prefixes
     BQ_PREFIX = "bq://"
@@ -294,6 +299,18 @@ class URIPatterns:
     # Path patterns for full URIs
     DATASET_PATH_PATTERN = "/datasets/"
     TABLE_PATH_PATTERN = "/tables/"
+    MODEL_PATH_PATTERN = "/models/"
+
+    # Resource path components (used in URI parsing)
+    PROJECTS_PREFIX = "projects/"
+    PROJECTS_COMPONENT = "projects"
+    DATASETS_COMPONENT = "datasets"
+    TABLES_COMPONENT = "tables"
+    MODELS_COMPONENT = "models"
+
+    # URI direction classifications
+    CLASSIFICATION_INPUT = "input"
+    CLASSIFICATION_OUTPUT = "output"
 
     @classmethod
     def looks_like_uri(cls, s: str) -> bool:

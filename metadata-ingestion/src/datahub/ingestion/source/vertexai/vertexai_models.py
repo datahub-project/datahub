@@ -193,8 +193,10 @@ class PipelineTaskArtifacts(BaseModel):
     """Artifacts (datasets and models) for a pipeline task."""
 
     input_dataset_urns: Optional[List[str]] = None
+    input_model_group_urns: Optional[List[str]] = None
     output_dataset_urns: Optional[List[str]] = None
     output_model_urns: Optional[List[str]] = None
+    output_model_group_urns: Optional[List[str]] = None
 
 
 class PipelineTaskMetadata(BaseModel):
@@ -213,8 +215,10 @@ class PipelineTaskMetadata(BaseModel):
     upstreams: Optional[List[DataJobUrn]] = None
     duration: Optional[int] = None
     input_dataset_urns: Optional[List[str]] = None
+    input_model_group_urns: Optional[List[str]] = None
     output_dataset_urns: Optional[List[str]] = None
     output_model_urns: Optional[List[str]] = None
+    output_model_group_urns: Optional[List[str]] = None
 
 
 class PipelineMetadata(BaseModel):

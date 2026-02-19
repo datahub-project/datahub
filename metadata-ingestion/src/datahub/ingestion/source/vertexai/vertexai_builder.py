@@ -7,9 +7,9 @@ from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import VersionInfo
 
 from datahub.emitter import mce_builder as builder
-from datahub.ingestion.source.aws.s3_util import S3_PREFIXES, strip_s3_prefix
+from datahub.ingestion.source.aws.s3_util import strip_s3_prefix
 from datahub.ingestion.source.azure.abs_utils import strip_abs_prefix
-from datahub.ingestion.source.gcs.gcs_utils import GCS_PREFIX, strip_gcs_prefix
+from datahub.ingestion.source.gcs.gcs_utils import strip_gcs_prefix
 from datahub.ingestion.source.vertexai.vertexai_config import PlatformDetail
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     PLATFORM,
@@ -299,10 +299,10 @@ class VertexAIURIParser:
         """
         # Extract prefix if it's an Azure URI
         prefix = None
-        if uri.startswith("wasbs://"):
-            prefix = "wasbs://"
-        elif uri.startswith("abfss://"):
-            prefix = "abfss://"
+        if uri.startswith(URIPatterns.AZURE_WASB_PREFIX):
+            prefix = URIPatterns.AZURE_WASB_PREFIX
+        elif uri.startswith(URIPatterns.AZURE_ABFS_PREFIX):
+            prefix = URIPatterns.AZURE_ABFS_PREFIX
 
         if prefix:
             uri_without_prefix = uri[len(prefix) :]
@@ -359,7 +359,7 @@ class VertexAIURIParser:
         normalized_uri = self._strip_partition_segments(uri)
 
         try:
-            if uri.startswith(GCS_PREFIX):
+            if uri.startswith(URIPatterns.GCS_PREFIX):
                 name = strip_gcs_prefix(normalized_uri)
                 platform_detail = self._get_platform_details(ExternalPlatforms.GCS)
                 urns.append(
@@ -369,8 +369,8 @@ class VertexAIURIParser:
                         platform_detail=platform_detail,
                     )
                 )
-            elif uri.startswith("bq://"):
-                name = uri.replace("bq://", "")
+            elif uri.startswith(URIPatterns.BQ_PREFIX):
+                name = uri.replace(URIPatterns.BQ_PREFIX, "")
                 platform_detail = self._get_platform_details(ExternalPlatforms.BIGQUERY)
                 urns.append(
                     self._make_external_dataset_urn(
@@ -379,7 +379,7 @@ class VertexAIURIParser:
                         platform_detail=platform_detail,
                     )
                 )
-            elif any(uri.startswith(prefix) for prefix in S3_PREFIXES):
+            elif any(uri.startswith(prefix) for prefix in URIPatterns.S3_PREFIXES):
                 name = strip_s3_prefix(normalized_uri)
                 platform_detail = self._get_platform_details(ExternalPlatforms.S3)
                 urns.append(
@@ -389,7 +389,7 @@ class VertexAIURIParser:
                         platform_detail=platform_detail,
                     )
                 )
-            elif uri.startswith("wasbs://") or uri.startswith("abfss://"):
+            elif any(uri.startswith(prefix) for prefix in URIPatterns.ABS_PREFIXES):
                 https_uri = self._convert_azure_uri_to_https(normalized_uri)
                 name = strip_abs_prefix(https_uri)
                 platform_detail = self._get_platform_details(
@@ -402,8 +402,8 @@ class VertexAIURIParser:
                         platform_detail=platform_detail,
                     )
                 )
-            elif uri.startswith("snowflake://"):
-                name = uri.replace("snowflake://", "")
+            elif uri.startswith(URIPatterns.SNOWFLAKE_PREFIX):
+                name = uri.replace(URIPatterns.SNOWFLAKE_PREFIX, "")
                 platform_detail = self._get_platform_details(
                     ExternalPlatforms.SNOWFLAKE
                 )
@@ -414,11 +414,15 @@ class VertexAIURIParser:
                         platform_detail=platform_detail,
                     )
                 )
-            elif "projects/" in uri and "datasets/" in uri and "tables/" in uri:
+            elif (
+                URIPatterns.PROJECTS_PREFIX in uri
+                and URIPatterns.DATASET_PATH_PATTERN in uri
+                and URIPatterns.TABLE_PATH_PATTERN in uri
+            ):
                 parts = uri.split("/")
-                project = parts[parts.index("projects") + 1]
-                dataset = parts[parts.index("datasets") + 1]
-                table = parts[parts.index("tables") + 1]
+                project = parts[parts.index(URIPatterns.PROJECTS_COMPONENT) + 1]
+                dataset = parts[parts.index(URIPatterns.DATASETS_COMPONENT) + 1]
+                table = parts[parts.index(URIPatterns.TABLES_COMPONENT) + 1]
                 name = f"{project}.{dataset}.{table}"
                 platform_detail = self._get_platform_details(ExternalPlatforms.BIGQUERY)
                 urns.append(
@@ -434,33 +438,48 @@ class VertexAIURIParser:
             )
         return urns
 
+    def _extract_model_id_from_uri(self, uri: str) -> Optional[str]:
+        """Extract model ID from Vertex AI model resource URI."""
+        if (
+            URIPatterns.PROJECTS_PREFIX not in uri
+            or URIPatterns.MODEL_PATH_PATTERN not in uri
+        ):
+            return None
+
+        parts = uri.split("/")
+        try:
+            model_idx = parts.index(URIPatterns.MODELS_COMPONENT)
+            if model_idx + 1 < len(parts):
+                return parts[model_idx + 1]
+        except (ValueError, IndexError):
+            return None
+        return None
+
     def model_urn_from_artifact_uri(self, uri: Optional[str]) -> Optional[str]:
-        """
-        Extract model URN from ML Metadata artifact URI if it references a Vertex AI model.
-        Returns None if the URI doesn't reference a model.
-        """
+        """Extract model URN from ML Metadata artifact URI."""
         if not uri:
             return None
 
-        try:
-            # Model artifacts in ML Metadata can have URIs like:
-            # - projects/{project}/locations/{location}/models/{model_id}
-            # - aiplatform.Model-{project}-{location}-{model_id}
-            if "projects/" in uri and "/models/" in uri:
-                parts = uri.split("/")
-                if "models" in parts:
-                    model_idx = parts.index("models")
-                    if model_idx + 1 < len(parts):
-                        model_id = parts[model_idx + 1]
-                        # Note: This won't have version info from the URI alone
-                        return builder.make_ml_model_urn(
-                            platform=self.platform,
-                            model_name=model_id,
-                            env=self.env,
-                        )
-        except (ValueError, IndexError):
-            logger.debug(
-                f"Could not parse model uri from artifact: {uri}", exc_info=True
+        model_id = self._extract_model_id_from_uri(uri)
+        if model_id:
+            return builder.make_ml_model_urn(
+                platform=self.platform,
+                model_name=model_id,
+                env=self.env,
+            )
+        return None
+
+    def model_group_urn_from_artifact_uri(self, uri: Optional[str]) -> Optional[str]:
+        """Extract model group URN from artifact URI for DataJob-level lineage."""
+        if not uri:
+            return None
+
+        model_id = self._extract_model_id_from_uri(uri)
+        if model_id:
+            return builder.make_ml_model_group_urn(
+                platform=self.platform,
+                group_name=model_id,
+                env=self.env,
             )
         return None
 
@@ -478,11 +497,11 @@ class VertexAIURIParser:
         key_path_string = ".".join(k.lower() for k in key_path)
 
         if URIPatterns.is_input_like(key_path_string):
-            return "input"
+            return URIPatterns.CLASSIFICATION_INPUT
         elif URIPatterns.is_output_like(key_path_string):
-            return "output"
+            return URIPatterns.CLASSIFICATION_OUTPUT
         else:
-            return "output"
+            return URIPatterns.CLASSIFICATION_OUTPUT
 
     def extract_external_uris_from_job(self, job: VertexAiResourceNoun) -> ArtifactURNs:
         input_uris: List[str] = []
@@ -504,7 +523,7 @@ class VertexAIURIParser:
                     walk(item, key_path)
             elif isinstance(obj, str) and URIPatterns.looks_like_uri(obj):
                 classification = self._classify_uri_by_key_path(obj, key_path)
-                if classification == "input":
+                if classification == URIPatterns.CLASSIFICATION_INPUT:
                     input_uris.append(obj)
                 else:
                     output_uris.append(obj)
