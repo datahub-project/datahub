@@ -492,8 +492,10 @@ input UpsertDatasetVolumeAssertionMonitorInput {
 
   """
   A cron schedule dictating when the assertion is evaluated.
+  Overridden when a time bucketing strategy is configured -- the server will derive the optimal
+  schedule aligned to bucket maturity. If omitted without bucketing, defaults to daily at midnight UTC.
   """
-  evaluationSchedule: CronScheduleInput!
+  evaluationSchedule: CronScheduleInput
 
   """
   The parameters required to evaluate a dataset volume assertion.
@@ -644,8 +646,10 @@ input UpsertDatasetFieldAssertionMonitorInput {
 
   """
   A cron schedule dictating when the assertion is evaluated.
+  Overridden when a time bucketing strategy is configured -- the server will derive the optimal
+  schedule aligned to bucket maturity. If omitted without bucketing, defaults to daily at midnight UTC.
   """
-  evaluationSchedule: CronScheduleInput!
+  evaluationSchedule: CronScheduleInput
 
   """
   The parameters required to evaluate a dataset field assertion.

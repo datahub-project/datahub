@@ -41,6 +41,7 @@ import com.linkedin.metadata.entity.versioning.validation.VersionSetPropertiesVa
 import com.linkedin.metadata.forms.validation.FormPromptValidator;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
+import com.linkedin.metadata.monitor.MonitorScheduleMutationHook;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
 import com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect;
 import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete;
@@ -694,6 +695,23 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(MonitorBucketingStrategyValidator.class.getName())
                 .enabled(monitorBucketingStrategyValidationEnabled)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(MONITOR_ENTITY_NAME)
+                            .aspectName(MONITOR_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public MutationHook monitorScheduleMutationHook() {
+    return new MonitorScheduleMutationHook()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(MonitorScheduleMutationHook.class.getName())
+                .enabled(true)
                 .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
                 .supportedEntityAspectNames(
                     List.of(

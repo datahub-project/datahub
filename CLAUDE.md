@@ -220,6 +220,7 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
 ### Language-Specific
 
 - **Java**: Use Spotless formatting, Spring Boot patterns, TestNG/JUnit Jupiter for tests
+  - **Constants & Final**: If a variable is only set once, prefer declaring it as `final`. If a variable is a constant, add it as a (potentially `static`) `final <type>` at the top of the class. For string constants with dynamic parts, you can have the variable be a template and use `String.format()` to substitute in the dynamic portion.
 - **Python**: Use ruff for linting/formatting, pytest for testing, pydantic for configs
   - **Type Safety**: Everything must have type annotations, avoid `Any` type, use specific types (`Dict[str, int]`, `TypedDict`)
   - **Data Structures**: Prefer dataclasses/pydantic for internal data, return dataclasses over tuples

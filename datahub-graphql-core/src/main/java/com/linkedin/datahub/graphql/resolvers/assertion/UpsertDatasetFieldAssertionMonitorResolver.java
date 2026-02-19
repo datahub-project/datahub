@@ -7,6 +7,7 @@ import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.CronSchedule;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -21,8 +22,10 @@ import com.linkedin.datahub.graphql.types.assertion.AssertionMapper;
 import com.linkedin.datahub.graphql.types.monitor.MonitorMapper;
 import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.monitor.MonitorBucketingUtils;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.MonitorService;
+import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.MonitorMode;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -124,13 +127,22 @@ public class UpsertDatasetFieldAssertionMonitorResolver
 
             // Then, upsert the monitor
             try {
+              AssertionEvaluationParameters evalParams =
+                  createFieldAssertionEvaluationParameters(input.getEvaluationParameters());
+              CronSchedule schedule =
+                  MonitorBucketingUtils.resolveSchedule(
+                      evalParams,
+                      input.getEvaluationSchedule() != null
+                          ? createCronSchedule(input.getEvaluationSchedule())
+                          : null);
+
               _monitorService.upsertAssertionMonitor(
                   context.getOperationContext(),
                   monitorUrn,
                   assertionUrn,
                   entityUrn,
-                  createCronSchedule(input.getEvaluationSchedule()),
-                  createFieldAssertionEvaluationParameters(input.getEvaluationParameters()),
+                  schedule,
+                  evalParams,
                   MonitorMode.valueOf(input.getMode().toString()),
                   input.getExecutorId(),
                   appSource,
