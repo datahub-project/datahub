@@ -17,6 +17,7 @@ from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
+    from sqlalchemy.sql.elements import TextClause
 
     from datahub.ingestion.source.sql.mssql.source import SQLServerConfig
     from datahub.ingestion.source.sql.sql_common import SQLSourceReport
@@ -71,6 +72,24 @@ class MSSQLLineageExtractor:
         self.queries_parsed = 0
         self.queries_failed = 0
 
+    def _execute_boolean_check(
+        self,
+        query: "TextClause",
+        field_name: str,
+        success_msg: str,
+        failure_msg: str,
+    ) -> bool:
+        """Execute query and check boolean field, logging the result."""
+        result = self.connection.execute(query)
+        row = result.fetchone()
+
+        if row and row[field_name]:
+            logger.info(success_msg)
+            return True
+
+        logger.error(failure_msg)
+        return False
+
     def _check_version(self) -> Optional[int]:
         """Check SQL Server version and return major version number."""
         result = self.connection.execute(MSSQLQuery.get_mssql_version())
@@ -109,25 +128,18 @@ class MSSQLLineageExtractor:
 
     def _check_dmv_permissions(self) -> bool:
         """Check if user has VIEW SERVER STATE permission for DMVs."""
-        result = self.connection.execute(MSSQLQuery.check_dmv_permissions())
-        row = result.fetchone()
+        return self._execute_boolean_check(
+            query=MSSQLQuery.check_dmv_permissions(),
+            field_name="has_view_server_state",
+            success_msg="VIEW SERVER STATE permission granted",
+            failure_msg="Insufficient permissions. Grant VIEW SERVER STATE permission: "
+            "GRANT VIEW SERVER STATE TO [datahub_user];",
+        )
 
-        if not row or not row["has_view_server_state"]:
-            logger.error(
-                "Insufficient permissions. Grant VIEW SERVER STATE permission: "
-                "GRANT VIEW SERVER STATE TO [datahub_user];"
-            )
-            return False
-
-        return True
-
-    def check_prerequisites(self) -> tuple[bool, str, str]:
-        """Verify query history prerequisites and determine extraction method."""
-        self._check_version()
-
+    def _try_query_store_check(self) -> bool:
+        """Try Query Store check, log exceptions, return False on any failure."""
         try:
-            if self._check_query_store_available():
-                return True, "Query Store is enabled", "query_store"
+            return self._check_query_store_available()
         except (DatabaseError, OperationalError, ProgrammingError) as e:
             logger.info(
                 "Query Store not available (disabled or unsupported SQL Server version: %s), falling back to DMV-based extraction",
@@ -135,11 +147,13 @@ class MSSQLLineageExtractor:
             )
         except Exception as e:
             logger.warning(
-                "Unexpected error checking Query Store availability: %s (%s). Falling back to DMV-based extraction.",
+                "Unexpected error checking Query Store: %s. Falling back to DMV-based extraction.",
                 e,
-                type(e).__name__,
             )
+        return False
 
+    def _try_dmv_check(self) -> tuple[bool, str, str]:
+        """Try DMV permissions check, return appropriate status."""
         try:
             if not self._check_dmv_permissions():
                 return (
@@ -148,6 +162,7 @@ class MSSQLLineageExtractor:
                     "GRANT VIEW SERVER STATE TO [datahub_user];",
                     "none",
                 )
+            return True, "DMV-based extraction available", "dmv"
         except (DatabaseError, OperationalError) as e:
             logger.error(
                 "Database error checking DMV permissions: %s. Verify database connectivity and user permissions.",
@@ -156,14 +171,20 @@ class MSSQLLineageExtractor:
             return False, f"Permission check failed: {e}", "none"
         except Exception as e:
             logger.error(
-                "Unexpected error checking DMV permissions: %s (%s). This may indicate a configuration bug.",
+                "Unexpected error checking DMV permissions: %s. This may indicate a configuration bug.",
                 e,
-                type(e).__name__,
                 exc_info=True,
             )
             return False, f"Unexpected permission check failure: {e}", "none"
 
-        return True, "DMV-based extraction available", "dmv"
+    def check_prerequisites(self) -> tuple[bool, str, str]:
+        """Verify query history prerequisites and determine extraction method."""
+        self._check_version()
+
+        if self._try_query_store_check():
+            return True, "Query Store is enabled", "query_store"
+
+        return self._try_dmv_check()
 
     def extract_query_history(self) -> list[MSSQLQueryEntry]:
         """Extract queries using the best available method (Query Store or DMVs)."""
