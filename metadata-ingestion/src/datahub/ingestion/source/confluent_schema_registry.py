@@ -20,6 +20,9 @@ from datahub.ingestion.source.kafka.kafka import KafkaSourceConfig, KafkaSourceR
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
 )
+from datahub.ingestion.source.kafka.kafka_ssl_helper import (
+    prepare_schema_registry_config,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     KafkaSchema,
     SchemaField,
@@ -50,12 +53,18 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     ) -> None:
         self.source_config: KafkaSourceConfig = source_config
         self.report: KafkaSourceReport = report
-        self.schema_registry_client = SchemaRegistryClient(
+
+        # Prepare schema registry configuration
+        # Convert ssl.ca.location from string path to SSL context
+        # (required for confluent-kafka-python >= 2.8.0)
+        schema_registry_config = prepare_schema_registry_config(
             {
                 "url": source_config.connection.schema_registry_url,
                 **source_config.connection.schema_registry_config,
             }
         )
+
+        self.schema_registry_client = SchemaRegistryClient(schema_registry_config)
         self.known_schema_registry_subjects: List[str] = []
         try:
             self.known_schema_registry_subjects.extend(
