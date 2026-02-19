@@ -1,0 +1,16 @@
+source:
+  type: postgres
+  config:
+    host_port: 'localhost:5432'
+    initial_database: 'postgrestest'
+    username: 'postgres'
+    password: 'example'
+    include_tables: true
+    database: postgres
+    profiling:
+      enabled: true
+      profile_table_level_only: true
+    include_views: true
+    stateful_ingestion:
+      enabled: true
+pipeline_name: 'urn:li:dataHubExecutionRequest:test'
