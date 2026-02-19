@@ -62,11 +62,10 @@ By default, DataHub relies on the a set of Kafka topics to operate. By default, 
 6. (Deprecated) **MetadataChangeEvent_v4**: Metadata change proposal messages
 7. (Deprecated) **MetadataAuditEvent_v4**: Metadata change log messages
 8. (Deprecated) **FailedMetadataChangeEvent_v4**: Failed to process #1 event
-9. **MetadataGraphEvent_v4**:
-10. **MetadataGraphEvent_v4**:
-11. **PlatformEvent_v1**:
-12. **DataHubUpgradeHistory_v1**: Notifies the end of DataHub Upgrade job so dependants can act accordingly (_eg_, startup).
-    Note this topic requires special configuration: **Infinite retention**. Also, 1 partition is enough for the occasional traffic.
+9. (Deprecated) **MetadataGraphEvent_v4**: Legacy topic deprecated since 2021, no longer actively used
+10. **PlatformEvent_v1**: High-level semantic events
+11. **DataHubUpgradeHistory_v1**: Notifies the end of DataHub Upgrade job so dependants can act accordingly (_eg_, startup).
+    Note this topic requires special configuration: **Recommended: 7-30 day retention** (default config shows infinite retention for safety, but not required if `DATAHUB_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE=false`). Also, 1 partition is enough for the occasional traffic.
 
 How Metadata Events relate to these topics is discussed at more length in [Metadata Events](../what/mxe.md).
 

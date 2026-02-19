@@ -16,10 +16,10 @@ First, you'll need to create following new topics in the [Confluent Control Cent
 6. (Deprecated) **MetadataChangeEvent_v4**: Metadata change proposal messages
 7. (Deprecated) **MetadataAuditEvent_v4**: Metadata change log messages
 8. (Deprecated) **FailedMetadataChangeEvent_v4**: Failed to process #1 event
-9. **MetadataGraphEvent_v4**:
-10. **PlatformEvent_v1**
+9. (Deprecated) **MetadataGraphEvent_v4**: Legacy topic deprecated since 2021, no longer actively used
+10. **PlatformEvent_v1**: High-level semantic events
 11. **DataHubUpgradeHistory_v1**: Notifies the end of DataHub Upgrade job so dependants can act accordingly (_eg_, startup).
-    Note this topic requires special configuration: **Infinite retention**. Also, 1 partition is enough for the occasional traffic.
+    Note this topic requires special configuration: **Recommended: 7-30 day retention** (default config shows infinite retention for safety, but not required if `DATAHUB_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE=false`). Also, 1 partition is enough for the occasional traffic.
 
 The first five are the most important, and are explained in more depth in [MCP/MCL](../advanced/mcp-mcl.md). The final topics are
 those which are deprecated but still used under certain circumstances. It is likely that in the future they will be completely
