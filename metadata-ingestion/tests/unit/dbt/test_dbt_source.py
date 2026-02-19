@@ -2175,7 +2175,6 @@ def test_convert_semantic_model_fields_to_columns_basic():
 
     assert len(columns) == 6
 
-    # Check entities
     order_id_col = next(c for c in columns if c.name == "order_id")
     assert order_id_col.data_type == "entity:primary"
     assert order_id_col.description == "Primary order key"
@@ -2184,19 +2183,17 @@ def test_convert_semantic_model_fields_to_columns_basic():
     assert customer_id_col.data_type == "entity:foreign"
     assert "Entity" in customer_id_col.description
 
-    # Check dimensions
     order_date_col = next(c for c in columns if c.name == "order_date")
     assert order_date_col.data_type == "dimension:time"
     assert order_date_col.description == "When order was placed"
 
-    # Check measures
     total_revenue_col = next(c for c in columns if c.name == "total_revenue")
     assert total_revenue_col.data_type == "measure:sum"
     assert total_revenue_col.description == "Sum of order amounts"
 
 
 def test_convert_semantic_model_fields_empty_descriptions():
-    """Test converting semantic model fields when descriptions are empty."""
+    """Test default description generation when descriptions are empty."""
     from datahub.ingestion.source.dbt.dbt_common import (
         SemanticModelDimension,
         SemanticModelEntity,
@@ -2204,7 +2201,6 @@ def test_convert_semantic_model_fields_empty_descriptions():
         convert_semantic_model_fields_to_columns,
     )
 
-    # All items have empty descriptions to test default description generation
     entities: list[SemanticModelEntity] = [
         {"name": "id", "type": "primary", "description": ""},
     ]
@@ -2219,7 +2215,6 @@ def test_convert_semantic_model_fields_empty_descriptions():
 
     assert len(columns) == 3
 
-    # Verify default descriptions are generated
     id_col = next(c for c in columns if c.name == "id")
     assert "Entity" in id_col.description
     assert "primary" in id_col.description
@@ -2234,18 +2229,14 @@ def test_convert_semantic_model_fields_empty_descriptions():
 
 
 def test_extract_semantic_models_partial_node_relation():
-    """Test semantic models with partial node_relation (only database or only schema)."""
+    """Test fallback when node_relation has only database (schema from depends_on)."""
     from datahub.ingestion.source.dbt.dbt_core import extract_semantic_models
 
-    # Semantic model with only database in node_relation - should get schema from depends_on
     manifest_semantic_models: Dict[str, Any] = {
         "semantic_model.my_project.partial_metrics": {
             "name": "partial_metrics",
             "description": "Test partial node_relation",
-            "node_relation": {
-                "database": "my_database",
-                # schema is missing
-            },
+            "node_relation": {"database": "my_database"},
             "depends_on": {"nodes": ["model.my_project.ref_model"]},
             "entities": [],
             "dimensions": [],
@@ -2257,8 +2248,8 @@ def test_extract_semantic_models_partial_node_relation():
 
     manifest_nodes: Dict[str, Any] = {
         "model.my_project.ref_model": {
-            "database": "other_db",  # Should not override existing database
-            "schema": "ref_schema",  # Should be used since node_relation missing schema
+            "database": "other_db",
+            "schema": "ref_schema",
             "name": "ref_model",
         }
     }
@@ -2271,8 +2262,6 @@ def test_extract_semantic_models_partial_node_relation():
 
     assert len(nodes) == 1
     node = nodes[0]
-
-    # database from node_relation, schema from depends_on
     assert node.database == "my_database"
     assert node.schema == "ref_schema"
 
