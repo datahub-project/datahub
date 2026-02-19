@@ -7,8 +7,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.API_ENTITY_PRIVILEGE_MAP;
 import static com.linkedin.metadata.authorization.PoliciesConfig.API_PRIVILEGE_MAP;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -17,6 +16,8 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.test.authorization.ConstantAuthorizationResultMap;
+import com.datahub.test.authorization.PredefinedAuthorizationResultMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
@@ -28,7 +29,9 @@ import com.linkedin.util.Pair;
 import io.datahubproject.test.metadata.context.TestAuthSession;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
@@ -331,37 +334,41 @@ public class AuthUtilTest {
 
   private Authorizer mockAuthorizer(Map<String, Map<String, Set<Urn>>> allowActorPrivUrn) {
     Authorizer authorizer = mock(Authorizer.class);
-    when(authorizer.authorize(any()))
-        .thenAnswer(
-            args -> {
-              AuthorizationRequest req = args.getArgument(0);
-              String actorUrn = req.getActorUrn();
-              String priv = req.getPrivilege();
+    // by default deny requests
+    doReturn(
+            new BatchAuthorizationResult(
+                null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.DENY)))
+        .when(authorizer)
+        .authorizeBatch(any());
 
-              if (!allowActorPrivUrn.containsKey(actorUrn)) {
-                return new AuthorizationResult(
-                    req, AuthorizationResult.Type.DENY, String.format("Actor %s denied", actorUrn));
-              }
-
-              Map<String, Set<Urn>> privMap = allowActorPrivUrn.get(actorUrn);
-              if (!privMap.containsKey(priv)) {
-                return new AuthorizationResult(
-                    req, AuthorizationResult.Type.DENY, String.format("Privilege %s denied", priv));
-              }
-
-              if (req.getResourceSpec().isPresent()) {
-                Urn entityUrn = UrnUtils.getUrn(req.getResourceSpec().get().getEntity());
-                Set<Urn> resources = privMap.get(priv);
-                if (!resources.contains(entityUrn)) {
-                  return new AuthorizationResult(
-                      req,
-                      AuthorizationResult.Type.DENY,
-                      String.format("Entity %s denied", entityUrn));
-                }
-              }
-
-              return new AuthorizationResult(req, AuthorizationResult.Type.ALLOW, "Allowed");
-            });
+    // for configured actors
+    allowActorPrivUrn.forEach(
+        (actor, privilegeWithUrns) -> {
+          // inverse privilege to urns map
+          privilegeWithUrns.entrySet().stream()
+              .flatMap(e -> e.getValue().stream().map(urn -> new Pair<>(urn, e.getKey())))
+              .collect(
+                  Collectors.groupingBy(
+                      Pair::getFirst, Collectors.mapping(Pair::getSecond, Collectors.toSet())))
+              .forEach(
+                  (urn, privileges) -> {
+                    // then for each configured entity allow only specific privileges
+                    doReturn(
+                            new BatchAuthorizationResult(
+                                null, new PredefinedAuthorizationResultMap(privileges)))
+                        .when(authorizer)
+                        .authorizeBatch(
+                            argThat(
+                                request ->
+                                    Objects.equals(actor, request.getActorUrn())
+                                        && request
+                                            .getResourceSpec()
+                                            .map(EntitySpec::getEntity)
+                                            .map(UrnUtils::getUrn)
+                                            .map(urn::equals)
+                                            .orElse(false)));
+                  });
+        });
     return authorizer;
   }
 }

@@ -16,8 +16,6 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizationRequest;
-import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -98,10 +96,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
   @Test
   public void testPollWithAuthorization() throws Exception {
-    // Setup mock authorization
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
     // Setup mock response
     List<ExternalEvent> events = new ArrayList<>();
     ExternalEvent event = new ExternalEvent();
@@ -140,10 +134,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
   @Test
   public void testPollWithOffset() throws Exception {
-    // Setup mock authorization
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
     // Setup mock response
     List<ExternalEvent> events = new ArrayList<>();
     ExternalEvent event = new ExternalEvent();
@@ -180,10 +170,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
   @Test
   public void testPollWithLookbackWindow() throws Exception {
-    // Setup mock authorization
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
     // Setup mock response
     List<ExternalEvent> events = new ArrayList<>();
     ExternalEvent event = new ExternalEvent();
@@ -216,10 +202,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
   @Test
   public void testPollExceedingMaxLimit() throws Exception {
-    // Setup mock authorization
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
     // Setup mock response
     List<ExternalEvent> events = new ArrayList<>();
     ExternalEvents externalEvents = new ExternalEvents();
@@ -251,10 +233,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
   @Test
   public void testPollExceedingMaxPollTimeout() throws Exception {
-    // Setup mock authorization
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
     // Setup mock response
     List<ExternalEvent> events = new ArrayList<>();
     ExternalEvents externalEvents = new ExternalEvents();
@@ -286,10 +264,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
   @Test
   public void testPollWithUnsupportedTopic() throws Exception {
-    // Setup mock authorization
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
     // Execute test with an unsupported topic
     mockMvc
         .perform(
@@ -303,10 +277,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
   @Test
   public void testPollMetadataChangeLogVersionedTopic() throws Exception {
-    // Setup mock authorization
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
     // Setup mock response
     List<ExternalEvent> events = new ArrayList<>();
     ExternalEvent event = new ExternalEvent();
@@ -345,10 +315,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
   @Test
   public void testPollMetadataChangeLogTimeseriesTopic() throws Exception {
-    // Setup mock authorization
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
     // Setup mock response
     List<ExternalEvent> events = new ArrayList<>();
     ExternalEvent event = new ExternalEvent();
@@ -387,10 +353,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
   @Test
   public void testPollMetadataChangeLogVersionedTopicWithOffset() throws Exception {
-    // Setup mock authorization
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
     // Setup mock response
     List<ExternalEvent> events = new ArrayList<>();
     ExternalEvent event = new ExternalEvent();
@@ -427,10 +389,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
   @Test
   public void testPollMetadataChangeLogTimeseriesTopicWithOffset() throws Exception {
-    // Setup mock authorization
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
     // Setup mock response
     List<ExternalEvent> events = new ArrayList<>();
     ExternalEvent event = new ExternalEvent();
@@ -467,10 +425,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
   @Test
   public void testPollMetadataChangeLogVersionedTopicWithLookbackWindow() throws Exception {
-    // Setup mock authorization
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
     // Setup mock response
     List<ExternalEvent> events = new ArrayList<>();
     ExternalEvent event = new ExternalEvent();
@@ -507,10 +461,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
   @Test
   public void testPollMetadataChangeLogTimeseriesTopicWithLookbackWindow() throws Exception {
-    // Setup mock authorization
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
     // Setup mock response
     List<ExternalEvent> events = new ArrayList<>();
     ExternalEvent event = new ExternalEvent();
@@ -547,9 +497,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
   @Test
   public void testAuditEventsSearch() throws Exception {
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
     LogInEvent usageEventResult =
         LogInEvent.builder()
             .eventType("LogInEvent")
@@ -587,7 +534,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
   @TestConfiguration
   public static class ExternalEventsControllerTestConfig {
     @MockBean public ExternalEventsService eventsService;
-    @MockBean public AuthorizerChain authorizerChain;
     @MockBean public SystemTelemetryContext systemTelemetryContext;
     @MockBean public DataHubUsageService dataHubUsageService;
 
@@ -615,8 +561,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "testuser"));
-      when(authorizerChain.authorize(any()))
-          .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
       AuthenticationContext.setAuthentication(authentication);
 
       return authorizerChain;
