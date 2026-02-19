@@ -144,6 +144,11 @@ enable_extractors = True  # Default: True
 
 # Fine-grained control over DataHub's OpenLineage enhancements
 
+# --- SQL Parsing Configuration ---
+
+# Enable multi-statement SQL parsing (resolves temp tables, merges lineage)
+enable_multi_statement_sql_parsing = False  # Default: False
+
 # --- Patches (work with both Legacy OpenLineage and OpenLineage Provider) ---
 
 # Patch SqlExtractor to use DataHub's advanced SQL parser (enables column-level lineage)
@@ -160,6 +165,10 @@ extract_athena_operator = True  # Default: True
 # Use DataHub's custom BigQueryInsertJobOperatorExtractor (handles BQ job configuration)
 extract_bigquery_insert_job_operator = True  # Default: True
 ```
+
+**Multi-Statement SQL Parsing:**
+
+When `enable_multi_statement_sql_parsing=True`, if a task executes multiple SQL statements (e.g., `CREATE TEMP TABLE ...; INSERT ... FROM temp_table;`), DataHub parses all statements together and resolves temporary table dependencies within that task. By default (False), only the first statement is parsed.
 
 **How it works:**
 
