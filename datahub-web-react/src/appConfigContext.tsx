@@ -31,6 +31,7 @@ export const DEFAULT_APP_CONFIG = {
         searchResult: {
             enableNameHighlight: false,
         },
+        accessibilityMode: false,
     },
     authConfig: {
         tokenAuthEnabled: false,

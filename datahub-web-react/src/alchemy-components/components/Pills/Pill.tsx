@@ -5,6 +5,8 @@ import { PillContainer, PillText } from '@components/components/Pills/components
 import { PillProps, PillPropsDefaults } from '@components/components/Pills/types';
 import { ColorOptions, ColorValues, PillVariantOptions, PillVariantValues, SizeValues } from '@components/theme/config';
 
+import { useAppConfig } from '@app/useAppConfig';
+
 export const SUPPORTED_CONFIGURATIONS: Record<PillVariantOptions, ColorOptions[]> = {
     [PillVariantValues.filled]: [
         ColorValues.primary,
@@ -56,6 +58,8 @@ export function Pill({
     if (!SUPPORTED_CONFIGURATIONS[variant].includes(color)) {
         console.debug(`Unsupported configuration for Pill: variant=${variant}, color=${color}`);
     }
+    const appConfig = useAppConfig();
+    const accessibilityMode = appConfig.config.visualConfig.accessibilityMode ?? false;
 
     return (
         <PillContainer
@@ -68,6 +72,7 @@ export function Pill({
             onClick={onPillClick}
             style={{
                 backgroundColor: customStyle?.backgroundColor,
+                fontWeight: accessibilityMode ? 'bold' : 'normal',
             }}
             title={showLabel ? label : undefined}
             className={className}

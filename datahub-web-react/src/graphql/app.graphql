@@ -56,6 +56,7 @@ query appConfig {
                 showSidebarSectionWhenEmpty
                 showApplicationInNavigation
             }
+            accessibilityMode
         }
         telemetryConfig {
             enableThirdPartyLogging

@@ -130,6 +130,7 @@ const getButtonVariantStyles = (
     variant: ButtonVariant,
     colorStyles: ColorStyles,
     color: ColorOptions,
+    accessibilityMode: boolean,
     theme?: Theme,
 ): CSSObject => {
     const isPrimary = color === 'violet' || color === 'primary';
@@ -140,15 +141,16 @@ const getButtonVariantStyles = (
             ? themeV2PrimaryColor
             : (theme?.styles?.['primary-color'] ?? themeV2PrimaryColor);
 
-    const primaryGradient = `radial-gradient(115.48% 144.44% at 50% -44.44%, ${theme?.styles?.['primary-color-gradient'] || '#705EE4'} 38.97%, ${resolvedPrimaryColor} 100%)`;
+    const primaryGradient = `radial-gradient(115.48% 144.44% at 50% -44.44%, ${theme?.styles?.['primary-color-lighter'] || '#705EE4'} 38.97%, ${theme?.styles?.['primary-color'] || '#533FD1'} 100%)`;
+    const useGradient = isPrimary && !accessibilityMode;
 
     const variantStyles = {
         filled: {
-            background: isPrimary ? primaryGradient : colorStyles.bgColor,
+            background: useGradient ? primaryGradient : colorStyles.bgColor,
             border: `1px solid ${colorStyles.borderColor}`,
             color: colorStyles.textColor,
             '&:hover': {
-                background: isPrimary ? primaryGradient : colorStyles.hoverBgColor,
+                background: useGradient ? primaryGradient : colorStyles.hoverBgColor,
                 border: `1px solid ${colorStyles.hoverBgColor}`,
                 boxShadow: shadows.sm,
             },
@@ -286,13 +288,13 @@ const getButtonLoadingStyles = (): CSSObject => ({
  * Main function to generate styles for button
  */
 export const getButtonStyle = (props: ButtonStyleProps & ButtonHTMLAttributes<HTMLButtonElement>): CSSObject => {
-    const { variant, color, size, isCircle, isActive, isLoading, disabled, hasChildren, theme } = props;
+    const { variant, color, size, isCircle, isActive, isLoading, disabled, hasChildren, accessibilityMode, theme } = props;
 
     // Get map of colors
     const colorStyles = getButtonColorStyles(variant, color, theme);
 
     // Define styles for button
-    const variantStyles = getButtonVariantStyles(variant, colorStyles, color, theme);
+    const variantStyles = getButtonVariantStyles(variant, colorStyles, color, accessibilityMode, theme);
     const fontStyles = getButtonFontStyles(size);
     const radiiStyles = getButtonRadiiStyles(isCircle);
     const paddingStyles = getButtonPadding(size, hasChildren, isCircle, variant);

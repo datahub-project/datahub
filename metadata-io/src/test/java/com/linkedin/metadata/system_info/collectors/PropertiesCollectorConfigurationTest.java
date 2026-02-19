@@ -856,6 +856,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "visualConfig.searchResult.enableNameHighlight",
           "visualConfig.showFullTitleInLineage",
           "visualConfig.theme.themeId",
+          "visualConfig.accessibilityMode",
+
           // Gradle and test-specific properties
           "org.gradle.internal.worker.tmpdir",
           "org.springframework.boot.test.context.SpringBootTestContextBootstrapper",
