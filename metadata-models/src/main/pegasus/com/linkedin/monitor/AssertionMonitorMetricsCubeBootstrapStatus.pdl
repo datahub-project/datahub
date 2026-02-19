@@ -19,6 +19,11 @@ record AssertionMonitorMetricsCubeBootstrapStatus {
          * The metrics cube for this monitor has been bootstrapped.
          */
         COMPLETED
+
+        /**
+         * The metrics cube bootstrap was rejected (backfill not requested).
+         */
+        REJECTED
     }
 
     /**

@@ -618,6 +618,35 @@ def test_try_bootstrap_historical_data_already_bootstrapped(
     trainer.bootstrap_metrics_cube_with_data_mock.assert_not_called()
 
 
+def test_try_bootstrap_historical_data_rejected_skips_bootstrap(
+    trainer: TestableAssertionTrainer,
+) -> None:
+    """Test try_bootstrap_historical_data when bootstrap was rejected."""
+    # Setup
+    monitor = Mock(spec=Monitor)
+    monitor.urn = "test:monitor:urn"
+    monitor.assertion_monitor = Mock()
+    monitor.assertion_monitor.bootstrap_status = Mock()
+    monitor.assertion_monitor.bootstrap_status.metrics_cube_bootstrap_status = Mock()
+    monitor.assertion_monitor.bootstrap_status.metrics_cube_bootstrap_status.state = (
+        AssertionMonitorMetricsCubeBootstrapState.REJECTED
+    )
+
+    assertion = Mock(spec=Assertion)
+    assertion.urn = "test:assertion:urn"
+    adjustment_settings = Mock(spec=AssertionAdjustmentSettings)
+
+    # Execute
+    result = trainer.try_bootstrap_historical_data(
+        monitor, assertion, adjustment_settings
+    )
+
+    # Assert: bootstrap is skipped entirely
+    assert result == []
+    trainer.try_get_historical_data_for_bootstrap_mock.assert_not_called()
+    trainer.bootstrap_metrics_cube_with_data_mock.assert_not_called()
+
+
 def test_try_bootstrap_historical_data_no_historical_data(
     trainer: TestableAssertionTrainer,
 ) -> None:

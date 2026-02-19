@@ -25,6 +25,7 @@ from datahub_executor.common.monitor.inference.metric_projection.metric_predicto
 )
 from datahub_executor.common.monitor.inference.types import Event
 from datahub_executor.common.monitor.inference.utils import (
+    check_is_metrics_cube_bootstrap_rejected,
     check_is_metrics_cube_bootstrapped,
     get_event_timespan_seconds,
 )
@@ -214,7 +215,12 @@ class BaseAssertionTrainer(Generic[Event], ABC):
         Bootstrap historical data for training.
         """
 
-        # 1. Check if the metrics cube has already been bootstrapped
+        # 1a. Check if bootstrap was rejected (backfill not requested)
+        if check_is_metrics_cube_bootstrap_rejected(monitor):
+            logger.info(f"Bootstrap rejected for {assertion.urn}. Skipping.")
+            return []
+
+        # 1b. Check if the metrics cube has already been bootstrapped
         if check_is_metrics_cube_bootstrapped(monitor):
             logger.debug(
                 f"Metrics cube for assertion {assertion.urn} has already been bootstrapped. Skipping bootstrap."

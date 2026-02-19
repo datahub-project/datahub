@@ -1,5 +1,5 @@
 from typing import cast
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from datahub.metadata.schema_classes import (
@@ -21,6 +21,7 @@ from datahub_executor.common.monitor.inference.utils import (
     annotate_operations_with_anomalies,
     build_evaluation_schedule_from_fixed_interval,
     build_std_parameters,
+    check_is_metrics_cube_bootstrap_rejected,
     coalesce_metrics,
     convert_interval_to_minutes,
     create_embedded_assertion,
@@ -30,7 +31,12 @@ from datahub_executor.common.monitor.inference.utils import (
     get_metric_floor_value,
     is_metric_anomaly,
 )
-from datahub_executor.common.types import Anomaly, CronSchedule
+from datahub_executor.common.types import (
+    Anomaly,
+    AssertionMonitorMetricsCubeBootstrapState,
+    CronSchedule,
+    Monitor,
+)
 
 
 @pytest.fixture
@@ -647,3 +653,57 @@ def test_metric_name_vs_str_metric_regression() -> None:
     assert isinstance(string_metric, str)
     assert get_metric_floor_value(string_metric) == 0.0
     assert get_metric_ceiling_value(string_metric) == 100.0
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.utils.try_extract_metrics_cube_bootstrap_status"
+)
+def test_check_is_metrics_cube_bootstrap_rejected_true(
+    mock_get_status: Mock,
+) -> None:
+    """check_is_metrics_cube_bootstrap_rejected returns True for REJECTED state."""
+    monitor = Mock(spec=Monitor)
+    mock_status = Mock()
+    mock_status.state = AssertionMonitorMetricsCubeBootstrapState.REJECTED
+    mock_get_status.return_value = mock_status
+    assert check_is_metrics_cube_bootstrap_rejected(monitor) is True
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.utils.try_extract_metrics_cube_bootstrap_status"
+)
+def test_check_is_metrics_cube_bootstrap_rejected_false_for_completed(
+    mock_get_status: Mock,
+) -> None:
+    """check_is_metrics_cube_bootstrap_rejected returns False for COMPLETED state."""
+    monitor = Mock(spec=Monitor)
+    mock_status = Mock()
+    mock_status.state = AssertionMonitorMetricsCubeBootstrapState.COMPLETED
+    mock_get_status.return_value = mock_status
+    assert check_is_metrics_cube_bootstrap_rejected(monitor) is False
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.utils.try_extract_metrics_cube_bootstrap_status"
+)
+def test_check_is_metrics_cube_bootstrap_rejected_false_for_pending(
+    mock_get_status: Mock,
+) -> None:
+    """check_is_metrics_cube_bootstrap_rejected returns False for PENDING state."""
+    monitor = Mock(spec=Monitor)
+    mock_status = Mock()
+    mock_status.state = AssertionMonitorMetricsCubeBootstrapState.PENDING
+    mock_get_status.return_value = mock_status
+    assert check_is_metrics_cube_bootstrap_rejected(monitor) is False
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.utils.try_extract_metrics_cube_bootstrap_status"
+)
+def test_check_is_metrics_cube_bootstrap_rejected_false_for_none(
+    mock_get_status: Mock,
+) -> None:
+    """check_is_metrics_cube_bootstrap_rejected returns False when no status exists."""
+    monitor = Mock(spec=Monitor)
+    mock_get_status.return_value = None
+    assert check_is_metrics_cube_bootstrap_rejected(monitor) is False

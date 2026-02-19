@@ -509,6 +509,14 @@ input UpsertDatasetVolumeAssertionMonitorInput {
   Advanced: The executor pool id of the remote monitor service, if any.
   """
   executorId: String
+
+  """
+  Whether the metrics cube should be backfilled.
+  On first-time setup, defaults to true (PENDING). Set to false to skip backfill (REJECTED).
+  When true on an existing monitor, forces a re-run of the backfill.
+  When null or false on an existing monitor, the current bootstrap status is preserved.
+  """
+  shouldRunBackfill: Boolean
 }
 
 """
@@ -653,6 +661,14 @@ input UpsertDatasetFieldAssertionMonitorInput {
   Advanced: The executor pool id of the remote monitor service, if any.
   """
   executorId: String
+
+  """
+  Whether the metrics cube should be backfilled.
+  On first-time setup, defaults to true (PENDING). Set to false to skip backfill (REJECTED).
+  When true on an existing monitor, forces a re-run of the backfill.
+  When null or false on an existing monitor, the current bootstrap status is preserved.
+  """
+  shouldRunBackfill: Boolean
 }
 
 """

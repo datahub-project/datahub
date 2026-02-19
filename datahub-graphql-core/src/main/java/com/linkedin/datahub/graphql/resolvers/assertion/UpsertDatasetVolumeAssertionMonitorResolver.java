@@ -137,7 +137,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolver
                   input.getExecutorId(),
                   appSource,
                   MonitorMapper.mapGraphqlAdjustmentSettingsToMonitorSettings(
-                      input.getInferenceSettings()));
+                      input.getInferenceSettings()),
+                  input.getShouldRunBackfill());
             } catch (DataHubGraphQLException e) {
               throw e;
             } catch (Exception e) {

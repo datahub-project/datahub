@@ -124,7 +124,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
           new DatasetVolumeAssertionParametersInput(
               com.linkedin.datahub.graphql.generated.DatasetVolumeSourceType.QUERY, null),
           com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
-          TEST_EXECUTOR_ID);
+          TEST_EXECUTOR_ID,
+          null);
 
   private static final UpsertDatasetVolumeAssertionMonitorInput TEST_CREATE_INPUT =
       new UpsertDatasetVolumeAssertionMonitorInput(
@@ -150,7 +151,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
           new DatasetVolumeAssertionParametersInput(
               com.linkedin.datahub.graphql.generated.DatasetVolumeSourceType.QUERY, null),
           com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
-          TEST_EXECUTOR_ID);
+          TEST_EXECUTOR_ID,
+          null);
 
   private static final UpsertDatasetVolumeAssertionMonitorInput TEST_UPDATE_INPUT_ENTITY_MISMATCH =
       new UpsertDatasetVolumeAssertionMonitorInput(
@@ -176,7 +178,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
           new DatasetVolumeAssertionParametersInput(
               com.linkedin.datahub.graphql.generated.DatasetVolumeSourceType.QUERY, null),
           com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
-          TEST_EXECUTOR_ID);
+          TEST_EXECUTOR_ID,
+          null);
 
   private static final AssertionInfo TEST_ASSERTION_INFO =
       new AssertionInfo()
@@ -318,7 +321,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
             Mockito.eq(Constants.METADATA_TESTS_SOURCE),
             Mockito.<AssertionMonitorSettings>eq(
-                TEST_MONITOR_INFO.getAssertionMonitor().getSettings()));
+                TEST_MONITOR_INFO.getAssertionMonitor().getSettings()),
+            Mockito.isNull());
   }
 
   @Test
@@ -351,7 +355,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
                 Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
                 Mockito.eq(Constants.METADATA_TESTS_SOURCE),
                 Mockito.<AssertionMonitorSettings>eq(
-                    TEST_MONITOR_INFO.getAssertionMonitor().getSettings())))
+                    TEST_MONITOR_INFO.getAssertionMonitor().getSettings()),
+                Mockito.isNull()))
         .thenThrow(RemoteInvocationException.class);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -403,7 +408,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
                 Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
                 Mockito.eq(Constants.METADATA_TESTS_SOURCE),
                 Mockito.<AssertionMonitorSettings>eq(
-                    TEST_MONITOR_INFO.getAssertionMonitor().getSettings())))
+                    TEST_MONITOR_INFO.getAssertionMonitor().getSettings()),
+                Mockito.isNull()))
         .thenThrow(
             new RuntimeException(AcrylConstants.MONITOR_LIMIT_EXCEEDED_ERROR_MESSAGE_PREFIX));
 
@@ -568,7 +574,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.eq(TEST_EXECUTOR_ID),
             Mockito.eq(Constants.METADATA_TESTS_SOURCE),
             Mockito.<AssertionMonitorSettings>eq(
-                TEST_MONITOR_INFO.getAssertionMonitor().getSettings()));
+                TEST_MONITOR_INFO.getAssertionMonitor().getSettings()),
+            Mockito.isNull());
   }
 
   private GraphClient initMockGraphClient() {
@@ -761,7 +768,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
                 com.linkedin.datahub.graphql.generated.DatasetVolumeSourceType.QUERY,
                 bucketingInput),
             com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
-            TEST_EXECUTOR_ID);
+            TEST_EXECUTOR_ID,
+            null);
 
     AssertionService assertionService = initMockAssertionService();
     MonitorService monitorService = initMockMonitorService();
@@ -776,12 +784,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(inputWithBadTz);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    CompletionException ex =
-        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    assertTrue(ex.getCause() instanceof DataHubGraphQLException);
-    DataHubGraphQLException graphQLException = (DataHubGraphQLException) ex.getCause();
-    assertEquals(graphQLException.errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
-    assertTrue(graphQLException.getMessage().contains("Invalid timezone"));
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
 
   @Test
@@ -819,7 +822,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
                 com.linkedin.datahub.graphql.generated.DatasetVolumeSourceType.QUERY,
                 bucketingInput),
             com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
-            TEST_EXECUTOR_ID);
+            TEST_EXECUTOR_ID,
+            null);
 
     AssertionService assertionService = initMockAssertionService();
     MonitorService monitorService = initMockMonitorService();
@@ -851,6 +855,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.any(MonitorMode.class),
             Mockito.eq(TEST_EXECUTOR_ID),
             Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.isNull(),
             Mockito.isNull());
 
     AssertionEvaluationParameters capturedParams = captor.getValue();

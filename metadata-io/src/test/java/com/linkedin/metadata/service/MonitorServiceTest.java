@@ -48,6 +48,9 @@ import com.linkedin.monitor.AssertionEvaluationParametersType;
 import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
 import com.linkedin.monitor.AssertionMonitor;
+import com.linkedin.monitor.AssertionMonitorBootstrapStatus;
+import com.linkedin.monitor.AssertionMonitorMetricsCubeBootstrapState;
+import com.linkedin.monitor.AssertionMonitorMetricsCubeBootstrapStatus;
 import com.linkedin.monitor.AssertionMonitorSettings;
 import com.linkedin.monitor.AuditLogSpec;
 import com.linkedin.monitor.DatasetFieldAssertionParameters;
@@ -1807,5 +1810,104 @@ public class MonitorServiceTest {
 
     // Verify HTTP client was called expected number of times
     verify(mockHttpClient, times(2)).execute(any(HttpUriRequest.class));
+  }
+
+  // --- applyBootstrapStatus: first-time setup (no existing status) ---
+
+  @Test
+  public void testApplyBootstrapStatus_nullNoExisting_defaultsPending() {
+    AssertionMonitor monitor = new AssertionMonitor();
+    MonitorService.applyBootstrapStatus(null, null, monitor);
+    assertEquals(
+        AssertionMonitorMetricsCubeBootstrapState.PENDING,
+        monitor.getBootstrapStatus().getMetricsCubeBootstrapStatus().getState());
+  }
+
+  @Test
+  public void testApplyBootstrapStatus_trueNoExisting_setsPending() {
+    AssertionMonitor monitor = new AssertionMonitor();
+    MonitorService.applyBootstrapStatus(true, null, monitor);
+    assertEquals(
+        AssertionMonitorMetricsCubeBootstrapState.PENDING,
+        monitor.getBootstrapStatus().getMetricsCubeBootstrapStatus().getState());
+  }
+
+  @Test
+  public void testApplyBootstrapStatus_falseNoExisting_setsRejected() {
+    AssertionMonitor monitor = new AssertionMonitor();
+    MonitorService.applyBootstrapStatus(false, null, monitor);
+    assertEquals(
+        AssertionMonitorMetricsCubeBootstrapState.REJECTED,
+        monitor.getBootstrapStatus().getMetricsCubeBootstrapStatus().getState());
+  }
+
+  // --- applyBootstrapStatus: existing status present ---
+
+  @Test
+  public void testApplyBootstrapStatus_trueExistingCompleted_forcesPending() {
+    MonitorInfo existingInfo =
+        buildMonitorInfoWithBootstrapState(AssertionMonitorMetricsCubeBootstrapState.COMPLETED);
+    AssertionMonitor monitor = new AssertionMonitor();
+    MonitorService.applyBootstrapStatus(true, existingInfo, monitor);
+    assertEquals(
+        AssertionMonitorMetricsCubeBootstrapState.PENDING,
+        monitor.getBootstrapStatus().getMetricsCubeBootstrapStatus().getState());
+  }
+
+  @Test
+  public void testApplyBootstrapStatus_nullExistingCompleted_preserves() {
+    MonitorInfo existingInfo =
+        buildMonitorInfoWithBootstrapState(AssertionMonitorMetricsCubeBootstrapState.COMPLETED);
+    AssertionMonitor monitor = new AssertionMonitor();
+    MonitorService.applyBootstrapStatus(null, existingInfo, monitor);
+    assertFalse(monitor.hasBootstrapStatus());
+  }
+
+  @Test
+  public void testApplyBootstrapStatus_falseExistingCompleted_preserves() {
+    MonitorInfo existingInfo =
+        buildMonitorInfoWithBootstrapState(AssertionMonitorMetricsCubeBootstrapState.COMPLETED);
+    AssertionMonitor monitor = new AssertionMonitor();
+    MonitorService.applyBootstrapStatus(false, existingInfo, monitor);
+    assertFalse(monitor.hasBootstrapStatus());
+  }
+
+  @Test
+  public void testApplyBootstrapStatus_nullExistingPending_preserves() {
+    MonitorInfo existingInfo =
+        buildMonitorInfoWithBootstrapState(AssertionMonitorMetricsCubeBootstrapState.PENDING);
+    AssertionMonitor monitor = new AssertionMonitor();
+    MonitorService.applyBootstrapStatus(null, existingInfo, monitor);
+    assertFalse(monitor.hasBootstrapStatus());
+  }
+
+  @Test
+  public void testApplyBootstrapStatus_falseExistingPending_preserves() {
+    MonitorInfo existingInfo =
+        buildMonitorInfoWithBootstrapState(AssertionMonitorMetricsCubeBootstrapState.PENDING);
+    AssertionMonitor monitor = new AssertionMonitor();
+    MonitorService.applyBootstrapStatus(false, existingInfo, monitor);
+    assertFalse(monitor.hasBootstrapStatus());
+  }
+
+  @Test
+  public void testApplyBootstrapStatus_falseExistingFailed_preserves() {
+    MonitorInfo existingInfo =
+        buildMonitorInfoWithBootstrapState(AssertionMonitorMetricsCubeBootstrapState.FAILED);
+    AssertionMonitor monitor = new AssertionMonitor();
+    MonitorService.applyBootstrapStatus(false, existingInfo, monitor);
+    assertFalse(monitor.hasBootstrapStatus());
+  }
+
+  private static MonitorInfo buildMonitorInfoWithBootstrapState(
+      AssertionMonitorMetricsCubeBootstrapState state) {
+    MonitorInfo info = new MonitorInfo();
+    AssertionMonitor am = new AssertionMonitor();
+    am.setBootstrapStatus(
+        new AssertionMonitorBootstrapStatus()
+            .setMetricsCubeBootstrapStatus(
+                new AssertionMonitorMetricsCubeBootstrapStatus().setState(state)));
+    info.setAssertionMonitor(am);
+    return info;
   }
 }

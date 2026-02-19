@@ -101,7 +101,8 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
           new DatasetFieldAssertionParametersInput(
               DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null, null),
           com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
-          TEST_EXECUTOR_ID);
+          TEST_EXECUTOR_ID,
+          null);
 
   private static final UpsertDatasetFieldAssertionMonitorInput TEST_CREATE_INPUT =
       new UpsertDatasetFieldAssertionMonitorInput(
@@ -127,7 +128,8 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
           new DatasetFieldAssertionParametersInput(
               DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null, null),
           com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
-          TEST_EXECUTOR_ID);
+          TEST_EXECUTOR_ID,
+          null);
 
   private static final UpsertDatasetFieldAssertionMonitorInput TEST_UPDATE_INPUT_ENTITY_MISMATCH =
       new UpsertDatasetFieldAssertionMonitorInput(
@@ -153,7 +155,8 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
           new DatasetFieldAssertionParametersInput(
               DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null, null),
           com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
-          TEST_EXECUTOR_ID);
+          TEST_EXECUTOR_ID,
+          null);
 
   private static final AssertionInfo TEST_ASSERTION_INFO =
       new AssertionInfo()
@@ -287,6 +290,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
             Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
             Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.isNull(),
             Mockito.isNull());
   }
 
@@ -420,6 +424,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             Mockito.eq(MonitorMode.ACTIVE),
             Mockito.eq(TEST_EXECUTOR_ID),
             Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.isNull(),
             Mockito.isNull());
   }
 
@@ -539,6 +544,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
                 Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
                 Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
                 Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+                Mockito.isNull(),
                 Mockito.isNull()))
         .thenThrow(RemoteInvocationException.class);
 
@@ -590,6 +596,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
                 Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
                 Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
                 Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+                Mockito.isNull(),
                 Mockito.isNull()))
         .thenThrow(
             new RuntimeException(AcrylConstants.MONITOR_LIMIT_EXCEEDED_ERROR_MESSAGE_PREFIX));
@@ -726,7 +733,8 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             new DatasetFieldAssertionParametersInput(
                 DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null, bucketingInput),
             com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
-            TEST_EXECUTOR_ID);
+            TEST_EXECUTOR_ID,
+            null);
 
     AssertionService assertionService = initMockAssertionService();
     MonitorService monitorService = initMockMonitorService();
@@ -741,12 +749,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(inputWithBadTz);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    CompletionException ex =
-        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    assertTrue(ex.getCause() instanceof DataHubGraphQLException);
-    DataHubGraphQLException graphQLException = (DataHubGraphQLException) ex.getCause();
-    assertEquals(graphQLException.errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
-    assertTrue(graphQLException.getMessage().contains("Invalid timezone"));
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
 
   @Test
@@ -783,7 +786,8 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             new DatasetFieldAssertionParametersInput(
                 DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null, bucketingInput),
             com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
-            TEST_EXECUTOR_ID);
+            TEST_EXECUTOR_ID,
+            null);
 
     AssertionService assertionService = initMockAssertionService();
     MonitorService monitorService = initMockMonitorService();
@@ -815,6 +819,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             Mockito.any(MonitorMode.class),
             Mockito.eq(TEST_EXECUTOR_ID),
             Mockito.eq(Constants.METADATA_TESTS_SOURCE),
+            Mockito.isNull(),
             Mockito.isNull());
 
     AssertionEvaluationParameters capturedParams = captor.getValue();

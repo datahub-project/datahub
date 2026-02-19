@@ -25,6 +25,9 @@ import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
 import com.linkedin.monitor.AssertionMonitor;
+import com.linkedin.monitor.AssertionMonitorBootstrapStatus;
+import com.linkedin.monitor.AssertionMonitorMetricsCubeBootstrapState;
+import com.linkedin.monitor.AssertionMonitorMetricsCubeBootstrapStatus;
 import com.linkedin.monitor.AssertionMonitorSettings;
 import com.linkedin.monitor.AssertionTimeBucketingStrategy;
 import com.linkedin.monitor.MonitorInfo;
@@ -269,6 +272,33 @@ public class MonitorService extends BaseService {
         mode,
         executorId,
         appSource,
+        null,
+        null);
+  }
+
+  public Urn upsertAssertionMonitor(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn monitorUrn,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final CronSchedule schedule,
+      @Nonnull final AssertionEvaluationParameters parameters,
+      @Nonnull final MonitorMode mode,
+      @Nullable final String executorId,
+      @Nonnull final String appSource,
+      @Nullable final AssertionMonitorSettings monitorSettings)
+      throws Exception {
+    return upsertAssertionMonitor(
+        opContext,
+        monitorUrn,
+        assertionUrn,
+        entityUrn,
+        schedule,
+        parameters,
+        mode,
+        executorId,
+        appSource,
+        monitorSettings,
         null);
   }
 
@@ -288,7 +318,8 @@ public class MonitorService extends BaseService {
       @Nonnull final MonitorMode mode,
       @Nullable final String executorId,
       @Nonnull final String appSource,
-      @Nullable final AssertionMonitorSettings monitorSettings)
+      @Nullable final AssertionMonitorSettings monitorSettings,
+      @Nullable final Boolean shouldRunBackfill)
       throws Exception {
     Objects.requireNonNull(monitorUrn, "monitorUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
@@ -350,6 +381,8 @@ public class MonitorService extends BaseService {
     if (maybeExistingInfo != null) {
       validateBucketingStrategyImmutability(maybeExistingInfo, monitorInfo);
     }
+
+    applyBootstrapStatus(shouldRunBackfill, maybeExistingInfo, assertionMonitor);
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
@@ -840,5 +873,67 @@ public class MonitorService extends BaseService {
       }
     }
     return null;
+  }
+
+  /**
+   * Applies bootstrap status to the assertion monitor based on the shouldRunBackfill flag.
+   *
+   * <p>If shouldRunBackfill is explicitly true, always sets PENDING (forces a re-run).
+   *
+   * <p>If there is no existing bootstrap status (first-time setup), defaults to PENDING unless
+   * shouldRunBackfill is explicitly false, in which case it is set to REJECTED.
+   *
+   * <p>If there is an existing bootstrap status and shouldRunBackfill is null or false, the
+   * existing status is preserved (no-op).
+   */
+  static void applyBootstrapStatus(
+      @Nullable Boolean shouldRunBackfill,
+      @Nullable MonitorInfo existingInfo,
+      @Nonnull AssertionMonitor assertionMonitor) {
+
+    // Explicit true: always force PENDING regardless of existing state.
+    if (Boolean.TRUE.equals(shouldRunBackfill)) {
+      setBootstrapState(assertionMonitor, AssertionMonitorMetricsCubeBootstrapState.PENDING);
+      return;
+    }
+
+    // If there is already a bootstrap status, preserve it (null and false both mean "don't touch").
+    if (getExistingBootstrapState(existingInfo) != null) {
+      return;
+    }
+
+    // No existing status — first-time setup.
+    if (Boolean.FALSE.equals(shouldRunBackfill)) {
+      setBootstrapState(assertionMonitor, AssertionMonitorMetricsCubeBootstrapState.REJECTED);
+    } else {
+      setBootstrapState(assertionMonitor, AssertionMonitorMetricsCubeBootstrapState.PENDING);
+    }
+  }
+
+  private static void setBootstrapState(
+      @Nonnull AssertionMonitor assertionMonitor,
+      @Nonnull AssertionMonitorMetricsCubeBootstrapState state) {
+    assertionMonitor.setBootstrapStatus(
+        new AssertionMonitorBootstrapStatus()
+            .setMetricsCubeBootstrapStatus(
+                new AssertionMonitorMetricsCubeBootstrapStatus().setState(state)));
+  }
+
+  @Nullable
+  private static AssertionMonitorMetricsCubeBootstrapState getExistingBootstrapState(
+      @Nullable MonitorInfo existingInfo) {
+    if (existingInfo == null
+        || !existingInfo.hasAssertionMonitor()
+        || existingInfo.getAssertionMonitor() == null) {
+      return null;
+    }
+    AssertionMonitor existingMonitor = existingInfo.getAssertionMonitor();
+    if (!existingMonitor.hasBootstrapStatus()
+        || existingMonitor.getBootstrapStatus() == null
+        || !existingMonitor.getBootstrapStatus().hasMetricsCubeBootstrapStatus()
+        || existingMonitor.getBootstrapStatus().getMetricsCubeBootstrapStatus() == null) {
+      return null;
+    }
+    return existingMonitor.getBootstrapStatus().getMetricsCubeBootstrapStatus().getState();
   }
 }

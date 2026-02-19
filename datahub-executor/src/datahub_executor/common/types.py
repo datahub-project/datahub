@@ -1358,6 +1358,7 @@ class AssertionMonitorMetricsCubeBootstrapState(str, Enum):
     PENDING = "PENDING"
     FAILED = "FAILED"
     COMPLETED = "COMPLETED"
+    REJECTED = "REJECTED"
 
 
 class AssertionMonitorMetricsCubeBootstrapStatus(PermissiveBaseModel):

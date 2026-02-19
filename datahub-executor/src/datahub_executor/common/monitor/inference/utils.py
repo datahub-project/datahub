@@ -269,6 +269,17 @@ def check_is_metrics_cube_bootstrapped(monitor: Monitor) -> bool:
     )
 
 
+def check_is_metrics_cube_bootstrap_rejected(monitor: Monitor) -> bool:
+    """
+    Check if the metrics cube bootstrap was explicitly rejected (backfill not requested).
+    """
+    bootstrap_status = try_extract_metrics_cube_bootstrap_status(monitor)
+    return bool(
+        bootstrap_status
+        and bootstrap_status.state == AssertionMonitorMetricsCubeBootstrapState.REJECTED
+    )
+
+
 def try_extract_metrics_cube_bootstrap_status(
     monitor: Monitor,
 ) -> Optional[AssertionMonitorMetricsCubeBootstrapStatus]:
