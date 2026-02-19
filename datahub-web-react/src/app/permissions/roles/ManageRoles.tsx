@@ -1,5 +1,5 @@
 import { Button, Tooltip } from '@components';
-import { Avatar, Empty, Pagination, Typography, message } from 'antd';
+import { Empty, Pagination, Typography, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
@@ -181,25 +181,12 @@ export const ManageRoles = () => {
                 return (
                     <>
                         {(!!numberOfUsers && (
-                            <>
-                                <AvatarsGroup
-                                    users={record?.users
-                                        ?.filter((u) => u.urn?.startsWith('urn:li:corpuser'))
-                                        .slice(0, 5)}
-                                    groups={record?.users
-                                        ?.filter((u) => u.urn?.startsWith('urn:li:corpGroup'))
-                                        .slice(0, 5)}
-                                    entityRegistry={entityRegistry}
-                                    maxCount={5}
-                                    size={28}
-                                />
-                                {numberOfUsers > 5 && (
-                                    // Keeping the color same as the avatar component indicator
-                                    <Avatar size={28} style={{ backgroundColor: 'rgb(204,204,204)' }}>
-                                        +{numberOfUsers - 5}
-                                    </Avatar>
-                                )}
-                            </>
+                            <AvatarsGroup
+                                users={record?.users?.filter((u) => u.urn?.startsWith('urn:li:corpuser')).slice(0, 5)}
+                                groups={record?.users?.filter((u) => u.urn?.startsWith('urn:li:corpGroup')).slice(0, 5)}
+                                entityRegistry={entityRegistry}
+                                maxCount={5}
+                            />
                         )) || <Typography.Text type="secondary">No assigned users</Typography.Text>}
                     </>
                 );
