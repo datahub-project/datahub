@@ -284,12 +284,13 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             else:
                 events.append(event)
 
-        chunks = self.emitter.emit_mcps(events, emit_mode=EmitMode.ASYNC)
+        trace_data = self.emitter.emit_mcps(events, emit_mode=EmitMode.ASYNC)
+        num_chunks = len(trace_data)
         self.report.async_batches_prepared += 1
-        if chunks > 1:
-            self.report.async_batches_split += chunks
+        if num_chunks > 1:
+            self.report.async_batches_split += num_chunks
             logger.info(
-                f"In async_batch mode, the payload was split into {chunks} batches. "
+                f"In async_batch mode, the payload was split into {num_chunks} batches. "
                 "If there's many of these issues, consider decreasing `max_per_batch`."
             )
 
