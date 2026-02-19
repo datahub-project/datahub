@@ -1,6 +1,7 @@
 import { PartitionOutlined, PicCenterOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { TreeStructure } from '@phosphor-icons/react';
 import * as React from 'react';
+
+import { TreeStructure } from '@components/components/Icon/phosphor-icons';
 
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { GenericEntityProperties } from '@app/entity/shared/types';

@@ -1,7 +1,8 @@
 import { Tooltip } from '@components';
-import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
+
+import { ArrowLeft, ArrowRight } from '@components/components/Icon/phosphor-icons';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';

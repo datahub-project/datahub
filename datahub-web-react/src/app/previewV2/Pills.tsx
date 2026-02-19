@@ -2,9 +2,10 @@ import { LayoutOutlined } from '@ant-design/icons';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import FindInPageOutlinedIcon from '@mui/icons-material/FindInPageOutlined';
 import SellOutlinedIcon from '@mui/icons-material/SellOutlined';
-import { BookmarkSimple } from '@phosphor-icons/react';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
+
+import { BookmarkSimple } from '@components/components/Icon/phosphor-icons';
 
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';

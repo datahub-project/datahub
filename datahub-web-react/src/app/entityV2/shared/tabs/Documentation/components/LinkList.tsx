@@ -1,10 +1,11 @@
 import { DeleteOutlined } from '@ant-design/icons';
 import { colors } from '@components';
-import { Pencil } from '@phosphor-icons/react';
 import { Button, List, Typography } from 'antd';
 import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
+
+import { Pencil } from '@components/components/Icon/phosphor-icons';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkModal';

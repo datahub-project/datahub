@@ -6,6 +6,7 @@ import * as path from 'path';
 import { PluginOption, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 const injectMeticulous = () => {
     if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
@@ -148,6 +149,17 @@ export default defineConfig(async ({ mode }) => {
                 uploadToken: process.env.CODECOV_TOKEN,
                 gitService: 'github',
             }),
+            // Bundle visualization - only when ANALYZE=true (e.g., ANALYZE=true yarn build)
+            ...(process.env.ANALYZE
+                ? [
+                      visualizer({
+                          filename: './dist/stats.html',
+                          open: false,
+                          gzipSize: true,
+                          brotliSize: true,
+                      }),
+                  ]
+                : []),
             stripDotSlashFromAssets(),
         ],
         // optimizeDeps: {
@@ -155,6 +167,26 @@ export default defineConfig(async ({ mode }) => {
         // },
         envPrefix: 'REACT_APP_',
         build: {
+            rollupOptions: {
+                output: {
+                    manualChunks(id) {
+                        if (id.includes('node_modules')) {
+                            if (id.includes('@mui')) {
+                                return 'mui-vendor';
+                            }
+                            if (id.includes('phosphor-icons')) {
+                                return 'phosphor-vendor';
+                            }
+                            // All other node_modules (React + Ant Design together = no load order issues)
+                            return 'vendor';
+                        }
+                        if (id.includes('src/')) {
+                            return 'source';
+                        }
+                        return null;
+                    },
+                },
+            },
             outDir: 'dist',
             target: 'esnext',
             minify: 'esbuild',

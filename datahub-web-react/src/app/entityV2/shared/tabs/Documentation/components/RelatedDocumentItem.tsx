@@ -1,8 +1,9 @@
-import { FileText } from '@phosphor-icons/react';
 import { List } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { FileText } from '@components/components/Icon/phosphor-icons';
 
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { getActorDisplayName, isActor } from '@app/entityV2/shared/utils/actorUtils';

@@ -14,7 +14,7 @@ export const useGetTableColumnProperties = () => {
         types: [EntityType.StructuredProperty],
         query: '',
         start: 0,
-        count: 100,
+        count: 50,
         searchFlags: { skipCache: true },
         orFilters: [
             {
