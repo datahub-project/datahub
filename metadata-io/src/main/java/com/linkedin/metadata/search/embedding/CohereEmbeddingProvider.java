@@ -42,7 +42,8 @@ public class CohereEmbeddingProvider implements EmbeddingProvider {
   private static final String INPUT_TYPE = "search_query";
   private static final String COHERE_VERSION = "2024-01-01";
   private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(30);
-  private static final int MAX_ATTEMPTS = 2;
+  private static final int MAX_ATTEMPTS = 3;
+  private static final long RETRY_DELAY_MS = 1000L;
 
   private final String apiKey;
   private final String endpoint;
@@ -120,11 +121,18 @@ public class CohereEmbeddingProvider implements EmbeddingProvider {
         lastException = e;
         if (attempt < MAX_ATTEMPTS) {
           log.warn(
-              "Cohere embedding attempt {}/{} failed for model {}, retrying: {}",
+              "Cohere embedding attempt {}/{} failed for model {}, retrying in {}s: {}",
               attempt,
               MAX_ATTEMPTS,
+              attempt,
               modelToUse,
               e.getMessage());
+          try {
+            Thread.sleep(attempt * RETRY_DELAY_MS);
+          } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            break;
+          }
         }
       }
     }
