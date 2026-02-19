@@ -10,7 +10,7 @@ on:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"
       - "metadata-integration/java/spark-lineage"
-      - "metadata-integration/java/spark-lineage-legacy" # spark smoke tests are here
+      - "metadata-integration/java/spark-lineage-legacy/**" # spark smoke tests are here
       - ".github/workflows/spark-smoke-test.yml"
   pull_request:
     branches:
@@ -19,8 +19,8 @@ on:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"
       - "metadata-integration/java/spark-lineage"
-      - "metadata-integration/java/spark-lineage-legacy" # spark smoke tests are here
-      # - ".github/workflows/spark-smoke-test.yml" # Uncomment once test issues are fixed.
+      - "metadata-integration/java/spark-lineage-legacy/**" # spark smoke tests are here
+      - ".github/workflows/spark-smoke-test.yml" # Uncomment once test issues are fixed.
   release:
     types: [published]
 
