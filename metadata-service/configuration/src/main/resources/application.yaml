@@ -349,6 +349,7 @@ ebean:
   useIamAuth: ${EBEAN_USE_IAM_AUTH:false} # Generic IAM auth for cross-cloud compatibility
   cloudProvider: ${EBEAN_CLOUD_PROVIDER:auto} # auto, aws, gcp, or traditional
   batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
+  captureStackTrace: ${EBEAN_CAPTURE_STACKTRACE:false}
 
 # Only required if entityService.impl is cassandra
 cassandra:
