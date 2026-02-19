@@ -197,14 +197,14 @@ class VertexAIURIParser:
         env: str,
         platform: str = PLATFORM,
         platform_instance: Optional[str] = None,
-        platform_to_instance_map: Optional[Dict[str, PlatformDetail]] = None,
+        platform_instance_map: Optional[Dict[str, PlatformDetail]] = None,
         normalize_paths: bool = False,
         partition_patterns: Optional[List[str]] = None,
     ):
         self.env = env
         self.platform = platform
         self.platform_instance = platform_instance
-        self.platform_to_instance_map = platform_to_instance_map or {}
+        self.platform_instance_map = platform_instance_map or {}
         self.normalize_paths = normalize_paths
 
         # Pre-compile regex patterns for efficiency
@@ -219,7 +219,7 @@ class VertexAIURIParser:
 
     def _get_platform_details(self, platform: str) -> Optional[PlatformDetail]:
         """Get platform details for the given platform from the map."""
-        return self.platform_to_instance_map.get(platform)
+        return self.platform_instance_map.get(platform)
 
     def _strip_partition_segments(self, path: str) -> str:
         """

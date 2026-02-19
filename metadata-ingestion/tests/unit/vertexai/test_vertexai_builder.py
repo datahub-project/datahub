@@ -54,7 +54,7 @@ class TestVertexAIURIParser:
             env="PROD",
             platform="vertexai",
             platform_instance=None,
-            platform_to_instance_map={
+            platform_instance_map={
                 "gcs": PlatformDetail(
                     platform_instance="prod-gcs",
                     env="PROD",

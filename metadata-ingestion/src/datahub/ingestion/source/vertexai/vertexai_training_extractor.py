@@ -51,6 +51,7 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
 )
 from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
+    format_api_error_message,
     get_actor_from_labels,
     log_checkpoint_time,
     log_progress,
@@ -491,29 +492,54 @@ class VertexAITrainingExtractor:
                 except (PermissionDenied, Unauthenticated) as e:
                     self.report.report_failure(
                         title="Unable to fetch model and model version due to permission issue",
-                        message=f"Permission denied while fetching output model {model_name} version {model_version_str} for training job {job.display_name} | resource_type=model | resource_name={model_name} | cause={type(e).__name__}: {e}",
+                        message=format_api_error_message(
+                            e,
+                            f"fetching output model {model_name} version {model_version_str} for training job {job.display_name}",
+                            "model",
+                            model_name,
+                        ),
                         exc=e,
                     )
                 except ResourceExhausted as e:
                     self.report.report_failure(
                         title="Unable to fetch model and model version due to quota exceeded",
-                        message=f"API quota exceeded while fetching output model {model_name} version {model_version_str} for training job {job.display_name} | resource_type=model | resource_name={model_name} | cause={type(e).__name__}: {e}",
+                        message=format_api_error_message(
+                            e,
+                            f"fetching output model {model_name} version {model_version_str} for training job {job.display_name}",
+                            "model",
+                            model_name,
+                        ),
                         exc=e,
                     )
                 except (DeadlineExceeded, ServiceUnavailable) as e:
                     self.report.report_failure(
                         title="Unable to fetch model and model version due to timeout or service unavailable",
-                        message=f"Timeout or service unavailable while fetching output model {model_name} version {model_version_str} for training job {job.display_name} | resource_type=model | resource_name={model_name} | cause={type(e).__name__}: {e}",
+                        message=format_api_error_message(
+                            e,
+                            f"fetching output model {model_name} version {model_version_str} for training job {job.display_name}",
+                            "model",
+                            model_name,
+                        ),
                         exc=e,
                     )
                 except NotFound as e:
                     logger.debug(
-                        f"Output model {model_name} version {model_version_str} not found for training job {job.display_name} | resource_type=model | resource_name={model_name} | cause={type(e).__name__}: {e}"
+                        format_api_error_message(
+                            e,
+                            f"Output model {model_name} version {model_version_str} for training job {job.display_name}",
+                            "model",
+                            model_name,
+                        )
                     )
                 except GoogleAPICallError as e:
                     self.report.report_failure(
                         title="Unable to fetch model and model version",
-                        message=f"Error while fetching output model {model_name} version {model_version_str} for training job {job.display_name} | resource_type=model | resource_name={model_name} | cause={type(e).__name__}: {e}",
+                        message=format_api_error_message(
+                            e,
+                            f"fetching output model {model_name} version {model_version_str} for training job {job.display_name}",
+                            "model",
+                            model_name,
+                        ),
                         exc=e,
                     )
         else:

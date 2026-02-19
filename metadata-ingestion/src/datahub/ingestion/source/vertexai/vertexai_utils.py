@@ -82,6 +82,42 @@ def get_resource_category_container(
     )
 
 
+def format_api_error_message(
+    error: Exception,
+    operation: str,
+    resource_type: Optional[str] = None,
+    resource_name: Optional[str] = None,
+    *,
+    custom_message: Optional[str] = None,
+) -> str:
+    """
+    Format a consistent error message for Google API errors.
+
+    If custom_message is provided, it's used as-is. Otherwise, a default message
+    is generated based on the error type and operation.
+    """
+    error_type = type(error).__name__
+
+    if custom_message:
+        msg = custom_message
+    elif isinstance(error, (PermissionDenied, Unauthenticated)):
+        msg = f"Permission denied while {operation}"
+    elif isinstance(error, ResourceExhausted):
+        msg = f"API quota exceeded while {operation}"
+    elif isinstance(error, (DeadlineExceeded, ServiceUnavailable)):
+        msg = f"Timeout or service unavailable while {operation}"
+    elif isinstance(error, NotFound):
+        msg = f"{operation} not found"
+    else:
+        msg = f"Error while {operation}"
+
+    if resource_type and resource_name:
+        msg += f" | resource_type={resource_type} | resource_name={resource_name}"
+    msg += f" | cause={error_type}: {error}"
+
+    return msg
+
+
 @contextmanager
 def handle_google_api_errors(
     operation: str,
@@ -90,63 +126,18 @@ def handle_google_api_errors(
     log_level: str = "warning",
 ) -> Iterator[None]:
     """
-    Context manager for consistent Google API error handling across Vertex AI extractors.
+    Context manager for Google API error handling. Suppresses exceptions and logs them.
 
-    Args:
-        operation: Description of the operation being performed (e.g., "fetch model evaluations")
-        resource_type: Type of resource being accessed (e.g., "model", "experiment")
-        resource_name: Name/ID of the specific resource
-        log_level: Logging level - "debug" for expected errors (like NotFound), "warning" for unexpected
-
-    Example:
-        with handle_google_api_errors("fetch evaluations", "model", model.name):
-            evaluations = list(model.list_model_evaluations())
+    For returning specific values on error, use format_api_error_message() directly.
     """
     try:
         yield
-    except (PermissionDenied, Unauthenticated) as e:
-        error_type = type(e).__name__
-        msg = f"Permission denied for {operation}"
-        if resource_type and resource_name:
-            msg += f" | resource_type={resource_type} | resource_name={resource_name}"
-        msg += f" | cause={error_type}: {e}"
-        if log_level == "debug":
-            logger.debug(msg)
-        else:
-            logger.warning(msg)
-    except ResourceExhausted as e:
-        error_type = type(e).__name__
-        msg = f"Quota exceeded for {operation}"
-        if resource_type and resource_name:
-            msg += f" | resource_type={resource_type} | resource_name={resource_name}"
-        msg += f" | cause={error_type}: {e}"
-        if log_level == "debug":
-            logger.debug(msg)
-        else:
-            logger.warning(msg)
-    except (DeadlineExceeded, ServiceUnavailable) as e:
-        error_type = type(e).__name__
-        msg = f"Timeout or service unavailable for {operation}"
-        if resource_type and resource_name:
-            msg += f" | resource_type={resource_type} | resource_name={resource_name}"
-        msg += f" | cause={error_type}: {e}"
-        if log_level == "debug":
-            logger.debug(msg)
-        else:
-            logger.warning(msg)
     except NotFound as e:
-        error_type = type(e).__name__
-        msg = f"Resource not found for {operation}"
-        if resource_type and resource_name:
-            msg += f" | resource_type={resource_type} | resource_name={resource_name}"
-        msg += f" | cause={error_type}: {e}"
-        logger.debug(msg)
+        logger.debug(
+            format_api_error_message(e, operation, resource_type, resource_name)
+        )
     except GoogleAPICallError as e:
-        error_type = type(e).__name__
-        msg = f"Google API error for {operation}"
-        if resource_type and resource_name:
-            msg += f" | resource_type={resource_type} | resource_name={resource_name}"
-        msg += f" | cause={error_type}: {e}"
+        msg = format_api_error_message(e, operation, resource_type, resource_name)
         if log_level == "debug":
             logger.debug(msg)
         else:
@@ -169,18 +160,7 @@ def filter_by_update_time(
     time_field: str = "update_time",
     resource_type: str = "items",
 ) -> List[T]:
-    """
-    Filter items to only include those updated after the checkpoint time.
-
-    Args:
-        items: List of objects to filter
-        checkpoint_millis: Checkpoint timestamp in milliseconds since epoch
-        time_field: Name of the timestamp field on each item (default: "update_time")
-        resource_type: Name of resource type for logging (default: "items")
-
-    Returns:
-        Filtered list containing only items updated after checkpoint
-    """
+    """Filter items to only include those updated after the checkpoint time."""
     original_count = len(items)
     filtered_items = [
         item
@@ -202,14 +182,7 @@ def filter_by_update_time(
 def sort_by_update_time(
     items: List[T], time_field: str = "update_time", reverse: bool = True
 ) -> None:
-    """
-    Sort items by update time in-place, with fallback for None values.
-
-    Args:
-        items: List of objects to sort
-        time_field: Name of the timestamp field on each item (default: "update_time")
-        reverse: Sort in descending order (newest first) if True (default: True)
-    """
+    """Sort items by update time in-place, with fallback for None values."""
     items.sort(
         key=lambda item: getattr(item, time_field, None)
         or datetime.min.replace(tzinfo=timezone.utc),

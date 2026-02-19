@@ -37,6 +37,7 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     LineageMetadata,
     MLMetadataConfig,
 )
+from datahub.ingestion.source.vertexai.vertexai_utils import format_api_error_message
 from datahub.metadata.schema_classes import MLHyperParamClass, MLMetricClass
 
 logger = logging.getLogger(__name__)
@@ -86,27 +87,31 @@ class MLMetadataHelper:
 
             return lineage
 
-        except (PermissionDenied, Unauthenticated) as e:
+        except (
+            PermissionDenied,
+            Unauthenticated,
+            ResourceExhausted,
+            DeadlineExceeded,
+            ServiceUnavailable,
+        ) as e:
             logger.warning(
-                f"Failed to extract lineage metadata for job {job.display_name} due to permission issue | resource_type=training_job | resource_name={job.name} | cause={type(e).__name__}: {e}",
-                exc_info=True,
-            )
-            return None
-        except ResourceExhausted as e:
-            logger.warning(
-                f"Failed to extract lineage metadata for job {job.display_name} due to quota exceeded | resource_type=training_job | resource_name={job.name} | cause={type(e).__name__}: {e}",
-                exc_info=True,
-            )
-            return None
-        except (DeadlineExceeded, ServiceUnavailable) as e:
-            logger.warning(
-                f"Failed to extract lineage metadata for job {job.display_name} due to timeout or service unavailable | resource_type=training_job | resource_name={job.name} | cause={type(e).__name__}: {e}",
+                format_api_error_message(
+                    e,
+                    f"extracting lineage metadata for job {job.display_name}",
+                    "training_job",
+                    job.name,
+                ),
                 exc_info=True,
             )
             return None
         except NotFound as e:
             logger.debug(
-                f"ML Metadata not found for job {job.display_name} | resource_type=training_job | resource_name={job.name} | cause={type(e).__name__}: {e}"
+                format_api_error_message(
+                    e,
+                    f"ML Metadata for job {job.display_name}",
+                    "training_job",
+                    job.name,
+                )
             )
             return None
         except AttributeError as e:
@@ -270,24 +275,30 @@ class MLMetadataHelper:
 
             return ArtifactURNs(input_urns=input_urns, output_urns=output_urns)
 
-        except (PermissionDenied, Unauthenticated) as e:
+        except (
+            PermissionDenied,
+            Unauthenticated,
+            ResourceExhausted,
+            DeadlineExceeded,
+            ServiceUnavailable,
+        ) as e:
             logger.warning(
-                f"Failed to extract artifact lineage for execution {execution_name} due to permission issue | resource_type=execution | resource_name={execution_name} | cause={type(e).__name__}: {e}"
-            )
-            return ArtifactURNs()
-        except ResourceExhausted as e:
-            logger.warning(
-                f"Failed to extract artifact lineage for execution {execution_name} due to quota exceeded | resource_type=execution | resource_name={execution_name} | cause={type(e).__name__}: {e}"
-            )
-            return ArtifactURNs()
-        except (DeadlineExceeded, ServiceUnavailable) as e:
-            logger.warning(
-                f"Failed to extract artifact lineage for execution {execution_name} due to timeout or service unavailable | resource_type=execution | resource_name={execution_name} | cause={type(e).__name__}: {e}"
+                format_api_error_message(
+                    e,
+                    f"extracting artifact lineage for execution {execution_name}",
+                    "execution",
+                    execution_name,
+                )
             )
             return ArtifactURNs()
         except NotFound as e:
             logger.debug(
-                f"Artifact lineage not found for execution {execution_name} | resource_type=execution | resource_name={execution_name} | cause={type(e).__name__}: {e}"
+                format_api_error_message(
+                    e,
+                    f"Artifact lineage for execution {execution_name}",
+                    "execution",
+                    execution_name,
+                )
             )
             return ArtifactURNs()
         except AttributeError as e:

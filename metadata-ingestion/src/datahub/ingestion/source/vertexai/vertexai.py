@@ -81,6 +81,7 @@ from datahub.ingestion.source.vertexai.vertexai_training_extractor import (
     VertexAITrainingExtractor,
 )
 from datahub.ingestion.source.vertexai.vertexai_utils import (
+    format_api_error_message,
     get_project_container,
     get_resource_category_container,
 )
@@ -116,37 +117,56 @@ class VertexAISource(StatefulIngestionSourceBase):
             stateful_ingestion_config=config.stateful_ingestion or config,
         )
 
+        self._credentials = self._setup_credentials()
+        self._projects = self._resolve_target_projects()
+        self._project_to_regions = self._resolve_project_regions()
+
+        self._current_project_id: Optional[str] = None
+        self._current_region: Optional[str] = None
+
+        self.client = aiplatform
+        self._metadata_client: Optional[MetadataServiceClient] = None
+        self._ml_metadata_helper: Optional[MLMetadataHelper] = None
+
+        self._initialize_builders_and_extractors()
+
+    def _setup_credentials(self) -> Optional[service_account.Credentials]:
+        """Setup GCP service account credentials from config."""
         creds = self.config.get_credentials()
-        credentials = (
+        return (
             service_account.Credentials.from_service_account_info(creds)
             if creds
             else None
         )
-        self._credentials = credentials
 
-        # Determine target projects
-        self._projects: List[str]
+    def _resolve_target_projects(self) -> List[str]:
+        """Resolve target GCP projects from config (single project or multi-project mode)."""
         wants_multi_project = bool(
-            config.project_ids or config.project_labels or not config.project_id
+            self.config.project_ids
+            or self.config.project_labels
+            or not self.config.project_id
         )
         if wants_multi_project:
             filter_cfg = GcpProjectFilterConfig(
-                project_ids=config.project_ids,
-                project_labels=config.project_labels,
-                project_id_pattern=config.project_id_pattern,
+                project_ids=self.config.project_ids,
+                project_labels=self.config.project_labels,
+                project_id_pattern=self.config.project_id_pattern,
             )
             resolved_projects = resolve_gcp_projects(filter_cfg, self.report)
-            self._projects = [p.id for p in resolved_projects]
-            if not self._projects and config.project_id:
-                self._projects = [config.project_id]
-        else:
-            self._projects = [config.project_id]
+            projects = [p.id for p in resolved_projects]
+            if not projects and self.config.project_id:
+                return [self.config.project_id]
+            return projects
+        return [self.config.project_id]
 
-        self._project_to_regions: Dict[str, List[str]] = {}
+    def _resolve_project_regions(self) -> Dict[str, List[str]]:
+        """Resolve regions for each project (either discover via API or use config)."""
+        project_to_regions: Dict[str, List[str]] = {}
+
         if self.config.discover_regions:
             for project_id in self._projects:
                 regions = self._discover_regions_for_project(project_id)
-                self._project_to_regions[project_id] = (
+                project_to_regions[project_id] = (
                     regions if regions else [self.config.region]
                 )
         else:
@@ -157,17 +177,12 @@ class VertexAISource(StatefulIngestionSourceBase):
             else:
                 regions_from_config = []
             for project_id in self._projects:
-                self._project_to_regions[project_id] = regions_from_config
+                project_to_regions[project_id] = regions_from_config
 
-        # dynamic context for current project/region during iteration
-        self._current_project_id: Optional[str] = None
-        self._current_region: Optional[str] = None
+        return project_to_regions
 
-        self.client = aiplatform
-
-        self._metadata_client: Optional[MetadataServiceClient] = None
-        self._ml_metadata_helper: Optional[MLMetadataHelper] = None
-
+    def _initialize_builders_and_extractors(self) -> None:
+        """Initialize URN builders and resource extractors."""
         self.urn_builder = VertexAIUrnBuilder(
             platform=self.platform,
             env=self.config.env,
@@ -184,7 +199,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             env=self.config.env,
             platform=self.platform,
             platform_instance=self.config.platform_instance,
-            platform_to_instance_map=self.config.platform_instance_map,
+            platform_instance_map=self.config.platform_instance_map,
         )
 
         self.pipeline_extractor = VertexAIPipelineExtractor(
@@ -471,19 +486,9 @@ class VertexAISource(StatefulIngestionSourceBase):
                     )
                     continue
             return discovered
-        except (PermissionDenied, Unauthenticated) as e:
-            logger.warning(
-                f"Failed to discover Vertex AI regions for project {project_id} due to permission issue; falling back to configured region(s) | cause={type(e).__name__}: {e}"
-            )
-            return []
-        except (DeadlineExceeded, ServiceUnavailable) as e:
-            logger.warning(
-                f"Failed to discover Vertex AI regions for project {project_id} due to timeout or service unavailable; falling back to configured region(s) | cause={type(e).__name__}: {e}"
-            )
-            return []
         except GoogleAPICallError as e:
             logger.warning(
-                f"Failed to discover Vertex AI regions for project {project_id}; falling back to configured region(s) | cause={type(e).__name__}: {e}"
+                f"{format_api_error_message(e, f'discovering Vertex AI regions for project {project_id}', 'project', project_id)}; falling back to configured region(s)"
             )
             return []
 
