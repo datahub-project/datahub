@@ -31,6 +31,7 @@ import co.elastic.clients.elasticsearch.core.OpenPointInTimeResponse;
 import co.elastic.clients.elasticsearch.core.ReindexResponse;
 import co.elastic.clients.elasticsearch.core.UpdateByQueryResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.elasticsearch.core.bulk.CreateOperation;
 import co.elastic.clients.elasticsearch.core.bulk.DeleteOperation;
 import co.elastic.clients.elasticsearch.core.bulk.IndexOperation;
 import co.elastic.clients.elasticsearch.core.bulk.UpdateAction;
@@ -1677,19 +1678,34 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                   .build());
     } else { // writeRequest instanceof IndexRequest
       IndexRequest indexRequest = (IndexRequest) writeRequest;
-      operation =
-          new BulkOperation(
-              new IndexOperation.Builder<>()
-                  .ifSeqNo(writeRequest.ifSeqNo())
-                  .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
-                  .requireAlias(writeRequest.isRequireAlias())
-                  .index(writeRequest.index())
-                  .routing(writeRequest.routing())
-                  .id(indexRequest.id())
-                  .document(
-                      XContentHelper.convertToMap(indexRequest.source(), true, XContentType.JSON)
-                          .v2())
-                  .build());
+      Map<String, Object> document =
+          XContentHelper.convertToMap(indexRequest.source(), true, XContentType.JSON).v2();
+      if (indexRequest.opType() == DocWriteRequest.OpType.CREATE) {
+        // Data streams only allow create (append-only); use CreateOperation
+        operation =
+            new BulkOperation(
+                new CreateOperation.Builder<>()
+                    .ifSeqNo(writeRequest.ifSeqNo())
+                    .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
+                    .requireAlias(writeRequest.isRequireAlias())
+                    .index(writeRequest.index())
+                    .routing(writeRequest.routing())
+                    .id(indexRequest.id())
+                    .document(document)
+                    .build());
+      } else {
+        operation =
+            new BulkOperation(
+                new IndexOperation.Builder<>()
+                    .ifSeqNo(writeRequest.ifSeqNo())
+                    .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
+                    .requireAlias(writeRequest.isRequireAlias())
+                    .index(writeRequest.index())
+                    .routing(writeRequest.routing())
+                    .id(indexRequest.id())
+                    .document(document)
+                    .build());
+      }
     }
     processor.add(operation);
   }
