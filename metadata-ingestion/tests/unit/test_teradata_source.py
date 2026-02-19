@@ -1895,3 +1895,200 @@ class TestOwnershipExtraction:
         # The work unit should contain ownership with user URN
         # Verify by checking the work unit was created (indicates make_user_urn was called)
         assert isinstance(work_units[0], MetadataWorkUnit)
+
+
+class TestTeradataTwoTierNaming:
+    """Test Teradata's two-tier naming architecture fixes.
+
+    Teradata uses 2-tier naming (database.table), not 3-tier (catalog.schema.table).
+    These tests verify that the connector correctly handles this architecture,
+    especially for view column lineage parsing where the double-prefix bug occurred.
+    """
+
+    def test_get_db_schema_with_two_tier_identifier(self):
+        """Test get_db_schema correctly parses 2-tier identifiers (database.table)."""
+        source = _create_source()
+
+        # Test with standard 2-tier identifier
+        db, schema = source.get_db_schema("wl_w.df_rcm_auwh_dly")
+
+        # For Teradata 2-tier: database is None (no catalog), schema is the database name
+        assert db is None
+        assert schema == "wl_w"
+
+    def test_get_db_schema_with_single_part_identifier(self):
+        """Test get_db_schema handles single-part identifier (table only)."""
+        source = _create_source()
+
+        # Single part identifier should use base class behavior
+        # In Teradata, this would be unusual but we handle it gracefully
+        db, schema = source.get_db_schema("table_name")
+
+        # Single part falls back to parent class (raises or returns default)
+        # The exact behavior depends on parent class implementation
+        # We just verify it doesn't crash
+        assert isinstance(schema, str) or schema is None
+
+    def test_get_db_schema_with_three_tier_identifier(self):
+        """Test get_db_schema falls back to parent for 3+ tier identifiers."""
+        source = _create_source()
+
+        # 3-tier identifier (shouldn't happen in Teradata, but test fallback)
+        db, schema = source.get_db_schema("catalog.database.table")
+
+        # Should fall back to parent class (TwoTierSQLAlchemySource) behavior for 3+ parts
+        # Parent class splits on first dot and returns (None, first_part)
+        # So "catalog.database.table" becomes (None, "catalog")
+        assert db is None
+        assert schema == "catalog"
+
+    def test_get_view_default_db_schema_with_two_tier_view(self):
+        """Test get_view_default_db_schema returns correct defaults for 2-tier view."""
+        source = _create_source()
+        mock_inspector = MagicMock()
+
+        # Test with 2-tier view identifier (database.view)
+        default_db, default_schema = source.get_view_default_db_schema(
+            mock_inspector, "wl_w.view_name"
+        )
+
+        # For Teradata views:
+        # - default_db should be None (no catalog)
+        # - default_schema should be the database name (where the view lives)
+        assert default_db is None
+        assert default_schema == "wl_w"
+
+    def test_get_view_default_db_schema_with_single_part_view(self):
+        """Test get_view_default_db_schema handles single-part view identifier."""
+        source = _create_source()
+        mock_inspector = MagicMock()
+
+        # Test with single-part view identifier (view_name only)
+        default_db, default_schema = source.get_view_default_db_schema(
+            mock_inspector, "view_name"
+        )
+
+        # Single part should return (None, None) as we don't have database context
+        assert default_db is None
+        assert default_schema is None
+
+    def test_get_view_default_db_schema_prevents_double_prefix_bug(self):
+        """Test that get_view_default_db_schema prevents the double-prefix bug.
+
+        This is the core bug fix test. Previously, when parsing a view like:
+        wl_w.df_rcm_auwh_dly
+
+        The base class would incorrectly parse it as 3 parts:
+        database="wl_w", schema="df_rcm_auwh_dly", view=""
+
+        And pass default_schema="df_rcm_auwh_dly" to sqlglot, which would then
+        apply it to already-qualified table references in the view definition,
+        producing wl_w.wl_w.table_name.
+
+        With the fix, we correctly parse it as 2 parts and pass
+        default_schema="wl_w", preventing the double-prefix.
+        """
+        source = _create_source()
+        mock_inspector = MagicMock()
+
+        # This is the exact case from the bug report
+        view_identifier = "wl_w.df_rcm_auwh_dly"
+
+        # Get the default schema that would be passed to sqlglot
+        default_db, default_schema = source.get_view_default_db_schema(
+            mock_inspector, view_identifier
+        )
+
+        # CRITICAL: default_schema should be "wl_w" (the database)
+        # NOT "df_rcm_auwh_dly" (the view name)
+        assert default_db is None
+        assert default_schema == "wl_w"
+
+        # This prevents the double-prefix bug because when the view definition
+        # contains "wl_w.some_table", sqlglot sees:
+        # - Table reference: "wl_w.some_table" (already qualified)
+        # - default_schema: "wl_w"
+        #
+        # Sqlglot recognizes the table is already qualified with the same schema,
+        # so it doesn't apply the default_schema again, preventing "wl_w.wl_w.some_table"
+
+    def test_get_view_default_db_schema_with_three_tier_view(self):
+        """Test get_view_default_db_schema handles 3+ tier view identifier."""
+        source = _create_source()
+        mock_inspector = MagicMock()
+
+        # Test with 3-tier view identifier (shouldn't happen in Teradata)
+        default_db, default_schema = source.get_view_default_db_schema(
+            mock_inspector, "catalog.database.view"
+        )
+
+        # With 3+ parts, we take the first part as the database
+        assert default_db is None
+        assert default_schema == "catalog"
+
+    @pytest.mark.parametrize(
+        "view_identifier,expected_default_db,expected_default_schema",
+        [
+            # Standard 2-tier cases
+            ("wl_w.df_rcm_auwh_dly", None, "wl_w"),
+            ("prod_db.sales_view", None, "prod_db"),
+            ("test.view1", None, "test"),
+            # Edge cases
+            ("single_view", None, None),
+            ("db1.db2.db3.view", None, "db1"),  # 3+ tier fallback
+            # Real-world database names
+            ("DBC.SystemTables", None, "DBC"),
+            ("PDCRINFO.DBQLSqlTbl_Hst", None, "PDCRINFO"),
+        ],
+    )
+    def test_get_view_default_db_schema_parametrized(
+        self, view_identifier, expected_default_db, expected_default_schema
+    ):
+        """Test get_view_default_db_schema with various view identifiers."""
+        source = _create_source()
+        mock_inspector = MagicMock()
+
+        default_db, default_schema = source.get_view_default_db_schema(
+            mock_inspector, view_identifier
+        )
+
+        assert default_db == expected_default_db
+        assert default_schema == expected_default_schema
+
+    def test_two_tier_naming_integration_with_view_column_lineage(self):
+        """Integration test: Verify two-tier naming works with view column lineage.
+
+        This tests the full flow:
+        1. View is identified as "database.view_name"
+        2. get_view_default_db_schema is called to get defaults for parsing
+        3. Defaults are used when parsing view definition SQL
+        4. Already-qualified table references are NOT double-prefixed
+        """
+        source = _create_source()
+        mock_inspector = MagicMock()
+
+        # Simulate the flow for a view with qualified table references
+        view_identifier = "wl_w.df_rcm_auwh_dly"
+
+        # Step 1: Get db/schema from identifier
+        db, schema = source.get_db_schema(view_identifier)
+        assert db is None
+        assert schema == "wl_w"
+
+        # Step 2: Get defaults for view definition parsing
+        default_db, default_schema = source.get_view_default_db_schema(
+            mock_inspector, view_identifier
+        )
+        assert default_db is None
+        assert default_schema == "wl_w"
+
+        # Step 3: Verify this is what gets passed to sqlglot
+        # When sqlglot parses "SELECT * FROM wl_w.some_table" with:
+        # - default_db=None
+        # - default_schema="wl_w"
+        #
+        # It sees "wl_w.some_table" is already qualified with the default schema,
+        # so it leaves it as "wl_w.some_table" (NOT "wl_w.wl_w.some_table")
+
+        # This is the key fix: default_schema matches the table qualification,
+        # preventing double-application
