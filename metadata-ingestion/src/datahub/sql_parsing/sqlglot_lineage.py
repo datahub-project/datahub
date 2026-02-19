@@ -2235,7 +2235,11 @@ def _prepare_sql_query_list(queries: Union[str, List[str]]) -> List[str]:
     if isinstance(queries, str):
         return [stmt for stmt in split_statements(queries) if stmt.strip()]
     else:
-        return [q for q in queries if q and str(q).strip()]
+        result = []
+        for q in queries:
+            if q and str(q).strip():
+                result.extend(stmt for stmt in split_statements(str(q)) if stmt.strip())
+        return result
 
 
 def create_lineage_from_sql_statements(

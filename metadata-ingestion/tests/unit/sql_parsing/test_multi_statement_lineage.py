@@ -91,6 +91,17 @@ class TestInputValidation:
         assert _table_short_names(result.in_tables) == {"source1", "source2"}
         assert _table_short_names(result.out_tables) == {"target1", "target2"}
 
+    def test_semicolons_within_list_elements_are_split(self) -> None:
+        """A list element containing multiple semicolon-separated statements
+        should be split the same way a string input would be."""
+        result = _parse(
+            [
+                "CREATE TEMP TABLE staging AS SELECT id FROM source; INSERT INTO target SELECT id FROM staging"
+            ]
+        )
+        assert _table_short_names(result.in_tables) == {"source"}
+        assert _table_short_names(result.out_tables) == {"target"}
+
     def test_confidence_is_positive_for_valid_queries(self) -> None:
         result = _parse(
             [
