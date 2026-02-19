@@ -23,6 +23,7 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioDatasetType,
     DremioGlossaryTerm,
 )
+from datahub.ingestion.source.dremio.dremio_models import DremioEntityContainerType
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     AuditStampClass,
@@ -198,14 +199,14 @@ class DremioAspects:
         )
         yield mcp.as_workunit()
 
-        if not container.path:
-            browse_paths_v2 = self._create_browse_paths_containers(container)
-            if browse_paths_v2:
-                mcp = MetadataChangeProposalWrapper(
-                    entityUrn=container_urn,
-                    aspect=browse_paths_v2,
-                )
-                yield mcp.as_workunit()
+        # Browse Paths V2
+        browse_paths_v2 = self._create_browse_paths_containers(container)
+        if browse_paths_v2:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=container_urn,
+                aspect=browse_paths_v2,
+            )
+            yield mcp.as_workunit()
 
         # Container Class Folders
         container_class = self._create_container_class(container)
@@ -366,10 +367,27 @@ class DremioAspects:
     ) -> Optional[BrowsePathsV2Class]:
         paths = []
 
+        # Add container type prefix (Spaces/Sources)
         if entity.subclass == DatasetContainerSubTypes.DREMIO_SPACE.value:
             paths.append(BrowsePathEntryClass(id="Spaces"))
         elif entity.subclass == DatasetContainerSubTypes.DREMIO_SOURCE.value:
             paths.append(BrowsePathEntryClass(id="Sources"))
+        elif entity.subclass == DatasetContainerSubTypes.DREMIO_FOLDER.value:
+            # For folders, use the root container type to determine prefix
+            root_type = getattr(entity, "root_container_type", None)
+            if root_type == DremioEntityContainerType.SPACE:
+                paths.append(BrowsePathEntryClass(id="Spaces"))
+            elif root_type == DremioEntityContainerType.SOURCE:
+                paths.append(BrowsePathEntryClass(id="Sources"))
+
+        # Add the entity path elements
+        if entity.path:
+            for i, _path_element in enumerate(entity.path):
+                # Build the full path up to this element
+                partial_path = entity.path[: i + 1]
+                container_urn = self.get_container_urn(path=partial_path)
+                paths.append(BrowsePathEntryClass(id=container_urn, urn=container_urn))
+
         if paths:
             return BrowsePathsV2Class(path=paths)
         return None

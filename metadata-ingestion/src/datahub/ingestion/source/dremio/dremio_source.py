@@ -39,11 +39,11 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioCatalog,
     DremioContainer,
     DremioDataset,
-    DremioDatasetType,
     DremioGlossaryTerm,
     DremioQuery,
     DremioSourceContainer,
 )
+from datahub.ingestion.source.dremio.dremio_models import DremioDatasetType
 from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -126,9 +126,9 @@ class DremioSchemaResolver(SchemaResolver):
 
         urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
-            platform_instance=platform_instance,
-            env=self.env,
             name=table_name,
+            env=self.env,
+            platform_instance=platform_instance,
         )
         return urn
 
@@ -222,10 +222,10 @@ class DremioSource(StatefulIngestionSourceBase):
         self.source_map: Dict[str, DremioSourceMapEntry] = dict()
 
         # Initialize API operations
-        dremio_api = DremioAPIOperations(self.config, self.report)
+        api = DremioAPIOperations(self.config, self.report)
 
         # Initialize catalog
-        self.dremio_catalog = DremioCatalog(dremio_api)
+        self.dremio_catalog = DremioCatalog(api)
 
         # Initialize aspects
         self.dremio_aspects = DremioAspects(
@@ -234,7 +234,7 @@ class DremioSource(StatefulIngestionSourceBase):
             ingest_owner=self.config.ingest_owner,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            ui_url=dremio_api.ui_url,
+            ui_url=api.ui_url,
         )
         self.max_workers = config.max_workers
 
@@ -259,7 +259,7 @@ class DremioSource(StatefulIngestionSourceBase):
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
         # For profiling
-        self.profiler = DremioProfiler(config, self.report, dremio_api)
+        self.profiler = DremioProfiler(config, self.report, api)
 
         # Track catalog dataset names for query lineage validation
         self.catalog_dataset_names: set[str] = set()
@@ -449,8 +449,6 @@ class DremioSource(StatefulIngestionSourceBase):
             if isinstance(
                 dremio_mcp.metadata, MetadataChangeProposalWrapper
             ) and isinstance(dremio_mcp.metadata.aspect, SchemaMetadataClass):
-                # Register the schema with the custom Dremio schema resolver
-                # The resolver will ensure all URNs are constructed with the "dremio." infix
                 self.sql_parsing_aggregator.register_schema(
                     urn=dataset_urn,
                     schema=dremio_mcp.metadata.aspect,
