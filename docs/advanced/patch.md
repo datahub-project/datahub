@@ -29,6 +29,7 @@ Patch builder helper classes exist for
 - [Charts](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/chart.py)
 - [Dashboards](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/dashboard.py)
 - [Data Jobs (Tasks)](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/datajob.py)
+- [Data Process Instances](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/dataprocessinstance.py)
 - [Data Products](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/dataproduct.py)
 
 And we are gladly accepting contributions for Containers, Data Flows (Pipelines), Tags, Glossary Terms, Domains, and ML Models.
