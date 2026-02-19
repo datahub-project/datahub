@@ -679,6 +679,7 @@ plugins: Dict[str, Set[str]] = {
     # S3 includes PySpark by default for profiling support (backward compatible)
     # Standard installation: pip install 'acryl-datahub[s3]' (with PySpark)
     # Lightweight installation: pip install 'acryl-datahub[s3-slim]' (no PySpark, no profiling)
+    "file": {*s3_base},
     "s3": {*s3_base, *data_lake_profiling},
     "s3-slim": {*s3_base},
     "gcs": {*s3_base, *data_lake_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
