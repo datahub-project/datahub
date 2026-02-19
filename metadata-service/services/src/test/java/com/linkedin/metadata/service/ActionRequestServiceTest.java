@@ -3,6 +3,8 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
@@ -53,6 +55,9 @@ import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.dataproduct.DataProductAssociation;
+import com.linkedin.dataproduct.DataProductAssociationArray;
+import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.Entity;
@@ -3561,6 +3566,122 @@ public class ActionRequestServiceTest {
                 mockOpContext, actionRequestSnapshot));
 
     verify(mockEntityClient, never()).ingestProposal(any(), any());
+  }
+
+  private static class DataProductDescriptionMatcher extends MetadataChangeProposalMatcher {
+    private final String description;
+
+    private DataProductDescriptionMatcher(
+        Urn urn, String entityType, String aspectName, ChangeType changeType, String description) {
+      super(urn, entityType, aspectName, changeType);
+      this.description = description;
+    }
+
+    @Override
+    boolean matchesAspect(GenericAspect aspect) {
+      DataProductProperties dataProductProperties =
+          GenericRecordUtils.deserializeAspect(
+              aspect.getValue(), GenericRecordUtils.JSON, DataProductProperties.class);
+
+      return Objects.equals(description, dataProductProperties.getDescription());
+    }
+  }
+
+  @Test
+  public void acceptUpdateDataProductDescriptionProposalNewAspectPasses() throws Exception {
+    Urn testDataProductUrn = UrnUtils.getUrn("urn:li:dataProduct:test-data-product");
+
+    when(mockEntityService.getLatestAspect(
+            any(OperationContext.class),
+            eq(testDataProductUrn),
+            eq(DATA_PRODUCT_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(null);
+
+    ActionRequestSnapshot actionRequestSnapshot =
+        actionRequestService.createUpdateDescriptionProposalActionRequest(
+            ACTOR_URN,
+            testDataProductUrn,
+            null,
+            null,
+            Collections.singletonList(ACTOR_URN),
+            Collections.EMPTY_LIST,
+            Collections.EMPTY_LIST,
+            DESCRIPTION,
+            null);
+
+    actionRequestService.acceptUpdateResourceDescriptionProposal(
+        mockOpContext, actionRequestSnapshot);
+
+    DataProductDescriptionMatcher dataProductDescriptionMatcher =
+        new DataProductDescriptionMatcher(
+            testDataProductUrn,
+            DATA_PRODUCT_ENTITY_NAME,
+            DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
+            ChangeType.UPSERT,
+            DESCRIPTION);
+
+    verify(mockEntityClient)
+        .ingestProposal(any(OperationContext.class), argThat(dataProductDescriptionMatcher));
+  }
+
+  @Test
+  public void acceptUpdateDataProductDescriptionProposalExistingAspectPasses() throws Exception {
+    Urn testDataProductUrn = UrnUtils.getUrn("urn:li:dataProduct:test-data-product");
+    Urn assetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleAsset,PROD)");
+
+    DataProductProperties dataProductProperties = new DataProductProperties();
+    dataProductProperties.setName("Test Data Product");
+    dataProductProperties.setDescription("OLD_" + DESCRIPTION);
+
+    DataProductAssociation asset = new DataProductAssociation();
+    asset.setDestinationUrn(assetUrn);
+    dataProductProperties.setAssets(new DataProductAssociationArray(asset));
+
+    when(mockEntityService.getLatestAspect(
+            any(OperationContext.class),
+            eq(testDataProductUrn),
+            eq(DATA_PRODUCT_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(dataProductProperties);
+
+    ActionRequestSnapshot actionRequestSnapshot =
+        actionRequestService.createUpdateDescriptionProposalActionRequest(
+            ACTOR_URN,
+            testDataProductUrn,
+            null,
+            null,
+            Collections.singletonList(ACTOR_URN),
+            Collections.EMPTY_LIST,
+            Collections.EMPTY_LIST,
+            DESCRIPTION,
+            null);
+
+    actionRequestService.acceptUpdateResourceDescriptionProposal(
+        mockOpContext, actionRequestSnapshot);
+
+    verify(mockEntityClient)
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(
+                mcp -> {
+                  if (!Objects.equals(testDataProductUrn, mcp.getEntityUrn())
+                      || !Objects.equals(DATA_PRODUCT_ENTITY_NAME, mcp.getEntityType())
+                      || !Objects.equals(DATA_PRODUCT_PROPERTIES_ASPECT_NAME, mcp.getAspectName())
+                      || !Objects.equals(ChangeType.UPSERT, mcp.getChangeType())) {
+                    return false;
+                  }
+
+                  DataProductProperties result =
+                      GenericRecordUtils.deserializeAspect(
+                          mcp.getAspect().getValue(),
+                          GenericRecordUtils.JSON,
+                          DataProductProperties.class);
+
+                  return Objects.equals(DESCRIPTION, result.getDescription())
+                      && Objects.equals("Test Data Product", result.getName())
+                      && result.hasAssets()
+                      && result.getAssets().size() == 1
+                      && Objects.equals(assetUrn, result.getAssets().get(0).getDestinationUrn());
+                }));
   }
 
   @Test

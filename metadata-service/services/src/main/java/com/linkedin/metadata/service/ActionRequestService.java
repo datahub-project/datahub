@@ -3,48 +3,7 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_OWNER_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL;
-import static com.linkedin.metadata.Constants.ACTION_REQUEST_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ACTION_REQUEST_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.ACTION_REQUEST_STATUS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATASET_SCHEMA_PROPOSALS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATA_CONTRACT_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATA_CONTRACT_STATUS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATA_FLOW_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOMAIN_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.EDITABLE_CHART_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.EDITABLE_DATA_FLOW_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.ENTITY_PROPOSALS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERM_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_TABLE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.EntitySpec;
@@ -4145,7 +4104,7 @@ public class ActionRequestService extends BaseService {
     DataProductProperties dataProductProperties =
         (DataProductProperties)
             this.entityService.getLatestAspect(
-                opContext, resourceUrn, EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME);
+                opContext, resourceUrn, DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
     if (dataProductProperties == null) {
       dataProductProperties = new DataProductProperties();
     }
