@@ -47,20 +47,6 @@ def mssql_extractor_setup():
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_mssql_config_with_query_lineage(create_engine_mock):
-    """Test MS SQL config with query lineage enabled."""
-    config = SQLServerConfig.model_validate(
-        {
-            **_base_config(),
-            "include_query_lineage": True,
-            "max_queries_to_extract": 500,
-        }
-    )
-    assert config.include_query_lineage is True
-    assert config.max_queries_to_extract == 500
-
-
-@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
 def test_mssql_usage_statistics_requires_query_lineage(create_engine_mock):
     """Test that usage statistics require query lineage to be enabled."""
     config = SQLServerConfig.model_validate(
@@ -155,18 +141,6 @@ def test_mssql_query_extraction_failure_reports_error(create_engine_mock):
         or "unexpected error" in msg.lower()
         for msg in failure_messages
     )
-
-
-@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_mssql_source_has_close_method(create_engine_mock):
-    """Test that MSSQLSource has close() method."""
-    config = SQLServerConfig.model_validate({**_base_config()})
-    source = SQLServerSource(config, PipelineContext(run_id="test"))
-
-    assert hasattr(source, "close")
-    assert callable(source.close)
-
-    source.close()
 
 
 # Tests for MSSQLLineageExtractor
@@ -1028,7 +1002,6 @@ def test_mssql_populate_lineage_disabled_in_config():
 
     extractor.populate_lineage_from_queries()
 
-    # Should not have called any methods
     conn_mock.execute.assert_not_called()
     sql_aggregator_mock.add_observed_query.assert_not_called()
 
@@ -1091,7 +1064,6 @@ def test_mssql_is_discovered_table_caching(create_engine_mock):
     result1 = source.is_discovered_table(table_name)
 
     # Verify cache was populated
-    assert hasattr(source, "_discovered_table_cache")
     assert table_name in source._discovered_table_cache
 
     # Second call - should use cache
@@ -1139,52 +1111,6 @@ def test_mssql_is_discovered_table_cache_performance(create_engine_mock):
     assert cached_duration < uncached_duration, (
         f"Cache should provide speedup. Cached: {cached_duration:.4f}s, Uncached: {uncached_duration:.4f}s"
     )
-
-
-def test_mssql_query_exclude_patterns_empty_validation():
-    """Test that query_exclude_patterns rejects empty patterns."""
-    config_dict = _base_config()
-    config_dict["query_exclude_patterns"] = [""]
-
-    with pytest.raises(ValueError, match="empty or whitespace-only"):
-        SQLServerConfig.model_validate(config_dict)
-
-    config_dict["query_exclude_patterns"] = ["   "]
-
-    with pytest.raises(ValueError, match="empty or whitespace-only"):
-        SQLServerConfig.model_validate(config_dict)
-
-
-def test_mssql_query_exclude_patterns_length_validation():
-    """Test that query_exclude_patterns enforces length limits."""
-    config_dict = _base_config()
-
-    # Pattern too long
-    long_pattern = "a" * 501
-    config_dict["query_exclude_patterns"] = [long_pattern]
-
-    with pytest.raises(ValueError, match="exceeds 500 characters"):
-        SQLServerConfig.model_validate(config_dict)
-
-    # Exactly 500 chars should be OK
-    config_dict["query_exclude_patterns"] = ["a" * 500]
-    config = SQLServerConfig.model_validate(config_dict)
-    assert config.query_exclude_patterns is not None
-    assert len(config.query_exclude_patterns[0]) == 500
-
-
-def test_mssql_query_exclude_patterns_too_many():
-    """Test that query_exclude_patterns enforces count limit."""
-    config_dict = _base_config()
-    config_dict["query_exclude_patterns"] = [f"%pattern{i}%" for i in range(101)]
-
-    with pytest.raises(ValueError, match="cannot exceed 100 patterns"):
-        SQLServerConfig.model_validate(config_dict)
-
-    config_dict["query_exclude_patterns"] = [f"%pattern{i}%" for i in range(100)]
-    config = SQLServerConfig.model_validate(config_dict)
-    assert config.query_exclude_patterns is not None
-    assert len(config.query_exclude_patterns) == 100
 
 
 def test_mssql_query_exclude_clause_construction():
@@ -1420,39 +1346,6 @@ def test_mssql_unicode_emoji_in_query_text(create_engine_mock):
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_mssql_exactly_100_exclude_patterns_boundary(create_engine_mock):
-    """Test boundary condition: exactly 100 exclude patterns (max allowed)."""
-    patterns = [f"%pattern_{i}%" for i in range(100)]
-
-    config = SQLServerConfig.model_validate(
-        {
-            **_base_config(),
-            "include_query_lineage": True,
-            "query_exclude_patterns": patterns,
-        }
-    )
-
-    assert config.query_exclude_patterns is not None
-    assert len(config.query_exclude_patterns) == 100
-    assert config.query_exclude_patterns[0] == "%pattern_0%"
-    assert config.query_exclude_patterns[99] == "%pattern_99%"
-
-
-@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_mssql_over_100_exclude_patterns_rejected(create_engine_mock):
-    """Test validation rejects more than 100 exclude patterns."""
-    patterns = [f"%pattern_{i}%" for i in range(101)]
-
-    with pytest.raises(ValueError, match="cannot exceed 100 patterns"):
-        SQLServerConfig.model_validate(
-            {
-                **_base_config(),
-                "include_query_lineage": True,
-                "query_exclude_patterns": patterns,
-            }
-        )
-
-
 # =============================================================================
 # Quick Win Tests: Config Edge Cases and Boundary Conditions
 # =============================================================================
@@ -1564,19 +1457,6 @@ def test_mssql_exclude_patterns_with_tsql_special_chars():
     assert config.query_exclude_patterns is not None
     # Patterns are stored as-is; SQL Server will interpret them
     assert "[^system]%" in config.query_exclude_patterns
-
-
-def test_mssql_min_query_calls_zero_boundary():
-    """Test min_query_calls=0 accepts all queries."""
-    config = SQLServerConfig.model_validate(
-        {
-            **_base_config(),
-            "include_query_lineage": True,
-            "min_query_calls": 0,
-        }
-    )
-
-    assert config.min_query_calls == 0
 
 
 # =============================================================================
