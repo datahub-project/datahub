@@ -4083,6 +4083,11 @@
   resolved "https://registry.yarnpkg.com/@storybook/theming/-/theming-8.6.15.tgz#781e6b36f113a10e76379956b9451276e8d5bda2"
   integrity sha512-dAbL0XOekyT6XsF49R6Etj3WxQ/LpdJDIswUUeHgVJ6/yd2opZOGbPxnwA3zlmAh1c0tvpPyhSDXxSG79u8e4Q==
 
+"@storybook/theming@8.6.15":
+  version "8.6.15"
+  resolved "https://registry.yarnpkg.com/@storybook/theming/-/theming-8.6.15.tgz#781e6b36f113a10e76379956b9451276e8d5bda2"
+  integrity sha512-dAbL0XOekyT6XsF49R6Etj3WxQ/LpdJDIswUUeHgVJ6/yd2opZOGbPxnwA3zlmAh1c0tvpPyhSDXxSG79u8e4Q==
+
 "@stylistic/eslint-plugin-js@^3.1.0":
   version "3.1.0"
   resolved "https://registry.npmjs.org/@stylistic/eslint-plugin-js/-/eslint-plugin-js-3.1.0.tgz"
