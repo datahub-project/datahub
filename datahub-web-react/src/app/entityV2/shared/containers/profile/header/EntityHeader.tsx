@@ -9,7 +9,8 @@ import { DefaultEntityHeader } from '@app/entityV2/shared/containers/profile/hea
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { DisplayProperties, EntityType, PlatformPrivileges } from '@types';
+import { DisplayProperties, EntityType, FabricType, PlatformPrivileges } from '@types';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 const Container = styled.div``;
 
@@ -59,12 +60,16 @@ export const EntityHeader = ({
     const showEditName =
         isNameEditable && getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
 
+    const rawOrigin = entityData?.origin ?? entityData?.properties?.env;
+    const origin = rawOrigin ? (capitalizeFirstLetterOnly(rawOrigin.toLowerCase()) as FabricType) : undefined;
+
     return (
         <Container data-testid="entity-header-test-id">
             <DefaultEntityHeader
                 entityType={entityType}
                 urn={urn}
                 entityUrl={entityUrl}
+                origin={origin}
                 loading={loading}
                 entityData={entityData}
                 refetch={refetch}

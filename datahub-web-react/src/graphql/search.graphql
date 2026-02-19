@@ -7,6 +7,7 @@ fragment autoCompleteFields on Entity {
     ... on Dataset {
         exists
         name
+        origin
         platform {
             ...platformFields
         }
@@ -162,6 +163,7 @@ fragment autoCompleteFields on Entity {
     }
     ... on DataFlow {
         orchestrator
+        cluster
         properties {
             name
         }
@@ -191,6 +193,7 @@ fragment autoCompleteFields on Entity {
         jobId
         properties {
             name
+            env
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
@@ -253,6 +256,7 @@ fragment autoCompleteFields on Entity {
     ... on Container {
         properties {
             name
+            env
         }
         platform {
             ...platformFields
@@ -322,6 +326,7 @@ fragment autoCompleteFields on Entity {
     }
     ... on MLModel {
         name
+        origin
         platform {
             ...platformFields
         }
@@ -971,6 +976,7 @@ fragment searchResultsWithoutSchemaField on Entity {
             name
             description
             externalUrl
+            env
         }
         platform {
             ...platformFields

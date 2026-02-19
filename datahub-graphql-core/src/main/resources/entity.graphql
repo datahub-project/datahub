@@ -3284,6 +3284,11 @@ type ContainerProperties {
   Fully-qualified name of the Container
   """
   qualifiedName: String
+
+  """
+  Environment of the Asset Container
+  """
+  env: FabricType
 }
 
 """
@@ -7389,6 +7394,11 @@ type DataJobProperties {
   A list of platform specific metadata tuples
   """
   customProperties: [CustomPropertiesEntry!]
+
+  """
+  Environment of the DataJob
+  """
+  env: FabricType
 }
 
 """

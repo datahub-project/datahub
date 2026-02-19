@@ -189,9 +189,11 @@ export class DataJobEntity implements Entity<DataJob> {
         // TODO: Get rid of this once we have correctly formed platform coming back.
         const name = dataJob?.properties?.name;
         const externalUrl = dataJob?.properties?.externalUrl;
+        const origin = dataJob?.properties?.env;
         return {
             name,
             externalUrl,
+            origin,
             platform: getPlatformForDataJob(dataJob),
             lastRun: ((dataJob as any).lastRun as DataProcessInstanceResult)?.runs?.[0],
             lastRunEvent: ((dataJob as any).lastRun as DataProcessInstanceResult)?.runs?.[0]?.state?.[0],
