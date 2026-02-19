@@ -1944,7 +1944,7 @@ class TableauSiteSource:
             # Extract column count if available
             num_tbl_cols: Optional[int] = table.get(c.COLUMNS_CONNECTION) and table[
                 c.COLUMNS_CONNECTION
-            ].get("totalCount")
+            ].get(c.TOTAL_COUNT)
 
             # Tables without column metadata: create table-level lineage only
             if not is_custom_sql and not num_tbl_cols:
