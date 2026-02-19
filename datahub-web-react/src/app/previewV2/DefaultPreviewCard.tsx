@@ -266,6 +266,7 @@ export default function DefaultPreviewCard({
     const finalType = type || entityRegistry.getEntityName(entityType);
     const hasPlatformIcons = logoUrl || (logoUrls && logoUrls.length) || isOutputPort;
     const isIconPresent = !!hasPlatformIcons || !!entityIcon;
+    const origin = data?.origin;
 
     const { isFullViewCard } = useSearchContext();
 
@@ -388,6 +389,7 @@ export default function DefaultPreviewCard({
                 />
             )}
             <DefaultPreviewCardFooter
+                origin={origin}
                 glossaryTerms={glossaryTerms}
                 tags={tags}
                 owners={owners}
