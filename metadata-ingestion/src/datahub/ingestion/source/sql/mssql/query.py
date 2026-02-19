@@ -92,6 +92,11 @@ class MSSQLQuery:
         Query Store provides detailed query performance stats and full query text.
         This is the preferred method when available.
         """
+        if limit <= 0:
+            raise ValueError(f"limit must be positive, got: {limit}")
+        if min_calls < 0:
+            raise ValueError(f"min_calls must be non-negative, got: {min_calls}")
+
         exclude_clause = MSSQLQuery._build_exclude_clause(
             exclude_patterns, "qt.query_sql_text"
         )
@@ -140,6 +145,11 @@ class MSSQLQuery:
 
         Note: DMVs only contain cached queries, so some historical queries may be missing.
         """
+        if limit <= 0:
+            raise ValueError(f"limit must be positive, got: {limit}")
+        if min_calls < 0:
+            raise ValueError(f"min_calls must be non-negative, got: {min_calls}")
+
         exclude_clause = MSSQLQuery._build_exclude_clause(
             exclude_patterns, "CAST(st.text AS NVARCHAR(MAX))"
         )
