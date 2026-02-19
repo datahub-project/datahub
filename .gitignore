@@ -155,3 +155,6 @@ test-models/bin/
 
 # Git credentials (should never be committed)
 .git-credentials
+
+# Git Worktree management (wtp)
+.wtp.yml
