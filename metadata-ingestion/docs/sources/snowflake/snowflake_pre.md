@@ -218,6 +218,14 @@ source:
         - ".*_BACKUP$" # Exclude tables ending with _BACKUP
 ```
 
+#### View Pattern Limitation
+
+By default, Snowflake views are fetched using `SHOW VIEWS`, which does **not** support SQL-level filtering. When `push_down_metadata_patterns: true`, the `view_pattern` is pushed down **only** if `fetch_views_from_information_schema: true` is also set. Otherwise, view filtering falls back to Python's `re.match()`, even with pushdown enabled.
+
+This means if you write patterns in Snowflake RLIKE syntax (e.g., `PROD.*` for prefix matching), they will still work correctly with Python filtering since `PROD.*` is valid in both. However, patterns that rely on RLIKE's full-string matching semantics (e.g., exact match `PROD_DB` without `.*`) will behave differently — Python `re.match()` treats it as a prefix match.
+
+**Recommendation**: If you enable `push_down_metadata_patterns`, also enable `fetch_views_from_information_schema: true` to ensure consistent behavior for view patterns.
+
 #### Important: Snowflake RLIKE Syntax Differences
 
 When `push_down_metadata_patterns: true`, patterns are executed in Snowflake using the `RLIKE` operator instead of Python's `re.match()`. These have **different matching behaviors**:
